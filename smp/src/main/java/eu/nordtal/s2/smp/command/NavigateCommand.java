@@ -40,15 +40,14 @@ import org.bukkit.plugin.Plugin;
 /**
  * {@code /navigate} and {@code /poi}.
  *
- * <p><b>Every database call in here runs off the main thread</b> and hops back only to open an
- * inventory or send a line. That rule was written into this repository on 2026-09-01 after
- * {@code /hg start} was found doing the opposite, and a command is exactly where it is easiest to
- * forget: it is typed rarely, so a slow query there looks like nothing until the day the database
- * is slow and the whole server stutters with it.
+ * <b>Every database call in here runs off the main thread</b> and hops back only to open an inventory or send a
+ * line. That rule was written into this repository after {@code /hg start} was found doing the
+ * opposite, and a command is exactly where it is easiest to forget: it is typed rarely, so a slow query there looks
+ * like nothing until the day the database is slow and the whole server stutters with it.
  *
- * <p>POIs are public and unlimited: anyone may create one and everyone sees all of them. Deleting is
- * the one asymmetry - <b>your own, or anybody's if you are an admin</b> - which is the narrowest
- * rule that still lets a mistake be cleaned up without letting anybody erase somebody else's work.
+ * POIs are public and unlimited: anyone may create one and everyone sees all of them. Deleting is the one asymmetry
+ * - <b>your own, or anybody's if you are an admin</b> - which is the narrowest rule that still lets a mistake be
+ * cleaned up without letting anybody erase somebody else's work.
  */
 public final class NavigateCommand {
 
@@ -92,9 +91,7 @@ public final class NavigateCommand {
     public LiteralCommandNode<CommandSourceStack> poi() {
         return Commands.literal("poi")
                 .requires(source -> source.getSender() instanceof Player)
-                // Every node below is reachable by typing exactly it, and every one of them
-                // answers - see the class comment. A bare /poi lists what it takes; /poi add
-                // says what it is still missing.
+                // Every node below is reachable by typing exactly it, and every one answers.
                 .executes(this::poiHelp)
                 .then(subcommand(Sub.ADD, this::addPoi))
                 .then(subcommand(Sub.REMOVE, this::removePoi))
@@ -102,8 +99,7 @@ public final class NavigateCommand {
     }
 
     /**
-     * One {@code /poi} subcommand: the literal, its name argument, and the usage line the literal
-     * answers with on its own.
+     * One {@code /poi} subcommand: the literal, its name argument, and the usage line it answers with on its own.
      */
     private LiteralArgumentBuilder<CommandSourceStack> subcommand(
             final Sub sub, final Command<CommandSourceStack> action) {
@@ -116,10 +112,9 @@ public final class NavigateCommand {
     /**
      * What {@code /poi} takes, and the one place it is written down.
      *
-     * <p>The tree is built from this and so is the help, for the reason
-     * {@code Declaration#usage} gives: a usage line kept by hand next to a command is the first
-     * thing to go stale when an argument is added, and the way it goes stale is that it keeps
-     * telling people to type something that no longer parses.</p>
+     * The tree is built from this and so is the help, for the reason {@code Declaration#usage} gives: a usage line kept
+     * by hand next to a command is the first thing to go stale when an argument is added, and the way it goes stale is
+     * that it keeps telling people to type something that no longer parses.
      */
     private enum Sub {
         ADD("add"),
@@ -144,15 +139,12 @@ public final class NavigateCommand {
         }
     }
 
-    // ------------------------------------------------------------------ /poi help
-
     /**
      * What can be typed here, and what each one is for.
      *
-     * <p>{@code PaperCommands} supplies this answer for every {@link eu.nordtal.s2.commands.Declaration}
-     * tree, but this is one of the two trees built by hand, so it carries the answer itself. It uses
-     * the adapter's own four message keys, so the wording stays one decision and an operator's
-     * override reaches both.
+     * {@code PaperCommands} supplies this answer for every {@link eu.nordtal.s2.commands.Declaration} tree, but this is
+     * one of the two trees built by hand, so it carries the answer itself. It uses the adapter's own four message keys,
+     * so the wording stays one decision and an operator's override reaches both.
      */
     private int poiHelp(final CommandContext<CommandSourceStack> context) {
         final NordtalUser user = user(context);
@@ -176,8 +168,8 @@ public final class NavigateCommand {
     /**
      * Whoever typed it - always a player, since the root's {@code requires} refuses the console.
      *
-     * <p>The admin flag comes from the cache and not a query: this runs on the main thread, inside
-     * a Brigadier handler, on a command any player can type.</p>
+     * The admin flag comes from the cache and not a query: this runs on the main thread, inside a Brigadier handler, on
+     * a command any player can type.
      */
     private NordtalUser user(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
@@ -191,8 +183,6 @@ public final class NavigateCommand {
                 sounds::play,
                 colours);
     }
-
-    // ------------------------------------------------------------------ /navigate
 
     private int openGui(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
@@ -215,8 +205,6 @@ public final class NavigateCommand {
         });
         return Command.SINGLE_SUCCESS;
     }
-
-    // ------------------------------------------------------------------ /poi
 
     private int addPoi(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
@@ -242,7 +230,7 @@ public final class NavigateCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        final Location at = player.getLocation();
+        final Location at = java.util.Objects.requireNonNull(player.getLocation());
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (dao.allPois().stream().anyMatch(poi -> poi.name().equalsIgnoreCase(name))) {
                 tell(
@@ -293,8 +281,7 @@ public final class NavigateCommand {
             }
             dao.deletePoi(poi.id());
             Bukkit.getScheduler().runTask(plugin, () -> navigation.clearWorld(poi.world()));
-            // The counterpart of smp.poi.added, and it gets the counterpart's sound: a small
-            // thing the player asked for that worked.
+            // The counterpart of smp.poi.added, and it gets the counterpart's sound.
             tell(
                     player,
                     MessageRenderer.of(messages)
@@ -304,16 +291,11 @@ public final class NavigateCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** Sends one already-rendered message on the main thread, from wherever it is called. */
-    private void tell(final Player player, final Component message) {
-        tell(player, message, null);
-    }
-
     /**
-     * The same, plus a sound.
+     * Sends a message and its sound, both in the one hop back to the main thread.
      *
-     * <p>Both in the one hop back to the main thread: the message and its sound belong to the same
-     * moment, and scheduling them separately is how they end up a tick apart.
+     * The message and its sound belong to the same moment, and scheduling them separately is how they end up a
+     * tick apart.
      */
     private void tell(final Player player, final Component message, final Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {

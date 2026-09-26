@@ -26,24 +26,24 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 
 /**
- * Rebuilds a composed menu surface the way the client lays it out, so a test can contradict a panel
- * rather than restate it.
+ * Rebuilds a composed menu surface the way the client lays it out.
  *
- * <h2>Why walking it is the only honest check</h2>
- * A surface is a single string of code points in several fonts, and every position in it is the
- * running sum of what came before. So an assertion that a panel <em>intends</em> to put a plate at
- * x 9 says nothing: what matters is where the cursor actually is when that glyph is drawn, which
- * depends on the panel's advance, on the shift glyphs, and on the width of every character of every
- * label before it. This walks the cursor from {@code gui.json} and {@link MenuFont}'s exported
- * table, which is the same thing {@code BoardFrameTest} does for the boards and {@code MenuTitleTest}
- * for the balloon.
+ * So a test can contradict a panel rather than restate it.
  *
- * <p>It lives apart from any one panel's test because there are four of them now and a second copy
- * of a cursor walker is a second answer about one layout - which is the failure this whole
- * arrangement exists to prevent.</p>
+ * <b>Why walking it is the only honest check</b>
  *
- * <p>What none of it can say is whether any of it looks right. Nothing here has been seen on a
- * client; that probe is the owner's and is on the checklist outside this repository.</p>
+ * A surface is a single string of code points in several fonts, and every position in it is the running sum of what
+ * came before. So an assertion that a panel <em>intends</em> to put a plate at x 9 says nothing: what matters is
+ * where the cursor actually is when that glyph is drawn, which depends on the panel's advance, on the shift glyphs,
+ * and on the width of every character of every label before it. This walks the cursor from {@code gui.json} and
+ * {@link MenuFont} 's exported table, which is the same thing {@code BoardFrameTest} does for the boards and
+ * {@code MenuTitleTest} for the balloon.
+ *
+ * It lives apart from any one panel's test because there are four of them now and a second copy of a cursor walker
+ * is a second answer about one layout - which is the failure this whole arrangement exists to prevent.
+ *
+ * What none of it can say is whether any of it looks right. Nothing here has been seen on a client; that probe is
+ * the owner's and is on the checklist outside this repository.
  */
 public final class PanelWalk {
 
@@ -58,8 +58,8 @@ public final class PanelWalk {
     /**
      * One drawn thing: the font it is in, its payload, where the payload starts and how wide it is.
      *
-     * <p>The leading shift glyphs are stripped off and turned into the {@code x}, which is what
-     * makes an assertion about a position readable at all.</p>
+     * The leading shift glyphs are stripped off and turned into the {@code x}, which is what makes an assertion about a
+     * position readable at all.
      */
     public record Run(String font, String content, int x, int advance, String whole) {
 
@@ -72,9 +72,8 @@ public final class PanelWalk {
     /**
      * The painted half of a composed title, without the readable half.
      *
-     * <p>The readable title is a sibling that names no font on purpose - it renders in
-     * {@code minecraft:default}, whose advances are the client's and not ours, so it is the one part
-     * of the composition this JVM cannot measure.</p>
+     * The readable title is a sibling that names no font on purpose - it renders in {@code minecraft:default}, whose
+     * advances are the client's and not ours, so it is the one part of the composition this JVM cannot measure.
      */
     public static Component surface(final Component title) {
         return title.children().get(0);
@@ -100,8 +99,8 @@ public final class PanelWalk {
     /**
      * The readable runs of one row, in draw order.
      *
-     * <p>Readable text and not art: every piece of row furniture is in the private-use block, and
-     * the five-pixel sheet reaches up to {@code U+2591} for the progress-bar characters.</p>
+     * Readable text and not art: every piece of row furniture is in the private-use block, and the five-pixel sheet
+     * reaches up to {@code U+2591} for the progress-bar characters.
      */
     public static List<Run> textRuns(final List<Run> runs, final String font) {
         return runs.stream()
@@ -145,8 +144,6 @@ public final class PanelWalk {
         }
         return properties;
     }
-
-    // --- walking ------------------------------------------------------------------------
 
     private static void walk(
             final Component component, final String inherited, final List<Run> out, final int[] cursor) {
@@ -215,8 +212,6 @@ public final class PanelWalk {
         }
         return out;
     }
-
-    // --- files --------------------------------------------------------------------------
 
     private static BufferedImage read(final Path path) {
         try {

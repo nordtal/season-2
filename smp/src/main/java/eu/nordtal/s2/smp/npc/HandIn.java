@@ -8,18 +8,17 @@ import java.util.Set;
 /**
  * What a hand-in actually takes, worked out without a server.
  *
- * <p>Two refusals:
+ * Two refusals:
  *
- * <ul>
- *   <li><b>Nothing can be handed in that no objective wants.</b> A stack of dirt in the deposit
- *       screen comes straight back rather than disappearing politely.</li>
- *   <li><b>No more than the objective still needs.</b> Over-delivery is not credited and the
- *       surplus is returned, not absorbed.</li>
- * </ul>
+ * - <b>Nothing can be handed in that no objective wants.</b> A stack of dirt in the deposit screen comes straight
+ *   back rather than disappearing politely.
  *
- * <p>Deliberately knows nothing about {@code ItemStack}: this is the one place where a bug takes
- * items off a player and gives nothing back, so it is expressed as material names and counts and
- * unit-tested without a server. The GUI does the stack-shuffling against the answer.
+ * - <b>No more than the objective still needs.</b> Over-delivery is not credited and the surplus is returned, not
+ *   absorbed.
+ *
+ * Deliberately knows nothing about {@code ItemStack}: this is the one place where a bug takes items off a player and
+ * gives nothing back, so it is expressed as material names and counts and unit-tested without a server. The GUI does
+ * the stack-shuffling against the answer.
  */
 public final class HandIn {
 

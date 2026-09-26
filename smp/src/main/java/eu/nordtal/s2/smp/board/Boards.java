@@ -10,6 +10,7 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.smp.SmpMessages;
+import eu.nordtal.s2.smp.config.BoardSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.AuraRow;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
@@ -32,29 +33,29 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The two boards at the spawn, rendered <b>per player, in their own language</b>.
  *
- * <h2>Why one entity per viewer</h2>
- * A Text Display carries one piece of text for everyone who can see it. Two people standing side by
- * side reading the same board in two languages is therefore not something one entity can do, and
- * the whole point of this server's i18n is that it never asks anybody to read the other language.
- * So each board is spawned once per viewer and hidden from everyone else with
- * {@link Player#hideEntity}.
+ * <b>Why one entity per viewer</b>
  *
- * <p>With a handful of players that is a handful of entities. It is emphatically not a technique
- * that would scale to a hundred, and it does not have to - this is a small community server, and
- * saying so out loud is cheaper than discovering the limit later.
+ * A Text Display carries one piece of text for everyone who can see it. Two people standing side by side reading the
+ * same board in two languages is therefore not something one entity can do, and the whole point of this server's
+ * i18n is that it never asks anybody to read the other language. So each board is spawned once per viewer and hidden
+ * from everyone else with {@link Player#hideEntity}.
  *
- * <p>The displays are spawned with {@code setPersistent(false)} so a crash cannot leave them in the
- * world, and every one belonging to this plugin is swept at start anyway.
+ * With a handful of players that is a handful of entities. It is emphatically not a technique that would scale to a
+ * hundred, and it does not have to - this is a small community server, and saying so out loud is cheaper than
+ * discovering the limit later.
  *
- * <h2>The frame</h2>
- * Built 2026-09-04. {@code nordtal:board} had been fully drawn since 2026-08-31 - corners, edges,
- * dividers, twenty-eight code points - and used by nothing at all; this class wrote plain text onto
- * a Text Display and never named one of them. {@link BoardFrame} owns the composition and the
- * reason the board's width is configuration rather than a measurement.
+ * The displays are spawned with {@code setPersistent(false)} so a crash cannot leave them in the world, and every
+ * one belonging to this plugin is swept at start anyway.
+ *
+ * <b>The frame</b>
+ *
+ * {@link BoardFrame} owns the frame's composition - the glyphs, corners, edges and dividers of {@code
+ * nordtal:board} - and the reason the board's width is configuration rather than a measurement.
  */
 public final class Boards {
 
@@ -66,9 +67,8 @@ public final class Boards {
     /**
      * Wide enough that a board never wraps.
      *
-     * <p>Not {@code Integer.MAX_VALUE}: Minecraft carries this to the client and a wrap width is
-     * an ordinary varint there, so a number nobody would ever reach is safer than the largest one
-     * that exists.
+     * Not {@code Integer.MAX_VALUE}: Minecraft carries this to the client and a wrap width is an ordinary varint there,
+     * so a number nobody would ever reach is safer than the largest one that exists.
      */
     private static final int NO_WRAPPING = 10_000;
 
@@ -85,7 +85,7 @@ public final class Boards {
 
     private volatile List<AuraRow> leaderboard = List.of();
     private final Map<UUID, String> namesByUuid = new HashMap<>();
-    private BukkitTask task;
+    private @Nullable BukkitTask task;
 
     public Boards(
             final Plugin plugin,
@@ -128,7 +128,7 @@ public final class Boards {
 
     private void renderAll() {
         for (final Player player : Bukkit.getOnlinePlayers()) {
-            for (final SmpSpec.BoardSpec spec : config.boards()) {
+            for (final BoardSpec spec : config.boards()) {
                 final Optional<BoardKind> kind = BoardKind.parse(spec.kind());
                 if (kind.isEmpty()) {
                     continue;
@@ -138,14 +138,12 @@ public final class Boards {
         }
     }
 
-    private void render(final Player player, final SmpSpec.BoardSpec spec, final BoardKind kind) {
+    private void render(final Player player, final BoardSpec spec, final BoardKind kind) {
         final World world = Bukkit.getWorld(spec.world());
         if (world == null) {
             return;
         }
-        // Only draw for people who could possibly see it. A board is at the spawn; somebody in the
-        // Nether has no use for an entity there, and spawning one per viewer per board for the
-        // whole server is exactly the cost this technique has to keep small.
+        // Only draw for people who could possibly see it - a board is at the spawn, not the Nether.
         if (!player.getWorld().equals(world)) {
             return;
         }
@@ -164,18 +162,12 @@ public final class Boards {
             entity.setSeeThrough(false);
             entity.setPersistent(false);
             entity.setViewRange(1.0f);
-            // The frame is drawn per line and every line starts at the same x, so the display has
-            // to be left-aligned - centring would move each line by half its own width and take
-            // the vertical edges with it.
+            // Every line starts at the same x, so centring would move each line by half its own width.
             entity.setAlignment(TextDisplay.TextAlignment.LEFT);
-            // And nothing may wrap. A wrapped line's continuation carries no frame at all, so it
-            // lands outside the box; an over-long line running past the right edge is the same
-            // information and looks like what it is. BoardFrame says why the width cannot simply
-            // be computed from the content.
+            // A wrapped continuation carries no frame; see BoardFrame for why the width is fixed instead.
             entity.setLineWidth(NO_WRAPPING);
         });
-        // Hidden from everybody, then shown to its one owner - the order matters, because a display
-        // that is visible for a tick is a display somebody sees in the wrong language.
+        // Hidden from everybody, then shown to its owner - visible for a tick means seen in the wrong language.
         for (final Player other : Bukkit.getOnlinePlayers()) {
             if (!other.equals(owner)) {
                 other.hideEntity(plugin, display);
@@ -184,8 +176,6 @@ public final class Boards {
         return display;
     }
 
-    // ------------------------------------------------------------------ the text
-
     private Component text(final BoardKind kind, final Locale locale, final int width) {
         return switch (kind) {
             case OBJECTIVE -> objectiveText(locale, width);
@@ -193,10 +183,7 @@ public final class Boards {
         };
     }
 
-    // Every line is a bundle value since 2026-09-06 (finding 48): the colour is a tag in the file,
-    // the milestone, objective and player names travel as parameters so MessageRenderer escapes
-    // them, and an operator's override of any of these keys reaches the board as styling rather
-    // than as literal text. Nothing here composes a component by hand any more.
+    // Every line is a bundle value; names travel as parameters so MessageRenderer escapes them.
     private Component objectiveText(final Locale locale, final int width) {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         final Component title =
@@ -259,10 +246,9 @@ public final class Boards {
     /**
      * A Minecraft name for a UUID.
      *
-     * <p>This repository stores no Minecraft names - they are the server's to know and the player's
-     * to change - so they are resolved here and remembered for the session. {@code getOfflinePlayer}
-     * does not hit the network for a UUID the server has seen before, which every player on this
-     * board has been.
+     * This repository stores no Minecraft names - they are the server's to know and the player's to change - so
+     * they are resolved here and remembered for the session. {@code getOfflinePlayer} does not hit the network
+     * for a UUID the server has seen before, which every player on this board has been.
      */
     private String nameOf(final UUID uuid) {
         return namesByUuid.computeIfAbsent(uuid, key -> {

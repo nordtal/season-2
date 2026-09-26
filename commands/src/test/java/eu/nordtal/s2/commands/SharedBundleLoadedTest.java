@@ -97,6 +97,11 @@ class SharedBundleLoadedTest {
         }
         final Path source = candidate.resolve(relative);
         assertTrue(Files.isRegularFile(source), relative + " is missing");
-        return Files.readString(source, StandardCharsets.UTF_8);
+        // A plugin may delegate its start to a sibling <Name>Start.java; the wiring is read from both.
+        final Path start = source.resolveSibling(source.getFileName().toString().replace("Plugin.java", "Start.java"));
+        final String own = Files.readString(source, StandardCharsets.UTF_8);
+        return Files.isRegularFile(start) && !start.equals(source)
+                ? own + "\n" + Files.readString(start, StandardCharsets.UTF_8)
+                : own;
     }
 }

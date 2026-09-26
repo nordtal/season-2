@@ -21,31 +21,31 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The wheel itself: twelve prizes travelling round a ring, slowing down, and stopping on the one
- * that was already won.
+ * The wheel itself: twelve prizes travelling round a ring, slowing down, and stopping on the one that was already won.
  *
- * <p>It was a chat line until 2026-09-04 - the spin resolved in SQL and the player was told what
- * they got. Everything that made it worth building is in the five seconds this class adds, and
- * nothing in it decides anything: {@link WheelStrip} explains why the outcome is settled before the
- * first frame is drawn. The surface is {@link WheelPanel}, design {@code W3} with the ring moved two
- * slot columns left so the controls have somewhere to be.
+ * It was once a chat line - the spin resolved in SQL and the player was told what they got. Everything
+ * that made it worth building is in the five seconds this class adds, and nothing in it decides anything:
+ * {@link WheelStrip} explains why the outcome is settled before the first frame is drawn. The surface is
+ * {@link WheelPanel}, design {@code W3} with the ring moved two slot columns left so the controls have somewhere to
+ * be.
  *
- * <h2>The payout can only happen once, and it always happens</h2>
- * The spin is spent before the window opens, so the prize is owed from that moment - which means
- * every way out of this animation has to end in the same payout. There are three: the strip runs to
- * the end, the player closes the window early, or they log off. All three call {@link #finish},
- * which is a one-shot latch; the difference between them is only whether anybody is there to hear
- * the strike.
+ * <b>The payout can only happen once, and it always happens</b>
  *
- * <h2>"Again" is a button that does not exist yet when the window opens</h2>
- * A chest's title is fixed once it is open, so the plate under the button is painted from the first
- * frame. What is <em>not</em> there until the wheel stops is the item in those three slots: while
- * the animation runs they carry a tooltip saying to wait, and {@link #finish} swaps it for the one
- * that spins again. That is the whole guard against the failure the design artifact names - a
- * double click buying two spins at once - and it is a swap rather than a flag because a player who
- * hovers a dead button wants to be told why.
+ * The spin is spent before the window opens, so the prize is owed from that moment - which means every way out of
+ * this animation has to end in the same payout. There are three: the strip runs to the end, the player closes the
+ * window early, or they log off. All three call {@link #finish}, which is a one-shot latch; the difference between
+ * them is only whether anybody is there to hear the strike.
+ *
+ * <b>"Again" is a button that does not exist yet when the window opens</b>
+ *
+ * A chest's title is fixed once it is open, so the plate under the button is painted from the first frame. What is
+ * <em>not</em> there until the wheel stops is the item in those three slots: while the animation runs they carry a
+ * tooltip saying to wait, and {@link #finish} swaps it for the one that spins again. That is the whole guard against
+ * the failure the design artifact names - a double click buying two spins at once - and it is a swap rather than a
+ * flag because a player who hovers a dead button wants to be told why.
  */
 public final class WheelGui implements Surface {
 
@@ -58,10 +58,10 @@ public final class WheelGui implements Surface {
     private final Locale locale;
 
     /** What to run when the player asks for another spin - null while there is none to give. */
-    private final Runnable again;
+    private final @Nullable Runnable again;
 
     private final AtomicBoolean finished = new AtomicBoolean();
-    private BukkitTask task;
+    private @Nullable BukkitTask task;
 
     /**
      * @param spinsLeft how many spins the player has after this one, which is what the hub shows
@@ -76,7 +76,7 @@ public final class WheelGui implements Surface {
             final SmpSounds sounds,
             final int spinsLeft,
             final int earnAt,
-            final Runnable again,
+            final @Nullable Runnable again,
             final Consumer<Player> payout) {
         this.strip = strip;
         this.icons = List.copyOf(icons);
@@ -122,21 +122,19 @@ public final class WheelGui implements Surface {
     /**
      * A click inside this window.
      *
-     * <p>Nothing here is ever picked up, so the caller cancels the event whatever this answers; what
-     * this decides is only whether the click was the "again" button and whether it may run yet.</p>
+     * Nothing here is ever picked up, so the caller cancels the event whatever this answers; what this decides is only
+     * whether the click was the "again" button and whether it may run yet.
      */
     public void click(final Player player, final int rawSlot) {
         if (!WheelPanel.AGAIN_SLOTS.contains(rawSlot)) {
             return;
         }
         if (!finished.get() || again == null) {
-            // Still spinning, or nothing left to spin with. Both are refusals and both say so with
-            // a sound: silence on a button that is visibly there reads as a broken menu.
+            // Still spinning, or nothing left to spin with; both refuse with a sound instead of silence.
             sounds.play(player, Feedback.REFUSED);
             return;
         }
-        // The new spin opens its own window, which closes this one - and this one has already
-        // latched, so the close pays nothing a second time.
+        // The new spin opens its own window, closing this one.
         again.run();
     }
 

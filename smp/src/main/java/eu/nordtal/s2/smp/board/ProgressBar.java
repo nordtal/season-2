@@ -3,13 +3,13 @@ package eu.nordtal.s2.smp.board;
 /**
  * A progress bar made of characters, for the objective board.
  *
- * <p>Not the boss bar's glyph technique: this one hangs in the world as a Text Display, at whatever
- * distance the reader happens to stand, and a bar composed from pixel-width glyph segments is
- * measured in screen pixels that a Text Display does not have. Characters scale with the text they
- * sit in, which is the only thing that is true at every distance.
+ * Not the boss bar's glyph technique: this one hangs in the world as a Text Display, at whatever distance the reader
+ * happens to stand, and a bar composed from pixel-width glyph segments is measured in screen pixels that a Text
+ * Display does not have. Characters scale with the text they sit in, which is the only thing that is true at every
+ * distance.
  *
- * <p>Pure, so the rounding is asserted rather than eyeballed - and the rounding is the whole of it:
- * a bar that shows "full" at 99.6 % is a bar that lies at the only moment anybody is watching it.
+ * Pure, so the rounding is asserted rather than eyeballed - and the rounding is the whole of it: a bar that shows
+ * "full" at 99.6 % is a bar that lies at the only moment anybody is watching it.
  */
 public final class ProgressBar {
 

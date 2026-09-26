@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The box arithmetic behind both the spawn protection and the balloons.
  *
- * <p>Worth its own test for one reason: an off-by-one on an inclusive corner is invisible in review
- * and shows up as a player able to break exactly one block of the tavern wall.
+ * Worth its own test for one reason: an off-by-one on an inclusive corner is invisible in review and shows up as a
+ * player able to break exactly one block of the tavern wall.
  */
 class BoxesTest {
 
@@ -77,9 +77,10 @@ class BoxesTest {
     }
 
     /**
-     * The one number in this file that is not arbitrary: Nordtal's balloon has to sit outside
-     * radius 10 and inside 21.5 of the border centre, or border 20 does not withhold the farm world
-     * and the opening expansion to 43 hands over nothing.
+     * The one number in this file that is not arbitrary.
+     *
+     * Nordtal's balloon has to sit outside radius 10 and inside 21.5 of the border centre, or border 20 does not
+     * withhold the farm world and the opening expansion to 43 hands over nothing.
      */
     @Test
     void horizontalDistanceIgnoresHeightAndMeasuresFromTheCentre() {

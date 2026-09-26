@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The contribution payout.
  *
- * <p>Two invariants run through everything below: <b>the pot is never overspent</b>, and <b>the
- * same inputs always produce the same payout</b>.
+ * Two invariants run through everything below: <b>the pot is never overspent</b>, and <b>the same inputs always
+ * produce the same payout</b>.
  */
 class AuraPayoutTest {
 
@@ -32,8 +32,7 @@ class AuraPayoutTest {
 
     @Test
     void aContributorBelowTwoPercentGetsTheProportionalShareOnly() {
-        // Below the threshold a contributor gets their proportional share only, so a symbolic
-        // contribution to every objective on the track cannot pay hundreds of aura.
+        // Below the threshold a contributor gets only their proportional share, not hundreds for a token contribution.
         final List<AuraPayout.Share> shares = AuraPayout.split(100, 1000, contributions("a", 990, "b", 10));
 
         final AuraPayout.Share small = byId(shares, "b");
@@ -53,8 +52,7 @@ class AuraPayoutTest {
 
     @Test
     void theWorkedExampleFromTheConcept() {
-        // At a pot of 30 with twelve qualifiers, 30 % is nine aura, which in whole numbers rounds
-        // to nothing - and paying a participant zero is what the equal part exists to prevent.
+        // Thirty on twelve qualifiers gives nine, which floors to zero; the equal part exists to prevent that.
         final Map<String, Long> twelve = new LinkedHashMap<>();
         for (int index = 0; index < 12; index++) {
             twelve.put("p" + index, 100L);
@@ -66,18 +64,16 @@ class AuraPayoutTest {
         for (final AuraPayout.Share share : shares) {
             assertEquals(1, share.equal(), "every qualifier is guaranteed one aura");
         }
-        // The equal part grew from 9 to 12, so 18 is left to divide proportionally: 1 each, with 6
-        // lost to the floor.
+        // The equal part grew from 9 to 12, so 18 is left to divide proportionally: 1 each, with 6 lost to the floor.
         assertEquals(1, shares.get(0).proportional());
         assertTrue(total(shares) <= 30, "paid " + total(shares) + " out of a pot of 30");
     }
 
     @Test
     void thePotIsNeverOverspent() {
-        // An absolute guaranteed floor next to a relative pot would let a small objective's pot
-        // be smaller than the sum of its own floors.
-        for (int pot : new int[] {1, 2, 7, 30, 60, 80, 110, 170, 1000}) {
-            for (int contributors : new int[] {1, 2, 3, 12, 40, 100}) {
+        // An absolute floor next to a relative pot would let a small pot be smaller than the sum of its own floors.
+        for (final int pot : new int[] {1, 2, 7, 30, 60, 80, 110, 170, 1000}) {
+            for (final int contributors : new int[] {1, 2, 3, 12, 40, 100}) {
                 final Map<String, Long> map = new LinkedHashMap<>();
                 for (int index = 0; index < contributors; index++) {
                     map.put("p" + index, (long) (index + 1) * 7);
@@ -92,8 +88,7 @@ class AuraPayoutTest {
 
     @Test
     void moreQualifiersThanThereIsAuraPaysTheBiggestContributorsFirst() {
-        // Forty qualifiers on a pot of thirty cannot all get their guaranteed aura: the guarantee
-        // reaches as far as the pot does, largest contribution first.
+        // Forty qualifiers on a pot of thirty cannot all be guaranteed; it reaches as far as the pot, largest first.
         final Map<String, Long> forty = new LinkedHashMap<>();
         for (int index = 0; index < 40; index++) {
             forty.put(String.format("p%02d", index), (long) (index + 1) * 100);
@@ -112,8 +107,7 @@ class AuraPayoutTest {
 
     @Test
     void anAdvancementObjectiveSplitsEvenly() {
-        // A player's share is 1 or 0, so the proportional part divides equally too - and everybody
-        // who earned the advancement qualifies, INCLUDING those beyond the target count.
+        // A share of 1 or 0 divides the proportional part equally; everybody who earned it qualifies, no exceptions.
         final Map<String, Long> ten = new LinkedHashMap<>();
         for (int index = 0; index < 10; index++) {
             ten.put("p" + index, 1L);
@@ -134,8 +128,7 @@ class AuraPayoutTest {
 
     @Test
     void anAdminCompletionPaysProportionallyToWhatWasActuallyReached() {
-        // An admin completion pays pot × (reached ÷ target), so a rescue neither robs the
-        // contributors nor mints aura.
+        // An admin completion pays pot × (reached ÷ target), so a rescue neither robs the contributors nor mints aura.
         assertEquals(50, AuraPayout.scaledPot(100, 500, 1000));
         assertEquals(0, AuraPayout.scaledPot(100, 0, 1000));
         assertEquals(100, AuraPayout.scaledPot(100, 1000, 1000));
@@ -155,16 +148,14 @@ class AuraPayoutTest {
 
     @Test
     void aTargetOfZeroIsRefusedRatherThanDividedBy() {
-        // smp_objective's own CHECK forbids it; stated again where the division happens, so a
-        // stale row gets a message rather than an arithmetic exception mid-payout.
+        // smp_objective's own CHECK forbids it; stated again where the division happens rather than throwing raw.
         assertThrows(IllegalArgumentException.class, () -> AuraPayout.split(100, 0, contributions("a", 1, "b", 1)));
         assertThrows(IllegalArgumentException.class, () -> AuraPayout.scaledPot(100, 10, 0));
     }
 
     @Test
     void theSameInputsAlwaysProduceTheSamePayout() {
-        // Including the tie-break: two equal contributors on a pot that cannot pay them both must
-        // resolve the same way on every run.
+        // Including the tie-break: two equal contributors on a pot that pays one must resolve the same way always.
         final Map<String, Long> tied = new LinkedHashMap<>();
         for (int index = 0; index < 20; index++) {
             tied.put(String.format("p%02d", index), 50L);
@@ -187,8 +178,7 @@ class AuraPayoutTest {
 
     @Test
     void anOvershotObjectiveStillOnlyPaysItsPot() {
-        // The delivery that completes a HAND_IN usually overshoots, which is why the denominator
-        // is the total actually contributed rather than the target.
+        // A HAND_IN usually overshoots, which is why the denominator is what was actually contributed, not the target.
         final List<AuraPayout.Share> shares = AuraPayout.split(100, 1000, contributions("a", 3000, "b", 1000));
 
         assertTrue(total(shares) <= 100, "paid " + total(shares));

@@ -3,52 +3,52 @@ package eu.nordtal.s2.smp.world;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.s2.smp.config.BalloonSpawnPointsSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
+import eu.nordtal.s2.smp.config.SpawnPointSpec;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
 /**
  * That {@link Worlds#balloonSpawnPoint} hands back the point that was configured for that role.
  *
- * <h2>Why this is worth a test at all</h2>
- * It is three lines of {@code switch} and it has exactly one way to be wrong: two arms crossed.
- * That is invisible everywhere it matters - the three points are all valid coordinates, the
- * teleport succeeds, {@code LandingSite} finds ground, the player is told they arrived, and the
- * only symptom is somebody standing in the wrong world's landing site wondering what happened.
- * Nothing throws and no log line is written.
+ * <b>Why this is worth a test at all</b>
  *
- * <p>Crossed arms are also what the defaults cannot catch: the Nether and End placeholders in
- * {@code DefaultSmp} share their x and z, so a config.yml round trip would pass with those two
- * arms crossed in everything but height. Hence the deliberately distinct numbers below rather
- * than the real defaults.
+ * It is three lines of {@code switch} and it has exactly one way to be wrong: two arms crossed. That is invisible
+ * everywhere it matters - the three points are all valid coordinates, the teleport succeeds, {@code LandingSite}
+ * finds ground, the player is told they arrived, and the only symptom is somebody standing in the wrong world's
+ * landing site wondering what happened. Nothing throws and no log line is written.
  *
- * <p><b>No server.</b> {@code Worlds}' constructor reads three strings out of the config and
- * {@code balloonSpawnPoint} reads the config again - neither touches {@code Bukkit}, which is the
- * whole reason this one method can be tested here while the rest of the class cannot.
+ * Crossed arms are also what the defaults cannot catch: the Nether and End placeholders in {@code DefaultSmp} share
+ * their x and z, so a config.yml round trip would pass with those two arms crossed in everything but height. Hence
+ * the deliberately distinct numbers below rather than the real defaults.
+ *
+ * <b>No server.</b> {@code Worlds}' constructor reads three strings out of the config and {@code balloonSpawnPoint}
+ * reads the config again - neither touches {@code Bukkit}, which is the whole reason this one method can be tested
+ * here while the rest of the class cannot.
  */
 class WorldsTest {
 
     @Test
-    @DisplayName("each role gets its own configured landing point, not a neighbour's")
     void eachRoleGetsItsOwnPoint() {
-        // One point per role, every field distinct, so a crossed arm cannot land on a value that
-        // happens to match. The x is the role's ordinal and everything else is derived from it.
-        final Map<WorldRole, SmpSpec.SpawnPointSpec> expected = new LinkedHashMap<>();
+        // One point per role, every field distinct, so a crossed arm cannot land on a value that happens to match.
+        final Map<WorldRole, SpawnPointSpec> expected = new LinkedHashMap<>();
+        int index = 1;
         for (final WorldRole role : WorldRole.values()) {
-            expected.put(role, point(role.ordinal() + 1));
+            expected.put(role, point(index));
+            index++;
         }
 
         final Worlds worlds = new Worlds(configWith(expected));
 
         final List<Executable> checks = new ArrayList<>();
         for (final WorldRole role : WorldRole.values()) {
-            final SmpSpec.SpawnPointSpec want = expected.get(role);
-            final SmpSpec.SpawnPointSpec got = worlds.balloonSpawnPoint(role);
+            final SpawnPointSpec want = expected.get(role);
+            final SpawnPointSpec got = worlds.balloonSpawnPoint(role);
             checks.add(() -> assertEquals(want.x(), got.x(), role + ": x"));
             checks.add(() -> assertEquals(want.y(), got.y(), role + ": y"));
             checks.add(() -> assertEquals(want.z(), got.z(), role + ": z"));
@@ -61,12 +61,12 @@ class WorldsTest {
     /**
      * A point whose five numbers are all different from every other point's.
      *
-     * <p>An anonymous implementation rather than {@code Specs.createUnsafe}: every method on these
-     * interfaces is a {@code default}, so overriding the five that are read is enough, and it keeps
-     * this test out of {@code DefaultSmp}'s package-private company.
+     * An anonymous implementation rather than {@code Specs.createUnsafe}: every method on these interfaces is a
+     * {@code default}, so overriding the five that are read is enough, and it keeps this test out of {@code DefaultSmp}
+     * 's package-private company.
      */
-    private static SmpSpec.SpawnPointSpec point(final int seed) {
-        return new SmpSpec.SpawnPointSpec() {
+    private static SpawnPointSpec point(final int seed) {
+        return new SpawnPointSpec() {
             @Override
             public double x() {
                 return seed * 100.0;
@@ -94,26 +94,26 @@ class WorldsTest {
         };
     }
 
-    private static SmpSpec configWith(final Map<WorldRole, SmpSpec.SpawnPointSpec> points) {
-        final SmpSpec.BalloonSpawnPointsSpec section = new SmpSpec.BalloonSpawnPointsSpec() {
+    private static SmpSpec configWith(final Map<WorldRole, SpawnPointSpec> points) {
+        final BalloonSpawnPointsSpec section = new BalloonSpawnPointsSpec() {
             @Override
-            public SmpSpec.SpawnPointSpec nordtal() {
+            public SpawnPointSpec nordtal() {
                 return points.get(WorldRole.NORDTAL);
             }
 
             @Override
-            public SmpSpec.SpawnPointSpec nether() {
+            public SpawnPointSpec nether() {
                 return points.get(WorldRole.NETHER);
             }
 
             @Override
-            public SmpSpec.SpawnPointSpec end() {
+            public SpawnPointSpec end() {
                 return points.get(WorldRole.END);
             }
         };
         return new SmpSpec() {
             @Override
-            public SmpSpec.BalloonSpawnPointsSpec balloonSpawnPoints() {
+            public BalloonSpawnPointsSpec balloonSpawnPoints() {
                 return section;
             }
         };

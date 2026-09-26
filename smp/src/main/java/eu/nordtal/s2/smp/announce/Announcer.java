@@ -23,19 +23,19 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 /**
  * The SMP's line into the Discord announcement channels.
  *
- * <p>Nothing here talks to Discord. A moment worth announcing is rendered once per language as
- * plain text, and each rendering becomes one {@code command_request} row for the bot, which posts
- * it into that language's channel.</p>
+ * Nothing here talks to Discord. A moment worth announcing is rendered once per language as plain text, and each
+ * rendering becomes one {@code command_request} row for the bot, which posts it into that language's channel.
  *
- * <p>Fire and forget: the ceremony in game must not wait for Discord, and a bot that is down for
- * ten minutes posts when it is back because the row keeps for an hour. The database call is on the
- * plugin's async executor, never the server thread.</p>
+ * Fire and forget: the ceremony in game must not wait for Discord, and a bot that is down for ten minutes posts when
+ * it is back because the row keeps for an hour. The database call is on the plugin's async executor, never the
+ * server thread.
  */
 public final class Announcer {
 
     /**
-     * The languages a line is rendered in: this module's two bundles. A third needs a bundle, a
-     * tag here, and an announcement channel on the bot's side.
+     * The languages a line is rendered in: this module's two bundles.
+     *
+     * A third needs a bundle, a tag here, and an announcement channel on the bot's side.
      */
     public static final List<String> LANGUAGES = List.of("de", "en");
 
@@ -88,8 +88,7 @@ public final class Announcer {
                 try {
                     requests.submit(row(tag, text));
                 } catch (final RuntimeException failure) {
-                    // One language failing must not cost the other its line, and the ceremony in
-                    // game has already happened either way.
+                    // One language failing must not cost the other its line.
                     warn.accept("could not send the " + tag + " announcement for " + filled.key(), failure);
                 }
             }

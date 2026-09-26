@@ -23,7 +23,6 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -33,23 +32,23 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * The season's opening moment happens exactly once per player, against a real PostgreSQL.
  *
- * <h2>Why this needs a container</h2>
- * The whole of "exactly once" is one statement, and its entire value is what PostgreSQL does with
- * the <em>second</em> call: {@code INSERT ... ON CONFLICT DO UPDATE ... WHERE NOT welcome_shown}
- * affects zero rows, which is how "already welcomed" is told apart from "just welcomed" without a
- * read-then-write that two sessions can race. There is no in-memory stand-in for that, and the
- * defaulted column added by {@code V16} is part of what is being checked - the moment has to be
- * available to every account that already exists.
+ * <b>Why this needs a container</b>
  *
- * <h2>Why "once" is the part worth a test at all</h2>
- * Nothing else in the network could notice this going wrong. A welcome shown twice is something one
- * person mentions once and nobody writes down; a welcome shown never is invisible by definition,
- * because the only person who could report it does not know it was meant to happen. Every other part
- * of the moment - the frames, the blindness, the cancel - is at least visible to somebody standing
- * there.
+ * The whole of "exactly once" is one statement, and its entire value is what PostgreSQL does with the
+ * <em>second</em> call: {@code INSERT ... ON CONFLICT DO UPDATE ... WHERE NOT welcome_shown} affects zero rows,
+ * which is how "already welcomed" is told apart from "just welcomed" without a read-then-write that two sessions can
+ * race. There is no in-memory stand-in for that, and the defaulted column added by {@code V16} is part of what is
+ * being checked - the moment has to be available to every account that already exists.
  *
- * <p>It <b>skips itself</b> when no Docker daemon is reachable, so a green build on a machine
- * without Docker proves none of it.</p>
+ * <b>Why "once" is the part worth a test at all</b>
+ *
+ * Nothing else in the network could notice this going wrong. A welcome shown twice is something one person mentions
+ * once and nobody writes down; a welcome shown never is invisible by definition, because the only person who could
+ * report it does not know it was meant to happen. Every other part of the moment - the frames, the blindness, the
+ * cancel - is at least visible to somebody standing there.
+ *
+ * It <b>skips itself</b> when no Docker daemon is reachable, so a green build on a machine without Docker proves
+ * none of it.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WelcomeIsOnceIntegrationTest {
@@ -107,7 +106,6 @@ class WelcomeIsOnceIntegrationTest {
     }
 
     @Test
-    @DisplayName("the first join takes it and every join after it does not")
     void onlyTheFirstJoinGetsIt() {
         assertTrue(dao.claimWelcome(PLAYER), "the first join of the season is the moment");
         assertFalse(dao.claimWelcome(PLAYER), "the second join must not be");
@@ -119,18 +117,14 @@ class WelcomeIsOnceIntegrationTest {
     }
 
     @Test
-    @DisplayName("a player with no smp_player row yet is welcomed, which is the ordinary case")
     void thereIsNoRowToStartWith() {
-        // A row appears in smp_player when somebody EARNS something, so on the join this runs on
-        // there is normally none at all. The INSERT half of the claim is what makes that work, and
-        // it is the half that is easy to lose in a refactor towards a plain UPDATE.
+        // smp_player gets a row only when somebody EARNS something; the INSERT half is the easy one to lose.
         assertEquals(0, rows(PLAYER));
         assertTrue(dao.claimWelcome(PLAYER));
         assertEquals(1, rows(PLAYER));
     }
 
     @Test
-    @DisplayName("an existing player is welcomed without their aura being touched")
     void anExistingRowKeepsItsAura() {
         dao.addAura(PLAYER, 40, "ADMIN", null);
         assertEquals(40, dao.auraOf(PLAYER).orElseThrow());
@@ -145,7 +139,6 @@ class WelcomeIsOnceIntegrationTest {
     }
 
     @Test
-    @DisplayName("one player's welcome is not another's")
     void theClaimIsPerPlayer() {
         assertTrue(dao.claimWelcome(PLAYER));
 
@@ -156,12 +149,8 @@ class WelcomeIsOnceIntegrationTest {
     }
 
     @Test
-    @DisplayName("two sessions racing each other produce one moment")
     void onlyOneOfTwoSimultaneousJoinsWins() throws Exception {
-        // The real shape of this is a reconnect inside a second, or a proxy that moves somebody to
-        // the SMP twice while the first join's language lookup is still in flight. Both joins reach
-        // the claim at the same time on different pool connections, which is exactly what is
-        // simulated here.
+        // A reconnect inside a second, or a proxy moving somebody twice mid-lookup: both joins race the same claim.
         final int racers = 8;
         final ExecutorService pool = Executors.newFixedThreadPool(racers);
         final CyclicBarrier together = new CyclicBarrier(racers);

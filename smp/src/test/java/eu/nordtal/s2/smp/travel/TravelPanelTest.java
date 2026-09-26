@@ -23,18 +23,16 @@ import java.util.Map;
 import javax.imageio.ImageIO;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds {@link TravelPanel}'s geometry against the panel the pack actually draws.
+ * Holds {@link TravelPanel} 's geometry against the panel the pack actually draws.
  *
- * <p>Two things decide where a card is: {@code resource-pack/tools/generate_gui_panels.py}, which
- * paints it, and {@link TravelPanel}, which tells {@link MenuTitle.Canvas} where to lay an overlay
- * and {@link BalloonMenu} which slots to fill. Nothing else compares them. So this reads the panel
- * PNG, finds each card by the colour it is painted in, and asserts its rectangle is the one the
- * Java side computes - and reads {@code gui.json} to assert each overlay's ascent lands it on the
- * card row it is named for and its advance is the card's width plus one.</p>
+ * Two things decide where a card is: {@code resource-pack/tools/generate_gui_panels.py}, which paints it, and
+ * {@link TravelPanel}, which tells {@link MenuTitle.Canvas} where to lay an overlay and {@link BalloonMenu} which
+ * slots to fill. Nothing else compares them. So this reads the panel PNG, finds each card by the colour it is
+ * painted in, and asserts its rectangle is the one the Java side computes - and reads {@code gui.json} to assert
+ * each overlay's ascent lands it on the card row it is named for and its advance is the card's width plus one.
  */
 class TravelPanelTest {
 
@@ -42,10 +40,10 @@ class TravelPanelTest {
     private static final Path ASSETS = ROOT.resolve("resource-pack/src/assets/nordtal");
 
     /**
-     * The three cards' colours - fill, outline, highlight - verbatim from
-     * generate_gui_panels.py's TILES. A card is the bounding box of every pixel in any of its
-     * three exact colours; the pictogram is the highlight colour blended at partial alpha and
-     * therefore never exact, so it cannot widen the box.
+     * The three cards' colours - fill, outline, highlight - verbatim from generate_gui_panels.py's TILES.
+     *
+     * A card is the bounding box of every pixel in any of its three exact colours; the pictogram is the highlight
+     * colour blended at partial alpha and therefore never exact, so it cannot widen the box.
      */
     private static final Map<WorldRole, List<Integer>> COLOURS = Map.of(
             WorldRole.NORDTAL, List.of(rgb(82, 168, 84), rgb(44, 108, 48), rgb(140, 210, 136)),
@@ -53,7 +51,6 @@ class TravelPanelTest {
             WorldRole.END, List.of(rgb(128, 82, 190), rgb(78, 44, 130), rgb(190, 150, 232)));
 
     @Test
-    @DisplayName("every card is painted exactly where TravelPanel says it is")
     void theCardsAreWhereTheJavaSaysTheyAre() {
         final BufferedImage panel = read(ASSETS.resolve("textures/ui/gui/travel.png"));
         for (final BalloonMenu.Entry entry : BalloonMenu.of(WorldRole.NORDTAL, EnumSet.noneOf(Unlock.class))) {
@@ -72,7 +69,6 @@ class TravelPanelTest {
     }
 
     @Test
-    @DisplayName("every overlay is declared at the ascent of its row and the advance of a card")
     void theOverlaysLandOnTheCards() {
         final Map<Integer, JsonObject> providers = providers();
         final Map<String, Integer> rows = Map.of(
@@ -100,7 +96,6 @@ class TravelPanelTest {
     }
 
     @Test
-    @DisplayName("the surface draws one overlay per card that needs one, and none for an open card")
     void theSurfaceCarriesTheStates() {
         final List<BalloonMenu.Entry> entries = BalloonMenu.of(WorldRole.NETHER, EnumSet.of(Unlock.NETHER));
         final String surface = plain(TravelPanel.title(entries));
@@ -113,7 +108,6 @@ class TravelPanelTest {
     }
 
     @Test
-    @DisplayName("the surface has no readable title: every child is art in nordtal:gui")
     void thereIsNoTitleText() {
         final Component title = TravelPanel.title(BalloonMenu.of(WorldRole.NORDTAL, EnumSet.noneOf(Unlock.class)));
         assertTrue(!title.children().isEmpty());
@@ -125,8 +119,6 @@ class TravelPanelTest {
                             + " anything outside nordtal:gui would be drawn over the cards");
         }
     }
-
-    // --- helpers ---------------------------------------------------------------------------
 
     private static int[] boundingBox(final BufferedImage image, final List<Integer> colours) {
         int left = Integer.MAX_VALUE;
@@ -174,9 +166,9 @@ class TravelPanelTest {
     /**
      * The whole composition as one string - the root's own text and every descendant's, in order.
      *
-     * <p>It walked only the first child until 2026-09-09, when a canvas stopped being a single
-     * {@code TextComponent}: a placement is its own child now, so the overlays this test counts had
-     * moved out of the string it was reading and every count came back zero.</p>
+     * It used to walk only the first child, until a canvas stopped being a single {@code TextComponent}: a
+     * placement is its own child now, so the overlays this test counts had moved out of the string it was reading and
+     * every count came back zero.
      */
     private static String plain(final Component component) {
         final StringBuilder out = new StringBuilder();

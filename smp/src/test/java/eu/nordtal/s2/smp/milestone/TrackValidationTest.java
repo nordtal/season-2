@@ -10,9 +10,9 @@ import org.junit.jupiter.api.Test;
 /**
  * The rule that decides whether a reloaded milestone file may replace the running one.
  *
- * <p>Both halves are asserted: it must <b>refuse</b> a change that orphans stored progress, and it
- * must <b>permit</b> lowering the target of a live objective. A validation that only did the first
- * would look correct and would quietly delete the first escape hatch.
+ * Both halves are asserted: it must <b>refuse</b> a change that orphans stored progress, and it must <b>permit</b>
+ * lowering the target of a live objective. A validation that only did the first would look correct and would quietly
+ * delete the first escape hatch.
  */
 class TrackValidationTest {
 
@@ -32,12 +32,9 @@ class TrackValidationTest {
             new Milestone("waiting", Unlock.BORDER, 20, 0, false, List.of()),
             new Milestone("foothold", Unlock.BORDER, 99, 30, false, List.of(LOGS, GATE))));
 
-    // ---------------------------------------------------------------- the escape hatch
-
     @Test
     void loweringTheTargetOfALiveObjectiveIsAllowed() {
-        // The point of this whole class: without it the first escape hatch does not exist at the
-        // config level and every rescue becomes an admin command, which pays proportionally.
+        // The point of this class: without it, the escape hatch is only an admin command, not a config-level one.
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 1500, 2048, false));
 
@@ -48,8 +45,7 @@ class TrackValidationTest {
 
     @Test
     void raisingTheTargetOfALiveObjectiveIsAlsoAllowed() {
-        // The same edit in the other direction. Refusing it would mean a typo could only ever be
-        // corrected downwards.
+        // The same edit in the other direction. Refusing it would mean a typo could only ever be corrected downwards.
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
 
@@ -58,18 +54,14 @@ class TrackValidationTest {
 
     @Test
     void loweringATargetBelowTheCollectedProgressCompletesTheObjective() {
-        // The other half of the same hatch lives in ObjectiveProgress: validation lets the change
-        // through, and the engine notices the objective is already done.
+        // The other half lives in ObjectiveProgress: validation lets it through, the engine notices it's already done.
         assertTrue(ObjectiveProgress.completesOnReload(1500, 1000));
         assertFalse(ObjectiveProgress.completesOnReload(900, 1000));
     }
 
-    // ---------------------------------------------------------------- orphaning
-
     @Test
     void aRenamedMilestoneIsRefused() {
-        // From here a rename looks like a deletion: the progress and any aura already paid against
-        // it would have nothing to point at.
+        // From here a rename looks like deletion: progress and any aura already paid would have nothing to point at.
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack renamed = new MilestoneTrack(List.of(
@@ -98,8 +90,7 @@ class TrackValidationTest {
 
     @Test
     void changingAnObjectivesTypeIsRefusedOnceItHasProgress() {
-        // `amount` means a different thing per type - items delivered, a statistic's increase, a
-        // count of distinct players - so carrying it across is reading a number in the wrong unit.
+        // `amount` differs per type - items, a statistic, distinct players - carrying it across is the wrong unit.
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.STATISTIC, 100, 2048, false));
 
@@ -111,9 +102,7 @@ class TrackValidationTest {
 
     @Test
     void changingTheTargetOfACompletedObjectiveIsRefused() {
-        // It has already paid out, and an admin completion's pot × (reached ÷ target) refers to
-        // what was asked for at the time. Moving it afterwards rewrites the arithmetic behind aura
-        // that is already in the ledger.
+        // It already paid out, and pot x (reached / target) refers to what was asked at the time it was completed.
         final StoredProgress stored =
                 progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
 
@@ -131,8 +120,6 @@ class TrackValidationTest {
         assertTrue(TrackValidation.validate(track, stored).isEmpty());
     }
 
-    // ---------------------------------------------------------------- order
-
     @Test
     void appendingAMilestoneIsAlwaysAllowed() {
         // The planned response to a track that finishes early.
@@ -148,8 +135,7 @@ class TrackValidationTest {
 
     @Test
     void movingAnUnlockedMilestoneBehindALockedOneIsRefused() {
-        // The track is linear and its order is the file's, so what has been finished has to stay
-        // at the front of it or the engine has no answer to "what comes next".
+        // The track is linear in file order; what finished must stay at the front or nothing answers what comes next.
         final StoredProgress stored = new StoredProgress(
                 List.of(
                         new StoredProgress.StoredMilestone("foothold", MilestoneState.UNLOCKED),
@@ -178,8 +164,6 @@ class TrackValidationTest {
 
         assertEquals(3, TrackValidation.validate(track, stored).size());
     }
-
-    // ---------------------------------------------------------------- helpers
 
     private MilestoneTrack lowered(final String objectiveKey, final long target) {
         final List<Objective> objectives = track.milestone("foothold").orElseThrow().objectives().stream()

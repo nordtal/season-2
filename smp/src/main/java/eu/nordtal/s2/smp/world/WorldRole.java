@@ -5,14 +5,11 @@ import eu.nordtal.s2.common.Glyphs;
 /**
  * Which of the SMP's three worlds a world is, and what each one is allowed to do.
  *
- * <p>The travel rules are per role, not per world name, so they live here rather than being
- * re-derived from a string comparison at every call site.
+ * The travel rules are per role, not per world name, so they live here rather than being re-derived from a string
+ * comparison at every call site.
  *
- * <p>There were four until 2026-09-20. {@code FARM} was the farm world - regenerated nightly with a
- * new seed, nothing in it surviving - and it went with season-2-ingame/30. Nothing took its place:
- * resources come out of Nordtal now, which means the world is visibly mined out over a season and
- * that is the known and accepted cost. Its {@code permanent()} flag went too: it was false for the
- * farm world alone, so with it gone the question has one answer and is not a question.
+ * Resources come out of Nordtal, which means the world is visibly mined out over a season and that is the known and
+ * accepted cost.
  */
 public enum WorldRole {
 
@@ -39,10 +36,10 @@ public enum WorldRole {
     /**
      * Whether a Nether portal lit in this world links the vanilla way.
      *
-     * <p>True only between Nordtal and the Nether, which since 2026-09-20 is every overworld there
-     * is. It stays a question rather than becoming {@code this != END} because the End is refused
-     * for its own reason - it is left through the vanilla exit portal - and folding two reasons
-     * into one expression loses both.
+     * True only between Nordtal and the Nether. It stays a question rather than becoming {@code this != END} because
+     * the
+     * End is refused for its own reason - it is left through the vanilla exit portal - and folding two reasons into one
+     * expression loses both.
      */
     public boolean hasVanillaPortalLinking() {
         return this == NORDTAL || this == NETHER;

@@ -8,32 +8,27 @@ import java.util.Map;
 /**
  * The track a fresh {@code milestones.yml} is written with.
  *
- * <p>A nested spec is served by a reflective proxy, so there is no {@code new MilestoneEntry(...)}
- * to write; {@code Specs.createUnsafe} builds one from a map of its keys.
- * <b>{@code createUnsafe} does not apply defaults</b>, so <em>every</em> key of the spec has to be
- * listed in the map - a new setting on {@link MilestonesSpec.ObjectiveEntry} that is not added to
- * {@link #objective} comes out null.
+ * A nested spec is served by a reflective proxy, so there is no {@code new MilestoneEntry(...)} to write;
+ * {@code Specs.createUnsafe} builds one from a map of its keys. <b> {@code createUnsafe} does not apply
+ * defaults</b>, so <em>every</em> key of the spec has to be listed in the map - a new setting on
+ * {@link MilestonesSpec.ObjectiveEntry} that is not added to {@link #objective} comes out null.
  *
- * <p>The <em>shape</em> is the decision: how many objectives a milestone has, which type each is,
- * which role it serves and which share of the budget it carries. The items and advancements are
- * worked examples and are expected to be corrected. The pots are arithmetic:
- * {@code round((budget ÷ objectives) × 5, to 10)}.
+ * The <em>shape</em> is the decision: how many objectives a milestone has, which type each is, which role it serves
+ * and which share of the budget it carries. The items and advancements are worked examples and are expected to be
+ * corrected. The pots are arithmetic: {@code round((budget ÷ objectives) × 5, to 10)}.
  */
 final class DefaultTrack {
 
     /** The eight milestones, in track order. */
     static final List<MilestonesSpec.MilestoneEntry> LIST = List.of(
 
-            // M0. Where the phase switch leaves the world. Border 20 is a physical gate rather than
-            // ceremony: the balloon stands outside radius 10, so 20 withholds travel entirely.
+            // M0: where the phase switch leaves the world. Border 20 is a physical gate.
             milestone("waiting", "BORDER", 20, 0, false, List.of()),
 
-            // M1. Opened by an admin at the opening, and the whole content of the season's first
-            // minutes - 43 is what puts the balloon inside the border and hands over travel.
+            // M1: opened by an admin at the opening.
             milestone("departure", "BORDER", 43, 0, true, List.of()),
 
-            // M2 foothold - 4 objectives, 20 h, pot 30 each, gate 10 players. Expected: day 1.
-            // Nothing farmable yet: farms can only be built in Nordtal and border 99 has no room.
+            // M2 foothold: 4 objectives, 20 h, pot 30 each, gate 10 players, day 1.
             milestone(
                     "foothold",
                     "BORDER",
@@ -59,8 +54,7 @@ final class DefaultTrack {
                             statistic("zombies", "combat", 500, "KILL_ENTITY", List.of("ZOMBIE")),
                             advancement("iron-tools", 10, "minecraft:story/iron_tools"))),
 
-            // M3 settlement - 4 objectives, 45 h, pot 60 each, gate 10 players. Expected: day 1-2.
-            // The first farmable hand-in appears here, and deliberately.
+            // M3 settlement: 4 objectives, 45 h, pot 60 each, gate 10 players, day 1-2.
             milestone(
                     "settlement",
                     "BORDER",
@@ -94,8 +88,7 @@ final class DefaultTrack {
                                             "BREEZE")),
                             advancement("mine-diamond", 10, "minecraft:story/mine_diamond"))),
 
-            // M4 nether - 4 objectives, 60 h, pot 80 each, gate 8 players. Expected: day 2-3.
-            // The dimension IS the reward, so there is no border step attached to it.
+            // M4 nether: 4 objectives, 60 h, pot 80 each, gate 8 players, day 2-3.
             milestone(
                     "nether",
                     "NETHER",
@@ -108,9 +101,7 @@ final class DefaultTrack {
                             statistic("gold", "mining", 512, "MINE_BLOCK", List.of("GOLD_ORE", "DEEPSLATE_GOLD_ORE")),
                             advancement("form-obsidian", 8, "minecraft:story/form_obsidian"))),
 
-            // M5 end - 5 objectives, 75 h, pot 80 each, gate 8 players. Expected: day 3-4.
-            // 200 of the track's 480 hours sit at or before here, which is what puts the End on
-            // day three at 20 players x 2.5 h a day.
+            // M5 end: 5 objectives, 75 h, pot 80 each, gate 8 players, day 3-4; 200 of 480 hours sit at or before here.
             milestone(
                     "end",
                     "END",
@@ -124,8 +115,7 @@ final class DefaultTrack {
                             statistic("endermen", "combat", 400, "KILL_ENTITY", List.of("ENDERMAN")),
                             advancement("blaze-rod", 8, "minecraft:nether/obtain_blaze_rod"))),
 
-            // M6 expanse - 5 objectives, 110 h, pot 110 each, gate 6 players. Expected: ~5 days.
-            // The quantities here are where a farm becomes clearly worth building.
+            // M6 expanse: 5 objectives, 110 h, pot 110 each, gate 6 players, ~5 days.
             milestone(
                     "expanse",
                     "BORDER",
@@ -158,10 +148,7 @@ final class DefaultTrack {
                                     List.of("PILLAGER", "VINDICATOR", "EVOKER", "RAVAGER", "WITCH", "ILLUSIONER")),
                             advancement("hero-of-the-village", 6, "minecraft:adventure/hero_of_the_village"))),
 
-            // M7 frontier - 5 objectives, 170 h, pot 170 each, gate 5 players. Expected: ~2 weeks.
-            // Sized as 8 active players x 14 days x 1.5 h, against whoever is still there in week
-            // three rather than against the launch crowd. These quantities cannot be met by hand:
-            // building the farm is meant to BE the content of the second week.
+            // M7 frontier: 5 objectives, 170 h, pot 170 each, gate 5 players, ~2 weeks.
             milestone(
                     "frontier",
                     "BORDER",

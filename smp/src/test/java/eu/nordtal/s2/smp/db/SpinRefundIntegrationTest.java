@@ -17,7 +17,6 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -27,26 +26,26 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * Putting a wheel spin back, against a real PostgreSQL running the real migrations.
  *
- * <h2>Why the refund exists</h2>
- * The spin is spent in SQL <em>before</em> the prize is drawn and long before the animation draws
- * its first frame - deliberately, because an animation that could stop anywhere else would be a
- * second, disagreeing answer about one spin. The cost of that ordering is two paths that end with a
- * spent row and an empty hand: a player who disconnects between the commit and the next tick, and a
- * {@code wheel-prizes} entry naming an item this server does not know. Both used to log a warning
- * and leave the player a spin poorer; a warning in a console is not something a player can spend.
- * Found by review, 2026-09-04.
+ * <b>Why the refund exists</b>
  *
- * <h2>Why it needs a container</h2>
- * All three things that can go wrong here are properties of the database, not of Java.
- * {@code last_free} is a nullable {@code date} and the refund of a player's <em>first ever</em> free
- * spin writes {@code null} into it - which is where PostgreSQL answers "could not determine data
- * type of parameter" unless the statement casts, and no in-memory test can tell you that. The free
- * refund has to be idempotent and the earned one has to respect
- * {@code smp_spin_used_not_negative}. And a refund must put back <em>the same kind</em> of spin
- * that was taken: giving an earned spin back as a free one would hand out a spin a day.
+ * The spin is spent in SQL <em>before</em> the prize is drawn and long before the animation draws its first frame -
+ * deliberately, because an animation that could stop anywhere else would be a second, disagreeing answer about one
+ * spin. The cost of that ordering is two paths that end with a spent row and an empty hand: a player who disconnects
+ * between the commit and the next tick, and a {@code wheel-prizes} entry naming an item this server does not know.
+ * Both used to log a warning and leave the player a spin poorer; a warning in a console is not something a player
+ * can spend.
  *
- * <p>It <b>skips itself</b> when no Docker daemon is reachable, so a green build on a machine
- * without Docker proves none of it.
+ * <b>Why it needs a container</b>
+ *
+ * All three things that can go wrong here are properties of the database, not of Java. {@code last_free} is a
+ * nullable {@code date} and the refund of a player's <em>first ever</em> free spin writes {@code null} into it -
+ * which is where PostgreSQL answers "could not determine data type of parameter" unless the statement casts, and no
+ * in-memory test can tell you that. The free refund has to be idempotent and the earned one has to respect
+ * {@code smp_spin_used_not_negative}. And a refund must put back <em>the same kind</em> of spin that was taken:
+ * giving an earned spin back as a free one would hand out a spin a day.
+ *
+ * It <b>skips itself</b> when no Docker daemon is reachable, so a green build on a machine without Docker proves
+ * none of it.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SpinRefundIntegrationTest {
@@ -77,8 +76,7 @@ class SpinRefundIntegrationTest {
         dataSource.setUser(postgres.getUsername());
         dataSource.setPassword(postgres.getPassword());
 
-        // The real migrations off the classpath - :common is shaded into this module, so
-        // db/migration is exactly where the plugin finds them on a server too.
+        // The real migrations off the classpath: :common is shaded in, so db/migration is where a server finds them.
         Flyway.configure(SpinRefundIntegrationTest.class.getClassLoader())
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
@@ -107,15 +105,11 @@ class SpinRefundIntegrationTest {
     }
 
     @Test
-    @DisplayName("a first-ever free spin goes back to never-taken, null and all")
     void theFirstFreeSpinIsRefundedToNull() {
         assertTrue(dao.takeFreeSpin(DISCORD_ID, TODAY).isPresent(), "the spin has to be taken first");
         assertFalse(spins().hasFree(TODAY), "and be gone");
 
-        // null is the value the row held a millisecond earlier. Measured 2026-09-04: JDBI binds it
-        // as a typed null and the statement passes with or without its CAST, so this line proves the
-        // null PATH rather than the cast - which is the half that matters, because a refund that
-        // threw here would be the very first spin of a player's season.
+        // null is the value the row held a moment earlier; JDBI binds it as a typed null, proving the null path.
         dao.restoreFreeSpin(DISCORD_ID, null, TODAY);
 
         assertEquals(null, spins().lastFree(), "a refunded first spin is a spin never taken");
@@ -123,7 +117,6 @@ class SpinRefundIntegrationTest {
     }
 
     @Test
-    @DisplayName("a free spin taken on a later day goes back to the day before it")
     void aLaterFreeSpinIsRefundedToItsPreviousDay() {
         execute("INSERT INTO smp_spin (discord_id, last_free) VALUES ('" + DISCORD_ID + "', '"
                 + YESTERDAY + "') ON CONFLICT (discord_id) DO UPDATE SET last_free = '"
@@ -137,21 +130,17 @@ class SpinRefundIntegrationTest {
     }
 
     @Test
-    @DisplayName("refunding a free spin twice hands back one spin, not two")
     void theFreeRefundIsIdempotent() {
         assertTrue(dao.takeFreeSpin(DISCORD_ID, TODAY).isPresent());
 
         dao.restoreFreeSpin(DISCORD_ID, null, TODAY);
-        // The second call is the one that matters: last_free is no longer TODAY, so the guard makes
-        // it change nothing. Without it a second refund would be free, and the wheel would be a
-        // machine that pays for being closed twice.
+        // The second call matters: last_free is no longer TODAY, so the guard makes it a no-op, not a free refund.
         dao.restoreFreeSpin(DISCORD_ID, null, TODAY);
 
         assertEquals(1, spins().available(TODAY), "one spin was taken, so one spin comes back");
     }
 
     @Test
-    @DisplayName("a refunded free spin is spendable again, and only once")
     void aRefundedFreeSpinCanBeTakenAgainOnce() {
         assertTrue(dao.takeFreeSpin(DISCORD_ID, TODAY).isPresent());
         dao.restoreFreeSpin(DISCORD_ID, null, TODAY);
@@ -161,7 +150,6 @@ class SpinRefundIntegrationTest {
     }
 
     @Test
-    @DisplayName("an earned spin goes back to the pool it came from")
     void anEarnedSpinIsRefunded() {
         dao.grantSpins(DISCORD_ID, 2);
         execute("UPDATE smp_spin SET last_free = '" + TODAY + "'");
@@ -177,18 +165,14 @@ class SpinRefundIntegrationTest {
     }
 
     @Test
-    @DisplayName("an earned refund cannot push used below zero")
     void theEarnedRefundRespectsTheCheckConstraint() {
         dao.grantSpins(DISCORD_ID, 1);
 
-        // smp_spin_used_not_negative would abort the transaction, and the caller of a refund has no
-        // sensible answer to that. The guard is what makes an unpaired call a no-op instead.
+        // smp_spin_used_not_negative would abort the transaction; the guard makes an unpaired call a no-op instead.
         dao.restoreEarnedSpin(DISCORD_ID);
 
         assertEquals(1, spins().extras());
     }
-
-    // --- helpers ---------------------------------------------------------------------------
 
     private Spins spins() {
         return dao.spinsOf(DISCORD_ID)

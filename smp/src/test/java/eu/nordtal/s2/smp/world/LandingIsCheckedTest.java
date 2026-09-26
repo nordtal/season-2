@@ -10,29 +10,26 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * A world spawn is a coordinate, not a promise.
  *
- * <h2>Why this is a rule and not a habit</h2>
- * This module has learned it three times in one day. A duel ending "at the spawn" teleported both
- * fighters into solid rock, then out of the world, then into lava (finding 124). A player-built
- * portal in the farm world had to be carried out by hand, and to somewhere survivable (131). And the
- * balloon - whose whole design is "always the world spawn, so that a world spawn is a landmark
- * everybody knows" - dropped the first player who took it to the Nether inside netherrack, which
- * cost them twenty aura for suffocating (134). Two more raw uses were still standing when that was
- * found, both of them the farm world's; they went with it on 2026-09-20 (season-2-ingame/30), and
- * the rule they were found by did not.
+ * <b>Why this is a rule and not a habit</b>
  *
- * <p>{@link LandingSite#safeAt} costs nothing where the spot is already good - it takes the
- * preferred location whenever a player actually fits there - so a built world keeps its landmark
- * exactly. It only does anything at all in the case that used to be a death.
+ * A duel ending "at the spawn" can teleport a fighter into solid rock, out of the world, or into lava. A
+ * player-built portal can need carrying someone out by hand, to somewhere survivable. The balloon's whole design is
+ * "always the world spawn, so that a world spawn is a landmark everybody knows" - which fails exactly when the spawn
+ * itself is not landable, dropping a player inside netherrack instead.
  *
- * <h2>The allowlist</h2>
- * One file, and it is not a teleport: {@code NavigateGui} prints the spawn's three numbers into a
- * line of text. Anything added here has to be something that does not <em>move</em> a player.
+ * {@link LandingSite#safeAt} costs nothing where the spot is already good - it takes the preferred location whenever
+ * a player actually fits there - so a built world keeps its landmark exactly. It only does anything at all in the
+ * case that used to be a death.
+ *
+ * <b>The allowlist</b>
+ *
+ * One file, and it is not a teleport: {@code NavigateGui} prints the spawn's three numbers into a line of text.
+ * Anything added here has to be something that does not <em>move</em> a player.
  */
 class LandingIsCheckedTest {
 
@@ -46,7 +43,6 @@ class LandingIsCheckedTest {
             "smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigateGui.java");
 
     @Test
-    @DisplayName("every use of a world spawn goes through the landing check")
     void noRawWorldSpawn() {
         final List<String> raw = new ArrayList<>();
         for (final Path source : sources()) {
@@ -79,9 +75,10 @@ class LandingIsCheckedTest {
     /**
      * Either helper counts, and the difference between them is what the caller does with nothing.
      *
-     * <p>{@code safeAt} ends with the preferred spot when its search comes back empty, which is
-     * right for a duel that has to end. {@code findSafeAt} hands the emptiness back, which is right for the balloon: it can say the
-     * destination is unavailable instead of announcing an arrival nobody survives.</p>
+     * {@code safeAt} ends with the preferred spot when its search comes back empty, which is right for a duel that has
+     * to end. {@code findSafeAt} hands the emptiness back, which is right for the balloon: it can say the destination
+     * is
+     * unavailable instead of announcing an arrival nobody survives.
      */
     private static boolean checked(final String line) {
         return line.contains("LandingSite.safeAt(") || line.contains("findSafeAt(");

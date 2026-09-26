@@ -20,25 +20,24 @@ import org.slf4j.Logger;
 /**
  * What happens to a login when PostgreSQL is not there.
  *
- * <p>Decided 2026-09-01: <b>the join is refused, the people already playing stay.</b> Nobody is
- * thrown out of a fight over a ten-second blip, and nobody is let in to a session where their aura,
- * their language and their admin flag are all unknown - which is what the alternative looks like
- * from the inside, and it quietly produces wrong data rather than an error.
+ * By decision: <b>the join is refused, the people already playing stay.</b> Nobody is thrown out of a fight
+ * over a ten-second blip, and nobody is let in to a session where their aura, their language and their admin flag
+ * are all unknown - which is what the alternative looks like from the inside, and it quietly produces wrong data
+ * rather than an error.
  *
- * <p>This handler runs on the async pre-login thread, which is the one place a Paper server is
- * <em>allowed</em> to wait on a database, and it does triple duty: the same query that proves the
- * database is reachable also warms the admin flag for the protection listener, which cannot afford
- * to ask again on every block click, and for {@link FullServerAdmission}, which is asked on the
- * main thread and so cannot query at all.
+ * This handler runs on the async pre-login thread, which is the one place a Paper server is <em>allowed</em> to wait
+ * on a database, and it does triple duty: the same query that proves the database is reachable also warms the admin
+ * flag for the protection listener, which cannot afford to ask again on every block click, and for
+ * {@link FullServerAdmission}, which is asked on the main thread and so cannot query at all.
  *
- * <h2>The full server</h2>
- * Since 2026-09-04 this server's {@code max-players} is the network's own limit rather than a
- * number set out of reach, so Paper can refuse a login for fullness - and the login it would refuse
- * is an admin's, because admins are the only players the proxy lets past a full network.
- * {@link #onFullCheck} is what overturns that; {@link FullServerAdmission} carries the reasoning,
- * including why it is Paper's own {@code PlayerServerFullCheckEvent} and not the deprecated
- * {@code PlayerLoginEvent}. Warming it costs nothing here, because {@link Identities#load} has
- * already read the flag.
+ * <b>The full server</b>
+ *
+ * This server's {@code max-players} is the network's own limit rather than a number set out of
+ * reach, so Paper can refuse a login for fullness - and the login it would refuse is an admin's, because admins are
+ * the only players the proxy lets past a full network. {@link #onFullCheck} is what overturns that;
+ * {@link FullServerAdmission} carries the reasoning, including why it is Paper's own
+ * {@code PlayerServerFullCheckEvent} and not the deprecated {@code PlayerLoginEvent}. Warming it costs nothing here,
+ * because {@link Identities#load} has already read the flag.
  */
 public final class JoinGate implements Listener {
 
@@ -62,14 +61,11 @@ public final class JoinGate implements Listener {
     public void onPreLogin(final AsyncPlayerPreLoginEvent event) {
         try {
             final Identity identity = identities.load(event.getUniqueId());
-            // Unconditionally, unlike limbo and hunger-games: the row is already read, so there is
-            // no query to save by asking FullServerAdmission#worthAsking first - and warming every
-            // login closes the window between this thread and PlayerLoginEvent outright.
+            // Unconditionally, unlike limbo and hunger-games: the row is already read, closing the race window.
             admission.remember(event.getUniqueId(), identity.admin());
         } catch (final RuntimeException exception) {
             logger.error("refusing {}'s login because the database is unreachable", event.getUniqueId(), exception);
-            // English: at this point there is no account link to read a language from, which is
-            // itself the thing that is broken.
+            // English: there is no account link yet to read a language from, which is itself the thing that is broken.
             event.disallow(
                     AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
                     MessageRenderer.of(messages)
@@ -80,9 +76,9 @@ public final class JoinGate implements Listener {
     /**
      * Lets an admin onto a server Paper has decided is full.
      *
-     * <p>{@code HIGH} rather than {@code MONITOR}: the answer has to be changed, not observed. It
-     * is as narrow as an event can be - a ban, a whitelist or another plugin's refusal never
-     * reaches the fullness check at all, so an admin is never let past anything but the cap.</p>
+     * {@code HIGH} rather than {@code MONITOR}: the answer has to be changed, not observed. It is as narrow as an event
+     * can be - a ban, a whitelist or another plugin's refusal never reaches the fullness check at all, so an admin is
+     * never let past anything but the cap.
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onFullCheck(final PlayerServerFullCheckEvent event) {

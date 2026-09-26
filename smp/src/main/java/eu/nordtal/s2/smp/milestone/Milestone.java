@@ -7,22 +7,20 @@ import java.util.Optional;
 /**
  * One milestone of the track, as the milestone file defines it.
  *
- * <p>All of its objectives must complete before it unlocks and the next one begins. There is no
- * timer anywhere in the track.
+ * All of its objectives must complete before it unlocks and the next one begins. There is no timer anywhere in
+ * the track.
  *
- * @param key            the YAML key and {@code smp_milestone.key}: {@code waiting},
- *                       {@code departure}, {@code foothold}, ... Renaming one orphans its stored
- *                       progress and is refused by {@link TrackValidation}
- * @param unlock         what finishing it hands the community
- * @param borderDiameter the Nordtal border this milestone sets, as a <b>diameter</b>, because that
- *                       is what Minecraft's world border takes. Ignored unless {@code unlock} is
- *                       {@link Unlock#BORDER}
- * @param objectivePot   the aura pot of <b>each</b> of this milestone's objectives, not of the
- *                       milestone as a whole. One number rather than one per objective because it
- *                       is derived: {@code pot = round((budget ÷ objectives) × 5, to 10)}
- * @param adminUnlocked  whether this milestone is opened by an admin rather than by objectives.
- *                       True for {@code departure} alone
- * @param objectives     every objective, in file order; empty for the two opening milestones
+ * @param key the YAML key and {@code smp_milestone.key}: {@code waiting}, {@code departure}, {@code foothold},...
+ *     Renaming one orphans its stored progress and is refused by {@link TrackValidation}
+ * @param unlock what finishing it hands the community
+ * @param borderDiameter the Nordtal border this milestone sets, as a <b>diameter</b>, because that is what
+ *     Minecraft's world border takes. Ignored unless {@code unlock} is {@link Unlock#BORDER}
+ * @param objectivePot the aura pot of <b>each</b> of this milestone's objectives, not of the milestone as a whole.
+ *     One number rather than one per objective because it is derived:
+ *     {@code pot = round((budget ÷ objectives) × 5, to 10)}
+ * @param adminUnlocked whether this milestone is opened by an admin rather than by objectives. True for
+ *     {@code departure} alone
+ * @param objectives every objective, in file order; empty for the two opening milestones
  */
 public record Milestone(
         String key,
@@ -56,7 +54,9 @@ public record Milestone(
         return objectives.isEmpty();
     }
 
-    /** @return the milestone's whole aura budget, which is the pot times the number of objectives */
+    /**
+     * @return the milestone's whole aura budget, which is the pot times the number of objectives
+     */
     public int totalPot() {
         return objectivePot * objectives.size();
     }

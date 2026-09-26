@@ -15,28 +15,25 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Walks the wheel's composed window and holds it against the ring the pack drew.
  *
- * <p>The two that carry the most are {@link #theRingIsWhereTheItemsAre} - the panel is baked and the
- * slot map is Java, so a cell painted in one place and filled in another is a prize icon sitting on
- * bare panel with a hole in the ring beside it - and {@link #theRingHasMovedTwoColumnsLeft}, which
- * is the whole of what the owner asked for and the reason the controls have anywhere to be.</p>
+ * The two that carry the most are {@link #theRingIsWhereTheItemsAre} - the panel is baked and the slot map is Java,
+ * so a cell painted in one place and filled in another is a prize icon sitting on bare panel with a hole in the ring
+ * beside it - and {@link #theRingHasMovedTwoColumnsLeft}, which is the whole of what the owner asked for and the
+ * reason the controls have anywhere to be.
  */
 class WheelPanelTest {
 
     @Test
-    @DisplayName("the whole surface returns the cursor to the title anchor")
     void theReadableTitleStillLandsWhereItWould() {
         final List<Run> runs = PanelWalk.runs(surface());
         assertEquals(MenuTitle.ANCHOR_X, runs.get(runs.size() - 1).end());
     }
 
     @Test
-    @DisplayName("the ring's twelve cells are twelve distinct slots on five rows")
     void theRingIsTwelveCells() {
         assertEquals(12, WheelPanel.CELL_SLOTS.size());
         assertEquals(12, Set.copyOf(WheelPanel.CELL_SLOTS).size(), "two cells claim one slot");
@@ -60,11 +57,8 @@ class WheelPanelTest {
     }
 
     @Test
-    @DisplayName("the ring has moved two slot columns left, which is what frees the controls")
     void theRingHasMovedTwoColumnsLeft() {
-        // W3 draws the ring on columns 2..6 around x 88. The owner moved it two columns left on
-        // 2026-09-08 so that columns 5..8 carry the button and the two things a player needs to
-        // know; this is that instruction, as an assertion.
+        // W3 draws the ring on columns 2..6; moved two columns left so 5..8 carry the button and the key facts.
         final Set<Integer> columns = new LinkedHashSet<>();
         WheelPanel.CELL_SLOTS.forEach(slot -> columns.add(SlotGeometry.column(slot)));
         assertEquals(
@@ -82,11 +76,8 @@ class WheelPanelTest {
     }
 
     @Test
-    @DisplayName("every cell the Java fills is a cell the panel painted, and the other way round")
     void theRingIsWhereTheItemsAre() {
-        // The ring is baked art and the slot map is Java, and nothing else compares the two. A cell
-        // painted at one slot and filled at another is a prize icon on bare panel with a hole in
-        // the ring beside it - and it draws perfectly, on every frame.
+        // The ring is baked art, the slot map is Java; a mismatch draws a prize icon on bare panel every frame.
         final BufferedImage ring = PanelWalk.image("wheel_ring.png");
         assertEquals(176, ring.getWidth());
         assertEquals(114 + 18 * WheelPanel.ROWS, ring.getHeight());
@@ -94,8 +85,7 @@ class WheelPanelTest {
         final Set<Integer> painted = new LinkedHashSet<>();
         for (int row = 0; row < WheelPanel.ROWS; row++) {
             for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
-                // The backing is the 16 x 16 the item is drawn in, so its own middle is the honest
-                // place to sample: the ring band runs right up to the cell's edge.
+                // The backing is the 16x16 the item is drawn in, so its middle is the honest place to sample the ring.
                 final int rgb = ring.getRGB(SlotGeometry.x(column) + 9, SlotGeometry.y(row) + 9);
                 if (rgb == CELL || rgb == WINNER) {
                     painted.add(SlotGeometry.slot(column, row));
@@ -109,7 +99,6 @@ class WheelPanelTest {
     }
 
     @Test
-    @DisplayName("the resting cell is the only one the panel marks, and it is marked twice over")
     void theWinnerCellIsMarked() {
         final BufferedImage ring = PanelWalk.image("wheel_ring.png");
         final int resting = WheelPanel.CELL_SLOTS.get(WheelPanel.shape().centre());
@@ -127,10 +116,7 @@ class WheelPanelTest {
         }
         assertEquals(1, lighter, "more than one cell says the winner stops in it");
 
-        // ...and the frame, which is what replaced W3's pointer. The design draws a triangle at
-        // y 13-16 - inside the title bar - which works at x 85 and does not at x 49, where the
-        // window's own title is. The frame is the pack's own word for "this one" and lands nowhere
-        // near the title.
+        // The frame replaced W3's pointer; its triangle works at x 85, not x 49, where the window's title sits.
         assertEquals(
                 FRAME,
                 ring.getRGB(x, y) & 0xFFFFFF,
@@ -140,7 +126,6 @@ class WheelPanelTest {
     }
 
     @Test
-    @DisplayName("the hub is the middle of the ring and carries the number")
     void theHubIsTheMiddle() {
         assertEquals(2, SlotGeometry.column(WheelPanel.HUB_SLOT));
         assertEquals(2, SlotGeometry.row(WheelPanel.HUB_SLOT));
@@ -158,7 +143,6 @@ class WheelPanelTest {
     }
 
     @Test
-    @DisplayName("the button sits on the cells that carry its click, and its label is centred")
     void theButtonIsItsSlots() {
         final List<Run> runs = PanelWalk.runs(surface());
         final String font = Glyphs.FONT_GUI_ROWS.get(WheelPanel.AGAIN_ROW);
@@ -179,7 +163,6 @@ class WheelPanelTest {
     }
 
     @Test
-    @DisplayName("every drawn line stays inside the four columns the ring's move freed")
     void nothingWrittenBesideTheRingTouchesIt() {
         final List<Run> runs = PanelWalk.runs(surface());
         final int left = SlotGeometry.x(5) + WheelPanel.INSET;
@@ -198,7 +181,6 @@ class WheelPanelTest {
     }
 
     @Test
-    @DisplayName("every info and button cell is claimed, because a free one is where a lost item lands")
     void everyControlCellIsClaimed() {
         final Set<Integer> claimed = new LinkedHashSet<>(WheelPanel.INFO_SLOTS);
         claimed.addAll(WheelPanel.AGAIN_SLOTS);
@@ -206,15 +188,11 @@ class WheelPanelTest {
                 WheelPanel.INFO_SLOTS.size() + WheelPanel.AGAIN_SLOTS.size(),
                 claimed.size(),
                 "a slot is claimed twice");
-        // Rows 0 and 2 of columns 5..8 are the two that are deliberately not written on; the hub's
-        // own tooltip covers 5..8 of rows 1..3 and the button 6..8 of row 4, so a shift-click can
-        // still land on row 0. Every click in this window is cancelled, which is what makes that
-        // safe here and not in the grave.
+        // Rows 0 and 2 of 5..8 are deliberately blank; every click here is cancelled, which is what makes it safe.
         assertTrue(claimed.size() >= 12);
     }
 
     @Test
-    @DisplayName("every code point the surface uses is declared by the font that run names")
     void nothingIsDrawnOutOfAFontThatLacksIt() {
         final List<String> missing = new ArrayList<>();
         for (final Run run : PanelWalk.runs(surface())) {
@@ -229,7 +207,6 @@ class WheelPanelTest {
     }
 
     @Test
-    @DisplayName("the four strings drawn inside the window carry no MiniMessage in either language")
     void theDrawnKeysAreTagless() {
         final List<String> tagged = new ArrayList<>();
         for (final String language : new String[] {"en", "de"}) {

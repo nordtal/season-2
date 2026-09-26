@@ -11,9 +11,9 @@ import org.junit.jupiter.api.Test;
 /**
  * When the free spin comes back.
  *
- * <p>A calendar day in the server's own time zone, decided 2026-09-01. Midnight is the boundary, and
- * a boundary is exactly the kind of thing that is easy to get right by accident and wrong by one
- * comparison operator - which is why it is asserted against fixed dates rather than waited for.
+ * A calendar day in the server's own time zone, by decision. Midnight is the boundary, and a boundary is
+ * exactly the kind of thing that is easy to get right by accident and wrong by one comparison operator - which is
+ * why it is asserted against fixed dates rather than waited for.
  */
 class SpinsTest {
 

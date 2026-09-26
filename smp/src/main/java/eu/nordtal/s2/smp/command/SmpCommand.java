@@ -29,21 +29,23 @@ import org.bukkit.plugin.Plugin;
 /**
  * The SMP's Brigadier trees: its own commands, plus everything another process runs.
  *
- * <h2>What is left of this class</h2>
- * Almost nothing, and that is the point. It used to be three hundred lines holding a tree, an admin
- * gate, a confirmation window, five handlers and the decisions inside them - all of which existed
- * only here, on one surface, and none of which could be asserted without a running server. The
- * decisions are in {@code :commands} now and the tree-building is in {@code :paper-common}; what is
- * left is the wiring that says which commands this server owns and where the rest live.
+ * <b>What is left of this class</b>
  *
- * <h2>Why the other backends' commands are registered here at all</h2>
- * So an admin standing on the SMP can run {@code /hg start} or {@code /limbo reload} without
- * switching servers - and, more to the point, so that an admin can reach a backend that is the
- * reason they cannot get to it. Those become {@code command_request} rows.
+ * Almost nothing, and that is the point. It used to be three hundred lines holding a tree, an admin gate, a
+ * confirmation window, five handlers and the decisions inside them - all of which existed only here, on one surface,
+ * and none of which could be asserted without a running server. The decisions are in {@code :commands} now and the
+ * tree-building is in {@code :paper-common}; what is left is the wiring that says which commands this server owns
+ * and where the rest live.
  *
- * <p>{@code /phase} and {@code /network} are deliberately absent: Velocity answers a command it
- * knows before the packet reaches a backend, so both are already available here from the proxy's
- * single registration. Registering copies would shadow nothing and be shadowed by everything.</p>
+ * <b>Why the other backends' commands are registered here at all</b>
+ *
+ * So an admin standing on the SMP can run {@code /hg start} or {@code /limbo reload} without switching servers -
+ * and, more to the point, so that an admin can reach a backend that is the reason they cannot get to it. Those
+ * become {@code command_request} rows.
+ *
+ * {@code /phase} and {@code /network} are deliberately absent: Velocity answers a command it knows before the packet
+ * reaches a backend, so both are already available here from the proxy's single registration. Registering copies
+ * would shadow nothing and be shadowed by everything.
  */
 public final class SmpCommand {
 
@@ -85,48 +87,70 @@ public final class SmpCommand {
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, effects);
         }
+        registerSuggestions(commands, track, season);
+        registerUpdateCommands(commands, plugin, updates);
 
-        // One effects object for /update, built here because only this class knows both halves:
-        // the pool (through the watcher) and where a Paper plugin is allowed to wait.
+        final PlayerCommands own =
+                registerPlayerCommands(commands, effects, plugin, messages, locales, identities, sounds, colours);
+        commands.remoteAll(Catalogue.all());
+        final List<LiteralCommandNode<CommandSourceStack>> roots = new ArrayList<>(commands.build());
+        roots.add(own.aura());
+        return List.copyOf(roots);
+    }
+
+    /**
+     * The two arguments a person cannot be expected to remember.
+     *
+     * Both sources are already in memory for the boards, so a keystroke costs a list walk rather than a query -
+     * which is the rule a suggestion source has to meet, because Brigadier asks once per keystroke per client.
+     */
+    private static void registerSuggestions(
+            final PaperCommands commands,
+            final java.util.function.Supplier<MilestoneTrack> track,
+            final SeasonState season) {
+        commands.suggest(SmpCommands.UNLOCK_MILESTONE, "key", () -> track.get().keys());
+        commands.suggest(
+                SmpCommands.COMPLETE_OBJECTIVE,
+                "key",
+                // The ACTIVE milestone's objectives; the whole track would suggest keys that are always refused.
+                () -> season.active().objectives().stream()
+                        .map(ObjectiveRow::key)
+                        .toList());
+    }
+
+    /**
+     * /update, declared once and served like any other command.
+     *
+     * Target.LOCAL, since the effect is a row in a table this plugin already has a pool for, and an update is what
+     * somebody asks for when the network is misbehaving.
+     */
+    private static void registerUpdateCommands(
+            final PaperCommands commands, final Plugin plugin, final UpdateWatcher updates) {
         final UpdateEffects updateEffects = new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
                 updates.directory(),
                 work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
                 (what, failure) ->
                         plugin.getLogger().warning("An update command failed while " + what + ": " + failure),
                 updates::watch);
-
-        // The two arguments a person cannot be expected to remember. Both sources are already in
-        // memory for the boards, so a keystroke costs a list walk rather than a query - which is the
-        // rule a suggestion source has to meet, because Brigadier asks once per keystroke per
-        // client.
-        commands.suggest(SmpCommands.UNLOCK_MILESTONE, "key", () -> track.get().keys());
-        commands.suggest(
-                SmpCommands.COMPLETE_OBJECTIVE,
-                "key",
-                // The ACTIVE milestone's objectives, because that is the only milestone this
-                // command can close one of - offering the whole track would suggest keys that are
-                // always refused.
-                () -> season.active().objectives().stream()
-                        .map(ObjectiveRow::key)
-                        .toList());
-
-        // /update, folded into :commands on 2026-09-08. It used to hang under /smp as a subtree
-        // this adapter knew nothing about, with a comment saying it should never become a
-        // NordtalCommand - because "steward-worker's report must not be rendered twice". That rule was
-        // deliberately rewritten the day before: what must not happen twice is the DECIDING, and
-        // the report is now data that every surface draws. So the command is declared once and
-        // this server serves it like any other.
-        //
-        // Target.LOCAL, so it never travels: the effect is a row in a table this plugin already has
-        // a pool for, and an update is what somebody asks for when the network is misbehaving.
         for (final NordtalCommand<UpdateEffects> command : UpdateCommands.all()) {
             commands.local(command, updateEffects);
         }
+    }
 
-        // /aura and /smp status: what a player types here, native rather than declared - see
-        // PlayerCommands. status hangs under the declared /smp root as an open subtree, which is
-        // also what keeps that root in a player's tree now that everything else under it is the
-        // console's.
+    /**
+     * /aura and /smp status: what a player types here, native rather than declared - see {@link PlayerCommands}.
+     * status hangs under the declared /smp root as an open subtree, which is also what keeps that root in a player's
+     * tree now that everything else under it is the console's.
+     */
+    private static PlayerCommands registerPlayerCommands(
+            final PaperCommands commands,
+            final BukkitSmpEffects effects,
+            final Plugin plugin,
+            final Messages messages,
+            final PlayerLocales locales,
+            final Identities identities,
+            final SmpSounds sounds,
+            final java.util.function.Supplier<ToneColours> colours) {
         final PlayerCommands own = new PlayerCommands(
                 effects,
                 effects,
@@ -142,10 +166,6 @@ public final class SmpCommand {
                                 colours)
                         : PaperUser.console(plugin, sender, messages, colours));
         commands.extraOpen("smp", own.status());
-
-        commands.remoteAll(Catalogue.all());
-        final List<LiteralCommandNode<CommandSourceStack>> roots = new ArrayList<>(commands.build());
-        roots.add(own.aura());
-        return List.copyOf(roots);
+        return own;
     }
 }

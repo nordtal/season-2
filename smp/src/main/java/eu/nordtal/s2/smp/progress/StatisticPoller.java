@@ -17,26 +17,30 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Counts {@code STATISTIC} objectives by reading each player's vanilla statistic and crediting the
- * difference since it was last read.
+ * Counts {@code STATISTIC} objectives by reading each player's vanilla statistic.
  *
- * <h2>Why polling rather than events</h2>
- * Decided 2026-09-01. The alternative was a handler per kind of statistic - precise to the second,
- * and a new Java class plus a release for every objective that counts something new. This way a new
- * objective is a line in {@code milestones.yml} and nothing else, which is what makes the track
- * retunable mid-season by somebody who is not writing code. The cost is that progress moves in steps
- * of a few seconds rather than instantly, and a shared objective's bar is a scoreboard rather than a
- * mechanic.
+ * It credits the difference since it was last read.
  *
- * <h2>Baselines</h2>
- * A player's statistic is a lifetime total, so the first read of a session credits nothing - it only
- * records where they started. Otherwise the first poll after a restart would credit every block
- * anybody had ever mined, and the season's first objective would complete in a tick.
+ * <b>Why polling rather than events</b>
  *
- * <p>The reads happen on the main thread, because a player's statistics are server state. They are
- * cheap - a map lookup each - and the crediting that follows is handed to an async task.
+ * By decision. The alternative was a handler per kind of statistic - precise to the second, and a new Java class
+ * plus a release
+ * for every objective that counts something new. This way a new objective is a line in
+ * {@code milestones.yml} and nothing else, which is what makes the track retunable mid-season by somebody who is not
+ * writing code. The cost is that progress moves in steps of a few seconds rather than instantly, and a shared
+ * objective's bar is a scoreboard rather than a mechanic.
+ *
+ * <b>Baselines</b>
+ *
+ * A player's statistic is a lifetime total, so the first read of a session credits nothing - it only records where
+ * they started. Otherwise the first poll after a restart would credit every block anybody had ever mined, and the
+ * season's first objective would complete in a tick.
+ *
+ * The reads happen on the main thread, because a player's statistics are server state. They are cheap - a map lookup
+ * each - and the crediting that follows is handed to an async task.
  */
 public final class StatisticPoller {
 
@@ -47,10 +51,10 @@ public final class StatisticPoller {
     /**
      * The milestone track, <b>as a supplier</b>.
      *
-     * <p>{@code /smp reload} replaces the plugin's track with a new instance - that is the whole
-     * reason {@code milestones.yml} is a separate reloadable file, because a milestone is appended
-     * and a target lowered mid-season. A reference captured at enable would go on reading the
-     * definitions the server started with, for the rest of the season, and nothing would say so.</p>
+     * {@code /smp reload} replaces the plugin's track with a new instance - that is the whole reason
+     * {@code milestones.yml} is a separate reloadable file, because a milestone is appended and a target lowered
+     * mid-season. A reference captured at enable would go on reading the definitions the server started with, for the
+     * rest of the season, and nothing would say so.
      */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
@@ -63,18 +67,17 @@ public final class StatisticPoller {
     /**
      * The track the baselines in {@link #baselines} were sampled under.
      *
-     * <p>A baseline is a raw statistic value paired with an objective <em>key</em>, and a reload can
-     * change what that key means: an objective counting coal that starts counting coal and iron
-     * reads far higher on the next poll, and the whole difference would be credited as progress
-     * somebody just made. Nothing about the stored number says which definition produced it, so the
-     * only honest answer when the track changes is to start again.</p>
+     * A baseline is a raw statistic value paired with an objective <em>key</em>, and a reload can change what that key
+     * means: an objective counting coal that starts counting coal and iron reads far higher on the next poll, and the
+     * whole difference would be credited as progress somebody just made. Nothing about the stored number says which
+     * definition produced it, so the only honest answer when the track changes is to start again.
      *
-     * <p>It costs one tick of progress per player, which is exactly what the first read of a session
-     * already costs and for the same reason - see {@link #sample}.</p>
+     * It costs one tick of progress per player, which is exactly what the first read of a session already costs and for
+     * the same reason - see {@link #sample} .
      */
-    private MilestoneTrack sampledUnder;
+    private @Nullable MilestoneTrack sampledUnder;
 
-    private BukkitTask task;
+    private @Nullable BukkitTask task;
 
     public StatisticPoller(
             final Plugin plugin,
@@ -125,19 +128,18 @@ public final class StatisticPoller {
                 continue;
             }
             for (final Player player : Bukkit.getOnlinePlayers()) {
-                sample(player, objective, activeKey.get());
+                sample(player, objective);
             }
         }
     }
 
-    private void sample(final Player player, final Objective objective, final String milestoneKey) {
+    private void sample(final Player player, final Objective objective) {
         final long now = read(player, objective);
         final Map<String, Long> forPlayer = baselines.computeIfAbsent(player.getUniqueId(), key -> new HashMap<>());
         final Long previous = forPlayer.put(objective.key(), now);
 
         if (previous == null || now <= previous) {
-            // First read of the session, or a statistic that somehow went backwards. Either way
-            // there is nothing honest to credit.
+            // First read of the session, or a statistic that went backwards; nothing honest to credit either way.
             return;
         }
         final long delta = now - previous;
@@ -153,8 +155,8 @@ public final class StatisticPoller {
     /**
      * Sums the statistic across every subject the objective names.
      *
-     * <p>An objective can count several things as one - "coal, iron and copper ore mined" is one
-     * number to the community - so the subjects are added together rather than tracked apart.
+     * An objective can count several things as one - "coal, iron and copper ore mined" is one number to the community -
+     * so the subjects are added together rather than tracked apart.
      */
     private long read(final Player player, final Objective objective) {
         final Statistic statistic = statisticOf(objective);
@@ -183,13 +185,12 @@ public final class StatisticPoller {
                 case UNTYPED -> player.getStatistic(statistic);
             };
         } catch (final IllegalArgumentException exception) {
-            // A name the config got wrong. Said once per poll would be spam, so it is said here and
-            // the objective simply does not move - which is loud in its own way, on the board.
+            // A name the config got wrong; said once here rather than every poll.
             return 0L;
         }
     }
 
-    private Statistic statisticOf(final Objective objective) {
+    private @Nullable Statistic statisticOf(final Objective objective) {
         if (objective.statistic() == null || objective.statistic().isBlank()) {
             return null;
         }
@@ -203,10 +204,9 @@ public final class StatisticPoller {
     /**
      * Which milestone is accepting progress, pushed in rather than queried.
      *
-     * <p>{@link #poll} runs on the main thread every five seconds, so it must not touch the
-     * database. The same async sweep that refreshes the boards and the HUD tells this poller too,
-     * and being one sweep behind costs nothing: an objective that became active four seconds ago
-     * starts counting four seconds late.
+     * {@link #poll} runs on the main thread every five seconds, so it must not touch the database. The same async sweep
+     * that refreshes the boards and the HUD tells this poller too, and being one sweep behind costs nothing: an
+     * objective that became active four seconds ago starts counting four seconds late.
      */
     private volatile Optional<String> activeMilestone = Optional.empty();
 

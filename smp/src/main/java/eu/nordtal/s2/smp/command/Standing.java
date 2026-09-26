@@ -8,8 +8,8 @@ import java.util.UUID;
 /**
  * The two reads a player's own commands need - {@code /aura} and {@code /smp status}.
  *
- * <p>An interface only so {@link PlayerCommands} can be asserted without a server;
- * {@link BukkitSmpEffects} is the one real answer.</p>
+ * An interface only so {@link PlayerCommands} can be asserted without a server; {@link BukkitSmpEffects} is the one
+ * real answer.
  */
 public interface Standing {
 
@@ -27,8 +27,9 @@ public interface Standing {
     record Status(String phase, boolean read, Optional<String> milestone, int percent, int online) {}
 
     /**
-     * One line of the aura leaderboard, already resolved to a name. {@code you} is what lets the
-     * asker's own line be coloured differently.
+     * One line of the aura leaderboard, already resolved to a name.
+     *
+     * {@code you} is what lets the asker's own line be coloured differently.
      */
     record AuraLine(int place, String player, int aura, boolean you) {}
 
@@ -49,8 +50,8 @@ public interface Standing {
     /**
      * Where somebody stands, and the top of the board, in one read. Off the main thread.
      *
-     * <p>Empty when this account has no Discord link - which the login gate makes impossible in
-     * practice and which this layer must not assume, because the gate is another process's rule.</p>
+     * Empty when this account has no Discord link - which the login gate makes impossible in practice and which this
+     * layer must not assume, because the gate is another process's rule.
      */
     Optional<AuraStanding> auraStanding(UUID player);
 }

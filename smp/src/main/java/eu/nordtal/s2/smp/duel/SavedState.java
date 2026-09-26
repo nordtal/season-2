@@ -2,37 +2,67 @@ package eu.nordtal.s2.smp.duel;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Objects;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Everything a duel borrows from a player, so that all of it can be given back.
  *
- * <p>The arena's inventory, health, effects and experience are the duel's own; the player's real
- * state must come back untouched, so it is taken in one place and restored in one place.
+ * The arena's inventory, health, effects and experience are the duel's own; the player's real state must come back
+ * untouched, so it is taken in one place and restored in one place.
  *
- * <p>Deliberately not persisted: a saved state that outlived a restart would be a second copy of
- * somebody's inventory sitting in a file, which is worse than an interrupted duel.
+ * Deliberately not persisted: a saved state that outlived a restart would be a second copy of somebody's inventory
+ * sitting in a file, which is worse than an interrupted duel.
+ *
+ * Not a record: {@code inventory} and {@code armour} are {@code ItemStack[]}, and a record component may never be
+ * one - a record's canonical accessor hands back the field itself, so anyone holding the state could mutate the
+ * player's own saved gear. A plain class with cloning accessors keeps the saved state itself immutable.
  */
-public record SavedState(
-        Location location,
-        ItemStack[] inventory,
-        ItemStack[] armour,
-        double health,
-        int foodLevel,
-        float saturation,
-        int level,
-        float experience,
-        GameMode gameMode,
-        Collection<PotionEffect> effects) {
+public final class SavedState {
+
+    private final Location location;
+    private final ItemStack[] inventory;
+    private final ItemStack[] armour;
+    private final double health;
+    private final int foodLevel;
+    private final float saturation;
+    private final int level;
+    private final float experience;
+    private final GameMode gameMode;
+    private final Collection<PotionEffect> effects;
+
+    private SavedState(
+            final Location location,
+            final ItemStack[] inventory,
+            final ItemStack[] armour,
+            final double health,
+            final int foodLevel,
+            final float saturation,
+            final int level,
+            final float experience,
+            final GameMode gameMode,
+            final Collection<PotionEffect> effects) {
+        this.location = location;
+        this.inventory = inventory.clone();
+        this.armour = armour.clone();
+        this.health = health;
+        this.foodLevel = foodLevel;
+        this.saturation = saturation;
+        this.level = level;
+        this.experience = experience;
+        this.gameMode = gameMode;
+        this.effects = effects;
+    }
 
     public static SavedState of(final Player player) {
         return new SavedState(
-                player.getLocation(),
+                Objects.requireNonNull(player.getLocation()),
                 player.getInventory().getContents().clone(),
                 player.getInventory().getArmorContents().clone(),
                 player.getHealth(),
@@ -47,13 +77,13 @@ public record SavedState(
     /**
      * Puts a player back exactly as they were, somewhere other than where they were standing.
      *
-     * <p>The duel ends at the spawn rather than on the platform, so the location is the one thing
-     * this restore does <em>not</em> put back.</p>
+     * The duel ends at the spawn rather than on the platform, so the location is the one thing this restore does
+     * <em>not</em> put back.
      *
      * @param player the fighter
-     * @param where  where to put them
+     * @param where where to put them
      */
-    public void restore(final Player player, final Location where) {
+    public void restore(final Player player, final @Nullable Location where) {
         restoreWithout(player);
         player.teleport(where == null ? location : where);
     }

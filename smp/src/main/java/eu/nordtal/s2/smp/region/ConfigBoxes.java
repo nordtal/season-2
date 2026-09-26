@@ -1,14 +1,16 @@
 package eu.nordtal.s2.smp.region;
 
+import eu.nordtal.s2.smp.config.BalloonSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
+import eu.nordtal.s2.smp.config.SpawnRegionSpec;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Turns the two box lists in {@code config.yml} into {@link Boxes}.
  *
- * <p>Its own class so that {@link Box} and {@link Boxes} stay free of the config system and can be
- * tested as plain values - the conversion is the only place the two worlds meet.
+ * Its own class so that {@link Box} and {@link Boxes} stay free of the config system and can be tested as plain
+ * values - the conversion is the only place the two worlds meet.
  */
 public final class ConfigBoxes {
 
@@ -16,7 +18,7 @@ public final class ConfigBoxes {
 
     public static Boxes spawnRegions(final SmpSpec config) {
         final List<Box> boxes = new ArrayList<>();
-        for (final SmpSpec.SpawnRegionSpec region : config.spawnRegions()) {
+        for (final SpawnRegionSpec region : config.spawnRegions()) {
             boxes.add(new Box(
                     region.world(),
                     region.minX(),
@@ -32,7 +34,7 @@ public final class ConfigBoxes {
     /** The wheel of fortune's own box, the same shape for the same reason. */
     public static Boxes wheelRegions(final SmpSpec config) {
         final List<Box> boxes = new ArrayList<>();
-        for (final SmpSpec.SpawnRegionSpec region : config.wheelRegions()) {
+        for (final SpawnRegionSpec region : config.wheelRegions()) {
             boxes.add(new Box(
                     region.world(),
                     region.minX(),
@@ -47,7 +49,7 @@ public final class ConfigBoxes {
 
     public static Boxes balloons(final SmpSpec config) {
         final List<Box> boxes = new ArrayList<>();
-        for (final SmpSpec.BalloonSpec balloon : config.balloons()) {
+        for (final BalloonSpec balloon : config.balloons()) {
             boxes.add(new Box(
                     balloon.world(),
                     balloon.minX(),

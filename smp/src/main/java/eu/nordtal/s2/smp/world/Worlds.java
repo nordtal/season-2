@@ -1,8 +1,11 @@
 package eu.nordtal.s2.smp.world;
 
+import eu.nordtal.s2.smp.config.BalloonSpawnPointsSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
+import eu.nordtal.s2.smp.config.SpawnPointSpec;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -10,17 +13,16 @@ import org.bukkit.WorldBorder;
 import org.bukkit.WorldCreator;
 
 /**
- * The SMP's four worlds: finding them, creating the ones that are missing, and holding their
- * borders.
+ * The SMP's four worlds: finding them, creating the ones that are missing, and holding their borders.
  *
- * <p>Nordtal is expected to exist already - it is the {@code level-name} world, it carries the
- * built spawn. The other two are created here if the server has never seen them.
+ * Nordtal is expected to exist already - it is the {@code level-name} world, it carries the built spawn. The other
+ * two are created here if the server has never seen them.
  *
- * <p><b>Where a created world lands is not where the old Bukkit layout put it.</b> Measured on
- * Paper 26.2 build 121 on 2026-09-01: a world created through {@code WorldCreator} appears at
- * {@code <level-name>/dimensions/minecraft/<name>}, inside the primary world rather than beside it.
- * Nothing here hard-codes a path because of that; anything that needs a world's folder asks
- * {@link World#getWorldFolder()}, so the layout can move again without this breaking quietly.
+ * <b>Where a created world lands is not where the old Bukkit layout put it.</b> Measured on Paper 26.2 build 121:
+ * a world created through {@code WorldCreator} appears at
+ * {@code <level-name>/dimensions/minecraft/<name>}, inside the primary world rather than beside it. Nothing here
+ * hard-codes a path because of that; anything that needs a world's folder asks {@link World#getWorldFolder()}, so
+ * the layout can move again without this breaking quietly.
  */
 public final class Worlds {
 
@@ -35,22 +37,23 @@ public final class Worlds {
     }
 
     public String nameOf(final WorldRole role) {
-        return names.get(role);
+        // Every WorldRole is put in the map in the constructor above, so a lookup never misses.
+        return Objects.requireNonNull(names.get(role));
     }
 
     /**
      * Where the balloon puts a player down in that world.
      *
-     * <p><b>Not the world spawn.</b> The balloon travelled to {@code World#getSpawnLocation} until
-     * 2026-09-12; it now travels to a configured point per role, and the world spawn keeps whatever
-     * else it means - a bed-less respawn, a compass needle - without the balloon moving with it.
+     * <b>Not the world spawn.</b> The balloon used to travel to {@code World#getSpawnLocation}; it now
+     * travels to a configured point per role, and the world spawn keeps whatever else it means - a bed-less respawn, a
+     * compass needle - without the balloon moving with it.
      *
-     * <p>The point is a coordinate and not a promise, exactly like the world spawn was: it is put
-     * through {@code LandingSite#findSafeAt} at the call site, which is what keeps a wrong Y in the
-     * Nether from being a death rather than a landing.
+     * The point is a coordinate and not a promise, exactly like the world spawn was: it is put through
+     * {@code LandingSite#findSafeAt} at the call site, which is what keeps a wrong Y in the Nether from being a death
+     * rather than a landing.
      */
-    public SmpSpec.SpawnPointSpec balloonSpawnPoint(final WorldRole role) {
-        final SmpSpec.BalloonSpawnPointsSpec points = config.balloonSpawnPoints();
+    public SpawnPointSpec balloonSpawnPoint(final WorldRole role) {
+        final BalloonSpawnPointsSpec points = config.balloonSpawnPoints();
         return switch (role) {
             case NORDTAL -> points.nordtal();
             case NETHER -> points.nether();
@@ -83,9 +86,8 @@ public final class Worlds {
     /**
      * Loads or creates the three worlds that are not Nordtal.
      *
-     * <p>Nordtal is deliberately not created here. If it is absent, something is wrong with the
-     * deployment - the spawn is built into it - and inventing an empty replacement would hide that
-     * behind a world nobody recognises.
+     * Nordtal is deliberately not created here. If it is absent, something is wrong with the deployment - the spawn is
+     * built into it - and inventing an empty replacement would hide that behind a world nobody recognises.
      *
      * @return the Nordtal world, or empty when it does not exist
      */
@@ -111,12 +113,11 @@ public final class Worlds {
     /**
      * Puts every fixed border in place and centres Nordtal's.
      *
-     * <p>Nordtal's <em>size</em> is not set here: it comes from the milestone track and moves when
-     * a milestone unlocks, which is {@link #expandNordtal} below. Everything else is a constant
-     * from {@code config.yml}.
+     * Nordtal's <em>size</em> is not set here: it comes from the milestone track and moves when a milestone unlocks,
+     * which is {@link #expandNordtal} below. Everything else is a constant from {@code config.yml}.
      *
-     * <p>The two secondary worlds are centred on 0/0, which is where {@link #balloonSpawnPoint} defaults to - Nordtal is the only world whose
-     * centre is a built place and therefore the only one that needs a configured one.
+     * The two secondary worlds are centred on 0/0, which is where {@link #balloonSpawnPoint} defaults to - Nordtal is
+     * the only world whose centre is a built place and therefore the only one that needs a configured one.
      */
     public void applyFixedBorders() {
         world(WorldRole.NORDTAL).ifPresent(world -> {
@@ -138,14 +139,14 @@ public final class Worlds {
     /**
      * Sets Nordtal's border, animating the change when it is a growth.
      *
-     * <p>Minecraft does the interpolation itself, which is why there is no tick loop here: given a
-     * duration it moves the wall at a steady speed and every client renders it. The speed comes
-     * from {@code border-expansion-blocks-per-second}, deliberately about a quarter to a half of
-     * walking pace - the final expansion's 1 550 blocks then take somewhere between a quarter of an
-     * hour and half an hour to travel, which is meant to be a ceremony rather than a hiccup.
+     * Minecraft does the interpolation itself, which is why there is no tick loop here: given a duration it moves
+     * the wall at a steady speed and every client renders it. The speed comes from
+     * {@code border-expansion-blocks-per-second}, deliberately about a quarter to a half of walking pace - the final
+     * expansion's 1 550 blocks then take somewhere between a quarter of an hour and half an hour to travel, which is
+     * meant to be a ceremony rather than a hiccup.
      *
      * @param diameter the new diameter
-     * @param animate  false when putting the border back after a restart, true on a real unlock
+     * @param animate false when putting the border back after a restart, true on a real unlock
      */
     public void expandNordtal(final int diameter, final boolean animate) {
         world(WorldRole.NORDTAL).ifPresent(world -> {
@@ -157,13 +158,11 @@ public final class Worlds {
                 border.setSize(diameter);
                 return;
             }
-            // Seconds for the WALL to travel, so half the diameter change - a border grows from
-            // both sides at once and using the whole delta would run it at double the intended
-            // speed.
+            // Seconds for the WALL to travel, so half the diameter change: a border grows from both sides at once.
             final double travel = (diameter - current) / 2.0;
             final long seconds =
                     Math.max(1L, Math.round(travel / Math.max(0.0001, config.borderExpansionBlocksPerSecond())));
-            border.setSize(diameter, seconds);
+            border.changeSize(diameter, seconds);
         });
     }
 }

@@ -12,6 +12,7 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.context.DiscordMemberContext;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.common.phase.SeasonDates;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -52,7 +53,8 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
 
             final SmpEffects.Access state = access.get();
             replyAccessState(user, name, state);
-            replyPayment(user, effects, name, state.discordId());
+            // readAccess already refused an unlinked account, so this state's discordId is never null.
+            replyPayment(user, effects, name, Objects.requireNonNull(state.discordId()));
         });
     }
 
@@ -75,8 +77,13 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
     }
 
     private static void replyAccessState(final NordtalUser user, final String name, final SmpEffects.Access state) {
+        // readAccess already refused an unlinked account, so this state's discordId is never null.
         user.reply(
-                MESSAGES.smp().access().linked(new PlayerContext(name), new DiscordMemberContext(state.discordId())),
+                MESSAGES.smp()
+                        .access()
+                        .linked(
+                                new PlayerContext(name),
+                                new DiscordMemberContext(Objects.requireNonNull(state.discordId()))),
                 Tone.NEUTRAL);
 
         if (state.accessActive() && state.validUntil() != null) {

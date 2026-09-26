@@ -86,6 +86,11 @@ class CommandFilterWiringTest {
                 Files.isRegularFile(path),
                 relative + " is missing - a renamed module has to move with this list, because a"
                         + " missing file is a check that silently stops running");
-        return Files.readString(path, StandardCharsets.UTF_8);
+        // A plugin may delegate its start to a sibling <Name>Start.java; the wiring is read from both.
+        final Path start = path.resolveSibling(path.getFileName().toString().replace("Plugin.java", "Start.java"));
+        final String own = Files.readString(path, StandardCharsets.UTF_8);
+        return Files.isRegularFile(start) && !start.equals(path)
+                ? own + "\n" + Files.readString(start, StandardCharsets.UTF_8)
+                : own;
     }
 }

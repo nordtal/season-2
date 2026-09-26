@@ -14,24 +14,21 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * What a player looks like on the three surfaces they appear on.
  *
- * <p>The composition is the most visible thing in the season - it is in front of every chat line and
- * above every head - and it is also the easiest to get subtly wrong, because the three surfaces show
- * <em>different subsets</em> of the same six elements. The one that matters most is the nametag's
- * omission: aura changes on every death, every hand-in and every duel, and carrying it on a nametag
- * would mean a packet to everyone in range each time.
+ * The composition is the most visible thing in the season - it is in front of every chat line and above every head -
+ * and it is also the easiest to get subtly wrong, because the three surfaces show <em>different subsets</em> of the
+ * same six elements. The one that matters most is the nametag's omission: aura changes on every death, every hand-in
+ * and every duel, and carrying it on a nametag would mean a packet to everyone in range each time.
  *
- * <h2>The name's colour (season-2-ingame/23)</h2>
- * Before this ticket every name was the exact same {@code NamedTextColor.GRAY}, everywhere, on
- * purpose. {@link #twoDifferentPrestigeTiersAreColouredDifferently} is the test that used to fail
- * against that: two identities that differ only in play time produced two components whose name
- * segment carried the identical colour. See the ticket for the verbatim red this test produced
- * before {@code PlayerComposition#name} read the prestige palette.
+ * <b>The name's colour</b>
+ *
+ * {@link #twoDifferentPrestigeTiersAreColouredDifferently} asserts that two identities differing only in play time
+ * produce components whose name segment carries a different colour, proving {@code PlayerComposition#name} actually
+ * reads the prestige palette rather than a fixed grey.
  */
 class PlayerCompositionTest {
 
@@ -39,17 +36,13 @@ class PlayerCompositionTest {
             new PlayerComposition(Prestige::defaults, () -> PrestigeColours.DEFAULTS);
 
     /**
-     * The ladder is asked for on every render, not captured once (steward/130).
+     * The ladder is asked for on every render, not captured once.
      *
-     * <p>Until this ticket the hours lived in {@code config.yml} and were read at enable, so
-     * {@code /smp reload} moved the colours and left the thresholds where they were - which reads,
-     * from the game, as a saved change that did nothing. They live in {@code prestige.yml} beside
-     * the colours now and reload with them, and <b>this supplier is the whole of what makes that
-     * true</b>: a {@code PlayerComposition} holding a {@code Prestige} would take the new file and
-     * keep the old table.</p>
+     * The hours live in {@code prestige.yml} beside the colours now and reload with them, and <b>this supplier is the
+     * whole of what makes that true</b>: a {@code PlayerComposition} holding a {@code Prestige} would take the new file
+     * and keep the old table.
      */
     @Test
-    @DisplayName("a reloaded ladder changes the tier without the composition being rebuilt")
     void theLadderIsReadThroughTheSupplierEveryTime() {
         final java.util.concurrent.atomic.AtomicReference<Prestige> ladder =
                 new java.util.concurrent.atomic.AtomicReference<>(Prestige.defaults());
@@ -58,9 +51,7 @@ class PlayerCompositionTest {
         final Identity player = new Identity(Locale.GERMAN, false, false, 0, 2 * 3600L);
         final TextColor before = colourOfName(live.chatPrefix("Alice", player), "Alice");
 
-        // The same edit an operator makes in steward and saves: tier 2 now wants one hour and tier
-        // 3 two, so the same player stands a tier higher without having played a second more - and
-        // therefore wears tier 3's colour instead of tier 2's.
+        // The same edit steward makes: tier 3's hour requirement drops, so a player stands a tier higher untouched.
         ladder.set(new Prestige(java.util.List.of(0, 1, 2, 10, 20, 35, 55, 85, 125, 175, 250, 350, 500)));
         final TextColor after = colourOfName(live.chatPrefix("Alice", player), "Alice");
 
@@ -82,9 +73,10 @@ class PlayerCompositionTest {
     }
 
     /**
-     * Finds the colour of whichever child component's own text is exactly {@code name} -
-     * {@code PlayerComposition#name} sets it explicitly, so a child that lost track of its own
-     * colour would show up here as {@code null} rather than silently inheriting one from a sibling.
+     * Finds the colour of whichever child component's own text is exactly {@code name}.
+     *
+     * {@code PlayerComposition#name} sets it explicitly, so a child that lost track of its own colour would show
+     * up here as {@code null} rather than silently inheriting one from a sibling.
      */
     private static TextColor colourOfName(final Component root, final String name) {
         if (root instanceof TextComponent text && name.equals(text.content())) {
@@ -145,8 +137,9 @@ class PlayerCompositionTest {
     }
 
     /**
-     * Everybody has a crest from their first minute - {@link Prestige#tierOf} floors at tier one -
-     * so the composition never has to reflow around a missing piece.
+     * Everybody has a crest from their first minute - {@link Prestige#tierOf} floors at tier one.
+     *
+     * So the composition never has to reflow around a missing piece.
      */
     @Test
     void everybodyHasACrestAndItRisesWithTime() {
@@ -167,10 +160,7 @@ class PlayerCompositionTest {
                 .contains(Glyphs.FLAG_OTHER));
     }
 
-    /**
-     * season-2-ingame/23's whole point, and the red this ticket asked for: before the fix, both
-     * identities' name segments came back {@code NamedTextColor.GRAY} and this assertion failed.
-     */
+    /** Two identities differing only in play time must not share a name colour. */
     @Test
     void twoDifferentPrestigeTiersAreColouredDifferently() {
         final Identity tierOne = new Identity(Locale.GERMAN, false, false, 0, 0L);
@@ -190,9 +180,10 @@ class PlayerCompositionTest {
     }
 
     /**
-     * Every tier gets the hex {@code prestige.yml} declares for it, on every surface the
-     * name is drawn on - the "everywhere" the ticket asks for follows from all three calling the
-     * same {@code name} method, and this pins that down for each surface individually.
+     * Every tier gets the hex {@code prestige.yml} declares for it, on every surface the name is drawn on.
+     *
+     * The "everywhere" that is asked for follows from all three calling the same {@code name} method, and this
+     * pins that down for each surface individually.
      */
     @Test
     void everySurfacePaintsTheSameTierTheSameColour() {
@@ -206,8 +197,10 @@ class PlayerCompositionTest {
     }
 
     /**
-     * The admin colour wins over the tier, on every surface - it is not a fourteenth tier, so an
-     * admin at tier 13 must not show tier 13's colour just because it is the highest.
+     * The admin colour wins over the tier, on every surface.
+     *
+     * It is not a fourteenth tier, so an admin at tier 13 must not show tier 13's colour just because it is the
+     * highest.
      */
     @Test
     void theAdminColourWinsOverTheProminentTier() {

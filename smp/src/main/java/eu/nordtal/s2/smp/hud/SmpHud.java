@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
@@ -29,25 +30,22 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The SMP's two boss bar lines, drawn with the same technique as the hunger games': the vanilla bar
- * made invisible by the resource pack, and one rounded pill per piece of information, each sized to
- * what it holds ({@link BossBarLine}).
+ * The SMP's two boss bar lines, drawn with the same technique as the hunger games' bar.
  *
- * <table>
- *   <caption>the two lines</caption>
- *   <tr><th>line</th><th>when</th><th>shows</th></tr>
- *   <tr><td>1</td><td>always</td><td>the current dimension, and the current milestone with its
- *       progress - the dimension alone once the track has run out</td></tr>
- *   <tr><td>2</td><td>only while {@code /navigate} is active</td><td>the target, an arrow to it and
- *       the distance</td></tr>
- * </table>
+ * The vanilla bar is made invisible by the resource pack, and one rounded pill per piece of information is drawn,
+ * each sized to what it holds ({@link BossBarLine}).
  *
- * <p><b>There is no season countdown</b>, and there never will be one: the season has no fixed end
+ * The two lines: line 1 is always shown and carries the current dimension, and the current
+ * milestone with its progress - the dimension alone once the track has run out. Line 2 shows only
+ * while {@code /navigate} is active, and carries the target, an arrow to it and the distance.
+ *
+ * <b>There is no season countdown</b>, and there never will be one: the season has no fixed end
  * date, and nothing in this design may depend on knowing when it stops.
  *
- * <p>Line 2 is hidden rather than emptied when nobody is navigating. An empty bar still occupies its
+ * Line 2 is hidden rather than emptied when nobody is navigating. An empty bar still occupies its
  * strip of screen, and {@code /navigate} being off by default means most players would see that
  * strip most of the time.
  */
@@ -59,9 +57,8 @@ public final class SmpHud {
     /**
      * How long a status-bar announcement stays up before the ordinary line comes back.
      *
-     * <p>Short, because the bar's ordinary line is the one that carries the dimension and the
-     * milestone: an announcement that held it for longer would hide both to say something that
-     * has already been read.
+     * Short, because the bar's ordinary line is the one that carries the dimension and the milestone: an announcement
+     * that held it for longer would hide both to say something that has already been read.
      */
     private static final Duration ANNOUNCEMENT = Duration.ofSeconds(8);
 
@@ -78,12 +75,12 @@ public final class SmpHud {
     /**
      * Who is currently being told something, and until when.
      *
-     * <p>Main thread only, hence the plain {@link HashMap}. A stale entry is dropped by the tick
-     * that reads it rather than by a sweep.
+     * Main thread only, hence the plain {@link HashMap}. A stale entry is dropped by the tick that reads it rather than
+     * by a sweep.
      */
     private final Map<UUID, Announcement> announcements = new HashMap<>();
 
-    private BukkitTask task;
+    private @Nullable BukkitTask task;
 
     /** One line, and the nanoTime it stops being shown. */
     private record Announcement(String line, long until) {}
@@ -122,8 +119,7 @@ public final class SmpHud {
     /**
      * Takes the status line over for {@link #ANNOUNCEMENT}, keeping the dimension icon. Main thread.
      *
-     * <p>The icon stays: a bar that changes shape as well as text reads as a glitch rather than as
-     * a message.
+     * The icon stays: a bar that changes shape as well as text reads as a glitch rather than as a message.
      *
      * @param line already rendered, in the player's own language, and short enough for the bar
      */
@@ -175,8 +171,9 @@ public final class SmpHud {
     }
 
     /**
-     * The world's pill, then the milestone's - or the world's alone once there is no milestone
-     * left. An announcement takes the world's pill over rather than adding a third.
+     * The world's pill, then the milestone's - or the world's alone once there is no milestone left.
+     *
+     * An announcement takes the world's pill over rather than adding a third.
      */
     List<Pill> statusLine(final Player player, final Locale locale) {
         final String dimension =
@@ -205,18 +202,19 @@ public final class SmpHud {
 
     /** The target's pill, led by the arrow to it, then the distance's. */
     List<Pill> navigateLine(final Player player, final Locale locale, final NavigationTarget target) {
-        final String label =
-                target.kind() == NavigationTarget.Kind.POI ? target.label() : messages.format(locale, target.name());
+        // Non-null exactly when kind() is POI: NavigationTarget.poi() is the only factory that supplies one.
+        final String label = target.kind() == NavigationTarget.Kind.POI
+                ? Objects.requireNonNull(target.label())
+                : messages.format(locale, target.name());
 
-        // A target in another world has no bearing worth drawing: the arrow would spin and the
-        // distance would span two unrelated coordinate systems.
+        // A target in another world has no bearing worth drawing.
         if (!target.isIn(player.getWorld().getName())) {
             return List.of(
                     Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, label),
                     Pill.of(messages.format(locale, MESSAGES.smp().hud().navigateOtherWorld())));
         }
 
-        final Location at = player.getLocation();
+        final Location at = Objects.requireNonNull(player.getLocation());
         final int arrow = Bearing.arrowIndex(at.getX(), at.getZ(), at.getYaw(), target.x(), target.z());
         final long distance = Math.round(Math.hypot(target.x() - at.getX(), target.z() - at.getZ()));
 
@@ -226,7 +224,7 @@ public final class SmpHud {
     }
 
     /** The live announcement for a player, or null - dropping it here rather than on a timer. */
-    private String announcementFor(final UUID player) {
+    private @Nullable String announcementFor(final UUID player) {
         final Announcement announcement = announcements.get(player);
         if (announcement == null) {
             return null;

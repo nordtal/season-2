@@ -6,15 +6,14 @@ import java.util.Objects;
 /**
  * The prestige crest: a tier from 1 to 13, derived from a player's total online time.
  *
- * <p>AFK time counts on purpose: this measures presence, not effort, which is why play time is not
- * an aura source.
+ * AFK time counts on purpose: this measures presence, not effort, which is why play time is not an aura source.
  *
- * <p><b>The tier is derived, never stored</b>, so retuning the thresholds is a config edit rather
- * than a migration and a backfill. This class therefore has no state and no database: it is called
- * from render paths many times a second and must never do anything but arithmetic.
+ * <b>The tier is derived, never stored</b>, so retuning the thresholds is a config edit rather than a migration and
+ * a backfill. This class therefore has no state and no database: it is called from render paths many times a second
+ * and must never do anything but arithmetic.
  *
- * <p>The seconds come from {@code player_playtime}, written by <b>the proxy</b>: only the proxy
- * sees a whole session across servers.
+ * The seconds come from {@code player_playtime}, written by <b>the proxy</b>: only the proxy sees a whole session
+ * across servers.
  */
 public final class Prestige {
 
@@ -22,15 +21,16 @@ public final class Prestige {
     public static final int MINIMUM_TIER = 1;
 
     /**
-     * The number of crest designs the resource pack draws, and therefore a hard cap rather than a
-     * configuration choice: {@code Glyphs} allocates thirteen code points and a fourteenth tier
-     * would have nothing to render as.
+     * The number of crest designs the resource pack draws, and therefore a hard cap rather than a configuration choice.
+     *
+     * {@code Glyphs} allocates thirteen code points, and a fourteenth tier would have nothing to render as.
      */
     public static final int TIER_COUNT = 13;
 
     /**
-     * The config default, in hours, calibrated so tier 13 is reachable in two to three months by
-     * somebody who plays regularly.
+     * The config default, in hours.
+     *
+     * Calibrated so tier 13 is reachable in two to three months by somebody who plays regularly.
      */
     public static final List<Integer> DEFAULT_THRESHOLD_HOURS =
             List.of(0, 2, 5, 10, 20, 35, 55, 85, 125, 175, 250, 350, 500);

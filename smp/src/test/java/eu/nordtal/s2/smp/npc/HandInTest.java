@@ -10,9 +10,9 @@ import org.junit.jupiter.api.Test;
 /**
  * The one place in this design where a bug takes items off a player and gives nothing back.
  *
- * <p>Everything asserted here is a refusal: refusing to take what no objective wants, refusing to
- * take more than is still needed, and - the case worth the whole test class - refusing to swallow
- * the surplus of a stack that straddles the target.
+ * Everything asserted here is a refusal: refusing to take what no objective wants, refusing to take more than is
+ * still needed, and - the case worth the whole test class - refusing to swallow the surplus of a stack that
+ * straddles the target.
  */
 class HandInTest {
 

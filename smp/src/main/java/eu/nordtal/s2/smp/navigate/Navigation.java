@@ -8,11 +8,11 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Who is currently navigating where.
  *
- * <p>{@code /navigate} is off by default and switched on by the player, so the absence of an entry
- * here is the normal state and not a missing value. HUD line 2 exists only while there is one.
+ * {@code /navigate} is off by default and switched on by the player, so the absence of an entry here is the normal
+ * state and not a missing value. HUD line 2 exists only while there is one.
  *
- * <p>Deliberately not persisted: a navigation that survived a relog would point somebody at a place
- * they had already given up on.
+ * Deliberately not persisted: a navigation that survived a relog would point somebody at a place they had already
+ * given up on.
  */
 public final class Navigation {
 
@@ -37,8 +37,7 @@ public final class Navigation {
     /**
      * Drops every navigation pointing into a world.
      *
-     * <p>Called when a POI is deleted: the arrow would otherwise point confidently at a target
-     * that no longer exists.
+     * Called when a POI is deleted: the arrow would otherwise point confidently at a target that no longer exists.
      */
     public void clearWorld(final String world) {
         active.entrySet().removeIf(entry -> entry.getValue().isIn(world));

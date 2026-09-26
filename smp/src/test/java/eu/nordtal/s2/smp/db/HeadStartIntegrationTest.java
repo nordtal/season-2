@@ -17,7 +17,6 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -27,19 +26,20 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * The start event winner's head start, against a real PostgreSQL running the real migrations.
  *
- * <h2>Why this needs a container</h2>
- * Every part of it is SQL. The lookup is a join across two tables written by a different module;
- * the claim is one {@code INSERT ... ON CONFLICT DO UPDATE WHERE}, whose entire value is what
- * PostgreSQL does with the second call - it affects zero rows, which is how "already paid" is told
- * apart from "just paid" without a read-then-write anybody can race. And the payout is a
- * transaction over two more tables. There is no seam here that an in-memory stand-in could hold.
+ * <b>Why this needs a container</b>
  *
- * <p>What is being protected is not subtle: <b>this pays out once per season, to one person, and it
- * cannot be taken back.</b> A second join a second later must not produce a second elytra, and a
- * practice game played months afterwards must not move the prize to somebody else.</p>
+ * Every part of it is SQL. The lookup is a join across two tables written by a different module; the claim is one
+ * {@code INSERT ... ON CONFLICT DO UPDATE WHERE}, whose entire value is what PostgreSQL does with the second call -
+ * it affects zero rows, which is how "already paid" is told apart from "just paid" without a read-then-write anybody
+ * can race. And the payout is a transaction over two more tables. There is no seam here that an in-memory stand-in
+ * could hold.
  *
- * <p>It <b>skips itself</b> when no Docker daemon is reachable, so a green build on a machine
- * without Docker proves none of it.</p>
+ * What is being protected is not subtle: <b>this pays out once per season, to one person, and it cannot be taken
+ * back.</b> A second join a second later must not produce a second elytra, and a practice game played months
+ * afterwards must not move the prize to somebody else.
+ *
+ * It <b>skips itself</b> when no Docker daemon is reachable, so a green build on a machine without Docker proves
+ * none of it.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class HeadStartIntegrationTest {
@@ -98,10 +98,7 @@ class HeadStartIntegrationTest {
                 .onDemand(SmpDao.class);
     }
 
-    // ---------------------------------------------------------------- finding the winner
-
     @Test
-    @DisplayName("a game that is still being played has no winner to pay")
     void anUndecidedGameYieldsNobody() {
         game("RUNNING", WINNER, "2026-09-01", true);
 
@@ -112,10 +109,8 @@ class HeadStartIntegrationTest {
     }
 
     @Test
-    @DisplayName("a decided game that nobody won yields nobody, rather than a row nobody can be paid")
     void aDecidedGameWithNoWinnerYieldsNobody() {
-        // Two of the four outcomes end here: a tiebreak that found no winner, and every participant
-        // dead with no simultaneous pair. Both write DECIDED with winner_member_id left null.
+        // A tiebreak with no winner and every participant dead both write DECIDED with winner_member_id null.
         game("DECIDED", WINNER, "2026-09-01", false);
 
         assertEquals(
@@ -125,7 +120,6 @@ class HeadStartIntegrationTest {
     }
 
     @Test
-    @DisplayName("the decided game's winner is found through hg_member")
     void theWinnerIsResolvedToADiscordId() {
         game("DECIDED", WINNER, "2026-09-01", true);
 
@@ -133,28 +127,20 @@ class HeadStartIntegrationTest {
     }
 
     @Test
-    @DisplayName("a practice game played later cannot move the head start")
     void theEarliestDecidedGameWins() {
         game("DECIDED", WINNER, "2026-09-01", true);
         game("DECIDED", SOMEBODY_ELSE, "2026-11-20", true);
 
-        // Ordering the other way round would hand the prize to whoever won the most recent game -
-        // months after the real one was very likely already paid out, and there is no way to take
-        // one back. The start event is the first hunger games this season plays.
+        // Ordering it the other way would pay whoever won most recently, months after the real payout, unrecoverably.
         assertEquals(
                 Optional.of(WINNER),
                 dao.startEventWinner(),
                 "the start event is the FIRST decided game, not the newest");
     }
 
-    // ---------------------------------------------------------------- claiming it
-
     @Test
-    @DisplayName("the winner has no smp_player row yet, and the claim makes one")
     void theClaimInsertsAPlayerWhoHasNeverEarnedAnything() {
-        // The winner of the start event has by definition played no SMP, so aura has never been
-        // written for them. An UPDATE-only claim would silently do nothing here - and answer "no",
-        // which reads exactly like "already paid".
+        // The winner has played no SMP, so no aura row exists yet; an UPDATE-only claim would silently say "no".
         assertEquals(0, playerRows(), "the winner starts with no row at all");
 
         assertTrue(dao.grantHeadStart(WINNER, AURA, REASON));
@@ -166,7 +152,6 @@ class HeadStartIntegrationTest {
     }
 
     @Test
-    @DisplayName("a second join pays nothing, and books nothing")
     void theClaimIsTakenExactlyOnce() {
         assertTrue(dao.grantHeadStart(WINNER, AURA, REASON));
 
@@ -180,10 +165,8 @@ class HeadStartIntegrationTest {
     }
 
     @Test
-    @DisplayName("an existing balance is added to, not replaced")
     void theHeadStartAddsToWhatIsAlreadyThere() {
-        // Reachable in the ordinary way: the winner joins, is told nothing because the game has not
-        // been marked DECIDED yet, earns aura for an advancement, and the flag is set afterwards.
+        // Reachable normally: the winner joins before DECIDED, earns aura for an advancement, then the flag is set.
         execute("INSERT INTO smp_player (discord_id, aura) VALUES ('" + WINNER + "', 20)");
 
         assertTrue(dao.grantHeadStart(WINNER, AURA, REASON));
@@ -193,19 +176,14 @@ class HeadStartIntegrationTest {
     }
 
     @Test
-    @DisplayName("a head start of zero aura still claims the flag and books no event")
     void zeroAuraIsAConfiguredValueAndNotAnAccident() {
-        // config.yml#hg-winner-aura is a proposal, and somebody may well set it to 0 and keep only
-        // the items. That must still be a claim - otherwise the items would be handed over on every
-        // single join for the rest of the season.
+        // hg-winner-aura may be set to 0 and keep only the items, but it must still claim, or items repeat every join.
         assertTrue(dao.grantHeadStart(WINNER, 0, REASON));
 
         assertTrue(granted(WINNER));
         assertEquals(0, auraEvents(WINNER), "an event saying +0 explains nothing and is noise");
         assertFalse(dao.grantHeadStart(WINNER, 0, REASON), "and it is still taken exactly once");
     }
-
-    // ---------------------------------------------------------------- seeding and reading
 
     /** One game with one team and one member, optionally decided in that member's favour. */
     private void game(final String state, final String discordId, final String created, final boolean withWinner) {
@@ -223,9 +201,9 @@ class HeadStartIntegrationTest {
     /**
      * Read as a boolean rather than parsed out of text.
      *
-     * <p>PostgreSQL renders a {@code boolean} as {@code t} / {@code f}, and
-     * {@code Boolean.parseBoolean("t")} is {@code false} - so a text round trip here reports every
-     * successful claim as a failed one. Found by this test failing on a correct implementation.</p>
+     * PostgreSQL renders a {@code boolean} as {@code t} / {@code f}, and {@code Boolean.parseBoolean("t")} is
+     * {@code false} - so a text round trip here reports every successful claim as a failed one. Found by this test
+     * failing on a correct implementation.
      */
     private boolean granted(final String discordId) {
         try (Connection connection = dataSource.getConnection();

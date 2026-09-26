@@ -7,48 +7,48 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The season's opening moment is switched on, and it runs late enough to be in the right language.
  *
- * <h2>The two failures it exists for, and neither has a symptom</h2>
- * <ol>
- *   <li><b>Nothing calls it.</b> A moment that happens once per player per season, on a path nobody
- *       runs twice, is the definition of a mechanism that can be complete, tested and never invoked -
- *       exactly {@code AdminOperators#refresh} on 2026-09-04, and exactly the head start, which was
- *       configured, migrated and documented on 2026-09-01 and had no reader at all until it was
- *       built. Nobody reports a welcome they were never told to expect.</li>
- *   <li><b>It runs too early.</b> {@code PlayerLocales#of} answers English until the row lands, so a
- *       moment hung off {@code PlayerJoinEvent} is a moment in English for every German player, for
- *       the whole season, with nothing anywhere saying so. That is finding 96, which this module
- *       already made once - and the callback in {@code PresenceListener} is the only place in it
- *       where the language is known.</li>
- * </ol>
+ * <b>The two failures it exists for, and neither has a symptom</b>
  *
- * <h2>Why a text search</h2>
- * All three sites are a constructor call and a registration. Reaching them needs a server, a
- * database and a player; what they protect is one line each, which is what a merge drops. The same
- * reason {@code HeadStartIsWiredTest} and {@code AdminWatchWiringTest} are text searches.
+ * - <b>Nothing calls it.</b> A moment that happens once per player per season, on a path nobody runs twice, is the
+ *   definition of a mechanism that can be complete, tested and never invoked - exactly
+ *   {@code AdminOperators#refresh}, and exactly the head start, which was configured, migrated and
+ *   documented and had no reader at all until it was built. Nobody reports a welcome they were never
+ *   told to expect.
+ *
+ * - <b>It runs too early.</b> {@code PlayerLocales#of} answers English until the row lands, so a moment hung off
+ *   {@code PlayerJoinEvent} is a moment in English for every German player, for the whole season, with nothing
+ *   anywhere saying so. That is a mistake this module already made once - and the callback in
+ *   {@code PresenceListener} is the only place in it where the language is known.
+ *
+ * <b>Why a text search</b>
+ *
+ * All three sites are a constructor call and a registration. Reaching them needs a server, a database and a player;
+ * what they protect is one line each, which is what a merge drops. The same reason {@code HeadStartIsWiredTest} and
+ * {@code AdminWatchWiringTest} are text searches.
  */
 class SeasonWelcomeIsWiredTest {
 
     private static final String PLUGIN = "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java";
+    // SmpStart holds the start sequence SmpPlugin delegates to, so the wiring is read from both.
+    private static final String START = "smp/src/main/java/eu/nordtal/s2/smp/SmpStart.java";
     private static final String PRESENCE = "smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java";
     private static final String WELCOME = "smp/src/main/java/eu/nordtal/s2/smp/welcome/SeasonWelcome.java";
 
     @Test
-    @DisplayName("the staging device is built, registered and stopped again")
     void theDeviceIsWired() {
-        final String plugin = read(PLUGIN);
+        final String plugin = (read(PLUGIN) + "\n" + read(START));
 
         assertTrue(
                 plugin.contains("new BukkitCinematics(")
                         || plugin.contains("new eu.nordtal.s2.papercommon.stage.BukkitCinematics("),
                 "nothing builds the staging device, so nothing can run a staged moment");
         assertTrue(
-                plugin.contains("registerEvents(cinematics, this)"),
+                plugin.contains("registerEvents(cinematics, plugin)"),
                 "the staging device is not registered as a listener, so a player who leaves or dies"
                         + " mid-staging keeps the blindness - and on a quit that means it is saved"
                         + " to disk with them");
@@ -60,22 +60,20 @@ class SeasonWelcomeIsWiredTest {
     }
 
     @Test
-    @DisplayName("the moment itself is built and handed to the listener that can call it")
     void theMomentIsWired() {
-        final String plugin = read(PLUGIN);
+        final String plugin = (read(PLUGIN) + "\n" + read(START));
 
         assertTrue(
                 plugin.contains("new SeasonWelcome(")
                         || plugin.contains("new eu.nordtal.s2.smp.welcome.SeasonWelcome("),
                 "nothing builds the season's opening moment");
         assertTrue(
-                plugin.contains("systemLines, welcome), this)"),
+                plugin.contains("presence.systemLines(), presence.welcome()), plugin)"),
                 "the moment is built but never handed to PresenceListener, which is the only place"
                         + " that knows when a player's language has landed");
     }
 
     @Test
-    @DisplayName("it runs after the language, in the callback and not in the join handler")
     void itRunsAfterTheLocaleCallback() {
         final String presence = read(PRESENCE);
 
@@ -97,8 +95,7 @@ class SeasonWelcomeIsWiredTest {
                         + " not begin while a join is still settling, and that the day the moment"
                         + " regains a sentence, this is already the only place it could be right");
 
-        // The join handler is what runs immediately; the callback is what runs once the row is
-        // back. A call from onJoin would compile, work, and be wrong in exactly one invisible way.
+        // The join handler runs immediately; the callback runs once the row is back - calling it from onJoin is wrong.
         final int onJoin = presence.indexOf("public void onJoin(");
         final int loadLanguage = presence.indexOf("private void loadLanguage(");
         assertTrue(
@@ -108,12 +105,8 @@ class SeasonWelcomeIsWiredTest {
     }
 
     @Test
-    @DisplayName("the pictures are a placeholder and say so")
     void thePicturesAreVisiblyUnfinished() {
-        // The sequence is art and belongs to the owner. A placeholder that looks
-        // finished is a placeholder that ships, so this pins that whatever stands there names
-        // itself - and it will fail the day the real glyphs arrive, which is the moment somebody
-        // should be reading this file anyway.
+        // The sequence is art and belongs to the owner; this pins the placeholder so it fails once real glyphs arrive.
         final String welcome = read(WELCOME);
 
         assertTrue(

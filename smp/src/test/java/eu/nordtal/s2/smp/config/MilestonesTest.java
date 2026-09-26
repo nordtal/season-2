@@ -20,9 +20,9 @@ import org.slf4j.LoggerFactory;
 /**
  * That {@code milestones.yml} can be written and read back as the whole track.
  *
- * <p>What only this can prove: <b>two levels of nesting through jcore</b>. A list of milestones each
- * holding a list of objectives is deeper than anything else in this repository puts through jcore's
- * vendored config system, so the round trip is exercised rather than assumed.
+ * What only this can prove: <b>two levels of nesting through jcore</b>. A list of milestones each holding a list of
+ * objectives is deeper than anything else in this repository puts through jcore's vendored config system, so the
+ * round trip is exercised rather than assumed.
  */
 class MilestonesTest {
 
@@ -39,8 +39,7 @@ class MilestonesTest {
                 Files.isRegularFile(directory.resolve("milestones.yml")),
                 "a fresh load has to write the defaults out, or there is nothing to edit");
 
-        // A SECOND load, from the file the first one just wrote: the first handle still holds the
-        // in-memory defaults and would prove nothing about what went through YAML.
+        // A SECOND load, from the file the first one just wrote - the first handle still holds in-memory defaults.
         final MilestonesSpec reread = Configs.milestones(directory, LOGGER).get();
         final MilestoneTrack track = Milestones.read(reread).track();
 
@@ -62,8 +61,7 @@ class MilestonesTest {
         assertEquals(Unlock.BORDER, foothold.unlock());
         assertEquals(99, foothold.borderDiameter());
 
-        // A HAND_IN's item list is the deepest thing in the file: a list of strings, inside an
-        // objective, inside a milestone, inside a list.
+        // A HAND_IN's item list is the deepest thing in the file: strings, in an objective, in a milestone, in a list.
         final var logs = foothold.objective("logs").orElseThrow();
         assertEquals(ObjectiveType.HAND_IN, logs.type());
         assertEquals(2048L, logs.target());
@@ -82,8 +80,7 @@ class MilestonesTest {
         final MilestoneTrack track =
                 Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
 
-        // The track, column by column. The numbers are allowed to change; this is what makes a
-        // retune deliberate.
+        // The track, column by column. The numbers are allowed to change; this is what makes a retune deliberate.
         assertEquals(20, track.milestone("waiting").orElseThrow().borderDiameter());
         assertEquals(43, track.milestone("departure").orElseThrow().borderDiameter());
         assertEquals(400, track.milestone("settlement").orElseThrow().borderDiameter());
@@ -110,8 +107,7 @@ class MilestonesTest {
         final MilestoneTrack track =
                 Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
 
-        // The ADVANCEMENT objective is the only type that counts distinct players, so it is the
-        // only one three industrious people cannot finish alone.
+        // ADVANCEMENT is the only type counting distinct players, the only one three people cannot finish alone.
         assertEquals(
                 List.of(10L, 10L, 8L, 8L, 6L, 5L),
                 track.milestones().stream()
@@ -224,8 +220,7 @@ class MilestonesTest {
 
     @Test
     void aLeftoverFieldFromAnotherTypeStopsTheLoad() throws Exception {
-        // A half-finished type change: HAND_IN became STATISTIC and the item list stayed. Ignoring
-        // it would leave an objective that silently counts nothing.
+        // A half-finished type change: HAND_IN became STATISTIC and the item list stayed, silently counting nothing.
         writeTrack("""
                 milestones:
                   - key: foothold

@@ -10,12 +10,10 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
  * {@code config/database.yml} - this plugin's own connection to the shared PostgreSQL database.
- * <p>
- * A separate pool from every other process's - the bot's, the proxy's - even though all of them
- * eventually point at the same instance. This plugin never migrates anything: the schema is owned
- * and applied by {@code discord-bot}, and this pool only reads and writes rows in tables that
- * already exist.
- * </p>
+ *
+ * A separate pool from every other process's - the bot's, the proxy's - even though all of them eventually point at
+ * the same instance. This plugin never migrates anything: the schema is owned and applied by {@code discord-bot},
+ * and this pool only reads and writes rows in tables that already exist.
  */
 @ConfigSpec(
         header = {

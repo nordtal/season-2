@@ -3,62 +3,64 @@ package eu.nordtal.s2.smp.milestone;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Whether a reloaded milestone file may replace the one the season has been running on.
  *
- * <p>Two halves that pull in opposite directions:
+ * Two halves that pull in opposite directions:
  *
- * <ol>
- *   <li>It must <b>refuse a change that would orphan stored progress</b> - a renamed milestone key
- *       or a deleted objective would silently discard a finished piece of the season, and the
- *       people who did the work would simply see it gone.</li>
- *   <li>It must <b>explicitly permit lowering the {@code target} of a live objective</b>, because
- *       that is the finest of the three escape hatches for an objective that turns out to be
- *       impossible - and a validation that blocks it means every rescue becomes an admin command,
- *       which pays proportionally rather than in full.</li>
- * </ol>
+ * - It must <b>refuse a change that would orphan stored progress</b> - a renamed milestone key or a deleted
+ *   objective would silently discard a finished piece of the season, and the people who did the work would simply
+ *   see it gone.
  *
- * <p>A validation that only implemented the first half would look correct and would quietly delete
- * the first escape hatch. Both halves are asserted in {@code TrackValidationTest}.
+ * - It must <b>explicitly permit lowering the {@code target} of a live objective</b>, because that is the finest of
+ *   the three escape hatches for an objective that turns out to be impossible - and a validation that blocks it
+ *   means every rescue becomes an admin command, which pays proportionally rather than in full.
  *
- * <p>Allowed:
- * <ul>
- *   <li><b>Appending milestones</b> - the planned response to a track that finishes early.</li>
- *   <li><b>Adding objectives to a milestone that has not been unlocked yet.</b></li>
- *   <li><b>Changing the target of an objective that has not completed</b>, in either direction.
- *       Lowering is the escape hatch; raising is allowed because it is the same edit and refusing
- *       it would mean a typo could only ever be corrected downwards.</li>
- *   <li><b>Changing anything about an objective the database has never heard of</b> - items,
- *       statistic, advancement, role, pot. Only the parts the database stores can be inconsistent
- *       with it.</li>
- * </ul>
+ * A validation that only implemented the first half would look correct and would quietly delete the first escape
+ * hatch. Both halves are asserted in {@code TrackValidationTest}.
  *
- * <p>Refused:
- * <ul>
- *   <li><b>A stored milestone the file no longer declares.</b> Its progress, and any aura already
- *       paid against it, would have nothing to point at.</li>
- *   <li><b>A stored objective the file no longer declares.</b> Same, one level down - and this is
- *       what catches a renamed objective key, which looks like a deletion plus an addition.</li>
- *   <li><b>A change of type on an objective with stored progress.</b> {@code amount} means a
- *       different thing per type - items delivered, a statistic's increase, a count of distinct
- *       players - so carrying it across would be reading a number in the wrong unit.</li>
- *   <li><b>Any change of target on a <em>completed</em> objective.</b> It has already paid out, and
- *       an admin completion's {@code pot × (reached ÷ target)} refers to what was asked for at the
- *       time. Moving the target afterwards would rewrite the arithmetic behind aura that is already
- *       in the ledger.</li>
- *   <li><b>Reordering an unlocked milestone behind a locked one.</b> The track is linear and its
- *       order is the file's, so the unlocked milestones must stay a prefix of it. Without this a
- *       file edit could put a finished milestone after the one being worked on and leave the engine
- *       with no answer to "what comes next".</li>
- * </ul>
+ * Allowed:
+ *
+ * - <b>Appending milestones</b> - the planned response to a track that finishes early.
+ *
+ * - <b>Adding objectives to a milestone that has not been unlocked yet.</b>
+ *
+ * - <b>Changing the target of an objective that has not completed</b>, in either direction. Lowering is the escape
+ *   hatch; raising is allowed because it is the same edit and refusing it would mean a typo could only ever be
+ *   corrected downwards.
+ *
+ * - <b>Changing anything about an objective the database has never heard of</b> - items, statistic, advancement,
+ *   role, pot. Only the parts the database stores can be inconsistent with it.
+ *
+ * Refused:
+ *
+ * - <b>A stored milestone the file no longer declares.</b> Its progress, and any aura already paid against it, would
+ *   have nothing to point at.
+ *
+ * - <b>A stored objective the file no longer declares.</b> Same, one level down - and this is what catches a renamed
+ *   objective key, which looks like a deletion plus an addition.
+ *
+ * - <b>A change of type on an objective with stored progress.</b> {@code amount} means a different thing per type -
+ *   items delivered, a statistic's increase, a count of distinct players - so carrying it across would be reading a
+ *   number in the wrong unit.
+ *
+ * - <b>Any change of target on a <em>completed</em> objective.</b> It has already paid out, and an admin
+ *   completion's {@code pot × (reached ÷ target)} refers to what was asked for at the time. Moving the target
+ *   afterwards would rewrite the arithmetic behind aura that is already in the ledger.
+ *
+ * - <b>Reordering an unlocked milestone behind a locked one.</b> The track is linear and its order is the file's, so
+ *   the unlocked milestones must stay a prefix of it. Without this a file edit could put a finished milestone after
+ *   the one being worked on and leave the engine with no answer to "what comes next".
  */
 public final class TrackValidation {
 
     private TrackValidation() {}
 
     /** One reason a reload was refused, written so it can go straight into a command's reply. */
-    public record Problem(String milestoneKey, String objectiveKey, String message) {
+    public record Problem(
+            @Nullable String milestoneKey, @Nullable String objectiveKey, String message) {
 
         public Problem {
             Objects.requireNonNull(message, "message");
@@ -66,6 +68,10 @@ public final class TrackValidation {
 
         @Override
         public String toString() {
+            if (milestoneKey == null) {
+                // Nothing in the file to point at - the track as a whole is the problem.
+                return message;
+            }
             if (objectiveKey == null) {
                 return "milestone '" + milestoneKey + "': " + message;
             }
@@ -133,8 +139,7 @@ public final class TrackValidation {
                                 + "; changing it to " + objective.target() + " would rewrite the "
                                 + "arithmetic behind aura that is already in the ledger."));
             }
-            // A target change on a LIVE objective is deliberately not a problem, in either
-            // direction: lowering it is the first escape hatch for an impossible objective.
+            // A target change on a LIVE objective is deliberately not a problem.
         }
 
         problems.addAll(orderProblems(track, progress));
@@ -144,8 +149,7 @@ public final class TrackValidation {
     /**
      * The unlocked milestones have to stay a prefix of the file's order.
      *
-     * <p>Any individual milestone can be moved, as long as what has already been finished still
-     * comes first.
+     * Any individual milestone can be moved, as long as what has already been finished still comes first.
      */
     private static List<Problem> orderProblems(final MilestoneTrack track, final StoredProgress progress) {
         final List<Problem> problems = new ArrayList<>();

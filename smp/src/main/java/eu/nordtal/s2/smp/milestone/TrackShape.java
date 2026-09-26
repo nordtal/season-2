@@ -7,20 +7,18 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Whether a milestone file is internally coherent, before it is compared to anything in the
- * database.
+ * Whether a milestone file is internally coherent, before it is compared to anything in the database.
  *
- * <p>{@link TrackValidation} answers "may this file replace the running one"; this answers the
- * earlier question, "is this file a track at all". They are separate because they fail for
- * different people: a shape problem is a typo in a diff somebody just wrote, and an orphaning
- * problem is a conflict with a season that has been running for a week.
+ * {@link TrackValidation} answers "may this file replace the running one"; this answers the earlier question, "is
+ * this file a track at all". They are separate because they fail for different people: a shape problem is a typo in
+ * a diff somebody just wrote, and an orphaning problem is a conflict with a season that has been running for a week.
  *
- * <p>It deliberately does <b>not</b> check that an item name, a statistic or an advancement
- * exists: that needs an initialised Bukkit registry, so it would not run at config-load time or in
- * a test. The plugin binds the names once at enable and refuses to start on one it cannot resolve.
+ * It deliberately does <b>not</b> check that an item name, a statistic or an advancement exists: that needs an
+ * initialised Bukkit registry, so it would not run at config-load time or in a test. The plugin binds the names once
+ * at enable and refuses to start on one it cannot resolve.
  *
- * <p>Nor does it check the arithmetic behind a pot - the formula produced the defaults, and
- * enforcing it would make retuning a pot impossible.
+ * Nor does it check the arithmetic behind a pot - the formula produced the defaults, and enforcing it would make
+ * retuning a pot impossible.
  */
 public final class TrackShape {
 
@@ -98,8 +96,7 @@ public final class TrackShape {
                                 + "; smp_objective's own CHECK requires it to be positive."));
             }
             if (objective.role().isBlank()) {
-                // Never read by the engine, and required anyway: a role only stops a correction
-                // producing four mining objectives if every objective has one to read in the diff.
+                // Never read by the engine, and required anyway.
                 problems.add(new TrackValidation.Problem(
                         milestone.key(),
                         key,
@@ -115,8 +112,7 @@ public final class TrackShape {
         }
 
         if (!milestone.objectives().isEmpty() && participationGates != 1) {
-            // A file edit that drops the participation gate is the easiest way to make the whole
-            // track soloable, and nothing else would notice.
+            // A file edit dropping the participation gate is the easiest way to make the whole track soloable.
             problems.add(new TrackValidation.Problem(
                     milestone.key(),
                     null,
@@ -153,8 +149,7 @@ public final class TrackShape {
                 }
                 forbid(problems, milestone, objective, !objective.items().isEmpty(), "items");
                 forbid(problems, milestone, objective, !objective.advancement().isBlank(), "advancement");
-                // `subjects` may legitimately be empty: a statistic with no substatistic, such as a
-                // count of trades, is counted whole.
+                // `subjects` may legitimately be empty.
             }
             case ADVANCEMENT -> {
                 if (objective.advancement().isBlank()) {
@@ -176,8 +171,7 @@ public final class TrackShape {
             final boolean present,
             final String field) {
         if (present) {
-            // A field belonging to another type is almost always a half-finished type change; the
-            // objective would otherwise silently count nothing.
+            // A field belonging to another type is almost always a half-finished type change.
             problems.add(new TrackValidation.Problem(
                     milestone.key(),
                     objective.key(),

@@ -4,25 +4,21 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.message.MessageRef;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Somewhere {@code /navigate} can point at.
  *
- * <p>The kind decides how the entry is labelled and whether it can be deleted:
+ * The kind decides how the entry is labelled and whether it can be deleted: - {@link Kind#WORLD_SPAWN} - the current
+ * world's spawn, built in and always present - {@link Kind#LAST_DEATH} - built in, and absent until there has been
+ * one - {@link Kind#POI} - created by players, public, unlimited. <b>There is deliberately no navigation to
+ * players</b>: with PvP enabled everywhere an arrow pointing at a person is a hunting tool.
  *
- * <ul>
- *   <li>{@link Kind#WORLD_SPAWN} - the current world's spawn, built in and always present</li>
- *   <li>{@link Kind#LAST_DEATH} - built in, and absent until there has been one</li>
- *   <li>{@link Kind#POI} - created by players, public, unlimited</li>
- * </ul>
- *
- * <p><b>There is deliberately no navigation to players</b>: with PvP enabled everywhere an arrow
- * pointing at a person is a hunting tool.
- *
- * @param id    the POI's id, or null for the two built-in kinds
+ * @param id the POI's id, or null for the two built-in kinds
  * @param label a POI's name, or {@code null} for the built-in kinds, which are named by {@link #name()}
  */
-public record NavigationTarget(Kind kind, UUID id, String label, String world, int x, int y, int z) {
+public record NavigationTarget(
+        Kind kind, @Nullable UUID id, @Nullable String label, String world, int x, int y, int z) {
 
     public enum Kind {
         WORLD_SPAWN,

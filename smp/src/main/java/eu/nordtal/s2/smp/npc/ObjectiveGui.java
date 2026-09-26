@@ -25,24 +25,27 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * What the spawn NPC opens: the current milestone's objectives, each with what is needed and how
- * much is already there, and what the player themselves has put in.
+ * What the spawn NPC opens: the current milestone's objectives.
  *
- * <h2>What it looks like</h2>
- * The window is design {@code O3} (owner, 2026-09-08), drawn by {@link ObjectivePanel}: a heading
- * plate naming the milestone, four painted cards, and a share line along the bottom. Every slot
- * under the paint holds a {@link BlankItem}, because a painted card with no item in it is a card
- * nobody can hover or click - and the tooltip is where the exact numbers, the wanted items and the
- * per-objective share live, since a 68-pixel card holds a name and nothing else.
+ * Each with what is needed and how much is already there, and what the player themselves has put in.
  *
- * <p>A {@code HAND_IN} objective is clickable and opens the deposit screen; the other two types are
- * shown and are not, because there is nothing to click - a statistic counts itself and an
- * advancement is earned somewhere else entirely.
+ * <b>What it looks like</b>
  *
- * <h2>A page is a new inventory</h2>
- * Same as {@code NavigateGui}, and for the same reason: a chest's title is fixed when it is opened,
- * so a surface that changes is a second inventory. No database work happens on a page turn - the
- * whole milestone was read once when the NPC was clicked.
+ * The window is design {@code O3} (owner decision), drawn by {@link ObjectivePanel}: a heading plate naming the
+ * milestone, four painted cards, and a share line along the bottom. Every slot under the paint holds a
+ * {@link BlankItem}, because a painted card with no item in it is a card nobody can hover or click - and the tooltip
+ * is where the exact numbers, the wanted items and the per-objective share live, since a 68-pixel card holds a name
+ * and nothing else.
+ *
+ * A {@code HAND_IN} objective is clickable and opens the deposit screen; the other two types are shown and are not,
+ * because there is nothing to click - a statistic counts itself and an advancement is earned somewhere else
+ * entirely.
+ *
+ * <b>A page is a new inventory</b>
+ *
+ * Same as {@code NavigateGui}, and for the same reason: a chest's title is fixed when it is opened, so a surface
+ * that changes is a second inventory. No database work happens on a page turn - the whole milestone was read once
+ * when the NPC was clicked.
  */
 public final class ObjectiveGui implements Surface {
 
@@ -155,8 +158,6 @@ public final class ObjectiveGui implements Surface {
         return slot == ObjectivePanel.NEXT_SLOT && page < pages() - 1;
     }
 
-    // --- what is drawn -------------------------------------------------------------------
-
     private int pages() {
         return Math.max(1, (rows.size() + ObjectivePanel.CARDS_PER_PAGE - 1) / ObjectivePanel.CARDS_PER_PAGE);
     }
@@ -185,9 +186,9 @@ public final class ObjectiveGui implements Surface {
     /**
      * The sentence on the bottom row.
      *
-     * <p>Drawn by {@link eu.nordtal.s2.common.menu.MenuFont}, so it is the plain bundle value and
-     * never a rendered component: MiniMessage in either of these two keys would be printed
-     * character for character, and the five-pixel sheet has no angle brackets.</p>
+     * Drawn by {@link eu.nordtal.s2.common.menu.MenuFont}, so it is the plain bundle value and never a rendered
+     * component: MiniMessage in either of these two keys would be printed character for character, and the five-pixel
+     * sheet has no angle brackets.
      */
     private String shareLine() {
         if (share.empty()) {
@@ -264,8 +265,7 @@ public final class ObjectiveGui implements Surface {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().countsItself()));
         }
 
-        // The objective's name goes in as a parameter so MessageRenderer escapes it; the colour is
-        // the bundle's (finding 48).
+        // The objective's name goes in as a parameter so MessageRenderer escapes it; the colour is the bundle's.
         return BlankItem.of(
                 renderer.format(
                         locale,

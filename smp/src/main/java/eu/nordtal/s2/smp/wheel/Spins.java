@@ -1,24 +1,23 @@
 package eu.nordtal.s2.smp.wheel;
 
 import java.time.LocalDate;
+import org.jspecify.annotations.Nullable;
 
 /**
  * How many spins somebody has right now, and which kind the next one is.
  *
- * <p><b>A day is a calendar day in the server's own time zone</b>, decided 2026-09-01: the free spin
- * renews at midnight Europe/Berlin, which is what {@code smp_spin.last_free} being a {@code date}
- * already assumes. Predictable beat fair-to-the-second here - somebody who plays late and again the
- * next morning gets two spins close together, and that feels like a gift rather than a rule. A
- * rolling 24 hours would have been strictly fairer, would have moved the time later every day, and
- * would have needed a migration to {@code timestamptz}.
+ * <b>A day is a calendar day in the server's own time zone</b>, by decision: the free spin renews at midnight
+ * Europe/Berlin, which is what {@code smp_spin.last_free} being a {@code date} already assumes. Predictable beat
+ * fair-to-the-second here - somebody who plays late and again the next morning gets two spins close together, and
+ * that feels like a gift rather than a rule. A rolling 24 hours would have been strictly fairer, would have moved
+ * the time later every day, and would have needed a migration to {@code timestamptz}. Pure, so the boundary is
+ * asserted rather than waited for.
  *
- * <p>Pure, so the boundary is asserted rather than waited for.
- *
- * @param granted  extra spins earned by contributing to objectives, cumulative
- * @param used     how many of those have been spun
+ * @param granted extra spins earned by contributing to objectives, cumulative
+ * @param used how many of those have been spun
  * @param lastFree the day the free spin was last taken, or null if never
  */
-public record Spins(int granted, int used, LocalDate lastFree) {
+public record Spins(int granted, int used, @Nullable LocalDate lastFree) {
 
     public Spins {
         if (granted < 0 || used < 0) {
@@ -47,8 +46,8 @@ public record Spins(int granted, int used, LocalDate lastFree) {
     /**
      * Which kind the next spin is.
      *
-     * <p>The free one goes first, deliberately: an earned spin kept is an earned spin, but a free
-     * one not taken today is gone at midnight.
+     * The free one goes first, deliberately: an earned spin kept is an earned spin, but a free one not taken today is
+     * gone at midnight.
      */
     public boolean nextIsFree(final LocalDate today) {
         return hasFree(today);

@@ -8,19 +8,19 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
- * What the track has handed out so far, held in memory so the main thread can ask without touching
- * the database.
+ * What the track has handed out so far, held in memory so the main thread can ask without touching the database.
  *
- * <p>Two questions are asked constantly - "is the Nether open?" on every portal ignition and every
- * balloon click, and "how big is Nordtal's border?" on every unlock - and both are answered from
- * rows that change a handful of times a season. Reading them from PostgreSQL at the point of use
- * would be a main-thread query per click, which is the mistake this repository already made once.
+ * Two questions are asked constantly - "is the Nether open?" on every portal ignition and every balloon click, and
+ * "how big is Nordtal's border?" on every unlock - and both are answered from rows that change a handful of times a
+ * season. Reading them from PostgreSQL at the point of use would be a main-thread query per click, which is the
+ * mistake this repository already made once.
  *
- * <p>Refreshed from an async task; read from anywhere. The fields are volatile rather than
- * synchronised because a reader that is one refresh behind sees the previous truth, which for
- * "the Nether opened four milliseconds ago" is not a problem worth a lock.
+ * Refreshed from an async task; read from anywhere. The fields are volatile rather than synchronised because a
+ * reader that is one refresh behind sees the previous truth, which for "the Nether opened four milliseconds ago" is
+ * not a problem worth a lock.
  */
 public final class SeasonState {
 
@@ -32,46 +32,40 @@ public final class SeasonState {
     /**
      * The milestone being worked on and how far its objectives have got, <b>as one value</b>.
      *
-     * <p>They were two volatile fields until 2026-09-04, and two fields is two reads: a HUD line
-     * that took the name and then the progress could pair one milestone's name with the next one's
-     * bar, which is a line that is wrong about the only two things on it. Narrow - the pair changes
-     * about eight times in a season - and free to close, because nothing outside this class ever
-     * wanted one without the other.
+     * They were two volatile fields previously, and two fields is two reads: a HUD line that took the name and then
+     * the progress could pair one milestone's name with the next one's bar, which is a line that is wrong about the
+     * only two things on it. Narrow - the pair changes about eight times in a season - and free to close, because
+     * nothing outside this class ever wanted one without the other.
      *
-     * @param key        the active milestone's key, or null once the track has run out
+     * @param key the active milestone's key, or null once the track has run out
      * @param objectives its objectives with their progress, never null
+     * @param unread whether nothing has been read from the database yet
      */
-    public record Active(String key, List<ObjectiveRow> objectives) {
+    public record Active(@Nullable String key, List<ObjectiveRow> objectives, boolean unread) {
 
         /** No milestone, because the last one is done. */
-        public static final Active NONE = new Active(null, List.of());
+        public static final Active NONE = new Active(null, List.of(), false);
 
         /**
          * Not read yet: what the state holds between enable and the first refresh.
          *
-         * <p>It looks exactly like {@link #NONE} - no key, no objectives - and was {@code NONE}
-         * until 2026-09-25, which made a {@code /smp status} typed in the first second after a
-         * restart announce that every milestone was finished. Told apart by identity, through
-         * {@link #unread()}, so a refresh that genuinely finds nothing is never mistaken for it.</p>
+         * It looks exactly like {@link #NONE} - no key, no objectives - so a refresh that genuinely finds nothing
+         * active is
+         * never mistaken for it. A {@code /smp status} typed in the first second after a restart must not announce that
+         * every milestone is finished.
          */
-        public static final Active UNREAD = new Active(null, List.of());
+        public static final Active UNREAD = new Active(null, List.of(), true);
 
         public Active {
             objectives = List.copyOf(objectives);
         }
 
-        /** Whether this is {@link #UNREAD}: nothing is known yet, finished or otherwise. */
-        public boolean unread() {
-            return this == UNREAD;
-        }
-
         /**
          * How far this milestone is, as the mean of its objectives.
          *
-         * <p>The mean and not the total: objectives have wildly different targets - "3000 stone"
-         * beside "8 players earn an advancement" - and summing the raw amounts would make the large
-         * one the only one the bar ever moves for. Each objective is worth the same fraction of the
-         * milestone, which is also how the pot is split.
+         * The mean and not the total: objectives have wildly different targets - "3000 stone" beside "8 players earn an
+         * advancement" - and summing the raw amounts would make the large one the only one the bar ever moves for. Each
+         * objective is worth the same fraction of the milestone, which is also how the pot is split.
          */
         public double progress() {
             return objectives.isEmpty()
@@ -86,10 +80,12 @@ public final class SeasonState {
     /**
      * Recomputes from the completed milestone keys and the track that defines them.
      *
-     * <p>The database holds progress and the file holds definition, so this is where the two meet: a
-     * completed key the file no longer declares contributes nothing rather than throwing, because
-     * by the time a player is standing at a balloon it is far too late to complain about the config
-     * - {@code TrackValidation} does that at load, which is when somebody can act on it.
+     * The database holds progress and the file holds definition, so this is where the two meet: a completed key the
+     * file
+     * no longer declares contributes nothing rather than throwing, because by the time a player is standing at a
+     * balloon
+     * it is far too late to complain about the config - {@code TrackValidation} does that at load, which is when
+     * somebody can act on it.
      */
     public void refresh(final List<String> completed, final MilestoneTrack track) {
         final Set<Unlock> found = EnumSet.noneOf(Unlock.class);
@@ -104,9 +100,7 @@ public final class SeasonState {
                 border = Math.max(border, milestone.borderDiameter());
             }
         }
-        // A milestone that moves the border is still a border milestone even if a later one does
-        // not - take the largest any completed milestone asked for, so an out-of-order completion
-        // by an admin cannot shrink the world.
+        // Takes the largest border any completed milestone asked for.
         this.unlocked = Collections.unmodifiableSet(found);
         this.borderDiameter = border;
         this.completedKeys = List.copyOf(completed);
@@ -132,19 +126,19 @@ public final class SeasonState {
     /**
      * Records which milestone is being worked on and how far each of its objectives has got.
      *
-     * <p>Refreshed on a timer from an async task, read by HUD line 1 and by the objective board -
-     * both of which redraw far more often than the numbers change.
+     * Refreshed on a timer from an async task, read by HUD line 1 and by the objective board - both of which redraw far
+     * more often than the numbers change.
      */
-    public void refreshActive(final String key, final List<ObjectiveRow> objectives) {
-        this.active = new Active(key, objectives);
+    public void refreshActive(final @Nullable String key, final List<ObjectiveRow> objectives) {
+        this.active = new Active(key, objectives, false);
     }
 
     /**
      * The active milestone and its progress, in one read.
      *
-     * <p>One accessor rather than three, deliberately: three would each take their own volatile
-     * read and the pair could still change between them, which is the whole bug this replaced. A
-     * caller that wants the name and the bar takes this once and asks the record.</p>
+     * One accessor rather than three, deliberately: three would each take their own volatile read and the pair could
+     * still change between them, which is the whole bug this replaced. A caller that wants the name and the bar takes
+     * this once and asks the record.
      */
     public Active active() {
         return active;

@@ -13,15 +13,14 @@ import org.bukkit.inventory.Inventory;
 /**
  * {@code SURFACE_OPEN} and {@code SURFACE_CLOSE} for every menu this plugin opens.
  *
- * <p>One listener rather than a call beside each {@code openInventory}: "every GUI makes this sound"
- * is then a property of {@link Surface} instead of a habit ten call sites have to keep.
+ * One listener rather than a call beside each {@code openInventory}: "every GUI makes this sound" is then a property
+ * of {@link Surface} instead of a habit ten call sites have to keep.
  *
- * <p>It runs at {@code MONITOR} and cancels nothing - it only reacts to a surface that has actually
- * opened or closed.
+ * It runs at {@code MONITOR} and cancels nothing - it only reacts to a surface that has actually opened or closed.
  *
- * <p><b>A player's own chest is not a surface.</b> The check is deliberately our marker interface
- * and not "any inventory", because on an SMP whose whole concept is bases and chests, chiming at
- * every barrel would be the single most irritating thing on the server.
+ * <b>A player's own chest is not a surface.</b> The check is deliberately our marker interface and not "any
+ * inventory", because on an SMP whose whole concept is bases and chests, chiming at every barrel would be the single
+ * most irritating thing on the server.
  */
 public final class SurfaceListener implements Listener {
 
@@ -47,12 +46,12 @@ public final class SurfaceListener implements Listener {
     /**
      * {@code LOWEST}, and it was load-bearing rather than tidy.
      *
-     * <p>{@code GraveListener} runs at the default priority and handed the close to
-     * {@code Graves#onClosed}, which forgot that inventory there and then; asking afterwards
-     * whether it had been a grave answered no, so this observer had to run first. Since the grave
-     * window became one window with several viewers it is forgotten a tick later instead, which
-     * makes the order stop mattering - the priority stays because a close sound that depends on
-     * nothing is cheaper to keep than to re-derive.
+     * {@code GraveListener} runs at the default priority and handed the close to {@code Graves#onClosed}, which forgot
+     * that inventory there and then; asking afterwards whether it had been a grave answered no, so this observer had to
+     * run first. Since the grave window became one window with several viewers it is forgotten a tick later instead,
+     * which makes the order stop mattering - the priority stays because a close sound that depends on nothing is
+     * cheaper
+     * to keep than to re-derive.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onClose(final InventoryCloseEvent event) {

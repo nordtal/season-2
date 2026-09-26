@@ -24,14 +24,13 @@ import org.bukkit.event.player.PlayerQuitEvent;
 /**
  * Stepping into a balloon opens the travel GUI; clicking in it travels.
  *
- * <p>The move handler runs on every step of every player, so it does as little as possible: it
- * leaves immediately unless the block the player moved <em>into</em> is a different one from the
- * block they were in, and the box lookup behind that is a handful of integer comparisons over a
- * list of three.
+ * The move handler runs on every step of every player, so it does as little as possible: it leaves immediately
+ * unless the block the player moved <em>into</em> is a different one from the block they were in, and the box lookup
+ * behind that is a handful of integer comparisons over a list of three.
  *
- * <p>A player who is already inside a balloon does not get the GUI reopened on every step - it is
- * opened once on entry and again only after they have left the box. Without that, walking around
- * inside the basket would slam the inventory shut and open a new one twenty times a second.
+ * A player who is already inside a balloon does not get the GUI reopened on every step - it is opened once on entry
+ * and again only after they have left the box. Without that, walking around inside the basket would slam the
+ * inventory shut and open a new one twenty times a second.
  */
 public final class BalloonListener implements Listener {
 
@@ -41,10 +40,10 @@ public final class BalloonListener implements Listener {
     /**
      * The milestone track, <b>as a supplier</b>.
      *
-     * <p>{@code /smp reload} replaces the plugin's track with a new instance - that is the whole
-     * reason {@code milestones.yml} is a separate reloadable file, because a milestone is appended
-     * and a target lowered mid-season. A reference captured at enable would go on reading the
-     * definitions the server started with, for the rest of the season, and nothing would say so.</p>
+     * {@code /smp reload} replaces the plugin's track with a new instance - that is the whole reason
+     * {@code milestones.yml} is a separate reloadable file, because a milestone is appended and a target lowered
+     * mid-season. A reference captured at enable would go on reading the definitions the server started with, for the
+     * rest of the season, and nothing would say so.
      */
     private final java.util.function.Supplier<MilestoneTrack> track;
 

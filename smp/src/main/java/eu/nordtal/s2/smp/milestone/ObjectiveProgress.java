@@ -3,12 +3,11 @@ package eu.nordtal.s2.smp.milestone;
 /**
  * Advancing one objective's progress, and deciding when it is finished.
  *
- * <p>Separate from the DAO so that "did that hand-in complete the objective" - the question that
- * fires the payout, the announcement, the milestone unlock and possibly the border move - is
- * written exactly once.
+ * Separate from the DAO so that "did that hand-in complete the objective" - the question that fires the payout, the
+ * announcement, the milestone unlock and possibly the border move - is written exactly once.
  *
- * <p>Progress is monotonic and never recomputed from the world: every type only ever accumulates.
- * That is what keeps a player who earned an advancement and never logged in again counted.
+ * Progress is monotonic and never recomputed from the world: every type only ever accumulates. That is what keeps a
+ * player who earned an advancement and never logged in again counted.
  */
 public final class ObjectiveProgress {
 
@@ -37,8 +36,7 @@ public final class ObjectiveProgress {
             return new Advance(amount, 0L, false);
         }
         final boolean wasComplete = amount >= target;
-        // Saturating rather than wrapping: `amount` is a bigint and nothing on this server can
-        // reach its limit, but an overflowing counter would read as an objective going backwards.
+        // Saturating rather than wrapping; an overflowing counter would read as going backwards.
         final long updated = amount > Long.MAX_VALUE - delta ? Long.MAX_VALUE : amount + delta;
         return new Advance(updated, delta, !wasComplete && updated >= target);
     }
@@ -46,11 +44,11 @@ public final class ObjectiveProgress {
     /**
      * Whether lowering a target has just finished an objective.
      *
-     * <p>If the progress already collected is at or above the new target the objective completes at
-     * once and pays <b>the full pot</b>, not the scaled one: nothing was rescued, the number was
-     * simply wrong when it was written.
+     * If the progress already collected is at or above the new target, the objective completes at once and pays
+     * <b>the full pot</b>, not the scaled one: nothing was rescued, the number was simply wrong when it was
+     * written.
      *
-     * @param amount    the progress already collected
+     * @param amount the progress already collected
      * @param newTarget the target the reloaded file now asks for
      * @return whether the objective is finished the moment the file is reloaded
      */

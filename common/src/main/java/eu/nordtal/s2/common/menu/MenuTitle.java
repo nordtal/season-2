@@ -214,7 +214,7 @@ public final class MenuTitle {
          * @param x      its left edge in window pixels
          * @param colour null to leave it white, which is how the art is drawn
          */
-        public Canvas rowArt(final String glyph, final int row, final int x, final TextColor colour) {
+        public Canvas rowArt(final String glyph, final int row, final int x, final @Nullable TextColor colour) {
             return place(x, MenuFont.advance(glyph.codePointAt(0)), glyph, rowFont(row), colour);
         }
 

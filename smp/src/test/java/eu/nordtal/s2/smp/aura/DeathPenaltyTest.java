@@ -11,8 +11,7 @@ import org.junit.jupiter.api.Test;
 /**
  * What a death costs, and the one exemption there is.
  *
- * <p>It is deliberately <em>one</em> rule: everything costs, the arena costs nothing, and the
- * listed causes cost more.
+ * It is deliberately <em>one</em> rule: everything costs, the arena costs nothing, and the listed causes cost more.
  */
 class DeathPenaltyTest {
 
@@ -32,8 +31,7 @@ class DeathPenaltyTest {
 
     @Test
     void theArenaCostsNothingAtAll() {
-        // The ±10 stake has already settled the fight, so a death penalty on top would make every
-        // duel a net loss for both players.
+        // The +-10 stake already settles the fight; a death penalty on top makes every duel a net loss for both.
         assertEquals(0, penalty.deltaFor("player_attack", true));
         assertEquals(0, penalty.deltaFor("lava", true), "even a listed cause, inside the arena");
     }
@@ -54,8 +52,7 @@ class DeathPenaltyTest {
 
     @Test
     void theBorderAndTheVoidAndTheDragonFightAllCost() {
-        // Each was considered as an exemption and dropped, including the dragon fight, where until
-        // the dragon falls dying is the only way home.
+        // Each exemption was considered and dropped, including the dragon fight, where dying is the only way home.
         assertEquals(-5, penalty.deltaFor("outside_border", false));
         assertEquals(-5, penalty.deltaFor("out_of_world", false));
         assertEquals(-5, penalty.deltaFor("dragon_breath", false));
@@ -63,8 +60,7 @@ class DeathPenaltyTest {
 
     @Test
     void aNegativelyConfiguredPenaltyIsRefused() {
-        // The config carries positive numbers and this class subtracts them; a negative would pay
-        // a player for dying.
+        // The config carries positive numbers and this class subtracts them; a negative would pay a player for dying.
         assertThrows(IllegalArgumentException.class, () -> new DeathPenalty(-5, 20, Set.of()));
     }
 

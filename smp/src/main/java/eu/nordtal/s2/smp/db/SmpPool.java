@@ -5,11 +5,10 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.smp.config.DatabaseSpec;
 
 /**
- * The SMP's connection pool, built here rather than taken from jcore's {@code Database} so that the
- * pool name, the size and both timeouts are this module's own.
+ * The SMP's connection pool, built here rather than taken from jcore's {@code Database}.
  *
- * <p>This plugin never migrates anything: the Discord bot owns the schema, which is why
- * {@code flyway-core} is excluded from this module's dependencies.
+ * That is so the pool name, the size and both timeouts are this module's own. This plugin never migrates anything:
+ * the Discord bot owns the schema, which is why {@code flyway-core} is excluded from this module's dependencies.
  */
 public final class SmpPool {
 

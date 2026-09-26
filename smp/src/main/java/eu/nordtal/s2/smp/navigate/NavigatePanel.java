@@ -9,27 +9,30 @@ import java.util.List;
 import net.kyori.adventure.text.Component;
 
 /**
- * Draws {@code /navigate}'s surface: five destinations, one per chest row, and a row of controls.
+ * Draws {@code /navigate} 's surface: five destinations, one per chest row, and a row of controls.
  *
- * <h2>What the picture is</h2>
- * Design {@code N1} from the owner's menu artifact, chosen on 2026-09-08. One entry per row, each a
- * full-width pill carrying a kind icon, the destination's name and - right-aligned - how far away
- * it is; the entry currently being navigated to wears a white frame. The bottom row is a red
- * {@code stop} plate on the left and a page back / page number / page forward group on the right.
+ * <b>What the picture is</b>
  *
- * <h2>Why five per page and not forty-five</h2>
- * Because the name is the thing somebody is looking for. Ten entries fit if each is half a window
- * wide, and at that width "Baeckerei am Fluss" is "BAECKERE.." - so the menu would be a list of
- * things you cannot read, and the only way to find one would be to hover every slot. Five readable
- * names and a distance beat ten truncated ones; paging is needed either way, because the old menu
- * simply stopped at whatever the window held and said nothing about the rest.
+ * Design {@code N1} from the owner's menu artifact. One entry per row, each a full-width pill
+ * carrying a kind icon, the destination's name and - right-aligned - how far away it is; the entry currently being
+ * navigated to wears a white frame. The bottom row is a red {@code stop} plate on the left and a page back / page
+ * number / page forward group on the right.
  *
- * <h2>The geometry, and where it is decided</h2>
- * Everything below is derived from {@link SlotGeometry} and {@link #INSET}, which is the same
- * arrangement {@code TravelPanel} has and for the same reason: the pack's generator
- * ({@code resource-pack/tools/generate_gui_rows.py}) draws the pill and the buttons from those
- * numbers, and {@code NavigatePanelTest} reads the PNGs and the row fonts back and asserts the two
- * sides still agree. Nothing here restates a pixel the pack decides.
+ * <b>Why five per page and not forty-five</b>
+ *
+ * Because the name is the thing somebody is looking for. Ten entries fit if each is half a window wide, and at that
+ * width "Baeckerei am Fluss" is "BAECKERE.." - so the menu would be a list of things you cannot read, and the only
+ * way to find one would be to hover every slot. Five readable names and a distance beat ten truncated ones; paging
+ * is needed either way, because the old menu simply stopped at whatever the window held and said nothing about the
+ * rest.
+ *
+ * <b>The geometry, and where it is decided</b>
+ *
+ * Everything below is derived from {@link SlotGeometry} and {@link #INSET}, which is the same arrangement
+ * {@code TravelPanel} has and for the same reason: the pack's generator (
+ * {@code resource-pack/tools/generate_gui_rows.py}) draws the pill and the buttons from those numbers, and
+ * {@code NavigatePanelTest} reads the PNGs and the row fonts back and asserts the two sides still agree. Nothing
+ * here restates a pixel the pack decides.
  */
 public final class NavigatePanel {
 
@@ -64,7 +67,6 @@ public final class NavigatePanel {
     /** How much clear space is kept between a name and the distance beside it. */
     private static final int NAME_GAP = 4;
 
-    // --- the control row ----------------------------------------------------------------
     private static final int STOP_X = PILL_X;
     private static final int STOP_WIDTH = 52;
     private static final int STOP_ICON_X = STOP_X + 3;
@@ -75,7 +77,6 @@ public final class NavigatePanel {
     private static final int PAGE_X = SlotGeometry.x(7);
     private static final int NEXT_X = SlotGeometry.x(8) + INSET;
 
-    // --- the slots underneath ------------------------------------------------------------
     /** The three cells the stop plate covers; each carries the same tooltip and the same click. */
     public static final List<Integer> STOP_SLOTS = List.of(
             SlotGeometry.slot(0, CONTROL_ROW), SlotGeometry.slot(1, CONTROL_ROW), SlotGeometry.slot(2, CONTROL_ROW));
@@ -131,8 +132,6 @@ public final class NavigatePanel {
         for (int row = 0; row < entries.size(); row++) {
             final Entry entry = entries.get(row);
             // Order matters and is draw order: the plate first, then everything that sits on it.
-            // Right up to 2026-09-09 a canvas sorted its overlays right-to-left, which would have
-            // painted this pill over its own label.
             canvas.rowArt(Glyphs.GUI_ROW_PILL, row, PILL_X, null);
             canvas.rowArt(entry.icon(), row, ICON_X, MenuPalette.INK);
 
@@ -147,8 +146,7 @@ public final class NavigatePanel {
                 canvas.rowTextRight(distance, row, DISTANCE_RIGHT, MenuPalette.SOFT);
             }
 
-            // Last, so the frame is the one thing nothing is drawn over: it is two pixels of white
-            // on the pill's own edge and a label drawn after it would cross it.
+            // Last, so nothing is drawn over the frame.
             if (entry.active()) {
                 canvas.rowArt(Glyphs.GUI_ROW_FRAME, row, PILL_X, null);
             }
@@ -173,10 +171,10 @@ public final class NavigatePanel {
     /**
      * One page button, drawn greyed when there is no page on that side.
      *
-     * <p>Drawn greyed rather than left off: a control that vanishes moves nothing, but a player who
-     * saw it a second ago now has to work out whether it was ever there. The click on a greyed one
-     * is refused with the refusal sound, which is what says "this is a button and it is not for you
-     * right now".</p>
+     * Drawn greyed rather than left off: a control that vanishes moves nothing, but a player who saw it a second ago
+     * now
+     * has to work out whether it was ever there. The click on a greyed one is refused with the refusal sound, which is
+     * what says "this is a button and it is not for you right now".
      */
     private static void pageButton(
             final MenuTitle.Canvas canvas, final int x, final String arrow, final boolean enabled) {

@@ -7,17 +7,16 @@ import java.util.List;
 /**
  * What a player has put into the active milestone, as the one line the NPC menu shows them.
  *
- * <p>Kept apart from the menu so the arithmetic can be asserted without a running server.
+ * Kept apart from the menu so the arithmetic can be asserted without a running server.
  *
- * <p>The two summary numbers are computed differently on purpose. <b>The percentage is per
- * milestone, summed</b>: one figure has to be about the whole thing the player is looking at, so it
- * differs from any single card's share. <b>The spin count is per objective, summed</b>, because
- * that is how spins are granted - {@link PrizeDraw#extraSpinsFor} runs against each objective's own
- * share as it completes, so a player at 30 % of one objective and nothing of three others earns
- * three spins, not one.
+ * The two summary numbers are computed differently on purpose. <b>The percentage is per milestone, summed</b>: one
+ * figure has to be about the whole thing the player is looking at, so it differs from any single card's share.
+ * <b>The spin count is per objective, summed</b>, because that is how spins are granted -
+ * {@link PrizeDraw#extraSpinsFor} runs against each objective's own share as it completes, so a player at 30 % of
+ * one objective and nothing of three others earns three spins, not one.
  *
- * <p>It is a projection, not a balance: none of these spins has been granted, and an objective that
- * never completes grants none.
+ * It is a projection, not a balance: none of these spins has been granted, and an objective that never completes
+ * grants none.
  */
 public final class OwnShare {
 
@@ -66,7 +65,7 @@ public final class OwnShare {
     /**
      * A share as a percentage.
      *
-     * <p>A target of zero answers zero rather than dividing.</p>
+     * A target of zero answers zero rather than dividing.
      */
     public static double percentOf(final long mine, final long target) {
         if (target <= 0L || mine <= 0L) {
@@ -78,9 +77,8 @@ public final class OwnShare {
     /**
      * The percentage as a player reads it: one decimal, in their own language.
      *
-     * <p>One decimal because the qualifying threshold is 2 %: whole numbers would round a 1.6 % and
-     * a 2.4 % share to the same "2", either side of being paid at all. The locale decides between a
-     * comma and a point.
+     * One decimal because the qualifying threshold is 2 %: whole numbers would round a 1.6 % and a 2.4 % share to the
+     * same "2", either side of being paid at all. The locale decides between a comma and a point.
      */
     public static String format(final double percent, final java.util.Locale locale) {
         return String.format(locale, "%.1f", percent);

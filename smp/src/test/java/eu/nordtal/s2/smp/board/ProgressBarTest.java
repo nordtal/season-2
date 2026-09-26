@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The objective board's bar, where the rounding is the whole of it.
  *
- * <p>Two lies a bar can tell, and both of them at the only moments anybody is watching: showing
- * "full" before it is, and showing "empty" after somebody has already contributed.
+ * Two lies a bar can tell, and both of them at the only moments anybody is watching: showing "full" before it is,
+ * and showing "empty" after somebody has already contributed.
  */
 class ProgressBarTest {
 

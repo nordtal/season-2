@@ -8,27 +8,24 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Logging out of a duel has to cost the same as losing one.
  *
- * <p>Disconnecting is a defeat and the aura is booked, otherwise logging out is a free escape from
- * losing. The trap: {@code Identities} is a per-session cache that {@code JoinGate}'s quit handler
- * clears, and {@code JoinGate} is registered first - so a booking that reads ids from it at settle
- * time finds nothing and silently writes neither stake.
+ * Disconnecting is a defeat and the aura is booked, otherwise logging out is a free escape from losing. The trap:
+ * {@code Identities} is a per-session cache that {@code JoinGate} 's quit handler clears, and {@code JoinGate} is
+ * registered first - so a booking that reads ids from it at settle time finds nothing and silently writes neither
+ * stake.
  *
- * <p>The ids are therefore captured when the duel starts, rather than the two listeners being
- * reordered: registration order is a fact nothing states and any later edit to {@code onEnable} can
- * reverse.
+ * The ids are therefore captured when the duel starts, rather than the two listeners being reordered: registration
+ * order is a fact nothing states and any later edit to {@code onEnable} can reverse.
  */
 class DuelStakeSurvivesAQuitTest {
 
     private static final String DUELS = "smp/src/main/java/eu/nordtal/s2/smp/duel/Duels.java";
 
     @Test
-    @DisplayName("the duel carries its fighters' discord ids, captured when it starts")
     void theDuelCarriesTheIds() {
         final String source = read(DUELS);
         assertTrue(
@@ -43,7 +40,6 @@ class DuelStakeSurvivesAQuitTest {
     }
 
     @Test
-    @DisplayName("the booking never asks Identities, because a quit has already cleared it")
     void theBookingDoesNotAskTheCache() {
         final String body = methodBody(read(DUELS), "private void book(");
         assertFalse(

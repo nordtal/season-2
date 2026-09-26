@@ -1,9 +1,9 @@
 package eu.nordtal.s2.smp.navigate;
 
-import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
+import java.util.Objects;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -17,9 +17,9 @@ import org.bukkit.plugin.Plugin;
 /**
  * Clicks in the {@code /navigate} list, and remembering where somebody died.
  *
- * <p>The last death location is one of the two built-in navigation targets, and it is the one that
- * matters most: with no {@code /back} and no teleport commands of any kind, walking to your grave is
- * the whole of dying, and an arrow pointing the way is the difference between a walk and a search.
+ * The last death location is one of the two built-in navigation targets, and it is the one that matters most: with
+ * no {@code /back} and no teleport commands of any kind, walking to your grave is the whole of dying, and an arrow
+ * pointing the way is the difference between a walk and a search.
  */
 public final class NavigateListener implements Listener {
 
@@ -27,7 +27,6 @@ public final class NavigateListener implements Listener {
     private final SmpDao dao;
     private final Navigation navigation;
     private final Identities identities;
-    private final PlayerLocales locales;
     private final SmpSounds sounds;
 
     public NavigateListener(
@@ -35,13 +34,11 @@ public final class NavigateListener implements Listener {
             final SmpDao dao,
             final Navigation navigation,
             final Identities identities,
-            final PlayerLocales locales,
             final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.navigation = navigation;
         this.identities = identities;
-        this.locales = locales;
         this.sounds = sounds;
     }
 
@@ -58,8 +55,7 @@ public final class NavigateListener implements Listener {
         if (click.sound() != null) {
             sounds.play(player, click.sound());
         }
-        // A page turn is an OPEN and not a redraw: a chest's title is fixed when the window opens,
-        // and the whole surface of this menu is drawn out of that title.
+        // A page turn is an OPEN, not a redraw.
         if (click.open() != null) {
             player.openInventory(click.open().getInventory());
         } else if (click.close()) {
@@ -70,13 +66,13 @@ public final class NavigateListener implements Listener {
     /**
      * Records where a death happened.
      *
-     * <p>One row per player, overwritten by the next death: {@code /navigate death} is a way back
-     * to where you just died, not a history of every time you have.
+     * One row per player, overwritten by the next death: {@code /navigate death} is a way back to where you just died,
+     * not a history of every time you have.
      */
     @EventHandler(ignoreCancelled = true)
     public void onDeath(final PlayerDeathEvent event) {
         final Player player = event.getEntity();
-        final Location at = player.getLocation();
+        final Location at = Objects.requireNonNull(player.getLocation());
         final String discordId = identities.discordIdOf(player.getUniqueId()).orElse(null);
         if (discordId == null) {
             return;

@@ -20,22 +20,25 @@ val messageSpec = extensions.create<MessageSpecExtension>("messageSpec")
 val schemaDirectory = layout.buildDirectory.dir("generated/message-schema")
 val main = the<SourceSetContainer>()["main"]
 
-val messageSchema = tasks.register<JavaExec>("messageSchema") {
-    description = "Writes messages/<bundle>/schema.json from the module's message spec."
-    classpath = main.output.classesDirs + files(main.resources.srcDirs) + main.compileClasspath
-    mainClass.set("eu.nordtal.s2.common.message.spec.MessageSchema")
-    inputs.property("specClass", messageSpec.specClass)
-    inputs.files(main.output.classesDirs, main.resources.srcDirs)
-    outputs.dir(schemaDirectory)
-    // Locals, not the script's own properties: a lambda that reaches the script cannot be stored in
-    // the configuration cache.
-    val specClass = messageSpec.specClass
-    val output = schemaDirectory
-    argumentProviders.add(CommandLineArgumentProvider {
-        listOf(specClass.get(), output.get().asFile.path)
-    })
-    doFirst { output.get().asFile.deleteRecursively() }
-}
+val messageSchema =
+    tasks.register<JavaExec>("messageSchema") {
+        description = "Writes messages/<bundle>/schema.json from the module's message spec."
+        classpath = main.output.classesDirs + files(main.resources.srcDirs) + main.compileClasspath
+        mainClass.set("eu.nordtal.s2.common.message.spec.MessageSchema")
+        inputs.property("specClass", messageSpec.specClass)
+        inputs.files(main.output.classesDirs, main.resources.srcDirs)
+        outputs.dir(schemaDirectory)
+        // Locals, not the script's own properties: a lambda that reaches the script cannot be stored in
+        // the configuration cache.
+        val specClass = messageSpec.specClass
+        val output = schemaDirectory
+        argumentProviders.add(
+            CommandLineArgumentProvider {
+                listOf(specClass.get(), output.get().asFile.path)
+            },
+        )
+        doFirst { output.get().asFile.deleteRecursively() }
+    }
 
 tasks.named<ProcessResources>("processResources") {
     from(messageSchema)

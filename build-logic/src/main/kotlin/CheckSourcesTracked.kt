@@ -26,10 +26,9 @@ import java.io.IOException
  * that tripped over it.
  */
 @DisableCachingByDefault(
-    because = "Its result depends on .gitignore and the index, neither of which is a declarable input"
+    because = "Its result depends on .gitignore and the index, neither of which is a declarable input",
 )
 abstract class CheckSourcesTracked : DefaultTask() {
-
     /** Source directories of this project. Their contents are what Gradle would compile. */
     @get:Internal
     abstract val sourceDirectories: ConfigurableFileCollection
@@ -54,24 +53,27 @@ abstract class CheckSourcesTracked : DefaultTask() {
             return
         }
 
-        val pathspecs = sourceDirectories.files
-            .filter { it.isDirectory }
-            .map { root.toPath().relativize(it.toPath()).joinToString("/") }
-            .sorted()
+        val pathspecs =
+            sourceDirectories.files
+                .filter { it.isDirectory }
+                .map { root.toPath().relativize(it.toPath()).joinToString("/") }
+                .sorted()
         if (pathspecs.isEmpty()) return
 
         val ignored = ignoredFilesUnder(root, pathspecs)
         if (ignored.isEmpty()) return
 
-        throw GradleException(buildString {
-            appendLine("Git ignores these files, so they are not in the repository:")
-            ignored.forEach { appendLine("    $it") }
-            appendLine()
-            appendLine("They sit under a source directory covered by $path, so this build sees them and a")
-            appendLine("build from a fresh checkout does not. Find the rule with")
-            appendLine("    git check-ignore -v <path>")
-            appendLine("and anchor it in .gitignore (`/*/run/`, never a bare `run/`), then `git add` the files.")
-        })
+        throw GradleException(
+            buildString {
+                appendLine("Git ignores these files, so they are not in the repository:")
+                ignored.forEach { appendLine("    $it") }
+                appendLine()
+                appendLine("They sit under a source directory covered by $path, so this build sees them and a")
+                appendLine("build from a fresh checkout does not. Find the rule with")
+                appendLine("    git check-ignore -v <path>")
+                appendLine("and anchor it in .gitignore (`/*/run/`, never a bare `run/`), then `git add` the files.")
+            },
+        )
     }
 
     /**
@@ -79,20 +81,32 @@ abstract class CheckSourcesTracked : DefaultTask() {
      * keeps a tracked file that happens to match an ignore rule from being reported: that file is in
      * the repository, which is all this task cares about.
      */
-    private fun ignoredFilesUnder(root: File, pathspecs: List<String>): List<String> {
-        val command = listOf(
-            "git", "ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--"
-        ) + pathspecs
+    private fun ignoredFilesUnder(
+        root: File,
+        pathspecs: List<String>,
+    ): List<String> {
+        val command =
+            listOf(
+                "git",
+                "ls-files",
+                "--others",
+                "--ignored",
+                "--exclude-standard",
+                "-z",
+                "--",
+            ) + pathspecs
 
-        val process = try {
-            ProcessBuilder(command).directory(root).redirectErrorStream(true).start()
-        } catch (e: IOException) {
-            logger.warn(
-                "{}: could not run git ({}), so a source file missing from the repository would go unnoticed",
-                path, e.message
-            )
-            return emptyList()
-        }
+        val process =
+            try {
+                ProcessBuilder(command).directory(root).redirectErrorStream(true).start()
+            } catch (e: IOException) {
+                logger.warn(
+                    "{}: could not run git ({}), so a source file missing from the repository would go unnoticed",
+                    path,
+                    e.message,
+                )
+                return emptyList()
+            }
 
         process.outputStream.close()
         val output = process.inputStream.bufferedReader().use { it.readText() }

@@ -25,7 +25,8 @@ gradle.properties.local
 bunq-config.conf
 
 # Runtime working directories of a server started in place.
-/config/
+/config/*
+!/config/checkstyle/
 /*/config/
 /run/
 /*/run/

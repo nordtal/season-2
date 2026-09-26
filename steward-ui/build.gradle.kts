@@ -1,5 +1,7 @@
 import com.github.gradle.node.npm.task.NpmInstallTask
 import com.github.gradle.node.npm.task.NpmTask
+import com.github.gradle.node.task.NodeTask
+import eu.nordtal.s2.build.CheckCommentShape
 
 plugins {
     id("nordtal.jvm-app")
@@ -98,36 +100,38 @@ tasks.named<NpmInstallTask>("npmInstall") {
     }
 }
 
-val viteBuild = tasks.register<NpmTask>("viteBuild") {
-    group = "build"
-    description = "Builds the Steward frontend with Vite into build/frontend-dist."
-    dependsOn(tasks.named("npmInstall"))
-    npmCommand.set(listOf("run", "build"))
+val viteBuild =
+    tasks.register<NpmTask>("viteBuild") {
+        group = "build"
+        description = "Builds the Steward frontend with Vite into build/frontend-dist."
+        dependsOn(tasks.named("npmInstall"))
+        npmCommand.set(listOf("run", "build"))
 
-    // Declared inputs, so an untouched frontend does not rebuild. node_modules is deliberately not
-    // one of them: npmInstall owns it, and listing 40 000 files here costs more than the build.
-    inputs.dir(frontendDirectory.dir("src")).withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.dir(frontendDirectory.dir("public")).withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.files(
-        frontendDirectory.file("package.json"),
-        frontendDirectory.file("package-lock.json"),
-        frontendDirectory.file("index.html"),
-        frontendDirectory.file("vite.config.ts"),
-        frontendDirectory.file("tsconfig.json"),
-        frontendDirectory.file("tsconfig.app.json"),
-        frontendDirectory.file("tsconfig.node.json"),
-        frontendDirectory.file("components.json"),
-    ).withPathSensitivity(PathSensitivity.RELATIVE)
-    outputs.dir(frontendDistDirectory)
-    outputs.cacheIf { true }
+        // Declared inputs, so an untouched frontend does not rebuild. node_modules is deliberately not
+        // one of them: npmInstall owns it, and listing 40 000 files here costs more than the build.
+        inputs.dir(frontendDirectory.dir("src")).withPathSensitivity(PathSensitivity.RELATIVE)
+        inputs.dir(frontendDirectory.dir("public")).withPathSensitivity(PathSensitivity.RELATIVE)
+        inputs
+            .files(
+                frontendDirectory.file("package.json"),
+                frontendDirectory.file("package-lock.json"),
+                frontendDirectory.file("index.html"),
+                frontendDirectory.file("vite.config.ts"),
+                frontendDirectory.file("tsconfig.json"),
+                frontendDirectory.file("tsconfig.app.json"),
+                frontendDirectory.file("tsconfig.node.json"),
+                frontendDirectory.file("components.json"),
+            ).withPathSensitivity(PathSensitivity.RELATIVE)
+        outputs.dir(frontendDistDirectory)
+        outputs.cacheIf { true }
 
-    // Vite is a separate process and cannot see `frontendDistDirectory`, so it is handed over
-    // (season-2-ops/30). Without this line `-PbuildRoot` moves the declared output and leaves the
-    // actual write where it always was, and the only symptom is a Javalin test that cannot find
-    // '/web'. It is an input as well as a value: a build root that changes has to re-run this.
-    environment.put("VITE_OUT_DIR", frontendDistDirectory.map { it.asFile.absolutePath })
-    inputs.property("viteOutDir", frontendDistDirectory.map { it.asFile.absolutePath })
-}
+        // Vite is a separate process and cannot see `frontendDistDirectory`, so it is handed over
+        // (season-2-ops/30). Without this line `-PbuildRoot` moves the declared output and leaves the
+        // actual write where it always was, and the only symptom is a Javalin test that cannot find
+        // '/web'. It is an input as well as a value: a build root that changes has to re-run this.
+        environment.put("VITE_OUT_DIR", frontendDistDirectory.map { it.asFile.absolutePath })
+        inputs.property("viteOutDir", frontendDistDirectory.map { it.asFile.absolutePath })
+    }
 
 /**
  * The frontend's own tests.
@@ -138,34 +142,67 @@ val viteBuild = tasks.register<NpmTask>("viteBuild") {
  * `tsc --noEmit` is a module where "it compiles" was quietly allowed to stand in for "it works".
  * It runs after viteBuild so a type error is reported by the build that exists to report one.
  */
-val viteTest = tasks.register<NpmTask>("viteTest") {
-    group = "verification"
-    description = "Runs the Steward frontend's vitest suite."
-    dependsOn(tasks.named("npmInstall"))
-    mustRunAfter(viteBuild)
-    npmCommand.set(listOf("run", "test"))
+val viteTest =
+    tasks.register<NpmTask>("viteTest") {
+        group = "verification"
+        description = "Runs the Steward frontend's vitest suite."
+        dependsOn(tasks.named("npmInstall"))
+        mustRunAfter(viteBuild)
+        npmCommand.set(listOf("run", "test"))
 
-    // NO DECLARED OUTPUT, so it runs on every `check`. Vitest produces nothing this build
-    // consumes - the outcome is a verdict, not a file - and the obvious way to cache a verdict is a
-    // marker file written from a `doLast`, which the configuration cache refuses: a closure in a
-    // Kotlin build script holds a reference to the script object. The whole suite is about four
-    // seconds, which is a smaller price than a cache that can report a pass nobody ran.
-}
+        // NO DECLARED OUTPUT, so it runs on every `check`. Vitest produces nothing this build
+        // consumes - the outcome is a verdict, not a file - and the obvious way to cache a verdict is a
+        // marker file written from a `doLast`, which the configuration cache refuses: a closure in a
+        // Kotlin build script holds a reference to the script object. The whole suite is about four
+        // seconds, which is a smaller price than a cache that can report a pass nobody ran.
+    }
+
+// Formatting of the frontend and of every YAML, Markdown and JSON file in the repository; see .oxfmtrc.json.
+val oxfmtCheck =
+    tasks.register<NodeTask>("oxfmtCheck") {
+        group = "verification"
+        description = "Checks the repository's TypeScript, YAML, Markdown and JSON formatting with oxfmt."
+        dependsOn(tasks.named("npmInstall"))
+        script.set(frontendDirectory.file("node_modules/oxfmt/bin/oxfmt"))
+        args.set(listOf("--check", "--threads=2"))
+        workingDir.set(rootProject.layout.projectDirectory)
+    }
+
+val conventionsEnforced = findProperty("conventions.enforced")?.toString()?.toBoolean() ?: false
+
+val oxlint =
+    tasks.register<NodeTask>("oxlint") {
+        group = "verification"
+        description = "Lints the frontend with oxlint's type-aware rules, warnings as errors."
+        dependsOn(tasks.named("npmInstall"))
+        script.set(frontendDirectory.file("node_modules/oxlint/bin/oxlint"))
+        args.set(listOf("--type-aware", "--deny-warnings", "--threads=2"))
+        workingDir.set(frontendDirectory)
+        ignoreExitValue.set(!conventionsEnforced)
+    }
+
+val checkFrontendComments =
+    tasks.register<CheckCommentShape>("checkFrontendComments") {
+        sources.from(fileTree(frontendDirectory.dir("src")) { include("**/*.ts", "**/*.tsx", "**/*.css") })
+        repositoryRoot.set(rootProject.layout.projectDirectory)
+        enforced.set(conventionsEnforced || (findProperty("conventions.comments")?.toString()?.toBoolean() ?: false))
+    }
 
 tasks.named("check") {
-    dependsOn(viteTest)
+    dependsOn(viteTest, oxfmtCheck, oxlint, checkFrontendComments)
 }
 
 // The glyphs a message can name, for the translation editor's menu: served under /glyphs/, next to
 // the frontend rather than inside it, because Vite cannot read across the repository and the pack's
 // textures are not copied into the source tree.
-val glyphManifest = tasks.register<eu.nordtal.s2.build.GlyphManifest>("glyphManifest") {
-    group = "build"
-    description = "Writes the named glyphs of minecraft:default with their textures."
-    names.set(rootProject.layout.projectDirectory.file("common/src/main/resources/eu/nordtal/s2/common/glyph-names.txt"))
-    assets.set(rootProject.layout.projectDirectory.dir("resource-pack/src/assets"))
-    target.set(layout.buildDirectory.dir("glyphs"))
-}
+val glyphManifest =
+    tasks.register<eu.nordtal.s2.build.GlyphManifest>("glyphManifest") {
+        group = "build"
+        description = "Writes the named glyphs of minecraft:default with their textures."
+        names.set(rootProject.layout.projectDirectory.file("common/src/main/resources/eu/nordtal/s2/common/glyph-names.txt"))
+        assets.set(rootProject.layout.projectDirectory.dir("resource-pack/src/assets"))
+        target.set(layout.buildDirectory.dir("glyphs"))
+    }
 
 // processResources copies, it does not sync: Vite hashes its file names, so every frontend build
 // would leave the previous bundle behind in build/resources/main/web, and the jar packs whatever is
@@ -200,17 +237,21 @@ tasks.named<ProcessResources>("processResources") {
 // `providers.fileContents`, not `File.readLines()`: the configuration cache only knows about a
 // file the build read if it was read through a provider, and a cache that does not know is a cache
 // that hands back yesterday's environment after the file changed.
-val localEnvironment = providers.fileContents(
-    rootProject.layout.projectDirectory.file("deploy/dev.env")
-).asText.map { text ->
-    text.lines()
-        .map { it.trim() }
-        .filter { it.isNotEmpty() && !it.startsWith("#") && it.contains('=') }
-        .associate { line ->
-            line.substringBefore('=') to
-                line.substringAfter('=').removeSurrounding("\"").removeSurrounding("'")
-        }
-}.orElse(emptyMap())
+val localEnvironment =
+    providers
+        .fileContents(
+            rootProject.layout.projectDirectory.file("deploy/dev.env"),
+        ).asText
+        .map { text ->
+            text
+                .lines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("#") && it.contains('=') }
+                .associate { line ->
+                    line.substringBefore('=') to
+                        line.substringAfter('=').removeSurrounding("\"").removeSurrounding("'")
+                }
+        }.orElse(emptyMap())
 
 tasks.named<JavaExec>("run") {
     environment(localEnvironment.get())

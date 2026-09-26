@@ -20,7 +20,6 @@ import org.gradle.api.tasks.TaskAction
  * font does not declare fails the build here; `GlyphNamesTest` in `:common` says the same on `check`.
  */
 abstract class GlyphManifest : DefaultTask() {
-
     @get:InputFile
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val names: RegularFileProperty
@@ -37,33 +36,42 @@ abstract class GlyphManifest : DefaultTask() {
     fun write() {
         val assetsDir = assets.get().asFile
         val font = JsonSlurper().parse(assetsDir.resolve("minecraft/font/default.json")) as Map<*, *>
-        val providers = (font["providers"] as List<*>).map { it as Map<*, *> }
-            .filter { it["type"] == "bitmap" }
-        val byCodePoint = providers.flatMap { provider ->
-            (provider["chars"] as List<*>).flatMap { row -> (row as String).codePoints().toArray().map { it to provider } }
-        }.toMap()
+        val providers =
+            (font["providers"] as List<*>)
+                .map { it as Map<*, *> }
+                .filter { it["type"] == "bitmap" }
+        val byCodePoint =
+            providers
+                .flatMap { provider ->
+                    (provider["chars"] as List<*>).flatMap { row -> (row as String).codePoints().toArray().map { it to provider } }
+                }.toMap()
 
         val out = target.get().asFile
         out.deleteRecursively()
         out.mkdirs()
-        val entries = names.get().asFile.readLines()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && !it.startsWith("#") }
-            .map { line ->
-                val (name, hex) = line.split(Regex("\\s+"))
-                val codePoint = hex.toInt(16)
-                val provider = byCodePoint[codePoint]
-                    ?: error("glyph $name (U+$hex) is not declared in minecraft:default")
-                val (namespace, path) = (provider["file"] as String).split(":", limit = 2)
-                assetsDir.resolve("$namespace/textures/$path").copyTo(out.resolve("$name.png"))
-                linkedMapOf(
-                    "name" to name,
-                    "codePoint" to codePoint,
-                    "height" to provider["height"],
-                    "ascent" to provider["ascent"],
-                    "image" to "$name.png",
-                )
-            }
+        val entries =
+            names
+                .get()
+                .asFile
+                .readLines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .map { line ->
+                    val (name, hex) = line.split(Regex("\\s+"))
+                    val codePoint = hex.toInt(16)
+                    val provider =
+                        byCodePoint[codePoint]
+                            ?: error("glyph $name (U+$hex) is not declared in minecraft:default")
+                    val (namespace, path) = (provider["file"] as String).split(":", limit = 2)
+                    assetsDir.resolve("$namespace/textures/$path").copyTo(out.resolve("$name.png"))
+                    linkedMapOf(
+                        "name" to name,
+                        "codePoint" to codePoint,
+                        "height" to provider["height"],
+                        "ascent" to provider["ascent"],
+                        "image" to "$name.png",
+                    )
+                }
         out.resolve("manifest.json").writeText(JsonOutput.prettyPrint(JsonOutput.toJson(entries)) + "\n")
     }
 }

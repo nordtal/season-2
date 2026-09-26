@@ -14,7 +14,6 @@ import java.security.MessageDigest
  * captures the script object, which the configuration cache cannot serialize.
  */
 abstract class Sha1File : DefaultTask() {
-
     @get:InputFile
     abstract val source: RegularFileProperty
 
@@ -23,9 +22,11 @@ abstract class Sha1File : DefaultTask() {
 
     @TaskAction
     fun write() {
-        val hash = MessageDigest.getInstance("SHA-1")
-            .digest(source.get().asFile.readBytes())
-            .joinToString("") { "%02x".format(it) }
+        val hash =
+            MessageDigest
+                .getInstance("SHA-1")
+                .digest(source.get().asFile.readBytes())
+                .joinToString("") { "%02x".format(it) }
         target.get().asFile.writeText(hash + "\n")
     }
 }

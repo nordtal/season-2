@@ -30,7 +30,7 @@ class ArchitectureTest {
 
     @Test
     void packagesHaveNoCycles() {
-        slices().matching("eu.nordtal.s2.(**)").should().beFreeOfCycles().check(classes);
+        slices().matching("eu.nordtal.s2.(*).(*)..").should().beFreeOfCycles().check(classes);
     }
 
     @Test

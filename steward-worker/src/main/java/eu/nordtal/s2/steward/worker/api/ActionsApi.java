@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * {@code GET /api/actions} (steward/82): the newest things that happened on this network, across
@@ -71,13 +70,13 @@ public final class ActionsApi {
     private final UpdateDirectory updates;
     private final AuditDirectory audit;
 
-    public ActionsApi(final @NotNull UpdateDirectory updates, final @NotNull AuditDirectory audit) {
+    public ActionsApi(final UpdateDirectory updates, final AuditDirectory audit) {
         this.updates = updates;
         this.audit = audit;
     }
 
     /** {@code GET /api/actions?limit=n} - a bare JSON array, newest first. */
-    public void list(final @NotNull Context ctx) {
+    public void list(final Context ctx) {
         final int limit = ctx.queryParamAsClass("limit", Integer.class).getOrDefault(DEFAULT_LIMIT);
         // Through json(), never the records themselves - see ActionEntry#json for the Instant
         // that leaves as {"seconds":...,"nanos":...} otherwise.

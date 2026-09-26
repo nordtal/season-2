@@ -12,13 +12,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Recreate uses the image that is here; deploy is the button that fetches (season-2-ops/134).
+ * Recreate uses the image that is here; deploy is the button that fetches.
  *
- * <p>The bug this holds down was silent in every way a bug can be: the job answered 202, the
- * container came up healthy, the logs were clean, and a locally built {@code steward-ui} had
- * nevertheless been replaced by the published one - {@code md5sum /app/app.jar} {@code df63c328…}
- * before, {@code ef0e1067…} after. Nothing in the interface said a deployment had just been rolled
- * back, because as far as everything downstream was concerned nothing had gone wrong.</p>
+ * <p>A recreate that pulls can silently replace a locally built image with the published one: the
+ * job still answers 202, the container still comes up healthy, and nothing downstream can tell a
+ * deployment was rolled back.</p>
  *
  * <p>No docker daemon here, by design: the command line is assembled before anything runs, and the
  * decision not to pull is visible at exactly that point.</p>
@@ -44,22 +42,20 @@ class RecreateDoesNotPullTest {
     }
 
     /**
-     * The other half, and it cannot be asked of {@link Compose}: the fetching used to sit in the
-     * route, one call above {@code compose.recreate}. So the subject here is the source of the
+     * The other half, and it cannot be asked of {@link Compose}: the route calling it could fetch on
+     * its own, one call above {@code compose.recreate}. So the subject here is the source of the
      * route's own method - read as text, the way {@code OomLightningRodTest} reads compose.yml,
      * because the alternative is a docker daemon and a registry in a unit test.
      */
     @Test
-    @DisplayName("and the route does not pull one line above it, which is where it used to")
+    @DisplayName("and the route does not pull one line above it either")
     void theRouteDoesNotPullEither() throws IOException {
         final String recreate = methodBody("static int recreate(Compose compose, String service,");
-        // The LAST one: `deploy` is overloaded, and the two-line one that only forwards comes
-        // first in the file. Matching that one asserted nothing - it caught this test on the way in.
+        // The LAST one: `deploy` is overloaded, and the two-line one that only forwards comes first
+        // in the file; matching that one would assert nothing.
         final String deploy = lastMethodBody("static int deploy(Compose compose, List<String> requested,");
 
-        assertFalse(
-                recreate.contains("compose.pull("),
-                "recreate pulls again, which is season-2-ops/134 coming back:\n" + recreate);
+        assertFalse(recreate.contains("compose.pull("), "recreate must not pull:\n" + recreate);
         assertTrue(recreate.contains("compose.recreate("), recreate);
         assertTrue(
                 recreate.contains("hasLocalImage"),

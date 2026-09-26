@@ -3,7 +3,6 @@ package eu.nordtal.s2.steward.worker.http;
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
 import java.io.IOException;
 import java.nio.file.Path;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Whatever puts a {@link RemoteFile} on disk, verified.
@@ -15,5 +14,5 @@ import org.jetbrains.annotations.NotNull;
  */
 public interface Fetcher {
 
-    void fetch(@NotNull RemoteFile file, @NotNull Path destination) throws IOException;
+    void fetch(RemoteFile file, Path destination) throws IOException;
 }

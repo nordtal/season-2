@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.access.AccessRequests;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
@@ -133,7 +134,7 @@ public final class AccessInbox {
      *
      * @param pairs key, value, key, value. A {@code null} value is written as JSON null
      */
-    static String json(final String... pairs) {
+    static String json(final @Nullable String... pairs) {
         if (pairs.length % 2 != 0) {
             throw new IllegalArgumentException("json() takes pairs");
         }

@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Anything the daemon answered that the caller cannot use.
@@ -15,19 +14,16 @@ public class DockerException extends RuntimeException {
     private final int status;
     private final @Nullable String body;
 
-    public DockerException(final @NotNull String message) {
+    public DockerException(final String message) {
         this(message, 0, null, null);
     }
 
-    public DockerException(final @NotNull String message, final @Nullable Throwable cause) {
+    public DockerException(final String message, final @Nullable Throwable cause) {
         this(message, 0, null, cause);
     }
 
     public DockerException(
-            final @NotNull String message,
-            final int status,
-            final @Nullable String body,
-            final @Nullable Throwable cause) {
+            final String message, final int status, final @Nullable String body, final @Nullable Throwable cause) {
         super(body == null || body.isBlank() ? message : message + ": " + body.strip(), cause);
         this.status = status;
         this.body = body;

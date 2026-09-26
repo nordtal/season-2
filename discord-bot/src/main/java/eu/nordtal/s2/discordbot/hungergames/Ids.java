@@ -2,7 +2,7 @@ package eu.nordtal.s2.discordbot.hungergames;
 
 /**
  * Every component id {@link RegisterFlow} listens for, prefixed {@code hg:} - its own namespace,
- * separate from {@code access:} ({@code eu.nordtal.s2.discordbot.discord.Ids}), because
+ * separate from {@code access:} ({@code eu.nordtal.s2.discordbot.Ids}), because
  * registering for the start event and the paid access flow are unrelated features that happen to
  * share a bot.
  * <p>

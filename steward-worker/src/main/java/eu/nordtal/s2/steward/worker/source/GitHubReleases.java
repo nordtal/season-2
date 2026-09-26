@@ -7,8 +7,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The GitHub releases API, for the two repositories that publish jars we run: our own
@@ -52,13 +51,10 @@ public final class GitHubReleases {
      *                   still reported, because "GitHub said something we did not expect" belongs
      *                   in a report and not in a comment claiming it cannot happen.
      */
-    public record Release(
-            @NotNull String tag,
-            boolean prerelease,
-            @NotNull List<Asset> assets) {
+    public record Release(String tag, boolean prerelease, List<Asset> assets) {
 
         /** An asset by exact name, or {@code null}. */
-        public @Nullable Asset asset(final @NotNull String name) {
+        public @Nullable Asset asset(final String name) {
             return assets.stream()
                     .filter(candidate -> candidate.name().equals(name))
                     .findFirst()
@@ -66,7 +62,7 @@ public final class GitHubReleases {
         }
     }
 
-    public record Asset(@NotNull String name, @NotNull URI url, long size) {}
+    public record Asset(String name, URI url, long size) {}
 
     /**
      * The newest published release of a repository.
@@ -84,7 +80,7 @@ public final class GitHubReleases {
      *
      * @param repo {@code owner/name}.
      */
-    public @NotNull Release latest(final @NotNull String repo) throws IOException {
+    public Release latest(final String repo) throws IOException {
         final URI uri = URI.create(API + repo + "/releases/latest");
 
         final String what = "GitHub release " + repo + "@" + LATEST;
@@ -117,7 +113,7 @@ public final class GitHubReleases {
      * fails tonight is the worst kind.
      * </p>
      */
-    public @NotNull String readText(final @NotNull Asset asset) throws IOException {
+    public String readText(final Asset asset) throws IOException {
         return http.get(asset.url()).strip();
     }
 }

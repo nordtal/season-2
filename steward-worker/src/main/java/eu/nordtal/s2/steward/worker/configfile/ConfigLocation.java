@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
 import java.nio.file.Path;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * One config file found under the mount, before anything has been read from it.
@@ -23,9 +22,4 @@ import org.jetbrains.annotations.NotNull;
  *                 A list that knows and does not say is worse than a short list. Costs one
  *                 {@code access(2)} per file, on about two dozen files, once per page.</p>
  */
-public record ConfigLocation(
-        @NotNull String service,
-        @NotNull String name,
-        @NotNull Path file,
-        boolean readable,
-        boolean writable) {}
+public record ConfigLocation(String service, String name, Path file, boolean readable, boolean writable) {}

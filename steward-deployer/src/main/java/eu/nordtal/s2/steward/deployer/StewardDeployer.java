@@ -8,31 +8,27 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The one service allowed to create containers (§8a, §8b).
+ * The one service allowed to create containers.
  *
  * <p>It carries {@code compose.yml} inside its own image, so a change to the deployment is a new
- * image of this service rather than a file somebody edited on the host - the failure mode the
- * workspace guide warns about for Arcane's GitOps checkout, where the next sync quietly took the
- * edit back.</p>
+ * image of this service rather than a file edited on the host.</p>
  *
- * <p>Two ways in, for two callers who are not alike:</p>
- * <ul>
- *   <li>{@code deployer up} - the setup script on the host, which runs before anything else exists
- *       and has no interface to click in. It waits for the deployment and exits with its code.</li>
- *   <li>{@code deployer serve} - the small HTTP API steward-ui calls. It never waits: a deployment
- *       is a job, and the caller reads its output as it appears.</li>
- * </ul>
+ * <p>Two ways in, for two callers who are not alike: {@code deployer up} is the setup script on
+ * the host, which runs before anything else exists and has no interface to click in, and waits for
+ * the deployment and exits with its code. {@code deployer serve} is the small HTTP API steward-ui
+ * calls; it never waits, because a deployment is a job and the caller reads its output as it
+ * appears.</p>
  *
  * <p><b>The serving process never recreates itself.</b> {@link Compose#SELF} is refused wherever
  * the API accepts a service name, and the whole-stack deployment names every service one by one so
  * that it can be left out - an empty list would mean "all of them" to compose and put it back.
- * Renewing this container is the setup script's job (§9c), which is why {@code deployer up} - and
- * only it, running as a throwaway container beside the stack - goes through
- * {@link Compose#bootstrap}.</p>
+ * Renewing this container is the setup script's job, which is why {@code deployer up} - and only
+ * it, running as a throwaway container beside the stack - goes through {@link Compose#bootstrap}.</p>
  */
 public final class StewardDeployer {
 
@@ -97,17 +93,10 @@ public final class StewardDeployer {
     /**
      * Recreate one container from the image that is already here.
      *
-     * <p><b>No pull, and that is the whole of season-2-ops/134.</b> This used to pull first, the
-     * same way {@link #deploy} does, and the difference between the two buttons was therefore only
-     * the number of services. Measured on 2026-09-19: a recreate of {@code steward-ui} replaced the
-     * image built on this host a minute earlier with the published one - the job reported 202, the
-     * container came up healthy, the logs were clean, and the only sign was that the browser kept
-     * receiving the old bundle. A button labelled "recreate" must not be able to roll a deployment
-     * back without saying so.</p>
-     *
-     * <p>So the split is: <b>recreate uses what is here, deploy fetches.</b> The cost is that a
-     * service with no local image cannot be recreated - which is why the refusal below names deploy
-     * rather than leaving compose to fail in its own words.</p>
+     * <p><b>No pull.</b> A recreate must not be able to roll a deployment back without saying so by
+     * silently replacing a locally built image with a published one. Deploy fetches; recreate uses
+     * what is here. The cost is that a service with no local image cannot be recreated, which is why
+     * the refusal below names deploy rather than leaving compose to fail in its own words.</p>
      */
     static int recreate(Compose compose, String service, java.util.function.Consumer<String> output) throws Exception {
         if (!compose.hasLocalImage(service)) {
@@ -123,17 +112,15 @@ public final class StewardDeployer {
      * Which services one deployment touches, named one by one.
      *
      * <p><b>Never an empty list, and that is the point.</b> An empty list of service names means
-     * <i>every</i> service to {@code docker compose up}. Passing one on the whole-stack path
-     * therefore put steward-deployer back in after it had just been taken out - so the service that
-     * must never recreate itself did exactly that on the most ordinary deployment there is, and the
-     * new container would have killed the process still writing the report.</p>
+     * <i>every</i> service to {@code docker compose up}, which would put steward-deployer back into
+     * a whole-stack deployment right after it was taken out - the one service that must never
+     * recreate itself, on the most ordinary deployment there is.</p>
      *
-     * <p><b>A named request is refused rather than filtered</b>, and the reason is the same empty
-     * list from the other side: {@code deploy steward-deployer} used to be quietly turned into an
-     * empty list, which meant every service, which deployed the deployer. Removing the name walked
-     * straight past {@link Compose#up}'s own refusal, because by the time it looked the name was no
-     * longer there. Asking for something this program will not do is an error with a sentence, not
-     * a request silently turned into a different one.</p>
+     * <p><b>A named request is refused rather than filtered.</b> Silently dropping
+     * {@code steward-deployer} from a named request would walk past {@link Compose#up}'s own
+     * refusal, because by the time it looks the name is no longer there. Asking for something this
+     * program will not do is an error with a sentence, not a request silently turned into a
+     * different one.</p>
      */
     static List<String> servicesToDeploy(java.util.Collection<String> all, List<String> requested, boolean bootstrap) {
         List<String> services = requested.isEmpty() ? new ArrayList<>(all) : new ArrayList<>(requested);
@@ -158,11 +145,7 @@ public final class StewardDeployer {
                     "NORDTAL_STEWARD_DEPLOYER_TOKEN is not set. steward-deployer creates containers "
                             + "and will not serve without a shared secret; the setup script writes one.");
         }
-        // steward/102: checked again before every `up`/`recreate` inside Compose itself, because
-        // this process serves for days and a rotation can land at any point in that time - but
-        // checking once here too means a container that starts already stale says so in its own
-        // boot log and its healthcheck never turns green, instead of waiting for the first deploy
-        // request to notice.
+        // A container that starts with a stale env file says so in its own boot log, not on the first deploy.
         compose.assertEnvFileFresh();
         Jobs jobs = new Jobs();
 
@@ -230,7 +213,7 @@ public final class StewardDeployer {
                         }
                         client.keepAlive();
                         Runnable stop = job.follow(line -> client.sendEvent("line", line));
-                        client.onClose(stop::run);
+                        client.onClose(stop);
                     });
                 })
                 .start(port());
@@ -240,7 +223,7 @@ public final class StewardDeployer {
 
     /** The body of {@code POST /api/deploy}: an empty list means the whole project. */
     private static final class Request {
-        private List<String> services;
+        private @Nullable List<String> services;
     }
 
     private static int port() {

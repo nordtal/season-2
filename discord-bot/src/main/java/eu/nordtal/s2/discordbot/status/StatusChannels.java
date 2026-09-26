@@ -7,6 +7,7 @@ import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.network.NetworkSnapshot;
 import eu.nordtal.s2.common.network.SnapshotDirectory;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
+import eu.nordtal.s2.discordbot.announce.Announcements;
 import eu.nordtal.s2.discordbot.config.Languages;
 import java.time.Clock;
 import java.time.Duration;
@@ -17,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Renames one channel per language so the guild's sidebar says what the network is doing.
@@ -99,7 +101,7 @@ public final class StatusChannels {
             final PhaseDirectory phases,
             final SnapshotDirectory snapshots,
             final Clock clock,
-            final eu.nordtal.s2.discordbot.announce.Announcements announcements) {
+            final @Nullable Announcements announcements) {
         this.jda = jda;
         this.languages = languages;
         this.messages = messages;
@@ -109,9 +111,9 @@ public final class StatusChannels {
         this.announcements = announcements;
     }
 
-    private final eu.nordtal.s2.discordbot.announce.Announcements announcements;
+    private final @Nullable Announcements announcements;
     /** The phase the last tick saw; null before the first, so a restart announces nothing. */
-    private volatile SeasonPhase lastSeen;
+    private volatile @Nullable SeasonPhase lastSeen;
 
     /** @return whether any language has a status channel configured at all */
     public boolean configured() {
@@ -149,8 +151,8 @@ public final class StatusChannels {
 
     /**
      * A phase that differs from the one the previous tick saw is posted into every announcement
-     * channel, in that channel's language (finding 52, 2026-09-06). The first tick after a start
-     * only remembers: a bot that restarts during SMP must not announce SMP.
+     * channel, in that channel's language. The first tick after a start only remembers: a bot that
+     * restarts during SMP must not announce SMP.
      */
     private void announceIfChanged(final SeasonPhase phase) {
         final SeasonPhase previous = lastSeen;
@@ -222,5 +224,5 @@ public final class StatusChannels {
      *                  attempt failed - which makes the next eligible tick send it again
      * @param at        when that attempt was made, successful or not; the cooldown runs off this
      */
-    private record Rename(String confirmed, Instant at) {}
+    private record Rename(@Nullable String confirmed, Instant at) {}
 }

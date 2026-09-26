@@ -9,6 +9,7 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.SeasonDates;
+import java.util.Objects;
 
 /**
  * {@code /access settle <reference>} - book a payment by hand.
@@ -46,14 +47,19 @@ public final class SettlePayment implements NordtalCommand<AccessEffects> {
                 // WARN and not BAD: the reference exists and nothing went wrong.
                 case NOT_OPEN ->
                     user.reply(
-                            MESSAGES.access().settle().notOpen(reference, settled.status()),
+                            MESSAGES.access()
+                                    .settle()
+                                    .notOpen(reference, Objects.requireNonNull(settled.status(), "status")),
                             Feedback.REFUSED,
                             Tone.WARN);
                 case BOOKED ->
                     user.reply(
                             MESSAGES.access()
                                     .settle()
-                                    .booked(reference, settled.days(), SeasonDates.format(settled.until())),
+                                    .booked(
+                                            reference,
+                                            settled.days(),
+                                            SeasonDates.format(Objects.requireNonNull(settled.until(), "until"))),
                             Feedback.BIG_SUCCESS,
                             Tone.GOOD);
             }

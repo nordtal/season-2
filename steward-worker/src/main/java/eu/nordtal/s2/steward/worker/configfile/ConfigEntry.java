@@ -1,9 +1,7 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.Unmodifiable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One key of a jcore-written config file, as the interface needs to draw it.
@@ -118,18 +116,18 @@ import org.jetbrains.annotations.Unmodifiable;
  *                            instead of only failing after a confirmed removal is sent
  */
 public record ConfigEntry(
-        @NotNull String path,
-        @NotNull String key,
-        @NotNull String label,
-        @NotNull List<String> comments,
-        @NotNull String explanation,
+        String path,
+        String key,
+        String label,
+        List<String> comments,
+        String explanation,
         boolean noExplanationNeeded,
-        @NotNull String value,
-        @NotNull List<String> items,
-        @NotNull List<ConfigEntry> template,
-        @NotNull List<List<ConfigEntry>> sections,
-        @NotNull Kind kind,
-        @NotNull Type type,
+        String value,
+        List<String> items,
+        List<ConfigEntry> template,
+        List<List<ConfigEntry>> sections,
+        Kind kind,
+        Type type,
         int line,
         boolean editable,
         boolean secret,
@@ -174,7 +172,7 @@ public record ConfigEntry(
      *               with a free-text field beside it - see
      *               {@code eu.nordtal.jcore.config.spec.annotation.AllowedValues#strict()}
      */
-    public record Choices(@NotNull @Unmodifiable List<String> values, boolean strict) {
+    public record Choices(List<String> values, boolean strict) {
 
         public Choices {
             values = List.copyOf(values);
@@ -189,7 +187,7 @@ public record ConfigEntry(
      * @param field the field key within one section to match against, e.g. {@code tag}
      * @param value the value that field must equal for that section to be the protected one
      */
-    public record Protected(@NotNull String field, @NotNull String value) {}
+    public record Protected(String field, String value) {}
 
     /** Defensive copies, so a document cannot be edited through an entry. */
     public ConfigEntry {
@@ -214,7 +212,7 @@ public record ConfigEntry(
      * @param key the leaf key
      * @return whether the key contains {@code secret}, {@code token}, {@code password} or {@code key}
      */
-    public static boolean isSecretKey(final @NotNull String key) {
+    public static boolean isSecretKey(final String key) {
         final String lower = key.toLowerCase(java.util.Locale.ROOT);
         if (lower.equals("key")) {
             return false;

@@ -7,6 +7,7 @@ import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jspecify.annotations.Nullable;
 
 /** The SQL surface of the access system; {@link AccessDirectory} is the API. */
 interface AccessDao {
@@ -221,7 +222,7 @@ interface AccessDao {
             @Bind("discordId") String discordId,
             @Bind("days") int days,
             @Bind("source") String source,
-            @Bind("paymentRequestId") UUID paymentRequestId);
+            @Bind("paymentRequestId") @Nullable UUID paymentRequestId);
 
     /**
      * Revokes the whole remaining run of access, not one grant.

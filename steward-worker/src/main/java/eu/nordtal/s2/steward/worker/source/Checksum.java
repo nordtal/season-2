@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.source;
 
 import java.util.Locale;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A digest as the API that published it writes it: an algorithm name and lowercase hex.
@@ -23,27 +22,27 @@ import org.jetbrains.annotations.NotNull;
  * papered over: the mitigation is that those URLs are {@code github.com} over TLS and that a
  * truncated download produces a jar the JVM refuses to load, loudly, at start.
  */
-public record Checksum(@NotNull String algorithm, @NotNull String hex) {
+public record Checksum(String algorithm, String hex) {
 
     public Checksum {
         algorithm = algorithm.toLowerCase(Locale.ROOT);
         hex = hex.toLowerCase(Locale.ROOT);
     }
 
-    public static @NotNull Checksum sha1(final @NotNull String hex) {
+    public static Checksum sha1(final String hex) {
         return new Checksum("sha1", hex);
     }
 
-    public static @NotNull Checksum sha256(final @NotNull String hex) {
+    public static Checksum sha256(final String hex) {
         return new Checksum("sha256", hex);
     }
 
-    public static @NotNull Checksum sha512(final @NotNull String hex) {
+    public static Checksum sha512(final String hex) {
         return new Checksum("sha512", hex);
     }
 
     /** The short form a report shows - a full sha512 is 128 characters and says nothing more. */
-    public @NotNull String shortHex() {
+    public String shortHex() {
         return hex.length() <= 12 ? hex : hex.substring(0, 12);
     }
 }

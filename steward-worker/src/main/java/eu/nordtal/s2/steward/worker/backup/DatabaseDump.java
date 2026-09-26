@@ -9,7 +9,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,11 +71,11 @@ public final class DatabaseDump {
      * @param directory where the dump is written, as the POSTGRES container sees it
      */
     public DatabaseDump(
-            final @NotNull Docker docker,
-            final @NotNull String project,
-            final @NotNull String service,
-            final @NotNull String directory,
-            final @NotNull Clock clock) {
+            final Docker docker,
+            final String project,
+            final String service,
+            final String directory,
+            final Clock clock) {
         this.docker = docker;
         this.project = project;
         this.service = service;
@@ -84,7 +83,7 @@ public final class DatabaseDump {
         this.clock = clock;
     }
 
-    public @NotNull SnapshotResult save() {
+    public SnapshotResult save() {
         final Instant started = clock.instant();
         final String containerId;
         try {

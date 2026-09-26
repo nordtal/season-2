@@ -22,8 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,10 +59,10 @@ final class LogArchive {
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH);
 
     /** One earlier run, oldest line first, and the grey line that stands above it. */
-    record Run(@NotNull String label, @NotNull List<String> lines) {}
+    record Run(String label, List<String> lines) {}
 
     /** What the archive gave, oldest run first; {@code exhausted} when nothing older is left. */
-    record Backlog(@NotNull List<Run> runs, boolean exhausted) {
+    record Backlog(List<Run> runs, boolean exhausted) {
         int lineCount() {
             return runs.stream().mapToInt(run -> run.lines().size()).sum();
         }
@@ -76,7 +75,7 @@ final class LogArchive {
         this(volumesRoot, Instant::now);
     }
 
-    LogArchive(final @Nullable Path volumesRoot, final @NotNull Supplier<Instant> clock) {
+    LogArchive(final @Nullable Path volumesRoot, final Supplier<Instant> clock) {
         this.volumesRoot = volumesRoot;
         this.clock = clock;
     }
@@ -85,8 +84,7 @@ final class LogArchive {
      * Up to {@code wanted} lines from the runs before {@code oldest}, newest run first while
      * reading and oldest first in the answer.
      */
-    @NotNull
-    Backlog before(final @NotNull String service, final @NotNull Instant oldest, final int wanted) {
+    Backlog before(final String service, final Instant oldest, final int wanted) {
         final List<Path> archives = archives(service, oldest);
         final Deque<Run> runs = new ArrayDeque<>();
         int missing = wanted;
@@ -123,8 +121,7 @@ final class LogArchive {
     }
 
     /** The rotated archives of this service from before {@code oldest}, newest first. */
-    @NotNull
-    List<Path> archives(final @NotNull String service, final @NotNull Instant oldest) {
+    List<Path> archives(final String service, final Instant oldest) {
         if (volumesRoot == null) {
             return List.of();
         }
@@ -172,7 +169,7 @@ final class LogArchive {
     }
 
     /** "Earlier run, 22 Sep 19:44": the day from the name, the time from its first stamped line. */
-    static @NotNull String label(final @NotNull Path archive, final @NotNull List<String> lines) {
+    static String label(final Path archive, final List<String> lines) {
         final Matcher name = NAME.matcher(archive.getFileName().toString());
         final StringBuilder label = new StringBuilder("Earlier run");
         if (name.matches()) {

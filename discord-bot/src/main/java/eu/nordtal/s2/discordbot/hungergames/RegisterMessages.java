@@ -3,10 +3,10 @@ package eu.nordtal.s2.discordbot.hungergames;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.discordbot.Card;
+import eu.nordtal.s2.discordbot.ManagedMessageDao;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.discordbot.discord.Card;
-import eu.nordtal.s2.discordbot.discord.ManagedMessageDao;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;

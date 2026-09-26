@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The season 2 access system, as seen by everything that is not the bot's Discord code.
@@ -193,7 +194,7 @@ public interface AccessDirectory extends AutoCloseable {
      * @return the grant that was written, with the window PostgreSQL computed
      * @throws IllegalArgumentException if {@code days} is not positive
      */
-    AccessGrant grantAccess(String discordId, int days, AccessSource source, UUID paymentRequestId);
+    AccessGrant grantAccess(String discordId, int days, AccessSource source, @Nullable UUID paymentRequestId);
 
     /**
      * Revokes every non-revoked grant of this user that has not yet run out.

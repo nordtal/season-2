@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Carries out one claimed {@link UpdateRequest} and says what happened.
@@ -111,32 +110,32 @@ public final class Runner implements RequestRunner {
     }
 
     public Runner(
-            final @NotNull StewardSpec config,
-            final @NotNull Database database,
-            final @NotNull ContainerOps containers,
-            final @NotNull Backups backups,
-            final @NotNull UpdateDirectory directory) {
+            final StewardSpec config,
+            final Database database,
+            final ContainerOps containers,
+            final Backups backups,
+            final UpdateDirectory directory) {
         this(config, database, containers, backups, directory, UpdateRun.Waiting.real());
     }
 
     public Runner(
-            final @NotNull StewardSpec config,
-            final @NotNull Database database,
-            final @NotNull ContainerOps containers,
-            final @NotNull Backups backups,
-            final @NotNull UpdateDirectory directory,
-            final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+            final StewardSpec config,
+            final Database database,
+            final ContainerOps containers,
+            final Backups backups,
+            final UpdateDirectory directory,
+            final eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
         this(config, database, containers, backups, directory, UpdateRun.Waiting.real(), plugins);
     }
 
     /** Package-visible so a test can drive a thirty-second countdown without waiting for one. */
     Runner(
-            final @NotNull StewardSpec config,
-            final @NotNull Database database,
-            final @NotNull ContainerOps containers,
-            final @NotNull Backups backups,
-            final @NotNull UpdateDirectory directory,
-            final @NotNull UpdateRun.Waiting waiting) {
+            final StewardSpec config,
+            final Database database,
+            final ContainerOps containers,
+            final Backups backups,
+            final UpdateDirectory directory,
+            final UpdateRun.Waiting waiting) {
         this(
                 config,
                 database,
@@ -148,13 +147,13 @@ public final class Runner implements RequestRunner {
     }
 
     Runner(
-            final @NotNull StewardSpec config,
-            final @NotNull Database database,
-            final @NotNull ContainerOps containers,
-            final @NotNull Backups backups,
-            final @NotNull UpdateDirectory directory,
-            final @NotNull UpdateRun.Waiting waiting,
-            final @NotNull eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+            final StewardSpec config,
+            final Database database,
+            final ContainerOps containers,
+            final Backups backups,
+            final UpdateDirectory directory,
+            final UpdateRun.Waiting waiting,
+            final eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
         this.plugins = plugins;
         this.config = config;
         this.database = database;
@@ -165,7 +164,7 @@ public final class Runner implements RequestRunner {
     }
 
     @Override
-    public @NotNull Outcome run(final @NotNull UpdateRequest request, final @NotNull Consumer<UpdateReport> progress) {
+    public Outcome run(final UpdateRequest request, final Consumer<UpdateReport> progress) {
         try {
             return switch (request.kind()) {
                 case REPORT -> report();

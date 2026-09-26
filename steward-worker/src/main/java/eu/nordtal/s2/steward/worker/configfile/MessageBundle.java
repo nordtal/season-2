@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * One module's message bundle as a form: every key the jar declares, plus whatever an operator has
@@ -18,11 +17,7 @@ import org.jetbrains.annotations.NotNull;
  *                  {@code paper-common}) has already happened by the time this is built - see
  *                  {@link MessageBundles#read}
  */
-public record MessageBundle(
-        @NotNull String service,
-        @NotNull String module,
-        boolean writable,
-        @NotNull List<MessageEntry> entries) {
+public record MessageBundle(String service, String module, boolean writable, List<MessageEntry> entries) {
 
     public MessageBundle {
         entries = List.copyOf(entries);

@@ -3,7 +3,6 @@ package eu.nordtal.s2.steward.worker.serve;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import java.util.function.Consumer;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Carries out one claimed request.
@@ -25,6 +24,5 @@ public interface RequestRunner {
      * @return what happened. Never throws: the caller holds a row marked {@code RUNNING} that
      *         somebody is watching, and an exception escaping here would leave it open forever
      */
-    @NotNull
-    Outcome run(@NotNull UpdateRequest request, @NotNull Consumer<UpdateReport> progress);
+    Outcome run(UpdateRequest request, Consumer<UpdateReport> progress);
 }

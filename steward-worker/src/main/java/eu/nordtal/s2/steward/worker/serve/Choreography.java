@@ -16,8 +16,7 @@ import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The run's stage directions: which standbys it needs, when the players are gone, and when the
@@ -101,10 +100,7 @@ final class Choreography {
     /** What this run has started and not yet stopped, so {@link #close} can be called twice. */
     private final Set<String> standing = new LinkedHashSet<>();
 
-    Choreography(
-            final @NotNull ContainerOps containers,
-            final @NotNull Occupancy occupancy,
-            final @NotNull UpdateRun.Waiting clock) {
+    Choreography(final ContainerOps containers, final Occupancy occupancy, final UpdateRun.Waiting clock) {
         this.containers = containers;
         this.occupancy = occupancy;
         this.clock = clock;
@@ -130,7 +126,7 @@ final class Choreography {
      * @param moving the services this run is going to stop
      * @return the compose service names to start first, in {@code SERVICES_WITH_STANDBY} order
      */
-    static @NotNull List<String> standbysFor(final @NotNull Collection<String> moving) {
+    static List<String> standbysFor(final Collection<String> moving) {
         return Topology.SERVICES_WITH_STANDBY.stream()
                 .filter(moving::contains)
                 .map(Topology::standbyOf)
@@ -149,8 +145,7 @@ final class Choreography {
      * @return a window that {@link Window#opened() opened}, or one carrying the sentence to put in
      *         the report of a run that must now touch nothing
      */
-    @NotNull
-    Window open(final @NotNull Collection<String> moving) {
+    Window open(final Collection<String> moving) {
         final List<String> wanted = standbysFor(moving);
         if (wanted.isEmpty()) {
             return new Window(List.of(), null);
@@ -222,7 +217,7 @@ final class Choreography {
      *         about not having been able to tell
      */
     @Nullable
-    String waitUntilEmpty(final @NotNull Collection<String> moving) {
+    String waitUntilEmpty(final Collection<String> moving) {
         final List<String> watched =
                 moving.stream().filter(Choreography::canCarryPlayers).toList();
         if (watched.isEmpty()) {
@@ -264,8 +259,7 @@ final class Choreography {
      * The second is not the first - "nobody is on it" and "nothing has told me" are different
      * facts, and reporting the second as the first is how a wait stops being a wait.</p>
      */
-    static @NotNull String stoppedAnyway(
-            final @NotNull Map<String, Integer> occupied, final @NotNull List<String> unknown) {
+    static String stoppedAnyway(final Map<String, Integer> occupied, final List<String> unknown) {
         final StringBuilder said = new StringBuilder();
         if (!occupied.isEmpty()) {
             final int total =
@@ -312,7 +306,6 @@ final class Choreography {
      *
      * @return one sentence per standby, for the report; empty when this run opened no window
      */
-    @NotNull
     List<String> close() {
         if (standing.isEmpty()) {
             return List.of();
@@ -374,7 +367,7 @@ final class Choreography {
      * @param standbys the services started for this run, empty when it needed none
      * @param refusal  why the run must not go on, or {@code null} when it may
      */
-    record Window(@NotNull List<String> standbys, @Nullable String refusal) {
+    record Window(List<String> standbys, @Nullable String refusal) {
 
         boolean opened() {
             return refusal == null;

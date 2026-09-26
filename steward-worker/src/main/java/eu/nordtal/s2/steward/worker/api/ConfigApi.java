@@ -29,7 +29,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,7 +64,7 @@ public final class ConfigApi {
      */
     @FunctionalInterface
     public interface ConsoleLine {
-        void send(@NotNull String service, @NotNull String command);
+        void send(String service, String command);
     }
 
     /**
@@ -118,21 +117,18 @@ public final class ConfigApi {
      */
     private final Map<String, Runnable> ownReloads;
 
-    public ConfigApi(final @NotNull Path root, final @NotNull ConsoleLine console) {
+    public ConfigApi(final Path root, final ConsoleLine console) {
         this(root, console, Map.of());
     }
 
-    public ConfigApi(
-            final @NotNull Path root,
-            final @NotNull ConsoleLine console,
-            final @NotNull Map<String, Runnable> ownReloads) {
+    public ConfigApi(final Path root, final ConsoleLine console, final Map<String, Runnable> ownReloads) {
         this.root = root;
         this.console = console;
         this.ownReloads = Map.copyOf(ownReloads);
     }
 
     /** {@code GET /api/config} - every file under the mount, without reading any of them. */
-    public void list(final @NotNull Context ctx) {
+    public void list(final Context ctx) {
         ctx.json(locations().stream().map(ConfigApi::describe).toList());
     }
 
@@ -146,7 +142,7 @@ public final class ConfigApi {
      * under {@code raw: true} rather than a 400: this route's job is to show what is on disk, and a
      * file that cannot be split into keys can still be shown, just not as a form.</p>
      */
-    public void one(final @NotNull Context ctx) {
+    public void one(final Context ctx) {
         final ConfigLocation location = locate(ctx);
         ctx.json(read(location));
     }
@@ -166,7 +162,7 @@ public final class ConfigApi {
      * conflict, it would simply be gone, with nothing anywhere saying so. A stale one is a 409 and
      * the page shows the file as it now stands.</p>
      */
-    public void save(final @NotNull Context ctx) {
+    public void save(final Context ctx) {
         final ConfigLocation location = locate(ctx);
         if (!location.writable()) {
             throw new ForbiddenResponse(location.name() + " is mounted read-only in this container,"
@@ -232,7 +228,7 @@ public final class ConfigApi {
      * {@link #save} already has for reasons that have nothing to do with syntax: the mount is
      * read-only, or somebody else wrote the file since this editor read it.</p>
      */
-    public void saveRaw(final @NotNull Context ctx) {
+    public void saveRaw(final Context ctx) {
         final ConfigLocation location = locate(ctx);
         if (!location.writable()) {
             throw new ForbiddenResponse(location.name() + " is mounted read-only in this container,"

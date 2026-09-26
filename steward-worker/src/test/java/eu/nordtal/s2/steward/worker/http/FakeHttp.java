@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * An {@link Http} backed by responses recorded from the live APIs on 2026-09-01.
@@ -47,7 +46,7 @@ public final class FakeHttp implements Http {
     }
 
     @Override
-    public @NotNull String get(final @NotNull URI uri) throws IOException {
+    public String get(final URI uri) throws IOException {
         requested.add(uri);
         final String url = uri.toString();
         for (final Map.Entry<String, IOException> failure : failures.entrySet()) {

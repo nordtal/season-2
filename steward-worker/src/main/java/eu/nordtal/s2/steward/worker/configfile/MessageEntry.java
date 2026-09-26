@@ -3,8 +3,7 @@ package eu.nordtal.s2.steward.worker.configfile;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One message key, in both languages, packaged and overridden.
@@ -43,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  *                        does not say
  */
 public record MessageEntry(
-        @NotNull String key,
+        String key,
         @Nullable String english,
         @Nullable String german,
         @Nullable String overrideEnglish,
@@ -51,8 +50,8 @@ public record MessageEntry(
         boolean inBundle,
         @Nullable String name,
         @Nullable String description,
-        @NotNull List<MessageArg> args,
-        @NotNull List<String> section,
+        List<MessageArg> args,
+        List<String> section,
         @Nullable String format,
         @Nullable String shown) {
 

@@ -8,7 +8,6 @@ import java.time.Duration;
 import java.util.Optional;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * "Exactly one steward-worker is <em>serving</em>", held by PostgreSQL for the life of the process.
@@ -81,13 +80,12 @@ public final class ServeLock implements AutoCloseable {
      *         which means this process must not start
      * @throws SQLException if the database could not be asked at all
      */
-    public static @NotNull Optional<ServeLock> acquire(final @NotNull DataSource dataSource) throws SQLException {
+    public static Optional<ServeLock> acquire(final DataSource dataSource) throws SQLException {
         return acquire(dataSource, PATIENCE);
     }
 
     /** Package-visible so a test can watch the refusal without waiting half a minute for it. */
-    static @NotNull Optional<ServeLock> acquire(final @NotNull DataSource dataSource, final @NotNull Duration patience)
-            throws SQLException {
+    static Optional<ServeLock> acquire(final DataSource dataSource, final Duration patience) throws SQLException {
         final long deadline = System.nanoTime() + patience.toNanos();
         boolean waited = false;
         while (true) {

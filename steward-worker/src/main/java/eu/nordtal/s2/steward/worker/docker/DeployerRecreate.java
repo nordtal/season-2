@@ -15,7 +15,6 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.time.Instant;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * {@link ContainerOps#deploy} and {@link ContainerOps#recreate}, asked of
@@ -82,22 +81,22 @@ public final class DeployerRecreate implements ContainerOps {
     private final Waiting waiting;
 
     public DeployerRecreate(
-            final @NotNull ContainerOps delegate,
-            final @NotNull String baseUrl,
-            final @NotNull String token,
-            final @NotNull Duration requestTimeout,
-            final @NotNull Duration patience) {
+            final ContainerOps delegate,
+            final String baseUrl,
+            final String token,
+            final Duration requestTimeout,
+            final Duration patience) {
         this(delegate, baseUrl, token, requestTimeout, patience, Waiting.real());
     }
 
     /** Package-visible so a test can drive the poll loop without sleeping through it. */
     DeployerRecreate(
-            final @NotNull ContainerOps delegate,
-            final @NotNull String baseUrl,
-            final @NotNull String token,
-            final @NotNull Duration requestTimeout,
-            final @NotNull Duration patience,
-            final @NotNull Waiting waiting) {
+            final ContainerOps delegate,
+            final String baseUrl,
+            final String token,
+            final Duration requestTimeout,
+            final Duration patience,
+            final Waiting waiting) {
         this.delegate = delegate;
         this.baseUrl = plaintextOnlyInside(trimmed(baseUrl));
         this.token = token;
@@ -108,22 +107,22 @@ public final class DeployerRecreate implements ContainerOps {
     }
 
     @Override
-    public @NotNull RuntimeResult runtime() {
+    public RuntimeResult runtime() {
         return delegate.runtime();
     }
 
     @Override
-    public @NotNull RedeployResult stop(final @NotNull String containerId) {
+    public RedeployResult stop(final String containerId) {
         return delegate.stop(containerId);
     }
 
     @Override
-    public @NotNull RedeployResult start(final @NotNull String containerId) {
+    public RedeployResult start(final String containerId) {
         return delegate.start(containerId);
     }
 
     @Override
-    public @NotNull ImageResult images() {
+    public ImageResult images() {
         return delegate.images();
     }
 
@@ -136,7 +135,7 @@ public final class DeployerRecreate implements ContainerOps {
      * been made here before.</p>
      */
     @Override
-    public @NotNull RedeployResult deploy(final @NotNull String service) {
+    public RedeployResult deploy(final String service) {
         return submit(
                 service,
                 "deploy",
@@ -158,7 +157,7 @@ public final class DeployerRecreate implements ContainerOps {
      * door.</p>
      */
     @Override
-    public @NotNull RedeployResult recreate(final @NotNull String service) {
+    public RedeployResult recreate(final String service) {
         return submit(
                 service,
                 "recreate",
@@ -267,7 +266,7 @@ public final class DeployerRecreate implements ContainerOps {
      * string early, and package-visible so a test can read the bytes that go out - "it names one
      * service" is the assertion that separates this from the empty list compose reads as "all".</p>
      */
-    static String deployBody(final @NotNull String service) {
+    static String deployBody(final String service) {
         final JsonArray services = new JsonArray();
         services.add(service);
         final JsonObject body = new JsonObject();

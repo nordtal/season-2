@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Feeds {@code /api/services} the player counts steward/86 asked for and the names steward/111
@@ -86,12 +85,12 @@ public final class ServicesApi {
     private final OnlineRoster roster;
     private final Clock clock;
 
-    public ServicesApi(final @NotNull OnlineDirectory online, final @NotNull OnlineRoster roster) {
+    public ServicesApi(final OnlineDirectory online, final OnlineRoster roster) {
         this(online, roster, Clock.systemUTC());
     }
 
     /** Package-visible so a test can hold time still instead of racing {@link #STALE_AFTER}. */
-    ServicesApi(final @NotNull OnlineDirectory online, final @NotNull OnlineRoster roster, final @NotNull Clock clock) {
+    ServicesApi(final OnlineDirectory online, final OnlineRoster roster, final Clock clock) {
         this.online = Objects.requireNonNull(online, "online");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -104,7 +103,7 @@ public final class ServicesApi {
      *         any subject without one. Never contains a key it does not vouch for; see the class
      *         documentation for what a caller must do with that absence
      */
-    public @NotNull Online read() {
+    public Online read() {
         final Instant now = clock.instant();
         return new Online(freshCounts(now), freshRoster(now));
     }

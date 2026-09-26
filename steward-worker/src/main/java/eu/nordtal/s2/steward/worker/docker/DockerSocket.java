@@ -19,8 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,7 +78,7 @@ public final class DockerSocket {
         this(DEFAULT_SOCKET, Duration.ofSeconds(30));
     }
 
-    public DockerSocket(final @NotNull Path socket, final @NotNull Duration timeout) {
+    public DockerSocket(final Path socket, final Duration timeout) {
         this.socket = socket;
         this.timeout = timeout;
         this.watchdog = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -105,8 +104,7 @@ public final class DockerSocket {
      * <p>Everything that is not a stream: the container list, an inspect, one stats sample, a
      * registry digest. The connection is closed before this returns.</p>
      */
-    public @NotNull String send(
-            final @NotNull String method, final @NotNull String path, final @Nullable String jsonBody) {
+    public String send(final String method, final String path, final @Nullable String jsonBody) {
         try (Stream stream = open(method, path, jsonBody, timeout)) {
             final String body = new String(stream.body().readAllBytes(), StandardCharsets.UTF_8);
             if (stream.status() >= 400) {
@@ -125,8 +123,7 @@ public final class DockerSocket {
      * <p>The caller closes the returned stream, and closing it is what ends a log follow. No
      * watchdog: see the class comment.</p>
      */
-    public @NotNull Stream stream(
-            final @NotNull String method, final @NotNull String path, final @Nullable String jsonBody) {
+    public Stream stream(final String method, final String path, final @Nullable String jsonBody) {
         return stream(method, path, jsonBody, null);
     }
 
@@ -138,9 +135,9 @@ public final class DockerSocket {
      * tmux socket, a container in the middle of stopping - and without a deadline that hangs
      * whoever asked, which after §10a.2 is somebody waiting in a browser.</p>
      */
-    public @NotNull Stream stream(
-            final @NotNull String method,
-            final @NotNull String path,
+    public Stream stream(
+            final String method,
+            final String path,
             final @Nullable String jsonBody,
             final @Nullable Duration deadline) {
         final Stream stream = open(method, path, jsonBody, deadline);
@@ -343,12 +340,12 @@ public final class DockerSocket {
             return status;
         }
 
-        public @NotNull InputStream body() {
+        public InputStream body() {
             return body;
         }
 
         /** {@code application/vnd.docker.multiplexed-stream} when the frames carry a header. */
-        public @NotNull String contentType() {
+        public String contentType() {
             return headers.getOrDefault("content-type", "");
         }
 

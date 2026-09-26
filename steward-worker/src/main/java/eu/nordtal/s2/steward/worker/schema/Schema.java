@@ -5,7 +5,6 @@ import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * The one place in this deployment that applies the schema, since 2026-09-01.
@@ -49,7 +48,7 @@ public final class Schema {
      *                                               own message names the file and the statement,
      *                                               and nothing this module could add would beat it.
      */
-    public static int migrate(final @NotNull DatabaseSpec config) {
+    public static int migrate(final DatabaseSpec config) {
         try (Database database = open(config)) {
             return migrate(database);
         }
@@ -66,7 +65,7 @@ public final class Schema {
      *
      * @return a pool the caller owns and must close
      */
-    public static @NotNull Database open(final @NotNull DatabaseSpec config) {
+    public static Database open(final DatabaseSpec config) {
         return Database.create(toDatabaseConfig(config));
     }
 
@@ -75,7 +74,7 @@ public final class Schema {
      *
      * @return how many were applied - zero is the ordinary answer on a database that is current
      */
-    public static int migrate(final @NotNull Database database) {
+    public static int migrate(final Database database) {
         final int applied = database.migrate();
         if (applied == 0) {
             log.info("Schema is current - nothing to apply");

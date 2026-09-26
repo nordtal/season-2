@@ -7,8 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What is actually lying in one service's volume: the jars in {@code plugins/} and the server jar
@@ -27,12 +26,7 @@ import org.jetbrains.annotations.Nullable;
  * because its volume was left out of the compose file, would be worse than one that says the mount
  * is missing - the first reads as "all up to date" after the swap.
  */
-public record Installation(
-        @NotNull String service,
-        @NotNull Path directory,
-        boolean mounted,
-        @NotNull List<Jar> plugins,
-        @NotNull List<Jar> serverJars) {
+public record Installation(String service, Path directory, boolean mounted, List<Jar> plugins, List<Jar> serverJars) {
 
     /** Where a service keeps its plugin jars, relative to the volume root. */
     public static final String PLUGINS = "plugins";
@@ -44,7 +38,7 @@ public record Installation(
     public static final String SERVER_CACHE = ".server";
 
     /** One jar on disk. */
-    public record Jar(@NotNull Path path, @NotNull String fileName) {
+    public record Jar(Path path, String fileName) {
 
         public @Nullable String prefix() {
             return JarName.prefixOf(fileName);
@@ -55,7 +49,7 @@ public record Installation(
         }
     }
 
-    public static @NotNull Installation absent(final @NotNull String service, final @NotNull Path directory) {
+    public static Installation absent(final String service, final Path directory) {
         return new Installation(service, directory, false, List.of(), List.of());
     }
 
@@ -64,8 +58,7 @@ public record Installation(
      * volume - {@link Files#newDirectoryStream} lists what is there and this only ever asks for
      * regular files.
      */
-    public static @NotNull Installation scan(final @NotNull String service, final @NotNull Path directory)
-            throws IOException {
+    public static Installation scan(final String service, final Path directory) throws IOException {
         if (!Files.isDirectory(directory)) {
             return absent(service, directory);
         }
@@ -83,8 +76,7 @@ public record Installation(
      * and one honest sentence here beats a second field that would be empty for every real server.
      * </p>
      */
-    public static @NotNull Installation scanFlat(final @NotNull String service, final @NotNull Path directory)
-            throws IOException {
+    public static Installation scanFlat(final String service, final Path directory) throws IOException {
         if (!Files.isDirectory(directory)) {
             return absent(service, directory);
         }
@@ -92,13 +84,13 @@ public record Installation(
     }
 
     /** The installed jar whose prefix matches {@code fileName}'s, or {@code null}. */
-    public @Nullable Jar matching(final @NotNull String fileName) {
+    public @Nullable Jar matching(final String fileName) {
         final String prefix = JarName.prefixOf(fileName);
         return prefix == null ? null : withPrefix(prefix);
     }
 
     /** The installed jar whose filename prefix is {@code prefix}, or {@code null}. */
-    public @Nullable Jar withPrefix(final @NotNull String prefix) {
+    public @Nullable Jar withPrefix(final String prefix) {
         for (final Jar jar : plugins) {
             if (prefix.equals(jar.prefix())) {
                 return jar;
@@ -112,7 +104,7 @@ public record Installation(
         return null;
     }
 
-    private static @NotNull List<Jar> jarsIn(final @NotNull Path directory) throws IOException {
+    private static List<Jar> jarsIn(final Path directory) throws IOException {
         if (!Files.isDirectory(directory)) {
             return List.of();
         }

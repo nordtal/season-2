@@ -13,6 +13,7 @@ import eu.nordtal.s2.common.payment.Money;
 import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequestStatus;
 import eu.nordtal.s2.common.payment.PaymentRequests;
+import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import java.time.Instant;
@@ -20,7 +21,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
-import net.dv8tion.jda.api.JDA;
 
 /**
  * {@link AccessEffects} against this bot.
@@ -44,7 +44,6 @@ import net.dv8tion.jda.api.JDA;
 public final class BotAccessEffects implements AccessEffects, AccessChanges {
 
     private final Executor executor;
-    private final JDA jda;
     private final AccessDirectory access;
     private final AccessRoles roles;
     private final PaymentRequests requests;
@@ -62,7 +61,6 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
      */
     public BotAccessEffects(
             final Executor executor,
-            final JDA jda,
             final AccessDirectory access,
             final AccessRoles roles,
             final PaymentRequests requests,
@@ -72,7 +70,6 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
             final Messages shared,
             final org.slf4j.Logger log) {
         this.executor = executor;
-        this.jda = jda;
         this.access = access;
         this.roles = roles;
         this.requests = requests;

@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * An {@link UpdatePlan} as the {@link UpdateReport} every surface draws.
@@ -31,7 +30,7 @@ public final class PlanReport {
      * @return one line per service that has anything to say, in {@link Topology}'s order so that
      *         the reader always sees the same servers in the same places
      */
-    public static @NotNull UpdateReport of(final @NotNull UpdatePlan plan) {
+    public static UpdateReport of(final UpdatePlan plan) {
         final Map<String, List<UpdateReport.Change>> work = new LinkedHashMap<>();
         final Map<String, String> trouble = new LinkedHashMap<>();
 

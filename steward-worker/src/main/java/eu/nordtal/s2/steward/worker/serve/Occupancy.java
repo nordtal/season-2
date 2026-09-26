@@ -8,7 +8,6 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.OptionalInt;
 import javax.sql.DataSource;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * How many players are on a service <em>right now</em>, as a seam (season-2-ops/122).
@@ -47,26 +46,24 @@ interface Occupancy {
      * @param now     the run's clock
      * @return how many players are on it, or empty when no fresh row says
      */
-    @NotNull
-    OptionalInt on(@NotNull String service, @NotNull Instant now);
+    OptionalInt on(String service, Instant now);
 
     /**
      * @return how many players the standby proxy is holding, or empty when it has never written a
      *         row or has stopped writing. A standby nobody has heard from is not an empty one
      */
-    @NotNull
-    OptionalInt onStandbyProxy(@NotNull Instant now);
+    OptionalInt onStandbyProxy(Instant now);
 
     /** Nothing to read. Every answer is empty, which reads as "nobody said" everywhere. */
     Occupancy NONE = new Occupancy() {
 
         @Override
-        public @NotNull OptionalInt on(final @NotNull String service, final @NotNull Instant now) {
+        public OptionalInt on(final String service, final Instant now) {
             return OptionalInt.empty();
         }
 
         @Override
-        public @NotNull OptionalInt onStandbyProxy(final @NotNull Instant now) {
+        public OptionalInt onStandbyProxy(final Instant now) {
             return OptionalInt.empty();
         }
     };
@@ -78,14 +75,14 @@ interface Occupancy {
      * never opens a standby window never asks either of them, and a constructor that opened a
      * connection would make every unit-level construction of {@code Runner} need a database.</p>
      */
-    static @NotNull Occupancy over(final @NotNull DataSource dataSource) {
+    static Occupancy over(final DataSource dataSource) {
         return new Occupancy() {
 
             private volatile OnlineDirectory counts;
             private volatile StandbyDirectory standby;
 
             @Override
-            public @NotNull OptionalInt on(final @NotNull String service, final @NotNull Instant now) {
+            public OptionalInt on(final String service, final Instant now) {
                 if (counts == null) {
                     counts = OnlineDirectory.using(dataSource);
                 }
@@ -105,7 +102,7 @@ interface Occupancy {
             }
 
             @Override
-            public @NotNull OptionalInt onStandbyProxy(final @NotNull Instant now) {
+            public OptionalInt onStandbyProxy(final Instant now) {
                 if (standby == null) {
                     standby = StandbyDirectory.using(dataSource);
                 }

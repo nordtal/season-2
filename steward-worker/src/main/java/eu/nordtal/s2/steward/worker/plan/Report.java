@@ -7,7 +7,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * An {@link UpdatePlan} as text a person reads before deciding whether to restart a network.
@@ -29,7 +28,7 @@ public final class Report {
 
     private Report() {}
 
-    public static @NotNull String render(final @NotNull UpdatePlan plan) {
+    public static String render(final UpdatePlan plan) {
         final StringBuilder out = new StringBuilder();
 
         out.append("nordtal season 2 - update check at ")
@@ -153,7 +152,7 @@ public final class Report {
      * <b>before</b> anything restarts: the whole value of the restart being a separate button is
      * that somebody sees this first.
      */
-    public static @NotNull String render(final @NotNull ApplyResult result) {
+    public static String render(final ApplyResult result) {
         final StringBuilder out = new StringBuilder("what was done\n\n");
 
         final Map<String, List<ApplyResult.Outcome>> grouped = new LinkedHashMap<>();

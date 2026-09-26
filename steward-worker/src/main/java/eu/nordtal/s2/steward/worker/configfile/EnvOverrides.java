@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +31,7 @@ final class EnvOverrides {
      * @return the dotted paths its neighbour file names, or empty when there is none to read - the
      *         same "no schema yet" shape {@link Schemas#read} answers with, for the same reason
      */
-    static @NotNull Optional<Set<String>> read(final @NotNull Path ymlFile) {
+    static Optional<Set<String>> read(final Path ymlFile) {
         try {
             return EnvOverrideFile.read(ymlFile).map(Set::copyOf);
         } catch (final IOException e) {

@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Changes exactly two lines of the proxy's {@code pack.yml}: {@code url} and {@code sha1}.
@@ -33,8 +32,7 @@ public final class PackWriter {
      * @return {@code true} if the file was written, {@code false} if it already said this.
      * @throws IOException if the file is missing, or does not carry both keys exactly once.
      */
-    public static boolean write(final @NotNull Path packYml, final @NotNull String url, final @NotNull String sha1)
-            throws IOException {
+    public static boolean write(final Path packYml, final String url, final String sha1) throws IOException {
         if (!Files.isRegularFile(packYml)) {
             return create(packYml, url, sha1);
         }
@@ -84,8 +82,7 @@ public final class PackWriter {
      * Writes a two-key {@code pack.yml} into a volume the proxy has never started against; the proxy
      * rewrites the header and adds the other three settings on its first load.
      */
-    private static boolean create(final @NotNull Path packYml, final @NotNull String url, final @NotNull String sha1)
-            throws IOException {
+    private static boolean create(final Path packYml, final String url, final String sha1) throws IOException {
         Files.createDirectories(packYml.getParent());
         Files.write(
                 packYml,
@@ -103,7 +100,7 @@ public final class PackWriter {
      * A top-level key line: no indentation, so a {@code url:} nested under something else is not
      * touched. {@code pack.yml} is flat, which is what makes this safe.
      */
-    private static boolean isKey(final @NotNull String line, final @NotNull String key) {
+    private static boolean isKey(final String line, final String key) {
         return line.startsWith(key + ":")
                 && (line.length() == key.length() + 1 || line.charAt(key.length() + 1) == ' ');
     }

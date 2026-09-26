@@ -62,7 +62,7 @@ public interface AccessMessages {
         MessageRef button();
     }
 
-    Link link();
+    AccessMessages.Link link();
 
     @Name("Link")
     interface Link {
@@ -106,7 +106,7 @@ public interface AccessMessages {
         @Name("Too many")
         MessageRef tooMany();
 
-        Modal modal();
+        Link.Modal modal();
 
         @Name("Modal")
         @Shown(Display.DISCORD_MODAL)
@@ -202,7 +202,7 @@ public interface AccessMessages {
         }
 
         @Key("link")
-        Link linkSection();
+        Purchase.Link linkSection();
 
         @Name("Link")
         interface Link {
@@ -325,7 +325,7 @@ public interface AccessMessages {
         @Shown(Display.DISCORD_BUTTON)
         MessageRef inviteButton();
 
-        Modal modal();
+        Register.Modal modal();
 
         @Name("Modal")
         @Shown(Display.DISCORD_MODAL)

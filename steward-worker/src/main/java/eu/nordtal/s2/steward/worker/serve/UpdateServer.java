@@ -8,7 +8,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * {@code steward-worker serve}: the loop that turns rows in {@code update_request} into runs.
@@ -71,22 +70,22 @@ public final class UpdateServer implements AutoCloseable {
     private volatile boolean running = true;
 
     public UpdateServer(
-            final @NotNull UpdateDirectory directory,
-            final @NotNull RequestRunner runner,
-            final @NotNull Notifications.Connector connector,
-            final @NotNull Duration pollInterval,
-            final @NotNull Clock clock) {
+            final UpdateDirectory directory,
+            final RequestRunner runner,
+            final Notifications.Connector connector,
+            final Duration pollInterval,
+            final Clock clock) {
         this(directory, runner, connector, pollInterval, clock, RECONNECT_BACKOFF);
     }
 
     /** Package-visible so a test can watch several reconnects without waiting seconds for each. */
     UpdateServer(
-            final @NotNull UpdateDirectory directory,
-            final @NotNull RequestRunner runner,
-            final @NotNull Notifications.Connector connector,
-            final @NotNull Duration pollInterval,
-            final @NotNull Clock clock,
-            final @NotNull Duration reconnectBackoff) {
+            final UpdateDirectory directory,
+            final RequestRunner runner,
+            final Notifications.Connector connector,
+            final Duration pollInterval,
+            final Clock clock,
+            final Duration reconnectBackoff) {
         this.directory = directory;
         this.runner = runner;
         this.connector = connector;

@@ -15,8 +15,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +43,7 @@ final class DiskUsage {
     static final Duration TTL = Duration.ofMinutes(5);
 
     /** One measurement: the bytes, or none when {@code du} could not answer, and when it was taken. */
-    record Measured(@NotNull OptionalLong bytes, @NotNull Instant at) {}
+    record Measured(OptionalLong bytes, Instant at) {}
 
     private final @Nullable Path volumesRoot;
     private final Function<Path, OptionalLong> measure;
@@ -52,15 +51,15 @@ final class DiskUsage {
     private final Supplier<Instant> clock;
     private final Map<String, Refreshed<Measured>> cache = new ConcurrentHashMap<>();
 
-    DiskUsage(final @Nullable Path volumesRoot, final @NotNull Executor background) {
+    DiskUsage(final @Nullable Path volumesRoot, final Executor background) {
         this(volumesRoot, DiskUsage::du, background, Instant::now);
     }
 
     DiskUsage(
             final @Nullable Path volumesRoot,
-            final @NotNull Function<Path, OptionalLong> measure,
-            final @NotNull Executor background,
-            final @NotNull Supplier<Instant> clock) {
+            final Function<Path, OptionalLong> measure,
+            final Executor background,
+            final Supplier<Instant> clock) {
         this.volumesRoot = volumesRoot;
         this.measure = measure;
         this.background = background;
@@ -68,8 +67,7 @@ final class DiskUsage {
     }
 
     /** The last measurement for {@code service}, or empty when it has no volume here. */
-    @NotNull
-    Optional<Measured> of(final @NotNull String service) {
+    Optional<Measured> of(final String service) {
         if (volumesRoot == null || !Topology.hasPlugins(service)) {
             return Optional.empty();
         }
@@ -86,7 +84,7 @@ final class DiskUsage {
     }
 
     /** {@code du -sk}, in bytes. Empty when it fails or takes longer than half a minute. */
-    static @NotNull OptionalLong du(final @NotNull Path path) {
+    static OptionalLong du(final Path path) {
         try {
             final Process process = new ProcessBuilder("du", "-sk", path.toString())
                     .redirectError(ProcessBuilder.Redirect.DISCARD)

@@ -14,6 +14,9 @@ import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.discordbot.AdminLog;
+import eu.nordtal.s2.discordbot.Card;
+import eu.nordtal.s2.discordbot.Ids;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -33,7 +36,7 @@ import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.jdbi.v3.core.Jdbi;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@code /update} - what is new, install it, restart the network.
@@ -120,7 +123,7 @@ public final class UpdateCommand extends ListenerAdapter {
     // ---------------------------------------------------------------- the buttons
 
     @Override
-    public void onButtonInteraction(final @NotNull ButtonInteractionEvent event) {
+    public void onButtonInteraction(final ButtonInteractionEvent event) {
         final String id = event.getComponentId();
         if (!Ids.UPDATE_INSTALL.equals(id) && !Ids.UPDATE_RESTART.equals(id) && !Ids.UPDATE_CANCEL.equals(id)) {
             // Every other flow's buttons come through here too.
@@ -245,8 +248,9 @@ public final class UpdateCommand extends ListenerAdapter {
             final Locale locale,
             final UpdateRequest request,
             final Instant deadline,
-            final String drawn) {
-        timers.schedule(
+            final @Nullable String drawn) {
+        // The runnable catches every exception itself, so the future's own result carries nothing new.
+        var _ = timers.schedule(
                 () -> {
                     try {
                         final Optional<UpdateRequest> row = updates.find(request.id());

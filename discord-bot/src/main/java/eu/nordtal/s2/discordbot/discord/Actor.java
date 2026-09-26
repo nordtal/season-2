@@ -4,10 +4,10 @@ import eu.nordtal.s2.commands.NordtalUser;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Whoever asked for an access change, reduced to the three things carrying one out needs
- * (season-2-community/08).
+ * Whoever asked for an access change, reduced to the three things carrying one out needs.
  *
  * <h2>Why this exists rather than a {@code NordtalUser}</h2>
  * A command hands over a {@link NordtalUser}, which is a whole request: a locale, a reply channel, a
@@ -28,7 +28,7 @@ import java.util.UUID;
  * @param mention       the same, as something that renders in the admin channel
  * @param minecraftUuid their Minecraft account, or {@code null} when this surface knows of none
  */
-public record Actor(String filed, String mention, UUID minecraftUuid) {
+public record Actor(String filed, String mention, @Nullable UUID minecraftUuid) {
 
     public Actor {
         Objects.requireNonNull(filed, "filed");
@@ -55,7 +55,7 @@ public record Actor(String filed, String mention, UUID minecraftUuid) {
      *
      * @param discordId the row's {@code requested_by}, or {@code null} for a row nobody signed
      */
-    public static Actor asked(final String discordId) {
+    public static Actor asked(final @Nullable String discordId) {
         return discordId == null || discordId.isBlank()
                 // A row with no asker is a sweep or a hand-written insert. It is filed under a name
                 // rather than left blank, because an empty actor column reads as a bug.

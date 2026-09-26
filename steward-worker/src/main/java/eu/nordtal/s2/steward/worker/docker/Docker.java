@@ -12,8 +12,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.function.Consumer;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +45,7 @@ public final class Docker {
 
     private final DockerSocket socket;
 
-    public Docker(final @NotNull DockerSocket socket) {
+    public Docker(final DockerSocket socket) {
         this.socket = socket;
     }
 
@@ -55,7 +54,7 @@ public final class Docker {
     }
 
     /** Every container of one compose project, running or not. */
-    public @NotNull List<Container> containers(final @NotNull String project) {
+    public List<Container> containers(final String project) {
         final JsonArray array = GSON.fromJson(socket.send("GET", "/containers/json?all=1", null), JsonArray.class);
         final List<Container> containers = new ArrayList<>();
         for (final JsonElement element : array) {
@@ -85,7 +84,7 @@ public final class Docker {
      * framing produces output that is subtly wrong rather than obviously broken - see
      * {@link LogFrames}.</p>
      */
-    public @NotNull Inspection inspect(final @NotNull String id) {
+    public Inspection inspect(final String id) {
         final JsonObject json =
                 GSON.fromJson(socket.send("GET", "/containers/" + id + "/json", null), JsonObject.class);
         final JsonObject state = json.getAsJsonObject("State");
@@ -122,7 +121,7 @@ public final class Docker {
      * one of its own, and none of ours does (measured 2026-09-12) - so a percentage here is a share
      * of the whole machine and has to be labelled that way (§10c).</p>
      */
-    public @NotNull Stats stats(final @NotNull String id) {
+    public Stats stats(final String id) {
         final JsonObject json =
                 GSON.fromJson(socket.send("GET", "/containers/" + id + "/stats?stream=false", null), JsonObject.class);
 
@@ -182,8 +181,8 @@ public final class Docker {
      * @param since RFC3339 or a unix timestamp; empty for everything Docker still has
      * @param tail  how many lines to start with, or {@code "all"}
      */
-    public @NotNull DockerSocket.Stream logs(
-            final @NotNull String id, final boolean follow, final @NotNull String tail, final @Nullable String since) {
+    public DockerSocket.Stream logs(
+            final String id, final boolean follow, final String tail, final @Nullable String since) {
         final StringBuilder path = new StringBuilder("/containers/")
                 .append(id)
                 .append("/logs?stdout=1&stderr=1&timestamps=1")
@@ -198,7 +197,7 @@ public final class Docker {
     }
 
     /** The last {@code tail} lines, read to the end and handed back. Never follows. */
-    public @NotNull List<String> recentLines(final @NotNull String id, final int tail, final boolean multiplexed) {
+    public List<String> recentLines(final String id, final int tail, final boolean multiplexed) {
         final List<String> lines = new ArrayList<>();
         collect(id, tail, multiplexed, lines::add);
         return lines;
@@ -225,7 +224,7 @@ public final class Docker {
      * network. It is never reported as "current": not knowing and being current are different
      * answers and the one that gets conflated is the one that costs four releases.</p>
      */
-    public @NotNull Optional<String> registryDigest(final @NotNull String imageRef) {
+    public Optional<String> registryDigest(final String imageRef) {
         try {
             final JsonObject json = GSON.fromJson(
                     socket.send("GET", "/distribution/" + encodePath(imageRef) + "/json", null), JsonObject.class);
@@ -238,7 +237,7 @@ public final class Docker {
     }
 
     /** The digests a local image carries, as {@code repo@sha256:...}. */
-    public @NotNull List<String> repoDigests(final @NotNull String imageId) {
+    public List<String> repoDigests(final String imageId) {
         if (imageId == null || imageId.isBlank()) {
             return List.of();
         }
@@ -282,7 +281,7 @@ public final class Docker {
      *         is what a container's own image looks like once its tag has been rebuilt out from
      *         under it without a {@code --force-recreate}
      */
-    public @NotNull Optional<ImageIdentity> imageIdentity(final @NotNull String imageRef) {
+    public Optional<ImageIdentity> imageIdentity(final String imageRef) {
         if (imageRef == null || imageRef.isBlank()) {
             return Optional.empty();
         }
@@ -306,11 +305,11 @@ public final class Docker {
         }
     }
 
-    public void stop(final @NotNull String id, final int secondsBeforeKill) {
+    public void stop(final String id, final int secondsBeforeKill) {
         socket.send("POST", "/containers/" + id + "/stop?t=" + secondsBeforeKill, null);
     }
 
-    public void start(final @NotNull String id) {
+    public void start(final String id) {
         socket.send("POST", "/containers/" + id + "/start", null);
     }
 
@@ -324,7 +323,7 @@ public final class Docker {
      * general-purpose exec that quietly refuses some containers is a puzzle rather than a
      * boundary.</p>
      */
-    public @NotNull ExecResult exec(final @NotNull String id, final @NotNull List<String> command) {
+    public ExecResult exec(final String id, final List<String> command) {
         return exec(id, command, null);
     }
 
@@ -336,8 +335,7 @@ public final class Docker {
      * a user is a smaller lie than putting a password in an argument list where {@code ps} can read
      * it.</p>
      */
-    public @NotNull ExecResult exec(
-            final @NotNull String id, final @NotNull List<String> command, final @Nullable String user) {
+    public ExecResult exec(final String id, final List<String> command, final @Nullable String user) {
         final JsonObject request = new JsonObject();
         request.addProperty("AttachStdout", true);
         request.addProperty("AttachStderr", true);
@@ -384,7 +382,7 @@ public final class Docker {
     }
 
     /** What a command in a container came to. An empty {@code output} with code 0 is success. */
-    public record ExecResult(int exitCode, @NotNull String output) {
+    public record ExecResult(int exitCode, String output) {
 
         public boolean ok() {
             return exitCode == 0;
@@ -392,7 +390,7 @@ public final class Docker {
     }
 
     /** What images and volumes take up on the disk - the second half of "how full is the box". */
-    public @NotNull DiskUsage diskUsage() {
+    public DiskUsage diskUsage() {
         final JsonObject json = GSON.fromJson(socket.send("GET", "/system/df", null), JsonObject.class);
         return new DiskUsage(
                 sum(json, "Images", "Size"),
@@ -404,7 +402,7 @@ public final class Docker {
 
     /** One container as the list shows it. {@code service} is null for anything not from compose. */
     public record Container(
-            @NotNull String id,
+            String id,
             @Nullable String service,
             @Nullable String name,
             @Nullable String image,
@@ -425,7 +423,7 @@ public final class Docker {
      *                 process that was still working - for a Minecraft server, still saving.
      */
     public record Inspection(
-            @NotNull String id,
+            String id,
             @Nullable String name,
             @Nullable String image,
             @Nullable String imageId,
@@ -434,7 +432,7 @@ public final class Docker {
             @Nullable String startedAt,
             boolean tty,
             int exitCode,
-            @NotNull List<String> repoDigests) {
+            List<String> repoDigests) {
 
         /** Killed rather than asked: SIGKILL, which is what a stop that ran out of time looks like. */
         public boolean wasKilled() {
@@ -458,12 +456,9 @@ public final class Docker {
      *                     {@link #imageIdentity}
      * @param builtLocally whether {@code Identity.Build} names at least one local build
      */
-    public record ImageIdentity(@NotNull List<String> repoDigests, boolean builtLocally) {}
+    public record ImageIdentity(List<String> repoDigests, boolean builtLocally) {}
 
-    public record Stats(
-            long memoryBytes,
-            long memoryLimitBytes,
-            @NotNull OptionalDouble cpuPercent) {}
+    public record Stats(long memoryBytes, long memoryLimitBytes, OptionalDouble cpuPercent) {}
 
     public record DiskUsage(long imagesBytes, long volumesBytes, long containersBytes) {}
 

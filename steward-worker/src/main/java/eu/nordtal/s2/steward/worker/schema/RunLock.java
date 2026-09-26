@@ -7,7 +7,6 @@ import java.sql.SQLException;
 import java.util.Optional;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * "Exactly one steward-worker is moving jars right now", held by PostgreSQL.
@@ -58,7 +57,7 @@ public final class RunLock implements AutoCloseable {
      *         and the second one has a stale plan by the time it starts
      * @throws SQLException if the database could not be asked
      */
-    public static @NotNull Optional<RunLock> tryAcquire(final @NotNull DataSource dataSource) throws SQLException {
+    public static Optional<RunLock> tryAcquire(final DataSource dataSource) throws SQLException {
         final Connection connection = dataSource.getConnection();
         try (PreparedStatement statement = connection.prepareStatement("SELECT pg_try_advisory_lock(?)")) {
             statement.setLong(1, KEY);

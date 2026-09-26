@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.jetbrains.annotations.NotNull;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
@@ -47,10 +46,10 @@ public final class RawSyntax {
     private RawSyntax() {}
 
     /** One thing this file's own format disagreed with the text about. */
-    public record Warning(int line, @NotNull String message) {
+    public record Warning(int line, String message) {
 
         /** {@code "Line N: message"}, or just the message when no line could be found. */
-        public @NotNull String sentence() {
+        public String sentence() {
             return line > 0 ? "Line " + line + ": " + message : message;
         }
     }
@@ -73,7 +72,7 @@ public final class RawSyntax {
      *
      * @param fileName the file's name or path, as {@link ConfigLocation#name()} carries it
      */
-    public static @NotNull Format formatOf(final @NotNull String fileName) {
+    public static Format formatOf(final String fileName) {
         final String lower = fileName.toLowerCase(Locale.ROOT);
         final int slash = lower.lastIndexOf('/');
         final String leaf = slash >= 0 ? lower.substring(slash + 1) : lower;
@@ -98,7 +97,7 @@ public final class RawSyntax {
      * @return a warning naming what looks wrong, or empty when the format is not checked
      *         ({@link Format#TOML}, {@link Format#TEXT}) or nothing was found
      */
-    public static @NotNull Optional<Warning> check(final @NotNull String fileName, final @NotNull String content) {
+    public static Optional<Warning> check(final String fileName, final String content) {
         return switch (formatOf(fileName)) {
             case YAML -> checkYaml(content);
             case JSON -> checkJson(content);

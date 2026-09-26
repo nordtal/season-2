@@ -19,7 +19,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,18 +52,17 @@ final class JarIdentity {
     private final Map<String, Optional<String>> projectOfHash = new ConcurrentHashMap<>();
     private final Map<String, Kept> projects = new ConcurrentHashMap<>();
 
-    JarIdentity(final @NotNull Modrinth modrinth) {
+    JarIdentity(final Modrinth modrinth) {
         this(modrinth, Instant::now);
     }
 
-    JarIdentity(final @NotNull Modrinth modrinth, final @NotNull Supplier<Instant> clock) {
+    JarIdentity(final Modrinth modrinth, final Supplier<Instant> clock) {
         this.modrinth = modrinth;
         this.clock = clock;
     }
 
     /** The Modrinth project of each jar Modrinth published, keyed by file name. Never throws. */
-    @NotNull
-    Map<String, Modrinth.Project> identify(final @NotNull List<Installation.Jar> jars) {
+    Map<String, Modrinth.Project> identify(final List<Installation.Jar> jars) {
         final Map<String, String> projectOfJar = new LinkedHashMap<>();
         for (final Installation.Jar jar : jars) {
             final String hash = hash(jar);
@@ -99,8 +97,7 @@ final class JarIdentity {
      * Name and icon of each of these Modrinth projects, keyed by id, from the same day-long cache.
      * Never throws: an id Modrinth could not be asked about is simply missing from the answer.
      */
-    @NotNull
-    Map<String, Modrinth.Project> projects(final @NotNull java.util.Collection<String> ids) {
+    Map<String, Modrinth.Project> projects(final java.util.Collection<String> ids) {
         final Instant now = clock.get();
         final Set<String> stale = new LinkedHashSet<>();
         for (final String id : ids) {

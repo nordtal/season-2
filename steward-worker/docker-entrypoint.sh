@@ -2,21 +2,19 @@
 # Pick the jar to run: the one in the volume if there is one, the one baked into the image if
 # there is not.
 #
-# WHY BOTH. Since 2026-09-01 steward-worker owns this container's jar the same way it owns every
-# plugin jar - it downloads it, verifies it, puts it in the volume and deletes the one it
-# supersedes. That is what makes this module roll back the way everything else does, and it is why
-# `docker compose build` is no longer part of updating anything.
+# Why both: steward-worker owns this container's jar the same way it owns every plugin jar - it
+# downloads it, verifies it, puts it in the volume and deletes the one it supersedes. That is what
+# makes this module roll back the way everything else does.
 #
-# The baked jar is what makes a FIRST deployment possible at all. The volume is empty before the
+# The baked jar is what makes a first deployment possible at all. The volume is empty before the
 # first `steward-worker bootstrap`, and a container that refused to start on an empty volume could
 # never be the thing that fills it (the worker) or the thing an operator needs in order to run the
 # bootstrap at all. So the image still carries a jar, and it is a floor and not a version: what
 # actually runs is printed on every start, and `docker compose run --rm steward-worker` reports it
 # too.
 #
-# THE COST, STATED PLAINLY: the baked jar goes stale. An image built from v0.2.0 keeps carrying
-# v0.2.0 forever, and after the volume has been filled once nothing ever reads it again. It is not
-# what is running and it must not be read as what is running.
+# The cost: the baked jar goes stale. It is not what is running once the volume has been filled
+# once, and it must not be read as what is running.
 set -eu
 
 : "${JAR_DIR:?JAR_DIR must be set in the Dockerfile}"

@@ -1,11 +1,10 @@
 package eu.nordtal.s2.steward.worker.apply;
 
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /** What a run actually did, one line per artefact. */
-public record ApplyResult(@NotNull List<Outcome> outcomes) {
+public record ApplyResult(List<Outcome> outcomes) {
 
     public enum Status {
         /** A file was fetched and moved into place, or the pack's two lines were rewritten. */
@@ -29,8 +28,8 @@ public record ApplyResult(@NotNull List<Outcome> outcomes) {
 
     public record Outcome(
             @Nullable String service,
-            @NotNull String artifact,
-            @NotNull Status status,
+            String artifact,
+            Status status,
             @Nullable String detail) {}
 
     public boolean changedAnything() {

@@ -15,8 +15,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The Modrinth v2 API, for the third-party plugins the network runs: PacketEvents,
@@ -143,11 +142,8 @@ public final class Modrinth {
      *                     Both are refusals rather than fallbacks: installing the 26.1 build
      *                     instead is not a decision a program gets to make.
      */
-    public @NotNull RemoteFile newest(
-            final @NotNull String artifact,
-            final @NotNull String projectId,
-            final @NotNull String gameVersion,
-            final @NotNull String loader)
+    public RemoteFile newest(
+            final String artifact, final String projectId, final String gameVersion, final String loader)
             throws IOException {
 
         // Both filters are JSON arrays inside a query parameter - Modrinth's own documented shape,
@@ -225,12 +221,12 @@ public final class Modrinth {
      *                    anything about whether a stranger's plugin is worth trusting
      */
     public record Hit(
-            @NotNull String projectId,
-            @NotNull String slug,
-            @NotNull String title,
+            String projectId,
+            String slug,
+            String title,
             @Nullable String description,
             @Nullable String iconUrl,
-            @NotNull String pageUrl,
+            String pageUrl,
             long downloads) {}
 
     /**
@@ -260,9 +256,7 @@ public final class Modrinth {
      * @param loader      {@code paper} or {@code velocity} - {@code Topology.Kind#modrinthLoader}
      * @throws IOException if the API could not be read
      */
-    public @NotNull List<Hit> search(
-            final @NotNull String query, final @NotNull String gameVersion, final @NotNull String loader)
-            throws IOException {
+    public List<Hit> search(final String query, final String gameVersion, final String loader) throws IOException {
         // Modrinth's own shape: facets is a JSON array of arrays, AND between the outer entries,
         // OR inside each. So this reads "on this loader, AND for this Minecraft version, AND a
         // plugin" - three separate requirements rather than three alternatives.
@@ -309,11 +303,11 @@ public final class Modrinth {
      * @param iconUrl as Modrinth states it; the caller decides whether a browser may load it
      */
     public record Project(
-            @NotNull String projectId,
-            @NotNull String slug,
-            @NotNull String title,
+            String projectId,
+            String slug,
+            String title,
             @Nullable String iconUrl,
-            @NotNull String pageUrl) {}
+            String pageUrl) {}
 
     /**
      * The project a file with this SHA-512 was published under, or {@code null} when Modrinth has
@@ -323,7 +317,7 @@ public final class Modrinth {
      * which project it came from, and the same answer holds for a jar somebody put there by hand. A
      * 404 is an answer - "not from Modrinth" - and every other failure is a failure.</p>
      */
-    public @Nullable String projectOfFile(final @NotNull String sha512) throws IOException {
+    public @Nullable String projectOfFile(final String sha512) throws IOException {
         final URI uri = URI.create(VERSION_FILE + sha512 + "?algorithm=sha512");
         final String body;
         try {
@@ -338,7 +332,7 @@ public final class Modrinth {
     }
 
     /** Name, slug and icon of each of {@code projectIds}, in one request. Unknown ids are left out. */
-    public @NotNull List<Project> projects(final @NotNull Collection<String> projectIds) throws IOException {
+    public List<Project> projects(final Collection<String> projectIds) throws IOException {
         if (projectIds.isEmpty()) {
             return List.of();
         }
@@ -365,7 +359,7 @@ public final class Modrinth {
         return List.copyOf(found);
     }
 
-    private static @Nullable JsonObject primaryFile(final @NotNull JsonObject version) {
+    private static @Nullable JsonObject primaryFile(final JsonObject version) {
         final JsonElement files = version.get("files");
         if (files == null || !files.isJsonArray()) {
             return null;
@@ -379,7 +373,7 @@ public final class Modrinth {
         return null;
     }
 
-    private static @NotNull Instant published(final @NotNull JsonObject version) {
+    private static Instant published(final JsonObject version) {
         final String raw = Json.optionalString(version, "date_published");
         if (raw == null) {
             return Instant.EPOCH;
@@ -391,7 +385,7 @@ public final class Modrinth {
         }
     }
 
-    private static @NotNull String encode(final @NotNull String value) {
+    private static String encode(final String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

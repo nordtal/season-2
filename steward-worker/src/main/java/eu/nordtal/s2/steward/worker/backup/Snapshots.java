@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.worker.backup;
 
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Saving one volume, as a seam.
@@ -22,8 +22,7 @@ public interface Snapshots {
      *
      * @param volume the docker volume name, e.g. {@code nordtal-s2_mc-smp}
      */
-    @NotNull
-    SnapshotResult save(@NotNull String volume);
+    SnapshotResult save(String volume);
 
     /**
      * Writes the mark that says the servers behind this archive were stopped unverified.
@@ -39,8 +38,8 @@ public interface Snapshots {
      * @return the name of the mark that was written, or {@code null} if it could not be - which is
      *         logged and is not a reason to discard a backup that otherwise succeeded
      */
-    @org.jetbrains.annotations.Nullable
-    String markUnverified(@NotNull String archive, @NotNull String why);
+    @Nullable
+    String markUnverified(String archive, String why);
 
     /**
      * Deletes whatever the policy no longer keeps, one series at a time.
@@ -49,6 +48,5 @@ public interface Snapshots {
      * @return what was removed, for the report - a retention that quietly deletes is one nobody
      *         notices has been deleting the wrong thing
      */
-    @NotNull
-    List<String> prune(@NotNull Retention policy);
+    List<String> prune(Retention policy);
 }

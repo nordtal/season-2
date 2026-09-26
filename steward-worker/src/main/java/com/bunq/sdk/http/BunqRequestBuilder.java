@@ -10,7 +10,6 @@ import okhttp3.CacheControl;
 import okhttp3.HttpUrl;
 import okhttp3.Request;
 import okhttp3.RequestBody;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A patched copy of {@code com.bunq.sdk.http.BunqRequestBuilder} from
@@ -71,13 +70,13 @@ public class BunqRequestBuilder extends Request.Builder {
     }
 
     @Override
-    public @NotNull BunqRequestBuilder url(@NotNull HttpUrl url) {
+    public BunqRequestBuilder url(HttpUrl url) {
         this.url = url;
         return (BunqRequestBuilder) super.url(url);
     }
 
     @Override
-    public @NotNull BunqRequestBuilder method(@NotNull String method, RequestBody body) {
+    public BunqRequestBuilder method(String method, RequestBody body) {
         RequestBody bodyToPassToSuper;
         if (body instanceof BunqRequestBody) {
             bodyToPassToSuper = ((BunqRequestBody) body).getRequestBody();
@@ -92,12 +91,12 @@ public class BunqRequestBuilder extends Request.Builder {
     }
 
     @Override
-    public @NotNull BunqRequestBuilder url(@NotNull String url) {
+    public BunqRequestBuilder url(String url) {
         return (BunqRequestBuilder) super.url(url);
     }
 
     @Override
-    public @NotNull BunqRequestBuilder url(@NotNull URL url) {
+    public BunqRequestBuilder url(URL url) {
         return (BunqRequestBuilder) super.url(url);
     }
 
@@ -109,19 +108,19 @@ public class BunqRequestBuilder extends Request.Builder {
     }
 
     @Override
-    public @NotNull BunqRequestBuilder header(@NotNull String name, @NotNull String value) {
+    public BunqRequestBuilder header(String name, String value) {
         addToAllHeader(name, value);
         return (BunqRequestBuilder) super.header(name, value);
     }
 
     @Override
-    public @NotNull BunqRequestBuilder addHeader(@NotNull String name, @NotNull String value) {
+    public BunqRequestBuilder addHeader(String name, String value) {
         addToAllHeader(name, value);
         return (BunqRequestBuilder) super.addHeader(name, value);
     }
 
     @Override
-    public @NotNull BunqRequestBuilder removeHeader(@NotNull String name) {
+    public BunqRequestBuilder removeHeader(String name) {
         List<BunqBasicHeader> allHeaderToRemove = new ArrayList<>();
         for (BunqBasicHeader basicHeader : this.allHeader) {
             if (basicHeader.getName().equals(name)) {
@@ -133,27 +132,27 @@ public class BunqRequestBuilder extends Request.Builder {
     }
 
     @Override
-    public @NotNull BunqRequestBuilder cacheControl(@NotNull CacheControl cacheControl) {
+    public BunqRequestBuilder cacheControl(CacheControl cacheControl) {
         return (BunqRequestBuilder) super.cacheControl(cacheControl);
     }
 
     @Override
-    public @NotNull BunqRequestBuilder get() {
+    public BunqRequestBuilder get() {
         return (BunqRequestBuilder) super.get();
     }
 
     @Override
-    public @NotNull BunqRequestBuilder head() {
+    public BunqRequestBuilder head() {
         return (BunqRequestBuilder) super.head();
     }
 
     @Override
-    public @NotNull BunqRequestBuilder post(@NotNull RequestBody body) {
+    public BunqRequestBuilder post(RequestBody body) {
         return (BunqRequestBuilder) super.post(body);
     }
 
     @Override
-    public @NotNull BunqRequestBuilder delete(RequestBody body) {
+    public BunqRequestBuilder delete(RequestBody body) {
         return (BunqRequestBuilder) super.delete(body);
     }
 
@@ -163,17 +162,17 @@ public class BunqRequestBuilder extends Request.Builder {
     // empty body is required, use delete(BunqRequestBody.create(...)).
 
     @Override
-    public @NotNull BunqRequestBuilder put(RequestBody body) {
+    public BunqRequestBuilder put(RequestBody body) {
         return (BunqRequestBuilder) super.put(body);
     }
 
     @Override
-    public @NotNull BunqRequestBuilder patch(@NotNull RequestBody body) {
+    public BunqRequestBuilder patch(RequestBody body) {
         return (BunqRequestBuilder) super.patch(body);
     }
 
     @Override
-    public @NotNull BunqRequestBuilder tag(Object tag) {
+    public BunqRequestBuilder tag(Object tag) {
         return (BunqRequestBuilder) super.tag(tag);
     }
 }

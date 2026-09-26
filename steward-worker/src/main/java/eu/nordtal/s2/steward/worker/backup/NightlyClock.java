@@ -18,7 +18,6 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,8 +113,7 @@ public final class NightlyClock implements AutoCloseable {
      * @return empty when it is switched off or unreadable - and unreadable is logged as the
      *         configuration error it is, rather than silently becoming midnight
      */
-    public static Optional<NightlyClock> from(
-            final @NotNull UpdateDirectory directory, final String at, final @NotNull ZoneId zone) {
+    public static Optional<NightlyClock> from(final UpdateDirectory directory, final String at, final ZoneId zone) {
         return from(directory, at, null, zone);
     }
 
@@ -127,10 +125,7 @@ public final class NightlyClock implements AutoCloseable {
      * @return empty when it is switched off, unreadable, or asked for no weekday at all
      */
     public static Optional<NightlyClock> from(
-            final @NotNull UpdateDirectory directory,
-            final String at,
-            final List<String> days,
-            final @NotNull ZoneId zone) {
+            final UpdateDirectory directory, final String at, final List<String> days, final ZoneId zone) {
         return from(directory, Job.BACKUP, at, days, zone);
     }
 
@@ -140,11 +135,11 @@ public final class NightlyClock implements AutoCloseable {
      * @return empty when it is switched off, unreadable, or asked for no weekday at all
      */
     public static Optional<NightlyClock> from(
-            final @NotNull UpdateDirectory directory,
-            final @NotNull Job job,
+            final UpdateDirectory directory,
+            final Job job,
             final String at,
             final List<String> days,
-            final @NotNull ZoneId zone) {
+            final ZoneId zone) {
         if (at == null || at.isBlank()) {
             return Optional.empty();
         }
@@ -212,8 +207,7 @@ public final class NightlyClock implements AutoCloseable {
      * interface used to work that out in the browser's time zone, which is not this container's -
      * an admin one hour east of the host scheduled the thing it was avoiding.
      */
-    public static Optional<ZonedDateTime> next(
-            final String at, final @NotNull ZoneId zone, final @NotNull ZonedDateTime now) {
+    public static Optional<ZonedDateTime> next(final String at, final ZoneId zone, final ZonedDateTime now) {
         return next(at, null, zone, now);
     }
 
@@ -223,17 +217,13 @@ public final class NightlyClock implements AutoCloseable {
      * @param days {@code null} for every night - see {@link #from(UpdateDirectory, String, List, ZoneId)}
      */
     public static Optional<ZonedDateTime> next(
-            final String at, final List<String> days, final @NotNull ZoneId zone, final @NotNull ZonedDateTime now) {
+            final String at, final List<String> days, final ZoneId zone, final ZonedDateTime now) {
         return next(Job.BACKUP, at, days, zone, now);
     }
 
     /** The same answer for either clock - {@code job} only decides which key a log line names. */
     public static Optional<ZonedDateTime> next(
-            final @NotNull Job job,
-            final String at,
-            final List<String> days,
-            final @NotNull ZoneId zone,
-            final @NotNull ZonedDateTime now) {
+            final Job job, final String at, final List<String> days, final ZoneId zone, final ZonedDateTime now) {
         final LocalTime parsed = hour(job, at);
         if (parsed == null) {
             return Optional.empty();
@@ -329,7 +319,7 @@ public final class NightlyClock implements AutoCloseable {
      * @return the wait before this clock fires again: {@link #RETRY} while another run is open and
      *         tonight's patience lasts, otherwise until the next scheduled night
      */
-    Duration fire(final @NotNull ZonedDateTime due, final @NotNull ZonedDateTime now) {
+    Duration fire(final ZonedDateTime due, final ZonedDateTime now) {
         try {
             final long id = directory
                     .submit(job.kind, SOURCE, job.requestedBy, Duration.ZERO)
@@ -357,7 +347,7 @@ public final class NightlyClock implements AutoCloseable {
     }
 
     /** Always strictly in the future, so firing exactly on the second cannot re-arm at zero. */
-    Duration untilNext(final @NotNull ZonedDateTime now) {
+    Duration untilNext(final ZonedDateTime now) {
         return Duration.between(now, nextAt(at, days, now));
     }
 

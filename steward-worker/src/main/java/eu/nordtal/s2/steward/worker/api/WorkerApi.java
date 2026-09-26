@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.worker.api;
 
 import com.google.gson.Gson;
+import eu.nordtal.s2.common.access.AccessRequests;
 import eu.nordtal.s2.common.audit.AuditDirectory;
 import eu.nordtal.s2.common.online.OnlinePlayer;
 import eu.nordtal.s2.common.update.ServiceHold;
@@ -52,7 +53,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -93,15 +94,10 @@ public final class WorkerApi implements AutoCloseable {
      * @param updateAt the same for the scheduled update, blank - the default - for none
      * @param zone     this container's zone - compose sets {@code TZ}, and it is not the browser's
      */
-    public record Nightly(
-            @NotNull String at,
-            @NotNull List<String> days,
-            @NotNull String updateAt,
-            @NotNull List<String> updateDays,
-            @NotNull ZoneId zone) {
+    public record Nightly(String at, List<String> days, String updateAt, List<String> updateDays, ZoneId zone) {
 
         /** No scheduled update, which is what a config without the {@code update} section says. */
-        public Nightly(final @NotNull String at, final @NotNull List<String> days, final @NotNull ZoneId zone) {
+        public Nightly(final String at, final List<String> days, final ZoneId zone) {
             this(at, days, "", List.of(), zone);
         }
     }
@@ -115,7 +111,7 @@ public final class WorkerApi implements AutoCloseable {
      * <p>Null in a deployment with no database, because the added plugins are a table. Every route
      * of it then answers 503 rather than an empty list - see the constructor.</p>
      */
-    private final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins;
+    private final @Nullable PluginsApi managedPlugins;
 
     /** Log follows are long and blocking; each one gets a thread of its own, and they are cheap. */
     private final ExecutorService followers = Executors.newVirtualThreadPerTaskExecutor();
@@ -198,8 +194,7 @@ public final class WorkerApi implements AutoCloseable {
      * minute ago" belonging to another - and this whole column exists because image drift went
      * unnoticed for four releases, so a row and its age have to be the same reading.</p>
      */
-    private record Drift(
-            @NotNull ImageResult result, @NotNull Instant checkedAt) {}
+    private record Drift(ImageResult result, Instant checkedAt) {}
 
     /**
      * One thread, and it belongs to nobody's request.
@@ -241,8 +236,7 @@ public final class WorkerApi implements AutoCloseable {
     private static final Duration AVAILABLE_TTL = Duration.ofHours(6);
 
     /** One resolve and the moment it was made, for the same reason {@link Drift} is one value. */
-    private record Available(
-            @NotNull UpdatePlan plan, @NotNull Instant checkedAt) {}
+    private record Available(UpdatePlan plan, Instant checkedAt) {}
 
     /**
      * The resolve, or {@code null} where this API has no sources to ask - every test that builds a
@@ -253,7 +247,7 @@ public final class WorkerApi implements AutoCloseable {
      * that. The endpoint answers 503 instead, which the page can draw as "could not look" - the
      * distinction {@link Change.Status#UNRESOLVED} exists for, one level up.</p>
      */
-    private final @org.jetbrains.annotations.Nullable Refreshed<Available> available;
+    private final @Nullable Refreshed<Available> available;
 
     private Javalin app;
 
@@ -275,7 +269,7 @@ public final class WorkerApi implements AutoCloseable {
      * an empty answer is proxy not having written recently. Both leave the field off a
      * row - see {@link #describe} - which is the whole point (steward/86).
      */
-    private final @org.jetbrains.annotations.Nullable ServicesApi players;
+    private final @Nullable ServicesApi players;
 
     /**
      * {@code update_request} and {@code service_hold}, read for one thing only (season-2-ops/125).
@@ -289,20 +283,20 @@ public final class WorkerApi implements AutoCloseable {
      * <p>It costs one small indexed query per {@code /api/services}, taken once for the whole table
      * rather than once per row, for the same reason the player counts are.</p>
      */
-    private final @NotNull UpdateDirectory updates;
+    private final UpdateDirectory updates;
 
     public WorkerApi(
-            final @NotNull Docker docker,
-            final @NotNull DockerOps ops,
-            final @NotNull Console console,
-            final @NotNull HostMetrics host,
-            final @NotNull String project,
-            final @NotNull Path backups,
-            final @NotNull String token,
-            final @NotNull Path configs,
-            final @NotNull UpdateDirectory updates,
-            final @NotNull AuditDirectory audit,
-            final @NotNull Nightly nightly) {
+            final Docker docker,
+            final DockerOps ops,
+            final Console console,
+            final HostMetrics host,
+            final String project,
+            final Path backups,
+            final String token,
+            final Path configs,
+            final UpdateDirectory updates,
+            final AuditDirectory audit,
+            final Nightly nightly) {
         this(docker, ops, console, host, project, backups, token, configs, null, updates, audit, nightly);
     }
 
@@ -323,18 +317,18 @@ public final class WorkerApi implements AutoCloseable {
      *                    Docker and the filesystem, never the database" (§3)
      */
     public WorkerApi(
-            final @NotNull Docker docker,
-            final @NotNull DockerOps ops,
-            final @NotNull Console console,
-            final @NotNull HostMetrics host,
-            final @NotNull String project,
-            final @NotNull Path backups,
-            final @NotNull String token,
-            final @NotNull Path configs,
-            final @org.jetbrains.annotations.Nullable Path volumesRoot,
-            final @NotNull UpdateDirectory updates,
-            final @NotNull AuditDirectory audit,
-            final @NotNull Nightly nightly) {
+            final Docker docker,
+            final DockerOps ops,
+            final Console console,
+            final HostMetrics host,
+            final String project,
+            final Path backups,
+            final String token,
+            final Path configs,
+            final @Nullable Path volumesRoot,
+            final UpdateDirectory updates,
+            final AuditDirectory audit,
+            final Nightly nightly) {
         this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates, audit, nightly, null);
     }
 
@@ -347,19 +341,19 @@ public final class WorkerApi implements AutoCloseable {
      *               sent as {@code 0} or an empty list (steward/86, steward/111).
      */
     public WorkerApi(
-            final @NotNull Docker docker,
-            final @NotNull DockerOps ops,
-            final @NotNull Console console,
-            final @NotNull HostMetrics host,
-            final @NotNull String project,
-            final @NotNull Path backups,
-            final @NotNull String token,
-            final @NotNull Path configs,
-            final @org.jetbrains.annotations.Nullable Path volumesRoot,
-            final @NotNull UpdateDirectory updates,
-            final @NotNull AuditDirectory audit,
-            final @NotNull Nightly nightly,
-            final @org.jetbrains.annotations.Nullable ServicesApi online) {
+            final Docker docker,
+            final DockerOps ops,
+            final Console console,
+            final HostMetrics host,
+            final String project,
+            final Path backups,
+            final String token,
+            final Path configs,
+            final @Nullable Path volumesRoot,
+            final UpdateDirectory updates,
+            final AuditDirectory audit,
+            final Nightly nightly,
+            final @Nullable ServicesApi online) {
         this(
                 docker,
                 ops,
@@ -387,20 +381,20 @@ public final class WorkerApi implements AutoCloseable {
      *                reported as available, and the only way it does is by asking again.
      */
     public WorkerApi(
-            final @NotNull Docker docker,
-            final @NotNull DockerOps ops,
-            final @NotNull Console console,
-            final @NotNull HostMetrics host,
-            final @NotNull String project,
-            final @NotNull Path backups,
-            final @NotNull String token,
-            final @NotNull Path configs,
-            final @org.jetbrains.annotations.Nullable Path volumesRoot,
-            final @NotNull UpdateDirectory updates,
-            final @NotNull AuditDirectory audit,
-            final @NotNull Nightly nightly,
-            final @org.jetbrains.annotations.Nullable ServicesApi online,
-            final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve) {
+            final Docker docker,
+            final DockerOps ops,
+            final Console console,
+            final HostMetrics host,
+            final String project,
+            final Path backups,
+            final String token,
+            final Path configs,
+            final @Nullable Path volumesRoot,
+            final UpdateDirectory updates,
+            final AuditDirectory audit,
+            final Nightly nightly,
+            final @Nullable ServicesApi online,
+            final @Nullable Supplier<UpdatePlan> resolve) {
         this(
                 docker,
                 ops,
@@ -429,21 +423,21 @@ public final class WorkerApi implements AutoCloseable {
      *                       installed
      */
     public WorkerApi(
-            final @NotNull Docker docker,
-            final @NotNull DockerOps ops,
-            final @NotNull Console console,
-            final @NotNull HostMetrics host,
-            final @NotNull String project,
-            final @NotNull Path backups,
-            final @NotNull String token,
-            final @NotNull Path configs,
-            final @org.jetbrains.annotations.Nullable Path volumesRoot,
-            final @NotNull UpdateDirectory updates,
-            final @NotNull AuditDirectory audit,
-            final @NotNull Nightly nightly,
-            final @org.jetbrains.annotations.Nullable ServicesApi online,
-            final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
-            final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins) {
+            final Docker docker,
+            final DockerOps ops,
+            final Console console,
+            final HostMetrics host,
+            final String project,
+            final Path backups,
+            final String token,
+            final Path configs,
+            final @Nullable Path volumesRoot,
+            final UpdateDirectory updates,
+            final AuditDirectory audit,
+            final Nightly nightly,
+            final @Nullable ServicesApi online,
+            final @Nullable Supplier<UpdatePlan> resolve,
+            final @Nullable PluginsApi managedPlugins) {
         this(
                 docker,
                 ops,
@@ -469,22 +463,22 @@ public final class WorkerApi implements AutoCloseable {
      *                    that a restart is needed, which is what is true there
      */
     public WorkerApi(
-            final @NotNull Docker docker,
-            final @NotNull DockerOps ops,
-            final @NotNull Console console,
-            final @NotNull HostMetrics host,
-            final @NotNull String project,
-            final @NotNull Path backups,
-            final @NotNull String token,
-            final @NotNull Path configs,
-            final @org.jetbrains.annotations.Nullable Path volumesRoot,
-            final @NotNull UpdateDirectory updates,
-            final @NotNull AuditDirectory audit,
-            final @NotNull Nightly nightly,
-            final @org.jetbrains.annotations.Nullable ServicesApi online,
-            final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
-            final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins,
-            final @org.jetbrains.annotations.Nullable eu.nordtal.s2.common.access.AccessRequests accessInbox) {
+            final Docker docker,
+            final DockerOps ops,
+            final Console console,
+            final HostMetrics host,
+            final String project,
+            final Path backups,
+            final String token,
+            final Path configs,
+            final @Nullable Path volumesRoot,
+            final UpdateDirectory updates,
+            final AuditDirectory audit,
+            final Nightly nightly,
+            final @Nullable ServicesApi online,
+            final @Nullable Supplier<UpdatePlan> resolve,
+            final @Nullable PluginsApi managedPlugins,
+            final @Nullable AccessRequests accessInbox) {
         this(
                 docker,
                 ops,
@@ -513,23 +507,23 @@ public final class WorkerApi implements AutoCloseable {
      *                  already happened, and the answer then says the change waits for a restart.
      */
     public WorkerApi(
-            final @NotNull Docker docker,
-            final @NotNull DockerOps ops,
-            final @NotNull Console console,
-            final @NotNull HostMetrics host,
-            final @NotNull String project,
-            final @NotNull Path backups,
-            final @NotNull String token,
-            final @NotNull Path configs,
-            final @org.jetbrains.annotations.Nullable Path volumesRoot,
-            final @NotNull UpdateDirectory updates,
-            final @NotNull AuditDirectory audit,
-            final @NotNull Supplier<Nightly> nightly,
-            final @org.jetbrains.annotations.Nullable ServicesApi online,
-            final @org.jetbrains.annotations.Nullable Supplier<UpdatePlan> resolve,
-            final @org.jetbrains.annotations.Nullable PluginsApi managedPlugins,
-            final @org.jetbrains.annotations.Nullable eu.nordtal.s2.common.access.AccessRequests accessInbox,
-            final @NotNull Runnable reReadOwn) {
+            final Docker docker,
+            final DockerOps ops,
+            final Console console,
+            final HostMetrics host,
+            final String project,
+            final Path backups,
+            final String token,
+            final Path configs,
+            final @Nullable Path volumesRoot,
+            final UpdateDirectory updates,
+            final AuditDirectory audit,
+            final Supplier<Nightly> nightly,
+            final @Nullable ServicesApi online,
+            final @Nullable Supplier<UpdatePlan> resolve,
+            final @Nullable PluginsApi managedPlugins,
+            final @Nullable AccessRequests accessInbox,
+            final Runnable reReadOwn) {
         this.managedPlugins = managedPlugins;
         this.players = online;
         this.updates = updates;

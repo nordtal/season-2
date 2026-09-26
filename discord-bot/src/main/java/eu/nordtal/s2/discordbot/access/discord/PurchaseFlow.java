@@ -7,12 +7,12 @@ import eu.nordtal.s2.common.payment.Money;
 import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequestStatus;
 import eu.nordtal.s2.common.payment.PaymentRequests;
+import eu.nordtal.s2.discordbot.AdminLog;
+import eu.nordtal.s2.discordbot.Ids;
 import eu.nordtal.s2.discordbot.access.payment.Purchases;
 import eu.nordtal.s2.discordbot.access.payment.Tier;
 import eu.nordtal.s2.discordbot.access.payment.Tiers;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
-import eu.nordtal.s2.discordbot.discord.AdminLog;
-import eu.nordtal.s2.discordbot.discord.Ids;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,7 +35,6 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.callbacks.IDeferrableCallback;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * The buy-access flow: a button, a day selection, a summary, and a payment link.
@@ -130,7 +129,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     }
 
     @Override
-    public void onButtonInteraction(final @NotNull ButtonInteractionEvent event) {
+    public void onButtonInteraction(final ButtonInteractionEvent event) {
         final String id = event.getComponentId();
         if (!id.startsWith("access:")) {
             return;
@@ -146,7 +145,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     }
 
     @Override
-    public void onStringSelectInteraction(final @NotNull StringSelectInteractionEvent event) {
+    public void onStringSelectInteraction(final StringSelectInteractionEvent event) {
         if (!Ids.DAYS_SELECT.equals(event.getComponentId())) {
             return;
         }

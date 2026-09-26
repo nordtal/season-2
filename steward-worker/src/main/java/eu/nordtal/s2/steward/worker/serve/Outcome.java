@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
 import eu.nordtal.s2.common.update.UpdateStatus;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * What running one request came to: the status to write back, and the text to write with it.
@@ -11,13 +10,13 @@ import org.jetbrains.annotations.NotNull;
  *               table. Always steward-worker's own rendering, never a second one, so every surface
  *               shows the same words steward-worker prints on the host
  */
-public record Outcome(@NotNull UpdateStatus status, @NotNull String report) {
+public record Outcome(UpdateStatus status, String report) {
 
-    static Outcome done(final @NotNull String report) {
+    static Outcome done(final String report) {
         return new Outcome(UpdateStatus.DONE, report);
     }
 
-    static Outcome failed(final @NotNull String report) {
+    static Outcome failed(final String report) {
         return new Outcome(UpdateStatus.FAILED, report);
     }
 }

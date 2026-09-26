@@ -3,8 +3,7 @@ package eu.nordtal.s2.steward.worker.plan;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The whole answer to "what would a run do", and nothing more: resolving writes nothing.
@@ -28,15 +27,14 @@ import org.jetbrains.annotations.Nullable;
  *                         surface composes a second opinion of its own.
  */
 public record UpdatePlan(
-        @NotNull Instant resolvedAt,
+        Instant resolvedAt,
         @Nullable String seasonTag,
         boolean seasonPrerelease,
-        @NotNull List<Change> changes,
-        @NotNull List<Unclaimed> unclaimed,
-        @NotNull List<String> notes) {
+        List<Change> changes,
+        List<Unclaimed> unclaimed,
+        List<String> notes) {
 
-    public record Unclaimed(
-            @NotNull String service, @NotNull String fileName) {}
+    public record Unclaimed(String service, String fileName) {}
 
     /**
      * The row that makes a run leave {@code service} alone entirely, or {@code null} when a run
@@ -47,14 +45,14 @@ public record UpdatePlan(
      * {@code .server/} running and the plugins free to move. The applier acts on this, and the
      * report and the plugin list draw it, so all three agree on what a run would install.</p>
      */
-    public @Nullable Change blocker(final @NotNull String service) {
+    public @Nullable Change blocker(final String service) {
         return blocker(changes.stream()
                 .filter(change -> service.equals(change.service()))
                 .toList());
     }
 
     /** {@link #blocker(String)} for one service's rows. */
-    public static @Nullable Change blocker(final @NotNull Collection<Change> serviceChanges) {
+    public static @Nullable Change blocker(final Collection<Change> serviceChanges) {
         return serviceChanges.stream()
                 .filter(change -> change.status().isFailure())
                 .filter(change -> !Topology.PAPER.equals(change.artifact()))
@@ -74,7 +72,7 @@ public record UpdatePlan(
         return changes.stream().anyMatch(change -> change.status().isFailure());
     }
 
-    public @NotNull List<Change> withStatus(final Change.@NotNull Status status) {
+    public List<Change> withStatus(final Change.Status status) {
         return changes.stream().filter(change -> change.status() == status).toList();
     }
 
@@ -95,7 +93,7 @@ public record UpdatePlan(
      * <p>{@code unclaimed} is carried over untouched, so a bootstrap's report agrees with an
      * apply's for the same volumes.</p>
      */
-    public @NotNull UpdatePlan onlyMissing() {
+    public UpdatePlan onlyMissing() {
         final List<Change> keep = changes.stream()
                 .filter(change -> change.status() == Change.Status.MISSING
                         || change.status().isFailure())
@@ -122,7 +120,7 @@ public record UpdatePlan(
      * @param services compose service names; empty hands the plan back untouched, because empty is
      *                 the whole network everywhere else in this mechanism too
      */
-    public @NotNull UpdatePlan onlyServices(final @NotNull java.util.Collection<String> services) {
+    public UpdatePlan onlyServices(final java.util.Collection<String> services) {
         if (services.isEmpty()) {
             return this;
         }
@@ -156,7 +154,7 @@ public record UpdatePlan(
      *
      * @param services compose service names to leave out; empty hands the plan back untouched
      */
-    public @NotNull UpdatePlan withoutServices(final @NotNull java.util.Collection<String> services) {
+    public UpdatePlan withoutServices(final java.util.Collection<String> services) {
         if (services.isEmpty()) {
             return this;
         }

@@ -6,17 +6,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
  * The language list from {@code access.yml}, and every rule that reads it.
  *
  * <h2>Why this exists</h2>
- * Until 2026-08-31 the same Discord ids lived twice in {@code access.yml}: once in this list, and
- * once in the fixed {@code roles.german} / {@code roles.english} pair and the four fixed
- * {@code channels.contribution-*} / {@code channels.link-*} keys, which were what the code actually
- * read. That made a third language a code change, which is exactly what {@code docs/i18n.md} says
- * it must never be. The fixed keys are gone; this class is what replaced them, and it is the only
+ * A fixed set of language-specific keys in {@code access.yml} would make a third language a code
+ * change, which is exactly what {@code docs/i18n.md} says it must never be. This class is the only
  * place in the bot that turns a language tag, a role id or a locale into anything.
  *
  * <h2>What it guarantees</h2>
@@ -54,7 +52,8 @@ public final class Languages {
             index.put(language.tag(), language);
         }
         this.byTag = Map.copyOf(index);
-        this.fallback = index.get(FALLBACK_TAG);
+        // of(List) already rejects a list with no FALLBACK_TAG entry, so the lookup always hits.
+        this.fallback = Objects.requireNonNull(index.get(FALLBACK_TAG), "fallback language");
     }
 
     /**

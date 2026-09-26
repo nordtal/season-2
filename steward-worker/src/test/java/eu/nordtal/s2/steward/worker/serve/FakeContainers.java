@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A {@link ContainerOps} that answers from a map instead of from a Docker daemon.
@@ -96,7 +95,7 @@ final class FakeContainers implements ContainerOps {
     }
 
     @Override
-    public @NotNull ImageResult images() {
+    public ImageResult images() {
         if (!reachable) {
             return ImageResult.unreachable("no docker socket");
         }
@@ -104,7 +103,7 @@ final class FakeContainers implements ContainerOps {
     }
 
     @Override
-    public @NotNull RedeployResult deploy(final @NotNull String service) {
+    public RedeployResult deploy(final String service) {
         // "recreate:" and not "deploy:", so that every existing assertion about the order of a run
         // keeps meaning what it meant. What the two routes differ in is whether an image is
         // fetched, and this fake has no images to fetch.
@@ -112,7 +111,7 @@ final class FakeContainers implements ContainerOps {
     }
 
     @Override
-    public @NotNull RedeployResult recreate(final @NotNull String service) {
+    public RedeployResult recreate(final String service) {
         return made("recreate-local:" + service, service);
     }
 
@@ -184,14 +183,14 @@ final class FakeContainers implements ContainerOps {
     }
 
     @Override
-    public @NotNull RuntimeResult runtime() {
+    public RuntimeResult runtime() {
         return reachable
                 ? RuntimeResult.of(List.copyOf(services.values()))
                 : RuntimeResult.unreachable("the docker daemon is not answering");
     }
 
     @Override
-    public @NotNull RedeployResult stop(final @NotNull String containerId) {
+    public RedeployResult stop(final String containerId) {
         calls.add("stop:" + containerId);
         if (stopFails) {
             return RedeployResult.refused("refused");
@@ -206,7 +205,7 @@ final class FakeContainers implements ContainerOps {
     }
 
     @Override
-    public @NotNull RedeployResult start(final @NotNull String containerId) {
+    public RedeployResult start(final String containerId) {
         calls.add("start:" + containerId);
         // Started, and NOT healthy: that is the whole distinction the verify step exists for.
         services.computeIfPresent(

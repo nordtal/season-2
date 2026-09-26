@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Supplier;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,11 +47,7 @@ final class Refreshed<T> {
     private Instant refreshedAt;
     private boolean refreshing;
 
-    Refreshed(
-            final @NotNull Supplier<T> read,
-            final @NotNull Duration ttl,
-            final @NotNull Executor background,
-            final @NotNull Supplier<Instant> clock) {
+    Refreshed(final Supplier<T> read, final Duration ttl, final Executor background, final Supplier<Instant> clock) {
         this.read = read;
         this.ttl = ttl;
         this.background = background;
@@ -60,7 +55,7 @@ final class Refreshed<T> {
     }
 
     /** The value as it stands - which is the newest one that finished, not the newest one asked for. */
-    synchronized @NotNull T get() {
+    synchronized T get() {
         if (value == null) {
             // Nothing to serve. This one read is on the caller, and it is the only one that is.
             value = read.get();
@@ -81,7 +76,7 @@ final class Refreshed<T> {
     }
 
     /** When the value being handed out was read. The API sends it on, so a stale answer says so. */
-    synchronized @NotNull Instant refreshedAt() {
+    synchronized Instant refreshedAt() {
         return refreshedAt;
     }
 

@@ -186,7 +186,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
 
     @Override
     public AccessGrant grantAccess(
-            final String discordId, final int days, final AccessSource source, final UUID paymentRequestId) {
+            final String discordId, final int days, final AccessSource source, final @Nullable UUID paymentRequestId) {
         Objects.requireNonNull(discordId, "discordId");
         Objects.requireNonNull(source, "source");
         if (days <= 0) {

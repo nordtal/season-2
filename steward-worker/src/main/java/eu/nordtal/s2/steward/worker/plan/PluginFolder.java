@@ -9,8 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Which directory under {@code plugins/} a jar will make for itself.
@@ -60,7 +59,7 @@ public final class PluginFolder {
      *         readable descriptor - which a caller must treat as "cannot say", never as a reason to
      *         delete something else
      */
-    public static @Nullable String nameIn(final @NotNull Path jar) {
+    public static @Nullable String nameIn(final Path jar) {
         try (ZipFile zip = new ZipFile(jar.toFile())) {
             for (final String descriptor : DESCRIPTORS) {
                 final ZipEntry entry = zip.getEntry(descriptor);

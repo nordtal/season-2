@@ -14,7 +14,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Fetching a jar onto disk and proving it is the jar that was asked for.
@@ -57,7 +56,7 @@ public final class Downloads implements Fetcher {
      * @throws IOException on a transport failure, a non-2xx status, or a checksum that disagrees.
      */
     @Override
-    public void fetch(final @NotNull RemoteFile file, final @NotNull Path destination) throws IOException {
+    public void fetch(final RemoteFile file, final Path destination) throws IOException {
         final HttpRequest request = HttpRequest.newBuilder(file.url())
                 .GET()
                 .timeout(timeout)
@@ -95,7 +94,7 @@ public final class Downloads implements Fetcher {
     }
 
     /** Hex digest of a file, streamed - these are jars, not strings. */
-    public static @NotNull String digest(final @NotNull Path file, final @NotNull String algorithm) throws IOException {
+    public static String digest(final Path file, final String algorithm) throws IOException {
         final MessageDigest digest;
         try {
             digest = MessageDigest.getInstance(

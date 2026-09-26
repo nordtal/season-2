@@ -1,18 +1,7 @@
-# Why the workflows are pinned to commit SHAs, and why this file has to exist alongside them.
-#
-# A tag is a name somebody else can move. `actions/checkout@v7` is whatever the owner of that
-# repository points v7 at this morning, and every release job here runs with the Docker Hub
-# credentials and the token that publishes a GitHub release - so a moved tag is a supply chain
-# with write access to ours. A commit SHA cannot be moved.
-#
-# The cost of pinning is that the pins go stale silently, which is its own hazard: a release job
-# that has been running a two-year-old checkout because nobody noticed is not more secure than an
-# unpinned one, it is only more confident. That is what this file is for. Dependabot opens a pull
-# request when a pinned action has a newer release, rewrites the SHA and the trailing `# vX.Y.Z`
-# comment together, and the change is then reviewable like any other.
-#
-# Weekly rather than daily: an action release is not an emergency, and a daily pull request for a
-# patch bump is how a repository teaches its reviewers to merge these without reading them.
+# The workflows pin actions to a commit SHA rather than a tag, because a tag can be moved by its
+# owner and every release job here carries write access to this repository. Dependabot opens a
+# pull request when a pinned action has a newer release and rewrites the SHA and the trailing
+# `# vX.Y.Z` comment together.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -20,9 +9,7 @@ updates:
     schedule:
       interval: weekly
     groups:
-      # One pull request for all of them. These move together often enough - a `docker/*` release
-      # day touches four of the five build-push steps - and five separate branches for one
-      # afternoon's upstream releases is five CI runs of the same thing.
+      # One pull request for all of them; they move together often enough to make separate ones wasteful.
       actions:
         patterns:
           - "*"

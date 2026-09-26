@@ -6,9 +6,7 @@ one `docker compose` stack.
 
 **Steward is the name of the system that runs this deployment**, and it is three services, not one:
 `steward-worker` does versions, the schema, jars and backups; `steward-ui` is the web interface;
-`steward-deployer` is the only service allowed to create a container. Until 2026-09-13 the last two
-were a third-party management panel, and the deployment was a checkout on the host that its GitOps
-sync could overwrite. `steward-worker` was called `updater` until 2026-09-12.
+`steward-deployer` is the only service allowed to create a container.
 
 ## Installing it
 
@@ -130,89 +128,39 @@ roles are a projection of it, never the other way round.
 **A command is declared once, in `:commands`, and appears on every surface that can carry it.** An
 admin command works in game and in Discord alike; where its effect belongs to another process it
 travels as a row in `command_request`. A player command must additionally be on the allowlist in
-`network.yml`, or it does not exist — everything unlisted is refused with the same line a typo gets.
-
-**A declaration is what a command on several surfaces costs, and a command on one does not pay it.**
-`/msg`, `/whisper`, `/r`, `/discord` and `/rules` are plain Velocity Brigadier in `:proxy`: one
-surface, one process, no confirmation, no admin flag, and no argument that travels through a
-database row. Going through `:commands` bought them an effects interface, an adapter translation and
-a catalogue entry that no other surface could reach. The test for whether a new command belongs in
-`:commands` is therefore not "is it a command" but "does anything other than the process that runs
-it need to know about it".
+`network.yml`. A command needed by only one surface, such as `/msg` or `/rules`, stays plain
+Brigadier in that module instead.
 
 **The season runs through four phases** — `PRE_EVENT`, `START_EVENT`, `SMP`, `MAINTENANCE` — which
-decide who gets in and where they land. The phase is one database row, switched from either the proxy
-or Discord and propagated by `NOTIFY`, with polling as the guarantee behind it.
+decide who gets in and where they land. The phase is one database row, switched from either the
+proxy or Discord and propagated by `NOTIFY`, with polling as the guarantee behind it.
 
 **Access is paid, and only from the `SMP` phase onwards**; the start event is free for every linked
 member. A purchase is a bunq payment matched back to an open reference; the resulting access period
 is a row, and the plugins only ever read it.
 
-**Everything a player reads is translated.** German and English ship; a further language is a config
-entry and a bundle, not a release. The lookup happens once per join, off the main thread.
+**Everything a player reads is translated.** German and English ship; a further language is a
+config entry and a bundle, not a release. The lookup happens once per join, off the main thread.
 
-**The SMP's design is distance.** There is no `/home`, `/tpa`, `/back` or `/spawn` and there never
-will be; the balloon is the only fast travel given. Milestones are network-wide objectives that pay
-out _aura_, the season's currency — earned by contributing, lost on death.
+**The SMP's design is distance.** There is no `/home`, `/tpa`, `/back` or `/spawn`; the balloon is
+the only fast travel given. Milestones are network-wide objectives that pay out _aura_, the
+season's currency — earned by contributing, lost on death.
 
-**The resource pack and the plugins are one artefact in two halves.** Glyph code points are allocated
-in [`resource-pack/README.md`](resource-pack/README.md), mirrored by `:common`'s `Glyphs` and the font
-files, and held against each other by a test on every build. Change one, change all of them.
+**The resource pack and the plugins are one artefact in two halves.** Glyph code points are
+allocated in [`resource-pack/README.md`](resource-pack/README.md), mirrored by `:common`'s
+`Glyphs` and the font files, and held against each other by a test on every build.
 
-**An update run does not have to empty the network, and the `-standby` services are how.** What
-drops players today is not a backend stopping — `Evacuation` already moves them off one that is
-about to, and `WaitingBook` lets them back in. It is the _proxy_ restarting under them, and the
-limbo stopping alongside it. So a run that touches `proxy`, `limbo` or `smp` first brings up the
-`-standby` of each service it touches, already carrying the new jar, and spends it on the gap:
-sixty seconds of warning in chat and title, a seamless hop to `limbo-standby`, one `transferToHost`
-onto `proxy-standby`, the real services restarting together, and a transfer back that puts everyone
-on the server they were standing on. Where each player stood is a database row for the length of
-the run. `steward-worker` conducts it; the two plugins only obey.
-
-**What makes that cheap is that a standby is a backend, not a second network.** One Paper server can
-be served by two proxies — they share nothing but the forwarding secret — so `limbo-standby` is an
-ordinary limbo that two proxies happen to know about, and `proxy-standby` shrinks to its one real
-job: holding the ten seconds in which the proxy itself is gone. Two Paper processes over one world
-would not work at all (`session.lock`), which is why the standby of a backend is a _different_
-world and never a second copy of the same one.
-
-**Those ten seconds used to be the price, and since season-2-ops/162 the door stays open through
-them.** Caddy - the same container that fronts the interface, rebuilt with `caddy-l4` - owns 25565
-and hands the stream to `proxy`, and to `proxy-standby` for as long as the live proxy does not take
-it. Measured on the dev host on 2026-09-20: run 73 left the port dead for 26 seconds; run 87, a
-restart of the same proxy with the guard in front, answered 349 of 349 pings. The guard is in no
-profile an update run touches and `Topology.SERVICES` does not know it, which is the whole of why it
-is allowed to be the one permanent process in front of the network: a guard that restarted with the
-proxy would have moved the dead port rather than closed it. The cost it does carry is that Velocity
-now sees the guard's address, so both proxies run with `haproxy-protocol` and the guard writes a
-PROXY header - one without the other answers nobody. The two alternatives weighed beside it are
-still not built: a doorman that keeps both proxies up forever and swaps roles buys a persistent
-"which one is live" that somebody has to be right about, and a cookie on the client would make the
-client the authority on which server it may enter.
-
-**Parking is a moment; the door is a state.** The park happens once, when the countdown reaches
-zero, to whoever is connected then — and the process does not stop for another several seconds
-while the worker waits for the backends to empty (sixteen of them in run 59 on 2026-09-20).
-Somebody who connected inside that window was never parked, because parking was over, and met
-Velocity's own _Proxy shutting down_. So for as long as a run is moving this proxy, an arrival is
-**refused** with a sentence rather than let onto a process that is about to go. Refused and not
-transferred, deliberately: a screen that says come back in a moment is better than a loading bar
-that ends in a dropped connection (season-2-ops/151).
-
-**And being configured is not being there.** A standby address that resolves is not a standby that
-is running — those containers sit in a compose profile of their own and are stopped for all but a
-minute of the season. The proxy therefore probes before it parks, and a silent standby means the
-run behaves exactly as it did before any of this existed: a plain restart, and a line in the log
-saying why (season-2-ops/139). Failing back to the old behaviour is a feature declining to run;
-transferring a network onto a dead port is not.
+**An update run does not have to empty the network.** `proxy`, `limbo` and `smp` each have a
+`-standby` counterpart already carrying the new jar; a run that touches one of them parks players
+on the standby, swaps the real service, and transfers everyone back. Caddy fronts port 25565 and
+hands the stream to whichever of `proxy`/`proxy-standby` is live, so the port itself stays open
+through the swap. `steward-worker` conducts a run; the plugins only obey.
 
 **The deployment deploys itself, and `compose.yml` travels inside an image.** `steward-deployer`
-carries the file it runs, so "which compose file is live" has a version number for an answer rather
-than a directory on the host that somebody edited during an incident. The cost is stated plainly: a
-change to the deployment needs a new image of that service, and the one thing that cannot renew it
-is that service — so [`deploy/nordtal.sh`](deploy/nordtal.sh) does, from outside the stack. That script
-is also what resolves the interface's host name and **waits** until it points at this host, rather
-than deploying an interface whose certificate can never be issued.
+carries the file it runs, so a change to the deployment needs a new image of that service — and the
+one thing that cannot renew it is that service, so [`deploy/nordtal.sh`](deploy/nordtal.sh) does,
+from outside the stack. That script also waits until the interface's host name resolves to this
+host before deploying.
 
 ## Building
 
@@ -264,12 +212,9 @@ the version and with `latest`. A failed build is re-run against the same release
 `gh workflow run release.yml -f tag=v0.1.0`.
 
 **A deploy pulls and never builds**, so an image that exists only in one host's daemon fails with
-`denied` from the registry — which is also what a package that is still private answers. A new
-package under an organisation is private on its first push, and **three of the five have never
-been pushed**: `steward-ui`, `steward-deployer` and — less obviously — `steward-worker`, because
-renaming `updater` renamed the package with it. `TopologyTest` holds every image `compose.yml`
-defaults to against the workflow that pushes it, but only a registry can answer the other half;
-[`deploy/README.md`](deploy/README.md) has what was measured and when.
+`denied` from the registry — which is also what a package that is still private answers. `TopologyTest`
+holds every image `compose.yml` defaults to against the workflow that pushes it; see
+[`deploy/README.md`](deploy/README.md) for how a deployment gets an image published.
 
 ## Configuration
 
@@ -291,8 +236,6 @@ it, and no image is ever stored: a face is a pure function of the uuid and that 
 why it is a config value and never a column.
 
 It is written down here rather than only in the spec's comment because it is the only outbound
-dependency the season has on a service nobody here runs. It has been Crafatar, then mc-heads, and
-since 2026-09-19 mineatar — none of the three makes an uptime promise, and Crafatar was in fact
-measured not answering at all (steward/111), so a non-answer is drawn as a placeholder and never
-blocks the page. Pointing the setting somewhere else, or at an empty string, is a config edit and
-needs no build (steward/44, steward/45).
+dependency the season has on a service nobody here runs. That service makes no uptime promise, so a
+non-answer is drawn as a placeholder and never blocks the page. Pointing the setting somewhere else,
+or at an empty string, is a config edit and needs no build.

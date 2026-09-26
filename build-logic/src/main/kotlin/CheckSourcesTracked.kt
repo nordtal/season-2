@@ -14,16 +14,11 @@ import java.io.IOException
  * Fails when a file Gradle compiles is a file Git does not have.
  *
  * A local build compiles the working tree; CI compiles the checkout. Anything present in one and
- * absent from the other makes those two different programs, and the difference surfaces as a
- * compile error on a machine that is not yours. The usual cause is an unanchored directory pattern
- * in `.gitignore` - `run/` matches the Java package `eu.nordtal.s2.steward.worker.run` just as happily as
- * it matches `hunger-games/run` - and it is the worst kind of cause, because an *ignored* file is
- * not an untracked one: `git status` stays clean and nothing ever hints at it.
- *
- * So this asks Git the only question that matters: of everything under a source directory, is
- * anything both untracked and ignored? It runs as part of `check`, which is to say on every local
- * `./gradlew build` - before the commit that would have hidden the file, not after the release
- * that tripped over it.
+ * absent from the other surfaces as a compile error on a machine that is not yours, usually
+ * because of an unanchored directory pattern in `.gitignore` that also matches a Java package. An
+ * ignored file is not an untracked one, so `git status` stays clean and gives no hint of it. This
+ * task asks Git directly: of everything under a source directory, is anything both untracked and
+ * ignored?
  */
 @DisableCachingByDefault(
     because = "Its result depends on .gitignore and the index, neither of which is a declarable input",

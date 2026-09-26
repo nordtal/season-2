@@ -1,10 +1,8 @@
-// season-2 produces no artifact of its own. Every deployable is a module; a release
-// attaches each module's own build output. Keep this file free of `subprojects {}` —
-// shared configuration lives in build-logic's convention plugins.
+// season-2 produces no artifact of its own; every deployable is a module and a release attaches
+// each module's own build output. Keep this file free of `subprojects {}` — shared configuration
+// lives in build-logic's convention plugins.
 
-// The `base` plugin gives the root project a `check` task, which `checkEntrypoint` below hangs off.
-// It is the only reason it is applied - shared Java configuration still belongs in build-logic's
-// convention plugins, never here.
+// `base` gives the root project a `check` task, which `checkEntrypoint` below hangs off.
 plugins {
     base
     id("nordtal.root-conventions")
@@ -19,22 +17,15 @@ tasks.register("releaseArtifacts") {
         ":smp:shadowJar",
         ":proxy:shadowJar",
         ":discord-bot:shadowJar",
-        // steward-worker is on the release like every other module, and for the same reason it
-        // exists: its own version has to be movable by the mechanism it implements.
         ":steward-worker:shadowJar",
         ":resource-pack:packZip",
     )
 }
 
-// The five images are built from a module directory, and four of those directories are empty until
-// Gradle has run: their Dockerfiles COPY a jar out of `build/libs`, and steward-deployer also
-// copies `compose.yml` out of `build/compose`. `docker build` says `failed to compute cache key`
-// when it is not there, which reads like a Dockerfile mistake rather than a missing build step.
-//
-// It is separate from `releaseArtifacts` because these are not release assets. Nothing here is
-// attached to a release: steward-ui and steward-deployer exist only as images, and the bot's and
-// the worker's jars are attached by `releaseArtifacts` for a different reason - the worker installs
-// them out of the release into a volume.
+// Four of the five image directories are empty until Gradle has run: their Dockerfiles COPY a jar
+// out of `build/libs`, and steward-deployer also copies `compose.yml` out of `build/compose`.
+// Separate from `releaseArtifacts` because none of steward-ui's or steward-deployer's output is a
+// release asset.
 tasks.register("imageContexts") {
     group = "distribution"
     description = "Builds what the image Dockerfiles COPY, so `docker build` has something to find."
@@ -47,13 +38,8 @@ tasks.register("imageContexts") {
     )
 }
 
-// The deployment's shell is verified here and nowhere else.
-//
 // `deploy/minecraft/entrypoint.sh` decides whether a world folder is deleted, on a container that
-// starts by itself, with no second chance to notice it decided wrong - see the header of
-// entrypoint-test.sh. That is the one piece of this deployment where "run it and look" is too late,
-// so it is the one piece with a test, and the test hangs off `check` like every other: `./gradlew
-// build` locally, `build.yml` on every push, and `release.yml` before a jar is ever attached.
+// starts by itself with no second chance to notice it decided wrong; see entrypoint-test.sh.
 val entrypointScript = layout.projectDirectory.file("deploy/minecraft/entrypoint.sh")
 val entrypointTest = layout.projectDirectory.file("deploy/minecraft/entrypoint-test.sh")
 
@@ -61,8 +47,7 @@ val checkEntrypoint =
     tasks.register<Exec>("checkEntrypoint") {
         group = "verification"
         description = "Runs deploy/minecraft/entrypoint-test.sh against fixture directories."
-        // bash, not sh: the script and the entrypoint it sources both use BASH_SOURCE and [[ ]]. No
-        // Docker and no network - the whole point is that it runs everywhere `check` does.
+        // bash, not sh: the script and the entrypoint it sources both use BASH_SOURCE and [[ ]].
         commandLine("bash", entrypointTest.asFile.absolutePath)
         inputs.file(entrypointScript).withPropertyName("entrypoint")
         inputs.file(entrypointTest).withPropertyName("test")
@@ -77,9 +62,8 @@ val checkEntrypoint =
         }
     }
 
-// The same arrangement for deploy/dev, and for the same reason: `deploy/dev reset` deletes a
-// server's volume, which on smp is a hand-built world that is in no repository and in no release.
-// The guard that stops it is two functions above dev's source guard, and dev-test.sh drives them.
+// `deploy/dev reset` deletes a server's volume, which on smp is a hand-built world that is in no
+// repository and in no release; dev-test.sh drives the guard that stops it.
 val devScript = layout.projectDirectory.file("deploy/dev")
 val devTest = layout.projectDirectory.file("deploy/dev-test.sh")
 
@@ -101,13 +85,9 @@ val checkDev =
         }
     }
 
-// And the third, for deploy/nordtal.sh (deploy/setup.sh until 2026-09-19, season-2-ops/124). Its
-// subject is not a deletion this time but a wait: §10 says a finished setup means everything works,
-// which rests entirely on the comparison between what the name resolves to and what this host is.
-// That comparison cannot be checked by running the script - the run either waits or it deploys -
-// and getting it wrong in the lenient direction produces a host that deploys an interface whose
-// certificate can never be issued. What joined it is the menu: which answer deploys, which quits
-// and which is neither, and that a secret in that menu is three dots.
+// deploy/nordtal.sh waits until what the domain resolves to matches this host before deploying;
+// getting that comparison wrong in the lenient direction produces a host whose certificate can
+// never be issued, so nordtal-test.sh checks the comparison and the menu around it.
 val setupScript = layout.projectDirectory.file("deploy/nordtal.sh")
 val setupTest = layout.projectDirectory.file("deploy/nordtal-test.sh")
 
@@ -129,9 +109,7 @@ val checkSetup =
         }
     }
 
-// And the fourth, for deploy/restore.sh - which is the same class of thing as `deploy/dev reset`
-// and needs no separate argument: it empties a volume before it fills it, and one of those volumes
-// is Nordtal.
+// deploy/restore.sh empties a volume before it fills it, the same hazard as `deploy/dev reset`.
 val restoreScript = layout.projectDirectory.file("deploy/restore.sh")
 val restoreTest = layout.projectDirectory.file("deploy/restore-test.sh")
 
@@ -153,23 +131,18 @@ val checkRestore =
         }
     }
 
-// And the fifth, but shaped differently from the other four: it has no single script it is a test
-// FOR. season-2-ops/27 found that `pipefail` turns an early-exiting pipe reader's SIGPIPE into the
-// whole pipeline's exit status - `| head`, `| grep -q` and anything shaped the same way - and that
-// the only way the four instances of it got fixed was a person running `grep -rn` by hand. This
-// scans every script under `pipefail` for the pattern instead, with a hand-written exception list
-// for whichever hit turns out to be harmless (deploy/pipe-safety-test.sh's own header explains why
-// that has to be a decision and not a rule). Inputs are the whole `deploy/` tree rather than one
-// script and its test, because that dynamic discovery - not a fixed pair of files - is the point.
+// Unlike the other four, this has no single script it tests: it scans every `pipefail` script
+// under deploy/ for an early-exiting pipe reader (`| head`, `| grep -q`, and the like), which turns
+// that reader's SIGPIPE into the whole pipeline's exit status. See deploy/pipe-safety-test.sh for
+// the exception list of hits that are harmless.
 val pipeSafetyTest = layout.projectDirectory.file("deploy/pipe-safety-test.sh")
 
 val checkPipeSafety =
     tasks.register<Exec>("checkPipeSafety") {
         group = "verification"
-        description = "Scans every pipefail script under deploy/ for an early-terminating pipe reader (season-2-ops/27)."
+        description = "Scans every pipefail script under deploy/ for an early-terminating pipe reader."
         commandLine("bash", pipeSafetyTest.asFile.absolutePath)
-        // The whole directory, not just the guard script: it discovers its targets at run time, so
-        // Gradle has to invalidate on any change under deploy/, not only on the guard itself.
+        // The whole directory: the script discovers its targets at run time.
         inputs.dir(layout.projectDirectory.dir("deploy")).withPropertyName("deploy")
         val marker = layout.buildDirectory.file("checkPipeSafety/passed")
         outputs.file(marker).withPropertyName("marker")

@@ -9,15 +9,14 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
 /**
- * Team registration over {@code hg_game}/{@code hg_team}/{@code hg_member}, from the Discord side.
+ * Team registration over {@code hg_game} / {@code hg_team} / {@code hg_member}, from the Discord side.
  *
- * <p>Registration needs no admin to start anything: {@link #openGame()} creates the one non-DECIDED
- * {@code hg_game} row lazily, on the first attempt. {@code hg_game_one_open_key} makes that safe
- * under a race - the loser re-reads the row the winner created.</p>
+ * Registration needs no admin to start anything: {@link #openGame()} creates the one non-DECIDED {@code hg_game} row
+ * lazily, on the first attempt. {@code hg_game_one_open_key} makes that safe under a race - the loser re-reads the
+ * row the winner created.
  *
- * <p>Every check here is also a schema constraint. The Java checks exist only to answer with a
- * specific result rather than a generic failure; a race that slips past them still cannot write a
- * bad row.</p>
+ * Every check here is also a schema constraint. The Java checks exist only to answer with a specific result rather
+ * than a generic failure; a race that slips past them still cannot write a bad row.
  */
 public final class Teams {
 
@@ -83,8 +82,7 @@ public final class Teams {
             return RegistrationResult.registered(teamId);
         } catch (final UnableToExecuteStatementException exception) {
             if (isUniqueViolation(exception)) {
-                // hg_team_game_id_name_lower_key or hg_member_one_active_membership_key: somebody
-                // else's registration landed between the check above and this transaction.
+                // Either unique key: somebody else's registration landed between the check above and this transaction.
                 return dao.activeMembershipId(gameId, discordId).isPresent()
                         ? RegistrationResult.alreadyRegistered()
                         : RegistrationResult.nameTaken();

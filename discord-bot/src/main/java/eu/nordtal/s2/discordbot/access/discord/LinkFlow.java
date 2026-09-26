@@ -26,16 +26,17 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.modals.Modal;
 
 /**
- * Account linking on the Discord side: the managed link message's button opens a modal for the
- * code, and {@code /unlink} removes the caller's own link.
+ * Account linking on the Discord side.
  *
- * <p>Nothing here validates the code beyond trimming and upper-casing it -
- * {@link AccessDirectory#redeemLinkCode(String, String)} owns expiry and the 1:1. The one thing the
- * database cannot see is how often somebody is guessing, which is what {@link RedemptionLimit} is
- * for; it lives here because it counts Discord accounts, and the proxy has none.</p>
+ * The managed link message's button opens a modal for the code, and {@code /unlink} removes the caller's own link.
  *
- * <p>{@code /unlink} is self-service and has no waiting period, so every unlink is written to the
- * admin channel unconditionally - that log is the only thing that makes a shared access visible.</p>
+ * Nothing here validates the code beyond trimming and upper-casing it -
+ * {@link AccessDirectory#redeemLinkCode(String, String)} owns expiry and the 1:1. The one thing the database cannot
+ * see is how often somebody is guessing, which is what {@link RedemptionLimit} is for; it lives here because it
+ * counts Discord accounts, and the proxy has none.
+ *
+ * {@code /unlink} is self-service and has no waiting period, so every unlink is written to the admin channel
+ * unconditionally - that log is the only thing that makes a shared access visible.
  */
 @Slf4j
 public final class LinkFlow extends ListenerAdapter {
@@ -100,8 +101,7 @@ public final class LinkFlow extends ListenerAdapter {
         final String typed = event.getValue(Ids.LINK_CODE_INPUT) == null
                 ? ""
                 : event.getValue(Ids.LINK_CODE_INPUT).getAsString();
-        // Codes are generated upper-case; normalising means a player who types one in lower case
-        // off a disconnect screen is not punished for it.
+        // Codes are generated upper-case; normalising means a lower-case type-in is not punished.
         final String code = typed.strip().toUpperCase(Locale.ROOT);
 
         event.deferReply(true).queue();
@@ -121,8 +121,7 @@ public final class LinkFlow extends ListenerAdapter {
     private void redeem(final ModalInteractionEvent event, final Locale locale, final String code) {
         final String discordId = event.getUser().getId();
 
-        // Taken before the database is touched, and atomically: a capped account does not get to
-        // ask whether its next guess was right, and two workers cannot share the last attempt.
+        // Taken before the database is touched, and atomically: two workers cannot share the last attempt.
         final int remaining = limit.acquire(discordId);
         if (remaining < 0) {
             event.getHook()
@@ -131,8 +130,7 @@ public final class LinkFlow extends ListenerAdapter {
             return;
         }
 
-        // Only a wrong guess keeps the attempt: a redemption that failed on an unreachable
-        // database is not evidence that anybody was guessing.
+        // Only a wrong guess keeps the attempt: a redemption failing on an unreachable database proves no guess.
         boolean wrongGuess = false;
         try {
             final LinkRedemption result = access.redeemLinkCode(discordId, code);
@@ -162,8 +160,7 @@ public final class LinkFlow extends ListenerAdapter {
                                     messages.format(locale, MESSAGES.link().invalidCode()))
                             .queue();
                 }
-                // Not counted: the code was real, the account simply already has one. Charging an
-                // attempt would punish a wrong click with the defence built for a guesser.
+                // Not counted: the code was real, the account already has one. Charging an attempt would punish that.
                 case ALREADY_LINKED ->
                     event.getHook()
                             .editOriginal(
@@ -177,7 +174,7 @@ public final class LinkFlow extends ListenerAdapter {
         }
     }
 
-    // ---------------------------------------------------------------- /unlink
+    // /unlink.
 
     @Override
     public void onSlashCommandInteraction(final SlashCommandInteractionEvent event) {

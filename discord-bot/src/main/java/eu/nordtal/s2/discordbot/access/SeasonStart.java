@@ -9,14 +9,13 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Says out loud when a period of access was sold before anybody said when it should start.
  *
- * <p>A grant starts at {@code max(now(), season_phase.smp_start, current valid_until)}, so a
- * purchase made weeks before the SMP opens does not begin burning when it is paid. With
- * {@code smp_start} still {@code NULL} the anchor is missing and the period starts now - allowed,
- * so the shop can be exercised before the season has a date, but it must never be silent: a
- * customer would lose those weeks and the rows would look identical to a test purchase.</p>
+ * A grant starts at {@code max(now(), season_phase.smp_start, current valid_until)}, so a purchase made weeks before
+ * the SMP opens does not begin burning when it is paid. With {@code smp_start} still {@code NULL} the anchor is
+ * missing and the period starts now - allowed, so the shop can be exercised before the season has a date, but it
+ * must never be silent: a customer would lose those weeks and the rows would look identical to a test purchase.
  *
- * <p>A note, not an alert: it does not ping the admin role, because during an internal run this
- * fires on every test purchase.</p>
+ * A note, not an alert: it does not ping the admin role, because during an internal run this fires on every test
+ * purchase.
  */
 @Slf4j
 public final class SeasonStart {
@@ -30,10 +29,11 @@ public final class SeasonStart {
     }
 
     /**
-     * The phases in which a missing anchor actually costs somebody days: access is consumed in none
-     * of them, so a purchase there would lose the time and say nothing. {@code SMP} is excluded
-     * because {@code now()} is then the right answer, and {@code MAINTENANCE} because it interrupts
-     * a season already running rather than preceding one.
+     * The phases in which a missing anchor actually costs somebody days.
+     *
+     * Access is consumed in none of them, so a purchase there would lose the time and say nothing. {@code SMP} is
+     * excluded because {@code now()} is then the right answer, and {@code MAINTENANCE} because it interrupts a
+     * season already running rather than preceding one.
      */
     private static boolean beforeTheSmp(final SeasonPhase phase) {
         return phase == SeasonPhase.PRE_LAUNCH || phase == SeasonPhase.PRE_EVENT || phase == SeasonPhase.START_EVENT;
@@ -51,8 +51,7 @@ public final class SeasonStart {
                 return;
             }
         } catch (final RuntimeException unreachable) {
-            // The grant is already written; a database that cannot answer this question is not a
-            // reason to make noise about it, and the next grant will ask again.
+            // The grant is already written; an unreachable database is no reason for noise, and the next one retries.
             log.warn("Could not check whether the season has a start date", unreachable);
             return;
         }

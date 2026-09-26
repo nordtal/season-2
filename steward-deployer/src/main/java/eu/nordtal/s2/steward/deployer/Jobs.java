@@ -21,15 +21,15 @@ import org.slf4j.LoggerFactory;
 /**
  * A deployment is slow, so it is a job rather than a request.
  *
- * <p>Pulling four images and recreating a stack takes minutes; an HTTP call that waits for it times
+ * Pulling four images and recreating a stack takes minutes; an HTTP call that waits for it times
  * out somewhere nobody controls, and the caller is then left not knowing whether the work
- * continued. So a request starts a job and answers immediately with its id, and the interface reads
- * the output as it appears.</p>
+ * continued. So a request starts a job and answers immediately with its id, and the interface
+ * reads the output as it appears.
  *
- * <p><b>Jobs live in memory and die with this container.</b> That is a deliberate limit, not an
+ * <b>Jobs live in memory and die with this container.</b> That is a deliberate limit, not an
  * oversight: the durable record of a deployment is the state of the stack itself plus this
  * service's log, and a second store would be another thing to back up and keep consistent. A job
- * whose answer nobody read is a job whose result can be read off {@code docker compose ps}.</p>
+ * whose answer nobody read is a job whose result can be read off {@code docker compose ps}.
  */
 public final class Jobs {
 
@@ -44,33 +44,30 @@ public final class Jobs {
     /**
      * How many deployments may be waiting behind the one that is running.
      *
-     * <p>Small on purpose. The queue used to be unbounded, which is what
-     * {@code newSingleThreadExecutor} gives you: a browser holding a button down could stack up
-     * hundreds of deployments that each stayed {@code RUNNING}, kept their output forever, and then
-     * ran one after another for hours against a stack nobody was still asking about. Five is more
-     * than anybody deploys on purpose and small enough that the sixth is obviously a mistake.</p>
+     * Small on purpose: an unbounded queue lets a browser holding a button down stack up hundreds
+     * of deployments that each stay {@code RUNNING}, keep their output forever, and then run one
+     * after another for hours against a stack nobody is still asking about. Five is more than
+     * anybody deploys on purpose and small enough that the sixth is obviously a mistake.
      */
     private static final int WAITING = 5;
 
     /** One at a time. Two compose runs against one project race for the same containers. */
     private final ExecutorService worker =
             new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(WAITING), runnable -> {
-                Thread thread = new Thread(runnable, "deployer-job");
+                final Thread thread = new Thread(runnable, "deployer-job");
                 thread.setDaemon(true);
                 return thread;
             });
 
-    public Job start(String kind, List<String> services, Work work) {
-        Job job = new Job(UUID.randomUUID().toString(), kind, List.copyOf(services));
+    public Job start(final String kind, final List<String> services, final Work work) {
+        final Job job = new Job(UUID.randomUUID().toString(), kind, List.copyOf(services));
         byId.put(job.id(), job);
         order.add(job.id());
         forget();
         try {
             submit(job, work);
         } catch (RejectedExecutionException full) {
-            // A refusal the caller can read beats a queue that grows without limit. The job exists,
-            // it is FAILED, and its one line says why - which is what the interface already knows
-            // how to show.
+            // A refusal the caller can read beats a queue that grows without limit.
             job.append("refused: " + WAITING + " deployments are already waiting behind the one"
                     + " that is running. Wait for them, or read /api/jobs to see what they are.");
             job.finish(-1);
@@ -78,11 +75,11 @@ public final class Jobs {
         return job;
     }
 
-    private void submit(Job job, Work work) {
+    private void submit(final Job job, final Work work) {
         // The runnable catches every exception itself, so the future's own result carries nothing new.
-        var _ = worker.submit(() -> {
+        final var _ = worker.submit(() -> {
             try {
-                int code = work.run(job::append);
+                final int code = work.run(job::append);
                 job.finish(code);
             } catch (Exception e) {
                 log.error("job {} ({}) failed", job.id(), job.kind(), e);
@@ -92,7 +89,7 @@ public final class Jobs {
         });
     }
 
-    public @Nullable Job get(String id) {
+    public @Nullable Job get(final String id) {
         return byId.get(id);
     }
 
@@ -102,11 +99,10 @@ public final class Jobs {
 
     private void forget() {
         while (order.size() > KEEP) {
-            String oldest = order.remove(0);
-            Job job = byId.get(oldest);
+            final String oldest = order.remove(0);
+            final Job job = byId.get(oldest);
             if (job != null && job.state() == State.RUNNING) {
-                // Never drop a job that is still running: its listeners would stop being fed and
-                // the caller would see a deployment that simply stopped saying anything.
+                // Never drop a job that is still running: its listeners would stop being fed.
                 order.add(oldest);
                 return;
             }
@@ -140,31 +136,30 @@ public final class Jobs {
         private volatile int exitCode = Integer.MIN_VALUE;
         private volatile @Nullable Instant finished;
 
-        Job(String id, String kind, List<String> services) {
+        Job(final String id, final String kind, final List<String> services) {
             this.id = id;
             this.kind = kind;
             this.services = services;
         }
 
         /**
-         * One line, to the record and to everyone watching - and to both of those without anybody
-         * slipping in between.
+         * One line, to the record and to everyone watching.
          *
-         * <p><b>The lock is what makes a reconnect honest.</b> {@link #follow} copies the lines it
-         * has and then registers; a line written in that gap used to reach neither the copy nor the
-         * new listener, and was lost for that caller for good. The closing line was the likeliest
-         * one to fall in it, so the deployment looked, to whoever had just reconnected, like one
-         * that simply stopped talking.</p>
+         * <b>The lock is what makes a reconnect honest.</b> {@link #follow} copies the lines it
+         * has and then registers; a line written in that gap would otherwise reach neither the
+         * copy nor the new listener, lost for that caller for good - most likely the closing line,
+         * which would make the deployment look, to whoever had just reconnected, like one that
+         * simply stopped talking.
          *
-         * <p>Listeners are fed while the lock is held, which is deliberate: feeding them outside it
+         * Listeners are fed while the lock is held, which is deliberate: feeding them outside it
          * restores the gap in a different shape, as lines arriving out of order. What it costs is
          * that a listener which blocks blocks this job's output - so a listener that throws is
-         * dropped, and the ones this service has are SSE writes to a local reverse proxy.</p>
+         * dropped, and the ones this service has are SSE writes to a local reverse proxy.
          */
-        void append(String line) {
+        void append(final String line) {
             synchronized (watchers) {
                 lines.add(line);
-                for (Consumer<String> listener : List.copyOf(listeners)) {
+                for (final Consumer<String> listener : List.copyOf(listeners)) {
                     try {
                         listener.accept(line);
                     } catch (RuntimeException e) {
@@ -175,14 +170,11 @@ public final class Jobs {
             }
         }
 
-        void finish(int code) {
+        void finish(final int code) {
             exitCode = code;
             finished = Instant.now();
-            // THE ORDER IS THE POINT. follow() stops registering a listener once the state has left
-            // RUNNING, so a closing line written after that flip reaches nobody who attached in
-            // between - and the job then looks, to that one caller, like a deployment that simply
-            // stopped talking. Write the line first, flip afterwards.
-            State finalState = code == 0 ? State.DONE : State.FAILED;
+            // Write the line before flipping the state: follow() stops listening once state leaves RUNNING.
+            final State finalState = code == 0 ? State.DONE : State.FAILED;
             synchronized (watchers) {
                 append("--- " + finalState + " (exit " + code + ")");
                 state = finalState;
@@ -192,12 +184,12 @@ public final class Jobs {
         /**
          * Feeds everything written so far, then every further line.
          *
-         * <p>The replay is what makes a reconnect honest: a listener that only ever sees the future
-         * shows a deployment that appears to begin in the middle.</p>
+         * The replay is what makes a reconnect honest: a listener that only ever sees the future
+         * shows a deployment that appears to begin in the middle.
          */
-        public Runnable follow(Consumer<String> listener) {
+        public Runnable follow(final Consumer<String> listener) {
             synchronized (watchers) {
-                for (String line : new ArrayList<>(lines)) {
+                for (final String line : new ArrayList<>(lines)) {
                     listener.accept(line);
                 }
                 if (state != State.RUNNING) {
@@ -229,7 +221,7 @@ public final class Jobs {
         }
 
         public Map<String, Object> summary() {
-            Map<String, Object> summary = new java.util.LinkedHashMap<>();
+            final Map<String, Object> summary = new java.util.LinkedHashMap<>();
             summary.put("id", id);
             summary.put("kind", kind);
             summary.put("services", services);

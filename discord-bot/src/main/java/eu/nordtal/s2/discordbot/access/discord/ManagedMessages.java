@@ -28,22 +28,18 @@ import org.jdbi.v3.core.Jdbi;
 
 /**
  * The bot-maintained messages: a contribution message and a link message per configured language.
- * <p>
- * On startup the bot <b>edits</b> the message it posted last time, or posts a new one if there
- * isn't one. The id is remembered in {@code managed_message}, so a restart never leaves a second
- * copy - and the embed is rendered from configuration on every start, which is what stops a stale
- * price from living on in an embed nobody re-posted. Season 1's answer was a
- * {@code /send-contribution-embed} command with the prices, role ids and image URLs written into
- * the source; those image URLs have since expired and render as broken images.
- * </p>
- * <p>
- * <b>How many there are is a config question.</b> It was four - {@code CONTRIBUTION_EN},
- * {@code CONTRIBUTION_DE}, {@code LINK_EN}, {@code LINK_DE}, hard-coded as an enum against four
- * fixed channel keys. It is now two per entry of {@code access.yml}'s {@code languages} list, with
- * the same names: the {@code managed_message.kind} is derived from the language tag, so the rows
- * the bot has already written keep their keys and a third language adds two rows rather than
- * needing a migration. {@code V2__bot_state.sql} left {@code kind} unconstrained for exactly this.
- * </p>
+ *
+ * On startup the bot edits the message it posted last time, or posts a new one if there isn't one. The id is
+ * remembered in {@code managed_message}, so a restart never leaves a second copy - and the embed is rendered from
+ * configuration on every start, which is what stops a stale price from living on in an embed nobody re-posted.
+ * Season 1's answer was a {@code /send-contribution-embed} command with the prices, role ids and image URLs written
+ * into the source; those image URLs have since expired and render as broken images.
+ *
+ * How many there are is a config question. It was four - {@code CONTRIBUTION_EN}, {@code CONTRIBUTION_DE},
+ * {@code LINK_EN}, {@code LINK_DE}, hard-coded as an enum against four fixed channel keys. It is now two per entry
+ * of {@code access.yml} 's {@code languages} list, with the same names: the {@code managed_message.kind} is derived
+ * from the language tag, so the rows the bot has already written keep their keys and a third language adds two rows
+ * rather than needing a migration. {@code V2__bot_state.sql} left {@code kind} unconstrained for exactly this.
  */
 @Slf4j
 public final class ManagedMessages {
@@ -67,8 +63,9 @@ public final class ManagedMessages {
     }
 
     /**
-     * Posts or edits two messages per configured language, in the order {@code access.yml} lists
-     * them. Failures are logged per message: one bad channel id must not stop the others.
+     * Posts or edits two messages per configured language, in the order {@code access.yml} lists them.
+     *
+     * Failures are logged per message: one bad channel id must not stop the others.
      */
     public void publishAll() {
         for (final Languages.Language language : languages.all()) {
@@ -79,8 +76,7 @@ public final class ManagedMessages {
     }
 
     private void publish(final String kind, final boolean contribution, final String channelId, final Locale locale) {
-        // A language with no channel for this message is a language that does not get it. Checked
-        // before the lookup because getChannelById throws on an empty id rather than answering null.
+        // A language with no channel for this message does not get it. Checked first: getChannelById throws on empty.
         if (!Configured.isSet(channelId)) {
             return;
         }
@@ -134,9 +130,7 @@ public final class ManagedMessages {
             final List<ActionRow> components,
             final String banner) {
         try {
-            // setReplace(true) so the attachment is re-uploaded rather than inherited: the embed
-            // points at attachment://<banner>, and an edit that leaves the old attachment in place
-            // would keep whatever image was there before the artwork was swapped.
+            // setReplace(true) re-uploads the attachment; inheriting the old one would keep swapped-out artwork.
             channel.editMessageById(
                             messageId,
                             new MessageEditBuilder()
@@ -157,7 +151,7 @@ public final class ManagedMessages {
         }
     }
 
-    // ---------------------------------------------------------------- embeds
+    // Embeds.
 
     private MessageEmbed contributionEmbed(final Locale locale) {
         final List<String> prices = new ArrayList<>();
@@ -193,7 +187,7 @@ public final class ManagedMessages {
                 .build();
     }
 
-    // ---------------------------------------------------------------- resources
+    // Resources.
 
     private InputStream banner(final String name) {
         final InputStream stream = getClass().getClassLoader().getResourceAsStream("banners/" + name);

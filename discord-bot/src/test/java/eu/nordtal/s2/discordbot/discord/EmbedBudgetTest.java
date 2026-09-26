@@ -14,30 +14,25 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.dv8tion.jda.api.entities.MessageEmbed;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The update embed stays inside Discord's limit on the whole of it.
  *
- * <h2>Why this needs a test rather than care</h2>
- * Discord caps an embed at 6 000 characters <em>in total</em> - title, description and every field
- * name and value added together - and JDA throws from {@code build()} when that is exceeded. In
- * this class the exception unwinds into {@code fail()}, so the admin is told "that did not work"
- * instead of being shown the run. That happens on exactly the runs with the most to say, which are
- * the ones going wrong.
+ * Why this needs a test rather than care: Discord caps an embed at 6 000 characters in total - title, description
+ * and every field name and value added together - and JDA throws from {@code build()} when that is exceeded. In this
+ * class the exception unwinds into {@code fail()}, so the admin is told "that did not work" instead of being shown
+ * the run. That happens on exactly the runs with the most to say, which are the ones going wrong.
  *
- * <p>The arithmetic guarding it has been wrong twice in two days. First the per-part caps were
- * enforced and the total was not; then the overflow field reserved a flat 20 characters for a value
- * three times that; then the description was written out of the remaining budget without being
- * subtracted from it, so the overflow field measured itself against space already spent. Each was
- * introduced by the fix for the one before it, which is the argument for measuring the result
- * instead of reasoning about the guard.</p>
+ * The arithmetic guarding it has been wrong twice in two days. First the per-part caps were enforced and the total
+ * was not; then the overflow field reserved a flat 20 characters for a value three times that; then the description
+ * was written out of the remaining budget without being subtracted from it, so the overflow field measured itself
+ * against space already spent. Each was introduced by the fix for the one before it, which is the argument for
+ * measuring the result instead of reasoning about the guard.
  *
- * <p>It renders against the real shared bundle since 2026-09-08, because the embed's headings and
- * state labels stopped being hardcoded English that day. A German label is not the same length as
- * its English original, so the budget arithmetic is measured in the language it will actually be
- * drawn in - both of them.</p>
+ * It renders against the real shared bundle, because the embed's headings and state labels are not hardcoded
+ * English. A German label is not the same length as its English original, so the budget arithmetic is measured in
+ * the language it will actually be drawn in - both of them.
  */
 class EmbedBudgetTest {
 
@@ -48,8 +43,7 @@ class EmbedBudgetTest {
             Messages.load(EmbedBudgetTest.class.getClassLoader(), "messages/commands", Locale.ENGLISH, Locale.GERMAN);
 
     @Test
-    @DisplayName("long notes and more services than fit still build inside the limit")
-    void theWorstCaseFits() {
+    void longNotesAndMoreServicesThanFitStillBuildInsideTheLimit() {
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
             final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request(), messages, locale);
 
@@ -62,10 +56,8 @@ class EmbedBudgetTest {
     }
 
     @Test
-    @DisplayName("a description that eats the whole budget leaves no room claimed by the overflow field")
-    void theDescriptionIsSubtractedFromTheBudget() {
-        // The exact shape of the third bug: notes long enough to consume everything the services
-        // left, and more services than were drawn, so the overflow field is offered.
+    void aDescriptionThatEatsTheWholeBudgetLeavesNoRoomClaimedByTheOverflowField() {
+        // Notes long enough to consume everything the services left, plus more services than were drawn.
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
             final MessageEmbed embed = UpdateCommand.fields(report(30, 900, 1, 5000), request(), messages, locale);
 
@@ -74,8 +66,7 @@ class EmbedBudgetTest {
     }
 
     @Test
-    @DisplayName("an ordinary run is drawn in full, one line per service under one heading")
-    void theNormalCaseKeepsEveryService() {
+    void anOrdinaryRunIsDrawnInFullOneLinePerServiceUnderOneHeading() {
         final MessageEmbed embed = UpdateCommand.fields(report(4, 60, 2, 80), request(), messages, Locale.GERMAN);
 
         assertTrue(embed.getLength() <= LIMIT);
@@ -94,8 +85,7 @@ class EmbedBudgetTest {
     }
 
     @Test
-    @DisplayName("a note that is a page rendered for a terminal is left to Steward's log")
-    void aTerminalPageIsNotANote() {
+    void aNoteThatIsAPageRenderedForATerminalIsLeftToStewardsLog() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
                 .withNote("proxy: release v0.9.5 carries no proxy-<version>.jar")
                 .withNote("what was done\n\nproxy\n  proxy   unchanged   proxy-0.9.5.jar\n");
@@ -113,8 +103,7 @@ class EmbedBudgetTest {
     }
 
     @Test
-    @DisplayName("a run too big for one embed counts what it leaves out, and never draws a code block")
-    void theWorstCaseSummarises() {
+    void aRunTooBigForOneEmbedCountsWhatItLeavesOutAndNeverDrawsACodeBlock() {
         final MessageEmbed embed =
                 UpdateCommand.fields(report(40, 600, 30, 400), request(), messages, Locale.ENGLISH, true);
 
@@ -127,10 +116,8 @@ class EmbedBudgetTest {
     }
 
     @Test
-    @DisplayName("the admin channel's context fields are inside the limit too, in both languages")
-    void theContextIsInsideTheBudget() {
-        // Only UpdateFeed draws with context, so without this case the fields it adds before the
-        // services are measured by nothing.
+    void theAdminChannelsContextFieldsAreInsideTheLimitTooInBothLanguages() {
+        // Only UpdateFeed draws with context, so without this case the fields it adds are measured by nothing.
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
             final MessageEmbed embed =
                     UpdateCommand.fields(report(40, 600, 30, 400), longAsker(), messages, locale, true);

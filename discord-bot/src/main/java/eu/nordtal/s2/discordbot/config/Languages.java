@@ -12,27 +12,23 @@ import java.util.Optional;
 /**
  * The language list from {@code access.yml}, and every rule that reads it.
  *
- * <h2>Why this exists</h2>
- * A fixed set of language-specific keys in {@code access.yml} would make a third language a code
- * change, which is exactly what {@code docs/i18n.md} says it must never be. This class is the only
- * place in the bot that turns a language tag, a role id or a locale into anything.
+ * Why this exists: A fixed set of language-specific keys in {@code access.yml} would make a third language a code
+ * change, which is exactly what {@code docs/i18n.md} says it must never be. This class is the only place in the bot
+ * that turns a language tag, a role id or a locale into anything.
  *
- * <h2>What it guarantees</h2>
- * The list is non-empty, its tags are unique and lower case, {@code en} is present and every id
- * that is <em>filled in</em> is a snowflake - all validated by {@link Configs} before the bot
- * touches a guild, so nothing here has to cope with a broken list. The same shape is asserted in
- * {@link #of(List)} so a test cannot build one this class's callers could not survive.
+ * What it guarantees: The list is non-empty, its tags are unique and lower case, {@code en} is present and every id
+ * that is filled in is a snowflake - all validated by {@link Configs} before the bot touches a guild, so nothing
+ * here has to cope with a broken list. The same shape is asserted in {@link #of(List)} so a test cannot build one
+ * this class's callers could not survive.
  *
- * <p><b>An id may be empty, and that is not a broken list.</b> A language whose role is blank is
- * one no member is ever recorded as speaking; a language whose channel is blank is one that message
- * is not posted in. What this class must never do is hand an empty id to JDA, which throws rather
- * than answering {@code null} - so every consumer of an id from here checks
- * {@link Configured#isSet(String)} first.</p>
+ * An id may be empty, and that is not a broken list. A language whose role is blank is one no member is ever
+ * recorded as speaking; a language whose channel is blank is one that message is not posted in. What this class must
+ * never do is hand an empty id to JDA, which throws rather than answering {@code null} - so every consumer of an id
+ * from here checks {@link Configured#isSet(String)} first.
  *
- * <h2>Order</h2>
- * The configured order is preserved end to end: it is the order the managed messages are published
- * in, the order the bundles are loaded in, and the tie-break when a member holds more than one
- * language role. {@link DefaultLanguages} writes {@code en} first for that reason.
+ * Order: The configured order is preserved end to end: it is the order the managed messages are published in, the
+ * order the bundles are loaded in, and the tie-break when a member holds more than one language role.
+ * {@link DefaultLanguages} writes {@code en} first for that reason.
  *
  * @see AccessSpec#languages()
  */
@@ -76,9 +72,10 @@ public final class Languages {
     }
 
     /**
-     * The same list without a config file behind it. This is what the tests use, and it is the only
-     * reason anything here is expressed in terms of {@link Language} rather than of the spec
-     * interface.
+     * The same list without a config file behind it.
+     *
+     * This is what the tests use, and it is the only reason anything here is expressed in terms of {@link Language}
+     * rather than of the spec interface.
      *
      * @param languages the languages, in the order they should be used
      * @return the languages
@@ -153,29 +150,26 @@ public final class Languages {
     /**
      * Which language a member holding these roles should be recorded as speaking.
      *
-     * <h2>The rule</h2>
-     * A member holding exactly one language role has that language. A member holding none has no
-     * answer at all - {@link Optional#empty()}, which the caller turns into "leave whatever is
-     * stored", because the column already defaults to English and overwriting a real choice because
-     * onboarding is mid-flight is worse than being a little stale.
+     * The rule: A member holding exactly one language role has that language. A member holding none has no answer at
+     * all
+     * - {@link Optional#empty()}, which the caller turns into "leave whatever is stored", because the column already
+     * defaults to English and overwriting a real choice because onboarding is mid-flight is worse than being a little
+     * stale.
      *
-     * <h2>More than one role</h2>
-     * <b>The fallback language loses to any other.</b> Somebody holding {@code de} and {@code en} is
-     * recorded as {@code de}: they picked a language and then also picked the thing everything
-     * already degrades to, so the specific choice is the informative one. This is the generalisation
-     * of the rule this replaced, which took German over English for the same reason and could not
-     * express anything else because there were only ever two roles.
-     * <p>
-     * Between two <b>non-fallback</b> languages - {@code de} and {@code fr} both held - the
-     * configured order wins, first entry in {@code access.yml}. That case is not settled by
-     * {@code docs/i18n.md}: it says {@code en} is the fallback and nothing about ranking two real
-     * choices against each other. Configured order is deterministic and is itself a config edit,
-     * which is the least surprising answer available, but it is a choice made here rather than one
-     * the documentation made.
-     * </p>
+     * More than one role: The fallback language loses to any other. Somebody holding {@code de} and {@code en} is
+     * recorded as {@code de}: they picked a language and then also picked the thing everything already degrades to, so
+     * the specific choice is the informative one. This is the generalisation of the rule this replaced, which took
+     * German over English for the same reason and could not express anything else because there were only ever two
+     * roles.
      *
-     * @param heldRoleIds the role ids the member currently holds
-     * @return the language to record, or empty when the member holds no language role
+     * Between two non-fallback languages - {@code de} and {@code fr} both held - the configured order wins, first entry
+     * in {@code access.yml}. That case is not settled by {@code docs/i18n.md}: it says {@code en} is the fallback and
+     * nothing about ranking two real choices against each other. Configured order is deterministic and is itself a
+     * config edit, which is the least surprising answer available, but it is a choice made here rather than one the
+     * documentation made.
+     *
+     * @param heldRoleIds the role ids the member currently holds.
+     * @return the language to record, or empty when the member holds no language role.
      */
     public Optional<Language> resolve(final Collection<String> heldRoleIds) {
         if (heldRoleIds == null || heldRoleIds.isEmpty()) {

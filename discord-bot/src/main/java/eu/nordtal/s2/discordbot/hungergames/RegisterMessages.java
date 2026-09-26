@@ -20,16 +20,16 @@ import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.jdbi.v3.core.Jdbi;
 
 /**
- * The bot-maintained Register message: one per configured language, in
- * {@code Language#hungerGamesChannelId()}, carrying the button {@link RegisterFlow} listens for.
- * <p>
- * Same post-or-edit-by-remembered-id shape as {@code ManagedMessages}, reusing the same
- * {@link ManagedMessageDao} - {@code managed_message.kind} is deliberately unconstrained so a
- * second feature maintaining its own kind of managed message needs no migration. This class does
- * not reuse {@code ManagedMessages} itself: that class's embeds are access-specific (tiers,
- * donation, link), and the two features have nothing in common past "post or edit one message per
- * language" - which is exactly what the shared DAO already captures.
- * </p>
+ * The bot-maintained Register message.
+ *
+ * One per configured language, in {@code Language#hungerGamesChannelId()}, carrying the button
+ * {@link RegisterFlow} listens for.
+ *
+ * Same post-or-edit-by-remembered-id shape as {@code ManagedMessages}, reusing the same {@link ManagedMessageDao} -
+ * {@code managed_message.kind} is deliberately unconstrained so a second feature maintaining its own kind of managed
+ * message needs no migration. This class does not reuse {@code ManagedMessages} itself: that class's embeds are
+ * access-specific (tiers, donation, link), and the two features have nothing in common past "post or edit one
+ * message per language" - which is exactly what the shared DAO already captures.
  */
 @Slf4j
 public final class RegisterMessages {
@@ -54,8 +54,7 @@ public final class RegisterMessages {
     }
 
     private void publish(final String kind, final String channelId, final Locale locale) {
-        // No hunger-games channel for this language means no register message in it. Checked before
-        // the lookup: getChannelById throws on an empty id rather than answering null.
+        // No channel for this language means no register message. Checked first: getChannelById throws on empty.
         if (!Configured.isSet(channelId)) {
             return;
         }

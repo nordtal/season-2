@@ -28,12 +28,13 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.modals.Modal;
 
 /**
- * Team registration end to end: the {@link Ids#REGISTER} button opens the team name modal, the
- * confirmation offers {@link Ids#INVITE} which opens a user picker, and the invited partner gets a
- * DM with accept/decline.
+ * Team registration end to end.
  *
- * <p>Readiness is not here: {@code hg_member.ready} is written only by the Paper plugin's in-game
- * lobby. Every database call runs on {@code executor}, off the gateway thread.</p>
+ * The {@link Ids#REGISTER} button opens the team name modal, the confirmation offers {@link Ids#INVITE} which opens
+ * a user picker, and the invited partner gets a DM with accept/decline.
+ *
+ * Readiness is not here: {@code hg_member.ready} is written only by the Paper plugin's in-game lobby. Every database
+ * call runs on {@code executor}, off the gateway thread.
  */
 @Slf4j
 public final class RegisterFlow extends ListenerAdapter {
@@ -53,7 +54,7 @@ public final class RegisterFlow extends ListenerAdapter {
         this.executor = executor;
     }
 
-    // ---------------------------------------------------------------- register
+    // Register.
 
     @Override
     public void onButtonInteraction(final ButtonInteractionEvent event) {
@@ -141,7 +142,7 @@ public final class RegisterFlow extends ListenerAdapter {
         }
     }
 
-    // ---------------------------------------------------------------- invite
+    // Invite.
 
     private void openInvitePicker(final ButtonInteractionEvent event) {
         final Locale locale = teams.localeOf(event.getUser().getId());
@@ -257,7 +258,7 @@ public final class RegisterFlow extends ListenerAdapter {
                                 failure.toString()));
     }
 
-    // ---------------------------------------------------------------- accept / decline
+    // Accept / decline.
 
     private void answerInvite(final ButtonInteractionEvent event, final UUID memberId, final boolean accept) {
         final Locale locale = teams.localeOf(event.getUser().getId());
@@ -289,8 +290,7 @@ public final class RegisterFlow extends ListenerAdapter {
             return;
         }
 
-        // ANSWERED is the only remaining status past the NOT_PENDING return above, and it guarantees
-        // both of these, per AnswerResult's contract.
+        // ANSWERED is the only status past the NOT_PENDING return above, and guarantees both, per its contract.
         final String teamName = Objects.requireNonNull(result.teamName());
         final UUID teamId = Objects.requireNonNull(result.teamId());
         final AccessMessages.Register.Invite invite = MESSAGES.register().invite();

@@ -13,32 +13,27 @@ import java.util.Optional;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * The admin flag end to end inside this module: what the admin tree writes through
- * {@code AdminTree} is what {@link AdminFlagDao} reads back, and what
+ * The admin flag end to end inside this module.
+ *
+ * What the admin tree writes through {@code AdminTree} is what {@link AdminFlagDao} reads back, and what
  * {@code PhaseCommand} then authorises on.
- * <p>
- * Against a real PostgreSQL running the real migration, because everything that can be wrong here
- * is in the schema: the column {@code V4} added, the upsert that writes it, and a column name in a
- * hand-written {@code SELECT} which nothing else would catch until an admin was told they are not
- * one.
- * </p>
- * <p>
- * Driven by hand from {@link BeforeAll} rather than through {@code @Testcontainers}, for the same
- * reason as {@code PaymentRequestIntegrationTest}: that extension is built against JUnit 5 and this
- * repo is on the JUnit 6 BOM. It skips itself when no Docker daemon is reachable.
- * </p>
- * <p>
- * What this <b>cannot</b> prove: that the Discord role follows the flag. Whether the role
- * reconcile is allowed to add and remove it, and whether a {@code GuildMemberRemove} really
- * arrives, needs a real guild.
- * </p>
+ *
+ * Against a real PostgreSQL running the real migration, because everything that can be wrong here is in the schema:
+ * the column {@code V4} added, the upsert that writes it, and a column name in a hand-written {@code SELECT} which
+ * nothing else would catch until an admin was told they are not one.
+ *
+ * Driven by hand from {@link BeforeAll} rather than through {@code @Testcontainers}, for the same reason as
+ * {@code PaymentRequestIntegrationTest}: that extension is built against JUnit 5 and this repo is on the JUnit 6
+ * BOM. It skips itself when no Docker daemon is reachable.
+ *
+ * What this cannot prove: that the Discord role follows the flag. Whether the role reconcile is allowed to add and
+ * remove it, and whether a {@code GuildMemberRemove} really arrives, needs a real guild.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AdminFlagIntegrationTest {
@@ -93,17 +88,14 @@ class AdminFlagIntegrationTest {
     }
 
     @Test
-    @DisplayName("an account the bot has never written about has no flag at all")
-    void unknownAccountHasNoFlag() {
+    void anAccountTheBotHasNeverWrittenAboutHasNoFlagAtAll() {
         assertEquals(Optional.empty(), dao.isAdmin(STRANGER));
         assertFalse(AdminFlagDao.admits(dao.isAdmin(STRANGER)), "and therefore may not switch the phase");
     }
 
     @Test
-    @DisplayName("a user the bot knows but has never made an admin is not one")
-    void knownAccountDefaultsToNotAnAdmin() {
-        // V4 added the column NOT NULL DEFAULT false, so a row written by any other path - a link,
-        // a purchase - answers false rather than nothing.
+    void aUserTheBotKnowsButHasNeverMadeAnAdminIsNotOne() {
+        // V4 added the column NOT NULL DEFAULT false, so a row written by any other path answers false, not nothing.
         access.ensureUser(USER);
 
         assertEquals(Optional.of(false), dao.isAdmin(USER));
@@ -111,10 +103,8 @@ class AdminFlagIntegrationTest {
     }
 
     @Test
-    @DisplayName("the root's row is created by the claim when nothing else wrote it")
-    void claimingTheRootCreatesTheRow() {
-        // An admin who has never bought anything and never linked an account still has to be able
-        // to use /phase set.
+    void theRootsRowIsCreatedByTheClaimWhenNothingElseWroteIt() {
+        // An admin who has never bought anything and never linked an account still has to be able to use /phase set.
         tree.claimRootIfNobody(USER);
 
         assertEquals(Optional.of(true), dao.isAdmin(USER));
@@ -122,8 +112,7 @@ class AdminFlagIntegrationTest {
     }
 
     @Test
-    @DisplayName("leaving the guild clears the flag")
-    void leavingClearsTheFlag() {
+    void leavingTheGuildClearsTheFlag() {
         tree.claimRootIfNobody(USER);
         tree.dropWithBranch(USER);
 
@@ -134,8 +123,7 @@ class AdminFlagIntegrationTest {
     }
 
     @Test
-    @DisplayName("the flag is per account and does not leak to anybody else")
-    void theFlagIsPerAccount() {
+    void theFlagIsPerAccountAndDoesNotLeakToAnybodyElse() {
         tree.claimRootIfNobody(USER);
         access.ensureUser(STRANGER);
 

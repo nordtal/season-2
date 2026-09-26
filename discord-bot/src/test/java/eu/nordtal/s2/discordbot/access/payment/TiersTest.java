@@ -8,22 +8,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.common.payment.Money;
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The settlement rule, in memory.
- * <p>
- * This is the one piece of money logic that is neither in SQL nor at bunq, and it decides what
- * somebody gets for an amount they were able to edit before paying. Every case below is one a
- * support ticket could be about.
- * </p>
- * <p>
- * The rule is asymmetric on purpose: <b>an order that the money covers is honoured exactly</b>,
- * and only a payment that falls short is re-derived from the amount. The earlier version derived
- * both directions from the amount, so paying the asked-for 10 € on a 60-days-plus-donation order
- * bought 90 days and no donor role. {@link #coveredOrderIsHonouredNotReDerived()} is that case.
- * </p>
+ *
+ * This is the one piece of money logic that is neither in SQL nor at bunq, and it decides what somebody gets for an
+ * amount they were able to edit before paying. Every case below is one a support ticket could be about.
+ *
+ * The rule is asymmetric on purpose: an order that the money covers is honoured exactly, and only a payment that
+ * falls short is re-derived from the amount. Deriving both directions from the amount would let the asked-for 10 €
+ * on a 60-days-plus-donation order buy 90 days and no donor role instead.
+ * {@link #anOrderTheMoneyExactlyCoversIsGrantedExactly()} is that case.
  */
 class TiersTest {
 
@@ -37,16 +33,14 @@ class TiersTest {
     private static final Tiers.Order SIXTY_PLAIN = new Tiers.Order(60, 500, 0);
 
     @Test
-    @DisplayName("the price list is offered cheapest first")
-    void orderedCheapestFirst() {
+    void thePriceListIsOfferedCheapestFirst() {
         assertEquals(List.of(30, 60, 90), tiers.all().stream().map(Tier::days).toList());
     }
 
-    // ---------------------------------------------------------------- the order wins
+    // The order wins.
 
     @Test
-    @DisplayName("an order the money exactly covers is granted exactly")
-    void exactOrderCovered() {
+    void anOrderTheMoneyExactlyCoversIsGrantedExactly() {
         final Tiers.Settlement settlement =
                 tiers.resolve(1000, SIXTY_WITH_DONATION).orElseThrow();
 
@@ -58,10 +52,8 @@ class TiersTest {
     }
 
     @Test
-    @DisplayName("paying the asked-for amount buys what was asked for, not the highest tier it covers")
-    void coveredOrderIsHonouredNotReDerived() {
-        // 10 EUR covers the 7 EUR tier, and the amount-only rule would have granted 90 days and no
-        // donor role. The order says 60 days plus a donation, and the order wins.
+    void payingTheAskedForAmountBuysWhatWasAskedForNotTheHighestTierItCovers() {
+        // 10 EUR covers the 7 EUR tier, but the order says 60 days plus a donation, and the order wins.
         final Tiers.Settlement settlement =
                 tiers.resolve(1000, SIXTY_WITH_DONATION).orElseThrow();
         final Tiers.Settlement amountOnly = tiers.resolve(1000).orElseThrow();
@@ -74,10 +66,8 @@ class TiersTest {
     }
 
     @Test
-    @DisplayName("surplus below the surcharge is ignored - no extra days, no partial credit")
-    void surplusBelowTheSurcharge() {
-        // Ordered 60 days at 5 EUR, paid 8. The 3 EUR left over is neither a donation nor enough
-        // to move a tier, and days are bought in tiers.
+    void surplusBelowTheSurchargeIsIgnoredNoExtraDaysNoPartialCredit() {
+        // Ordered 60 days at 5 EUR, paid 8; the 3 EUR left over is neither a donation nor a tier move.
         final Tiers.Settlement settlement = tiers.resolve(800, SIXTY_PLAIN).orElseThrow();
 
         assertAll(
@@ -88,8 +78,7 @@ class TiersTest {
     }
 
     @Test
-    @DisplayName("surplus reaching the surcharge is a donation even though none was ordered")
-    void surplusReachingTheSurcharge() {
+    void surplusReachingTheSurchargeIsADonationEvenThoughNoneWasOrdered() {
         // Ordered 60 days at 5 EUR, paid 10 without ticking the donation box.
         final Tiers.Settlement settlement = tiers.resolve(1000, SIXTY_PLAIN).orElseThrow();
 
@@ -101,8 +90,7 @@ class TiersTest {
     }
 
     @Test
-    @DisplayName("a large surplus is one donation, not extra days")
-    void largeSurplus() {
+    void aLargeSurplusIsOneDonationNotExtraDays() {
         final Tiers.Settlement settlement = tiers.resolve(2000, SIXTY_PLAIN).orElseThrow();
 
         assertAll(
@@ -114,11 +102,10 @@ class TiersTest {
                                 + "the public thank-you names"));
     }
 
-    // ---------------------------------------------------------------- a shortfall is downgraded
+    // A shortfall is downgraded.
 
     @Test
-    @DisplayName("a payment short of the order falls back to the tier it does cover")
-    void shortPaymentDowngrades() {
+    void aPaymentShortOfTheOrderFallsBackToTheTierItDoesCover() {
         // Ordered 90 days at 7 EUR, edited the amount down to 4 EUR on the bunq.me page.
         final Tiers.Settlement settlement =
                 tiers.resolve(400, new Tiers.Order(90, 700, 0)).orElseThrow();
@@ -130,8 +117,7 @@ class TiersTest {
     }
 
     @Test
-    @DisplayName("dropping the donation is a shortfall too, even when the days still fit")
-    void shortOfTheDonationIsADowngrade() {
+    void droppingTheDonationIsAShortfallTooEvenWhenTheDaysStillFit() {
         // Ordered 60 days plus the donation (10 EUR), paid 5. The days survive; the role does not.
         final Tiers.Settlement settlement =
                 tiers.resolve(500, SIXTY_WITH_DONATION).orElseThrow();
@@ -143,21 +129,17 @@ class TiersTest {
     }
 
     @Test
-    @DisplayName("below the cheapest tier nothing is granted, order or no order")
-    void belowTheCheapest() {
+    void belowTheCheapestTierNothingIsGrantedOrderOrNoOrder() {
         assertAll(
                 () -> assertEquals(Optional.empty(), tiers.resolve(299, SIXTY_PLAIN)),
                 () -> assertEquals(Optional.empty(), tiers.resolve(299)));
     }
 
-    // ---------------------------------------------------------------- no order behind it
+    // No order behind it.
 
     @Test
-    @DisplayName("with no order the amount alone decides, highest tier first")
-    void noOrderFallsBackToTheAmount() {
-        // Kept for a payment with no request to honour. Nothing in the bot reaches this today:
-        // the fallback matcher raises an unknown reference to the admin channel rather than
-        // booking it, so every settlement the poll loop performs has an order.
+    void withNoOrderTheAmountAloneDecidesHighestTierFirst() {
+        // Kept for a payment with no request to honour: the fallback matcher raises an unknown reference instead.
         assertAll(
                 () -> assertEquals(90, tiers.resolve(1000).orElseThrow().days()),
                 () -> assertFalse(tiers.resolve(1000).orElseThrow().donation()),
@@ -166,17 +148,8 @@ class TiersTest {
     }
 
     @Test
-    @DisplayName("M8: an order survives a change to the DONATION surcharge, not only to a tier price")
-    void orderSurvivesASurchargeChange() {
-        // Ordered 60 days plus the surcharge while it was 5 EUR: the payer was asked for 10 EUR and
-        // paid 10 EUR. The surcharge is then lowered to 3 EUR before the poll loop settles it.
-        //
-        // Order used to keep only a BOOLEAN for the donation, so the ordered total was rebuilt as
-        // "stored price of the days" + "today's surcharge" = 800 - a number nobody was ever asked
-        // for. 1000 >= 800, so this particular direction happened to over-credit; the other
-        // direction (surcharge raised) makes a payer who paid exactly what was asked look short and
-        // downgrades them. Either way a price change rewrites an order that was already placed,
-        // which is precisely what the javadoc on Order.of promises it does not.
+    void m8AnOrderSurvivesAChangeToTheDonationSurchargeNotOnlyToATierPrice() {
+        // Ordered 60 days at a 5 EUR surcharge and paid 10 EUR; the surcharge is lowered to 3 EUR before settling.
         final Tiers afterTheChange = Tiers.of(List.of(new Tier(30, 300), new Tier(60, 500), new Tier(90, 700)), 300);
 
         final Tiers.Settlement settlement =
@@ -193,11 +166,8 @@ class TiersTest {
     }
 
     @Test
-    @DisplayName("M8: a raised surcharge does not turn a fully paid order into a downgrade")
-    void aRaisedSurchargeDoesNotDowngradeAPaidOrder() {
-        // The dangerous direction. Ordered at a 5 EUR surcharge and paid 10 EUR; the surcharge then
-        // moves to 8 EUR, so the re-derived total becomes 1300 and 1000 reads as short - the payer
-        // is downgraded to the tier 10 EUR covers, having paid exactly what they were asked for.
+    void m8ARaisedSurchargeDoesNotTurnAFullyPaidOrderIntoADowngrade() {
+        // The dangerous direction: the surcharge moves to 8 EUR after ordering, so 1000 reads as short.
         final Tiers afterTheChange = Tiers.of(List.of(new Tier(30, 300), new Tier(60, 500), new Tier(90, 700)), 800);
 
         final Tiers.Settlement settlement =
@@ -212,28 +182,24 @@ class TiersTest {
     }
 
     @Test
-    @DisplayName("an order priced from a retired tier is still honoured")
-    void orderSurvivesAPriceChange() {
-        // The request stored 45 days at 4 EUR; the price list no longer has a 45-day tier. The
-        // order is read off the row, not looked up, so it still settles.
+    void anOrderPricedFromARetiredTierIsStillHonoured() {
+        // The price list no longer has a 45-day tier; the order is read off the row, not looked up.
         final Tiers.Settlement settlement =
                 tiers.resolve(400, new Tiers.Order(45, 400, 0)).orElseThrow();
 
         assertAll(() -> assertEquals(45, settlement.days()), () -> assertFalse(settlement.downgraded()));
     }
 
-    // ---------------------------------------------------------------- money
+    // Money.
 
     @Test
-    @DisplayName("money round-trips through bunq's decimal strings exactly")
-    void moneyRoundTrip() {
+    void moneyRoundTripsThroughBunqsDecimalStringsExactly() {
         assertAll(
                 () -> assertEquals("3.00", Money.toDecimalString(300)),
                 () -> assertEquals("12.05", Money.toDecimalString(1205)),
                 () -> assertEquals(300, Money.toCents("3.00")),
                 () -> assertEquals(500, Money.toCents("5")),
-                // Season 1 parsed amounts as float and compared them with <, which is how an exact
-                // 5.00 could fail an "at least 5" check.
+                // A float comparison with < is how an exact 5.00 could fail an "at least 5" check.
                 () -> assertEquals(1205, Money.toCents("12.05")));
     }
 }

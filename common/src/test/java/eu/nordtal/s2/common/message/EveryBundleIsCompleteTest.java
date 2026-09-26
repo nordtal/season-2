@@ -65,7 +65,7 @@ class EveryBundleIsCompleteTest {
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([a-z0-9_-]+)}");
 
     @Test
-    void theWalkFindsEveryBundleThisRepositoryHadWhenTheTestWasWritten() {
+    void theWalkFindsEveryKnownBundle() {
         assertTrue(
                 bundles().keySet().containsAll(KNOWN),
                 "the walk does not find every known bundle. Missing: "

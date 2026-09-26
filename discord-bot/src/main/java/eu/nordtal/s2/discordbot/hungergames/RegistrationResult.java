@@ -6,9 +6,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * The outcome of registering a team, from {@link Teams#register(String, String)}.
  *
- * <p>A record rather than an exception, the same reasoning as {@code LinkRedemption} in
- * {@code :common}: a taken name or a second registration attempt are ordinary outcomes of a modal
- * submission, not failures worth a stack trace.</p>
+ * A record rather than an exception, the same reasoning as {@code LinkRedemption} in {@code :common}: a taken name
+ * or a second registration attempt are ordinary outcomes of a modal submission, not failures worth a stack
+ * trace.
  *
  * @param teamId null unless {@link #status()} is {@link Status#REGISTERED}
  */

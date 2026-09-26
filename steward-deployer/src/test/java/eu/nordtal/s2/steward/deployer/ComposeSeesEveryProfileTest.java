@@ -14,13 +14,13 @@ import org.junit.jupiter.api.Test;
 /**
  * Asking what image a service runs must not depend on which profiles happen to be enabled.
  *
- * <p>A recreate that reads {@code docker compose config} under only the active
+ * A recreate that reads {@code docker compose config} under only the active
  * {@code COMPOSE_PROFILES} sees "not in this selection" for a service such as {@code proxy-standby}
  * that sits behind a profile nobody enabled, which reads the same as "no image on this host" and
- * aborts for a reason that is not true.</p>
+ * aborts for a reason that is not true.
  *
- * <p>The tests need no docker daemon: the fix is one argument in a command line, and the command
- * line is assembled before anything runs.</p>
+ * The tests need no docker daemon: the fix is one argument in a command line, and the command
+ * line is assembled before anything runs.
  */
 class ComposeSeesEveryProfileTest {
 
@@ -34,8 +34,7 @@ class ComposeSeesEveryProfileTest {
         final int profile = command.indexOf("--profile");
         assertTrue(profile >= 0, "no --profile in " + command);
         assertEquals("*", command.get(profile + 1), "--profile has to name every one of them");
-        // A top-level flag after the subcommand is an argument to the subcommand, and compose
-        // rejects it. The position is the whole of whether this works.
+        // A top-level flag after the subcommand is an argument to the subcommand, and compose rejects it.
         assertTrue(
                 profile < command.indexOf("config"),
                 "--profile is a top-level flag and belongs before `config`: " + command);
@@ -43,8 +42,7 @@ class ComposeSeesEveryProfileTest {
 
     @Test
     void theOrdinaryReadIsUnchanged() {
-        // services() is what a deployment naming nothing touches, and what the interface lists.
-        // Enabling every profile here would put a second proxy and a second limbo into both.
+        // Enabling every profile here would put a second proxy and a second limbo into a plain deployment.
         assertFalse(
                 compose.configCommand(false).contains("--profile"),
                 "the ordinary read must not enable the standby profile");
@@ -52,8 +50,7 @@ class ComposeSeesEveryProfileTest {
 
     @Test
     void theStandbysAreBehindAProfile() throws IOException {
-        // Without this the two tests above guard a problem that no longer exists: put the standbys
-        // into `mc` and the missing --profile would stop being a defect, silently.
+        // The two tests above only guard anything as long as the standbys stay behind a profile.
         final String composeFile = Files.readString(repositoryRoot().resolve("compose.yml"), StandardCharsets.UTF_8);
 
         for (final String standby : List.of("proxy-standby", "limbo-standby")) {

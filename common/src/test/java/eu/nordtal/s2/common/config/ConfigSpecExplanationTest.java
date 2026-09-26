@@ -64,7 +64,7 @@ class ConfigSpecExplanationTest {
     private static final Pattern NAME = Pattern.compile("@Name\\(\"[^\"]+\"\\)");
 
     @Test
-    void theWalkStillFindsEveryConfigSpecFileItFoundWhenThisTestWasWritten() {
+    void theWalkFindsEveryKnownConfigSpecFile() {
         final Set<String> found =
                 specFiles().stream().map(RepositoryRoot::relative).collect(Collectors.toCollection(TreeSet::new));
         assertTrue(

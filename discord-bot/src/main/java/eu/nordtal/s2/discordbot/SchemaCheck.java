@@ -5,14 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
 
 /**
- * The bot refuses to start against a database it was not built against. steward-worker owns the
- * migrations; without this check the bot would instead fail on its first query, minutes later,
- * inside a Discord interaction.
+ * The bot refuses to start against a database it was not built against.
  *
- * <p>Flyway's {@code validate()} compares the migrations shaded into this jar - the same files the
- * worker applies - against what the database says has been applied. The Paper plugins do not do
- * this, because Flyway must never be shaded into a plugin jar; the bot starts first and catches it
- * for the whole stack.</p>
+ * steward-worker owns the migrations; without this check the bot would instead fail on its first query, minutes
+ * later, inside a Discord interaction.
+ *
+ * Flyway's {@code validate()} compares the migrations shaded into this jar - the same files the worker applies -
+ * against what the database says has been applied. The Paper plugins do not do this, because Flyway must never be
+ * shaded into a plugin jar; the bot starts first and catches it for the whole stack.
  */
 @Slf4j
 final class SchemaCheck {
@@ -26,8 +26,7 @@ final class SchemaCheck {
      */
     static void validate(final DataSource dataSource) {
         try {
-            // Resolved against this class's own class loader, so the migrations bundled inside
-            // the shaded jar are found.
+            // Resolved against this class's own class loader, so the migrations bundled in the shaded jar are found.
             Flyway.configure(SchemaCheck.class.getClassLoader())
                     .dataSource(dataSource)
                     .locations("classpath:db/migration")

@@ -52,12 +52,7 @@ dependencies {
 
     implementation(libs.jda)
 
-    // There is deliberately no bunq SDK here any more (steward/109). This process asks for a
-    // payment link by writing a row and is told the answer by a notification; the key, the SDK and
-    // the patched BunqRequestBuilder all live in :steward-worker, which is the only container in
-    // the network that holds a bank credential. Re-adding this line is how the move gets undone by
-    // accident - the compile error it fixes is the message that something belongs on the other side
-    // of the seam.
+    // No bunq SDK here: the key and the patched BunqRequestBuilder live only in :steward-worker.
 
     // Flyway, to COMPILE against - not to ship. jcore declares it `implementation`, so it reaches
     // this jar at runtime through the POM's runtime scope but is invisible at compile time. The

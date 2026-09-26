@@ -9,25 +9,23 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
- * {@code config/bot.yml} - the Discord token, declared here so it is validated once at startup
- * rather than surfacing as an invalid login minutes later.
+ * {@code config/bot.yml} - the Discord token.
  *
- * <p>It is still meant to come from the environment ({@code NORDTAL_BOT_TOKEN}): the default is
- * empty and the bot refuses to start while it is.</p>
+ * Declared here so it is validated once at startup rather than surfacing as an invalid login minutes later.
  *
- * <h2>The bunq credentials used to be here (steward/109)</h2>
- * {@code bunq.api-key}, {@code bunq.account-id} and {@code bunq.context-path} lived in this file
- * until the bank moved into {@code steward-worker}. They are now {@code bunq:} in that container's
- * {@code steward.yml}, supplied as {@code NORDTAL_STEWARD_BUNQ_*}, and this process has neither the
- * key nor the bunq SDK on its classpath. The bot asks for a payment link by writing a row and is
- * told the answer the same way.
+ * It is meant to come from the environment ({@code NORDTAL_BOT_TOKEN}): the default is empty and
+ * the bot refuses to start while it is.
  *
- * <p>Nothing here reads the old names any more, which is deliberate and is also the reason
- * steward/101 exists: an environment file that still says {@code NORDTAL_BOT_BUNQ_*} is not an
- * error anybody will see, because jcore drops an unknown key with a warning and a {@code .bak}, and
- * a bunq that is simply absent is a valid season. The one thing that does say so out loud is
- * steward-worker's start line - and the bot repeats it, through {@code bot_setting}, in
- * {@link Configured#report}.</p>
+ * The bunq credentials - {@code bunq.api-key}, {@code bunq.account-id},
+ * {@code bunq.context-path} - live as {@code bunq:} in {@code steward-worker}'s {@code steward.yml}
+ * instead, supplied as {@code NORDTAL_STEWARD_BUNQ_*}; this process has neither the key nor the
+ * bunq SDK on its classpath. The bot asks for a payment link by writing a row and is told the
+ * answer the same way.
+ *
+ * Nothing here reads the old {@code NORDTAL_BOT_BUNQ_*} names: jcore drops an unknown key with a
+ * warning and a {@code .bak}, and a bunq that is simply absent is a valid season.
+ * steward-worker's start line says so out loud, and the bot repeats it, through
+ * {@code bot_setting}, in {@link Configured#report}.
  */
 @ConfigSpec(
         header = {

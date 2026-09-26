@@ -6,25 +6,22 @@ import java.sql.Connection;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The validations {@link Teams} can answer without ever reaching the database - the same reason
- * {@code TiersTest} and {@code LanguagesTest} stay in memory. Everything that actually reads or
- * writes {@code hg_game}/{@code hg_team}/{@code hg_member} needs a real PostgreSQL instance and is
- * therefore untested here; see the note at the end of this session's summary.
- * <p>
- * The {@link DataSource} handed to {@link Teams} throws on the first attempt to open a connection,
- * which is what proves these two checks run before any query - not just that they return the right
- * answer.
- * </p>
+ * The validations {@link Teams} can answer without ever reaching the database - the same reason {@code TiersTest}
+ * and {@code LanguagesTest} stay in memory.
+ *
+ * Everything that actually reads or writes {@code hg_game} / {@code hg_team} / {@code hg_member} needs a real
+ * PostgreSQL instance and is therefore untested here; see the note at the end of this session's summary.
+ *
+ * The {@link DataSource} handed to {@link Teams} throws on the first attempt to open a connection, which is what
+ * proves these two checks run before any query - not just that they return the right answer.
  */
 class TeamsTest {
 
     private static final Teams TEAMS = new Teams(Jdbi.create(new DataSource() {
-                // Reduced to the two methods JDBI's SqlObjectPlugin actually calls; every other method
-                // throws to prove nothing here reaches past connection acquisition.
+                // Reduced to the two methods JDBI's SqlObjectPlugin calls; every other throws, proving no reach.
                 @Override
                 public Connection getConnection() {
                     throw new UnsupportedOperationException("this test must never reach the database");
@@ -73,34 +70,28 @@ class TeamsTest {
             .installPlugin(new SqlObjectPlugin()));
 
     @Test
-    @DisplayName("a team name shorter than 3 characters is refused without touching the database")
-    void tooShortNameIsRefused() {
+    void aTeamNameShorterThan3CharactersIsRefusedWithoutTouchingTheDatabase() {
         assertEquals(
                 RegistrationResult.Status.INVALID_NAME,
                 TEAMS.register("1", "ab").status());
     }
 
     @Test
-    @DisplayName("a team name longer than 15 characters is refused without touching the database")
-    void tooLongNameIsRefused() {
+    void aTeamNameLongerThan15CharactersIsRefusedWithoutTouchingTheDatabase() {
         assertEquals(
                 RegistrationResult.Status.INVALID_NAME,
                 TEAMS.register("1", "a".repeat(16)).status());
     }
 
     @Test
-    @DisplayName("a name of exactly 3 or 15 characters passes the length check")
-    void boundaryLengthsPassTheLengthCheck() {
-        // Both of these reach the (stubbed, throwing) database next, which is itself the proof
-        // that the length check accepted them: SQLException/UnsupportedOperationException, not
-        // IllegalArgumentException, is what a caller sees past this point.
+    void aNameOfExactly3Or15CharactersPassesTheLengthCheck() {
+        // Both reach the stubbed, throwing database next, proving the length check accepted them.
         assertThrows(3, () -> TEAMS.register("1", "abc"));
         assertThrows(15, () -> TEAMS.register("1", "a".repeat(15)));
     }
 
     @Test
-    @DisplayName("inviting yourself is refused without touching the database")
-    void invitingYourselfIsRefused() {
+    void invitingYourselfIsRefusedWithoutTouchingTheDatabase() {
         assertEquals(
                 InviteResult.Status.CANNOT_INVITE_SELF, TEAMS.invite("1", "1").status());
     }

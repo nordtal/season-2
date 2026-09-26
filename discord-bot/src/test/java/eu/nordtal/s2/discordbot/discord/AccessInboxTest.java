@@ -17,16 +17,15 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 /**
- * What the bot does with a row somebody wrote (season-2-community/08).
+ * What the bot does with a row somebody wrote.
  *
- * <p>The half of the inbox that is not a database and not a guild: which of the five verbs a kind
- * dispatches to, who it is filed under, what goes into {@code result}, and what happens when one of
- * them throws. {@code AccessRequestsIntegrationTest} covers the row; this covers the decision.</p>
+ * The half of the inbox that is not a database and not a guild: which of the five verbs a kind dispatches to, who it
+ * is filed under, what goes into {@code result}, and what happens when one of them throws.
+ * {@code AccessRequestsIntegrationTest} covers the row; this covers the decision.
  */
 class AccessInboxTest {
 
@@ -126,8 +125,7 @@ class AccessInboxTest {
     }
 
     @Test
-    @DisplayName("the answer goes back into the row, as JSON a surface can read")
-    void theResultIsWrittenBack() {
+    void theAnswerGoesBackIntoTheRowAsJsonASurfaceCanRead() {
         inbox.waiting.add(row(1, AccessRequestKind.GRANT, "400000000000000002", "30", "admin"));
         inbox.waiting.add(row(2, AccessRequestKind.REVOKE, "400000000000000003", null, "admin"));
         inbox.waiting.add(row(3, AccessRequestKind.SETTLE, "NT-7", null, "admin"));
@@ -143,9 +141,10 @@ class AccessInboxTest {
     }
 
     /**
-     * A grant is not idempotent - running it twice gives somebody twice the days they paid for - so
-     * a failure is recorded and left, never retried. The row carrying its own failure is what lets
-     * the asking surface say so instead of waiting for ever.
+     * A grant is not idempotent - running it twice gives somebody twice the days they paid for.
+     *
+     * So a failure is recorded and left, never retried. The row carrying its own failure is what lets the asking
+     * surface say so instead of waiting for ever.
      */
     @Test
     void aFailureIsRecordedOnTheRowAndTheNextOneStillRuns() {
@@ -162,8 +161,9 @@ class AccessInboxTest {
     }
 
     /**
-     * An argument that is not a number is a row that should never have been written, and carrying on
-     * with a zero would grant nobody anything and look exactly like success.
+     * An argument that is not a number is a row that should never have been written.
+     *
+     * Carrying on with a zero would grant nobody anything and look exactly like success.
      */
     @Test
     void aMalformedArgumentFailsTheRowRatherThanGrantingNothing() {
@@ -176,9 +176,9 @@ class AccessInboxTest {
     }
 
     /**
-     * A row past its patience is already dead - the claim refuses it - and one still labelled
-     * PENDING looks like work nobody has got to yet. The bot is the only thing that looks at this
-     * table on a schedule, so the sweep rides on its pass.
+     * A row past its patience is already dead - the claim refuses it - unlike one still labelled PENDING.
+     *
+     * The bot is the only thing that looks at this table on a schedule, so the sweep rides on its pass.
      */
     @Test
     void everyPassGivesUpOnWhatWasNeverPickedUp() {
@@ -189,14 +189,14 @@ class AccessInboxTest {
     }
 
     /**
-     * The three answers season-2-community/09 asks the interface to be able to give, as far as this
-     * side can produce them: re-read with nothing to report, re-read with typos named, and a
-     * re-read that did not happen. The third is a FAILED row on purpose - a bundle that no longer
-     * parses leaves the running one in place, and "applied, nothing to report" would be a lie.
+     * The three answers a reload can give, as far as this side can produce them.
+     *
+     * Re-read with nothing to report, re-read with typos named, and a re-read that did not happen. The third is a
+     * FAILED row on purpose - a bundle that no longer parses leaves the running one in place, and "applied, nothing
+     * to report" would be a lie.
      */
     @Test
-    @DisplayName("a reload names the keys nobody declares, and a failed one is a failure")
-    void reloadingMessagesReportsWhatItFound() {
+    void aReloadNamesTheKeysNobodyDeclaresAndAFailedOneIsAFailure() {
         inbox.waiting.add(row(1, AccessRequestKind.RELOAD_MESSAGES, "access", null, "admin"));
         subject.drain();
         assertEquals(List.of("reload"), carriedOut);
@@ -227,8 +227,7 @@ class AccessInboxTest {
     }
 
     @Test
-    @DisplayName("a quotation mark in a failure does not produce unreadable JSON")
-    void theResultIsEscaped() {
+    void aQuotationMarkInAFailureDoesNotProduceUnreadableJson() {
         assertEquals(
                 "{\"error\":\"he said \\\"no\\\"\\nand left\"}", AccessInbox.json("error", "he said \"no\"\nand left"));
         assertEquals("{\"until\":null}", AccessInbox.json("until", null));

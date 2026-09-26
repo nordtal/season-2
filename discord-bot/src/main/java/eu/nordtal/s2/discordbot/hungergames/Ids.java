@@ -1,15 +1,14 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
 /**
- * Every component id {@link RegisterFlow} listens for, prefixed {@code hg:} - its own namespace,
- * separate from {@code access:} ({@code eu.nordtal.s2.discordbot.Ids}), because
- * registering for the start event and the paid access flow are unrelated features that happen to
- * share a bot.
- * <p>
- * {@link #INVITE_ACCEPT} and {@link #INVITE_DECLINE} are prefixes with the {@code hg_member.id}
- * (the INVITED row) appended - the DM the invited partner receives is the only place that id is
- * kept, so the button itself is the whole of the state that needs to survive a bot restart.
- * </p>
+ * Every component id {@link RegisterFlow} listens for, prefixed {@code hg:} - its own namespace.
+ *
+ * Separate from {@code access:} ( {@code eu.nordtal.s2.discordbot.Ids}), because registering for the start event and
+ * the paid access flow are unrelated features that happen to share a bot.
+ *
+ * {@link #INVITE_ACCEPT} and {@link #INVITE_DECLINE} are prefixes with the {@code hg_member.id} (the INVITED row)
+ * appended - the DM the invited partner receives is the only place that id is kept, so the button itself is the
+ * whole of the state that needs to survive a bot restart.
  */
 final class Ids {
 

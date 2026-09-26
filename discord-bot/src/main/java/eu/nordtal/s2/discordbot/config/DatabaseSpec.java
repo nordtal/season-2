@@ -11,14 +11,13 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
  * {@code config/database.yml}.
- * <p>
- * The hand-written {@code POSTGRES_URL} / {@code POSTGRES_USER} / {@code POSTGRES_PASSWORD}
- * overrides this used to carry are gone: jcore's environment overlay covers every setting, so
- * there is no longer a second, separate way for a value to reach this config.
- * <p>
- * <b>Deploy change:</b> the variables are now {@code NORDTAL_DATABASE_JDBC_URL},
- * {@code NORDTAL_DATABASE_USERNAME} and {@code NORDTAL_DATABASE_PASSWORD}. The old
- * {@code POSTGRES_*} names are no longer read.
+ *
+ * The hand-written {@code POSTGRES_URL} / {@code POSTGRES_USER} / {@code POSTGRES_PASSWORD} overrides this used to
+ * carry are gone: jcore's environment overlay covers every setting, so there is no longer a second, separate way for
+ * a value to reach this config.
+ *
+ * Deploy change: the variables are now {@code NORDTAL_DATABASE_JDBC_URL}, {@code NORDTAL_DATABASE_USERNAME} and
+ * {@code NORDTAL_DATABASE_PASSWORD}. The old {@code POSTGRES_*} names are no longer read.
  */
 @ConfigSpec(
         header = {

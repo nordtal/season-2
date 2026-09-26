@@ -14,16 +14,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The cap that makes a four-character link code safe, against a clock that can be moved.
- * <p>
- * Everything here is the arithmetic of a sliding window. What it protects is stated in
- * {@code LinkCodes}: 923 521 possibilities, and this is the only thing between them and somebody
- * with a modal.
- * </p>
+ *
+ * Everything here is the arithmetic of a sliding window. What it protects is stated in {@code LinkCodes}: 923 521
+ * possibilities, and this is the only thing between them and somebody with a modal.
  */
 class RedemptionLimitTest {
 
@@ -74,10 +71,8 @@ class RedemptionLimitTest {
     }
 
     @Test
-    @DisplayName("an attempt that was not a wrong guess is given back")
-    void aReleasedAttemptDoesNotCount() {
-        // The code was right, or it was a real code on an already-linked account, or the database
-        // threw. None of those is evidence of guessing, so none of them may cost an attempt.
+    void anAttemptThatWasNotAWrongGuessIsGivenBack() {
+        // Right code, real code on an already-linked account, or a throwing database - none is evidence of guessing.
         final RedemptionLimit limit = new RedemptionLimit(2, new Movable());
 
         limit.acquire(SOMEBODY);
@@ -90,8 +85,7 @@ class RedemptionLimitTest {
 
     @Test
     void releasingWithNothingRecordedIsHarmless() {
-        // The normal path after a successful redemption: clear() has already emptied the account
-        // and the finally still runs.
+        // The normal path after a successful redemption: clear() already emptied the account, and finally still runs.
         final RedemptionLimit limit = new RedemptionLimit(1, new Movable());
 
         limit.release(SOMEBODY);
@@ -100,11 +94,8 @@ class RedemptionLimitTest {
     }
 
     @Test
-    @DisplayName("concurrent modals cannot get more attempts than the cap")
-    void admissionIsAtomicUnderConcurrency() throws Exception {
-        // The bot hands interactions to a pool of four workers, so this really can happen. A check
-        // followed by a separate record - which is what this class did until review - let every
-        // racing worker pass the check before any of them had recorded anything.
+    void concurrentModalsCannotGetMoreAttemptsThanTheCap() throws Exception {
+        // The bot hands interactions to a pool of four workers, so a racing check-then-record really can happen.
         final int cap = 5;
         final int threads = 32;
         final RedemptionLimit limit = new RedemptionLimit(cap, new Movable());
@@ -137,8 +128,7 @@ class RedemptionLimitTest {
     }
 
     @Test
-    @DisplayName("the window slides: an hour after the first failure it stops counting")
-    void failuresAgeOutOneAtATime() {
+    void theWindowSlidesAnHourAfterTheFirstFailureItStopsCounting() {
         final Movable clock = new Movable();
         final RedemptionLimit limit = new RedemptionLimit(2, clock);
 
@@ -166,10 +156,8 @@ class RedemptionLimitTest {
     }
 
     @Test
-    @DisplayName("redeeming a real code forgets the strikes")
-    void aSuccessfulRedemptionClearsTheAccount() {
-        // Somebody who has just proved they hold a real code is not the case this defends against,
-        // and their next link must not start capped.
+    void redeemingARealCodeForgetsTheStrikes() {
+        // Somebody who has just proved they hold a real code is not the case this defends against.
         final RedemptionLimit limit = new RedemptionLimit(2, new Movable());
         limit.acquire(SOMEBODY);
         limit.acquire(SOMEBODY);

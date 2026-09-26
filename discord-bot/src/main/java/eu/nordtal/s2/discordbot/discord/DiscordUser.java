@@ -15,19 +15,17 @@ import net.dv8tion.jda.api.interactions.InteractionHook;
 /**
  * An admin who ran a slash command, as {@code :commands} sees them.
  *
- * <h2>Why the replies accumulate</h2>
- * A shared command may say more than one thing - {@code /phase smp-start} says what the date is now
- * and then how much paid access moved with it - and a Discord interaction has exactly one message.
- * {@code editOriginal} replaces it, so sending each line on its own would leave the admin looking at
- * the last one and never seeing the first. Every reply therefore appends and re-sends the whole
- * text, which is one REST call per line and two or three per command.
+ * Why the replies accumulate: A shared command may say more than one thing - {@code /phase smp-start} says what the
+ * date is now and then how much paid access moved with it - and a Discord interaction has exactly one message.
+ * {@code editOriginal} replaces it, so sending each line on its own would leave the admin looking at the last one
+ * and never seeing the first. Every reply therefore appends and re-sends the whole text, which is one REST call per
+ * line and two or three per command.
  *
- * <p>The alternative, follow-up messages, was rejected: three ephemeral messages for one command is
- * how season 1's bot read, and the second and third of them are indistinguishable from a bug.</p>
+ * The alternative, follow-up messages, was rejected: three ephemeral messages for one command is how season 1's bot
+ * read, and the second and third of them are indistinguishable from a bug.
  *
- * <h2>What this class does not carry</h2>
- * No Minecraft UUID. The command layer is written not to assume one exists - and a Discord admin who
- * has never linked an account is an ordinary case here, unlike on the proxy where the login gate
+ * What this class does not carry: No Minecraft UUID. The command layer is written not to assume one exists - and a
+ * Discord admin who has never linked an account is an ordinary case here, unlike on the proxy where the login gate
  * refuses one. {@code /phase} needs neither, and asks for neither.
  */
 public final class DiscordUser implements NordtalUser {
@@ -113,15 +111,14 @@ public final class DiscordUser implements NordtalUser {
     /**
      * One more line, and the whole answer resent.
      *
-     * <h2>Why the list is locked</h2>
-     * More than one thread reaches it. This user is built on a JDA worker thread, and a command
-     * whose target is another process is then answered by {@code Outbox} - from its own scheduler,
-     * and again from the task that gives up waiting. Two of those three can overlap, and an
-     * unsynchronised {@link ArrayList} written from two threads loses a line, sends a stale one, or
-     * fails inside the list itself.
+     * Why the list is locked: More than one thread reaches it. This user is built on a JDA worker thread, and a command
+     * whose target is another process is then answered by {@code Outbox} - from its own scheduler, and again from the
+     * task that gives up waiting. Two of those three can overlap, and an unsynchronised {@link ArrayList} written from
+     * two threads loses a line, sends a stale one, or fails inside the list itself.
      *
-     * <p>The join happens under the same lock, so the text sent is the text the list held at the
-     * moment this line was added rather than whatever it holds by the time the edit is built.</p>
+     * The join happens under the same lock, so the text sent is the text the list held at the moment this line was
+     * added
+     * rather than whatever it holds by the time the edit is built.
      */
     private void say(final String line) {
         final String all;
@@ -129,14 +126,12 @@ public final class DiscordUser implements NordtalUser {
             lines.add(line);
             all = String.join("\n\n", lines);
         }
-        // Components are cleared: by the time a command is replying, any confirmation buttons that
-        // led here have been used and a button that still works would run it a second time.
+        // Components are cleared: any confirmation button that led here has been used and would else run twice.
         hook.editOriginal(all).setComponents(List.of()).queue();
     }
 
     private String render(final MessageRef message) {
-        // Messages' own named substitution, not a hand-rolled replace: it is what reports a
-        // placeholder the template does not carry, and a template placeholder nothing supplied.
+        // Messages' own named substitution, not a hand-rolled replace: it reports a placeholder mismatch either way.
         return messages.format(locale, message);
     }
 }

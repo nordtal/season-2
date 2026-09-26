@@ -7,15 +7,16 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * The whole SQL surface of {@code hg_game}/{@code hg_team}/{@code hg_member} the Discord half needs.
+ * The whole SQL surface of {@code hg_game} / {@code hg_team} / {@code hg_member} the Discord half needs.
+ *
  * Package-private: {@link Teams} is the API.
  *
- * <p>{@code hg_member.ready} never appears here - the Discord half writes only the membership
- * states. Readiness is written by the {@code hunger-games} Paper plugin.</p>
+ * {@code hg_member.ready} never appears here - the Discord half writes only the membership states. Readiness is
+ * written by the {@code hunger-games} Paper plugin.
  *
- * <p>The invariants are enforced by the schema's unique indexes, not by a read-then-write here:
- * {@link Teams} pre-checks for a friendly message, but the constraint is what actually stops two
- * people racing the same team name or the same invite.</p>
+ * The invariants are enforced by the schema's unique indexes, not by a read-then-write here: {@link Teams}
+ * pre-checks for a friendly message, but the constraint is what actually stops two people racing the same team name
+ * or the same invite.
  */
 interface HungerGamesDao {
 
@@ -84,9 +85,7 @@ interface HungerGamesDao {
             """)
     UUID insertInvite(@Bind("teamId") UUID teamId, @Bind("gameId") UUID gameId, @Bind("discordId") String discordId);
 
-    // discord_id is in the WHERE, not a precondition checked in Java first: only the invited
-    // account may answer its own invite, and checking it in the statement that flips the state
-    // closes the gap between "whose invite is this" and "is it still pending".
+    // discord_id is in the WHERE, not checked in Java first: only the invited account may answer its own invite.
     @SqlUpdate("""
             UPDATE hg_member SET state = 'ACCEPTED'
             WHERE id = :memberId AND discord_id = :discordId AND state = 'INVITED'

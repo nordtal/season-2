@@ -4,7 +4,7 @@ The one season 2 process with no Minecraft dependency. At runtime it talks to **
 Discord gateway** and to nothing else, so it can be deployed and operated long before the proxy or
 any Paper backend exists.
 
-**It has no bunq key and no bunq SDK** (steward/109). Buying access still works exactly as it did
+**It has no bunq key and no bunq SDK.** Buying access still works exactly as it did
 from a member's side; what changed is who makes the call. The bot writes a row asking for a payment
 link, `steward-worker` — the only container in the network that holds a bank credential — creates the
 bunq.me tab and writes the link back, and `nordtal_payment` wakes the bot so the waiting message
@@ -119,8 +119,8 @@ The same compose file. What changes is `.env`:
 
 ## Things that bite
 
-- **`NORDTAL_ACCESS_PAYMENT_WATERMARK` and `NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT` are gone**
-  (steward/109). They are `NORDTAL_STEWARD_BUNQ_WATERMARK` and
+- **`NORDTAL_ACCESS_PAYMENT_WATERMARK` and `NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT` are gone.**
+  They are `NORDTAL_STEWARD_BUNQ_WATERMARK` and
   `NORDTAL_STEWARD_BUNQ_RECENT_PAYMENT_COUNT` on the worker. The watermark is the _same row_ in
   `bot_setting`, so a deployment that has already stamped one keeps it across the move. A file that
   still carries the old names loses those two lines with a WARN and a `.bak`, and the bot starts.

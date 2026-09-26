@@ -10,25 +10,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rules that used to be spread across four classes as {@code roles.german} /
- * {@code roles.english} and four fixed channel keys.
- * <p>
- * Everything here is a rule {@link Languages} owns rather than JDA: {@code GuildState} hands it the
- * ids of the roles a member holds and writes whatever comes back, {@code ManagedMessages} walks
- * {@link Languages#all()}, and {@code PaymentProcessor} asks {@link Languages#forLocale(Locale)}
- * for a channel. None of those three can be exercised without a guild, which is exactly why the
- * decisions live here.
- * </p>
- * <p>
- * What these tests <b>cannot</b> prove: that a role id in a real {@code access.yml} is the role
- * Discord's onboarding actually assigns. A configured role that matches no role in the guild is
- * indistinguishable here from one nobody happens to hold - see
- * {@link #anIdThatMatchesNoRoleIsSimplyNeverHeld()}.
- * </p>
+ * The rules once spread across four classes as {@code roles.german} / {@code roles.english} and four fixed keys.
+ *
+ * Everything here is a rule {@link Languages} owns rather than JDA: {@code GuildState} hands it the ids of the roles
+ * a member holds and writes whatever comes back, {@code ManagedMessages} walks {@link Languages#all()}, and
+ * {@code PaymentProcessor} asks {@link Languages#forLocale(Locale)} for a channel. None of those three can be
+ * exercised without a guild, which is exactly why the decisions live here.
+ *
+ * What these tests cannot prove: that a role id in a real {@code access.yml} is the role Discord's onboarding
+ * actually assigns. A configured role that matches no role in the guild is indistinguishable here from one nobody
+ * happens to hold - see {@link #aConfiguredRoleIdThatMatchesNoRoleInTheGuildIsSimplyNeverHeld()}.
  */
 class LanguagesTest {
 
@@ -41,13 +35,11 @@ class LanguagesTest {
         return Languages.of(List.of(EN, DE));
     }
 
-    // ------------------------------------------------------------- mirroring a member's language
+    // Mirroring a member's language.
 
     @Test
     void theAnnouncementChannelIsTheSecondOptionalId() {
-        // The six-id constructor is the file's default: no announcement channel. The seventh id
-        // switches it on, and the check reads the id and not the tag, so a language with a status
-        // channel and none for announcements is exactly that.
+        // The six-id constructor is the default, no announcement channel; the seventh id switches it on.
         assertFalse(EN.hasAnnouncementChannel());
         final Languages.Language withChannel = new Languages.Language("en", "10", "11", "12", "13", "14", "15");
         assertTrue(withChannel.hasAnnouncementChannel());
@@ -56,23 +48,18 @@ class LanguagesTest {
     }
 
     @Test
-    @DisplayName("the German role is mirrored as 'de'")
-    void theGermanRoleIsMirroredAsGerman() {
+    void theGermanRoleIsMirroredAsDe() {
         assertEquals(Locale.GERMAN, today().resolve(Set.of("20")).orElseThrow().locale());
     }
 
     @Test
-    @DisplayName("the English role is mirrored as 'en'")
-    void theEnglishRoleIsMirroredAsEnglish() {
+    void theEnglishRoleIsMirroredAsEn() {
         assertEquals(Locale.ENGLISH, today().resolve(Set.of("10")).orElseThrow().locale());
     }
 
     @Test
-    @DisplayName("no language role writes nothing at all")
-    void noLanguageRoleResolvesToNothing() {
-        // Not "English": the column already defaults to English, and writing it would overwrite a
-        // real choice made while onboarding was mid-flight. Empty is what GuildState turns into
-        // "leave whatever is stored".
+    void noLanguageRoleWritesNothingAtAll() {
+        // Not "English": the column already defaults to it; empty is what GuildState turns into "leave it stored".
         assertAll(
                 () -> assertTrue(today().resolve(Set.of("99", "98")).isEmpty()),
                 () -> assertTrue(today().resolve(Set.of()).isEmpty()),
@@ -80,19 +67,14 @@ class LanguagesTest {
     }
 
     @Test
-    @DisplayName("holding both English and German is German - the fallback loses to a real choice")
-    void theFallbackLosesToAnyOtherLanguage() {
-        // This is the rule the fixed-key version had: "taking German over English when somebody
-        // holds both". It has to survive the move to a list, and it has to survive 'en' being the
-        // FIRST entry of that list, which is how DefaultLanguages writes it.
+    void holdingBothEnglishAndGermanIsGermanTheFallbackLosesToARealChoice() {
+        // German over English when somebody holds both, surviving 'en' being the list's first entry.
         assertEquals("de", today().resolve(Set.of("10", "20")).orElseThrow().tag());
     }
 
     @Test
-    @DisplayName("between two non-fallback languages the configured order wins")
-    void configuredOrderBreaksATieBetweenRealChoices() {
-        // NOT settled by docs/i18n.md - see Languages#resolve. Configured order is the answer this
-        // code picked, and the test exists to make the choice visible rather than accidental.
+    void betweenTwoNonFallbackLanguagesTheConfiguredOrderWins() {
+        // Not settled by docs/i18n.md - configured order is the answer this code picked, made visible here.
         final Languages deFirst = Languages.of(List.of(EN, DE, FR));
         final Languages frFirst = Languages.of(List.of(EN, FR, DE));
 
@@ -104,17 +86,13 @@ class LanguagesTest {
     }
 
     @Test
-    @DisplayName("a configured role id that matches no role in the guild is simply never held")
-    void anIdThatMatchesNoRoleIsSimplyNeverHeld() {
-        // There is nothing else this layer can do: it is handed the ids a member holds, and an id
-        // nobody holds is the same shape whether the role was deleted, mistyped, or just unpopular.
-        // A mistyped language role therefore means "that language is never mirrored", silently.
+    void aConfiguredRoleIdThatMatchesNoRoleInTheGuildIsSimplyNeverHeld() {
+        // An id nobody holds looks the same whether the role was deleted, mistyped, or just unpopular.
         assertTrue(today().resolve(Set.of("does-not-exist")).isEmpty());
     }
 
     @Test
-    @DisplayName("only the configured language roles are worth re-reading a member for")
-    void onlyConfiguredRolesAreLanguageRoles() {
+    void onlyTheConfiguredLanguageRolesAreWorthReReadingAMemberFor() {
         assertAll(
                 () -> assertTrue(today().isLanguageRole("10")),
                 () -> assertTrue(today().isLanguageRole("20")),
@@ -122,11 +100,10 @@ class LanguagesTest {
                 () -> assertFalse(today().isLanguageRole("30")));
     }
 
-    // ------------------------------------------------------------- a third language, no code change
+    // A third language, no code change.
 
     @Test
-    @DisplayName("a third language needs no code change: roles, channels, bundles and message keys")
-    void aThirdLanguageIsPurelyConfiguration() {
+    void aThirdLanguageNeedsNoCodeChangeRolesChannelsBundlesAndMessageKeys() {
         final Languages three = Languages.of(List.of(EN, DE, FR));
 
         assertAll(
@@ -138,19 +115,15 @@ class LanguagesTest {
                 () -> assertEquals("32", three.forLocale(Locale.FRENCH).linkChannelId()),
                 () -> assertTrue(three.isLanguageRole("30")),
                 () -> assertEquals(3, three.all().size()),
-                // Messages.load gets the whole list, so the French bundle is read without anybody
-                // editing AccessBot. A missing fr.properties degrades to English with one warning.
+                // Messages.load gets the whole list, so the French bundle is read without anybody editing AccessBot.
                 () -> assertArrayEquals(new Locale[] {Locale.ENGLISH, Locale.GERMAN, Locale.FRENCH}, three.locales()),
                 () -> assertEquals("CONTRIBUTION_FR", FR.contributionKind()),
                 () -> assertEquals("LINK_FR", FR.linkKind()));
     }
 
     @Test
-    @DisplayName("the managed message keys of en and de are unchanged, so no row is orphaned")
-    void theExistingManagedMessageKeysAreUnchanged() {
-        // These four strings were an enum and are the primary key of managed_message. If deriving
-        // them from the tag produced anything else, the first restart after this change would post
-        // four duplicate messages next to the four it can no longer find.
+    void theManagedMessageKeysOfEnAndDeAreUnchangedSoNoRowIsOrphaned() {
+        // These four strings are the primary key of managed_message; deriving them from the tag must not drift.
         assertAll(
                 () -> assertEquals("CONTRIBUTION_EN", EN.contributionKind()),
                 () -> assertEquals("CONTRIBUTION_DE", DE.contributionKind()),
@@ -158,27 +131,23 @@ class LanguagesTest {
                 () -> assertEquals("LINK_DE", DE.linkKind()));
     }
 
-    // ------------------------------------------------------------- looking a language up
+    // Looking a language up.
 
     @Test
-    @DisplayName("a locale resolves to its own channels")
     void aLocaleResolvesToItsOwnChannels() {
         assertAll(
                 () -> assertEquals("11", today().forLocale(Locale.ENGLISH).contributionChannelId()),
                 () -> assertEquals("21", today().forLocale(Locale.GERMAN).contributionChannelId()),
                 () -> assertEquals("12", today().forLocale(Locale.ENGLISH).linkChannelId()),
                 () -> assertEquals("22", today().forLocale(Locale.GERMAN).linkChannelId()),
-                // de-AT is German: discord_user.locale stores the language only, and Locales.tag
-                // is what both sides go through.
+                // de-AT is German: discord_user.locale stores the language only, and Locales.tag is what both use.
                 () -> assertEquals(
                         "21", today().forLocale(Locale.forLanguageTag("de-AT")).contributionChannelId()));
     }
 
     @Test
-    @DisplayName("a language that is not configured falls back to 'en' rather than to nothing")
-    void anUnconfiguredLanguageFallsBackToTheFallback() {
-        // A tag left in discord_user.locale by an entry since removed from access.yml. The donation
-        // thank-you goes to the English channel; posting it nowhere would be worse.
+    void aLanguageThatIsNotConfiguredFallsBackToEnRatherThanToNothing() {
+        // A tag left in discord_user.locale by an entry since removed from access.yml falls back to English.
         assertAll(
                 () -> assertEquals("en", today().forLocale(Locale.FRENCH).tag()),
                 () -> assertEquals("11", today().forLocale(Locale.FRENCH).contributionChannelId()),
@@ -187,8 +156,7 @@ class LanguagesTest {
     }
 
     @Test
-    @DisplayName("a tag is looked up case-insensitively, but only lower-case tags are ever stored")
-    void tagLookupIsCaseInsensitive() {
+    void aTagIsLookedUpCaseInsensitivelyButOnlyLowerCaseTagsAreEverStored() {
         assertAll(
                 () -> assertEquals("de", today().byTag("DE").orElseThrow().tag()),
                 () -> assertTrue(today().byTag("fr").isEmpty()),
@@ -196,8 +164,7 @@ class LanguagesTest {
     }
 
     @Test
-    @DisplayName("the configured order is preserved, because it is what everything else walks")
-    void theConfiguredOrderIsPreserved() {
+    void theConfiguredOrderIsPreservedBecauseItIsWhatEverythingElseWalks() {
         assertEquals(
                 List.of("fr", "en", "de"),
                 Languages.of(List.of(FR, EN, DE)).all().stream()
@@ -205,18 +172,16 @@ class LanguagesTest {
                         .toList());
     }
 
-    // ------------------------------------------------------------- what it refuses to be built from
+    // What it refuses to be built from.
 
     @Test
-    @DisplayName("a list with no 'en' entry is refused")
-    void aListWithoutEnglishIsRefused() {
+    void aListWithNoEnEntryIsRefused() {
         final IllegalArgumentException error =
                 assertThrows(IllegalArgumentException.class, () -> Languages.of(List.of(DE, FR)));
         assertTrue(error.getMessage().contains("fallback"), error.getMessage());
     }
 
     @Test
-    @DisplayName("a list with a duplicate tag is refused")
     void aListWithADuplicateTagIsRefused() {
         final IllegalArgumentException error = assertThrows(
                 IllegalArgumentException.class,
@@ -225,7 +190,6 @@ class LanguagesTest {
     }
 
     @Test
-    @DisplayName("an empty list is refused")
     void anEmptyListIsRefused() {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> Languages.of(List.of())),

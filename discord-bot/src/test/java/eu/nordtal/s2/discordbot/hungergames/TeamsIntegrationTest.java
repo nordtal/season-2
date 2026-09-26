@@ -12,26 +12,20 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * {@link Teams} against a real PostgreSQL, running the real {@code V5__hunger_games.sql}
- * migration.
- * <p>
- * Every rule here - one active membership per player per game, one team name per game, at most one
- * non-DECIDED game, one partner maximum - is a schema constraint, the same reasoning
- * {@code PaymentRequestIntegrationTest} gives for why an in-memory stand-in would prove nothing.
- * Skips itself when no Docker daemon is reachable.
- * </p>
- * <p>
- * What this <b>cannot</b> prove: anything about Discord - buttons, modals, DMs and the managed
- * Register message need a real guild, and nothing here exercises {@code RegisterFlow} or
- * {@code RegisterMessages}.
- * </p>
+ * {@link Teams} against a real PostgreSQL, running the real {@code V5__hunger_games.sql} migration.
+ *
+ * Every rule here - one active membership per player per game, one team name per game, at most one non-DECIDED game,
+ * one partner maximum - is a schema constraint, the same reasoning {@code PaymentRequestIntegrationTest} gives for
+ * why an in-memory stand-in would prove nothing. Skips itself when no Docker daemon is reachable.
+ *
+ * What this cannot prove: anything about Discord - buttons, modals, DMs and the managed Register message need a real
+ * guild, and nothing here exercises {@code RegisterFlow} or {@code RegisterMessages}.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TeamsIntegrationTest {
@@ -83,8 +77,7 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("the migration applies and creates the hunger games tables")
-    void migrationCreatesEverything() {
+    void theMigrationAppliesAndCreatesTheHungerGamesTables() {
         final List<String> tables = database.jdbi()
                 .withHandle(handle -> handle.createQuery(
                                 "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename")
@@ -95,16 +88,14 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("registering creates a team with its owner as a full member")
-    void registeringCreatesTheTeam() {
+    void registeringCreatesATeamWithItsOwnerAsAFullMember() {
         final RegistrationResult result = teams.register(OWNER, "Foxes");
 
         assertEquals(RegistrationResult.Status.REGISTERED, result.status());
     }
 
     @Test
-    @DisplayName("a second registration by the same account is refused, pre-check and constraint alike")
-    void secondRegistrationByTheSameAccountIsRefused() {
+    void aSecondRegistrationByTheSameAccountIsRefusedPreCheckAndConstraintAlike() {
         teams.register(OWNER, "Foxes");
 
         assertEquals(
@@ -113,8 +104,7 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("a team name is taken case-insensitively, within the same game")
-    void teamNameIsTakenCaseInsensitively() {
+    void aTeamNameIsTakenCaseInsensitivelyWithinTheSameGame() {
         teams.register(OWNER, "Foxes");
 
         assertEquals(
@@ -123,7 +113,6 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("invite, then accept, completes the team")
     void inviteThenAcceptCompletesTheTeam() {
         teams.register(OWNER, "Foxes");
 
@@ -141,7 +130,6 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("declining frees the team up for a different invite")
     void decliningFreesTheTeamUpForADifferentInvite() {
         teams.register(OWNER, "Foxes");
         final UUID firstInvite = teams.invite(OWNER, PARTNER).memberId();
@@ -154,7 +142,6 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("only the invited account can answer its own invite")
     void onlyTheInvitedAccountCanAnswerItsOwnInvite() {
         teams.register(OWNER, "Foxes");
         final UUID memberId = teams.invite(OWNER, PARTNER).memberId();
@@ -164,7 +151,6 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("a second invite while one is pending is refused")
     void aSecondInviteWhileOneIsPendingIsRefused() {
         teams.register(OWNER, "Foxes");
         teams.invite(OWNER, PARTNER);
@@ -174,8 +160,7 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("inviting somebody who is already registered elsewhere is refused")
-    void invitingSomebodyAlreadyRegisteredElsewhereIsRefused() {
+    void invitingSomebodyWhoIsAlreadyRegisteredElsewhereIsRefused() {
         teams.register(OWNER, "Foxes");
         teams.register(PARTNER, "Wolves");
 
@@ -185,7 +170,6 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("a non-owner member cannot invite")
     void aNonOwnerMemberCannotInvite() {
         teams.register(OWNER, "Foxes");
         teams.accept(teams.invite(OWNER, PARTNER).memberId(), PARTNER);
@@ -194,8 +178,7 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("openGame reuses the one non-DECIDED game rather than creating a second")
-    void openGameReusesTheOneNonDecidedGame() {
+    void opengameReusesTheOneNonDecidedGameRatherThanCreatingASecond() {
         final UUID first = teams.openGame();
         final UUID second = teams.openGame();
 
@@ -203,8 +186,7 @@ class TeamsIntegrationTest {
     }
 
     @Test
-    @DisplayName("once the open game is DECIDED, the next registration opens a new one")
-    void aNewGameOpensOnceThePreviousOneIsDecided() {
+    void onceTheOpenGameIsDecidedTheNextRegistrationOpensANewOne() {
         final UUID first = teams.openGame();
         database.jdbi()
                 .useHandle(handle -> handle.createUpdate("UPDATE hg_game SET state = 'DECIDED' WHERE id = :id")
@@ -214,8 +196,7 @@ class TeamsIntegrationTest {
         final UUID second = teams.openGame();
         assertTrue(!first.equals(second), "a DECIDED game must not be reused");
 
-        // The old game's team name is free again in the new game - a rehearsal and the real event
-        // do not fight over "Foxes".
+        // The old game's team name is free again in the new game - rehearsal and the real event do not fight over it.
         database.jdbi()
                 .useHandle(
                         handle -> handle.createUpdate("INSERT INTO hg_team (game_id, name) VALUES (:gameId, 'Foxes')")

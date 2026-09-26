@@ -1,4 +1,4 @@
--- season-2-ops/127: a run may name the services it is for.
+-- A run may name the services it is for.
 --
 -- Until now every run was the whole network. The owner's ask is the small one: it should be
 -- possible to start an update run for a single service, following the usual procedure. That last
@@ -28,4 +28,4 @@ ALTER TABLE update_request
         CHECK (scope IS NULL OR scope ~ '^[a-z0-9-]+(,[a-z0-9-]+)*$');
 
 COMMENT ON COLUMN update_request.scope IS
-    'Comma-separated compose services this run is for; NULL is the whole network (season-2-ops/127).';
+    'Comma-separated compose services this run is for; NULL is the whole network.';

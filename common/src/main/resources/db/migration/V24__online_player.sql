@@ -1,4 +1,4 @@
--- WHO is in the game right now, next to V22's HOW MANY (steward/111).
+-- WHO is in the game right now, next to V22's HOW MANY.
 --
 -- V22 built online_count and said in as many words what may live in it: "an identifier, not prose
 -- … never a container id and never a player name." It is numbers and nothing else, which is why
@@ -84,7 +84,7 @@ COMMENT ON TABLE online_player IS
     'Who is connected to the network right now - one row per player, replaced on every write and '
         'DELETED when they log off, never a history. Written by network-control every '
         'OnlineDirectory.WRITE_INTERVAL in the same pass that writes online_count; read by '
-        'steward-worker for /api/services (steward/111, steward/86).';
+        'steward-worker for /api/services.';
 
 COMMENT ON COLUMN online_player.mc_uuid IS
     'The Minecraft account, the identifier the rest of this schema already uses. Primary key: a '

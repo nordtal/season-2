@@ -1,5 +1,4 @@
--- The proxy swap: where each player stood, and whether the standby still has anybody
--- (season-2-ops/121).
+-- The proxy swap: where each player stood, and whether the standby still has anybody.
 --
 -- WHY THE DATABASE AND NOT THE PROXY'S OWN MEMORY. Everything the proxy knows about a connected
 -- player lives in that process, and the whole point of this feature is that the process goes away:

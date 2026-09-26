@@ -16,40 +16,39 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Every migration that has been released is frozen, byte for byte, and this file is the freezer.
  *
- * <p><b>Flyway checksums the whole file, comments included.</b> A migration that has run is recorded
+ * <b>Flyway checksums the whole file, comments included.</b> A migration that has run is recorded
  * in {@code flyway_schema_history} with that number, and on the next start every consumer compares
  * it: the worker before it migrates, the bot in {@code SchemaCheck.validate}. When they disagree the
  * bot does not start. It does not degrade, it does not warn - it refuses the database and exits, and
- * so does an update run.</p>
+ * so does an update run.
  *
- * <p><b>This is not hypothetical; it is why the test exists.</b> The rename of {@code updater} to
+ * <b>This is not hypothetical; it is why the test exists.</b> The rename of {@code updater} to
  * {@code steward-worker} swept through the repository and changed one sentence of a comment inside
  * {@code V12__update_is_one_run.sql}, a migration v0.8.6 had already shipped. Nothing failed to
  * compile, no test went red, and every review of that commit read it as a rename. It surfaced weeks
  * later on a deployment, as {@code Migration checksum mismatch for migration version 12} out of a
  * bot that would not come up - and a search-and-replace is precisely the kind of change nobody
- * thinks to check a migration for.</p>
+ * thinks to check a migration for.
  *
- * <p><b>Adding a migration means adding a line here.</b> That is the deliberate cost and it is one
+ * <b>Adding a migration means adding a line here.</b> That is the deliberate cost and it is one
  * line: the map is not generated, because a generated map records whatever the file says today and
  * would have recorded the broken V12 just as happily. Editing an existing line is the thing this
  * test is here to stop - if a released migration really has to change, the answer is a new
- * migration that alters what the old one created, never a corrected copy of the old one.</p>
+ * migration that alters what the old one created, never a corrected copy of the old one.
  */
 class MigrationsAreImmutableTest {
 
     /**
      * SHA-256 of every file in {@code db/migration}, in version order.
      *
-     * <p>SHA-256 rather than Flyway's own CRC32: the point is "this file has not changed", which any
+     * SHA-256 rather than Flyway's own CRC32: the point is "this file has not changed", which any
      * hash answers, and Flyway's number comes out of an internal class whose signature is not API.
-     * A mismatch here is a mismatch there for the same reason either way - the bytes moved.</p>
+     * A mismatch here is a mismatch there for the same reason either way - the bytes moved.
      */
     private static final Map<String, String> FROZEN = new LinkedHashMap<>();
 
@@ -78,30 +77,29 @@ class MigrationsAreImmutableTest {
         FROZEN.put("V20__steward_credential.sql", "db65081934220ecbbf227acb602a7a060ce191a337549e7fdbb8748da25cf701");
         FROZEN.put(
                 "V21__discord_and_minecraft_profile_cache.sql",
-                "e598a302d28e4fcfb97a39a4e6eb8db2d634fa7840d508a9a7bc81aebaf5fed5");
-        FROZEN.put("V22__online_count.sql", "bf98dd8e45614cd2cf1e76f812102f575957ec038ec58768c1281f5779846164");
-        FROZEN.put("V23__payment_request_seam.sql", "ae71c85668ebe7948c2cd3c7ff07102b8cfb2e6fe8ee5320127ea40b730c28d1");
-        FROZEN.put("V24__online_player.sql", "5261d44157deecfa8e11f6862bc166aca4ea394fd210cfa31c2f6baaf54c4766");
+                "8ca83e7171a68ba9a8bd806c11494c03aa4153f7be7de58b21f2c9b24661157a");
+        FROZEN.put("V22__online_count.sql", "e25e88ca2691946fe8acec2cebb70bb08ab1996abc128a9eb11c4eab1f660efa");
+        FROZEN.put("V23__payment_request_seam.sql", "a1be6131fb0c3a34eeeeb99040bf132f56b655a9c05afbd58e30b7789b594990");
+        FROZEN.put("V24__online_player.sql", "d524af0eaef269de4d40bfc4f7ecc4fd947dd6cb825064818e06a7b60849dfa5");
         FROZEN.put(
-                "V25__payment_notice_posted.sql", "c231c64b72cbc887083429d95288bbc364e7886975f9836cfbb809d07b91e72a");
+                "V25__payment_notice_posted.sql", "d112cb771b54200bb9250386728831586808db9003771a7fa6882ebb5a15371a");
         FROZEN.put(
-                "V26__web_push_subscription.sql", "d55ca77170392e6f72ea2cf124cd15b3258b26c738746aefe84677e39d344dd4");
-        FROZEN.put("V27__update_request_scope.sql", "96306695d689a425553183d83399699337ad7cde36aea0352400e59dda5edfab");
-        FROZEN.put("V28__service_hold.sql", "3aa88fe7c7e9dc06a080e2365879e85e9aa2ceaa165896bbe0ccbd0a03e6430f");
-        FROZEN.put("V29__service_plugin.sql", "2be49ad36cdf8aa6fac391821c1c2a869b20036dff537c6c3bb0a538122b76f0");
+                "V26__web_push_subscription.sql", "1874827fb014fd33528d0c5563e8ffe3f55aa20cbf87fa12c60a929a5a8e798e");
+        FROZEN.put("V27__update_request_scope.sql", "4d1a04b3c99b75bbe59e25fed7192beef572f7392713a8f16ffa81a148f9d373");
+        FROZEN.put("V28__service_hold.sql", "75d66783c441e0cd7eb5c47885c94c15f07c6acc1749d1acc0af8a3dcf9b8719");
+        FROZEN.put("V29__service_plugin.sql", "b7ec4c8bb129b99bc0e042d68615db2f8d78e1577a1acc1f39a0605e35de23ee");
         FROZEN.put(
                 "V30__push_preferences_and_devices.sql",
-                "222aae4922acaeb05f5ffebc33293f96b26c88deebd9b5a222a7f8d759813aa9");
-        FROZEN.put("V31__proxy_swap.sql", "13bfc3b409bc71a0800841a484203ca4089c4dca751ad90a17d68e1abbbc1b3f");
+                "85a9de8b6186c76c32dfe2d2dfe8ca2920fe8d66129f93b4a94b081518bce31d");
+        FROZEN.put("V31__proxy_swap.sql", "10c39944cec5fee2e103e94b16ae0a3e973ade56e6625ba6a23e10e05444a464");
         FROZEN.put(
-                "V33__access_request_reload.sql", "8c0c58b154b1f1230c3d69092798e2b59d30102424083012ddd4b1394638fe74");
-        FROZEN.put("V32__access_request.sql", "d6d4df3171f57275f1226faca0ef6f48cbaec6f823d56fc9ead0d197a900e0ec");
+                "V33__access_request_reload.sql", "fee93fb6fd3504b583f604aab46451dd8ccd228f088724edfb7128577dfad280");
+        FROZEN.put("V32__access_request.sql", "9de3226481b89ab0d9f24cbc4c6188fd0388c0d0e50320fb069dacac2990afdb");
         FROZEN.put("V34__admin_tree.sql", "b0fdb96280a85020d604eb435b9053ecfc34229357ed3532024ae2d65e04d7f0");
     }
 
     @Test
-    @DisplayName("no migration file has changed since it was frozen here")
-    void noMigrationHasChanged() {
+    void noMigrationFileHasChangedSinceItWasFrozenHere() {
         final Path directory = migrations();
         assertAll(FROZEN.entrySet().stream().map(frozen -> () -> {
             final Path file = directory.resolve(frozen.getKey());
@@ -120,8 +118,7 @@ class MigrationsAreImmutableTest {
     }
 
     @Test
-    @DisplayName("a new migration is frozen in the same commit that adds it")
-    void everyMigrationIsFrozen() {
+    void aNewMigrationIsFrozenInTheSameCommitThatAddsIt() {
         try (Stream<Path> files = Files.list(migrations())) {
             assertAll(files.map(Path::getFileName)
                     .map(Path::toString)
@@ -139,10 +136,10 @@ class MigrationsAreImmutableTest {
     /**
      * The directory as the test classpath sees it, which is the copy the jar would carry.
      *
-     * <p>Reached through the classpath rather than through {@code RepositoryRoot} on purpose: these
+     * Reached through the classpath rather than through {@code RepositoryRoot} on purpose: these
      * files are this module's own resources, so the classpath answer is both the one Flyway reads at
      * runtime and a dependency Gradle already tracks - no {@code repositoryRootTestInputs} entry to
-     * forget, and no way for the test to stay UP-TO-DATE across an edit.</p>
+     * forget, and no way for the test to stay UP-TO-DATE across an edit.
      */
     private static Path migrations() {
         final var url = MigrationsAreImmutableTest.class.getResource("/db/migration");

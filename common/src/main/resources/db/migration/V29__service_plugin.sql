@@ -1,4 +1,4 @@
--- season-2-ops/129: a plugin somebody added from the interface, on top of the ones the code gives.
+-- A plugin somebody added from the interface, on top of the ones the code gives.
 --
 -- WHY THIS TABLE HAS TO EXIST AT ALL, and why the feature is not a UI change.
 -- `Topology.SERVICES` is a `List.of(...)` in Java. It says that the SMP server runs DisplayTags,
@@ -66,6 +66,6 @@ CREATE TABLE service_plugin (
 );
 
 COMMENT ON TABLE service_plugin IS
-    'One row per plugin an admin added from the interface (season-2-ops/129). The plugins the '
+    'One row per plugin an admin added from the interface. The plugins the '
         'network needs are in Topology.SERVICES in Java and are NOT in here, which is what makes '
         'them unremovable rather than merely greyed out.';

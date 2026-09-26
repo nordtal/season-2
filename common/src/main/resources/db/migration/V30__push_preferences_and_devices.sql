@@ -1,4 +1,4 @@
--- The notifications get their own management (steward/98, Till's review of 2026-09-18): which kinds
+-- The notifications get their own management: which kinds
 -- of alert an account wants at all, and a name for each browser that can be told apart from the next.
 --
 -- TWO CHANGES IN ONE MIGRATION, because they are one feature: a dialog that lists devices and

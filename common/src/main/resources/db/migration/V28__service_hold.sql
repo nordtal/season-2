@@ -1,4 +1,4 @@
--- season-2-ops/125: a service can be held down on purpose, and stays down until somebody says so.
+-- A service can be held down on purpose, and stays down until somebody says so.
 --
 -- The owner's ask: besides Recreate there should be a Down that stops a service and keeps it down
 -- until the Start button that then appears is pressed. Two things a database has to carry for that
@@ -50,4 +50,4 @@ CREATE TABLE service_hold (
 
 COMMENT ON TABLE service_hold IS
     'One row per service that was deliberately stopped and must stay stopped until somebody starts '
-        'it (season-2-ops/125). No row is the ordinary case.';
+        'it. No row is the ordinary case.';

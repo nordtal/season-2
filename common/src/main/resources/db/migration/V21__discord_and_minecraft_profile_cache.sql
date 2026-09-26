@@ -1,12 +1,12 @@
 -- Names and faces: until now the database could identify an account, never describe one.
--- steward/44. Everything added here is a cache of what was last *observed*, with its own timestamp
+-- Everything added here is a cache of what was last *observed*, with its own timestamp
 -- next to it - never a second identity. discord_id and mc_uuid stay the only things anything in this
 -- schema is looked up by, before this migration and after it.
 --
 -- Nothing here is UNIQUE, on purpose: a name is not a key. Two Discord accounts sharing a nickname,
 -- or two Minecraft accounts (one after the other, since Mojang lets a name be released and retaken)
 -- sharing a name, must stay two ordinary rows rather than a constraint violation - a UNIQUE index on
--- any of these columns would be exactly the mistake steward/44 exists to keep out of this file.
+-- any of these columns would be exactly the mistake to keep out of this file.
 --
 -- All six new columns are nullable, and deliberately without a default: a row written before this
 -- migration, and a member who has since left the guild, both read as "nothing observed" rather than

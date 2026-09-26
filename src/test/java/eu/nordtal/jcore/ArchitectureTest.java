@@ -24,7 +24,7 @@ class ArchitectureTest {
 
     @Test
     void packagesHaveNoCycles() {
-        slices().matching("eu.nordtal.jcore.(**)").should().beFreeOfCycles().check(classes);
+        slices().matching("eu.nordtal.jcore.(*).(*)..").should().beFreeOfCycles().check(classes);
     }
 
     @Test

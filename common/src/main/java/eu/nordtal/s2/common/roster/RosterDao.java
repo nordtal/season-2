@@ -7,21 +7,18 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
 /**
- * The whole SQL surface of the roster, as a JDBI SqlObject interface. Package-private on purpose:
- * {@link RosterDirectory} is the API, and no consumer should hold a {@code Jdbi} or a DAO.
+ * The read-only SQL surface of the roster; {@link RosterDirectory} is the API.
  *
- * <p>Every statement here is a {@code SELECT}. This package is the read-only half of the access
- * schema - writing is {@code eu.nordtal.s2.common.access.AccessDirectory}'s, and a second writer
- * would be a second answer to who has access.
+ * Writing access belongs to {@code AccessDirectory} alone.
  */
 interface RosterDao {
 
     /**
      * The columns and joins a {@link Person} is made of, without the part that chooses which rows.
      *
-     * <p>It is a constant rather than two texts because there are two callers and they must not
+     * It is a constant rather than two texts because there are two callers and they must not
      * drift: {@link #people(int)} pages the roster and {@link #personOf(String)} fetches one
-     * account for {@code /api/me} (steward/91). Eighteen columns and two joins copied into a second
+     * account for {@code /api/me}. Eighteen columns and two joins copied into a second
      * string is the shape this repository has been bitten by often enough to name it - a column
      * added to one and forgotten in the other produces a {@link Person} that is silently missing a
      * field on exactly one route. A compile-time constant concatenated into the annotation cannot
@@ -51,11 +48,7 @@ interface RosterDao {
                    usr.admin_granted_at
             FROM discord_user usr
                      LEFT JOIN account_link link ON link.discord_id = usr.discord_id
-                     -- steward/119. A third LEFT JOIN and not a fourth query: play time is one row
-                     -- per person keyed by the same discord_id, so it costs a join and nothing else.
-                     -- LEFT, because somebody who has never been online has no row, and the column
-                     -- then comes back NULL - which Person keeps as null rather than flattening to
-                     -- zero.
+                     -- LEFT: somebody never online has no row, and Person keeps that NULL rather than a zero.
                      LEFT JOIN player_playtime playtime ON playtime.discord_id = usr.discord_id
                      LEFT JOIN LATERAL (
                 SELECT max(grant_row.valid_until)                    AS access_until,
@@ -70,24 +63,25 @@ interface RosterDao {
     /**
      * Everyone the bot knows, with their link and their access, in one statement.
      *
-     * <h2>Why the grant side is a LATERAL and not a join</h2>
+     * <b>Why the grant side is a LATERAL and not a join</b>
+     *
      * A plain join onto {@code access_grant} multiplies the row out once per grant, and the two
      * aggregates would then need a {@code GROUP BY} over every column of {@code discord_user}. The
      * lateral subquery answers exactly one row per person - always one, because an aggregate over
      * no rows still returns a row of nulls - so the shape of the result is one row per person by
      * construction rather than by grouping.
      *
-     * <p>{@code bool_or(...)} is {@code NULL} for somebody with no grants at all, which is why it
+     * {@code bool_or(...)} is {@code NULL} for somebody with no grants at all, which is why it
      * is wrapped in {@code coalesce}: {@code ResultSet#getBoolean} would answer {@code false} for
      * the null anyway, but relying on that would leave the difference between "no" and "nothing to
      * say" to the driver rather than to the query.
      *
-     * <p>{@code revoked IS NULL} sits inside {@code bool_or} and <b>not</b> in the {@code WHERE},
+     * {@code revoked IS NULL} sits inside {@code bool_or} and <b>not</b> in the {@code WHERE},
      * because the two aggregates disagree about revoked grants on purpose: {@code access_until} is
      * the end of the latest period on record and {@code access_active} is the login decision. See
      * {@link Person}.
      *
-     * <p>The order is {@code updated DESC}, and {@code discord_id} breaks the tie so that a page is
+     * The order is {@code updated DESC}, and {@code discord_id} breaks the tie so that a page is
      * stable across two calls - several rows can share an {@code updated} down to the microsecond
      * after a bulk role reconcile, and without the tiebreak PostgreSQL is free to return them in
      * any order it likes each time.
@@ -99,25 +93,14 @@ interface RosterDao {
     @RegisterRowMapper(PersonMapper.class)
     List<Person> people(@Bind("limit") int limit);
 
-    /**
-     * The one row {@link #people(int)} would print for a single account - same columns, same two
-     * joins, just a {@code WHERE} instead of a {@code LIMIT} (steward/91).
-     *
-     * <p>Written out separately rather than as {@code people(1)} filtered afterwards: this is meant
-     * to be called once per request from {@code /api/me}, and fetching the whole page to keep one
-     * row would cost the same query for a hundred times the data.
-     */
+    /** Returns the one row {@link #people(int)} would print for a single account, for {@code /api/me}. */
     @SqlQuery(PERSON_SELECTION + """
             WHERE usr.discord_id = :discordId
             """)
     @RegisterRowMapper(PersonMapper.class)
     Optional<Person> personOf(@Bind("discordId") String discordId);
 
-    /**
-     * Every payment request, newest first. {@code id} breaks the tie for the same reason the roster
-     * breaks it on {@code discord_id}: two requests created in the same microsecond must not swap
-     * places between two reads of the same page.
-     */
+    /** Returns every payment request, newest first, with {@code id} breaking ties for a stable page. */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, created, expires, settled
@@ -131,13 +114,13 @@ interface RosterDao {
     /**
      * The payment requests that are still {@code OPEN}, oldest first.
      *
-     * <p>Not a filter over {@link #payments(int)}: that one is a page of a table and takes a limit,
+     * Not a filter over {@link #payments(int)}: that one is a page of a table and takes a limit,
      * so a deployment with three hundred settled requests could push every open one off the end of
      * it - and this list is what a person picks a reference from. There is no limit here because
      * there is no honest one: an open request is one nobody has paid yet, and if there are two
      * hundred of those, two hundred is the answer.
      *
-     * <p>Oldest first, which is the opposite of {@link #payments(int)} and deliberate: this is a
+     * Oldest first, which is the opposite of {@link #payments(int)} and deliberate: this is a
      * queue to work through, not a page to read.
      */
     @SqlQuery("""
@@ -153,11 +136,11 @@ interface RosterDao {
     /**
      * Every grant of one person, newest first.
      *
-     * <p>It orders by {@code valid_from DESC} rather than by {@code created}: grants are appended,
+     * It orders by {@code valid_from DESC} rather than by {@code created}: grants are appended,
      * so the newest window is the one that starts last, and that is the order a reader is looking
      * for. {@code created} breaks the tie.
      *
-     * <p>Deliberately not the same order as {@code AccessDirectory#grantsOf}, which is oldest first
+     * Deliberately not the same order as {@code AccessDirectory#grantsOf}, which is oldest first
      * because it prints a history in {@code /access-status}. Same rows, two readers, two orders.
      */
     @SqlQuery("""

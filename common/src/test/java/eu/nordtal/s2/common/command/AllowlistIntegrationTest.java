@@ -13,7 +13,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -23,7 +22,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * Publishing the command allowlist, against a real PostgreSQL running the real migrations.
  *
- * <h2>Why this cannot be an in-memory test</h2>
+ * <b>Why this cannot be an in-memory test</b>
+ *
  * Every claim worth making here is the database's. The upsert only writes when the value actually
  * moved, which is what keeps a proxy restart from waking three servers about a list nobody edited -
  * and that is expressed as {@code WHERE network_setting.value IS DISTINCT FROM EXCLUDED.value} on the
@@ -31,11 +31,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * this repository issued as its own statement rather than riding inside a write; whether pgjdbc will
  * even run that through {@code executeUpdate} is a fact about the driver.
  *
- * <p>It also pins the shape of what a backend reads back, because the row is text: a list published
+ * It also pins the shape of what a backend reads back, because the row is text: a list published
  * on one version of the software is read by another, and the only thing keeping the two in step is
- * that {@code serialise} and {@code deserialise} are inverses through an actual column.</p>
+ * that {@code serialise} and {@code deserialise} are inverses through an actual column.
  *
- * <p>Skips itself when no Docker daemon is reachable, like every other integration test here.</p>
+ * Skips itself when no Docker daemon is reachable, like every other integration test here.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AllowlistIntegrationTest {
@@ -84,17 +84,13 @@ class AllowlistIntegrationTest {
     }
 
     @Test
-    @DisplayName("nothing published reads as empty, not as an empty list")
-    void anUnpublishedListIsNotAnEmptyOne() {
-        // The distinction the whole failure direction rests on: a backend that came up before the
-        // proxy has to filter nothing and say so, and one told "the list is empty" would refuse
-        // every command on the server instead.
+    void nothingPublishedReadsAsEmptyNotAsAnEmptyList() {
+        // No list published means filter nothing; an empty list would refuse every command.
         assertEquals(Optional.empty(), directory.published());
     }
 
     @Test
-    @DisplayName("a published list comes back as the same list")
-    void theRoundTripThroughTheColumn() {
+    void aPublishedListComesBackAsTheSameList() {
         final CommandAllowlist list = CommandAllowlist.parse(List.of("/smp status", "msg", "hg ready", "discord"));
 
         assertTrue(directory.publish(list), "the first publish has to write something");
@@ -102,11 +98,8 @@ class AllowlistIntegrationTest {
     }
 
     @Test
-    @DisplayName("publishing the same list again writes nothing and wakes nobody")
-    void anUnchangedListIsNotRepublished() {
-        // A proxy restart is the ordinary case, and three servers re-reading their whole list
-        // because one restarted is work nobody asked for. The poll is still the guarantee, so
-        // skipping the notification costs nothing even if this is ever wrong.
+    void publishingTheSameListAgainWritesNothingAndWakesNobody() {
+        // A proxy restart must not make three servers re-read an unchanged list.
         final CommandAllowlist list = CommandAllowlist.parse(List.of("msg", "r"));
         assertTrue(directory.publish(list));
         assertEquals(
@@ -115,8 +108,7 @@ class AllowlistIntegrationTest {
     }
 
     @Test
-    @DisplayName("an edited list replaces the old one rather than sitting next to it")
-    void anEditedListOverwrites() {
+    void anEditedListReplacesTheOldOneRatherThanSittingNextToIt() {
         directory.publish(CommandAllowlist.parse(List.of("msg")));
         final CommandAllowlist edited = CommandAllowlist.parse(List.of("msg", "rules"));
 
@@ -125,8 +117,7 @@ class AllowlistIntegrationTest {
     }
 
     @Test
-    @DisplayName("an emptied list is published as an empty list and read back as one")
-    void emptyIsAValueAndNotAnAbsence() {
+    void anEmptiedListIsPublishedAsAnEmptyListAndReadBackAsOne() {
         directory.publish(CommandAllowlist.parse(List.of("msg")));
 
         assertTrue(directory.publish(CommandAllowlist.NOTHING));

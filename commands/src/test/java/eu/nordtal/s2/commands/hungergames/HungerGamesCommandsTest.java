@@ -12,22 +12,21 @@ import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Everything {@code /hg} decides, without a server, a lobby or twenty people on towers.
  *
- * <h2>The command this is really about</h2>
- * {@code /hg start} decides the whole event and could previously be exercised only by registering
- * enough real accounts for a real game. Every branch below - the wrong state, the arithmetic floor,
- * the warning, the expired confirmation, the stale one - was therefore reasoned about and never run.
+ * The command this is really about is {@code /hg start}: it decides the whole event and would
+ * otherwise need enough real accounts for a real game to exercise. Every branch below - the wrong
+ * state, the arithmetic floor, the warning, the expired confirmation, the stale one - is reasoned
+ * about here instead of run against one.
  */
 class HungerGamesCommandsTest {
 
     private final FakeHungerGames hg = new FakeHungerGames();
 
-    /** One command with an optional trailing word, which is what the second step now is. */
+    /** One command with an optional trailing word, which is the second step. */
     private final StartGame start = new StartGame();
 
     private FakeUser run(final NordtalCommand<HungerGamesEffects> command, final FakeUser user) {
@@ -45,15 +44,9 @@ class HungerGamesCommandsTest {
         return run(command, FakeUser.inGame());
     }
 
-    // ------------------------------------------------------------------ the declarations
-
     @Test
-    @DisplayName("none of them is marked irreversible, and that is the decision not an oversight")
-    void startKeepsItsOwnTwoStep() {
-        // Declaring /hg start irreversible would give it the catalogue's generic gate, which arms on
-        // a miss and keys on the typed line - so a /hg start with forty participants would demand a
-        // retype, and the sentence it demanded it with would say "this cannot be undone" instead of
-        // naming the number that matters. Decided with the owner, 2026-09-05.
+    void noneOfThemIsMarkedIrreversibleAndThatIsTheDecisionNotAnOversight() {
+        // Declaring /hg start irreversible would give it the catalogue's generic gate.
         assertEquals(
                 List.of(),
                 HungerGamesCommands.declarations().stream()
@@ -63,12 +56,8 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("all four are admin-only, console-reachable, and off game and Discord (ops/18)")
-    void allFourAreConsoleOnly() {
-        // ops/18, 2026-09-15: "alles Admin nur noch Konsole und Web" took Surface.GAME and
-        // Surface.DISCORD off every admin command. /hg start keeps Surface.WEB too, since it is
-        // one of the three buttons Steward also runs (see HungerGamesCommands.CONSOLE_AND_WEB);
-        // /hg ready-status and /hg reload are console only.
+    void allFourAreAdminOnlyConsoleReachableAndOffGameAndDiscordOps18() {
+        // Every admin command lost Surface.GAME and Surface.DISCORD. /hg start keeps Surface.WEB too.
         for (final Declaration declaration : HungerGamesCommands.declarations()) {
             assertTrue(declaration.adminOnly(), declaration.name());
             assertTrue(
@@ -82,18 +71,14 @@ class HungerGamesCommandsTest {
         }
     }
 
-    // ------------------------------------------------------------------ /hg start
-
     @Test
-    @DisplayName("no game registered is its own sentence")
-    void noGame() {
+    void noGameRegisteredIsItsOwnSentence() {
         assertEquals(List.of("hg.start.no-game"), run(start).keys());
         assertEquals(List.of(), hg.did);
     }
 
     @Test
-    @DisplayName("a game that is not in registration names the state it is in")
-    void wrongState() {
+    void aGameThatIsNotInRegistrationNamesTheStateItIsIn() {
         hg.registration = new HungerGamesEffects.Registration(FakeHungerGames.GAME, "RUNNING", 20);
 
         final FakeUser user = run(start);
@@ -102,10 +87,8 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("below the arithmetic floor it refuses outright and never arms a confirmation")
-    void belowTheHardMinimum() {
-        // The border step divides by the participant count. Below two there is no game to shrink a
-        // border around, so this is not a judgement call and cannot be confirmed past.
+    void belowTheArithmeticFloorItRefusesOutrightAndNeverArmsAConfirmation() {
+        // The border step divides by the participant count. Below two there is no game to shrink a border around.
         hg.registration = FakeHungerGames.registered(1);
 
         final FakeUser first = run(start);
@@ -120,8 +103,7 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("above the recommended minimum it starts at once")
-    void aboveTheSoftMinimum() {
+    void aboveTheRecommendedMinimumItStartsAtOnce() {
         hg.registration = FakeHungerGames.registered(20);
 
         final FakeUser user = run(start);
@@ -131,8 +113,7 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("below it, the warning carries the numbers and the game does not start")
-    void belowTheSoftMinimumWarns() {
+    void belowItTheWarningCarriesTheNumbersAndTheGameDoesNotStart() {
         hg.registration = FakeHungerGames.registered(4);
 
         final FakeUser user = run(start);
@@ -144,8 +125,7 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("the warning is what makes the confirmation spendable")
-    void theWarningArmsAndTheConfirmSpends() {
+    void theWarningIsWhatMakesTheConfirmationSpendable() {
         hg.registration = FakeHungerGames.registered(4);
         final FakeUser user = FakeUser.inGame();
 
@@ -157,11 +137,8 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("a bare confirm typed twice never starts a game, which the first version did")
-    void confirmNeverArmsItself() {
-        // The bug this exists for: Confirmations#confirm arms on a miss, so a confirm implemented
-        // with it would arm itself on the first call and go through on the second, having never
-        // shown the warning it exists for.
+    void aBareConfirmTypedTwiceNeverStartsAGameWhichTheFirstVersionDid() {
+        // The bug this exists for: Confirmations#confirm arms on a miss.
         hg.registration = FakeHungerGames.registered(4);
         final FakeUser user = FakeUser.inGame();
 
@@ -173,11 +150,8 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("an admin who always types the second step can still start a healthy game")
-    void confirmOnAGameThatNeedsNoConfirmation() {
-        // Until 2026-09-05 this answered "that confirmation expired": the trailing word alone made
-        // it a confirmation, nothing had armed one because the count was fine, and consume() then
-        // missed. Nothing had expired, and the event did not start.
+    void anAdminWhoAlwaysTypesTheSecondStepCanStillStartAHealthyGame() {
+        // A bare trailing word alone must not read as a confirmation when nothing armed one.
         hg.registration = FakeHungerGames.registered(20);
         final FakeUser user = FakeUser.inGame();
 
@@ -188,10 +162,8 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("a start that throws is said so, and not after 'the event is starting'")
-    void aStartThatFails() {
-        // The reply used to go out before effects.start(...) and start(...) carried no catch, so a
-        // failure told the admin the event had begun and left them nothing to act on.
+    void aStartThatThrowsIsSaidSoAndNotAfterTheEventIsStarting() {
+        // Guards against a reply sent before effects.start(...), which would claim a game that never started.
         hg.registration = FakeHungerGames.registered(20);
         hg.startFailure = new IllegalStateException("the world is not loaded");
 
@@ -201,8 +173,7 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("another admin cannot spend the warning shown to the first")
-    void aConfirmationBelongsToWhoeverWasWarned() {
+    void anotherAdminCannotSpendTheWarningShownToTheFirst() {
         hg.registration = FakeHungerGames.registered(4);
 
         run(start, FakeUser.inGame());
@@ -213,8 +184,7 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("a start that needed no warning clears a stale one from a previous game")
-    void aStaleWarningIsNotCarriedForward() {
+    void aStartThatNeededNoWarningClearsAStaleOneFromAPreviousGame() {
         hg.registration = FakeHungerGames.registered(4);
         final FakeUser user = FakeUser.inGame();
         run(start, user);
@@ -232,21 +202,16 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("a database that does not answer is said out loud rather than read as 'no game'")
-    void aFailedReadIsNotAnEmptyOne() {
-        // Folding the two would tell an admin there is no event registered at the moment the event
-        // is about to start, which is the worst possible wrong answer here.
+    void aDatabaseThatDoesNotAnswerIsSaidOutLoudRatherThanReadAsNoGame() {
+        // Folding the two would tell an admin there is no event registered at the moment the event is about to start.
         hg.failure = new IllegalStateException("connection refused");
 
         assertEquals(List.of("hg.start.read-failed"), run(start).keys());
         assertEquals(List.of("/hg start could not read the registration"), hg.warnings);
     }
 
-    // ------------------------------------------------------------------ /hg ready-status
-
     @Test
-    @DisplayName("ready-status lists every team with its status as a translated phrase")
-    void readyStatus() {
+    void readyStatusListsEveryTeamWithItsStatusAsATranslatedPhrase() {
         hg.registration = FakeHungerGames.registered(4);
         hg.teams =
                 List.of(new HungerGamesEffects.TeamReady("Rot", true), new HungerGamesEffects.TeamReady("Blau", false));
@@ -259,18 +224,13 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    @DisplayName("ready-status with no game says so rather than printing an empty list")
-    void readyStatusWithoutAGame() {
+    void readyStatusWithNoGameSaysSoRatherThanPrintingAnEmptyList() {
         assertEquals(List.of("hg.start.no-game"), run(new ReadyStatus()).keys());
     }
 
-    // ------------------------------------------------------------------ /hg reload
-
     @Test
-    @DisplayName("the sounds are reloaded first, and a failure in either is one sentence")
-    void reload() {
-        // Sounds first because they are the cheapest thing to get wrong and the only one an operator
-        // is expected to be iterating on while somebody waits to hear the result.
+    void theSoundsAreReloadedFirstAndAFailureInEitherIsOneSentence() {
+        // Sounds first because they are the cheapest thing to get wrong and the only one an operator notices at all.
         assertEquals(List.of("hg.admin.reloaded"), run(new ReloadHungerGames()).keys());
         assertEquals(List.of("reload sounds", "reload messages"), hg.did);
 
@@ -283,9 +243,7 @@ class HungerGamesCommandsTest {
                 hg.did,
                 "a broken sounds.yml must not stop a corrected message from being re-read");
 
-        // And the other way round, which the sentence above claimed and no case checked: an early
-        // return after a failed reloadSounds() would have kept this test green while skipping the
-        // message reload entirely.
+        // And the other way round, which the sentence above claimed and no case checked until now.
         hg.did.clear();
         hg.messagesReload = true;
         hg.soundsReload = false;

@@ -10,18 +10,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Properties of the whole command surface, which no single command can be asked about.
  *
- * <h2>The one that matters most is the description</h2>
- * The help output names {@link Declaration#describeKey()} without checking whether it exists,
- * because checking at the point of use would mean either a silent fallback - which is how a reader
- * ends up being told that {@code /smp aura} is for {@code command.describe.smp.aura} - or a branch
- * that only runs when somebody mistypes. Asserting it here instead means a new command cannot ship
- * without its sentence, in both languages.
+ * The one that matters most is the description: the help output names
+ * {@link Declaration#describeKey()} without checking whether it exists, because checking at the
+ * point of use would mean either a silent fallback - which is how a reader ends up being told that
+ * {@code /smp aura} is for {@code command.describe.smp.aura} - or a branch that only runs when
+ * somebody mistypes. Asserting it here instead means a new command cannot ship without its
+ * sentence, in both languages.
  */
 class CatalogueTest {
 
@@ -29,7 +28,6 @@ class CatalogueTest {
             Messages.load(CatalogueTest.class.getClassLoader(), "messages/commands", Locale.ENGLISH, Locale.GERMAN);
 
     @Test
-    @DisplayName("every command explains itself, in both languages")
     void everyCommandHasADescription() {
         final List<String> missing = new ArrayList<>();
         for (final Declaration declaration : Catalogue.all()) {
@@ -47,11 +45,8 @@ class CatalogueTest {
     }
 
     @Test
-    @DisplayName("a root's default is one of its own commands and runs with nothing typed")
     void aRootDefaultIsRunnableBare() {
-        // /phase alone shows the phase (owner, 2026-09-05). Whatever else is ever put in that map
-        // has to be a command the adapters can dispatch from the bare root: two segments, the first
-        // of them the root, and no argument that has to be supplied.
+        // Whatever is put in that map has to be a command the adapters can dispatch from the bare root: two segments.
         final java.util.Set<String> roots = Catalogue.all().stream()
                 .map(declaration -> declaration.path().getFirst())
                 .collect(java.util.stream.Collectors.toSet());
@@ -72,23 +67,15 @@ class CatalogueTest {
         }
         assertEquals(2, found, "exactly /phase and /update have a default today; changing that is a" + " decision");
         assertEquals(java.util.Optional.of(PhaseCommands.SHOW), Catalogue.rootDefault("phase", true));
-        // /update alone is the report, since 2026-09-08 - the report had to become /update check
-        // because Discord cannot run a root that has subcommands, and the bare form in game is
-        // what people type.
+        // /update alone is the report: it had to become /update check because Discord cannot run a root that has.
         assertEquals(
                 java.util.Optional.of(eu.nordtal.s2.commands.update.UpdateCommands.REPORT),
                 Catalogue.rootDefault("update", true));
     }
 
     @Test
-    @DisplayName("a bare root runs no admin-only default for somebody who is not an admin")
     void theRootDefaultIsGated() {
-        // Both adapters reach the default by calling run/dispatch on the child directly, which goes
-        // around the requires that is the entire admin gate for a command tree. Neither adapter's
-        // dispatch has ever carried an admin check of its own, so until 2026-09-06 a bare /phase
-        // from any player on the proxy answered with the phase and both season dates (finding 102).
-        // Asked here rather than in each adapter, because this is the one place that knows a root
-        // has a default at all.
+        // Both adapters reach the default by calling run/dispatch on the child directly.
         for (final String root : Catalogue.all().stream()
                 .map(declaration -> declaration.path().getFirst())
                 .collect(java.util.stream.Collectors.toSet())) {
@@ -110,10 +97,8 @@ class CatalogueTest {
     }
 
     @Test
-    @DisplayName("a usage line names every argument, in order, and says which are optional")
     void usageIsDerivedFromTheDeclaration() {
-        // Derived rather than written by hand, so it cannot end up telling people to type something
-        // that no longer parses - which is the way a hand-kept usage line always fails.
+        // Derived rather than written by hand, so it cannot tell people to type something that no longer parses.
         for (final Declaration declaration : Catalogue.all()) {
             final String usage = declaration.usage();
             assertTrue(usage.startsWith(declaration.name()), usage);
@@ -126,7 +111,6 @@ class CatalogueTest {
     }
 
     @Test
-    @DisplayName("no two commands share a path")
     void everyPathIsUnique() {
         final Map<String, Long> byName =
                 Catalogue.all().stream().collect(Collectors.groupingBy(Declaration::name, Collectors.counting()));
@@ -141,15 +125,12 @@ class CatalogueTest {
     }
 
     @Test
-    @DisplayName("no command is a prefix of another, because Brigadier cannot express both")
     void noCommandIsAPrefixOfAnother() {
-        // /smp objective complete <key> and a hypothetical /smp objective <key> would need the same
-        // node to be both a literal and an argument. Brigadier would build it; which one wins
-        // depends on registration order.
+        // /smp objective complete <key> and a hypothetical /smp objective <key> would need one node to be both.
         final List<String> clashes = new ArrayList<>();
         for (final Declaration one : Catalogue.all()) {
             for (final Declaration other : Catalogue.all()) {
-                if (one == other || one.arguments().isEmpty()) {
+                if (one.equals(other) || one.arguments().isEmpty()) {
                     continue;
                 }
                 if (other.path().size() > one.path().size()
@@ -162,32 +143,8 @@ class CatalogueTest {
     }
 
     @Test
-    @DisplayName("every command is admin-only, which is the whole of the authorisation model")
     void thereIsOneAdminList() {
-        // discord_user.admin, mirrored from the Discord role, and the console: no permission nodes
-        // and no second list. The exceptions are named one by one so that another does not arrive by
-        // accident.
-        //
-        // /announce left this list on 2026-09-14. It had been here on the grounds that it is typed
-        // by nobody - its surface is SYSTEM, no adapter registers it, and the only thing that can
-        // run it is a request row written by a server. That stopped being the whole story when
-        // steward-ui gained the ability to write those rows: CommandInbox re-reads adminOnly when
-        // it claims one, and a declaration that says false is a row anybody who reaches the inbox
-        // may have executed. The SMP is unaffected - it writes source CONSOLE, which that check
-        // lets through on its own.
-        //
-        // /msg, /whisper, /r, /discord and /rules left this list on 2026-09-20 (season-2-ops/155),
-        // and left the module with it: they are native Velocity Brigadier in :proxy now. None of
-        // the four things a Declaration is worth its cost for applied to any of them - one surface,
-        // one target, no confirmation, no admin flag, and arguments that never travel through a
-        // database row - so they were paying for a catalogue entry no other surface could reach.
-        // THIS LIST IS THEREFORE SHORTER THAN IT WAS, and that is the change and not a regression;
-        // the five still exist and a player still types them.
-        //
-        // /aura and /smp status followed on 2026-09-25, for the same reasons, into the smp plugin.
-        // Nothing is left: every declaration is an admin's, and what a player types is native
-        // Brigadier in the process that answers it. A declaration that turns up here again is a
-        // player command that found its way back into the framework, and has to say why.
+        // discord_user.admin, mirrored from the Discord role.
         assertEquals(
                 List.of(),
                 Catalogue.all().stream()
@@ -197,15 +154,8 @@ class CatalogueTest {
     }
 
     @Test
-    @DisplayName("a SYSTEM command is registered by no command tree")
     void systemIsAloneOnItsSurface() {
-        // The adapters filter by GAME, DISCORD and CONSOLE; a declaration that carried SYSTEM next
-        // to one of those would be registered as a real command with a name a server also sends.
-        //
-        // WEB is deliberately not in that list (2026-09-13). No tree is built from it: steward-ui
-        // registers nothing and writes a command_request row for the handful of commands it names
-        // itself, so SYSTEM beside WEB cannot produce the collision this test exists to prevent.
-        // /announce is both - the SMP writes one at a milestone, an admin can write one by hand.
+        // The adapters filter by GAME, DISCORD and CONSOLE.
         final java.util.Set<Surface> registered = java.util.Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
         for (final Declaration declaration : Catalogue.all()) {
             if (declaration.surfaces().contains(Surface.SYSTEM)) {

@@ -2,11 +2,12 @@ package eu.nordtal.s2.common.roster;
 
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One row of {@code access_grant}, as a list shows it.
  *
- * <p>It is a near twin of {@code eu.nordtal.s2.common.access.AccessGrant} and that is on purpose:
+ * It is a near twin of {@code eu.nordtal.s2.common.access.AccessGrant} and that is on purpose:
  * this package is the read-only half of the schema and everything on it is a plain JDK type that
  * serialises to JSON without an adapter. {@code AccessGrant} carries {@code source} as the
  * {@code AccessSource} enum and would throw on a value nobody has taught it; a list must be able
@@ -28,6 +29,6 @@ public record Grant(
         Instant validFrom,
         Instant validUntil,
         String source,
-        UUID paymentRequestId,
-        Instant revoked,
+        @Nullable UUID paymentRequestId,
+        @Nullable Instant revoked,
         Instant created) {}

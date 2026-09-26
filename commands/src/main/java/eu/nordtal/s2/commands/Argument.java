@@ -7,8 +7,8 @@ import java.util.Optional;
 /**
  * One argument of a command, described rather than parsed.
  *
- * <p>The kinds are a closed set: each adapter (Brigadier, JDA, the remote request row) builds its
- * own representation from this declaration and never re-decides what the argument is.</p>
+ * The kinds are a closed set: each adapter (Brigadier, JDA, the remote request row) builds its
+ * own representation from this declaration and never re-decides what the argument is.
  *
  * @param name     the argument's name, as it appears in both the chat syntax and the Discord option
  * @param kind     what it accepts
@@ -28,8 +28,8 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
         /**
          * The rest of the line, spaces included.
          *
-         * <p>Must be last in a command, and {@link Declaration} refuses one that is not: Brigadier
-         * would otherwise hand the whole remainder to it and call the next argument unexpected.</p>
+         * Must be last in a command, and {@link Declaration} refuses one that is not: Brigadier
+         * would otherwise hand the whole remainder to it and call the next argument unexpected.
          */
         GREEDY_STRING,
 
@@ -39,9 +39,9 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
         /**
          * A player.
          *
-         * <p>In chat that is a Minecraft name; in Discord it is a member picked from the list and
+         * In chat that is a Minecraft name; in Discord it is a member picked from the list and
          * resolved through {@code account_link}. The adapter resolves, so a command sees a player
-         * either way.</p>
+         * either way.
          */
         PLAYER,
 
@@ -51,27 +51,25 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
         /**
          * A person, identified by their <b>Discord account</b>.
          *
-         * <p>Not {@link #PLAYER}: the commands taking this one act on people who may not have
+         * Not {@link #PLAYER}: the commands taking this one act on people who may not have
          * linked a Minecraft account yet ({@code /access grant} on a payment that arrived outside
          * the normal flow). In Discord it is the member's id and nothing else; in chat it is a
-         * Minecraft name resolved through {@code account_link}, refused when there is no link.</p>
+         * Minecraft name resolved through {@code account_link}, refused when there is no link.
          */
         ACCOUNT,
 
         /**
          * An open payment reference.
          *
-         * <p>A word, as far as parsing goes - six characters, no spaces - and <b>not</b>
+         * A word, as far as parsing goes - six characters, no spaces - and <b>not</b>
          * {@link #WORD}, because every adapter that can offer a list has to offer one here. Typing
          * a reference out of memory is the one mistake nobody needs on the single command that
          * books money, and that argument is the same in chat, in Discord and in a browser: Discord
          * autocompletes it from {@code openReferences()}, and the Steward interface draws a select
-         * filled from {@code GET /api/payments/open}.</p>
+         * filled from {@code GET /api/payments/open}.
          *
-         * <p>It was a {@link #WORD} until 2026-09-14, and the interface would have rendered it as a
-         * text field for exactly as long as nobody looked. A kind is what each adapter already
-         * switches on, so making it one is what turns "offer a list" from a note into something the
-         * compiler asks about.</p>
+         * A kind is what each adapter already switches on, so giving this its own kind turns "offer
+         * a list" from a note into something the compiler asks about.
          */
         REFERENCE
     }
@@ -97,9 +95,9 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
     /**
      * The declared choice a typed value means, in the case the declaration wrote it.
      *
-     * <p>Matching ignores case (chat is lenient) but the answer is always the declared spelling, so
+     * Matching ignores case (chat is lenient) but the answer is always the declared spelling, so
      * that everything downstream - a comparison against {@code SeasonPhase.name()}, a request row,
-     * an audit entry - sees one normalised form.</p>
+     * an audit entry - sees one normalised form.
      *
      * @return the declared choice, or empty when this is not one of them
      */

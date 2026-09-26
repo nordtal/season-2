@@ -2,10 +2,10 @@ package eu.nordtal.s2.commands.phase;
 
 import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
-import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.commands.Phase;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.MessageRef;
@@ -14,21 +14,20 @@ import eu.nordtal.s2.common.phase.PhaseChange;
 import java.util.Optional;
 
 /**
- * {@code /phase set &lt;phase&gt;} - the one command in the network that can disconnect everybody.
+ * {@code /phase set <phase>} - the one command in the network that can disconnect everybody.
  *
- * <h2>What this class does not do</h2>
- * It does not confirm. {@link Declaration#irreversible()} is {@code true} for this command and the
+ * This class does not confirm. {@link Declaration#irreversible()} is {@code true} for this command and the
  * <b>adapter</b> honours it, because the two surfaces confirm in shapes that have nothing in common:
  * Discord offers a button and only invokes this once it is clicked, the game asks for the command to
  * be typed again inside a short window. By the time {@link #run} is called the answer is already
  * yes. Putting the confirmation here would have meant inventing one shape and forcing the other
  * surface into it.
  *
- * <p>It also does not write the {@code audit_log} row, and must not: {@code switchPhase} writes the
+ * It also does not write the {@code audit_log} row, and must not: {@code switchPhase} writes the
  * row, the audit entry and the {@code NOTIFY} in one statement, so there is no way to switch the
- * phase without the audit entry. A second call filing the same switch would file it twice.</p>
+ * phase without the audit entry. A second call filing the same switch would file it twice.
  *
- * <h2>Why the phase name is parsed here rather than read as an enum</h2>
+ * The phase name is parsed here rather than read as an enum because
  * {@code SeasonPhase.fromDatabase} answers {@code MAINTENANCE} to anything it does not recognise.
  * That is the right answer for a value read out of a row - an unreadable phase must never be more
  * permissive than the real one - and the worst possible answer for a value that arrived from
@@ -44,9 +43,9 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
     /**
      * An unknown phase name, before the confirmation rather than after it.
      *
-     * <p>Without this, {@code /phase set NOT_A_PHASE} answers "this cannot be undone, type it again",
+     * Without this, {@code /phase set NOT_A_PHASE} answers "this cannot be undone, type it again",
      * takes the retype, and only then says the phase does not exist. The proxy's hand-written
-     * adapter parsed first for exactly that reason and the bot's did not.</p>
+     * adapter parsed first for exactly that reason and the bot's did not.
      */
     @Override
     public java.util.Optional<MessageRef> problem(final Values values) {
@@ -80,8 +79,7 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
             }
 
             effects.recordSwitch(user, change);
-            // Do not wait for the poll or the notification to come back around: this process
-            // already knows, and refreshing here is what makes the reply and the log agree.
+            // Do not wait for the poll or the notification to come back around: this process already knows.
             effects.afterWrite();
 
             user.reply(
@@ -91,8 +89,7 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
                                     .changed(
                                             String.valueOf(change.previous()),
                                             change.current().name()),
-                    // "already in that phase" is WARN: nothing was written, and an admin who typed
-                    // this while the network is misbehaving has to see that at a glance.
+                    // "already in that phase" is WARN: nothing was written.
                     change.unchanged() ? Tone.WARN : Tone.GOOD);
         });
     }
@@ -117,7 +114,7 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
 
     /** What a switch to {@code phase} does to everybody online. */
     public static MessageRef consequence(final SeasonPhase phase) {
-        final CommandMessages.Phase.Consequence consequence = MESSAGES.phase().consequence();
+        final Phase.Consequence consequence = MESSAGES.phase().consequence();
         return switch (phase) {
             case PRE_LAUNCH -> consequence.preLaunch();
             case PRE_EVENT -> consequence.preEvent();

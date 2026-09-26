@@ -18,46 +18,27 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.IllegalPluginAccessException;
 import org.bukkit.plugin.Plugin;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
  * Keeps a Paper server's operators in step with {@code discord_user.admin} while people are online.
  *
- * <h2>What was missing before this, and why it mattered</h2>
- * {@code AdminOperators} has always granted operator at join and removed it at quit, so the flag was
- * read exactly once per session. An admin whose Discord role was taken away therefore kept operator
- * on all three backends <b>until they chose to disconnect</b> - and an emergency revocation is
- * precisely the case where waiting for somebody to log off is the wrong direction. The proxy had
- * already learned this once and fixed it on 2026-09-02 for its own {@code LoginRoster}; the
- * backends, where operator actually is, had not.
- *
- * <p>{@code AdminOperators#refresh} was written for this on 2026-09-04 and then had no caller for a
- * day, which is the worst of the three possible states: a mechanism that exists, is tested, and does
- * nothing. This class is its caller.</p>
- *
- * <h2>Two signals, one of which is the guarantee</h2>
- * The poll is the guarantee. {@code LISTEN nordtal_admin} only makes a revocation feel instant, and
- * it can be turned off in every plugin's {@code config.yml} without changing what is true - the same
- * arrangement, and the same reasoning, as the proxy's phase watch. A notification is never trusted
- * as state either: both paths re-read the whole admin set through
+ * The poll is the guarantee: {@code LISTEN nordtal_admin} only makes a revocation feel instant,
+ * and can be turned off in every plugin's {@code config.yml} without changing what is true. A
+ * notification is never trusted as state either - both paths re-read the whole admin set through
  * {@link AccessDirectory#adminMinecraftAccounts()}, so a lost notification costs latency rather than
  * correctness and needs no bookkeeping to catch up on.
  *
- * <h2>Which thread does what, and why it is split</h2>
- * The read is a database round trip and never happens on the main thread - the rule this repository
- * has had without exception since 2026-09-01. The write is {@code ops.json} through Bukkit's own op
- * list, which is main-thread state, so the apply hops back. That is the whole of the split: read
- * where waiting is allowed, write where the server lives.
+ * The read is a database round trip and never happens on the main thread. The write is
+ * {@code ops.json} through Bukkit's own op list, which is main-thread state, so the apply hops back:
+ * read where waiting is allowed, write where the server lives. The cost of the hop is that a refresh
+ * is not atomic - somebody can join between the read and the apply, but their own join handler has
+ * already asked the database for their flag directly, so the answer they get is newer than the one
+ * this refresh carried.
  *
- * <p>The cost of the hop is that a refresh is not atomic - somebody can join between the read and
- * the apply. They are simply not in {@code online} when the apply runs, and their own join handler
- * has already asked the database for their flag directly, so the answer they get is newer than the
- * one this refresh carried.</p>
- *
- * <h2>What a poll tick costs when nothing changed</h2>
- * One indexed query and nothing else. {@code AdminOperators#refresh} writes only on a change, which
- * is what keeps {@code ops.json} from being rewritten every thirty seconds for as long as the server
- * runs, and is asserted by {@code AdminOperatorsTest#repeatedRefreshIsFree}.
+ * A poll tick that changes nothing costs one indexed query: {@code AdminOperators#refresh} writes
+ * only on a change, so {@code ops.json} is not rewritten every tick for as long as the server runs.
  */
 public final class AdminWatch implements AutoCloseable {
 
@@ -68,15 +49,15 @@ public final class AdminWatch implements AutoCloseable {
     private final Consumer<Set<UUID>> also;
     private final Logger logger;
 
-    private volatile NotificationListener listener;
+    private volatile @Nullable NotificationListener listener;
 
     /**
      * The admin set as of the last refresh, for anything that needs the answer without waiting.
      *
-     * <p>{@link #isAdmin} is what Brigadier's {@code requires} predicate reads, and that predicate
+     * {@link #isAdmin} is what Brigadier's {@code requires} predicate reads, and that predicate
      * runs on the main thread while a client's command tree is built - so it has to be a set
      * lookup and can never be a query. It is the same set the operator grant is applied from, so a
-     * command tree and {@code ops.json} cannot disagree about who is an admin.</p>
+     * command tree and {@code ops.json} cannot disagree about who is an admin.
      */
     private volatile Set<UUID> known = Set.of();
 
@@ -118,23 +99,21 @@ public final class AdminWatch implements AutoCloseable {
      * @param listenOn      {@code null} to run on the poll alone. Otherwise the database to open a
      *                      dedicated {@code LISTEN nordtal_admin} connection against
      */
-    public void start(final Duration pollInterval, final DatabaseConnection listenOn) {
+    public void start(final Duration pollInterval, final @Nullable DatabaseConnection listenOn) {
         start(pollInterval, listenOn, List.of(), List.of());
     }
 
     /**
      * The same, plus somebody else's channels on the same connection.
      *
-     * <h2>Why they share one</h2>
-     * {@link NotificationListener} was built for exactly this: it takes several channels and several
-     * refreshes, never inspects which channel woke it, and runs every refresh on every signal. So
-     * one connection carrying two channels is cheaper than two connections and no worse - and the
-     * reconnect loop, the liveness check and the "re-read in full on every reconnect" rule are all
-     * written once instead of twice.
+     * {@link NotificationListener} takes several channels and several refreshes, never inspects
+     * which channel woke it, and runs every refresh on every signal. So one connection carrying two
+     * channels is cheaper than two connections and no worse - and the reconnect loop, the liveness
+     * check and the "re-read in full on every reconnect" rule are all written once instead of twice.
      *
-     * <p>The command inbox is the second caller. Its own poll is separate and much shorter than the
+     * The command inbox is the second caller. Its own poll is separate and much shorter than the
      * admin poll, because a command typed in Discord should not wait half a minute when a
-     * notification is missed; this only gives it the instant path.</p>
+     * notification is missed; this only gives it the instant path.
      *
      * @param alsoRefresh  extra work to do on every signal and on every reconnect
      * @param alsoChannels extra channels to listen on. Ignored when {@code listenOn} is null - the
@@ -143,13 +122,11 @@ public final class AdminWatch implements AutoCloseable {
      */
     public void start(
             final Duration pollInterval,
-            final DatabaseConnection listenOn,
+            final @Nullable DatabaseConnection listenOn,
             final List<NotificationListener.Refresh> alsoRefresh,
             final List<String> alsoChannels) {
         final long ticks = Math.max(20L, pollInterval.toSeconds() * 20L);
-        // First run on the next tick rather than after a whole interval. The set starts empty, and
-        // anything reading it through isAdmin - a command tree, most of all - would answer "nobody
-        // is an admin" for the first thirty seconds of the server's life otherwise.
+        // First run on the next tick, not after a whole interval: isAdmin would otherwise answer "nobody" at first.
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::refresh, 1L, ticks);
 
         if (listenOn == null) {
@@ -184,9 +161,9 @@ public final class AdminWatch implements AutoCloseable {
     /**
      * Whether this account was an admin as of the last refresh.
      *
-     * <p>A set lookup, never a query - see {@link #known}. It answers {@code false} for the first
+     * A set lookup, never a query - see {@link #known}. It answers {@code false} for the first
      * tick of the server's life and for as long as the database cannot be read, which is the
-     * correct direction to fail in: an unreachable database must not hand out admin.</p>
+     * correct direction to fail in: an unreachable database must not hand out admin.
      */
     public boolean isAdmin(final UUID mcUuid) {
         return known.contains(mcUuid);
@@ -195,7 +172,7 @@ public final class AdminWatch implements AutoCloseable {
     /**
      * Reads the admin set and applies it. <b>Never call this on the main thread.</b>
      *
-     * <p>Public so a reload command or a drill can force one without waiting for the poll.</p>
+     * Public so a reload command or a drill can force one without waiting for the poll.
      */
     public void refresh() {
         if (!running) {
@@ -205,9 +182,7 @@ public final class AdminWatch implements AutoCloseable {
         try {
             admins = access.adminMinecraftAccounts();
         } catch (final RuntimeException failure) {
-            // Deliberately not fatal. An unreachable database must not cost the operators who
-            // already hold their flag - the next tick asks again, and the enable sweep is what
-            // guarantees nothing survives a restart.
+            // Deliberately not fatal: an unreachable database must not cost operators who already hold their flag.
             logger.warn("Could not read the admin roster; operators are unchanged until the next" + " poll.", failure);
             return;
         }
@@ -215,20 +190,14 @@ public final class AdminWatch implements AutoCloseable {
         try {
             Bukkit.getScheduler().runTask(plugin, () -> apply(admins));
         } catch (final IllegalPluginAccessException shuttingDown) {
-            // The plugin was disabled between the read on this thread and the hop to the main one -
-            // which is the ordinary shape of a shutdown, because the listener thread is a daemon
-            // that outlives disable by a few milliseconds. Nothing to do and nothing wrong: the
-            // enable sweep on the next start removes every operator regardless.
+            // The plugin was disabled between the read and the hop to the main thread; the next enable sweep fixes it.
             logger.debug("Dropped an admin refresh because the plugin is no longer enabled");
         }
     }
 
     /** The main-thread half: who is online, who of them is an admin, and what changes. */
     private void apply(final Set<UUID> admins) {
-        // Copied once, and then only the copy is used or handed out. What arrives is a set the DAO
-        // built, and `known` is what isAdmin - and therefore Brigadier's requires - answers from:
-        // a caller that kept the set and mutated it would be changing who this server treats as an
-        // admin without ever calling into this class.
+        // Copied once: `known` is what isAdmin, and therefore Brigadier's requires, answers from.
         final Set<UUID> snapshot = Set.copyOf(admins);
         known = snapshot;
         final Set<UUID> online = new HashSet<>();
@@ -266,10 +235,10 @@ public final class AdminWatch implements AutoCloseable {
     /**
      * What {@link PostgresNotifications} needs to open a connection, taken as values.
      *
-     * <p>Each of the three plugins describes its database in its own {@code database.yml} spec
+     * Each of the three plugins describes its database in its own {@code database.yml} spec
      * interface, and those are three unrelated types carrying the same four fields. This is the
      * shape they all reduce to - the same reason {@code AccessDirectory}'s factories take a
-     * {@code DataSource} rather than any one module's config.</p>
+     * {@code DataSource} rather than any one module's config.
      */
     public record DatabaseConnection(String jdbcUrl, String username, String password, int socketTimeoutSeconds) {
 

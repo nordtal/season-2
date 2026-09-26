@@ -10,24 +10,17 @@ import java.util.Set;
 /**
  * {@code /limbo reload} - the one command the waiting room has.
  *
- * <h2>Why a waiting room has a command at all</h2>
  * Every line a player sees here is a title on a black screen, and the whole user interface of this
  * server is eight of them. A wording change that needs a restart is a wording change that takes the
  * waiting room down while somebody is waiting in it, which is the one moment it must not go away.
  *
- * <h2>Nobody is standing here to type it, which is why it had to travel</h2>
- * A player on this server is mid-login and has no chat. Before 2026-09-05 that left the console as
- * the only way in - and the console of a container, which means a shell on the production host. Now
- * it is a slash command in Discord and a chat command on the two servers where somebody actually is.
+ * A player on this server is mid-login and has no chat, so this had to travel: it is a slash
+ * command in Discord and a chat command on the two servers where somebody actually is.
  *
- * <h2>What replaced the permission node</h2>
- * The gate was {@code limbo.admin}, declared in {@code paper-plugin.yml} as the only permission node
- * this repository owned, and justified there by "the database is exactly what a broken limbo may not
- * be able to reach". The console half of that survives untouched - {@code PaperCommands} accepts a
- * {@code ConsoleCommandSender} by type and asks nothing else. The in-game half now goes through the
- * same admin flag as every other command, which is what an admin already had to have: since
- * 2026-09-04 an admin <em>is</em> a server operator on all three backends, and {@code default: op}
- * is what the node granted. The node is gone rather than left as a second answer to one question.
+ * The old gate, {@code limbo.admin}, is gone: the in-game half now goes through the same admin flag
+ * as every other command, which is what an admin already had to have as a server operator on all
+ * three backends. The console half is unaffected - {@code PaperCommands} accepts a
+ * {@code ConsoleCommandSender} by type and asks nothing else.
  */
 public final class LimboCommands {
 
@@ -36,12 +29,9 @@ public final class LimboCommands {
     /**
      * {@code /limbo reload} - the wording, never the world.
      *
-     * <h2>Console only, 2026-09-15 (ops/18)</h2>
-     * "alles Admin nur noch Konsole und Web" took {@link Surface#GAME} and {@link Surface#DISCORD}
-     * off every admin command, this one included - the javadoc above about a player having no chat
-     * mid-login is about a player who is not an admin typing nothing here; it does not argue for
-     * keeping an admin's own in-game or Discord path once the owner decided against both for admin
-     * commands generally.
+     * Console only: neither {@link Surface#GAME} nor {@link Surface#DISCORD} reaches this or any
+     * other admin command. The class javadoc's "nobody is standing here to type it" is about a
+     * player who is not an admin; it does not argue for an admin's own in-game or Discord path.
      */
     public static final Declaration RELOAD =
             new Declaration(List.of("limbo", "reload"), Target.LIMBO, Set.of(Surface.CONSOLE), true, false, List.of());

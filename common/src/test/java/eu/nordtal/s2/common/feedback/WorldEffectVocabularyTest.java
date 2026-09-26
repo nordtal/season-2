@@ -14,20 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * The rule {@link SoundVocabularyTest} makes about sound, made about what a moment looks like: one
- * file per module names a particle or launches a firework, and no other file may.
- *
- * <p>The failure it prevents is not a crash but a balloon that puffs cloud in one place and smoke in
- * another - nothing fails, nothing logs it, and by the time somebody notices, changing it means
- * finding every call site again.
- *
- * <p>There is deliberately no {@code effects.yml}: a handful of effects would be a config file with
- * one entry per method.
- */
+/** Checks that only one adapter file per module names a particle or launches a firework. */
 class WorldEffectVocabularyTest {
 
     /** Every module that can draw something in a world. */
@@ -49,18 +38,13 @@ class WorldEffectVocabularyTest {
     /** A bare {@code Particle.SOMETHING} constant, without matching a qualified name or a field. */
     private static final Pattern BARE_PARTICLE_CONSTANT = Pattern.compile("(?<![A-Za-z0-9_.])Particle\\.");
 
-    /**
-     * The files that may name an effect, and why. A second entry would be another Paper module's own
-     * adapter - {@code org.bukkit} may not appear in {@code :common}, which is shaded into a
-     * Velocity plugin. An entry that is <em>not</em> an adapter is what this list makes visible.
-     */
+    /** The files that may name an effect, and why; anything but a Paper adapter here is visible. */
     private static final Map<String, String> ALLOWED = Map.of(
             "smp/src/main/java/eu/nordtal/s2/smp/feedback/WorldEffects.java",
             "smp's effect adapter - the one place in the module that draws anything in a world");
 
     @Test
-    @DisplayName("only the effect adapters name a particle or a firework")
-    void onlyTheAdaptersNameAnEffect() {
+    void onlyTheEffectAdaptersNameAParticleOrAFirework() {
         final List<String> offenders = new ArrayList<>();
         for (final String module : MODULES) {
             for (final Path source : sources(module)) {
@@ -89,8 +73,7 @@ class WorldEffectVocabularyTest {
     }
 
     @Test
-    @DisplayName("every allowlisted adapter still exists and still draws something")
-    void theAllowlistHasNoGhosts() {
+    void everyAllowlistedAdapterStillExistsAndStillDrawsSomething() {
         final List<String> gone = ALLOWED.keySet().stream()
                 .filter(relative -> {
                     final Path path = RepositoryRoot.resolve(relative);
@@ -111,8 +94,7 @@ class WorldEffectVocabularyTest {
      * the celebration damages the person it is celebrating.
      */
     @Test
-    @DisplayName("a launched firework is stamped, and the stamp is refused damage")
-    void everyRocketIsDisarmed() {
+    void aLaunchedFireworkIsStampedAndTheStampIsRefusedDamage() {
         final String adapter =
                 read(RepositoryRoot.resolve("smp/src/main/java/eu/nordtal/s2/smp/feedback/WorldEffects.java"));
 
@@ -135,8 +117,6 @@ class WorldEffectVocabularyTest {
         }
         return found;
     }
-
-    // --- helpers ---------------------------------------------------------------------------
 
     private static List<Path> sources(final String module) {
         final Path root = RepositoryRoot.resolve(module + "/src/main");

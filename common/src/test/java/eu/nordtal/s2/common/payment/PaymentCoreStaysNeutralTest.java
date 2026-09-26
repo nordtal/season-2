@@ -12,48 +12,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * That {@code eu.nordtal.s2.common.payment} keeps the one property it was carved out for: it knows
- * about a {@code payment_request} row and about nothing else.
+ * Checks that {@code eu.nordtal.s2.common.payment} imports neither bunq nor JDA.
  *
- * <h2>Why a text search, and why it is not decoration</h2>
- * This package exists because the payment system is being taken apart along a seam (concept §10d,
- * steward/99): the half that talks to bunq goes to {@code steward-worker}, the half that talks to
- * Discord stays in {@code discord-bot}, and the rows both of them read live here. The seam only
- * holds while <b>neither</b> side leaks into this package.
- *
- * <p>A compiler cannot say that. {@code :common} declares JDBI, HikariCP, slf4j and the PostgreSQL
- * driver and nothing else, so a {@code com.bunq} import fails to compile today - but only by
- * accident of the dependency block, and the fix a hurried session reaches for is to add the
- * dependency. A JDA import is the same story. What this asserts is the rule rather than the
- * accident, and it says in its failure message what the rule is for, so the next session has to
- * argue with the seam instead of with a missing jar.</p>
- *
- * <p>What it cannot catch: a leak that arrives without an import, through a fully qualified name
- * inside a method body. That is deliberate - the same scan over whole file text trips on every
- * javadoc sentence containing the word bunq, and this package's javadoc is full of them, correctly
- * so.</p>
+ * The bunq half lives in steward-worker and the Discord half in discord-bot; this package holds only the
+ * rows. A fully qualified name inside a method body is not caught.
  */
 class PaymentCoreStaysNeutralTest {
 
-    /**
-     * The package this rule is about. It is inside this module's own main source set, so Gradle
-     * already sees an edit to it through {@code :common:compileJava} - unlike the files the other
-     * text-reading tests here reach, it needs no {@code repositoryRootTestInputs} declaration.
-     */
+    /** The package this rule is about, in this module's main source set, so no extra test input is needed. */
     private static final String NEUTRAL_CORE = "common/src/main/java/eu/nordtal/s2/common/payment";
 
     /**
      * Package prefixes that must never be imported here, and the sentence each one gets when it is.
      *
-     * <p>{@code eu.nordtal.jcore} is in the list for a different reason from the other three: it
+     * {@code eu.nordtal.jcore} is in the list for a different reason from the other three: it
      * would compile, because the bot and the worker both have jcore. {@code :common} deliberately
      * does not - see the dependency comment in {@code common/build.gradle.kts} - and one import
      * here would put jcore's whole block (Flyway, gson, snakeyaml, commons-*) behind every plugin
-     * that touches a payment row.</p>
+     * that touches a payment row.
      */
     private static final Map<String, String> FORBIDDEN = Map.of(
             "com.bunq.",
@@ -74,13 +53,12 @@ class PaymentCoreStaysNeutralTest {
                             + " that reads an access row would carry it.");
 
     @Test
-    @DisplayName("the neutral payment core imports neither bunq nor Discord nor jcore")
-    void neitherHalfOfTheSeamLeaksIn() throws IOException {
+    void theNeutralPaymentCoreImportsNeitherBunqNorDiscordNorJcore() throws IOException {
         final List<Path> sources = sources();
         assertFalse(
                 sources.isEmpty(),
-                NEUTRAL_CORE + " holds no .java file. Either the package was renamed and this test"
-                        + " now guards nothing, or the move it guards was reverted - both of which"
+                NEUTRAL_CORE + " holds no .java file. Either the package moved and this test guards"
+                        + " nothing, or the move it guards was reverted - both of which"
                         + " look like a green build.");
 
         final List<String> violations = new ArrayList<>();
@@ -101,8 +79,7 @@ class PaymentCoreStaysNeutralTest {
         }
 
         assertTrue(
-                violations.isEmpty(),
-                "the neutral payment core is no longer neutral:\n  " + String.join("\n  ", violations));
+                violations.isEmpty(), "the neutral payment core is not neutral:\n  " + String.join("\n  ", violations));
     }
 
     private static List<Path> sources() throws IOException {

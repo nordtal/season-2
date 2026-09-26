@@ -13,17 +13,13 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.ShadowColor;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Walks a composed HUD line with a cursor driven by the pack's own advances, so it can contradict
- * {@link BossBarLine} rather than restate it.
+ * Walks a composed HUD line with the pack's own advances, so it can contradict {@link BossBarLine}.
  *
- * <p>What is pinned is the property the pills rest on: every piece of content sits <em>inside</em>
- * its pill, {@link BossBarLine#PADDING} in from either cap, and the line ends exactly at the last
- * pill's right edge - because the client centres a boss bar name by its total width, and a total
- * width that is off by the pixels of a stray advance is a line that sits off-centre for ever.</p>
+ * Content sits {@link BossBarLine#PADDING} inside each pill, and the line ends at the last pill's edge,
+ * since the client centres a boss bar name by its total width.
  */
 class BossBarLineTest {
 
@@ -33,15 +29,14 @@ class BossBarLineTest {
     /**
      * A drawn run of glyphs, in line pixels: the first column it paints and the last.
      *
-     * <p>A glyph paints {@code advance - 1} columns and the client adds one more of nothing, so the
+     * A glyph paints {@code advance - 1} columns and the client adds one more of nothing, so the
      * last painted column is {@code cursor + advance - 2} - the pixel a person sees, which is what
-     * the padding is measured against.</p>
+     * the padding is measured against.
      */
     private record Span(String what, int start, int end) {}
 
     @Test
-    @DisplayName("each pill's content sits PADDING in from its caps, and the line ends on the last pill")
-    void everyPillHoldsItsContent() {
+    void eachPillsContentSitsPaddingInFromItsCapsAndTheLineEndsOnTheLastPill() {
         final List<Pill> pills = List.of(
                 Pill.of(Glyphs.BOSSBAR_ICON_DIM_OVERWORLD, "Nordtal"),
                 Pill.of("Ein Meilenstein mit Umlauten - 42%"),
@@ -78,8 +73,7 @@ class BossBarLineTest {
     }
 
     @Test
-    @DisplayName("an icon-only pill and a text-only pill are both just their content plus padding")
-    void theTwoDegenerateShapes() {
+    void anIconOnlyPillAndATextOnlyPillAreBothJustTheirContentPlusPadding() {
         final Walk icon = walk(BossBarLine.compose(List.of(Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, ""))));
         assertEquals(
                 ADVANCES.get(Glyphs.BOSSBAR_ICON_COMPASS.codePointAt(0)) - 2,
@@ -91,8 +85,7 @@ class BossBarLineTest {
     }
 
     @Test
-    @DisplayName("the component names the bossbar font and turns the shadow off")
-    void theComponentIsStyledTheWayTheHudNeeds() {
+    void theComponentNamesTheBossbarFontAndTurnsTheShadowOff() {
         final Component line = BossBarLine.render(List.of(Pill.of("x")));
         assertEquals(
                 Key.key(Glyphs.FONT_BOSSBAR),
@@ -112,8 +105,7 @@ class BossBarLineTest {
     }
 
     @Test
-    @DisplayName("a shift is exact in both directions, and left has no ceiling")
-    void theShiftsAreExact() {
+    void aShiftIsExactInBothDirectionsAndLeftHasNoCeiling() {
         for (int pixels = 0; pixels < 700; pixels += 7) {
             assertEquals(-pixels, displacement(BossBarLine.left(pixels)));
         }
@@ -122,14 +114,9 @@ class BossBarLineTest {
         }
     }
 
-    // --- the walk ------------------------------------------------------------------------
-
     private record Walk(List<Span> pills, List<Span> contents, int cursor) {}
 
-    /**
-     * Replays the composition the way the client lays it out. A pill's background is the run from
-     * a START cap to the END cap; content is every drawn glyph that is not a background tile.
-     */
+    /** Replays the composition as the client lays it out; a pill runs from a START cap to the END cap. */
     private static Walk walk(final String composed) {
         final List<Span> pills = new ArrayList<>();
         final List<Span> contents = new ArrayList<>();

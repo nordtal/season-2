@@ -23,16 +23,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Exercises the stage C link-code lifecycle against a real PostgreSQL instance: issuing, the
- * "repeat attempt returns the same code" rule, expiry, redemption, and the 1:1 that redemption
- * enforces.
- * <p>
- * Same rationale as {@link AccessDirectoryIntegrationTest} for driving this against a real
- * database rather than in memory: the upsert-if-stale query, the unique constraints and the
- * expiry comparison are all evaluated by PostgreSQL. Testcontainers is started by hand for the
- * same JUnit-6-vs-{@code org.testcontainers:junit-jupiter} reason documented there, and this
- * class skips itself the same way when no Docker daemon is reachable.
- * </p>
+ * Exercises the link-code lifecycle against a real PostgreSQL: issue, repeat, expiry, redemption, 1:1.
+ *
+ * Skips itself when no Docker daemon is reachable.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class LinkCodeIntegrationTest {
@@ -83,8 +76,6 @@ class LinkCodeIntegrationTest {
         directory = AccessDirectory.using(dataSource);
     }
 
-    // ---------------------------------------------------------------- issuing
-
     @Test
     void issuingForAFreshUuidMintsANewCode() {
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
@@ -130,8 +121,6 @@ class LinkCodeIntegrationTest {
         assertThrows(IllegalArgumentException.class, () -> directory.issueLinkCode(MC_UUID, Duration.ofMinutes(-1)));
     }
 
-    // ---------------------------------------------------------------- redeeming
-
     @Test
     void redeemingAValidCodeLinksTheAccountAndDeletesTheCode() {
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
@@ -160,11 +149,7 @@ class LinkCodeIntegrationTest {
 
     @Test
     void redeemingSomebodyElsesCodeStillLinksItToWhoeverTypesItIn() {
-        // The code is not bound to a Discord account until it is redeemed - that is the whole
-        // point of it being typed into Discord. "Somebody else's code" here means a code that was
-        // never this Discord account's to begin with, and the entropy in LinkCodes is what is
-        // supposed to make guessing it impractical; this test only proves the mechanics, not the
-        // entropy budget.
+        // A code is bound to no Discord account until redeemed; this proves the mechanics, not the entropy.
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
 
         final LinkRedemption result = directory.redeemLinkCode(OTHER_DISCORD_ID, code.code());
@@ -216,8 +201,7 @@ class LinkCodeIntegrationTest {
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
         assertTrue(directory.redeemLinkCode(DISCORD_ID, code.code()).linked());
 
-        // A fresh code for a second Minecraft account, redeemed by the same already-linked
-        // Discord account.
+        // A second Minecraft account's code, redeemed by the already-linked Discord account.
         final LinkCode secondCode = directory.issueLinkCode(OTHER_MC_UUID, Duration.ofMinutes(10));
         final LinkRedemption result = directory.redeemLinkCode(DISCORD_ID, secondCode.code());
 
@@ -229,14 +213,7 @@ class LinkCodeIntegrationTest {
                 "the first link must survive the second, rejected attempt");
     }
 
-    // ---------------------------------------------------------------- helpers
-
-    /**
-     * Pushes a code into the past far enough that {@code expires <= now()} while still satisfying
-     * {@code link_code_expires_after_created} - {@code created} has to move back too, or "expires
-     * a second ago" is earlier than a {@code created} that is only milliseconds old and the check
-     * constraint refuses the write.
-     */
+    /** Moves a code and its {@code created} into the past, so the expiry check constraint still holds. */
     private static void expireCode(final UUID mcUuid) {
         execute("""
                 UPDATE link_code

@@ -6,13 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import net.kyori.adventure.text.Component;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The arithmetic of a staging: which picture appears on which tick, and how long the whole thing is.
  *
- * <p>Separate from {@link CinematicsTest} on purpose. This is the part that is a pure function of
+ * Separate from {@link CinematicsTest} on purpose. This is the part that is a pure function of
  * the description - it needs no scheduler, no surface and no player - and it is the part a wrong
  * answer in is invisible: a sequence whose second frame lands one tick early looks like a sequence.
  */
@@ -23,8 +22,7 @@ class CinematicTest {
     private static final Component C = Component.text("c");
 
     @Test
-    @DisplayName("the frames run in the order they were added, each starting where the last ended")
-    void theCuesAreCumulative() {
+    void theFramesRunInTheOrderTheyWereAddedEachStartingWhereTheLastEnded() {
         final Cinematic cinematic =
                 Cinematic.builder().frame(A, 5).frame(B, 10).frame(C, 1).build();
 
@@ -40,8 +38,7 @@ class CinematicTest {
     }
 
     @Test
-    @DisplayName("frames of equal length are the ordinary animated case")
-    void framesOfEqualLength() {
+    void framesOfEqualLengthAreTheOrdinaryAnimatedCase() {
         final Cinematic cinematic =
                 Cinematic.builder().frames(List.of(A, B, C), 4).build();
 
@@ -52,17 +49,13 @@ class CinematicTest {
     }
 
     @Test
-    @DisplayName("a staging with no frames is refused rather than run as an empty effect")
-    void aStagingNeedsAtLeastOneFrame() {
-        // Without this the effect is applied, nothing is drawn, and the player stands blind and
-        // silent for the length of a sequence that does not exist. Failing here fails at the
-        // moment somebody wrote it.
+    void aStagingWithNoFramesIsRefusedRatherThanRunAsAnEmptyEffect() {
+        // An empty sequence would leave the player blind and silent; it fails when built.
         assertThrows(IllegalArgumentException.class, () -> Cinematic.builder().build());
     }
 
     @Test
-    @DisplayName("a frame nobody could see is refused")
-    void aFrameLastsAtLeastOneTick() {
+    void aFrameNobodyCouldSeeIsRefused() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> Cinematic.builder().frame(A, 0).build());
@@ -72,8 +65,7 @@ class CinematicTest {
     }
 
     @Test
-    @DisplayName("the three optional parts really are optional")
-    void everythingButTheFramesIsOptional() {
+    void theThreeOptionalPartsReallyAreOptional() {
         final Cinematic bare = Cinematic.builder().frame(A, 1).build();
 
         assertNull(bare.subtitle());
@@ -85,8 +77,7 @@ class CinematicTest {
     }
 
     @Test
-    @DisplayName("an effect with no name is refused; leaving it out is how you say there is none")
-    void anEffectNeedsAKey() {
+    void anEffectWithNoNameIsRefusedLeavingItOutIsHowYouSayThereIsNone() {
         assertThrows(IllegalArgumentException.class, () -> new Cinematic.Effect("", 0));
         assertThrows(IllegalArgumentException.class, () -> new Cinematic.Effect(null, 0));
         assertThrows(IllegalArgumentException.class, () -> new Cinematic.Effect("minecraft:blindness", -1));

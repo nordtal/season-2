@@ -5,23 +5,14 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * A thread parked on a dedicated {@code LISTEN} connection, re-reading whatever it is told to
- * whenever something arrives - and whenever it has just (re)connected.
+ * A thread on a dedicated {@code LISTEN} connection that re-reads on every signal and every reconnect.
  *
- * <p><b>Notifications are lost while a process is disconnected</b>, so every {@link Refresh} runs
- * immediately after a successful connect, before a single notification has been waited for. A
- * notification is an optimisation, never the state.
- *
- * <p><b>The caller's poll is the guarantee</b>; this only makes a change feel instant. Every process
- * that starts a listener also schedules the same refreshes on a timer and can turn this half off.
- *
- * <p>A refresh that throws is logged and retried on the next signal rather than taking the thread
- * down: several refreshes ride one connection. Which channel woke the loop is never inspected -
- * every refresh runs on every signal, because trusting a notification to say what changed is the one
- * thing this design does not do.
+ * The caller's poll is the guarantee; a notification only makes a change feel instant and is never state.
+ * Every refresh runs on every signal, the channel is never inspected, and a throwing refresh is logged.
  */
 public final class NotificationListener implements AutoCloseable {
 
@@ -39,10 +30,7 @@ public final class NotificationListener implements AutoCloseable {
         }
     }
 
-    /**
-     * How long to wait before opening a new connection after one failed. Deliberately not
-     * configuration: the poll runs regardless, so no behaviour depends on this number.
-     */
+    /** How long to wait before reconnecting after a failure; not configurable, since the poll runs anyway. */
     private static final Duration RECONNECT_BACKOFF = Duration.ofSeconds(5);
 
     private final Notifications.Connector connector;
@@ -54,7 +42,7 @@ public final class NotificationListener implements AutoCloseable {
 
     private final AtomicReference<Notifications> current = new AtomicReference<>();
     private volatile boolean running = true;
-    private volatile Thread thread;
+    private volatile @Nullable Thread thread;
 
     /**
      * @param connector   how to open a {@code LISTEN} connection
@@ -105,19 +93,14 @@ public final class NotificationListener implements AutoCloseable {
         listenerThread.start();
     }
 
-    /**
-     * The connect / re-read / wait loop. Package-visible rather than private so a test can drive it
-     * on a thread of its own choosing.
-     */
+    /** Runs the connect, re-read and wait loop; package-visible so a test can drive it on its own thread. */
     void run() {
         while (running) {
             try (Notifications notifications = connector.listen()) {
                 current.set(notifications);
                 logger.info("{} is listening", threadName);
 
-                // Re-read unconditionally, before waiting for anything: a change made while this
-                // process was disconnected produced a notification nobody received, and no later
-                // notification repeats it.
+                // Re-read before waiting: a change made while disconnected is never announced again.
                 refreshAll();
 
                 while (running) {
@@ -180,10 +163,7 @@ public final class NotificationListener implements AutoCloseable {
         }
     }
 
-    /**
-     * Stops the loop and closes the connection out from under the blocking wait, which is what
-     * makes a shutdown immediate rather than one {@code waitTimeout} long.
-     */
+    /** Stops the loop and closes the connection under the blocking wait, so shutdown is immediate. */
     @Override
     public void close() {
         running = false;

@@ -221,7 +221,7 @@ public final class SmpHud {
         final long distance = Math.round(Math.hypot(target.x() - at.getX(), target.z() - at.getZ()));
 
         return List.of(
-                Pill.of(Glyphs.BOSSBAR_ARROWS[arrow], label),
+                Pill.of(Glyphs.BOSSBAR_ARROWS.get(arrow), label),
                 Pill.of(messages.format(locale, MESSAGES.smp().hud().distance(distance))));
     }
 

@@ -4,20 +4,21 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Objects;
 import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Maps a {@code payment_request} row.
- * <p>
+ *
  * Written out rather than reached for with {@code ConstructorMapper}, for the same reason as
  * {@code AccessGrantMapper} in {@code :common}: that mapper matches record components by parameter
  * name, which only survives compilation with {@code -parameters}, and a query should not depend on
  * a build flag. It also makes the {@code timestamptz} handling explicit - every point in time is
  * read through {@link OffsetDateTime}, which is the only way to get an {@link Instant} out of the
  * PostgreSQL driver without going through the JVM's default time zone.
- * </p>
  */
 public final class PaymentRequestMapper implements RowMapper<PaymentRequest> {
 
@@ -34,8 +35,8 @@ public final class PaymentRequestMapper implements RowMapper<PaymentRequest> {
                 nullableLong(rs, "bunq_tab_id"),
                 rs.getString("share_url"),
                 nullableLong(rs, "bunq_payment_id"),
-                instant(rs, "created"),
-                instant(rs, "expires"),
+                Objects.requireNonNull(instant(rs, "created"), "created"),
+                Objects.requireNonNull(instant(rs, "expires"), "expires"),
                 instant(rs, "settled"),
                 instant(rs, "tab_requested"),
                 rs.getString("tab_failed"),
@@ -45,22 +46,22 @@ public final class PaymentRequestMapper implements RowMapper<PaymentRequest> {
                 match(rs, "matched_by"));
     }
 
-    private static Long nullableLong(final ResultSet rs, final String column) throws SQLException {
+    private static @Nullable Long nullableLong(final ResultSet rs, final String column) throws SQLException {
         final long value = rs.getLong(column);
         return rs.wasNull() ? null : value;
     }
 
-    private static Integer nullableInt(final ResultSet rs, final String column) throws SQLException {
+    private static @Nullable Integer nullableInt(final ResultSet rs, final String column) throws SQLException {
         final int value = rs.getInt(column);
         return rs.wasNull() ? null : value;
     }
 
-    private static PaymentMatch match(final ResultSet rs, final String column) throws SQLException {
+    private static @Nullable PaymentMatch match(final ResultSet rs, final String column) throws SQLException {
         final String value = rs.getString(column);
         return value == null ? null : PaymentMatch.valueOf(value);
     }
 
-    private static Instant instant(final ResultSet rs, final String column) throws SQLException {
+    private static @Nullable Instant instant(final ResultSet rs, final String column) throws SQLException {
         final OffsetDateTime value = rs.getObject(column, OffsetDateTime.class);
         return value == null ? null : value.toInstant();
     }

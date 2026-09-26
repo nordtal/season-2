@@ -14,16 +14,13 @@ import java.time.Instant;
 /**
  * {@code /access grant <member> <days>} - days on top of whatever is already running.
  *
- * <h2>Appended, never replaced</h2>
- * The same rule a purchase follows: periods stack rather than being summed or reset, and a lapse
- * after the season opened starts today rather than back at the anchor.
- * {@code AccessDirectoryIntegrationTest} owns that arithmetic; this command only asks for it.
+ * Appended, never replaced: the same rule a purchase follows, periods stack rather than being
+ * summed or reset, and a lapse after the season opened starts today rather than back at the
+ * anchor. {@code AccessDirectoryIntegrationTest} owns that arithmetic; this command only asks for
+ * it.
  *
- * <h2>Bounded, which the Discord command was not</h2>
- * It hand-checked "greater than zero" in its handler and had no upper bound at all, so a mistyped
- * {@code 3650} was a decade of free access and one keystroke away from {@code 365}. The bound is on
- * the declaration now, so Brigadier, Discord's own option validation and the request row all refuse
- * the same numbers.
+ * Bounded on the declaration, so Brigadier, Discord's own option validation and the request row
+ * all refuse the same numbers.
  */
 public final class GrantAccess implements NordtalCommand<AccessEffects> {
 

@@ -3,16 +3,10 @@ package eu.nordtal.s2.common.message;
 import net.kyori.adventure.text.Component;
 
 /**
- * A {@link Tone}, as a colour on a Minecraft component. It paints with {@code colorIfAbsent}, so a
- * tone is a default that a line's own MiniMessage can override.
+ * Paints a {@link Tone} on a component with {@code colorIfAbsent}, so a line's own markup wins.
  *
- * <p>Separate from the enum because it names Adventure, which {@code discord-bot} and
- * {@code steward-worker} do not have on their classpath even though they load {@link Tone}.
- *
- * <p>The five colours themselves are not here (season-2-ingame/22): {@code :common} does not depend
- * on jcore, so the {@code @ConfigSpec} that reads a {@code colours.yml} lives per plugin, one per
- * module that paints a reply - the same split {@code FeedbackSounds} and a platform's own sound
- * adapter draw for a sound. {@link ToneColours} is the parsed result; a caller hands one in.
+ * Separate from the enum, which modules without Adventure load. The colours come per plugin as
+ * {@link ToneColours}.
  */
 public final class Tones {
 

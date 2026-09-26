@@ -9,12 +9,12 @@ import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 /**
  * {@code <glyph:name>}: one of {@link Glyphs#named()}, drawn in {@code minecraft:default}.
  *
- * <p>So a bundle names a glyph instead of carrying its private-use character, which nobody can read
+ * So a bundle names a glyph instead of carrying its private-use character, which nobody can read
  * or type and which the bundles are held free of. The font is named on the glyph itself: inside a
- * component that sets another font, the same code point draws whatever that font put there.</p>
+ * component that sets another font, the same code point draws whatever that font put there.
  *
- * <p>A name nobody knows is left standing as its own text, which is how MiniMessage treats a tag
- * that refuses to resolve - visible in game, rather than silently nothing.</p>
+ * A name nobody knows is left standing as its own text, which is how MiniMessage treats a tag
+ * that refuses to resolve - visible in game, rather than silently nothing.
  */
 public final class GlyphTag {
 

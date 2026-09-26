@@ -13,35 +13,24 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Two rules about menus, enforced over the source text because neither can be checked cheaply on a
- * running server.
+ * Checks over the source that every menu is a chest and gets its title through {@link MenuTitle}.
  *
- * <p><b>Every menu is a chest.</b> All six chest heights are even ({@code 114 + 18 * rows}), which
- * is what makes one panel per row count line up; a hopper is 133 - odd - so the moment a menu opens
- * one, every panel is half a slot out and {@link MenuTitle}'s arithmetic stops being true.
- *
- * <p><b>A menu's title comes through {@link MenuTitle}.</b> A title composed by hand is a menu
- * without a frame, which is invisible in a diff: the menu opens, it works, it is simply vanilla.
+ * Chest heights are even, which the panel arithmetic needs; a hand-made title is a menu without a frame.
  */
 class ChestOnlyMenuTest {
 
     private static final List<String> MODULES = List.of("smp", "limbo", "hunger-games", "proxy");
 
-    /**
-     * Menus that compose their own title, and why they may. Empty, and kept empty: an entry here is
-     * a debt that {@link #theAllowlistHasNoGhosts} collects.
-     */
+    /** Menus that compose their own title, with the reason; empty, and checked by {@link #theAllowlistHasNoGhosts}. */
     private static final Map<String, String> UNFRAMED = new LinkedHashMap<>();
 
     /**
-     * Helpers that compose a title <em>through</em> {@link MenuTitle} on a menu's behalf, keyed by
-     * the call as it appears inside {@code createInventory(...)}, valued by the helper's source. The
-     * helper's own source still has to reach {@code MenuTitle.}, which
-     * {@link #everyComposerGoesThroughMenuTitle} checks.
+     * Helpers that compose a title through {@link MenuTitle} for a menu, keyed by the call, valued by the source.
+     *
+     * {@link #everyNamedComposerReallyGoesThroughMenutitle} checks that each helper reaches {@code MenuTitle.}.
      */
     private static final Map<String, String> COMPOSERS = Map.ofEntries(
             Map.entry("TravelPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/travel/TravelPanel.java"),
@@ -52,8 +41,7 @@ class ChestOnlyMenuTest {
             Map.entry("WheelPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/wheel/WheelPanel.java"));
 
     @Test
-    @DisplayName("no menu opens anything but a chest")
-    void everyMenuIsAChest() {
+    void noMenuOpensAnythingButAChest() {
         final List<String> offenders = new ArrayList<>();
         forEachSource((path, source) -> {
             if (source.contains("InventoryType")) {
@@ -69,8 +57,7 @@ class ChestOnlyMenuTest {
     }
 
     @Test
-    @DisplayName("a menu's title is composed by MenuTitle, or it is on the list of the ones that are not")
-    void everyTitleGoesThroughMenuTitle() {
+    void aMenusTitleIsComposedByMenutitleOrItIsOnTheListOfTheOnesThatAreNot() {
         final List<String> offenders = new ArrayList<>();
         final List<String> framed = new ArrayList<>();
         forEachSource((path, source) -> {
@@ -86,8 +73,7 @@ class ChestOnlyMenuTest {
                 at = source.indexOf("createInventory(", at + 1);
             }
         });
-        // Non-vacuity anchor: a rule of the shape "nothing in these trees does X" also passes when
-        // the walk finds no files at all.
+        // Non-vacuity anchor: the rule would also pass if the walk found no files.
         assertTrue(
                 framed.contains("smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigateGui.java"),
                 "NavigateGui is the reference implementation of the panel and has to be found by"
@@ -103,8 +89,7 @@ class ChestOnlyMenuTest {
     }
 
     @Test
-    @DisplayName("every named composer really goes through MenuTitle")
-    void everyComposerGoesThroughMenuTitle() {
+    void everyNamedComposerReallyGoesThroughMenutitle() {
         COMPOSERS.forEach((call, source) -> {
             final String text = read(RepositoryRoot.resolve(source));
             assertTrue(
@@ -115,7 +100,6 @@ class ChestOnlyMenuTest {
     }
 
     @Test
-    @DisplayName("the allowlist has no ghosts")
     void theAllowlistHasNoGhosts() {
         final List<String> present = new ArrayList<>();
         forEachSource((path, source) -> {
@@ -127,12 +111,10 @@ class ChestOnlyMenuTest {
         assertEquals(
                 UNFRAMED.keySet(),
                 new java.util.LinkedHashSet<>(present),
-                "an allowlist entry for a menu that no longer opens an inventory - or that has"
-                        + " since been framed - is an exception nobody is using, and it silently"
+                "an allowlist entry for a menu that does not open an inventory - or one that has been"
+                        + " framed instead - is an exception nobody is using, and it silently"
                         + " excuses the next file that happens to share the name.");
     }
-
-    // --- helpers ---------------------------------------------------------------------------
 
     private static void forEachSource(final java.util.function.BiConsumer<String, String> consumer) {
         for (final String module : MODULES) {

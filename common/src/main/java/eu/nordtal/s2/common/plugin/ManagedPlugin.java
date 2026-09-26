@@ -1,17 +1,16 @@
 package eu.nordtal.s2.common.plugin;
 
 import java.time.Instant;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
- * One plugin an admin added to a service from the interface (season-2-ops/129).
+ * One plugin an admin added to a service from the interface.
  *
- * <p><b>A row here is a wish, not an observation.</b> What is actually installed is the jars in the
+ * <b>A row here is a wish, not an observation.</b> What is actually installed is the jars in the
  * volume, and {@code Installation} reads those off the disk on every run. This record says only
  * that somebody asked for the plugin, which is why the interface has to draw <em>running</em> and
  * <em>not installed</em> differently: a row exists the moment the button is pressed, and the jar
- * arrives with the next update run.</p>
+ * arrives with the next update run.
  *
  * @param service    the compose service name this plugin was added to
  * @param artifact   the artefact id - Modrinth's slug. The label a report line reads by, never the
@@ -30,12 +29,12 @@ import org.jetbrains.annotations.Nullable;
  *                   {@code null} when it was not a person
  */
 public record ManagedPlugin(
-        @NotNull String service,
-        @NotNull String artifact,
-        @NotNull String projectId,
-        @NotNull String filePrefix,
-        @NotNull String title,
+        String service,
+        String artifact,
+        String projectId,
+        String filePrefix,
+        String title,
         @Nullable String iconUrl,
         @Nullable String pageUrl,
-        @NotNull Instant added,
+        Instant added,
         @Nullable String addedBy) {}

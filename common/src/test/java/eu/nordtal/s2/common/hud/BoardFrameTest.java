@@ -21,19 +21,18 @@ import java.util.Map;
 import javax.imageio.ImageIO;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * {@link BoardFrame} held against the pack rather than against its own constants.
  *
- * <p>Everything here is derived from {@code nordtal/font/board.json} and the PNGs it names: the
+ * Everything here is derived from {@code nordtal/font/board.json} and the PNGs it names: the
  * advance of every code point is read the way the client reads it - a space provider's number, or a
  * bitmap's rightmost non-transparent column plus the two pixels Minecraft adds - and the composed
  * strings are then <em>walked</em> with a cursor. So this test can disagree with the code, which is
  * the only kind of test worth having about a pixel offset.
  *
- * <p>What it cannot say is whether the result looks like a board. Nothing without a client can, and
+ * What it cannot say is whether the result looks like a board. Nothing without a client can, and
  * the rehearsal item for it is in the owner's checklist.
  */
 class BoardFrameTest {
@@ -47,8 +46,7 @@ class BoardFrameTest {
     private static final int[] WIDTHS = {BoardFrame.MIN_WIDTH, 100, 180, BoardFrame.MAX_WIDTH};
 
     @Test
-    @DisplayName("the three glyph widths are the pack's, not the code's")
-    void theWidthsComeFromTheArt() {
+    void theThreeGlyphWidthsAreThePacksNotTheCodes() {
         assertEquals(
                 BoardFrame.CORNER_LEFT_WIDTH,
                 trimmed("ui/board/corner_tl.png"),
@@ -65,8 +63,7 @@ class BoardFrameTest {
     }
 
     @Test
-    @DisplayName("every tiling segment is exactly as wide as its name says")
-    void theSegmentsTile() {
+    void everyTilingSegmentIsExactlyAsWideAsItsNameSays() {
         for (final int power : new int[] {1, 2, 4, 8, 16, 32, 64, 128}) {
             assertEquals(
                     power,
@@ -78,8 +75,7 @@ class BoardFrameTest {
     }
 
     @Test
-    @DisplayName("a border's edges start at the content column and end exactly one width later")
-    void theBorderSpansTheWidth() {
+    void aBordersEdgesStartAtTheContentColumnAndEndExactlyOneWidthLater() {
         for (final int width : WIDTHS) {
             final Walk walk = walk(
                     frameTextOf(BoardFrame.border(width, Glyphs.BOARD_CORNER_TOP_LEFT, Glyphs.BOARD_CORNER_TOP_RIGHT)));
@@ -102,8 +98,7 @@ class BoardFrameTest {
     }
 
     @Test
-    @DisplayName("a content row leaves the cursor at the content column, whatever the width")
-    void theRowReturnsToTheContentColumn() {
+    void aContentRowLeavesTheCursorAtTheContentColumnWhateverTheWidth() {
         for (final int width : WIDTHS) {
             final Component row = BoardFrame.row(width, Component.text("x"));
             final Walk walk = walk(frameTextOf(row));
@@ -129,8 +124,7 @@ class BoardFrameTest {
     }
 
     @Test
-    @DisplayName("every line of a board ends at the same pixel")
-    void theBoxIsARectangle() {
+    void everyLineOfABoardEndsAtTheSamePixel() {
         for (final int width : WIDTHS) {
             final Component board = BoardFrame.render(width, Component.text("t"), List.of(Component.text("body")));
             final List<String> lines = frameLines(board);
@@ -152,8 +146,7 @@ class BoardFrameTest {
     }
 
     @Test
-    @DisplayName("the rule under the title starts where the border's edges do")
-    void theDividerMatchesTheBorders() {
+    void theRuleUnderTheTitleStartsWhereTheBordersEdgesDo() {
         for (final int width : WIDTHS) {
             final Component board = BoardFrame.render(width, Component.text("t"), List.of());
             final List<String> lines = frameLines(board);
@@ -174,16 +167,14 @@ class BoardFrameTest {
     }
 
     @Test
-    @DisplayName("a board is a border, a title, a rule, the lines, and a border")
-    void theShapeIsFixed() {
+    void aBoardIsABorderATitleARuleTheLinesAndABorder() {
         final Component board = BoardFrame.render(
                 120, Component.text("title"), List.of(Component.text("a"), Component.text("b"), Component.text("c")));
         assertEquals(7, frameLines(board).size());
     }
 
     @Test
-    @DisplayName("every code point the frame composes is one the font declares")
-    void nothingIsUndrawn() {
+    void everyCodePointTheFrameComposesIsOneTheFontDeclares() {
         final Walk walk = walk(frameTextOf(BoardFrame.row(180, Component.empty()))
                 + frameTextOf(
                         BoardFrame.border(180, Glyphs.BOARD_CORNER_BOTTOM_LEFT, Glyphs.BOARD_CORNER_BOTTOM_RIGHT)));
@@ -195,8 +186,7 @@ class BoardFrameTest {
     }
 
     @Test
-    @DisplayName("the frame names its font and its colour, and the content names neither")
-    void theFrameIsSelfContained() {
+    void theFrameNamesItsFontAndItsColourAndTheContentNamesNeither() {
         final Component row = BoardFrame.row(180, Component.text("body"));
         final List<Component> parts = new ArrayList<>();
         flatten(row, parts);
@@ -220,8 +210,7 @@ class BoardFrameTest {
     }
 
     @Test
-    @DisplayName("a width the shifts cannot express is refused, not clamped")
-    void theWidthIsBounded() {
+    void aWidthTheShiftsCannotExpressIsRefusedNotClamped() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> BoardFrame.render(BoardFrame.MIN_WIDTH - 1, Component.empty(), List.of()));
@@ -233,8 +222,7 @@ class BoardFrameTest {
     }
 
     @Test
-    @DisplayName("the widest board still fits inside the leftward shift the font can express")
-    void theCeilingIsTheShiftsCeiling() {
+    void theWidestBoardStillFitsInsideTheLeftwardShiftTheFontCanExpress() {
         assertEquals(255, 128 + 64 + 32 + 16 + 8 + 4 + 2 + 1);
         assertTrue(
                 BoardFrame.MAX_WIDTH + BoardFrame.EDGE_V_WIDTH <= 255,
@@ -242,8 +230,6 @@ class BoardFrameTest {
                         + " eight negative advances reach 255. MAX_WIDTH is derived from that and"
                         + " is not a taste question.");
     }
-
-    // --- the client's own arithmetic ---------------------------------------------------------
 
     /** A composed string walked with a cursor, the way the client lays it out. */
     private record Walk(int cursor, int end, Map<Integer, Integer> firstDrawnAt, List<String> unknown) {
@@ -277,8 +263,7 @@ class BoardFrameTest {
             }
             if (advance > 0 && !isSpace(codePoint)) {
                 firstDrawnAt.putIfAbsent(codePoint, cursor);
-                // One past the rightmost pixel this glyph paints - the advance without the
-                // separator Minecraft adds. Comparable across lines, which is the point.
+                // One past the rightmost painted pixel: the advance without Minecraft's separator.
                 end = Math.max(end, cursor + advance - 1);
             }
             cursor += advance;
@@ -306,12 +291,9 @@ class BoardFrameTest {
             final String file = provider.get("file").getAsString();
             final int height = provider.get("height").getAsInt();
             final BufferedImage image = read(texture(file));
-            // The client scales the sheet to the provider's height; every board glyph is drawn 1:1
-            // and this test would notice if one stopped being.
+            // Every board glyph is drawn 1:1 at its provider's height.
             assertEquals(height, image.getHeight(), file + " is not drawn at its provider's height");
-            // Rightmost column with any alpha, plus one for the column itself, plus the one pixel
-            // of separator Minecraft adds to every bitmap glyph. That last pixel is the whole
-            // reason this font carries a negative-advance space provider at all.
+            // Rightmost column with alpha, plus the column itself, plus Minecraft's one-pixel separator.
             final int advance = rightmost(image) + 2;
             for (final JsonElement row : provider.getAsJsonArray("chars")) {
                 row.getAsString().codePoints().forEach(codePoint -> out.put(codePoint, advance));
@@ -354,8 +336,6 @@ class BoardFrameTest {
             throw new UncheckedIOException("cannot read " + path, exception);
         }
     }
-
-    // --- reading a composed component back ---------------------------------------------------
 
     /** Every line of a rendered board, as the frame text that opens it. */
     private static List<String> frameLines(final Component board) {

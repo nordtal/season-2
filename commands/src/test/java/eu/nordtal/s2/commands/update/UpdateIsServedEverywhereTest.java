@@ -13,41 +13,36 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Every process registers {@code /update} itself, because nothing else will.
  *
- * <h2>What {@link Target#LOCAL} costs, and why it needs a test</h2>
  * Every other command in the network is served by exactly one process and reached from the others
- * through a {@code command_request} row - so forgetting to register one <em>somewhere</em> is
- * impossible: the inbox that owns it is the only place it can run. {@code /update} is the exception
- * by design. Its effect is a row in a table all five processes already have a pool for, so it never
- * travels; and the price of never travelling is that <b>each adapter has to opt in by hand</b>.
+ * through a {@code command_request} row - so forgetting to register one somewhere is impossible:
+ * the inbox that owns it is the only place it can run. {@code /update} is the exception by design.
+ * Its effect is a row in a table all five processes already have a pool for, so it never travels;
+ * and the price of never travelling is that each adapter has to opt in by hand.
  *
- * <p>A process that forgets simply has no {@code /update}. Nothing fails, nothing is logged, and the
- * way it is found is an admin typing it on the one server where it is missing - which, for a command
- * whose whole reason to be local is "the network is misbehaving", is the worst possible moment. That
- * is finding 139's shape: both halves present, nothing joining them.</p>
+ * A process that forgets simply has no {@code /update}. Nothing fails, nothing is logged, and the
+ * way it is found is an admin typing it on the one server where it is missing - which, for a
+ * command whose whole reason to be local is "the network is misbehaving", is the worst possible
+ * moment.
  */
 class UpdateIsServedEverywhereTest {
 
     /**
      * The four places a command tree is wired, and each one can forget.
      *
-     * <p><b>discord-bot left this list on 2026-09-20</b> (season-2-community/10), and the reason is
-     * the point of the whole class rather than an exception to it. A process has to opt in because
-     * nothing carries {@code /update} to it - but opting in only means anything where the process
-     * has a surface to be typed on. The bot's was Discord, and Discord is not a surface any
-     * declaration carries any more; it has no console, and a {@link Target#LOCAL} command never
-     * arrives through an inbox. Registering it there would not have been an opt-in, it would have
-     * been a line of code that reads like one.</p>
+     * {@code discord-bot} is deliberately not among them: a process has to opt in because nothing
+     * carries {@code /update} to it, but opting in only means anything where the process has a
+     * surface to be typed on. Discord is not a surface any declaration carries any more; it has no
+     * console, and a {@link Target#LOCAL} command never arrives through an inbox. Registering it
+     * there would not have been an opt-in, it would have been a line of code that reads like one.
      *
-     * <p>That is not the same as saying an admin has lost a way to start a run. Steward starts one,
-     * from a page, and has since season-2-ops/127; the bot still reports every run in the admin
-     * channel through {@code UpdateFeed}, which is its own listener and was never part of the
-     * catalogue.</p>
+     * That is not the same as saying an admin has lost a way to start a run. Steward starts one
+     * from a page, and the bot still reports every run in the admin channel through
+     * {@code UpdateFeed}, which is its own listener and was never part of the catalogue.
      */
     private static final List<String> ADAPTERS = List.of(
             "smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java",
@@ -56,8 +51,7 @@ class UpdateIsServedEverywhereTest {
             "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java");
 
     @Test
-    @DisplayName("all four processes with a surface register the update commands")
-    void nobodyForgets() {
+    void allFourProcessesWithASurfaceRegisterTheUpdateCommands() {
         for (final String file : ADAPTERS) {
             assertTrue(
                     read(file).contains("UpdateCommands.all()"),
@@ -68,14 +62,8 @@ class UpdateIsServedEverywhereTest {
     }
 
     @Test
-    @DisplayName("every update command is LOCAL, admin-only, and console only (ops/18)")
-    void theDeclarationsSayWhatTheyAre() {
-        // Until 2026-09-15 this asserted GAME and DISCORD, for the reason still quoted in the old
-        // failure message: being able to update alone from one of those is how a network with a
-        // broken bot or a broken server becomes one nobody can update from anywhere but a shell.
-        // ops/18 ("alles Admin nur noch Konsole und Web", owner) decided that every admin command
-        // loses both surfaces regardless, /update included - console remains, and it is the one
-        // surface that does not depend on the thing being updated in the first place.
+    void everyUpdateCommandIsLocalAdminOnlyAndConsoleOnlyOps18() {
+        // Every admin command loses GAME and DISCORD, /update included: being able to update alone from one of those.
         for (final Declaration declaration : UpdateCommands.declarations()) {
             assertEquals(
                     Target.LOCAL,
@@ -96,12 +84,8 @@ class UpdateIsServedEverywhereTest {
     }
 
     @Test
-    @DisplayName("the four that stop servers are confirmed, the other three are not")
-    void whatIsIrreversible() {
-        // /update down joined on 2026-09-19 (season-2-ops/125) and is the strongest case in the
-        // list: the other three take a server away and give it back, and that one does not give it
-        // back until a person says so. /update start is NOT here for the same reason /update check
-        // is not - nothing is taken away by it.
+    void theFourThatStopServersAreConfirmedTheOtherThreeAreNot() {
+        // /update down is the strongest case in the list: the other three take a server away and give it back.
         assertEquals(
                 List.of("/backup now", "/update down", "/update now", "/update restart"),
                 UpdateCommands.declarations().stream()
@@ -116,12 +100,8 @@ class UpdateIsServedEverywhereTest {
     }
 
     @Test
-    @DisplayName("every kind that stops servers has a command that asks for it")
-    void everyStoppingKindIsReachable() {
-        // The gap this closes has happened once already, on the other side: the head start was
-        // configured, migrated and documented on 2026-09-01 and had no READER at all until
-        // 2026-09-07. A kind in the enum, in the CHECK and in steward-worker's switch, with nothing
-        // anywhere able to write one, is the same shape - and it looks exactly like a feature.
+    void everyKindThatStopsServersHasACommandThatAsksForIt() {
+        // The gap this closes has happened once already, on the other side: a kind configured.
         final java.util.Set<eu.nordtal.s2.common.update.UpdateKind> asked = new java.util.HashSet<>();
         for (final eu.nordtal.s2.commands.NordtalCommand<eu.nordtal.s2.commands.update.UpdateEffects> command :
                 UpdateCommands.all()) {
@@ -132,9 +112,7 @@ class UpdateIsServedEverywhereTest {
         }
         for (final eu.nordtal.s2.common.update.UpdateKind kind : eu.nordtal.s2.common.update.UpdateKind.values()) {
             if (kind == eu.nordtal.s2.common.update.UpdateKind.APPLY) {
-                // Retired 2026-09-07 and deliberately unreachable - see UpdateKind.APPLY. Named
-                // here rather than skipped by a general rule, so that putting it back is a visible
-                // edit to this test.
+                // Retired and deliberately unreachable - see UpdateKind.APPLY, named so putting it back is visible.
                 continue;
             }
             if (!kind.stopsServers()) {

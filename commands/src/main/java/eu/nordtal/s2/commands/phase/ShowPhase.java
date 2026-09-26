@@ -15,16 +15,16 @@ import java.util.Optional;
 /**
  * {@code /phase show} - and the bare {@code /phase} on the proxy. Reads, writes nothing.
  *
- * <h2>Why the phase can come out before the database is asked</h2>
- * This is the command somebody runs while the network is misbehaving, so a process holding the
+ * The phase can come out before the database is asked because this is the command somebody runs
+ * while the network is misbehaving, so a process holding the
  * phase in memory says it <em>first</em> and asks the database afterwards. The proxy does hold it
  * ({@code PhaseWatch}); the bot does not, and reads. Both paths end with the same two lines in the
  * same order, which is exactly what {@link PhaseEffects#observation()} exists to make possible
  * without either process knowing about the other.
  *
- * <p>Whether the first line is an observation or the never-read fallback is stated rather than
+ * Whether the first line is an observation or the never-read fallback is stated rather than
  * hidden: "the network is in MAINTENANCE" and "the network has not been readable, so it is being
- * treated as MAINTENANCE" are different facts, and only one of them is a reason to panic.</p>
+ * treated as MAINTENANCE" are different facts, and only one of them is a reason to panic.
  */
 public final class ShowPhase implements NordtalCommand<PhaseEffects> {
 
@@ -39,10 +39,7 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
         held.ifPresent(observation -> sayPhase(user, observation.phase(), observation.everRead()));
 
         effects.async(() -> {
-            // Whether a phase line has actually gone out, which is NOT the same question as whether
-            // this process had one cached: on the path with no cache the line is produced inside the
-            // try below, so currentPhase() can succeed and launch() fail, and the answer then has
-            // something above it after all.
+            // Whether a phase line has actually gone out, which is NOT the same question as whether this process had.
             boolean saidThePhase = held.isPresent();
             final Instant launch;
             final Instant smpStart;
@@ -55,12 +52,7 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
                 smpStart = effects.phases().smpStart().orElse(null);
             } catch (final RuntimeException failure) {
                 effects.warn("reading the season dates for /phase show", failure);
-                // Always an answer, and which one depends on whether a phase line went out. The
-                // guard here used to suppress the sentence entirely on the path with no cache -
-                // the bot's, and a request claimed off a row - which left a Discord interaction
-                // with no response at all and settled a request row empty. It was suppressed
-                // because phase.read.failed says "the phase above", and on that path there is
-                // nothing above; so the answer is a second key rather than no key.
+                // Always an answer, and which one depends on whether a phase line went out: phase.read.failed says.
                 user.reply(
                         saidThePhase
                                 ? MESSAGES.phase().read().failed()
@@ -69,8 +61,7 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
                 return;
             }
 
-            // "not set" is a state and is said in the asker's language, not in SeasonDates' English
-            // - the first German /phase on the local stack read "Das Netzwerk öffnet: not set."
+            // "not set" is a state and is said in the asker's language, not in SeasonDates' English.
             final String unset = user.phrase(MESSAGES.phase().date().unset());
             user.reply(
                     MESSAGES.phase()
@@ -83,8 +74,7 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
     }
 
     private static void sayPhase(final NordtalUser user, final SeasonPhase phase, final boolean everRead) {
-        // The unread answer is WARN and not NEUTRAL: it is the proxy's own cache answering
-        // because nothing has ever read the row, which is exactly the state /phase is typed in.
+        // The unread answer is WARN and not NEUTRAL: it is the proxy's own cache answering because nothing has ever.
         user.reply(
                 everRead
                         ? MESSAGES.phase().current(phase.name())

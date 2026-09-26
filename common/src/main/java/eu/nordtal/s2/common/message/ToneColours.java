@@ -5,18 +5,20 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.format.TextColor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The five {@link Tone} colours, parsed once and then answered from memory.
  *
- * <p>This is {@code :common}'s half of the tone palette, the same split {@code FeedbackSounds} draws
+ * This is {@code :common}'s half of the tone palette, the same split {@code FeedbackSounds} draws
  * for sounds: this class holds what each tone paints as a plain Adventure value and the one rule that
  * makes a wrong value harmless, while a platform module holds its own {@code @ConfigSpec} (a
  * {@code colours.yml}, one hex string per tone) and hands the declared values here to be turned into
  * something {@link Tones} can paint with. {@code :common} does not depend on jcore - see the
  * repository's own note on {@code :common}'s dependency block - so the spec itself cannot live here.
  *
- * <h2>A bad hex value is never an exception on a player path</h2>
+ * <b>A bad hex value is never an exception on a player path</b>
+ *
  * Exactly the same shape {@code FeedbackSounds} uses for a malformed sound key: a value that is not a
  * parseable hex colour is reported once, through the {@code problems} sink the caller passes in, and
  * the tone's default takes over. A colour that silently became "no colour at all" would be invisible
@@ -29,21 +31,14 @@ public final class ToneColours {
     private static final Map<Tone, TextColor> DEFAULT_MAP = defaults();
 
     /**
-     * Today's exact values, unchanged by season-2-ingame/22 except that {@link Tone#NEUTRAL} is no
-     * longer painted with {@link Tone#MUTED}'s own grey.
+     * The colour for each {@link Tone} when a deployment has not configured its own.
      *
-     * <p>{@code #8ba888}, {@code #a8888b} and {@code #b08a4a} are {@code Tones}' own former constants,
-     * carried over verbatim so a deployment that has never edited a {@code colours.yml} sees no
-     * change. {@code #aaaaaa} is {@link net.kyori.adventure.text.format.NamedTextColor#GRAY}'s own hex
-     * value, spelled out because a configured colour has to be a hex string and cannot name a
-     * constant - {@code MUTED} painted exactly that colour before this ticket and still does.
-     *
-     * <p>{@code #c9c9c9} for {@code NEUTRAL} is new: a step lighter than {@code MUTED}'s
-     * {@code #aaaaaa} and short of white, chosen so an ordinary reply reads brighter than the
-     * supporting detail under it without becoming the brightest thing on screen - see {@code Tone}'s
-     * own javadoc for why it is painted at all rather than left to the client's default. Nobody has
-     * seen it in a client yet; it is a starting point, and {@code steward/63}'s colour picker is what
-     * makes changing it a click rather than a release.
+     * A configured colour has to be a hex string and cannot name a constant, which is why
+     * {@code #aaaaaa} is spelled out rather than written as
+     * {@link net.kyori.adventure.text.format.NamedTextColor#GRAY}. {@code NEUTRAL}'s
+     * {@code #c9c9c9} is a step lighter than {@code MUTED}'s {@code #aaaaaa} and short of white, so
+     * an ordinary reply reads brighter than the supporting detail under it without becoming the
+     * brightest thing on screen.
      */
     public static final ToneColours DEFAULTS = new ToneColours(DEFAULT_MAP);
 
@@ -68,7 +63,7 @@ public final class ToneColours {
         Objects.requireNonNull(problems, "problems");
         final Map<Tone, TextColor> parsed = new EnumMap<>(Tone.class);
         for (final Tone tone : Tone.values()) {
-            final TextColor fallback = DEFAULT_MAP.get(tone);
+            final TextColor fallback = Objects.requireNonNull(DEFAULT_MAP.get(tone), "fallback");
             final String hex = declared.get(tone);
             if (hex == null || hex.isBlank()) {
                 parsed.put(tone, fallback);
@@ -88,8 +83,8 @@ public final class ToneColours {
     }
 
     /** What {@code null} is treated as too - see {@link Tones#paint}. */
-    TextColor of(final Tone tone) {
-        return byTone.get(tone == null ? Tone.NEUTRAL : tone);
+    TextColor of(final @Nullable Tone tone) {
+        return Objects.requireNonNull(byTone.get(tone == null ? Tone.NEUTRAL : tone), "colour");
     }
 
     private static Map<Tone, TextColor> defaults() {

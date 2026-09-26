@@ -11,19 +11,14 @@ import java.util.UUID;
 /**
  * Everything {@code /access} touches that only the Discord bot can reach.
  *
- * <h2>Why these live in the bot and nowhere else</h2>
  * Granting access is three things at once: a row, a Discord role, and a direct message in the
  * recipient's own language. Only the bot holds a JDA session, so only the bot can do the second and
  * third - which is why {@link eu.nordtal.s2.commands.Target#BOT} is a target like any other rather
  * than a special case. A Paper server asking for one of these writes a {@code command_request} row
  * exactly as it would for any other process.
  *
- * <h2>What folding these fixed rather than moved</h2>
- * All four admin commands here were gated on Discord's own {@code DefaultMemberPermissions.DISABLED}
- * and on <b>nothing else</b> - no {@code discord_user.admin} read anywhere - so the network's admin
- * list and the list of people who could grant paid access were two different lists. Every line they
- * produced was also hardcoded English, in a bot whose whole message system exists so that nothing
- * is. Both are properties of a command now, checked once, for every command.
+ * Admin gating and message rendering are both properties of a command, checked once, for every
+ * command: neither is hardcoded per handler the way a bare Discord slash command would leave them.
  */
 public interface AccessEffects extends CommandEffects {
 

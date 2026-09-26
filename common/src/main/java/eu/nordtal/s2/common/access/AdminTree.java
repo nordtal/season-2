@@ -8,19 +8,19 @@ import javax.sql.DataSource;
 /**
  * Who is an admin, as a tree of grants decided in Steward.
  *
- * <p><b>The database is the source and the Discord admin role is its mirror.</b> Every admin but
+ * <b>The database is the source and the Discord admin role is its mirror.</b> Every admin but
  * one was granted by another admin; the one without a granter is the root, whoever completed
  * Steward's sign-in first while nobody was an admin. An admin revokes only somebody strictly below
  * them, and a revocation takes the revoked admin's whole branch with it. Nobody revokes themselves,
- * the root included.</p>
+ * the root included.
  *
- * <p><b>Grants are limited, revocations are not.</b> {@value #GRANTS_PER_HOUR} grants an hour
+ * <b>Grants are limited, revocations are not.</b> {@value #GRANTS_PER_HOUR} grants an hour
  * across all admins together; the next one is refused at once rather than queued. A revocation is
- * the answer to a grant that should not have happened, and limiting it would protect the mistake.</p>
+ * the answer to a grant that should not have happened, and limiting it would protect the mistake.
  *
- * <p>Every change notifies {@code nordtal_admin} inside the statement that makes it, so it reaches
+ * Every change notifies {@code nordtal_admin} inside the statement that makes it, so it reaches
  * connected sessions only once it committed. {@code discord_user.admin} stays the flag every other
- * reader uses; this interface is the only thing that writes it.</p>
+ * reader uses; this interface is the only thing that writes it.
  */
 public interface AdminTree {
 
@@ -41,8 +41,8 @@ public interface AdminTree {
     /**
      * Makes this account the root, but only while nobody at all is an admin.
      *
-     * <p>This is the bootstrap and there is no other: the first sign-in into an empty tree wins,
-     * deliberately a race. Creates the {@code discord_user} row if the bot has not written it yet.</p>
+     * This is the bootstrap and there is no other: the first sign-in into an empty tree wins,
+     * deliberately a race. Creates the {@code discord_user} row if the bot has not written it yet.
      *
      * @return whether this account is now the root; false when anybody already was an admin
      */
@@ -63,8 +63,7 @@ public interface AdminTree {
     Revocation revoke(String actor, String target);
 
     /**
-     * Takes admin from this account and its whole branch, whoever is above it - what leaving or
-     * being banned from the guild does, the one way out of the tree that is not a revocation.
+     * Takes admin from this account and its whole branch, as leaving or being banned from the guild does.
      *
      * @return every account that stopped being an admin, empty when this one was not one
      */

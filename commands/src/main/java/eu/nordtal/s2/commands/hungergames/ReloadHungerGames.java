@@ -12,14 +12,14 @@ import eu.nordtal.s2.common.message.Tone;
 /**
  * {@code /hg reload} - the wording and the sounds, and nothing else.
  *
- * <p>{@code config.yml} holds the border schedule and the loot timings, and a game is a running
+ * {@code config.yml} holds the border schedule and the loot timings, and a game is a running
  * clock: re-reading those mid-match would move a shrink that players are already running from. A
  * typo in a message is worth fixing during a game and so is a chime that turns out to be unbearable
- * with twenty people on towers; a border parameter is not.</p>
+ * with twenty people on towers; a border parameter is not.
  *
- * <p>Two independent attempts, in that order: the sounds first because they are the cheapest thing
+ * Two independent attempts, in that order: the sounds first because they are the cheapest thing
  * to get wrong and the only one an operator is expected to be iterating on while somebody waits to
- * hear the result. A broken {@code sounds.yml} must not stop a corrected message from arriving.</p>
+ * hear the result. A broken {@code sounds.yml} must not stop a corrected message from arriving.
  */
 public final class ReloadHungerGames implements NordtalCommand<HungerGamesEffects> {
 
@@ -35,8 +35,7 @@ public final class ReloadHungerGames implements NordtalCommand<HungerGamesEffect
             final boolean messages = effects.reloadMessages();
 
             if (sounds && messages) {
-                // No sound: an admin's confirmation of a command they just typed and are already
-                // reading. /smp reload is silent for the same reason.
+                // No sound: an admin's confirmation of a command they just typed and are already reading. /smp reload.
                 user.reply(MESSAGES.hg().admin().reloaded(), Tone.GOOD);
             } else {
                 user.reply(MESSAGES.hg().admin().reloadFailed(), Feedback.REFUSED, Tone.BAD);

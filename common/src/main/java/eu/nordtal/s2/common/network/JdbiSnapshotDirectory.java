@@ -6,11 +6,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-/**
- * The only implementation of {@link SnapshotDirectory}. Package-private, like every other
- * {@code Jdbi*Directory} here: consumers get it from the factory method on the interface and never
- * name JDBI themselves.
- */
+/** The only implementation of {@link SnapshotDirectory}. */
 final class JdbiSnapshotDirectory implements SnapshotDirectory {
 
     private final SnapshotDao dao;
@@ -25,9 +21,7 @@ final class JdbiSnapshotDirectory implements SnapshotDirectory {
 
     @Override
     public NetworkSnapshot snapshot() {
-        // The query is scalar subqueries over a one-row VALUES, so it always produces exactly one
-        // row. The null guard is for the impossible case only, and answers what an empty network
-        // looks like rather than handing a caller a null to trip over.
+        // The query always returns one row; the null guard answers an empty network for the impossible case.
         final NetworkSnapshot snapshot = dao.snapshot();
         return snapshot == null ? NetworkSnapshot.EMPTY : snapshot;
     }

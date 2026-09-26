@@ -27,14 +27,14 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Brigadier's {@code requires} sits on nodes, and until 2026-09-08 only the first-level children
- * carried it. {@code /update} is a root whose bare form is itself a command, so it had no gated
- * node above it at all and any player could run the report. The tree is built here without a
- * server - {@code Commands.literal} is plain Brigadier - and the root's own requirement is asked.
+ * A root whose bare form is itself a command, such as {@code /update}, needs its own gate.
+ *
+ * A check only on first-level children would leave it open to any player. The tree is built here
+ * without a server - {@code Commands.literal} is plain Brigadier - and the root's own requirement
+ * is asked.
  */
 class PaperCommandsRootGateTest {
 
@@ -43,7 +43,6 @@ class PaperCommandsRootGateTest {
     private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locale.ENGLISH);
 
     @Test
-    @DisplayName("/update, a root that is entirely admin-only, is closed to a player and open to the console")
     void anAdminOnlyRootIsGated() {
         final PaperCommands commands = adapter();
         for (final NordtalCommand<UpdateEffects> command : UpdateCommands.all()) {
@@ -58,11 +57,8 @@ class PaperCommandsRootGateTest {
     }
 
     @Test
-    @DisplayName("/smp, a root with an open subtree hung under it, stays open - /smp status is anybody's")
     void aRootWithSomethingOpenStaysOpen() {
-        // /smp status is native Brigadier in the smp plugin, hung under the declared root with
-        // extraOpen. Every declaration under /smp is the console's, so without the extra the root
-        // is closed - see the case below - and with it the root has to stay in a player's tree.
+        // /smp status is native Brigadier, hung under the declared root with extraOpen.
         final PaperCommands commands = adapter();
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
@@ -76,10 +72,7 @@ class PaperCommandsRootGateTest {
     }
 
     @Test
-    @DisplayName("an open declaration under an admin root keeps the root and its own node open")
-    void anOpenDeclarationIsNotGatedByItsRoot() {
-        // No declaration in the catalogue is a player's since 2026-09-25, so the case is made up:
-        // the adapter still has to build the shape right if one ever comes back.
+    void anOpenDeclarationKeepsTheRootAndItselfOpen() {
         final PaperCommands commands = adapter();
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
@@ -112,7 +105,6 @@ class PaperCommandsRootGateTest {
     }
 
     @Test
-    @DisplayName("/smp with nothing open under it is closed to a player")
     void aRootWithNothingOpenIsClosed() {
         final PaperCommands commands = adapter();
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
@@ -146,9 +138,6 @@ class PaperCommandsRootGateTest {
                 .orElseThrow(() -> new AssertionError("no /" + literal + " was built"));
     }
 
-    // ---------------------------------------------------------------- stand-ins
-
-    @SuppressWarnings("unchecked")
     private static <T> T silent(final Class<T> type) {
         return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
             throw new UnsupportedOperationException(

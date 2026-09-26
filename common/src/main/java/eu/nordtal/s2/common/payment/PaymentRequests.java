@@ -13,23 +13,21 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
 /**
  * The {@code payment_request} table, as the rest of the bot sees it.
- * <p>
+ *
  * Everything here is one statement against a schema that already enforces the rules. The only
  * logic that lives in Java is allocating a reference, because that needs a random value and a
  * retry.
- * </p>
  */
 public final class PaymentRequests {
 
     /**
      * The reference printed on the bunq.me tab and scraped back out of a payment description.
-     * <p>
+     *
      * Six hex digits is 16.7 million values, and the point is not to be unguessable - it is to be
      * short enough to survive being retyped by a human into a bank transfer description, and
      * distinctive enough that a regex over a payment description does not match anything else. It
      * is a lookup key, never an authorisation: a payment carrying somebody else's reference books
      * against that request, which is what a bank reference is for.
-     * </p>
      */
     public static final Pattern REFERENCE_PATTERN = Pattern.compile("NT-[0-9A-F]{6}");
 
@@ -52,8 +50,6 @@ public final class PaymentRequests {
         this.jdbi = jdbi;
         this.dao = jdbi.onDemand(PaymentRequestDao.class);
     }
-
-    // ---------------------------------------------------------------- reads
 
     public Optional<PaymentRequest> openOf(final String discordId) {
         return dao.findOpenByUser(discordId);
@@ -127,20 +123,16 @@ public final class PaymentRequests {
         return dao.unpostedNotices();
     }
 
-    // ---------------------------------------------------------------- writes
-
     /**
      * Opens a request with a freshly allocated reference.
-     * <p>
+     *
      * The caller must have closed any previous open request of this user first - the partial
      * unique index {@code payment_request_one_open_per_user_key} makes that a hard requirement
      * rather than an expectation, and this throws if it was not done.
-     * </p>
-     * <p>
+     *
      * A {@code discord_user} row is created first, in the same transaction, because
      * {@code payment_request} has a foreign key onto it and the user may never have been written
      * about before.
-     * </p>
      *
      * @param discordId     who is buying
      * @param days          how many days were ordered
@@ -167,9 +159,7 @@ public final class PaymentRequests {
                             .insert(reference, discordId, days, amountCents, donationCents, ttlHours);
                 });
             } catch (final UnableToExecuteStatementException exception) {
-                // Only a collision on the reference is worth retrying. A collision on
-                // "one open request per person" means the caller skipped a step, and silently
-                // retrying it would just spin until the attempts ran out.
+                // Only a reference collision is retried; a second open request means the caller skipped a step.
                 if (attempt >= REFERENCE_ATTEMPTS || !isReferenceCollision(exception)) {
                     throw exception;
                 }
@@ -178,12 +168,9 @@ public final class PaymentRequests {
     }
 
     /**
-     * Changes what an open, not-yet-confirmed request is for - a different number of days, or the
-     * donation toggled.
+     * Changes the days or donation of an open request that has no tab yet.
      *
-     * @return {@code true} when the row was still changeable; {@code false} once a tab exists,
-     *         because the tab asks for a fixed amount and editing the row would make the two
-     *         disagree
+     * @return {@code false} once a tab exists, since the tab asks for a fixed amount
      */
     public boolean reselect(final UUID id, final int days, final int amountCents, final int donationCents) {
         return dao.reselect(id, days, amountCents, donationCents) == 1;
@@ -254,13 +241,10 @@ public final class PaymentRequests {
         return dao.claimNotice(bunqPaymentId) == 1;
     }
 
-    // ---------------------------------------------------------------- the seam (concept §10d)
-
     /**
      * Asks steward-worker for a bunq.me tab, rather than calling bunq from wherever this runs.
-     * <p>
+     *
      * Also the retry: the previous failure, if there was one, is cleared by the same statement.
-     * </p>
      *
      * @return {@code true} when a tab is now wanted; {@code false} when the request was closed or
      *         already has one
@@ -281,8 +265,7 @@ public final class PaymentRequests {
     }
 
     /**
-     * Asks steward-worker to cancel the request's bunq tab. Closing the row itself is a separate
-     * write, and the caller is expected to do both in one transaction.
+     * Asks steward-worker to cancel the request's bunq tab; closing the row is the caller's own write.
      *
      * @return {@code true} when this call asked; {@code false} when it had already been asked for
      */
@@ -293,18 +276,17 @@ public final class PaymentRequests {
     /**
      * Closes a request and asks for its bunq tab to go away, in one transaction.
      *
-     * <p>This is what {@code Purchases.close()} used to do with a synchronous
-     * {@code BunqGateway#cancelTab} in front of a status write (steward/109). The two halves are one
+     * The two halves are one
      * transaction rather than two statements because of the window between them: a row that is
      * closed but has not asked for the cancel is a live bunq.me URL somebody can still pay, and a
      * row that has asked but is still {@code OPEN} can be given a tab by the worker's other queue in
      * the same instant - which is why {@code tabsToCreate} carries a {@code cancel_requested IS
-     * NULL} clause as well. Neither state exists for longer than this transaction.</p>
+     * NULL} clause as well. Neither state exists for longer than this transaction.
      *
-     * <p>The cancel is asked for unconditionally, tab or no tab: {@code tabsToCancel} requires a
+     * The cancel is asked for unconditionally, tab or no tab: {@code tabsToCancel} requires a
      * {@code bunq_tab_id}, so a row that never reached bunq simply never appears there, and the
      * alternative - deciding here, from a row that may be a poll old - is a decision made against a
-     * tab that arrived in between.</p>
+     * tab that arrived in between.
      *
      * @param id     the request
      * @param status anything but {@code PAID}
@@ -332,32 +314,18 @@ public final class PaymentRequests {
     }
 
     /**
-     * Attributes a payment to a request without booking it - what steward-worker writes when it
-     * finds money, leaving the grant, the DM and the thank-you to the bot.
-     * <p>
-     * The row stays {@code OPEN} and {@code settled} stays null, so
-     * {@code payment_request_settled_iff_paid} holds; {@link #settle(UUID, long)} remains the only
-     * statement that books.
-     * </p>
-     * <p>
-     * Unlike {@link #settle(UUID, long)} this does <b>not</b> swallow the unique violation on
-     * {@code bunq_payment_id}. Settling is called from a poll loop that legitimately races with
-     * itself, so "somebody else got there first" is an answer there. Attribution has one writer,
-     * and one payment claimed for two requests means that writer is wrong - absorbing it would turn
-     * a bug into money quietly attributed to nobody.
-     * </p>
+     * Attributes a payment to a request without booking it, leaving the booking to the bot.
      *
-     * @return {@code true} when this call attributed it; {@code false} when the request was no
-     *         longer open or already carried a payment
-     * @throws UnableToExecuteStatementException when that payment is already claimed by another
-     *                                           request
+     * Unlike {@link #settle(UUID, long)} this does not swallow the unique violation on
+     * {@code bunq_payment_id}: attribution has one writer, so a double claim is a bug.
+     *
+     * @return {@code false} when the request was no longer open or already carried a payment
+     * @throws UnableToExecuteStatementException when that payment is already claimed by another request
      */
     public boolean recordMatch(
             final UUID id, final long bunqPaymentId, final int matchedCents, final PaymentMatch matchedBy) {
         return dao.recordMatch(id, bunqPaymentId, matchedCents, matchedBy.name()) == 1;
     }
-
-    // ---------------------------------------------------------------- helpers
 
     private String randomReference() {
         final byte[] bytes = new byte[REFERENCE_BYTES];
@@ -366,8 +334,10 @@ public final class PaymentRequests {
     }
 
     private static boolean isReferenceCollision(final UnableToExecuteStatementException exception) {
+        final Throwable cause = exception.getCause();
         return isUniqueViolation(exception)
-                && String.valueOf(exception.getCause().getMessage()).contains(REFERENCE_CONSTRAINT);
+                && cause != null
+                && String.valueOf(cause.getMessage()).contains(REFERENCE_CONSTRAINT);
     }
 
     private static boolean isUniqueViolation(final UnableToExecuteStatementException exception) {

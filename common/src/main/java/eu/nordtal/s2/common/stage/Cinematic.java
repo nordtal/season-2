@@ -5,22 +5,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import net.kyori.adventure.text.Component;
+import org.jspecify.annotations.Nullable;
 
 /**
- * One staged moment, described rather than performed: a run of images shown one after another in the
- * title slot, each for a number of ticks, plus an optional potion effect, sound and subtitle.
+ * One staged moment as a value: images shown in the title slot for some ticks each, plus effect and sound.
  *
- * <p>Nothing here performs anything - this is a value, so the ordering and spacing can be asserted
- * in a JVM with no client in it. {@link Cinematics} runs one and {@link CinematicStage} is what a
- * surface has to be able to do.
- *
- * <p>An image is a {@link Component}, never a bare code point: the fonts allocate independently, so
- * a code point in the wrong font draws another glyph rather than nothing, and a component carries
- * its font with it.
- *
- * <p>An effect is a namespaced key rather than a Bukkit type, because {@code :common} is compiled
- * against no platform; resolving it is the adapter's job, and a key that names nothing is a warning
- * rather than a moment that throws. A sound is a {@link Feedback} category for the same reason.
+ * {@link Cinematics} runs one on a {@link CinematicStage}. An image is a {@link Component}, which carries
+ * its font; an effect is a namespaced key and a sound a {@link Feedback} category, resolved by the adapter.
  */
 public final class Cinematic {
 
@@ -65,9 +56,9 @@ public final class Cinematic {
     public record Cue(int atTick, Frame frame) {}
 
     private final List<Frame> frames;
-    private final Component subtitle;
-    private final Effect effect;
-    private final Feedback sound;
+    private final @Nullable Component subtitle;
+    private final @Nullable Effect effect;
+    private final @Nullable Feedback sound;
 
     private Cinematic(final Builder builder) {
         this.frames = List.copyOf(builder.frames);
@@ -90,17 +81,17 @@ public final class Cinematic {
     }
 
     /** The line under every image, or {@code null} when there is none. */
-    public Component subtitle() {
+    public @Nullable Component subtitle() {
         return subtitle;
     }
 
     /** The effect held for {@link #totalTicks()}, or {@code null} when there is none. */
-    public Effect effect() {
+    public @Nullable Effect effect() {
         return effect;
     }
 
     /** The category played once at the start, or {@code null} when the moment is silent. */
-    public Feedback sound() {
+    public @Nullable Feedback sound() {
         return sound;
     }
 
@@ -113,10 +104,7 @@ public final class Cinematic {
         return total;
     }
 
-    /**
-     * Every image with the tick it appears on, first at zero. Public because it is the arithmetic
-     * worth asserting without a scheduler, a player or a client.
-     */
+    /** Returns every image with the tick it appears on, the first at zero. */
     public List<Cue> cues() {
         final List<Cue> cues = new ArrayList<>(frames.size());
         int at = 0;
@@ -130,9 +118,9 @@ public final class Cinematic {
     public static final class Builder {
 
         private final List<Frame> frames = new ArrayList<>();
-        private Component subtitle;
-        private Effect effect;
-        private Feedback sound;
+        private @Nullable Component subtitle;
+        private @Nullable Effect effect;
+        private @Nullable Feedback sound;
 
         private Builder() {}
 
@@ -151,19 +139,19 @@ public final class Cinematic {
         }
 
         /** The line under every image. {@code null} leaves it out. */
-        public Builder subtitle(final Component subtitle) {
+        public Builder subtitle(final @Nullable Component subtitle) {
             this.subtitle = subtitle;
             return this;
         }
 
         /** Held for the whole staging. {@code null} leaves it out. */
-        public Builder effect(final Effect effect) {
+        public Builder effect(final @Nullable Effect effect) {
             this.effect = effect;
             return this;
         }
 
         /** Played once, at the start. {@code null} leaves it out, and so does a blank key. */
-        public Builder sound(final Feedback sound) {
+        public Builder sound(final @Nullable Feedback sound) {
             this.sound = sound;
             return this;
         }

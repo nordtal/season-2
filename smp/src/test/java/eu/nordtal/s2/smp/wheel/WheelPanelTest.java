@@ -145,7 +145,7 @@ class WheelPanelTest {
         assertEquals(2, SlotGeometry.column(WheelPanel.HUB_SLOT));
         assertEquals(2, SlotGeometry.row(WheelPanel.HUB_SLOT));
 
-        final List<Run> text = PanelWalk.textRuns(PanelWalk.runs(surface()), Glyphs.FONT_GUI_ROWS[2]);
+        final List<Run> text = PanelWalk.textRuns(PanelWalk.runs(surface()), Glyphs.FONT_GUI_ROWS.get(2));
         final Run number = text.stream()
                 .filter(run -> run.content().equals("7"))
                 .findFirst()
@@ -161,7 +161,7 @@ class WheelPanelTest {
     @DisplayName("the button sits on the cells that carry its click, and its label is centred")
     void theButtonIsItsSlots() {
         final List<Run> runs = PanelWalk.runs(surface());
-        final String font = Glyphs.FONT_GUI_ROWS[WheelPanel.AGAIN_ROW];
+        final String font = Glyphs.FONT_GUI_ROWS.get(WheelPanel.AGAIN_ROW);
         final Run plate = PanelWalk.find(runs, font, Glyphs.GUI_ROW_BUTTON_CONFIRM);
 
         final int first = SlotGeometry.x(SlotGeometry.column(WheelPanel.AGAIN_SLOTS.get(0)));
@@ -186,7 +186,7 @@ class WheelPanelTest {
         final int right = SlotGeometry.x(8) + SlotGeometry.PITCH - WheelPanel.INSET;
 
         for (final int row : new int[] {1, 3, WheelPanel.AGAIN_ROW}) {
-            for (final Run run : PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS[row])) {
+            for (final Run run : PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(row))) {
                 assertTrue(
                         run.x() >= left, "'" + run.content() + "' starts at " + run.x() + ", which is over the ring");
                 assertTrue(

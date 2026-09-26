@@ -6,25 +6,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The report survives the trip through {@code update_request.result} and back.
+ * Checks that a report survives the trip through {@code update_request.result} and back.
  *
- * <h2>What is actually at risk</h2>
- * The writer and the reader are in different containers, and between them sits a {@code text}
- * column. Three things in that trip are worth pinning rather than assuming: a {@code null} version
- * means "nothing is installed yet" and must not come back as the four letters {@code null}; the
- * text a person typed into a config or a failure message can contain a quote or a newline; and the
- * rows already in a deployed database are <em>plain text</em> from before 2026-09-07, which every
- * surface still has to be able to draw.
+ * A {@code null} version must not come back as {@code "null"}, typed text may hold quotes and newlines,
+ * and plain-text rows must stay drawable.
  */
 class UpdateReportsTest {
 
     @Test
-    @DisplayName("a whole report round-trips")
-    void theReportSurvivesTheColumn() {
+    void aWholeReportRoundTrips() {
         final UpdateReport report = new UpdateReport(
                 UpdateReport.Stage.VERIFYING,
                 List.of(
@@ -49,8 +42,7 @@ class UpdateReportsTest {
     }
 
     @Test
-    @DisplayName("a version that is not installed yet stays absent")
-    void aNullVersionIsNotTheWordNull() {
+    void aVersionThatIsNotInstalledYetStaysAbsent() {
         final UpdateReport report = new UpdateReport(
                 UpdateReport.Stage.PLANNED,
                 List.of(new UpdateReport.ServiceLine(
@@ -74,8 +66,7 @@ class UpdateReportsTest {
     }
 
     @Test
-    @DisplayName("a failure message carrying quotes and newlines comes back as it went in")
-    void textIsEscaped() {
+    void aFailureMessageCarryingQuotesAndNewlinesComesBackAsItWentIn() {
         final String nasty = "the daemon answered 404 for \"/containers/abc123/stop\".\nIts id\tis"
                 + " twelve hex characters, not a service name.";
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED).withNote(nasty);
@@ -89,8 +80,7 @@ class UpdateReportsTest {
     }
 
     @Test
-    @DisplayName("an empty report round-trips, arrays and all")
-    void anEmptyReportIsStillAReport() {
+    void anEmptyReportRoundTripsArraysAndAll() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.RESOLVING);
 
         final UpdateReport back =
@@ -102,10 +92,8 @@ class UpdateReportsTest {
     }
 
     @Test
-    @DisplayName("the plain text an older worker wrote is not a report, and does not throw")
-    void oldRowsAreNotReports() {
-        // A deployed database holds these today. Every surface falls back to printing the text, so
-        // the one thing this must never do is throw on the way to that fallback.
+    void thePlainTextAnOlderWorkerWroteIsNotAReportAndDoesNotThrow() {
+        // Plain-text rows must parse to empty without throwing.
         assertEquals(Optional.empty(), UpdateReports.parse("Nothing needed doing.\n  smp: paper 26.2.121 (current)"));
         assertEquals(Optional.empty(), UpdateReports.parse(null));
         assertEquals(Optional.empty(), UpdateReports.parse(""));
@@ -113,11 +101,8 @@ class UpdateReportsTest {
         assertEquals(Optional.empty(), UpdateReports.parse("{\"stage\":"));
     }
 
-    // ---------------------------------------------------------------- building one up
-
     @Test
-    @DisplayName("a service line is replaced as the run walks past it, not appended")
-    void aServiceHasOneLineThroughoutTheRun() {
+    void aServiceLineIsReplacedAsTheRunWalksPastItNotAppended() {
         final UpdateReport.Change change = new UpdateReport.Change("smp", "0.6.0", "0.7.0");
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.PLANNED, List.of(change), null));
@@ -138,16 +123,14 @@ class UpdateReportsTest {
     }
 
     @Test
-    @DisplayName("a service nobody has mentioned reads as unchanged rather than as missing")
-    void anUnknownServiceIsUnchanged() {
+    void aServiceNobodyHasMentionedReadsAsUnchangedRatherThanAsMissing() {
         assertEquals(
                 UpdateReport.State.UNCHANGED,
                 UpdateReport.at(UpdateReport.Stage.PLANNED).line("limbo").state());
     }
 
     @Test
-    @DisplayName("news and work are different answers")
-    void nothingToDoIsNotWork() {
+    void newsAndWorkAreDifferentAnswers() {
         assertFalse(
                 UpdateReport.at(UpdateReport.Stage.PLANNED)
                         .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.UNCHANGED, List.of(), null))
@@ -164,8 +147,7 @@ class UpdateReportsTest {
     }
 
     @Test
-    @DisplayName("the text rendering is the one text rendering")
-    void theTextFormIsGeneratedFromTheSameObject() {
+    void theTextRenderingIsTheOneTextRendering() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
                 .with(new UpdateReport.ServiceLine(
                         "smp",
@@ -181,11 +163,8 @@ class UpdateReportsTest {
     }
 
     @Test
-    @DisplayName("an artefact with no build for this version is news and never work")
-    void anUnsupportedArtefactIsNotWork() {
-        // The whole reason the state exists. A service line carrying only these must not make a run
-        // stop a server, install anything, or close as "installed" - and the deciding lives here,
-        // once, so that UpdateRun and Runner cannot each have their own opinion about it.
+    void anArtefactWithNoBuildForThisVersionIsNewsAndNeverWork() {
+        // A line with only unsupported changes must not stop, install or close as installed.
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
                 .with(new UpdateReport.ServiceLine(
                         "smp",
@@ -201,8 +180,7 @@ class UpdateReportsTest {
     }
 
     @Test
-    @DisplayName("one artefact moving beside one that cannot makes the service work again")
-    void oneMovingArtefactIsEnough() {
+    void oneArtefactMovingBesideOneThatCannotMakesTheServiceWorkAgain() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
                 .with(new UpdateReport.ServiceLine(
                         "smp",
@@ -217,8 +195,7 @@ class UpdateReportsTest {
     }
 
     @Test
-    @DisplayName("an unsupported artefact survives the column, and an ordinary one writes no state")
-    void theArtefactStateSurvivesTheColumn() {
+    void anUnsupportedArtefactSurvivesTheColumnAndAnOrdinaryOneWritesNoState() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
                 .with(new UpdateReport.ServiceLine(
                         "smp",
@@ -231,16 +208,13 @@ class UpdateReportsTest {
         final String json = UpdateReports.toJson(report);
         assertEquals(report, UpdateReports.parse(json).orElseThrow());
 
-        // Written only for the state that is not the default, which is what keeps a network
-        // mid-deployment readable: a reader older than this change throws on a key it does not
-        // know, and every ordinary report has to stay parseable by it.
+        // Written only for the non-default state, so older readers still parse ordinary reports.
         assertEquals(1, json.split("\"state\":\"UNSUPPORTED\"", -1).length - 1, json);
         assertFalse(json.contains("\"state\":\"MOVING\""), json);
     }
 
     @Test
-    @DisplayName("a failure says which service and why, in the text too")
-    void aFailedServiceCarriesItsReason() {
+    void aFailureSaysWhichServiceAndWhyInTheTextToo() {
         final String rendered = UpdateReport.at(UpdateReport.Stage.FAILED)
                 .with(new UpdateReport.ServiceLine("limbo", UpdateReport.State.PLANNED, List.of(), null)
                         .failed("did not report healthy within 5 minutes"))

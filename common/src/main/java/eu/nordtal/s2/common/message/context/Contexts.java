@@ -7,11 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Turns the {@link MessageContext}s among a message's values into the placeholders they stand for,
- * and holds the two every message has: {@code server}, the service the text is shown by, and
- * {@code season}.
- */
+/** Turns message contexts into placeholders, and holds the global {@code server} and {@code season}. */
 public final class Contexts {
 
     /** The roles every message has, with their types, in the order the Steward UI lists them. */
@@ -28,10 +24,7 @@ public final class Contexts {
 
     private Contexts() {}
 
-    /**
-     * Sets which service this process is, for <code>{server.name}</code>. Each process calls it once,
-     * as it starts; until then the placeholder stays in the text as written, where it shows.
-     */
+    /** Sets which service this process is, for {@code {server.name}}; until then the placeholder stays as written. */
     public static void server(final String service) {
         GLOBAL_VALUES.put("server", new ServiceContext(service));
     }

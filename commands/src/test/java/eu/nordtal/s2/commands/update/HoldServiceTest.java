@@ -8,16 +8,15 @@ import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateKind;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code /update down <service>} and {@code /update start [service]} (season-2-ops/125).
+ * {@code /update down <service>} and {@code /update start [service]}.
  *
- * <p>What is worth asserting here is the scope and nothing else. Everything that happens after the
+ * What is worth asserting here is the scope and nothing else. Everything that happens after the
  * row is written belongs to steward-worker, and everything before it is the adapter's; what this
  * command decides is which kind and which services - and the difference between naming a service
- * and naming none is, on the stopping side, the difference between one server and the network.</p>
+ * and naming none is, on the stopping side, the difference between one server and the network.
  */
 class HoldServiceTest {
 
@@ -33,8 +32,7 @@ class HoldServiceTest {
     }
 
     @Test
-    @DisplayName("/update down smp writes a DOWN for smp alone")
-    void downCarriesItsService() {
+    void updateDownSmpWritesADownForSmpAlone() {
         final FakeUpdateDirectory directory = ask(UpdateCommands.DOWN, Map.of("service", "smp"));
 
         assertEquals(1, directory.submitted.size());
@@ -47,8 +45,7 @@ class HoldServiceTest {
     }
 
     @Test
-    @DisplayName("a refused take-down says why, instead of blaming the database")
-    void aRefusedRunIsNamedAsSuch() {
+    void aRefusedTakeDownSaysWhyInsteadOfBlamingTheDatabase() {
         final FakeUpdateDirectory directory = new FakeUpdateDirectory();
         directory.refusing = RunRefused.alreadyHeld(List.of("smp"));
         final FakeUser user = FakeUser.console();
@@ -64,8 +61,7 @@ class HoldServiceTest {
     }
 
     @Test
-    @DisplayName("a run refused because another is open says so")
-    void aBusyNetworkIsNamedAsSuch() {
+    void aRunRefusedBecauseAnotherIsOpenSaysSo() {
         final FakeUpdateDirectory directory = new FakeUpdateDirectory();
         directory.refusing = RunRefused.runOpen(new eu.nordtal.s2.common.update.UpdateRequest(
                 7L,
@@ -90,8 +86,7 @@ class HoldServiceTest {
     }
 
     @Test
-    @DisplayName("/update start smp writes a START for smp alone")
-    void startCarriesItsService() {
+    void updateStartSmpWritesAStartForSmpAlone() {
         final FakeUpdateDirectory directory = ask(UpdateCommands.START, Map.of("service", "smp"));
 
         assertEquals(UpdateKind.START, directory.submitted.getFirst().kind());
@@ -99,11 +94,8 @@ class HoldServiceTest {
     }
 
     @Test
-    @DisplayName("/update start with no service asks for everything that is held")
-    void startWithoutAServiceIsEverythingHeld() {
-        // The asymmetry with `down`, which the declaration enforces by requiring its argument.
-        // Empty here means "every service somebody is holding down" - the recovery an operator
-        // wants when they no longer remember which ones they stopped.
+    void updateStartWithNoServiceAsksForEverythingThatIsHeld() {
+        // The asymmetry with `down`, which the declaration enforces by requiring its argument. Empty here means "every.
         final FakeUpdateDirectory directory = ask(UpdateCommands.START, Map.of());
 
         assertEquals(UpdateKind.START, directory.submitted.getFirst().kind());

@@ -5,17 +5,14 @@ import eu.nordtal.s2.common.message.MessageRef;
 /**
  * A command: its {@link Declaration}, and what it does with an effect the platform supplies.
  *
- * <p>{@code E} is the effect interface of the process that owns the command, so the decision half
+ * {@code E} is the effect interface of the process that owns the command, so the decision half
  * lives here (and is testable with a fake effect and a fake {@link NordtalUser}) while the acting
- * half stays in the JVM that can carry it out. Three things must therefore not appear here:</p>
- * <ul>
- *   <li><b>A platform type.</b> This module compiles against no platform; a {@code Player} in a
- *       signature is a command the Discord adapter can never call.</li>
- *   <li><b>A sentence.</b> Every string a command produces is a message key rendered against the
- *       asker's locale.</li>
- *   <li><b>A blocking call.</b> {@link #run} is invoked from a Brigadier handler on the main thread
- *       and from a JDA gateway thread. Work that waits belongs behind the effect.</li>
- * </ul>
+ * half stays in the JVM that can carry it out. Three things must therefore not appear here: a
+ * platform type (this module compiles against no platform, so a {@code Player} in a signature is
+ * a command the Discord adapter can never call), a sentence (every string a command produces is a
+ * message key rendered against the asker's locale), and a blocking call ({@link #run} is invoked
+ * from a Brigadier handler on the main thread and from a JDA gateway thread, so work that waits
+ * belongs behind the effect).
  *
  * @param <E> the effect interface of the process that runs this command
  */
@@ -27,9 +24,9 @@ public interface NordtalCommand<E> {
     /**
      * Do it.
      *
-     * <p>Authorisation has already been checked by the caller against
+     * Authorisation has already been checked by the caller against
      * {@link Declaration#adminOnly()} - twice for a command that travelled, since the admin flag can
-     * change while a request row waits. A command does not re-check it.</p>
+     * change while a request row waits. A command does not re-check it.
      *
      * @param user    who asked, in which language, and where to answer
      * @param values  the arguments, already parsed and validated against the declaration
@@ -40,13 +37,13 @@ public interface NordtalCommand<E> {
     /**
      * Whether the arguments are wrong in a way this command can see before doing anything.
      *
-     * <p>Separate from {@link #run} because an irreversible command is confirmed before it runs;
+     * Separate from {@link #run} because an irreversible command is confirmed before it runs;
      * every adapter asks this first, so {@code /phase set NOT_A_PHASE} is refused instead of
-     * demanding a retype and only then rejecting the name.</p>
+     * demanding a retype and only then rejecting the name.
      *
-     * <p>Only for what the arguments say, never for the world: "that is not a phase name" belongs
+     * Only for what the arguments say, never for the world: "that is not a phase name" belongs
      * here, "no milestone is active" does not - the second needs the effects and can change between
-     * the question and the answer.</p>
+     * the question and the answer.
      *
      * @return the message naming the problem - or empty when
      *         the arguments are usable
@@ -58,9 +55,9 @@ public interface NordtalCommand<E> {
     /**
      * Everything wrong with the arguments: the checks every command gets, then {@link #problem}.
      *
-     * <p>A {@link Argument.Kind#CHOICE} is validated here rather than per adapter because Brigadier
+     * A {@link Argument.Kind#CHOICE} is validated here rather than per adapter because Brigadier
      * has no enum type - both chat adapters type a choice as a plain word and would accept anything
-     * typed.</p>
+     * typed.
      */
     default java.util.Optional<MessageRef> check(final Values values) {
         for (final Argument argument : declaration().arguments()) {
@@ -68,8 +65,7 @@ public interface NordtalCommand<E> {
                 continue;
             }
             final java.util.Optional<Object> supplied = values.raw(argument.name());
-            // Values has already normalised a recognised choice, so this only asks whether it is
-            // one at all - through the same match(), so the two cannot disagree.
+            // Values has already normalised a recognised choice, so this only asks whether it is one at all.
             if (supplied.isPresent()
                     && argument.match(String.valueOf(supplied.get())).isEmpty()) {
                 return java.util.Optional.of(CommandMessages.MESSAGES

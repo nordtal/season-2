@@ -10,13 +10,12 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The rules that make a wrong sound harmless.
  *
- * <p>None of this needs a server, which is exactly why it is worth pinning here: the behaviour these
+ * None of this needs a server, which is exactly why it is worth pinning here: the behaviour these
  * cases describe only ever shows up on a real one, at the moment somebody has mistyped a key in a
  * production {@code config.yml} - and then the difference between "that chime is missing" and "the
  * server is stopping" is the whole of it.
@@ -24,8 +23,7 @@ import org.junit.jupiter.api.Test;
 class FeedbackSoundsTest {
 
     @Test
-    @DisplayName("an empty key silences that category and complains about nothing")
-    void anEmptyKeyIsTheEscapeHatch() {
+    void anEmptyKeySilencesThatCategoryAndComplainsAboutNothing() {
         final List<String> problems = new ArrayList<>();
         final FeedbackSounds sounds = FeedbackSounds.parse(
                 Map.of(
@@ -46,8 +44,7 @@ class FeedbackSoundsTest {
     }
 
     @Test
-    @DisplayName("a category nobody declared is silent")
-    void anUndeclaredCategoryIsSilent() {
+    void aCategoryNobodyDeclaredIsSilent() {
         final FeedbackSounds sounds = FeedbackSounds.parse(new EnumMap<>(Feedback.class), problem -> {
             throw new AssertionError("nothing to complain about: " + problem);
         });
@@ -57,8 +54,7 @@ class FeedbackSoundsTest {
     }
 
     @Test
-    @DisplayName("a key that is not a namespaced key is reported once and silences its category")
-    void aMalformedKeyIsReportedAndSilenced() {
+    void aKeyThatIsNotANamespacedKeyIsReportedOnceAndSilencesItsCategory() {
         final List<String> problems = new ArrayList<>();
         final FeedbackSounds sounds = FeedbackSounds.parse(
                 Map.of(Feedback.SELECT, new FeedbackSound("UI_BUTTON_CLICK", 1.0f, 1.0f)), problems::add);
@@ -73,14 +69,13 @@ class FeedbackSoundsTest {
     /**
      * The custom-sound case, and the one that must <b>not</b> be treated as an error.
      *
-     * <p>A key in our own namespace names a sound that only exists once the resource pack is
+     * A key in our own namespace names a sound that only exists once the resource pack is
      * applied. The server has never heard of it and never will; the client either plays it or does
      * not. Refusing it here would make the pack's own sounds unusable, which is half the reason the
      * config carries keys rather than enum constants.
      */
     @Test
-    @DisplayName("a key the server has never heard of is kept, because that is a pack sound")
-    void aPackSoundIsNotAnError() {
+    void aKeyTheServerHasNeverHeardOfIsKeptBecauseThatIsAPackSound() {
         final List<String> problems = new ArrayList<>();
         final FeedbackSounds sounds = FeedbackSounds.parse(
                 Map.of(Feedback.NETWORK_EVENT, new FeedbackSound("nordtal:milestone.fanfare", 1.0f, 1.0f)),
@@ -93,8 +88,7 @@ class FeedbackSoundsTest {
     }
 
     @Test
-    @DisplayName("a pitch outside what a client plays is clamped, not refused")
-    void anImpossiblePitchIsClamped() {
+    void aPitchOutsideWhatAClientPlaysIsClampedNotRefused() {
         final List<String> problems = new ArrayList<>();
         final FeedbackSounds sounds = FeedbackSounds.parse(
                 Map.of(
@@ -108,8 +102,7 @@ class FeedbackSoundsTest {
     }
 
     @Test
-    @DisplayName("a nonsense volume falls back rather than silencing")
-    void aNonsenseVolumeFallsBack() {
+    void aNonsenseVolumeFallsBackRatherThanSilencing() {
         final List<String> problems = new ArrayList<>();
         final FeedbackSounds sounds = FeedbackSounds.parse(
                 Map.of(Feedback.SELECT, new FeedbackSound("minecraft:ui.button.click", -3.0f, 1.0f)), problems::add);
@@ -122,13 +115,12 @@ class FeedbackSoundsTest {
     /**
      * The other half of "never an exception on a player path".
      *
-     * <p>A sound that throws once throws every time, so the adapter reports it once and the category
+     * A sound that throws once throws every time, so the adapter reports it once and the category
      * goes quiet. The alternative is that stack trace per click, which is what turns one bad config
      * value into an unreadable log.
      */
     @Test
-    @DisplayName("a category that failed to play is reported once and then stays silent")
-    void aFailureIsReportedOnce() {
+    void aCategoryThatFailedToPlayIsReportedOnceAndThenStaysSilent() {
         final List<String> problems = new ArrayList<>();
         final FeedbackSounds sounds = FeedbackSounds.parse(
                 Map.of(Feedback.SELECT, new FeedbackSound("minecraft:ui.button.click", 1.0f, 1.0f)), problems::add);
@@ -141,7 +133,6 @@ class FeedbackSoundsTest {
     }
 
     @Test
-    @DisplayName("silent() is silent everywhere")
     void silentIsSilentEverywhere() {
         final FeedbackSounds sounds = FeedbackSounds.silent();
         for (final Feedback category : Feedback.values()) {

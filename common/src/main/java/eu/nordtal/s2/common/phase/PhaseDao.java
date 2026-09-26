@@ -5,11 +5,9 @@ import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jspecify.annotations.Nullable;
 
-/**
- * The whole SQL surface of the phase model, as a JDBI SqlObject interface. Package-private on
- * purpose: {@link PhaseDirectory} is the API, and no consumer should hold a {@code Jdbi} or a DAO.
- */
+/** The SQL surface of the phase model; {@link PhaseDirectory} is the API. */
 interface PhaseDao {
 
     /**
@@ -34,25 +32,13 @@ interface PhaseDao {
     Optional<Instant> smpStart();
 
     /**
-     * The switch, the audit entry and the notification as <b>one statement</b>, so that there is no
-     * way to issue the {@code UPDATE} through this DAO without the audit {@code INSERT} riding
-     * along - both writers of the phase must record who did it.
+     * Switches the phase, writes the audit entry and notifies, as one statement.
      *
-     * <p>Every sub-statement of a {@code WITH} sees the same snapshot, so {@code previous} reads the
-     * row as it was before {@code switched} replaced it. {@code audited} is referenced by nothing,
-     * which does not matter: a data-modifying CTE runs exactly once regardless.
+     * The notification carries no payload and is emitted only on commit; listeners re-read the row.
      *
-     * <p>{@code pg_notify} rides in the select list, so a notification is only ever emitted for a
-     * switch that committed. It carries <b>no payload</b> on purpose: notifications are lost while a
-     * process is disconnected, so a listener must re-read the row and must never trust the
-     * notification as state.
-     *
-     * @param phase  the phase name to store; the column's CHECK constraint rejects anything that is
-     *               not a {@code SeasonPhase} constant
      * @param actor  the Discord id of the admin who caused it, or {@code null}
      * @param reason free text appended to the audit detail in brackets, or {@code null}
-     * @return one row: the previous phase, the new phase and when it was recorded; no rows at all
-     *         if the singleton row is missing
+     * @return the previous phase, the new phase and when; no row if the singleton is missing
      */
     @SqlQuery("""
             WITH previous AS (
@@ -79,15 +65,16 @@ interface PhaseDao {
             FROM previous, switched
             """)
     @RegisterRowMapper(PhaseChangeMapper.class)
-    PhaseChange switchPhase(@Bind("phase") String phase, @Bind("actor") String actor, @Bind("reason") String reason);
+    @Nullable
+    PhaseChange switchPhase(
+            @Bind("phase") String phase,
+            @Bind("actor") @Nullable String actor,
+            @Bind("reason") @Nullable String reason);
 
     /**
-     * Writes {@code launch}, with its audit entry and notification, as one statement. Nothing is
-     * derived from that column, which is the whole difference to
-     * {@link #setSmpStart(Instant, String)} and why these are two statements.
+     * Writes {@code launch} with its audit entry and notification, as one statement.
      *
-     * @param at    the new instant, or {@code null} to clear the date
-     * @param actor the Discord id of the admin who asked for it
+     * @param at the new instant, or {@code null} to clear the date
      * @return the row's value before and after; the two grant counts are always zero
      */
     @SqlQuery("""
@@ -116,24 +103,16 @@ interface PhaseDao {
             FROM previous, written
             """)
     @RegisterRowMapper(DateChangeMapper.class)
-    DateChange setLaunch(@Bind("at") Instant at, @Bind("actor") String actor);
+    @Nullable
+    DateChange setLaunch(@Bind("at") @Nullable Instant at, @Bind("actor") @Nullable String actor);
 
     /**
-     * Writes {@code smp_start}, moves the paid access that was anchored to it, and files the audit
-     * entry and notification - all as one statement.
+     * Writes {@code smp_start} and moves the paid access anchored to it, with audit and notification.
      *
-     * <p>A grant moves when it is not revoked, has not run out, and began at or after the date being
-     * replaced; setting the date for the first time therefore moves every live grant, which is the
-     * case this exists for.
+     * A live grant that began at or after the old date moves. The shift is per Discord account: its earliest
+     * moving grant lands on the new date and the rest keep their distance. Clearing the date moves nothing.
      *
-     * <p>The shift is computed <b>per Discord account</b>: each account's earliest moving grant is
-     * placed on the new date and the rest keep their distance from it, so stacked periods stay
-     * stacked and two people who bought on different days both start when the SMP opens. An account
-     * already sitting on the new date is left alone.
-     *
-     * @param at    the new instant, or {@code null} to clear the date - <b>clearing moves no
-     *              grants</b>, since there is no date left for them to be anchored to
-     * @param actor the Discord id of the admin who asked for it
+     * @param at the new instant, or {@code null} to clear the date
      * @return the row's value before and after, and how much access moved with it
      */
     @SqlQuery("""
@@ -194,5 +173,6 @@ interface PhaseDao {
             FROM previous, written
             """)
     @RegisterRowMapper(DateChangeMapper.class)
-    DateChange setSmpStart(@Bind("at") Instant at, @Bind("actor") String actor);
+    @Nullable
+    DateChange setSmpStart(@Bind("at") @Nullable Instant at, @Bind("actor") @Nullable String actor);
 }

@@ -15,13 +15,13 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Every reply a command sends names a {@link Tone}, and the exceptions are named here.
  *
- * <h2>Why this is a text search and not a signature</h2>
+ * <b>Why this is a text search and not a signature</b>
+ *
  * Because the compiler cannot make it one. {@code NordtalUser#reply} has to keep the two-argument
  * overload - {@code RemoteUser}, {@code ConsoleUser} and the Discord adapter all implement it, and
  * the {@link Tone} overloads default onto it - so a call that names no tone compiles, runs, and
@@ -29,18 +29,19 @@ import org.junit.jupiter.api.Test;
  * failure a running server shows you: the sentence is right, the language is right, and the only
  * thing missing is the one signal that tells a refusal from a confirmation at a glance.
  *
- * <p>It is the same shape as {@code OneMessageFormatTest} and {@code SoundVocabularyTest}, and for
+ * It is the same shape as {@code OneMessageFormatTest} and {@code SoundVocabularyTest}, and for
  * the same reason both of those give: written while the answer is complete, an allowlist is a list
- * of decisions; written afterwards, it is an argument.</p>
+ * of decisions; written afterwards, it is an argument.
  *
- * <h2>What it does not check</h2>
+ * <b>What it does not check</b>
+ *
  * <b>Whether the tone is the right one.</b> Nothing can: {@code Tone.GOOD} on a failure compiles
  * and reads perfectly well. What this catches is the case that actually happens - a reply added to
  * an existing command, copied from the line above it, with the tone left off.
  *
- * <p>{@code discord-bot} is deliberately not walked. Discord ignores a tone (an embed has one
+ * {@code discord-bot} is deliberately not walked. Discord ignores a tone (an embed has one
  * colour for the whole of it), so a tone there would be ceremony, and requiring one would teach the
- * next reader that a tone is paperwork rather than a colour somebody sees.</p>
+ * next reader that a tone is paperwork rather than a colour somebody sees.
  */
 class ReplyToneTest {
 
@@ -56,9 +57,9 @@ class ReplyToneTest {
     /**
      * The files that may send a reply without naming a tone, and why.
      *
-     * <p>Both entries are cases where naming one here would be <em>wrong</em> rather than merely
+     * Both entries are cases where naming one here would be <em>wrong</em> rather than merely
      * unnecessary. Keep it that way: an entry added because a tone was hard to choose is an entry
-     * that makes the next one easy to add.</p>
+     * that makes the next one easy to add.
      */
     private static final Map<String, String> ALLOWED = Map.of(
             "commands/src/main/java/eu/nordtal/s2/commands/update/UpdateFollower.java",
@@ -70,8 +71,7 @@ class ReplyToneTest {
     private static final Pattern CALL = Pattern.compile("\\.reply\\s*\\(");
 
     @Test
-    @DisplayName("every reply names a tone, so a refusal is never the colour of a confirmation")
-    void everyReplyNamesATone() {
+    void everyReplyNamesAToneSoARefusalIsNeverTheColourOfAConfirmation() {
         final List<String> offenders = new ArrayList<>();
         for (final Path source : sources()) {
             final String text = read(source);
@@ -101,8 +101,7 @@ class ReplyToneTest {
     }
 
     @Test
-    @DisplayName("the allowlist names files that exist")
-    void theAllowlistIsNotStale() {
+    void theAllowlistNamesFilesThatExist() {
         for (final String name : ALLOWED.keySet()) {
             assertTrue(
                     Files.isRegularFile(RepositoryRoot.resolve(name)),

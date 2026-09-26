@@ -13,13 +13,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Running a staging: the order, the spacing, the cancel, and the sound that is not played.
  *
- * <h2>Why this can be tested at all</h2>
+ * <b>Why this can be tested at all</b>
+ *
  * A staged moment is titles, a potion effect and a sound on a real client, and none of that exists
  * in a JVM with no server in it. What made it testable is the split: {@link Cinematics} holds every
  * decision and reaches the world through {@link Cinematics.Scheduler} and {@link CinematicStage},
@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
  * tick, a frame after a cancel, two stagings at once, and a sound played when the configuration says
  * silence - are answerable here rather than by watching somebody join.
  *
- * <p>What it still cannot say is whether a title of twenty ticks with no fade reads as an animation
+ * What it still cannot say is whether a title of twenty ticks with no fade reads as an animation
  * or as a flicker, and whether three seconds of blindness on a first join is welcoming or alarming.
  * Those need a client and are in the owner's checklist outside this repository.
  */
@@ -43,13 +43,11 @@ class CinematicsTest {
     private final Cinematics cinematics = new Cinematics(clock);
 
     @Test
-    @DisplayName("the frames appear in order, each on the tick the description puts it")
-    void theSequenceRunsInOrderAndOnTime() {
+    void theFramesAppearInOrderEachOnTheTickTheDescriptionPutsIt() {
         assertTrue(cinematics.start(
                 player, Cinematic.builder().frame(A, 5).frame(B, 10).frame(C, 1).build(), stage));
 
-        // The first frame is not scheduled at all - it is shown inside start(), so a moment begins
-        // without waiting a tick for a scheduler that may be a tick behind.
+        // The first frame is shown inside start(), without waiting for the scheduler.
         assertEquals(List.of(A), stage.shown);
 
         clock.advanceTo(4);
@@ -79,8 +77,7 @@ class CinematicsTest {
     }
 
     @Test
-    @DisplayName("a cancel stops the frames that had not run and clears the screen once")
-    void aCancelReallyCancels() {
+    void aCancelStopsTheFramesThatHadNotRunAndClearsTheScreenOnce() {
         cinematics.start(
                 player, Cinematic.builder().frames(List.of(A, B, C), 10).build(), stage);
         clock.advanceTo(10);
@@ -108,17 +105,14 @@ class CinematicsTest {
     }
 
     @Test
-    @DisplayName("cancelling something that is not running does nothing at all")
-    void cancellingNothingIsSafe() {
-        // Called from a quit handler, which fires for every player on every disconnect - the
-        // overwhelming majority of whom have no staging running.
+    void cancellingSomethingThatIsNotRunningDoesNothingAtAll() {
+        // A quit handler cancels for every player, most of whom have no staging running.
         cinematics.cancel(player);
         assertEquals(0, stage.cleared);
     }
 
     @Test
-    @DisplayName("a second staging is refused while one is running, and allowed once it is over")
-    void oneStagingPerPlayer() {
+    void aSecondStagingIsRefusedWhileOneIsRunningAndAllowedOnceItIsOver() {
         final RecordingStage second = new RecordingStage();
         cinematics.start(player, Cinematic.builder().frame(A, 10).build(), stage);
 
@@ -135,8 +129,7 @@ class CinematicsTest {
     }
 
     @Test
-    @DisplayName("two players are two stagings")
-    void twoPlayersDoNotCollide() {
+    void twoPlayersAreTwoStagings() {
         final UUID other = UUID.randomUUID();
         final RecordingStage otherStage = new RecordingStage();
 
@@ -148,8 +141,7 @@ class CinematicsTest {
     }
 
     @Test
-    @DisplayName("the disable sweep clears everybody")
-    void cancelAllClearsEveryone() {
+    void theDisableSweepClearsEverybody() {
         final UUID other = UUID.randomUUID();
         final RecordingStage otherStage = new RecordingStage();
         cinematics.start(player, Cinematic.builder().frame(A, 10).build(), stage);
@@ -164,8 +156,7 @@ class CinematicsTest {
     }
 
     @Test
-    @DisplayName("the sound and the effect happen once, at the start")
-    void theSoundAndTheEffectOpenTheMoment() {
+    void theSoundAndTheEffectHappenOnceAtTheStart() {
         cinematics.start(
                 player,
                 Cinematic.builder()
@@ -189,8 +180,7 @@ class CinematicsTest {
     }
 
     @Test
-    @DisplayName("a staging with no sound never asks the surface to play one")
-    void noSoundMeansNoCall() {
+    void aStagingWithNoSoundNeverAsksTheSurfaceToPlayOne() {
         cinematics.start(player, Cinematic.builder().frames(List.of(A, B), 10).build(), stage);
         clock.advanceTo(100);
 
@@ -202,12 +192,8 @@ class CinematicsTest {
     }
 
     @Test
-    @DisplayName("a blank key in the sound configuration plays nothing")
-    void aBlankSoundKeyIsSilent() {
-        // This is the composition the requirement is actually about: the staging names a Feedback
-        // category, a Paper module's stage hands that to its sound adapter, and the adapter answers
-        // from FeedbackSounds - where a blank key means silence. Written here rather than in
-        // :paper-common because playing a sound needs a Player, and the decision does not.
+    void aBlankKeyInTheSoundConfigurationPlaysNothing() {
+        // A blank FeedbackSounds key means silence; tested here because the decision needs no Player.
         final List<String> problems = new ArrayList<>();
         final SoundStage silent = new SoundStage(configured("", problems));
         final SoundStage audible = new SoundStage(configured("minecraft:ui.button.click", problems));
@@ -293,34 +279,43 @@ class CinematicsTest {
     /**
      * A scheduler with a hand-turned clock.
      *
-     * <p>{@link #advanceTo} runs everything due up to that tick, in tick order. That is what makes
+     * {@link #advanceTo} runs everything due up to that tick, in tick order. That is what makes
      * "the second frame is due at 5, not before it" a thing a test can say at all - with a real
      * scheduler it would be a sleep, and a sleep that passes on a fast machine and fails on a busy
      * one is worse than no test.
      */
     private static final class FakeScheduler implements Cinematics.Scheduler {
 
-        private record Scheduled(long at, Runnable body, boolean[] cancelled) {}
+        /** A plain class rather than a record: the cancelled flag is the one thing that changes. */
+        private static final class Scheduled {
+
+            private final long at;
+            private final Runnable body;
+            private boolean cancelled;
+
+            Scheduled(final long at, final Runnable body) {
+                this.at = at;
+                this.body = body;
+            }
+        }
 
         private final List<Scheduled> pending = new ArrayList<>();
         private long now;
 
         @Override
         public Cinematics.Handle later(final Runnable task, final long delayTicks) {
-            final Scheduled scheduled = new Scheduled(now + delayTicks, task, new boolean[1]);
+            final Scheduled scheduled = new Scheduled(now + delayTicks, task);
             pending.add(scheduled);
-            return () -> scheduled.cancelled()[0] = true;
+            return () -> scheduled.cancelled = true;
         }
 
         private void advanceTo(final long tick) {
             now = tick;
-            // A copy, because a task may schedule another one - nothing here does today, and a
-            // ConcurrentModificationException would be a confusing way to find out that something
-            // started to.
+            // A copy, because a task may schedule another one.
             for (final Scheduled scheduled : List.copyOf(pending)) {
-                if (!scheduled.cancelled()[0] && scheduled.at() <= tick) {
+                if (!scheduled.cancelled && scheduled.at <= tick) {
                     pending.remove(scheduled);
-                    scheduled.body().run();
+                    scheduled.body.run();
                 }
             }
         }

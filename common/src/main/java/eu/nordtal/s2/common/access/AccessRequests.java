@@ -4,37 +4,20 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import javax.sql.DataSource;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The bot's inbox for access changes: one row per request, carried out by the one process that can
- * carry it out (season-2-community/08).
+ * The bot's inbox for access changes, carried out by the only process holding a Discord session.
  *
- * <h2>Why every surface asks instead of doing</h2>
- * Granting access is four things at once - a row, a Discord role, a direct message in the
- * recipient's own language, and a line in the admin channel - and only the bot holds a JDA session.
- * Until this existed, {@code POST /api/access/grant} wrote the row and silently skipped the other
- * three: somebody granted access through steward was never told. One executor is the only shape in
- * which "grant" means the same thing from every surface.
- *
- * <h2>A row, not a call</h2>
- * The processes share one PostgreSQL and nothing else, so the request is a row plus a
- * {@code pg_notify} the bot listens for - and therefore survives a bot that happens to be
- * restarting, which is the case an HTTP call cannot survive. The poll is the guarantee; the
- * notification only makes it immediate, and a reconnecting listener re-reads {@link #pending()} in
- * full because a notification is delivered once and lost while nobody is connected.
- *
- * <h2>The patience</h2>
- * A bot that is never coming back and a bot that is busy look identical from the outside. Every row
- * therefore carries an expiry, and the two halves of it never meet: {@link #claim()} refuses a row
- * past it, and {@link #outcome(long)} is what writes {@code EXPIRED}. That is deliberate - the case
- * this exists for is a bot that is not running, so the bot cannot be the one to notice.
+ * A request is a row plus a {@code pg_notify}, so it survives a restarting bot; the poll is the guarantee.
+ * Every row expires: {@link #claim()} refuses a row past it and {@link #outcome(long)} writes {@code EXPIRED}.
  */
 public interface AccessRequests {
 
     /**
      * How long a request waits for the bot before it is given up on.
      *
-     * <p>Two minutes, the same patience {@code command_request} has. It is a constant rather than a
+     * Two minutes, the same patience {@code command_request} has. It is a constant rather than a
      * setting for the reason {@code Channels} gives about its own: nothing is gained by making it
      * settable, and what is lost is being able to tell a misconfigured deployment from a working
      * one. A surface that needs its own can pass one to {@link #submit(NewAccessRequest, Duration)}.
@@ -43,7 +26,11 @@ public interface AccessRequests {
 
     /** What a surface hands in. */
     record NewAccessRequest(
-            AccessRequestKind kind, String subject, String argument, AccessRequestSource source, String requestedBy) {
+            AccessRequestKind kind,
+            String subject,
+            @Nullable String argument,
+            AccessRequestSource source,
+            String requestedBy) {
 
         /** The three kinds that need no argument. */
         public static NewAccessRequest of(
@@ -76,11 +63,7 @@ public interface AccessRequests {
     /** The same, with a patience of this caller's own instead of {@link #PATIENCE}. */
     AccessRequest submit(NewAccessRequest request, Duration patience);
 
-    /**
-     * Take the oldest request that has not expired, and mark it running. Call it in a loop until it
-     * answers empty: one notification can stand for several rows, and a notification can be missed
-     * altogether, which is why the inbox polls as well.
-     */
+    /** Claims the oldest unexpired request; call it until empty, as one notification may stand for several. */
     Optional<AccessRequest> claim();
 
     /**
@@ -95,8 +78,8 @@ public interface AccessRequests {
     /**
      * What became of a request, or empty if there is no such row.
      *
-     * <p>Expires the overdue first, which is what makes a row stop waiting when the bot is not
-     * running at all.</p>
+     * Expires the overdue first, which is what makes a row stop waiting when the bot is not
+     * running at all.
      */
     Optional<AccessRequest> outcome(long id);
 

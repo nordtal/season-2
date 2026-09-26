@@ -18,7 +18,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -28,7 +27,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * The command inbox, against a real PostgreSQL running the real migrations.
  *
- * <h2>Why this cannot be an in-memory test</h2>
+ * <b>Why this cannot be an in-memory test</b>
+ *
  * Almost everything worth asserting here is evaluated by the database and by nothing else: the
  * atomic claim is one {@code UPDATE ... FOR UPDATE SKIP LOCKED} whose whole point is what happens
  * when two connections run it at once, the expiry boundary is {@code expires > now()} in the
@@ -36,7 +36,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * nothing. {@code FakeRequests} in {@code :commands} enforces the same transitions so the unit tests
  * there are not testing against a more permissive world - this class is what proves the two agree.
  *
- * <p>It skips itself when no Docker daemon is reachable, like every other integration test here.</p>
+ * It skips itself when no Docker daemon is reachable, like every other integration test here.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CommandRequestIntegrationTest {
@@ -102,8 +102,7 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a request is written, claimed once, and answered into the same row")
-    void theWholeRoundTrip() {
+    void aRequestIsWrittenClaimedOnceAndAnsweredIntoTheSameRow() {
         final long id = requests.submit(
                 request("SMP", "smp aura", MC_UUID + " -25", Instant.now().plusSeconds(30)));
 
@@ -128,8 +127,7 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a claimed request cannot be claimed again")
-    void oneClaimPerRow() {
+    void aClaimedRequestCannotBeClaimedAgain() {
         requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
 
         assertTrue(requests.claim("SMP").isPresent());
@@ -139,10 +137,8 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("two connections claiming at once get one row each, never the same one")
-    void concurrentClaimsDoNotCollide() throws Exception {
-        // The case FOR UPDATE SKIP LOCKED exists for. It is not hypothetical: a rolling restart
-        // briefly runs two of a backend, and both would be draining the same inbox.
+    void twoConnectionsClaimingAtOnceGetOneRowEachNeverTheSameOne() throws Exception {
+        // A rolling restart briefly runs two of a backend, both draining the same inbox.
         requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
 
@@ -155,8 +151,7 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a request whose deadline has passed is never claimed")
-    void anExpiredRowIsInvisibleToTheTarget() {
+    void aRequestWhoseDeadlineHasPassedIsNeverClaimed() {
         requests.submit(request("SMP", "smp reload", "", Instant.now().minusSeconds(1)));
 
         assertTrue(
@@ -166,8 +161,7 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("only the target it is addressed to can claim it")
-    void aRowBelongsToOneTarget() {
+    void onlyTheTargetItIsAddressedToCanClaimIt() {
         requests.submit(request("HUNGER_GAMES", "hg start", "", Instant.now().plusSeconds(30)));
 
         assertTrue(requests.claim("SMP").isEmpty());
@@ -175,8 +169,7 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("giving up expires a pending row and loses to a claim that already happened")
-    void theExpiryRace() {
+    void givingUpExpiresAPendingRowAndLosesToAClaimThatAlreadyHappened() {
         final long pending =
                 requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         assertTrue(requests.expire(pending));
@@ -198,8 +191,7 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("settling a row twice writes once")
-    void finishIsGuardedByItsOwnStatus() {
+    void settlingARowTwiceWritesOnce() {
         final long id =
                 requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.claim("SMP");
@@ -213,8 +205,7 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("an unsettled row carries no answer, and that is distinguishable from an empty one")
-    void pendingHasNoResult() {
+    void anUnsettledRowCarriesNoAnswerAndThatIsDistinguishableFromAnEmptyOne() {
         final long id =
                 requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
 
@@ -224,39 +215,31 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a request id nobody wrote is empty rather than an error")
-    void anUnknownIdIsEmpty() {
+    void aRequestIdNobodyWroteIsEmptyRatherThanAnError() {
         assertTrue(requests.outcome(999_999L).isEmpty());
     }
 
     @Test
-    @DisplayName("the console cannot carry an identity, and the database says so too")
-    void theConsoleIsAnonymousInTheSchema() throws SQLException {
-        // NewCommandRequest refuses this as well, so the CHECK is the second line rather than the
-        // first - which is what makes it worth asserting: a future adapter that builds its row with
-        // raw SQL still cannot get past it.
+    void theConsoleCannotCarryAnIdentityAndTheDatabaseSaysSoToo() throws SQLException {
+        // NewCommandRequest refuses this too; the CHECK also stops an adapter that writes raw SQL.
         refusedBy(
                 "command_request_console_is_anonymous",
                 () -> insertRaw("SMP", "smp reload", "CONSOLE", DISCORD_ID, null));
     }
 
     @Test
-    @DisplayName("a request from Discord without an id is refused, because it could not be re-checked")
-    void discordAlwaysKnowsWho() throws SQLException {
+    void aRequestFromDiscordWithoutAnIdIsRefusedBecauseItCouldNotBeReChecked() throws SQLException {
         refusedBy("command_request_discord_knows_who", () -> insertRaw("SMP", "smp reload", "DISCORD", null, null));
     }
 
     @Test
-    @DisplayName("an unknown target is refused by the CHECK")
-    void theTargetIsPinned() throws SQLException {
+    void anUnknownTargetIsRefusedByTheCheck() throws SQLException {
         refusedBy("command_request_target_check", () -> insertRaw("UPDATER", "update apply", "GAME", null, MC_UUID));
     }
 
     @Test
-    @DisplayName("EXPIRED is exactly the status that never started")
-    void expiredNeverRan() throws SQLException {
-        // Which is what makes "nothing ever picked this up" a diagnosis rather than a guess: a
-        // target that is down and one that is up and stuck are different problems.
+    void expiredIsExactlyTheStatusThatNeverStarted() throws SQLException {
+        // A target that is down and one that is up and stuck are different problems.
         final long id =
                 requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.claim("SMP");
@@ -267,17 +250,13 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("retention deletes settled rows past the window and never an unsettled one")
-    void retention() throws SQLException {
-        // The table had no deletion path at all until 2026-09-05, and a settled row carries the
-        // asker's name, their Discord id, their Minecraft account, what they typed and what they
-        // were told. Thirty days, swept by steward-worker at the start of serve.
+    void retentionDeletesSettledRowsPastTheWindowAndNeverAnUnsettledOne() throws SQLException {
+        // Settled rows carry personal data and are swept after thirty days.
         final long old =
                 requests.submit(request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.claim("SMP");
         requests.finish(old, true, "reloaded");
-        // requested and started move with it: command_request_finished_after_started would refuse
-        // a row that finished a month before it began, which is the schema doing its job.
+        // requested and started move too, or command_request_finished_after_started refuses the row.
         update("UPDATE command_request SET requested = now() - interval '31 days',"
                 + " started = now() - interval '31 days',"
                 + " finished = now() - interval '31 days' WHERE id = " + old);
@@ -287,9 +266,7 @@ class CommandRequestIntegrationTest {
         requests.claim("SMP");
         requests.finish(recent, true, "reloaded");
 
-        // Never claimed, never settled, and older than the window by its `requested` - the sweep
-        // must not see it at all. Deleting a row somebody is still waiting on is the one outcome
-        // worse than keeping a row too long.
+        // An unclaimed row is never swept, however old: somebody may still be waiting on it.
         final long waiting = requests.submit(
                 request("HUNGER_GAMES", "hg reload", "", Instant.now().plusSeconds(30)));
         update("UPDATE command_request SET requested = now() - interval '90 days' WHERE id = " + waiting);
@@ -303,18 +280,17 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a window of zero days is refused rather than emptying the table")
-    void aZeroWindowIsRefused() {
+    void aWindowOfZeroDaysIsRefusedRatherThanEmptyingTheTable() {
         assertThrows(IllegalArgumentException.class, () -> requests.deleteSettledOlderThan(0));
     }
 
     /**
      * That the row was refused, and by <em>which</em> constraint.
      *
-     * <p>Any {@code SQLException} would also be thrown by a column rename, a wrong type or an
-     * unrelated {@code NOT NULL} - so a test that only asks for one stays green while the CHECK it
-     * is named after no longer exists. {@code AccessDirectoryIntegrationTest} already names its
-     * constraints; this is the same rule.</p>
+     * Any {@code SQLException} would also be thrown by a column rename, a wrong type or an
+     * unrelated {@code NOT NULL} - so a test that only asks for one stays green even after the
+     * CHECK it is named after is gone. {@code AccessDirectoryIntegrationTest} already names its
+     * constraints; this is the same rule.
      */
     private static void refusedBy(final String constraint, final org.junit.jupiter.api.function.Executable insert) {
         final SQLException refused = assertThrows(SQLException.class, insert);
@@ -349,19 +325,8 @@ class CommandRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("the partial index can serve the claim, columns and predicate both")
-    void theClaimIsIndexed() throws SQLException {
-        // WHAT THIS PROVES, AND WHAT IT DOES NOT. It asks PostgreSQL whether the index is USABLE
-        // for the claim - with sequential scans disabled, an index whose columns or whose WHERE do
-        // not cover the query cannot be chosen and the plan says so. It deliberately does not
-        // assert that the planner picks it: on a table of a few hundred rows a sequential scan is
-        // genuinely cheaper, and a test that filled the table until the planner changed its mind
-        // would be asserting a cost model rather than a schema.
-        //
-        // The failure it is guarding is real and quiet: an index on (id) alone, or without the
-        // partial WHERE, still exists and still makes every query correct. It only shows up as a
-        // sequential scan over a season of history on every notification, by which point it is on
-        // production.
+    void thePartialIndexCanServeTheClaimColumnsAndPredicateBoth() throws SQLException {
+        // Proves the index is usable for the claim with seqscan off, not that the planner picks it.
         for (int i = 0; i < 20; i++) {
             final long id = requests.submit(
                     request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));

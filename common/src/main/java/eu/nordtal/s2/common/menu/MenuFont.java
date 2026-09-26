@@ -11,28 +11,10 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * The five-pixel alphabet the row fonts draw, and how wide anything written in it is.
+ * The five-pixel alphabet the row fonts draw, and how wide text written in it is.
  *
- * <h2>Why a server can know this</h2>
- * The same reason {@link eu.nordtal.s2.common.hud.BossBarAdvances} can: the sheet is ours. Every
- * advance is a property of a PNG in this repository, and the client derives it by one rule - the
- * rightmost drawn column of the glyph's cell, plus one for that column and one it adds after every
- * glyph. So "how wide is BAECKEREI AM FLUSS on chest row 2" is a question this JVM can answer
- * exactly, which is what makes a right-aligned distance and a truncated name possible at all.
- *
- * <h2>Capitals, and the one exception</h2>
- * The sheet has no lower case (owner, 2026-09-07): at eight pixels almost every POI name was cut
- * off on an objective card, and five pixels only works without descenders. So text is folded to
- * capitals on the way in - <b>except ß</b>, whose upper case is the two letters SS and therefore
- * not a character. {@code Character.toUpperCase(char)} already answers ß for ß, which is exactly
- * the behaviour wanted here and exactly what {@code String.toUpperCase()} does <em>not</em> do.
- *
- * <h2>What happens to a character the sheet has never heard of</h2>
- * It becomes {@code ?}. A POI name is typed by a player, so this is not a theoretical case: an
- * emoji, a Cyrillic letter or a {@code <} all reach this class. The alternative is the client's
- * missing-glyph box, which is six pixels wide, is not in the table, and would therefore make every
- * width computed after it wrong - so the row would not merely look bad, it would be laid out
- * wrong. Folding is visible and bounded; a box is neither.
+ * The advances come from our own sheet. Text is folded to capitals except ß, and a character the sheet
+ * lacks becomes {@code ?}, so every computed width stays correct.
  */
 public final class MenuFont {
 
@@ -71,10 +53,10 @@ public final class MenuFont {
     /**
      * Folds a whole string - the one place text becomes drawable, and the one place it is measured.
      *
-     * <p>Everything a caller hands to a row is passed through this first, so that
+     * Everything a caller hands to a row is passed through this first, so that
      * {@link #width(String)} is measuring the same characters that will be drawn. Measuring the
      * unfolded string and drawing the folded one is the way a right-aligned number ends up a
-     * pixel or two out for exactly the names that contain something unusual.</p>
+     * pixel or two out for exactly the names that contain something unusual.
      */
     public static String fold(final String text) {
         final StringBuilder out = new StringBuilder(text.length());
@@ -92,9 +74,9 @@ public final class MenuFont {
     /**
      * Shortens {@code text} until it fits {@code pixels}, ending it in two dots when it does not.
      *
-     * <p>Two dots rather than an ellipsis because the sheet has no ellipsis, and two dots rather
+     * Two dots rather than an ellipsis because the sheet has no ellipsis, and two dots rather
      * than one because one reads as a full stop. The text is folded first, so the width measured
-     * here is the width drawn.</p>
+     * here is the width drawn.
      *
      * @param text   any string, folded here
      * @param pixels the space available, in GUI pixels

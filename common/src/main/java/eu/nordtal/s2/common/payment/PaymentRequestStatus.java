@@ -1,16 +1,9 @@
 package eu.nordtal.s2.common.payment;
 
-/**
- * The life of one attempt to buy access. The names are the exact strings stored in
- * {@code payment_request.status}, which a database {@code CHECK} constraint restricts to these
- * five.
- */
+/** The life of one attempt to buy access, stored in {@code payment_request.status}. */
 public enum PaymentRequestStatus {
 
-    /**
-     * Being worked on or waiting to be paid. At most one per person - a partial unique index says
-     * so - which is why starting a new one has to move the old one out of this state.
-     */
+    /** Being worked on or waiting to be paid; at most one per person, by a partial unique index. */
     OPEN,
 
     /** Paid and booked. Carries the bunq payment id and the settlement time. */

@@ -11,16 +11,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * That no Paper plugin's {@code onDisable} has a step that can take the rest down with it.
  *
- * <p>A text search, like {@code ReadinessWiringTest}: the failure it guards ({@link Shutdown})
+ * A text search, like {@code ReadinessWiringTest}: the failure it guards ({@link Shutdown})
  * needs a jar replaced under a running JVM, which no test here can arrange. What it can see is the
  * shape - every zero-argument call on a field inside {@code onDisable} goes through
- * {@code quietly(...)}, and none is bare.</p>
+ * {@code quietly(...)}, and none is bare.
  */
 class DisableStepsAreIsolatedTest {
 
@@ -33,8 +32,7 @@ class DisableStepsAreIsolatedTest {
     private static final Pattern BARE_STEP = Pattern.compile("^\\s+(\\w+)\\.(\\w+)\\(\\);\\s*$", Pattern.MULTILINE);
 
     @Test
-    @DisplayName("every disable step is wrapped in quietly(...)")
-    void noBareStepInOnDisable() throws IOException {
+    void everyDisableStepIsWrappedInQuietly() throws IOException {
         for (final String relative : PAPER_PLUGINS) {
             final String text = read(relative);
             final int start = text.indexOf("    public void onDisable() {");
@@ -57,12 +55,8 @@ class DisableStepsAreIsolatedTest {
     }
 
     @Test
-    @DisplayName("every plugin loads the guard at enable, while its jar still exists")
-    void theGuardIsWarmedInOnEnable() throws IOException {
-        // The guard's own class is loaded on first use, and its only use is in onDisable - so on
-        // the first restart after a jar swap it threw ClassNotFoundException for itself and took
-        // the whole sequence down at step one, which is worse than the failure it fixes. Seen on
-        // the local stack the same day it was written (finding 115).
+    void everyPluginLoadsTheGuardAtEnableWhileItsJarStillExists() throws IOException {
+        // The guard's class loads on first use in onDisable, after a jar swap; it must already be loaded.
         for (final String relative : PAPER_PLUGINS) {
             final String text = read(relative);
             final int start = text.indexOf("    public void onEnable() {");
@@ -85,7 +79,7 @@ class DisableStepsAreIsolatedTest {
                     "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
         }
         final Path path = candidate.resolve(relative);
-        assertTrue(Files.isRegularFile(path), relative + " no longer exists");
+        assertTrue(Files.isRegularFile(path), relative + " is missing");
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 }

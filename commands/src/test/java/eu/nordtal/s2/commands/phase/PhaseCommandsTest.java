@@ -15,40 +15,29 @@ import eu.nordtal.s2.common.phase.SeasonDates;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * What {@code /phase} decides, asserted without a proxy and without a guild.
  *
- * <p>These tests do <b>not</b> prove that either adapter registers the command, parses its
- * arguments, or renders the keys; those still need a running proxy and a real guild.</p>
+ * These tests do <b>not</b> prove that either adapter registers the command, parses its
+ * arguments, or renders the keys; those still need a running proxy and a real guild.
  */
 class PhaseCommandsTest {
 
-    // ---------------------------------------------------------------- the declarations
-
     @Test
-    @DisplayName("all four subcommands are admin-only, run on the proxy, and are off chat entirely")
-    void theDeclarationsAgree() {
+    void allFourSubcommandsAreAdminOnlyRunOnTheProxyAndAreOffChatEntirely() {
         for (final var declaration :
                 List.of(PhaseCommands.SHOW, PhaseCommands.SET, PhaseCommands.LAUNCH, PhaseCommands.SMP_START)) {
             assertEquals(Target.PROXY, declaration.target(), declaration.name());
             assertTrue(declaration.adminOnly(), declaration.name());
-            // This assertion was the exact opposite until 2026-09-16, and it is worth saying why
-            // rather than quietly flipping it. It held GAME and DISCORD and argued that the console
-            // would be a second notion of who may switch the phase. season-2-ops/18 overrules that:
-            // every admin command in the repository is console and web now, and /phase launch - the
-            // command that starts the season - is the last one that should keep a chat exception.
-            // WEB as well as CONSOLE, because a WEB row carries the asker's Discord id (V18) where
-            // a CONSOLE row carries no identity at all (V11).
+            // Every admin command is console and web, and WEB as well as CONSOLE because a WEB row carries the asker's.
             assertEquals(java.util.Set.of(Surface.CONSOLE, Surface.WEB), declaration.surfaces(), declaration.name());
         }
     }
 
     @Test
-    @DisplayName("the flag marks what cannot be undone, and not simply everything that writes")
-    void onlyTheTrulyIrreversibleIsFlagged() {
+    void theFlagMarksWhatCannotBeUndoneAndNotSimplyEverythingThatWrites() {
         assertFalse(PhaseCommands.SHOW.irreversible(), "reading changes nothing");
         assertTrue(PhaseCommands.SET.irreversible(), "a switch to SMP disconnects every player without active access");
         assertTrue(
@@ -56,16 +45,13 @@ class PhaseCommandsTest {
                 "moving smp-start shifts access periods belonging to people who are not in the room,"
                         + " and moving it back shifts them again rather than undoing it");
 
-        // Deliberately not flagged: setting the opening again is an exact undo, and confirming
-        // everything that writes is how a confirmation stops being read.
+        // Deliberately not flagged: setting the opening again is an exact undo.
         assertFalse(PhaseCommands.LAUNCH.irreversible());
     }
 
     @Test
-    @DisplayName("every phase has a consequence sentence of its own")
-    void nothingFallsThroughToSomebodyElsesConsequence() {
-        // One key per constant, so that a new phase produces a missing key rather than silently
-        // telling an admin what a different phase would have done.
+    void everyPhaseHasAConsequenceSentenceOfItsOwn() {
+        // One key per constant, so that a new phase produces a missing key rather than silently telling an admin what.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             assertEquals(
                     "phase.consequence." + phase.name(),
@@ -73,13 +59,9 @@ class PhaseCommandsTest {
         }
     }
 
-    // ---------------------------------------------------------------- /phase show
-
     @Test
-    @DisplayName("a process that caches the phase says it before it asks the database")
-    void theProxyAnswersFromMemoryFirst() {
-        // This is the command somebody runs while the network is misbehaving, so it has to say
-        // something useful even when the row cannot be read.
+    void aProcessThatCachesThePhaseSaysItBeforeItAsksTheDatabase() {
+        // This is the command somebody runs while the network is misbehaving.
         final FakeEffects effects = new FakeEffects();
         effects.observation = new PhaseEffects.Observation(SeasonPhase.SMP, true, null);
         effects.readFailure = new IllegalStateException("the database is not there");
@@ -93,8 +75,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("a phase that was never read is said differently from one that was")
-    void theFallbackIsNotPresentedAsAnObservation() {
+    void aPhaseThatWasNeverReadIsSaidDifferentlyFromOneThatWas() {
         final FakeEffects effects = new FakeEffects();
         effects.observation = new PhaseEffects.Observation(SeasonPhase.MAINTENANCE, false, null);
         final FakeUser user = FakeUser.inGame();
@@ -105,8 +86,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("a process that caches nothing reads the phase and still says it first")
-    void theBotReadsAndKeepsTheSameOrder() {
+    void aProcessThatCachesNothingReadsThePhaseAndStillSaysItFirst() {
         final FakeEffects effects = new FakeEffects();
         effects.current = SeasonPhase.START_EVENT;
         effects.launch = SeasonDates.parse("2026-10-01 18:00").orElseThrow();
@@ -121,10 +101,8 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("a process with no cache and no database answers with its own key, not the proxy's")
-    void theBotSaysSomethingItCanStandBehind() {
-        // Two keys and not one, because phase.read.failed says "the phase above" and on this path
-        // there is nothing above.
+    void aProcessWithNoCacheAndNoDatabaseAnswersWithItsOwnKeyNotTheProxys() {
+        // Two keys and not one, because phase.read.failed says "the phase above" and on this path there is nothing.
         final FakeEffects effects = new FakeEffects();
         effects.readFailure = new IllegalStateException("the database is not there");
         final FakeUser user = FakeUser.inDiscord();
@@ -136,10 +114,8 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("a phase line printed from inside the read still counts as one above")
-    void theLineMayComeFromInsideTheTry() {
-        // No cache, so the phase line is produced inside the same try as the dates: currentPhase()
-        // can succeed and launch() fail, and then there IS something above the failure sentence.
+    void aPhaseLinePrintedFromInsideTheReadStillCountsAsOneAbove() {
+        // No cache, so the phase line and the dates share one try: currentPhase() can still fail after it printed.
         final FakeEffects effects = new FakeEffects();
         effects.datesFailure = new IllegalStateException("the dates are not there");
         final FakeUser user = FakeUser.inDiscord();
@@ -150,8 +126,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("a process that already printed the phase still owes a word about the dates")
-    void theProxyStillReportsTheDateFailure() {
+    void aProcessThatAlreadyPrintedThePhaseStillOwesAWordAboutTheDates() {
         final FakeEffects effects = new FakeEffects();
         effects.observation = new PhaseEffects.Observation(SeasonPhase.SMP, true, null);
         effects.readFailure = new IllegalStateException("the database is not there");
@@ -162,11 +137,8 @@ class PhaseCommandsTest {
         assertEquals(List.of("phase.current", "phase.read.failed"), user.keys());
     }
 
-    // ---------------------------------------------------------------- /phase set
-
     @Test
-    @DisplayName("a switch is written, recorded, propagated and reported, in that order")
-    void aSwitchDoesAllFourThings() {
+    void aSwitchIsWrittenRecordedPropagatedAndReportedInThatOrder() {
         final FakeEffects effects = new FakeEffects();
         effects.current = SeasonPhase.PRE_LAUNCH;
         final FakeUser user = FakeUser.inDiscord();
@@ -186,8 +158,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("switching to the phase it already is is reported as such, and still audited")
-    void switchingToTheSamePhaseIsNotSilent() {
+    void switchingToThePhaseItAlreadyIsIsReportedAsSuchAndStillAudited() {
         final FakeEffects effects = new FakeEffects();
         effects.current = SeasonPhase.SMP;
         final FakeUser user = FakeUser.inGame();
@@ -200,11 +171,8 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("an unknown phase name is refused without touching the database")
-    void anUnknownPhaseIsRefusedBeforeTheWrite() {
-        // SeasonPhase.fromDatabase answers MAINTENANCE to anything it does not recognise, which is
-        // right for a row and catastrophic for a command line: an unknown name would lock the whole
-        // network out without anybody typing MAINTENANCE.
+    void anUnknownPhaseNameIsRefusedWithoutTouchingTheDatabase() {
+        // SeasonPhase.fromDatabase answers MAINTENANCE to anything it does not recognise.
         final FakeEffects effects = new FakeEffects();
         effects.current = SeasonPhase.SMP;
         final FakeUser user = FakeUser.inGame();
@@ -218,8 +186,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("a phase name is case-insensitive, because one surface types it by hand")
-    void typingItInLowerCaseWorks() {
+    void aPhaseNameIsCaseInsensitiveBecauseOneSurfaceTypesItByHand() {
         final FakeEffects effects = new FakeEffects();
         new SetPhase().run(FakeUser.inGame(), new Values(PhaseCommands.SET, Map.of("phase", "maintenance")), effects);
 
@@ -227,8 +194,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("a failed write reports the failure and does not claim a switch happened")
-    void aFailedSwitchIsNotReportedAsOne() {
+    void aFailedWriteReportsTheFailureAndDoesNotClaimASwitchHappened() {
         final FakeEffects effects = new FakeEffects();
         effects.writeFailure = new IllegalStateException("the database did not accept it");
         final FakeUser user = FakeUser.inGame();
@@ -241,27 +207,22 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("the audit trail records the Discord id, and says which surface it came from")
-    void theActorAndTheReasonAreRecorded() {
+    void theAuditTrailRecordsTheDiscordIdAndSaysWhichSurfaceItCameFrom() {
         final FakeEffects effects = new FakeEffects();
         new SetPhase().run(FakeUser.inDiscord(), new Values(PhaseCommands.SET, Map.of("phase", "SMP")), effects);
         assertEquals("100000000000000002", effects.lastActor);
         assertTrue(effects.lastReason.contains("DISCORD"), effects.lastReason);
         assertTrue(effects.lastReason.contains("tester"), effects.lastReason);
 
-        // An asker with no Discord id writes a null actor rather than a placeholder string; the
-        // audit column is nullable for exactly that.
+        // An asker with no Discord id writes a null actor rather than a placeholder string.
         final FakeEffects fromConsole = new FakeEffects();
         new SetPhase().run(FakeUser.console(), new Values(PhaseCommands.SET, Map.of("phase", "SMP")), fromConsole);
         assertNull(fromConsole.lastActor);
         assertTrue(fromConsole.lastReason.contains("CONSOLE"), fromConsole.lastReason);
     }
 
-    // ---------------------------------------------------------------- the two dates
-
     @Test
-    @DisplayName("a date that is not a date is refused before anything is deferred")
-    void aTypoComesBackImmediately() {
+    void aDateThatIsNotADateIsRefusedBeforeAnythingIsDeferred() {
         final FakeEffects effects = new FakeEffects();
         final FakeUser user = FakeUser.inDiscord();
 
@@ -273,8 +234,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("setting the opening reports the old value with the new one")
-    void settingTheOpeningNamesBoth() {
+    void settingTheOpeningReportsTheOldValueWithTheNewOne() {
         final FakeEffects effects = new FakeEffects();
         effects.launch = SeasonDates.parse("2026-09-01 12:00").orElseThrow();
         final FakeUser user = FakeUser.inGame();
@@ -291,10 +251,8 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("moving smp-start reports how much of other people's access moved with it")
-    void movedAccessIsAlwaysReported() {
-        // The only place an admin finds out that a date change rewrote rows belonging to people
-        // who are not in the room.
+    void movingSmpStartReportsHowMuchOfOtherPeoplesAccessMovedWithIt() {
+        // The only place an admin finds out that a date change rewrote rows belonging to people who are offline.
         final FakeEffects effects = new FakeEffects();
         effects.grants = 7;
         effects.accounts = 4;
@@ -309,8 +267,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("moving smp-start when nothing moved says so, rather than saying nothing")
-    void nothingMovedIsAlsoAnAnswer() {
+    void movingSmpStartWhenNothingMovedSaysSoRatherThanSayingNothing() {
         final FakeEffects effects = new FakeEffects();
         final FakeUser user = FakeUser.inGame();
 
@@ -321,8 +278,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("the opening never reports moved access, because it moves none")
-    void theOpeningDoesNotClaimToMoveAccess() {
+    void theOpeningNeverReportsMovedAccessBecauseItMovesNone() {
         final FakeEffects effects = new FakeEffects();
         effects.grants = 7;
         effects.accounts = 4;
@@ -334,10 +290,8 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("clearing smp-start says what happens to the access that was already sold")
-    void clearingSaysWhatHappensToWhatWasSold() {
-        // "Nothing moved" and "there is nothing left to anchor it to" are different facts, and the
-        // second one is the one somebody has to hear before they sell another period.
+    void clearingSmpStartSaysWhatHappensToTheAccessThatWasAlreadySold() {
+        // "Nothing moved" and "there is nothing left to anchor it to" are different facts.
         final FakeEffects effects = new FakeEffects();
         effects.smpStart = SeasonDates.parse("2026-11-01 18:00").orElseThrow();
         final FakeUser user = FakeUser.inDiscord();
@@ -350,8 +304,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("clearing the opening does not talk about access, because none was anchored to it")
-    void clearingTheOpeningIsOneSentence() {
+    void clearingTheOpeningDoesNotTalkAboutAccessBecauseNoneWasAnchoredToIt() {
         final FakeEffects effects = new FakeEffects();
         effects.launch = Instant.EPOCH;
 
@@ -362,8 +315,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("a date the model refuses comes back as its own sentence, not as a failure")
-    void aRefusalIsNotAnError() {
+    void aDateTheModelRefusesComesBackAsItsOwnSentenceNotAsAFailure() {
         final FakeEffects effects = new FakeEffects();
         effects.dateRefusal = new SeasonDateRefused("the opening cannot be after the SMP start");
         final FakeUser user = FakeUser.inGame();
@@ -378,8 +330,7 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("a date that could not be written is reported as a failure and audited nowhere")
-    void aFailedDateWriteIsLoud() {
+    void aDateThatCouldNotBeWrittenIsReportedAsAFailureAndAuditedNowhere() {
         final FakeEffects effects = new FakeEffects();
         effects.writeFailure = new IllegalStateException("the database did not accept it");
         final FakeUser user = FakeUser.inGame();

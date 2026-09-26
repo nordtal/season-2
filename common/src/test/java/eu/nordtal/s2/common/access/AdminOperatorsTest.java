@@ -9,18 +9,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The whole of {@link AdminOperators}, without a server - which is the reason it is shaped the way
- * it is.
+ * Tests {@link AdminOperators} without a server.
  *
- * <p>Two of these are not about behaviour but about the disk. {@code setOp} writes
- * {@code ops.json}, and {@link AdminOperators#refresh} is built to be called on every poll tick of
- * the admin watcher; if a repeated call re-asserted the state, the file would be rewritten on a
- * timer for as long as the server runs. So "a call that changes nothing writes nothing" is an
- * assertion here, not an implementation detail.</p>
+ * A call that changes nothing must write nothing, since {@code setOp} rewrites {@code ops.json}.
  */
 class AdminOperatorsTest {
 
@@ -53,8 +47,7 @@ class AdminOperatorsTest {
     private static final UUID PLAYER = UUID.randomUUID();
 
     @Test
-    @DisplayName("an admin who joins becomes an operator, an ordinary player does not")
-    void joinGrantsOnlyToAdmins() {
+    void anAdminWhoJoinsBecomesAnOperatorAnOrdinaryPlayerDoesNot() {
         operators.onJoin(ADMIN, true);
         operators.onJoin(PLAYER, false);
 
@@ -64,8 +57,7 @@ class AdminOperatorsTest {
     }
 
     @Test
-    @DisplayName("quitting removes the operator this object granted")
-    void quitRemoves() {
+    void quittingRemovesTheOperatorThisObjectGranted() {
         operators.onJoin(ADMIN, true);
         operators.onQuit(ADMIN);
 
@@ -74,8 +66,7 @@ class AdminOperatorsTest {
     }
 
     @Test
-    @DisplayName("a quit by somebody who was never opped writes nothing")
-    void quitByNonAdminIsFree() {
+    void aQuitBySomebodyWhoWasNeverOppedWritesNothing() {
         operators.onJoin(PLAYER, false);
         ops.calls.clear();
 
@@ -85,10 +76,8 @@ class AdminOperatorsTest {
     }
 
     @Test
-    @DisplayName("the sweep removes every operator, including ones this object never granted")
-    void sweepRemovesEverybody() {
-        // What a crash between join and quit leaves behind: a name in ops.json that no running
-        // object knows about. This is the case the sweep exists for.
+    void theSweepRemovesEveryOperatorIncludingOnesThisObjectNeverGranted() {
+        // A crash between join and quit leaves a name in ops.json that no object knows about.
         final UUID leftBehind = UUID.randomUUID();
         ops.setOp(leftBehind, true);
         operators.onJoin(ADMIN, true);
@@ -100,11 +89,8 @@ class AdminOperatorsTest {
     }
 
     @Test
-    @DisplayName("the sweep asks nothing about who is an admin")
-    void sweepConsultsNoAdminList() {
-        // Stated as a test because it is the whole reason the sweep is safe to run at enable, when
-        // the database may not be reachable at all: there is no admin set to pass in, and the
-        // signature is what guarantees it.
+    void theSweepAsksNothingAboutWhoIsAnAdmin() {
+        // The sweep takes no admin set, so it is safe at enable when the database may be unreachable.
         ops.setOp(ADMIN, true);
 
         operators.sweep();
@@ -113,8 +99,7 @@ class AdminOperatorsTest {
     }
 
     @Test
-    @DisplayName("refresh grants to an admin online and takes it from one who is not")
-    void refreshDerivesFromTheAdminSet() {
+    void refreshGrantsToAnAdminOnlineAndTakesItFromOneWhoIsNot() {
         operators.onJoin(ADMIN, true);
         operators.onJoin(PLAYER, false);
 
@@ -125,8 +110,7 @@ class AdminOperatorsTest {
     }
 
     @Test
-    @DisplayName("refresh does not touch somebody who is not online")
-    void refreshIgnoresTheOffline() {
+    void refreshDoesNotTouchSomebodyWhoIsNotOnline() {
         operators.onJoin(ADMIN, true);
         ops.calls.clear();
 
@@ -137,8 +121,7 @@ class AdminOperatorsTest {
     }
 
     @Test
-    @DisplayName("a refresh that changes nothing writes nothing")
-    void repeatedRefreshIsFree() {
+    void aRefreshThatChangesNothingWritesNothing() {
         // The poll tick. Without this property ops.json is rewritten on a timer forever.
         operators.onJoin(ADMIN, true);
         ops.calls.clear();
@@ -151,8 +134,7 @@ class AdminOperatorsTest {
     }
 
     @Test
-    @DisplayName("opping the same admin twice writes once")
-    void joinIsIdempotent() {
+    void oppingTheSameAdminTwiceWritesOnce() {
         operators.onJoin(ADMIN, true);
         ops.calls.clear();
 
@@ -162,8 +144,7 @@ class AdminOperatorsTest {
     }
 
     @Test
-    @DisplayName("a revoked admin who rejoins as an admin is opped again")
-    void grantSurvivesARoundTrip() {
+    void aRevokedAdminWhoRejoinsAsAnAdminIsOppedAgain() {
         operators.onJoin(ADMIN, true);
         operators.refresh(Set.of(), Set.of(ADMIN));
         assertFalse(operators.holds(ADMIN));
@@ -174,8 +155,7 @@ class AdminOperatorsTest {
     }
 
     @Test
-    @DisplayName("held is a copy, not the live set")
-    void heldIsACopy() {
+    void heldIsACopyNotTheLiveSet() {
         operators.onJoin(ADMIN, true);
         final Set<UUID> held = operators.held();
 

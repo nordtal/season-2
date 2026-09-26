@@ -5,16 +5,17 @@ import java.time.Instant;
 /**
  * A purchase somebody has started and not finished.
  *
- * <h2>Why anything outside the bot reads this at all</h2>
+ * <b>Why anything outside the bot reads this at all</b>
+ *
  * Because "they have not paid" and "they are in the middle of paying" are different answers to the
  * same complaint, and an admin standing next to somebody who cannot get in is the person who needs
  * the second one. Everything here is already in the database rather than in the bot's memory -
  * season 1 kept it in a Guava cache, so a restart answered "setup expired" to everybody mid-purchase
  * - which is what makes reading it from another process possible at all.
  *
- * <p><b>Read-only, everywhere except the bot.</b> {@code payment_request} is a state machine with
+ * <b>Read-only, everywhere except the bot.</b> {@code payment_request} is a state machine with
  * one owner ({@code Purchases}), and a second writer is a second half-finished purchase. Nothing in
- * this package writes it, and nothing should.</p>
+ * this package writes it, and nothing should.
  *
  * @param reference      {@code NT-XXXXXX} - what the payer types, and what an admin quotes into
  *                       {@code /settle}
@@ -33,8 +34,7 @@ public record OpenPayment(
 
     /** The total, as a decimal string with two places - for a message, never for arithmetic. */
     public String amount() {
-        // Locale.ROOT, because %02d localises its digits: under a default locale whose digits
-        // are not ASCII this would hand a reader something their client cannot show as money.
+        // Locale.ROOT, because %02d localises its digits.
         return (amountCents / 100) + "." + String.format(java.util.Locale.ROOT, "%02d", Math.abs(amountCents % 100));
     }
 }

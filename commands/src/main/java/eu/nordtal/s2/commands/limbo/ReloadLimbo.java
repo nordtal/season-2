@@ -20,9 +20,7 @@ public final class ReloadLimbo implements NordtalCommand<LimboEffects> {
     @Override
     public void run(final NordtalUser user, final Values values, final LimboEffects effects) {
         effects.async(() -> {
-            // The cue follows the result, not the command. Both of these answered a failed
-            // reload with the success sound until 2026-09-05, which is the one thing an
-            // operator hears without reading.
+            // The cue follows the result, not the command: the sound an operator hears without reading must not lie.
             final boolean reloaded = effects.reloadMessages();
             user.reply(
                     reloaded

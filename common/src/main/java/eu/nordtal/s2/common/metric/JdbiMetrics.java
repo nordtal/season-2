@@ -12,12 +12,9 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
- * The only implementation of {@link MetricDirectory}. Package-private: consumers get it from the
- * factory method on the interface and never name JDBI themselves.
- * <p>
- * It borrows the pool it is given and owns nothing, which is why there is no {@code close()} here
- * and none on the interface - the process that built the pool closes the pool.
- * </p>
+ * The only implementation of {@link MetricDirectory}.
+ *
+ * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
  */
 final class JdbiMetrics implements MetricDirectory {
 
@@ -35,9 +32,7 @@ final class JdbiMetrics implements MetricDirectory {
     public void record(final List<MetricSample> samples) {
         Objects.requireNonNull(samples, "samples");
         if (samples.isEmpty()) {
-            // A JDBC batch of nothing is a round trip for nothing, and JDBI would refuse an empty
-            // iterable outright. A sweep that measured nothing is not an error - a container that
-            // has just gone away simply has no numbers this time.
+            // JDBI refuses an empty batch, and a sweep that measured nothing is not an error.
             return;
         }
 
@@ -56,9 +51,7 @@ final class JdbiMetrics implements MetricDirectory {
         Objects.requireNonNull(from, "from");
         Objects.requireNonNull(to, "to");
         if (!to.isAfter(from)) {
-            // Empty rather than an exception: the caller is a graph being drawn, and a window that
-            // has collapsed - a zoom taken to its end, a clock that moved - should leave the panel
-            // blank rather than throw out of a page render.
+            // A collapsed window leaves a graph blank rather than failing a page render.
             return List.of();
         }
         return dao.range(subject, metric, utc(from), utc(to));
@@ -76,12 +69,7 @@ final class JdbiMetrics implements MetricDirectory {
         return dao.forget(utc(Resolution.hourOf(olderThan)));
     }
 
-    /**
-     * The one conversion in this class, and the reason it exists is on {@link MetricDao}: an
-     * {@code Instant} bound through JDBC is rendered in the JVM's default zone and re-read in the
-     * server's, which agree until the day they do not. An {@code OffsetDateTime} at UTC carries its
-     * own offset and leaves nothing to be assumed.
-     */
+    /** Converts to an {@code OffsetDateTime} at UTC, so no JVM or server zone is assumed. */
     private static OffsetDateTime utc(final Instant instant) {
         return instant.atOffset(ZoneOffset.UTC);
     }

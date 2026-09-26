@@ -5,26 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * The two decisions in {@link FullServerAdmission}: when the admin flag is worth a query, and what
- * happens to the answer afterwards.
- * <p>
- * Both matter because the class exists to be right on the one login nobody rehearses - an admin
- * arriving at a network that is already full, which is the moment the network needs them. Neither
- * decision can be exercised on a running server without first filling it.
- * </p>
- */
+/** Checks when {@link FullServerAdmission} queries the admin flag and what it does with the answer. */
 class FullServerAdmissionTest {
 
     private static final UUID ADMIN = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID PLAYER = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
     @Test
-    @DisplayName("an empty server is not worth a query, a full one is")
-    void worthAskingFollowsTheCap() {
+    void anEmptyServerIsNotWorthAQueryAFullOneIs() {
         assertFalse(
                 FullServerAdmission.worthAsking(0, 500),
                 "an empty server asked the database whether the arriving player is an admin."
@@ -39,10 +29,8 @@ class FullServerAdmissionTest {
     }
 
     @Test
-    @DisplayName("the headroom covers logins arriving while the decision is in flight")
-    void worthAskingLeavesHeadroom() {
-        // The count is read on the pre-login thread and acted on at PlayerLoginEvent; players join
-        // in between. Exactly at the boundary, so a change to HEADROOM has to come here first.
+    void theHeadroomCoversLoginsArrivingWhileTheDecisionIsInFlight() {
+        // Exactly at the boundary, so a change to HEADROOM has to come here first.
         assertTrue(
                 FullServerAdmission.worthAsking(500 - FullServerAdmission.HEADROOM, 500),
                 "a login HEADROOM short of the cap was not considered, so the whole point of the"
@@ -53,11 +41,8 @@ class FullServerAdmissionTest {
     }
 
     @Test
-    @DisplayName("an admin is admitted every time the same login is checked")
-    void admitsDoesNotConsume() {
-        // Paper's own note on the deprecated PlayerLoginEvent says the login validation runs twice
-        // for one login, so the fullness check can be asked twice. An answer that changed between
-        // the two would refuse the admin it had just admitted, and nothing would log it.
+    void anAdminIsAdmittedEveryTimeTheSameLoginIsChecked() {
+        // Login validation can run twice for one login, so the answer must not change between the two.
         final FullServerAdmission admission = new FullServerAdmission();
         admission.remember(ADMIN, true);
 
@@ -67,8 +52,7 @@ class FullServerAdmissionTest {
     }
 
     @Test
-    @DisplayName("a player nobody warmed, and one warmed as no admin, are both refused")
-    void nonAdminsAreNotAdmitted() {
+    void aPlayerNobodyWarmedAndOneWarmedAsNoAdminAreBothRefused() {
         final FullServerAdmission admission = new FullServerAdmission();
 
         assertFalse(
@@ -82,11 +66,8 @@ class FullServerAdmissionTest {
     }
 
     @Test
-    @DisplayName("remembering false clears an earlier true")
-    void rememberOverwrites() {
-        // The path that makes this matter: an admin joins while the server is full, the flag is
-        // revoked in Discord, they reconnect. remember(uuid, false) has to be able to undo itself,
-        // or the entry from the first connection admits the second one.
+    void rememberingFalseClearsAnEarlierTrue() {
+        // A revoked admin reconnecting must not be admitted by the entry from the first connection.
         final FullServerAdmission admission = new FullServerAdmission();
         admission.remember(ADMIN, true);
         admission.remember(ADMIN, false);
@@ -95,8 +76,7 @@ class FullServerAdmissionTest {
     }
 
     @Test
-    @DisplayName("forget clears a warmed answer the login never came for")
-    void forgetClears() {
+    void forgetClearsAWarmedAnswerTheLoginNeverCameFor() {
         final FullServerAdmission admission = new FullServerAdmission();
         admission.remember(ADMIN, true);
         admission.forget(ADMIN);

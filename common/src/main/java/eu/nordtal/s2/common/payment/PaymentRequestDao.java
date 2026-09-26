@@ -9,18 +9,10 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * The whole SQL surface of {@code payment_request}, as a JDBI SqlObject interface - the same style
- * as {@code AccessDao} in {@code :common}.
- * <p>
- * Package-private: {@link PaymentRequests} is the API. Nothing outside this package holds a DAO.
- * </p>
- * <p>
- * The three rules that matter are enforced by the schema, not by the statements here: one open
- * request per person, one grant per request, and one booking per bunq payment are all unique
- * indexes. Every write below is therefore allowed to be a plain statement that either applies or
- * loses a race loudly, rather than a read followed by a write that two poll passes could both
- * pass.
- * </p>
+ * The SQL surface of {@code payment_request}; {@link PaymentRequests} is the API.
+ *
+ * One open request per person, one grant per request and one booking per bunq payment are unique
+ * indexes, so every write here is a plain statement that applies or loses a race loudly.
  */
 @RegisterRowMapper(PaymentRequestMapper.class)
 interface PaymentRequestDao {
@@ -65,10 +57,10 @@ interface PaymentRequestDao {
     /**
      * One request by its surrogate key.
      *
-     * <p>Added with steward/109 for the one caller that knows the row it is waiting for and nothing
+     * For the one caller that knows the row it is waiting for and nothing
      * else about it: the ephemeral message that says "your payment link is being created" holds an
      * id, and when {@code nordtal_payment} fires it has to ask whether <em>that</em> row has a link
-     * yet. The reference would work as well, but the id is what the flow already has in its hand.</p>
+     * yet. The reference would work as well, but the id is what the flow already has in its hand.
      */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
@@ -142,10 +134,9 @@ interface PaymentRequestDao {
     /**
      * Stores the tab steward-worker made, and announces it.
      *
-     * <p>The {@code pg_notify} is what turns "your payment link is being created" back into a link
-     * while the person is still looking at the message (steward/109). It was a plain statement
-     * until then, because the process that created the tab was the process that was going to draw
-     * it; now they are two containers and a table apart.</p>
+     * The {@code pg_notify} is what turns "your payment link is being created" back into a link
+     * while the person is still looking at the message: the process that creates the tab and the
+     * process that draws it are two containers and a table apart.
      *
      * @return 1 when the tab was stored, 0 when the row had closed underneath it - in which case
      *         the caller has a live bunq.me URL nothing points at and has to cancel it
@@ -165,9 +156,7 @@ interface PaymentRequestDao {
     int attachTab(@Bind("id") UUID id, @Bind("tabId") long tabId, @Bind("shareUrl") String shareUrl);
 
     /**
-     * Moves an open request out of the way. Only ever called with a status that is not
-     * {@code PAID}, so the {@code settled IFF paid} check constraint holds without touching
-     * {@code settled}.
+     * Closes an open request with a status other than {@code PAID}, so {@code settled} stays null.
      *
      * @return 1 when the request was still open, 0 when something else had already closed it
      */
@@ -180,12 +169,11 @@ interface PaymentRequestDao {
 
     /**
      * Books a payment against a request.
-     * <p>
+     *
      * The {@code status = 'OPEN'} predicate makes this the point at which two poll passes that
      * both saw the same payment are decided: exactly one of them updates a row. The partial unique
      * index on {@code bunq_payment_id} catches the other half of the problem - the same payment
      * matched to two different requests - by throwing.
-     * </p>
      *
      * @return 1 when this call booked it, 0 when it was already closed
      */
@@ -197,15 +185,10 @@ interface PaymentRequestDao {
     int settle(@Bind("id") UUID id, @Bind("bunqPaymentId") long bunqPaymentId);
 
     /**
-     * Books a request without a bunq payment - {@code /settle}, when an admin has confirmed by
-     * hand that money arrived. {@code bunq_payment_id} stays null, which the partial unique index
-     * on it allows and which is exactly how a manual settlement is told apart from a matched one.
+     * Books a request without a bunq payment, after an admin confirmed by hand that money arrived.
      *
-     * <p>{@code matched_by} is written here since steward/109, and only here does it say something
-     * the row does not already carry: with no payment id there is otherwise nothing at all in the
-     * row to say a human decided this. {@code matched_cents} deliberately stays null - {@code
-     * /settle} takes no amount, and inventing one would be the row claiming to know what arrived.
-     * V23 has no constraint tying the two together for exactly this case.</p>
+     * {@code bunq_payment_id} stays null and {@code matched_by} records the human; {@code matched_cents}
+     * stays null because {@code /settle} takes no amount.
      *
      * @return 1 when the request was still open
      */
@@ -219,19 +202,17 @@ interface PaymentRequestDao {
     @SqlQuery("SELECT 1 FROM payment_request WHERE bunq_payment_id = :bunqPaymentId")
     Optional<Integer> booked(@Bind("bunqPaymentId") long bunqPaymentId);
 
-    // ---------------------------------------------------------------- the seam (concept §10d)
-
     /**
      * Asks for a bunq.me tab instead of making one.
      *
-     * <p>Clears {@code tab_failed} in the same statement: a request that is pending again is not
+     * Clears {@code tab_failed} in the same statement: a request that is pending again is not
      * also a request that failed, and leaving the old message there would let the bot show a stale
-     * reason while the worker is already trying. This is therefore also the retry.</p>
+     * reason while the worker is already trying. This is therefore also the retry.
      *
-     * <p>{@code bunq_tab_id IS NULL} makes it idempotent in the direction that matters - a second
+     * {@code bunq_tab_id IS NULL} makes it idempotent in the direction that matters - a second
      * click once the tab exists changes nothing rather than queueing a second tab for the same
      * request. Re-asking while it is still pending only moves the timestamp, which is what puts a
-     * re-asked row at the back of the queue.</p>
+     * re-asked row at the back of the queue.
      *
      * @return 1 when a tab is now wanted, 0 when the row was closed or already has one
      */
@@ -252,14 +233,14 @@ interface PaymentRequestDao {
     /**
      * The worker's queue: open requests that want a tab and have none.
      *
-     * <p>{@code cancel_requested IS NULL} is not in the ticket's predicate and is here anyway. The
+     * {@code cancel_requested IS NULL} is not in the ticket's predicate and is here anyway. The
      * bot closes a row and asks for the cancel in one transaction, but a row that was waiting for a
      * tab when that happened would otherwise still be picked up in the window before the status is
-     * visible - and the result is a tab created purely so that the next pass can cancel it.</p>
+     * visible - and the result is a tab created purely so that the next pass can cancel it.
      *
-     * <p>Oldest first, by the moment it was asked for rather than by {@code created}: a request
+     * Oldest first, by the moment it was asked for rather than by {@code created}: a request
      * re-asked after a failure is a new wait, and the person doing it is looking at the message
-     * now.</p>
+     * now.
      */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
@@ -278,10 +259,10 @@ interface PaymentRequestDao {
     /**
      * Records that bunq refused, and takes the row out of the queue in the same statement.
      *
-     * <p>Clearing {@code tab_requested} is what gives "the link is coming" an exit: the pair
+     * Clearing {@code tab_requested} is what gives "the link is coming" an exit: the pair
      * {@code tab_requested IS NULL AND tab_failed IS NOT NULL} is a state the bot can render, and
      * {@link #requestTab} puts the row back. A failure left in the queue would be retried on every
-     * pass forever, against a bunq that has already said no.</p>
+     * pass forever, against a bunq that has already said no.
      *
      * @param reason what bunq said, verbatim enough for an admin to act on
      * @return 1 when the failure was recorded, 0 when the row had closed or a tab had arrived
@@ -301,12 +282,9 @@ interface PaymentRequestDao {
     int failTab(@Bind("id") UUID id, @Bind("reason") String reason);
 
     /**
-     * Asks for the bunq tab to be cancelled. Says nothing about the row's status: closing the row
-     * is the caller's own write, and the two are one transaction rather than one statement because
-     * only one of them has to reach bunq.
+     * Asks for the bunq tab to be cancelled, without touching the row's status.
      *
-     * <p>{@code cancel_requested IS NULL} keeps the timestamp at the first ask, so this is safe to
-     * call from an expiry sweep that runs every minute over the same row.</p>
+     * Keeps the first ask's timestamp, so an expiry sweep may call it every minute.
      *
      * @return 1 when this call asked, 0 when it had already been asked for
      */
@@ -327,9 +305,9 @@ interface PaymentRequestDao {
     /**
      * The worker's other queue: tabs that exist at bunq and are supposed to stop existing.
      *
-     * <p>No {@code status} filter. What has to happen at bunq does not depend on how the row was
+     * No {@code status} filter. What has to happen at bunq does not depend on how the row was
      * closed, and a cancel asked for on a still-open row is legitimate - the bot asks first and
-     * writes the status in the same transaction.</p>
+     * writes the status in the same transaction.
      */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
@@ -345,9 +323,7 @@ interface PaymentRequestDao {
     List<PaymentRequest> tabsToCancel();
 
     /**
-     * Records that the tab is gone at bunq. The exit from {@link #tabsToCancel} - without it the
-     * queue matches the same row on every pass and the worker cancels an already cancelled tab
-     * forever.
+     * Records that the tab is gone at bunq, which removes the row from {@link #tabsToCancel}.
      *
      * @return 1 when this call closed it out, 0 when somebody had already done so
      */
@@ -368,14 +344,16 @@ interface PaymentRequestDao {
     /**
      * Attributes a bunq payment to a request, without booking it.
      *
-     * <h2>Why this does not touch {@code status} or {@code settled}</h2>
+     * <b>Why this does not touch {@code status} or {@code settled}</b>
+     *
      * {@code payment_request_settled_iff_paid} ties those two to each other, and booking is the
      * bot's half of the seam: it grants the days, sends the DM and posts the thank-you, none of
      * which the worker can do. So the worker writes what it found onto a row that is still
      * {@code OPEN} with {@code settled} still {@code NULL}, the check constraint is never crossed,
      * and {@link #settle} stays the one statement that books.
      *
-     * <h2>It claims {@code bunq_payment_id}, and that is deliberate</h2>
+     * <b>It claims {@code bunq_payment_id}, and that is deliberate</b>
+     *
      * The partial unique index on that column is still the only thing preventing one payment from
      * being booked twice, so the claim has to happen at the moment the payment is attributed rather
      * than later at the booking - otherwise two requests can both be told "this payment is yours"
@@ -409,16 +387,9 @@ interface PaymentRequestDao {
             @Bind("matchedBy") String matchedBy);
 
     /**
-     * The bot's half of the seam: rows steward-worker has attributed a payment to and nobody has
-     * booked yet.
+     * Returns rows steward-worker has matched to a payment and nobody has booked yet.
      *
-     * <p>{@code matched_cents IS NOT NULL} rather than {@code bunq_payment_id IS NOT NULL} is the
-     * predicate on purpose. The amount is what the booking needs - the tier is derived from what
-     * actually arrived, not from what was ordered - so a row without it could be claimed and then
-     * not booked, which is the one state this queue must not be able to produce.</p>
-     *
-     * <p>No {@code settled} clause is needed: {@code payment_request_settled_iff_paid} makes
-     * {@code status = 'OPEN'} and {@code settled IS NULL} the same statement.</p>
+     * Filters on {@code matched_cents}, because the booking derives the tier from the amount that arrived.
      */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
@@ -431,15 +402,13 @@ interface PaymentRequestDao {
             """)
     List<PaymentRequest> matchedAwaitingBooking();
 
-    // ---------------------------------------------------------------- payment_notice
-
     /**
      * Records that a payment needs a human, once ever, and wakes whoever posts it.
      *
-     * <p>The {@code pg_notify} arrived with steward/109 for the same reason the seam's other
+     * The {@code pg_notify} exists for the same reason the seam's other
      * writes carry one: the process that finds the payment is steward-worker and the process that
      * can say so in Discord is the bot, so this row is a message in flight rather than a note
-     * beside a message that was already sent.</p>
+     * beside a message that was already sent.
      *
      * @return 1 the first time, 0 on every later poll that sees the same payment
      */
@@ -471,10 +440,10 @@ interface PaymentRequestDao {
     /**
      * Claims a notice for posting.
      *
-     * <p>Claimed <b>before</b> the message is sent, not after. Discord can accept a message and
+     * Claimed <b>before</b> the message is sent, not after. Discord can accept a message and
      * then this process can die, and posting the same unmatchable payment twice is noise where
      * posting it not at all is money nobody hears about - so the loss this order risks is the one
-     * worth risking, and it is the same order {@code noticeOnce} always had.</p>
+     * worth risking, and it is the same order {@code noticeOnce} always had.
      *
      * @return 1 when this call claimed it, 0 when somebody else had
      */

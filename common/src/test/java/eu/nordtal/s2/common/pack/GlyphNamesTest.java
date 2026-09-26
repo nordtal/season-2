@@ -11,13 +11,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds the glyph names - what a message writes as {@code <glyph:name>}, and what Steward's editor
- * offers - to {@link Glyphs} and to {@code minecraft:default}. A name that points nowhere renders
- * as its own tag text in game; a glyph without a name is one the editor cannot offer.
+ * Holds the glyph names to {@link Glyphs} and to {@code minecraft:default}.
+ *
+ * A name pointing nowhere renders as its tag text; a glyph without a name cannot be offered by the editor.
  */
 class GlyphNamesTest {
 
@@ -25,8 +24,7 @@ class GlyphNamesTest {
             FontFile.load("minecraft:default", "resource-pack/src/assets/minecraft/font/default.json");
 
     @Test
-    @DisplayName("every name is a Glyphs constant the default font declares")
-    void everyNameResolves() {
+    void everyNameIsAGlyphsConstantTheDefaultFontDeclares() {
         final Set<String> constants = constants();
         final List<String> wrong = new ArrayList<>();
         Glyphs.named().forEach((name, glyph) -> {
@@ -44,8 +42,7 @@ class GlyphNamesTest {
     }
 
     @Test
-    @DisplayName("every glyph of the default font has exactly one name")
-    void everyGlyphIsNamed() {
+    void everyGlyphOfTheDefaultFontHasExactlyOneName() {
         final Set<Integer> declared = new TreeSet<>();
         DEFAULT_FONT.bitmaps().forEach(bitmap -> bitmap.characters().forEach(declared::add));
         final Map<String, String> named = Glyphs.named();

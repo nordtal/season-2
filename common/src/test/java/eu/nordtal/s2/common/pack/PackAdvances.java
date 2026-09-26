@@ -15,11 +15,11 @@ import javax.imageio.ImageIO;
 /**
  * Derives every glyph's advance from a font file and its PNGs, the way the client does.
  *
- * <p>One rule, three tests: a {@code space} provider's number, or a bitmap cell's rightmost column
+ * One rule, three tests: a {@code space} provider's number, or a bitmap cell's rightmost column
  * with any alpha, plus one for that column and one the client adds after every glyph - scaled by
  * {@code height / cellHeight}, which is 1 for everything this pack draws. The first provider to
  * declare a code point wins. {@code BoardFrameTest} and {@code MenuTitleTest} each had their own
- * copy of this walk; {@code BossBarAdvancesTest} and {@code BossBarLineTest} share this one.</p>
+ * copy of this walk; {@code BossBarAdvancesTest} and {@code BossBarLineTest} share this one.
  */
 public final class PackAdvances {
 

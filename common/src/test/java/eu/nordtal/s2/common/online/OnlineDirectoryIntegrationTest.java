@@ -16,7 +16,6 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -25,11 +24,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Exercises {@link OnlineDirectory} against a real PostgreSQL running the real migration.
- * <p>
+ *
  * Testcontainers driven by hand from {@link BeforeAll}, like every other integration test in this
  * module - the {@code junit-jupiter} extension is built against JUnit 5 and this repo is on the
  * JUnit 6 BOM - and this class skips itself when no Docker daemon is reachable.
- * </p>
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OnlineDirectoryIntegrationTest {
@@ -74,11 +72,8 @@ class OnlineDirectoryIntegrationTest {
         online = OnlineDirectory.using(dataSource);
     }
 
-    // ---------------------------------------------------------------- writing and reading back
-
     @Test
-    @DisplayName("a subject with no write at all is simply absent, not zero")
-    void anUnwrittenSubjectIsAbsent() {
+    void aSubjectWithNoWriteAtAllIsSimplyAbsentNotZero() {
         assertTrue(online.current().isEmpty());
     }
 
@@ -93,8 +88,7 @@ class OnlineDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("a genuine zero is written and read back as zero, not dropped")
-    void zeroIsARealAnswer() {
+    void aGenuineZeroIsWrittenAndReadBackAsZeroNotDropped() {
         online.write(Map.of("limbo", 0));
 
         assertTrue(online.current().containsKey("limbo"), "a 0 must not read like an unwritten row");
@@ -102,8 +96,7 @@ class OnlineDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("writing four subjects at once produces four rows, not a batch failure")
-    void allFourSubjectsInOneWrite() {
+    void writingFourSubjectsAtOnceProducesFourRowsNotABatchFailure() {
         online.write(Map.of("smp", 5, "hunger-games", 2, "limbo", 0, "proxy", 7));
 
         final Map<String, OnlineCount> current = online.current();
@@ -121,17 +114,13 @@ class OnlineDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("a negative count is refused before it reaches the table")
-    void aNegativeCountIsRefused() {
+    void aNegativeCountIsRefusedBeforeItReachesTheTable() {
         assertThrows(IllegalArgumentException.class, () -> online.write(Map.of("smp", -1)));
         assertTrue(online.current().isEmpty(), "the refused write must not have left a partial row");
     }
 
-    // ---------------------------------------------------------------- overwriting, not accumulating
-
     @Test
-    @DisplayName("the second write replaces the row - this is the whole point of the table")
-    void aSecondWriteReplacesTheFirst() {
+    void theSecondWriteReplacesTheRowThisIsTheWholePointOfTheTable() {
         online.write(Map.of("smp", 3));
         online.write(Map.of("smp", 9));
 
@@ -143,8 +132,7 @@ class OnlineDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("writing one subject leaves every other subject's row untouched")
-    void writingOneSubjectDoesNotTouchAnother() {
+    void writingOneSubjectLeavesEveryOtherSubjectsRowUntouched() {
         online.write(Map.of("smp", 3, "limbo", 1));
         online.write(Map.of("smp", 4));
 
@@ -156,8 +144,7 @@ class OnlineDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("`updated` moves forward on a replacing write")
-    void updatedAdvancesOnOverwrite() throws InterruptedException {
+    void updatedMovesForwardOnAReplacingWrite() throws InterruptedException {
         online.write(Map.of("smp", 1));
         final Instant first = online.current().get("smp").updated();
 
@@ -167,8 +154,6 @@ class OnlineDirectoryIntegrationTest {
 
         assertFalse(second.isBefore(first), "a replacing write must not leave a stale timestamp behind");
     }
-
-    // ---------------------------------------------------------------- plumbing
 
     private long count(final String sql) {
         try (Connection connection = dataSource.getConnection();

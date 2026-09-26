@@ -5,16 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link UpdateReport#withoutLines} - a service an update run deliberately left alone is not a line
- * in its report (season-2-ops/125).
+ * Tests {@link UpdateReport#withoutLines}, which drops services a run deliberately left alone.
  *
- * <p>A line is a promise that the run did something to that service. Leaving a held service in the
- * report as {@code PLANNED} would say the run was going to stop it, which is the opposite of what
- * happened; the run says it in a note instead.</p>
+ * A line promises the run did something to that service.
  */
 class UpdateReportLinesTest {
 
@@ -27,8 +23,7 @@ class UpdateReportLinesTest {
     }
 
     @Test
-    @DisplayName("a held service leaves the report entirely")
-    void theHeldLineIsGone() {
+    void aHeldServiceLeavesTheReportEntirely() {
         final UpdateReport left = of("smp", "limbo", "proxy").withoutLines(List.of("limbo"));
 
         assertEquals(
@@ -38,8 +33,7 @@ class UpdateReportLinesTest {
     }
 
     @Test
-    @DisplayName("the notes are not a casualty of dropping a line")
-    void theNotesSurvive() {
+    void theNotesAreNotACasualtyOfDroppingALine() {
         final UpdateReport left =
                 of("smp", "limbo").withNote("limbo is being held down").withoutLines(List.of("limbo"));
 
@@ -51,8 +45,7 @@ class UpdateReportLinesTest {
     }
 
     @Test
-    @DisplayName("nothing held is the same report, not a copy of it")
-    void emptyChangesNothing() {
+    void nothingHeldIsTheSameReportNotACopyOfIt() {
         final UpdateReport report = of("smp", "limbo");
         assertSame(report, report.withoutLines(List.of()));
     }

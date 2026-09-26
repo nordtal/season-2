@@ -18,27 +18,28 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import javax.imageio.ImageIO;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Holds {@link MenuFont}'s advance table against the six row fonts it was exported from.
  *
- * <h2>Why this is the check that matters</h2>
+ * <b>Why this is the check that matters</b>
+ *
  * The server composes a menu row: it decides where a pill starts, where its label starts, and where
  * a right-aligned distance ends. Every one of those is arithmetic on the width of the glyphs the
  * <em>client</em> will draw, so a table one pixel out is a row one pixel out - and one pixel out is
  * not a failure anywhere. Nothing throws, nothing logs, the menu opens, and the number at the right
  * edge sits a hair inside or outside its pill for the rest of the season.
  *
- * <p>The way that happens is somebody redrawing a glyph and not re-running
+ * The way that happens is somebody redrawing a glyph and not re-running
  * {@code resource-pack/tools/generate_gui_rows.py}. So this derives the whole table from the pack
  * again, by the client's own rule - a {@code space} provider's number, or the rightmost column of
  * the glyph's cell that carries any alpha, plus one for that column and one the client adds after
  * every glyph - and fails if the shipped resource disagrees. It is the same arrangement, and the
- * same reason, as {@code BossBarAdvancesTest}.</p>
+ * same reason, as {@code BossBarAdvancesTest}.
  *
- * <h2>And the ascents, which nothing else can see</h2>
+ * <b>And the ascents, which nothing else can see</b>
+ *
  * A row font's whole purpose is its three ascents. Getting one wrong draws the right picture on the
  * wrong row, or half a row off, which reads as a layout bug rather than as a font mistake - and no
  * test that only looks at widths would notice. So the second half of this class asserts each of the
@@ -58,8 +59,7 @@ class MenuFontTest {
     private static final int BASELINE = 13;
 
     @Test
-    @DisplayName("the exported advance table is what the client would derive from the pack")
-    void theTableIsThePack() {
+    void theExportedAdvanceTableIsWhatTheClientWouldDeriveFromThePack() {
         assertEquals(
                 new TreeMap<>(derive()),
                 new TreeMap<>(MenuFont.table()),
@@ -71,8 +71,7 @@ class MenuFontTest {
     }
 
     @Test
-    @DisplayName("every row glyph the code names has an advance, so it can be placed at all")
-    void everyRowGlyphIsMeasurable() {
+    void everyRowGlyphTheCodeNamesHasAnAdvanceSoItCanBePlacedAtAll() {
         for (final String glyph : new String[] {
             Glyphs.GUI_ROW_PILL,
             Glyphs.GUI_ROW_FRAME,
@@ -94,12 +93,10 @@ class MenuFontTest {
     }
 
     @Test
-    @DisplayName("text is folded onto the sheet: capitals, ß kept, anything else a question mark")
-    void theFoldIsTheAlphabet() {
+    void textIsFoldedOntoTheSheetCapitalsKeptAnythingElseAQuestionMark() {
         assertEquals("BAECKEREI", MenuFont.fold("Baeckerei"));
         assertEquals("STRASSE", MenuFont.fold("Strasse"));
-        // The one character with no single-character upper case. String#toUpperCase turns it into
-        // SS, which would be two glyphs where the sheet has one - and the sheet has one.
+        // ß has no single-character upper case; String#toUpperCase would make it two glyphs.
         assertEquals("STRAßE", MenuFont.fold("Straße"));
         assertEquals("MÜHLE", MenuFont.fold("mühle"));
         // A POI name is typed by a player, so this is the ordinary case and not the exotic one.
@@ -108,16 +105,14 @@ class MenuFontTest {
     }
 
     @Test
-    @DisplayName("a folded string measures what it will draw, and an unknown character costs a ?")
-    void theWidthIsTheDrawnWidth() {
+    void aFoldedStringMeasuresWhatItWillDrawAndAnUnknownCharacterCostsA() {
         assertEquals(MenuFont.width(MenuFont.fold("?")), MenuFont.width(MenuFont.fold("é")));
         assertEquals(0, MenuFont.width(""));
         assertEquals(MenuFont.advance(' '), MenuFont.width(" "));
     }
 
     @Test
-    @DisplayName("fit shortens until it fits, and leaves alone what already does")
-    void fitStaysInsideItsPill() {
+    void fitShortensUntilItFitsAndLeavesAloneWhatAlreadyDoes() {
         final String short_ = "MINE";
         assertEquals(short_, MenuFont.fit(short_, 120));
         for (final int pixels : new int[] {8, 12, 20, 40, 120}) {
@@ -131,16 +126,14 @@ class MenuFontTest {
     }
 
     @Test
-    @DisplayName("a row font is refused for a row a chest does not have")
-    void thereIsNoSeventhRow() {
+    void aRowFontIsRefusedForARowAChestDoesNotHave() {
         assertThrows(IllegalArgumentException.class, () -> MenuTitle.onPlain(6).rowText("X", 6, 9, null));
         assertThrows(
                 IllegalArgumentException.class, () -> MenuTitle.onPlain(6).rowArt(Glyphs.GUI_ROW_PILL, -1, 9, null));
     }
 
     @Test
-    @DisplayName("each row font's three ascents put its glyphs on that row's slot cell")
-    void theAscentsAreTheRows() {
+    void eachRowFontsThreeAscentsPutItsGlyphsOnThatRowsSlotCell() {
         for (int row = 0; row < MenuTitle.MAX_ROWS; row++) {
             final Map<Integer, JsonObject> providers = bitmaps("gui_r" + row + ".json");
             final int cell = SlotGeometry.y(row);
@@ -163,33 +156,15 @@ class MenuFontTest {
     }
 
     /**
-     * Pairs the sheet is allowed to draw with the same pixels, and why.
+     * Pairs that may be the same picture, with the reason; empty, and each entry would be a debt.
      *
-     * <p>The list is short and it is a debt, not a licence. Every entry is a pair that renders
-     * identically at five pixels, so a reader cannot tell them apart at all - which is fine for a
-     * pair that never stands beside the other in a number, and not fine otherwise.</p>
-     */
-    /**
-     * Pairs that are allowed to be the same picture, with the reason.
-     *
-     * <p><b>Empty since 2026-09-09</b>, and it stays here for the reason it was written: the point
-     * of the list is that a remaining ambiguity lives in the build rather than in somebody's
-     * memory. It held {@code UV} for one day - the artifact drew both letters as the same bowl and
-     * the transcription copied it twice, so a POI named BURG and one named BVRG were the same five
-     * rows on screen. That was recorded rather than fixed because the owner had asked for 0/O/8 and
-     * not for this pair; the review of PR #10 then pointed out that POI names come from players,
-     * which is exactly where a pair nobody chose does its damage. U is flat-bottomed now.</p>
+     * POI names come from players, where an ambiguous pair does its damage.
      */
     private static final Map<String, String> LOOKALIKES = Map.of();
 
     @Test
-    @DisplayName("a zero, a letter O and an eight are three different silhouettes")
-    void theThreeRoundGlyphsAreTold() {
-        // The artifact drew 0 and O with the same five rows and 8 one pixel from both (owner,
-        // 2026-09-08). A distance of one interior pixel is not a difference a player reads on a
-        // coordinate or on "1240/2048" - it is a difference somebody finds by comparing. So this
-        // asserts a floor on the distance rather than mere inequality, and it asserts it on the
-        // PNG the client will draw rather than on the generator's table.
+    void aZeroALetterOAndAnEightAreThreeDifferentSilhouettes() {
+        // Asserts a floor on the pixel distance of the PNG the client draws, not mere inequality.
         final Map<Character, boolean[]> sheet = sheetPixels();
         for (final String pair : new String[] {"0O", "08", "O8"}) {
             assertTrue(
@@ -204,8 +179,7 @@ class MenuFontTest {
     }
 
     @Test
-    @DisplayName("no two characters draw the same pixels, apart from the pairs named here")
-    void theSheetHasNoUnnamedTwins() {
+    void noTwoCharactersDrawTheSamePixelsApartFromThePairsNamedHere() {
         final Map<Character, boolean[]> sheet = sheetPixels();
         final java.util.List<String> twins = new java.util.ArrayList<>();
         final java.util.List<Character> characters = new java.util.ArrayList<>(sheet.keySet());
@@ -226,8 +200,6 @@ class MenuFontTest {
                         + " with the reason it is acceptable - the point of the list is that the"
                         + " remaining ambiguity is in the build rather than in somebody's memory");
     }
-
-    // --- helpers ---------------------------------------------------------------------------
 
     /** Every character of the five-pixel sheet, as the cell's own pixels, read off the PNG. */
     private static Map<Character, boolean[]> sheetPixels() {
@@ -293,8 +265,8 @@ class MenuFontTest {
     /**
      * The whole table again, from {@code gui_r0.json} and its PNGs, by the client's own rule.
      *
-     * <p>{@code gui_r0} alone is enough because {@code ResourcePackTest} asserts the six declare
-     * the same characters, and an advance does not depend on the ascent.</p>
+     * {@code gui_r0} alone is enough because {@code ResourcePackTest} asserts the six declare
+     * the same characters, and an advance does not depend on the ascent.
      */
     private static Map<Integer, Integer> derive() {
         final Map<Integer, Integer> table = new TreeMap<>();

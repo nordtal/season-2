@@ -13,15 +13,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 /**
- * The caching contract of {@link PlayerLocales}, which is the part of it that is a decision rather
- * than a query: <em>when</em> a language change takes effect, and what a render path gets for a
- * player nobody loaded.
- * <p>
- * In memory, with a lambda for the {@link LocaleSource} - not a mock framework, and not a database:
- * the database side of the same component is exercised against a real container in
- * {@code AccessDirectoryIntegrationTest}. What is proved here is that the value is read exactly
- * once per join and never again, which no amount of container time would show more clearly.
- * </p>
+ * Checks the caching contract of {@link PlayerLocales}: when a change takes effect, and the fallback.
+ *
+ * In memory with a lambda source; the database side runs in {@code AccessDirectoryIntegrationTest}.
  */
 class PlayerLocalesTest {
 
@@ -113,13 +107,9 @@ class PlayerLocalesTest {
         assertEquals(Locale.ENGLISH, sloppy.join(null));
     }
 
-    // ---------------------------------------------------------------- off the main thread
-
     @Test
     void joinAsyncLoadsOnTheExecutorItIsGivenAndNotOnTheCaller() throws Exception {
-        // The whole point of the method: the JDBC round trip must not happen on the thread that
-        // called it, because on Paper that thread is the server. Asserted by capturing the thread
-        // the source actually ran on rather than by timing anything.
+        // The JDBC round trip must not run on the calling thread, which on Paper is the server's.
         stored.put(PLAYER, Locale.GERMAN);
         final java.util.concurrent.atomic.AtomicReference<Thread> ranOn =
                 new java.util.concurrent.atomic.AtomicReference<>();
@@ -141,9 +131,7 @@ class PlayerLocalesTest {
 
     @Test
     void ofAnswersEnglishUntilTheAsyncLoadLands() throws Exception {
-        // The visible consequence, and the reason this is safe to do at all: a render path that
-        // fires before the query returns gets the fallback rather than blocking or throwing. A
-        // German player may therefore see one English line at the start of a session.
+        // A render before the query returns gets English rather than blocking or throwing.
         stored.put(PLAYER, Locale.GERMAN);
         final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
         final java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -171,9 +159,7 @@ class PlayerLocalesTest {
 
     @Test
     void joinAsyncNeverCompletesExceptionally() throws Exception {
-        // join() swallows its own failures and answers English; joinAsync adds nothing on top. A
-        // future that completed exceptionally would put an unhandled failure on a scheduler thread
-        // on a login path, which is the one place it must not be.
+        // joinAsync must not complete exceptionally on a login path; join() already answers English.
         final java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
         final PlayerLocales locales = new PlayerLocales(uuid -> {
             throw new IllegalStateException("the database is gone");

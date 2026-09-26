@@ -9,22 +9,22 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@code /update}'s effects, once, for all five processes.
  *
- * <h2>Why one implementation and not one per process</h2>
- * Every other effect interface in this module is implemented per process, because every other one
- * touches something only that process has - a world, a guild, a proxy's player list. This one
+ * One implementation, not one per process: every other effect interface in this module is
+ * implemented per process, because every other one touches something only that process has - a
+ * world, a guild, a proxy's player list. This one
  * touches {@link UpdateDirectory}, which is a {@code :common} type over a {@code javax.sql
  * .DataSource}, and all five processes already hold that pool. Writing it three times would be
  * three chances for the countdown length or the source label to differ, which is the failure this
  * module exists to prevent.
  *
- * <p>What genuinely differs per process is handed in: where to run the waiting part, how to log,
- * and how to show the answer. The <em>source</em> is not handed in any more - it was, and the proxy
- * named itself {@code CONSOLE} for every player who typed there. It is read off the user now, in
- * {@link #submit}, which is the one place that can tell a player from a console.</p>
+ * What genuinely differs per process is handed in: where to run the waiting part, how to log,
+ * and how to show the answer. The <em>source</em> is not handed in at all; it is read off the
+ * user in {@link #submit}, which is the one place that can tell a player from a console.
  */
 public final class DirectoryUpdateEffects implements UpdateEffects {
 
@@ -69,11 +69,7 @@ public final class DirectoryUpdateEffects implements UpdateEffects {
 
     @Override
     public UpdateRequest submit(final UpdateKind kind, final NordtalUser user, final java.util.List<String> services) {
-        // Every kind is written due immediately, since 2026-09-08. The countdown used to be set
-        // here, which meant it ran before anybody knew whether there was anything to install: the
-        // ordinary /update now counted thirty seconds down to every player on the network and then
-        // answered "everything is already current". steward-worker sets it now, on the row it has
-        // claimed, once its plan has work in it - see UpdateDirectory#startCountdown.
+        // Every kind is written due immediately: a countdown must not run before anybody knows there is work.
         return updates.submit(kind, sourceOf(user), requesterOf(user), Duration.ZERO, services);
     }
 
@@ -89,12 +85,12 @@ public final class DirectoryUpdateEffects implements UpdateEffects {
     /**
      * Who to record: the Discord id, the Minecraft name, or nobody.
      *
-     * <p>The id and not the display name for Discord, because the id is what {@code discord_user}
+     * The id and not the display name for Discord, because the id is what {@code discord_user}
      * is keyed by and what the bot's own button path has always written; a display name can be
      * changed by its owner an hour later. The console is {@code null}, which is what the column
-     * has meant by it since V7 - a shell in the container is not a person.</p>
+     * has meant by it since V7 - a shell in the container is not a person.
      */
-    static String requesterOf(final NordtalUser user) {
+    static @Nullable String requesterOf(final NordtalUser user) {
         return switch (user.origin()) {
             case DISCORD -> user.discordId().orElseGet(user::name);
             case GAME -> user.name();

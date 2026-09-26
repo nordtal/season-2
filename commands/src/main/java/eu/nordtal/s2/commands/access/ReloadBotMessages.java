@@ -13,10 +13,10 @@ import java.util.List;
 /**
  * {@code /access reload} - the bot's own wording.
  *
- * <p>The one place in the network where a reload reports what it found rather than only whether it
+ * The one place in the network where a reload reports what it found rather than only whether it
  * worked: an override key no bundle declares is stored and never used, which looks exactly like an
  * override that works. Saying so at the moment somebody edits the file is the only time it is
- * useful.</p>
+ * useful.
  */
 public final class ReloadBotMessages implements NordtalCommand<AccessEffects> {
 
@@ -38,8 +38,7 @@ public final class ReloadBotMessages implements NordtalCommand<AccessEffects> {
             } else {
                 user.reply(
                         MESSAGES.access().messages().reloadedWithUnknown(String.join(", ", unknown)),
-                        // The reload worked; some override keys name nothing. WARN rather than
-                        // BAD, because the bot is now running the new file either way.
+                        // The reload worked; some override keys name nothing. WARN rather than BAD.
                         Feedback.REFUSED,
                         Tone.WARN);
             }

@@ -3,15 +3,16 @@ package eu.nordtal.s2.common.update;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What an update run has done so far, as data rather than as a paragraph.
  *
- * <p><b>Nothing is decided twice.</b> The updater is the only thing that resolves versions, compares
+ * <b>Nothing is decided twice.</b> The updater is the only thing that resolves versions, compares
  * volumes and knows what happened; it says so in a shape each surface draws for itself - Discord as
  * one field per service, a console as {@link #render()}.
  *
- * <p>The row carries this as JSON and is rewritten as the run moves through its stages, because
+ * The row carries this as JSON and is rewritten as the run moves through its stages, because
  * minutes of silence look exactly like a run that has hung.
  *
  * @param stage    where the run has got to
@@ -42,11 +43,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         return new UpdateReport(stage, services, combined);
     }
 
-    /**
-     * Replaces the line for one service, keeping the order the report was built in. Replace rather
-     * than append, because the stages walk the same services repeatedly and appending would give
-     * Discord four fields for one server.
-     */
+    /** Replaces the line for one service, keeping its position, since stages revisit the same services. */
     public UpdateReport with(final ServiceLine line) {
         final List<ServiceLine> combined = new ArrayList<>(services.size() + 1);
         boolean replaced = false;
@@ -65,12 +62,12 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     }
 
     /**
-     * The same report without the lines for those services (season-2-ops/125).
+     * The same report without the lines for those services.
      *
-     * <p>The one caller is an update run dropping the services somebody is holding down. They are
+     * The one caller is an update run dropping the services somebody is holding down. They are
      * removed rather than marked, because a line in a report is a promise that the run did
      * something to that service, and this run is deliberately doing nothing to it. What is said
-     * instead is a note, which is where "and here is what I left alone" belongs.</p>
+     * instead is a note, which is where "and here is what I left alone" belongs.
      */
     public UpdateReport withoutLines(final List<String> gone) {
         if (gone.isEmpty()) {
@@ -103,12 +100,12 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
      * @return whether this report shows at least one thing actually saved - one line in
      *         {@link State#SAVED}.
      *
-     * <p>Separate from "the run succeeded", because those are two different facts and A23 is the
+     * Separate from "the run succeeded", because those are two different facts and A23 is the
      * proof: run 23 settled {@code DONE} having snapshotted <b>zero</b> volumes, and nothing about
      * the row said so. A run's status answers "did any step report a failure"; this answers "is
      * there a file", and only the second one is a backup.
      *
-     * <p>One line is enough on purpose, and the cost is stated rather than hidden: this cannot tell
+     * One line is enough on purpose, and the cost is stated rather than hidden: this cannot tell
      * that the volume which failed was the one holding the world. It does not try to - the volume
      * list lives in {@code steward.yml#backup.volumes} on the worker's side, and a second copy of
      * it in a plugin's config is two lists that drift. What makes one line sufficient in practice
@@ -137,7 +134,11 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     }
 
     /** One service, and what has happened to it so far. */
-    public record ServiceLine(String service, State state, List<Change> changes, String detail) {
+    public record ServiceLine(
+            String service,
+            State state,
+            List<Change> changes,
+            @Nullable String detail) {
 
         public ServiceLine {
             Objects.requireNonNull(service, "service");
@@ -149,19 +150,19 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
             return new ServiceLine(service, next, changes, detail);
         }
 
-        public ServiceLine failed(final String why) {
+        public ServiceLine failed(final @Nullable String why) {
             return new ServiceLine(service, State.FAILED, changes, why);
         }
 
         /**
          * The same line with a sentence beside it, without touching the state.
          *
-         * <p>Separate from {@link #failed(String)}, which sets both: a step that is going to take
+         * Separate from {@link #failed(String)}, which sets both: a step that is going to take
          * minutes and can end this process - pulling an image and recreating the container - has to
          * be able to say what it is doing <em>before</em> it does it, and saying it through
-         * {@code failed} would publish a failure that has not happened.</p>
+         * {@code failed} would publish a failure that has not happened.
          */
-        public ServiceLine withDetail(final String what) {
+        public ServiceLine withDetail(final @Nullable String what) {
             return new ServiceLine(service, state, changes, what);
         }
 
@@ -209,24 +210,20 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
      *              going nowhere, so that {@link #render()} and the codec have one shape to handle
      * @param state whether this row is a file moving or an artefact waiting for a build
      */
-    public record Change(String artefact, String from, String to, State state) {
+    public record Change(String artefact, @Nullable String from, String to, Change.State state) {
 
-        /**
-         * What {@link Change#to()} carries for an artefact that has no build to move to. A
-         * sentinel rather than {@code null}, because every reader relies on {@code to} being set;
-         * nothing renders it, since every surface branches on {@link #state()} first.
-         */
+        /** The {@link Change#to()} of an artefact with no build to move to; readers branch on the state first. */
         public static final String UNSUPPORTED = "-";
 
         public Change {
             Objects.requireNonNull(artefact, "artefact");
             Objects.requireNonNull(to, "to");
-            state = state == null ? State.MOVING : state;
+            state = state == null ? Change.State.MOVING : state;
         }
 
         /** A file being installed or replaced. */
-        public Change(final String artefact, final String from, final String to) {
-            this(artefact, from, to, State.MOVING);
+        public Change(final String artefact, final @Nullable String from, final String to) {
+            this(artefact, from, to, Change.State.MOVING);
         }
 
         /**
@@ -234,7 +231,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
          * It stays in the report so that it stays named while it waits.
          */
         public static Change unsupported(final String artefact) {
-            return new Change(artefact, null, UNSUPPORTED, State.UNSUPPORTED);
+            return new Change(artefact, null, UNSUPPORTED, Change.State.UNSUPPORTED);
         }
 
         public String render() {
@@ -248,11 +245,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         public enum State {
             /** A file is being installed or replaced. {@code from} and {@code to} say which. */
             MOVING,
-            /**
-             * Nothing is happening and nothing has gone wrong: the source answered and has no
-             * build of this artefact for the Minecraft version the network runs. A service whose
-             * only changes are these is <b>not</b> work and is never stopped.
-             */
+            /** The source has no build of this artefact for the network's Minecraft version; never work to stop for. */
             UNSUPPORTED
         }
     }
@@ -312,10 +305,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         STOPPED("stopped"),
         /** The new jars are in place and it has not been started yet. */
         INSTALLED("updated"),
-        /**
-         * A volume's snapshot is finished. Not a service state: a {@code BACKUP} run's report
-         * carries one line per volume beside its lines per service.
-         */
+        /** A volume's snapshot is finished; a {@code BACKUP} report carries one line per volume. */
         SAVED("saved"),
         /** Started, and not yet reporting healthy. */
         STARTING("starting"),

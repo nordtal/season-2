@@ -28,7 +28,7 @@ class MessageContextsTest {
                 @Arg("damage") Object damage);
 
         @Name("Bar")
-        Bar bar();
+        Fight.Bar bar();
 
         @Shown(Display.BOSS_BAR)
         interface Bar {
@@ -109,7 +109,7 @@ class MessageContextsTest {
                 @Arg("damage") Object damage);
 
         @Name("Bar")
-        Bar bar();
+        Drifted.Bar bar();
 
         interface Bar {
 

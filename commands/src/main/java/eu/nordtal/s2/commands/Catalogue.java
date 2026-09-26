@@ -12,21 +12,19 @@ import java.util.List;
 /**
  * Every command this network has, in one list.
  *
- * <h2>Why a list exists at all</h2>
- * Because "every admin command is available on both platforms" is a claim about a set, and until
- * there was a set it could only be checked by reading four adapters and hoping. The list is what
- * makes {@code CatalogueTest} able to say which commands are missing a surface, which are declared
- * twice, and which carry an argument shape the request row cannot express - none of which is
- * answerable from inside a single command.
+ * "Every admin command is available on both platforms" is a claim about a set, and only a list
+ * makes it checkable: {@code CatalogueTest} uses it to say which commands are missing a surface,
+ * which are declared twice, and which carry an argument shape the request row cannot express -
+ * none of which is answerable from inside a single command.
  *
- * <h2>It is declarations only, and deliberately holds no commands</h2>
- * A {@link Declaration} is a value: a path, a target, some arguments. A {@link NordtalCommand} needs
+ * It is declarations only, and deliberately holds no commands. A {@link Declaration} is a value: a
+ * path, a target, some arguments. A {@link NordtalCommand} needs
  * an effect interface implemented by exactly one process, so a list of <em>those</em> could only
  * exist inside one JVM and would be a different list in each. Keeping this to declarations is what
  * lets one test in one module see the whole network's command surface.
  *
- * <p>Which also means this list does not prove anything is <em>wired</em>. That is what each
- * adapter's own wiring test is for; this one proves the design is coherent, not that it runs.</p>
+ * Which also means this list does not prove anything is <em>wired</em>. That is what each
+ * adapter's own wiring test is for; this one proves the design is coherent, not that it runs.
  */
 public final class Catalogue {
 
@@ -49,25 +47,21 @@ public final class Catalogue {
 
     /**
      * The one command a bare root runs instead of printing its help.
-     * <p>
+     *
      * Every root answers "just the root, nothing after it" with the list of what can be typed
      * underneath - the rule {@code PaperCommands} and {@code VelocityCommands} apply to
-     * {@code /smp}, {@code /hg} and {@code /access}. {@code /phase} is the exception, decided by the
-     * owner on 2026-09-05 after the local rehearsal showed the fold had quietly changed it: it is
-     * the command somebody types while the network is misbehaving, and the thing they want is the
+     * {@code /smp}, {@code /hg} and {@code /access}. {@code /phase} is the exception: it is the
+     * command somebody types while the network is misbehaving, and the thing they want is the
      * phase, not four lines of syntax. So {@code /phase} is {@code /phase show}. Kept as data here
      * rather than as a flag on {@link Declaration}, because it is a fact about a root and there is
      * one of them; {@code CatalogueTest} holds every entry to a two-segment path under its own root
      * with nothing required after it, which is what "runnable with nothing typed" means.
-     * </p>
      *
-     * <b>The admin flag is not a convenience.</b> Brigadier's {@code requires} sits on the child
-     * node, and taking this shortcut skips it - so until 2026-09-06 a bare {@code /phase} from any
-     * player on the proxy ran the admin-only {@code /phase show} and printed the phase and both
-     * season dates. Both adapters carried a comment saying the child's own dispatch applied the
-     * check; neither dispatch has ever applied one, because the whole admin gate for a command tree
-     * is the {@code requires} this path goes around. Asking here means the one place that knows a
-     * root has a default is also the place that decides who gets it (finding 102).
+     * The admin flag is not a convenience. Brigadier's {@code requires} sits on the child node, and
+     * taking this shortcut skips it, so returning a default for an admin-only root without checking
+     * {@code admin} would run it for anyone. The whole admin gate for a command tree is the
+     * {@code requires} this path goes around, so asking here means the one place that knows a root
+     * has a default is also the place that decides who gets it.
      *
      * @param root  the first segment of a path, as typed after the slash
      * @param admin whether the person typing it is an admin, from the same cache {@code requires}
@@ -82,9 +76,7 @@ public final class Catalogue {
     private static final java.util.Map<String, Declaration> ROOT_DEFAULTS = java.util.Map.of(
             "phase",
             PhaseCommands.SHOW,
-            // The bare /update is the report, on the surfaces that have a bare form at
-            // all. Discord has none - a root with subcommands is a menu there - which is
-            // why the report is /update check and this entry exists.
+            // The bare /update is the report, on the surfaces that have a bare form at all. Discord has none.
             "update",
             eu.nordtal.s2.commands.update.UpdateCommands.REPORT);
 

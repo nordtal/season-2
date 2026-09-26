@@ -4,12 +4,7 @@ import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
-/**
- * The read half of {@code proxy_standby_state}. The write half is the standby proxy's own
- * {@code SwapDao}, and the two are deliberately not the same interface: this table is written by
- * exactly one process and read by exactly one other, and putting an {@code INSERT} on the reader's
- * side would make "who writes this" a question somebody has to answer by grepping.
- */
+/** The read half of {@code proxy_standby_state}; only the standby proxy's {@code SwapDao} writes it. */
 interface StandbyDao {
 
     /** The single row, fixed by the primary key - see {@code V31__proxy_swap.sql}. */

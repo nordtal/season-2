@@ -12,13 +12,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The help output's shape, which is four message keys and no code.
  *
- * <h2>Why that is worth pinning</h2>
  * The point of putting the whole format in the bundle is that an operator can change it without a
  * release - re-order the parts, drop the explanation, change the separator. What makes that safe is
  * that the adapter supplies exactly the placeholders these keys name and no others: an override that
@@ -41,8 +39,7 @@ class HelpFormatTest {
             "command.help.nothing", List.of());
 
     @Test
-    @DisplayName("every format key exists in both languages")
-    void theFormatIsComplete() {
+    void everyFormatKeyExistsInBothLanguages() {
         for (final String key : SUPPLIED.keySet()) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
                 assertTrue(
@@ -55,8 +52,7 @@ class HelpFormatTest {
     }
 
     @Test
-    @DisplayName("no format key names a placeholder the adapter does not supply")
-    void everyPlaceholderIsFilled() {
+    void noFormatKeyNamesAPlaceholderTheAdapterDoesNotSupply() {
         for (final Map.Entry<String, List<String>> entry : SUPPLIED.entrySet()) {
             for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
                 final String text = messages.get(locale, entry.getKey());
@@ -71,11 +67,8 @@ class HelpFormatTest {
     }
 
     @Test
-    @DisplayName("the list line keeps its indent, which needs escaping to survive Properties.load")
-    void theIndentIsEscaped() throws IOException {
-        // Properties.load strips unescaped leading whitespace from a value. The unescaped version
-        // parses, resolves, and quietly loses the two spaces that make a list read as a list -
-        // exactly the shape of the continuation bug BundleContinuationTest was written for.
+    void theListLineKeepsItsIndentWhichNeedsEscapingToSurvivePropertiesLoad() throws IOException {
+        // Properties.load strips unescaped leading whitespace from a value. The unescaped version parses, resolves.
         for (final String lang : List.of("en", "de")) {
             final Properties properties = new Properties();
             try (InputStream stream =
@@ -91,10 +84,8 @@ class HelpFormatTest {
     }
 
     @Test
-    @DisplayName("a usage line and its explanation are separate keys, so either can be dropped")
-    void theTwoHalvesAreSeparate() {
-        // An operator who finds the explanations noisy can blank command.help.what and keep the
-        // syntax. That only works while they are two keys and the adapter sends two messages.
+    void aUsageLineAndItsExplanationAreSeparateKeysSoEitherCanBeDropped() {
+        // An operator who finds the explanations noisy can blank command.help.what and keep the syntax. That only.
         assertEquals(List.of("usage"), SUPPLIED.get("command.help.usage"));
         assertEquals(List.of("what"), SUPPLIED.get("command.help.what"));
     }

@@ -9,28 +9,13 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.ResolverStyle;
 import java.util.Locale;
 import java.util.Optional;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
- * How the two season dates are typed and shown - the one place both {@code /phase} commands agree
- * on, so the Discord bot and the Velocity proxy cannot drift apart on what a date means.
+ * Parses and formats the two season dates, so both {@code /phase} commands agree on what a date means.
  *
- * <h2>One time zone, written down rather than inherited</h2>
- * {@link #ZONE} is {@code Europe/Berlin}, hard-coded on purpose. The alternative is the JVM's
- * default, and every container in {@code compose.yml} runs on UTC - so an admin typing
- * {@code 18:00} would get 18:00 UTC, which is 20:00 on the clock everyone else in the season is
- * reading. A date typed here is a wall-clock time in the zone the season lives in, and daylight
- * saving is applied for the date in question: the same {@code 18:00} is {@code +02:00} in October
- * and {@code +01:00} in November, which is exactly the arithmetic that goes wrong when a human
- * writes the offset by hand.
- *
- * <h2>The one hour that is not a time</h2>
- * On the night the clocks go back an hour repeats, and on the night they go forward an hour does
- * not exist. {@link ZonedDateTime#of} resolves both without complaining - the repeated hour gets
- * the earlier (summer) offset, the missing hour is pushed forward by the gap. Neither is worth
- * refusing a season date over: both land within an hour of what was meant, and both nights are in
- * March and October, where a season opening is a deliberate choice somebody would notice.
+ * {@link #ZONE} is {@code Europe/Berlin}, not the containers' UTC, and daylight saving applies per date.
+ * A repeated or missing hour at a clock change is resolved by {@link ZonedDateTime#of} without refusal.
  */
 public final class SeasonDates {
 
@@ -43,11 +28,7 @@ public final class SeasonDates {
     /** What an admin types. The {@code T} is accepted too, because half the world's tooling emits it. */
     public static final String PATTERN = "yyyy-MM-dd HH:mm";
 
-    // STRICT, and therefore 'uuuu' rather than 'yyyy': the default resolver is SMART, which
-    // silently clamps 2026-02-30 to the end of February instead of refusing it. A season date that
-    // quietly becomes a different date is the one failure this class must not have. STRICT rejects
-    // the year-of-era field, which is why the pattern the admin is shown and the pattern that
-    // parses differ by exactly that one letter.
+    // STRICT, hence 'uuuu' not 'yyyy': SMART would clamp February 30 to the month's end instead of refusing it.
     private static final DateTimeFormatter TYPED =
             DateTimeFormatter.ofPattern(PATTERN.replace('y', 'u'), Locale.ROOT).withResolverStyle(ResolverStyle.STRICT);
     private static final DateTimeFormatter SHOWN = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z", Locale.ROOT);
@@ -62,12 +43,11 @@ public final class SeasonDates {
      *         caller turns that into a message naming the pattern, because "empty" here never
      *         means "no date", which is {@link #CLEAR}'s job
      */
-    public static @NotNull Optional<Instant> parse(final @Nullable String text) {
+    public static Optional<Instant> parse(final @Nullable String text) {
         if (text == null || text.isBlank()) {
             return Optional.empty();
         }
-        // A single 'T' where the space belongs is the only shape difference worth tolerating;
-        // anything else is a typo the admin should see rather than have guessed at.
+        // A 'T' for the space is the only shape difference tolerated; anything else is a typo to show.
         final String normalised = text.strip().replace('T', ' ');
         try {
             final LocalDateTime local = LocalDateTime.parse(normalised, TYPED);
@@ -89,20 +69,17 @@ public final class SeasonDates {
      * @return the formatted date, or {@code "not set"} for {@code null} - a real state and not a
      *         missing value, so it is spelled out rather than left blank
      */
-    public static @NotNull String format(final @Nullable Instant when) {
+    public static String format(final @Nullable Instant when) {
         return format(when, "not set");
     }
 
     /**
-     * The same, with the caller's own word for a date that is not there - a command answering a
-     * person renders {@code phase.date.unset} in their language rather than this class's English;
-     * the log lines and exception messages keep the default.
+     * Formats a date with the caller's own word for a missing one, such as a translated text.
      *
      * @param when  the instant, may be {@code null}
      * @param unset what to say for {@code null}
-     * @return the formatted date, or {@code unset}
      */
-    public static @NotNull String format(final @Nullable Instant when, final @NotNull String unset) {
+    public static String format(final @Nullable Instant when, final String unset) {
         return when == null ? unset : SHOWN.format(when.atZone(ZONE));
     }
 }

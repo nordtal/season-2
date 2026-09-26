@@ -222,12 +222,12 @@ public final class ObjectivePanel {
         if (width == 0 && clamped > 0.0) {
             width = 1;
         }
-        final String[] glyphs = top ? Glyphs.GUI_BAR_FILL_TOP : Glyphs.GUI_BAR_FILL_BOTTOM;
+        final List<String> glyphs = top ? Glyphs.GUI_BAR_FILL_TOP : Glyphs.GUI_BAR_FILL_BOTTOM;
         int at = x;
-        for (int index = Glyphs.GUI_BAR_FILL_WIDTHS.length - 1; index >= 0; index--) {
-            final int step = Glyphs.GUI_BAR_FILL_WIDTHS[index];
+        for (int index = Glyphs.GUI_BAR_FILL_WIDTHS.size() - 1; index >= 0; index--) {
+            final int step = Glyphs.GUI_BAR_FILL_WIDTHS.get(index);
             if (width >= step) {
-                canvas.overlay(glyphs[index], at, step);
+                canvas.overlay(glyphs.get(index), at, step);
                 width -= step;
                 at += step;
             }

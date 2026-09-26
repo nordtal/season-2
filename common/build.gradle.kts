@@ -78,6 +78,15 @@ repositoryRootTestInputs {
 }
 
 dependencies {
+    // NullAway's own annotations reference this at the class-file level (TypeUseLocation), so
+    // without it on the compile classpath javac cannot fully resolve them and -Werror turns that
+    // into a build failure. Version matches what NullAway 0.14.2 itself pulls in
+    // (org.checkerframework:dataflow-nullaway's own checker-qual dependency); not in the version
+    // catalog because nothing here uses the library directly. The test source set compiles under
+    // the same checks, and compileOnly does not reach it.
+    compileOnly("org.checkerframework:checker-qual:4.2.3")
+    testCompileOnly("org.checkerframework:checker-qual:4.2.3")
+
     // Adventure comes from paper-api / velocity-api at runtime on both platforms,
     // so it is compile-only here and never shaded.
     compileOnly(libs.adventure.api)
@@ -87,8 +96,6 @@ dependencies {
     testImplementation(libs.adventure.minimessage)
 
     testImplementation(libs.gson)
-
-    compileOnly(libs.annotations)
 
     // The access API (eu.nordtal.s2.common.access) talks to PostgreSQL directly, because the
     // database is the source of truth for access and the proxy has to read it on the login path.

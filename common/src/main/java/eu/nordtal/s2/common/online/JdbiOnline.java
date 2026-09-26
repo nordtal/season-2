@@ -12,12 +12,9 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
- * The only implementation of {@link OnlineDirectory}. Package-private: consumers get it from the
- * factory method on the interface and never name JDBI themselves.
- * <p>
- * It borrows the pool it is given and owns nothing, which is why there is no {@code close()} here
- * and none on the interface - the process that built the pool closes the pool.
- * </p>
+ * The only implementation of {@link OnlineDirectory}.
+ *
+ * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
  */
 final class JdbiOnline implements OnlineDirectory {
 
@@ -35,8 +32,7 @@ final class JdbiOnline implements OnlineDirectory {
     public void write(final Map<String, Integer> counts) {
         Objects.requireNonNull(counts, "counts");
         if (counts.isEmpty()) {
-            // A JDBC batch of nothing is a round trip for nothing, and JDBI refuses an empty
-            // iterable outright - the same guard JdbiMetrics keeps for the same statement shape.
+            // JDBI refuses an empty batch.
             return;
         }
 

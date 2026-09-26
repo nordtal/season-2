@@ -16,16 +16,12 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The only implementation of {@link AccessDirectory}. Package-private: consumers get it from the
- * factory methods on the interface and never name JDBI or HikariCP themselves.
- * <p>
- * This is deliberately not jcore's {@code Database}. It does the same three lines of setup, and
- * doing them here is what keeps a Paper plugin from having to shade jcore's whole dependency
- * block - Flyway, the config system, commons-*, gson, snakeyaml - for a connection pool. Migration
- * is not duplicated: the schema is owned and applied by the bot.
- * </p>
+ * The only implementation of {@link AccessDirectory}.
+ *
+ * It avoids jcore's {@code Database} so a Paper plugin need not shade jcore's dependencies for a pool.
  */
 final class JdbiAccessDirectory implements AccessDirectory {
 
@@ -34,9 +30,9 @@ final class JdbiAccessDirectory implements AccessDirectory {
 
     private final Jdbi jdbi;
     private final AccessDao dao;
-    private final HikariDataSource ownedPool;
+    private final @Nullable HikariDataSource ownedPool;
 
-    private JdbiAccessDirectory(final DataSource dataSource, final HikariDataSource ownedPool) {
+    private JdbiAccessDirectory(final DataSource dataSource, final @Nullable HikariDataSource ownedPool) {
         this.jdbi = Jdbi.create(dataSource).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
         this.dao = jdbi.onDemand(AccessDao.class);
         this.ownedPool = ownedPool;
@@ -60,8 +56,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
         config.setPoolName("nordtal-access");
         config.setMaximumPoolSize(DEFAULT_MAXIMUM_POOL_SIZE);
 
-        // HikariCP's default initializationFailTimeout makes this fail here, at startup, rather
-        // than on the first login attempt.
+        // HikariCP's default initializationFailTimeout makes this fail at startup, not on the first login.
         final HikariDataSource pool = new HikariDataSource(config);
         try {
             return new JdbiAccessDirectory(pool, pool);
@@ -70,8 +65,6 @@ final class JdbiAccessDirectory implements AccessDirectory {
             throw exception;
         }
     }
-
-    // ---------------------------------------------------------------- reads
 
     @Override
     public Optional<UUID> linkedMinecraftAccount(final String discordId) {
@@ -97,8 +90,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
         try {
             return Locales.parse(dao.localeOf(mcUuid).orElse(null));
         } catch (final RuntimeException exception) {
-            // Documented never to throw: a disconnect screen still has to render when the
-            // database is unreachable, and English is always a correct answer here.
+            // Never throws: a disconnect screen has to render when the database is unreachable.
             return Locales.DEFAULT;
         }
     }
@@ -125,8 +117,6 @@ final class JdbiAccessDirectory implements AccessDirectory {
     public List<AccessGrant> grantsOf(final String discordId) {
         return dao.grantsOf(Objects.requireNonNull(discordId, "discordId"));
     }
-
-    // ---------------------------------------------------------------- writes
 
     @Override
     public void ensureUser(final String discordId) {
@@ -175,8 +165,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
         Objects.requireNonNull(discordId, "discordId");
         Objects.requireNonNull(mcUuid, "mcUuid");
 
-        // ensureUser and the insert share one transaction: without it a rolled-back link would
-        // leave a discord_user row behind for an account the bot has never actually seen.
+        // One transaction: a rolled-back link must not leave a discord_user row behind.
         return jdbi.inTransaction(handle -> {
             final AccessDao transactional = handle.attach(AccessDao.class);
             transactional.ensureUser(discordId);
@@ -223,23 +212,10 @@ final class JdbiAccessDirectory implements AccessDirectory {
         }
     }
 
-    // ---------------------------------------------------------------- linking (stage C)
-
     /** PostgreSQL's SQLSTATE for a unique-constraint violation. */
     private static final String UNIQUE_VIOLATION_SQLSTATE = "23505";
 
-    /**
-     * How many times a colliding {@code code} primary key is retried with a freshly generated
-     * candidate.
-     * <p>
-     * This used to say a retry was astronomically unlikely to be needed. At four characters
-     * (2026-09-03) it is merely unlikely: the space is 923 521, so with {@code n} codes alive at
-     * once each candidate collides with probability {@code n / 923 521} - about one in nine
-     * thousand for a hundred live codes. Five attempts turn that into a number with twenty zeroes
-     * after the point, which is where "astronomically" belongs. The loop is now load-bearing
-     * rather than theatre, and the exception it ends in is deliberately loud.
-     * </p>
-     */
+    /** How many times a colliding link code is retried with a new candidate. */
     private static final int MAX_LINK_CODE_ATTEMPTS = 5;
 
     @Override
@@ -258,10 +234,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
                 if (!isUniqueViolation(exception)) {
                     throw exception;
                 }
-                // The candidate collided with a different account's still-live code (the ON
-                // CONFLICT target above is scoped to mc_uuid, so a code-only collision is not
-                // caught there). Each on-demand call is its own statement, so retrying with a new
-                // candidate does not carry a poisoned transaction forward.
+                // A code-only collision is not caught by the mc_uuid ON CONFLICT; each attempt is its own statement.
                 lastCollision = exception;
             }
         }
@@ -285,10 +258,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
 
             transactional.ensureUser(discordId);
             if (transactional.link(discordId, mcUuid.get()) != 1) {
-                // Either this Discord account already has a different Minecraft account linked,
-                // or (unreachable in practice - a code only exists for an unlinked account) that
-                // Minecraft account is already linked to somebody else. Either way the code is
-                // left alone: a wrong click must not burn a legitimate retry.
+                // Either side is already linked; the code is kept so a wrong click does not burn a retry.
                 return LinkRedemption.alreadyLinked();
             }
 

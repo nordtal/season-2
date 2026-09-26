@@ -8,35 +8,15 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The {@code nordtal:limbo} plugin-message channel: its name, its wire format, and the only encoder
- * and decoder either side uses. Both ends live in this repository, and a byte format written twice
- * would drift silently - a plugin message that does not parse looks exactly like one never sent.
+ * The {@code nordtal:limbo} plugin-message channel: its name, wire format, encoder and decoder.
  *
- * <pre>
- * byte  version   always 1
- * byte  type      1 = WAIT (proxy -&gt; limbo), 2 = READY (limbo -&gt; proxy)
- * ...   body
- *
- * WAIT   body: UTF  the {@link WaitReason} constant's name
- * READY  body: empty
- * </pre>
- *
- * <p>Both directions are needed: the proxy knows the pack status, {@code limbo} knows the player has
- * arrived and finished loading, and neither fact implies the other. The release happens when both
- * halves agree.
- *
- * <p><b>A {@code READY} can be lost.</b> Nothing here retries or acknowledges, and Velocity can drop
- * one. The proxy's {@code WaitingBook} therefore accepts one whenever it arrives, in any order, and
- * releases the player after a grace period if it never does - do not make this protocol the only
- * thing between a player and a black screen.
- *
- * <p>On the proxy a message on this channel can come from a <b>client</b> as easily as from a
- * backend, and a forged {@code READY} would be a player skipping the resource pack. The sender is
- * not in the message, so the caller must reject anything whose source is a player rather than a
- * server connection. {@link #decode(byte[])} does the other half: it never throws and returns empty
- * for anything it does not recognise.
+ * A message is {@code byte version} (1), {@code byte type} (1 {@code WAIT} proxy to limbo, 2 {@code READY}
+ * limbo to proxy) and a body: {@code WAIT} carries the {@link WaitReason} name as a UTF string. A
+ * {@code READY} can be lost, so the proxy releases after a grace period. On the proxy the caller must
+ * reject messages from a player connection, since a forged {@code READY} would skip the resource pack.
  */
 public final class LimboProtocol {
 
@@ -68,7 +48,7 @@ public final class LimboProtocol {
      * @param reason the reason a {@link Type#WAIT} carries; always {@code null} for
      *               {@link Type#READY}
      */
-    public record Message(Type type, WaitReason reason) {
+    public record Message(Type type, @Nullable WaitReason reason) {
 
         public Message {
             Objects.requireNonNull(type, "type");
@@ -91,8 +71,7 @@ public final class LimboProtocol {
             out.writeByte(TYPE_WAIT);
             out.writeUTF(reason.name());
         } catch (final IOException impossible) {
-            // ByteArrayOutputStream does not do I/O; rethrown so a future change cannot quietly
-            // start returning half a message.
+            // ByteArrayOutputStream does no I/O; rethrown so a change cannot return half a message.
             throw new UncheckedIOException(impossible);
         }
         return bytes.toByteArray();
@@ -113,15 +92,12 @@ public final class LimboProtocol {
     }
 
     /**
-     * Reads a message off the wire. Never throws, whatever the bytes are: everything reaching it
-     * came off a socket somebody else controls, so the failure has to be a value.
+     * Reads a message off the wire and never throws, since the bytes come from a socket.
      *
      * @param data the payload of the plugin message, may be {@code null}
-     * @return the message, or empty when the payload is truncated, carries another version, names
-     *         a message type this build does not have, or names a {@link WaitReason} it does not
-     *         have
+     * @return the message, or empty when the payload is truncated or names an unknown version, type or reason
      */
-    public static Optional<Message> decode(final byte[] data) {
+    public static Optional<Message> decode(final byte @Nullable [] data) {
         if (data == null || data.length < 2) {
             return Optional.empty();
         }

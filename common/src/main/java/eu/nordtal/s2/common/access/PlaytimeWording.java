@@ -3,12 +3,12 @@ package eu.nordtal.s2.common.access;
 /**
  * A play time, in the three units a person thinks in: {@code 1 d 6 h 30 min}.
  *
- * <p>The twin of {@code playtime()} in Steward's {@code format.ts}, deliberately kept short enough
+ * The twin of {@code playtime()} in Steward's {@code format.ts}, deliberately kept short enough
  * that the two cannot drift in any way that matters: same units, same order, same rule that zero
  * parts are left out and that a total of nothing is still {@code 0 min}. Seconds are dropped and
  * never rounded up, so a value read back is the one written. It lives here because the bot writes
  * the {@code SET_PLAYTIME} journal line and admin note, and Steward's dialog asks in the same units -
- * a line saying "111600 seconds" is the one place left where somebody has to divide by 3600.</p>
+ * a line saying "111600 seconds" is the one place left where somebody has to divide by 3600.
  */
 public final class PlaytimeWording {
 

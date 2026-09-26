@@ -7,17 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.pack.PackAdvances;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The pill background, walked with the pack's own advances.
  *
- * <p>The old assertions restated the composition ("128 then 64 then 8 then the end cap"), which is
+ * The old assertions restated the composition ("128 then 64 then 8 then the end cap"), which is
  * exactly the kind of test that stays green while the bar has a seam at every boundary. What is
  * worth asserting is the cursor: after {@code pill(inner)} it has to sit exactly
  * {@code CAP + inner + CAP} to the right, with every tile's left edge on the previous tile's right
- * edge. That is only checkable with the real advances, so this reads them from the pack.</p>
+ * edge. That is only checkable with the real advances, so this reads them from the pack.
  */
 class BossBarWidthTest {
 
@@ -25,8 +24,7 @@ class BossBarWidthTest {
             PackAdvances.of("resource-pack/src/assets/nordtal/font/bossbar.json");
 
     @Test
-    @DisplayName("a pill advances exactly cap + inner + cap, for every inner width")
-    void thePillIsExactlyAsWideAsItSays() {
+    void aPillAdvancesExactlyCapInnerCapForEveryInnerWidth() {
         for (int inner = 0; inner < 400; inner++) {
             assertEquals(
                     BossBarWidth.CAP + inner + BossBarWidth.CAP,
@@ -37,10 +35,8 @@ class BossBarWidthTest {
     }
 
     @Test
-    @DisplayName("the tiles butt up: no tile starts before the previous one ended, or after")
-    void theTilesAreSeamless() {
-        // Walk the composition tile by tile. A drawn glyph (positive advance) has to start exactly
-        // where the last drawn glyph's pixels ended, which is one less than its advance.
+    void theTilesButtUpNoTileStartsBeforeThePreviousOneEndedOrAfter() {
+        // Each drawn glyph must start where the previous one's pixels ended, one less than its advance.
         for (final int inner : new int[] {0, 1, 3, 7, 50, 182, 255, 300}) {
             int cursor = 0;
             int drawnEnd = 0;
@@ -62,8 +58,7 @@ class BossBarWidthTest {
     }
 
     @Test
-    @DisplayName("the body is the largest segments first and nothing after the last")
-    void theBodyIsBinary() {
+    void theBodyIsTheLargestSegmentsFirstAndNothingAfterTheLast() {
         // 200 = 128 + 64 + 8, each followed by its one-pixel step back.
         assertEquals(
                 Glyphs.BOSSBAR_BG_128
@@ -78,8 +73,7 @@ class BossBarWidthTest {
     }
 
     @Test
-    @DisplayName("a pill starts with the left cap and ends with the right one")
-    void theCapsAreWhereTheyBelong() {
+    void aPillStartsWithTheLeftCapAndEndsWithTheRightOne() {
         final String pill = BossBarWidth.pill(10);
         assertTrue(pill.startsWith(Glyphs.BOSSBAR_BG_START));
         assertTrue(pill.endsWith(Glyphs.BOSSBAR_BG_END + Glyphs.BOSSBAR_SPACE_MINUS_1));

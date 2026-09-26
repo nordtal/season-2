@@ -10,40 +10,31 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * steward/76: the neighbour file a service writes beside its own config, naming the paths the
- * environment currently overrides - so that steward-worker can say a save through the interface
- * has no effect until the variable is removed, without depending on jcore's {@code ConfigHandle} or
- * reimplementing its {@code NORDTAL_<PREFIX>_<PATH>} naming rule a second time.
- */
+/** Tests the file a service writes beside its config, naming the paths the environment overrides. */
 class EnvOverrideFileTest {
 
     @TempDir
     Path directory;
 
     @Test
-    @DisplayName("the neighbour file for access.yml is access.env-overrides.txt, beside it")
-    void namesTheNeighbourFileTheSameWaySchemaWriterDoes() {
+    void theNeighbourFileForAccessYmlIsAccessEnvOverridesTxtBesideIt() {
         final Path yml = directory.resolve("access.yml");
 
         assertEquals(directory.resolve("access.env-overrides.txt"), EnvOverrideFile.fileFor(yml));
     }
 
     @Test
-    @DisplayName(".yaml is stripped the same way .yml is")
-    void stripsDotYamlToo() {
+    void yamlIsStrippedTheSameWayYmlIs() {
         final Path yaml = directory.resolve("access.yaml");
 
         assertEquals(directory.resolve("access.env-overrides.txt"), EnvOverrideFile.fileFor(yaml));
     }
 
     @Test
-    @DisplayName("a file with neither extension keeps its whole name")
-    void keepsTheWholeNameWhenThereIsNoKnownExtension() {
+    void aFileWithNeitherExtensionKeepsItsWholeName() {
         final Path properties = directory.resolve("voicechat-server.properties");
 
         assertEquals(
@@ -52,16 +43,14 @@ class EnvOverrideFileTest {
     }
 
     @Test
-    @DisplayName("reading before anything has written is absent, not an empty list")
-    void readingBeforeAnyWriteIsAbsent() throws IOException {
+    void readingBeforeAnythingHasWrittenIsAbsentNotAnEmptyList() throws IOException {
         final Path yml = directory.resolve("access.yml");
 
         assertEquals(Optional.empty(), EnvOverrideFile.read(yml));
     }
 
     @Test
-    @DisplayName("a round trip carries every path, in order")
-    void writeThenReadCarriesEveryPathInOrder() throws IOException {
+    void aRoundTripCarriesEveryPathInOrder() throws IOException {
         final Path yml = directory.resolve("access.yml");
         final List<String> paths = List.of("guild-id", "roles.access", "languages");
 
@@ -71,8 +60,7 @@ class EnvOverrideFileTest {
     }
 
     @Test
-    @DisplayName("writing an empty list still leaves a file behind - present-and-empty is its own fact")
-    void writingNothingOverriddenStillLeavesAFile() throws IOException {
+    void writingAnEmptyListStillLeavesAFileBehindPresentAndEmptyIsItsOwnFact() throws IOException {
         final Path yml = directory.resolve("access.yml");
 
         EnvOverrideFile.write(yml, List.of());
@@ -82,8 +70,7 @@ class EnvOverrideFileTest {
     }
 
     @Test
-    @DisplayName("a second write replaces the first rather than appending to it")
-    void aSecondWriteReplacesTheFirst() throws IOException {
+    void aSecondWriteReplacesTheFirstRatherThanAppendingToIt() throws IOException {
         final Path yml = directory.resolve("access.yml");
 
         EnvOverrideFile.write(yml, List.of("guild-id", "languages"));
@@ -93,8 +80,7 @@ class EnvOverrideFileTest {
     }
 
     @Test
-    @DisplayName("no .tmp file is left behind after a write")
-    void leavesNoTemporaryFileBehind() throws IOException {
+    void noTmpFileIsLeftBehindAfterAWrite() throws IOException {
         final Path yml = directory.resolve("access.yml");
 
         EnvOverrideFile.write(yml, List.of("languages"));
@@ -103,8 +89,7 @@ class EnvOverrideFileTest {
     }
 
     @Test
-    @DisplayName("a blank line in a hand-edited neighbour file is skipped rather than read as a path")
-    void blankLinesAreSkipped() throws IOException {
+    void aBlankLineInAHandEditedNeighbourFileIsSkippedRatherThanReadAsAPath() throws IOException {
         final Path yml = directory.resolve("access.yml");
         Files.writeString(EnvOverrideFile.fileFor(yml), "guild-id\n\n  \nlanguages\n", StandardCharsets.UTF_8);
 

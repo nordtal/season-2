@@ -16,31 +16,14 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * One sentence for "that command does not exist" and for "you may not type that", everywhere.
+ * Checks that "no such command" and "you may not type that" are one sentence everywhere.
  *
- * <h2>Why it has to be one</h2>
- * The command allowlist's whole design is that being refused teaches a player nothing about what
- * exists. Two sentences break that immediately: whichever one somebody gets tells them which of the
- * two cases they are in, and a player who can tell "refused" from "no such thing" can enumerate the
- * command tree by typing at it. Nothing about the two lines being different would ever look wrong -
- * both are correct, both are translated, and a player sees one at a time.
- *
- * <h2>The four places that say it</h2>
- * A refusal is produced twice on the proxy and twice on every backend, and the four arrived at
- * different times: {@code CommandGate} refuses a command the list does not carry and answers a root
- * Velocity does not know; {@code CommandFilter} does the same on Paper, plus - since 2026-09-09 -
- * {@link org.bukkit.event.command.UnknownCommandEvent}, which is what an <b>admin</b> and what
- * <b>everybody on a network with no published list</b> hit, and which without a handler is vanilla's
- * "Unknown or incomplete command, see below for error" with a red caret under the offending
- * character, in the server's language.
- *
- * <p>So this walks the two files and asserts that every message either of them renders is the
- * same one. It is a text search because there is nothing else it could be: both
- * handlers are fired by a platform, on a running server, at a player.</p>
+ * Two sentences would let a player enumerate the command tree. {@code CommandGate} and
+ * {@code CommandFilter}, including its {@link org.bukkit.event.command.UnknownCommandEvent} handler,
+ * must all render the same message; a text search, as the handlers need a running server.
  */
 class OneRefusalLineTest {
 
@@ -52,16 +35,11 @@ class OneRefusalLineTest {
             "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/CommandFilter.java",
             "proxy/src/main/java/eu/nordtal/s2/proxy/command/CommandGate.java");
 
-    /**
-     * Any message a refuser renders: a chain of section and key calls on the spec, such as
-     * {@code MESSAGES.command().unknown()}, whose key is the segments in kebab case. None of the
-     * methods on this path carries an {@code @Key}, so the method names are the key.
-     */
+    /** Any message a refuser renders: a chain of section and key calls on the spec, named in kebab case. */
     private static final Pattern RENDERED_KEY = Pattern.compile("MESSAGES((?:\\s*\\.\\s*[a-zA-Z0-9]+\\(\\))+)");
 
     @Test
-    @DisplayName("both refusers say exactly one thing, and it is the same thing")
-    void thereIsOneRefusalLine() {
+    void bothRefusersSayExactlyOneThingAndItIsTheSameThing() {
         final Set<String> keys = new TreeSet<>();
         for (final String refuser : REFUSERS) {
             final Matcher matcher = RENDERED_KEY.matcher(read(RepositoryRoot.resolve(refuser)));
@@ -78,8 +56,7 @@ class OneRefusalLineTest {
     }
 
     @Test
-    @DisplayName("the Paper side answers UnknownCommandEvent, or an admin reads vanilla's")
-    void unknownCommandsAreAnsweredOnPaperToo() {
+    void thePaperSideAnswersUnknowncommandeventOrAnAdminReadsVanillas() {
         final String filter = read(RepositoryRoot.resolve(REFUSERS.get(0)));
         assertTrue(
                 filter.contains("UnknownCommandEvent"),
@@ -88,13 +65,9 @@ class OneRefusalLineTest {
                         + " incomplete command', in the server's language, with a red caret");
     }
 
-    /**
-     * Read off the file rather than through {@link Messages}: {@code :commands} depends on this
-     * module and not the other way round, so its bundle is on no classpath a test here can load.
-     */
+    /** Reads the bundle off the file, since {@code :commands} is on no classpath a test here can load. */
     @Test
-    @DisplayName("the one key exists in both languages of the shared bundle")
-    void theKeyIsTranslated() {
+    void theOneKeyExistsInBothLanguagesOfTheSharedBundle() {
         for (final String language : List.of("en", "de")) {
             final Path bundle =
                     RepositoryRoot.resolve("commands/src/main/resources/messages/commands/" + language + ".properties");
@@ -107,11 +80,10 @@ class OneRefusalLineTest {
 
     /** Nothing else in the repository may declare a second key that means the same. */
     @Test
-    @DisplayName("no bundle declares a second refusal key")
-    void nobodyHasWrittenASecondOne() {
+    void noBundleDeclaresASecondRefusalKey() {
         final List<String> suspects = new ArrayList<>();
         for (final Path bundle : bundles()) {
-            for (final String line : read(bundle).split("\n")) {
+            for (final String line : read(bundle).split("\n", -1)) {
                 final String key = line.split("=", 2)[0].strip();
                 if (key.equals(KEY) || key.startsWith("#")) {
                     continue;
@@ -135,7 +107,7 @@ class OneRefusalLineTest {
     /** {@code .command().noSuchThing()} to {@code command.no-such-thing}. */
     private static String keyOf(final String chain) {
         final List<String> segments = new ArrayList<>();
-        for (final String call : chain.replaceAll("\\s", "").split("\\(\\)")) {
+        for (final String call : chain.replaceAll("\\s", "").split("\\(\\)", -1)) {
             if (!call.isEmpty()) {
                 segments.add(call.substring(1)
                         .replaceAll("([a-z0-9])([A-Z])", "$1-$2")
@@ -169,7 +141,7 @@ class OneRefusalLineTest {
     private static String read(final Path source) {
         assertTrue(
                 Files.isRegularFile(source),
-                source + " no longer exists - a missing file is a" + " check that silently stops running");
+                source + " is missing, and a missing file is a check that silently stops running");
         try {
             return Files.readString(source, StandardCharsets.UTF_8);
         } catch (final IOException e) {

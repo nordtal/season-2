@@ -19,43 +19,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every {@code @ConfigSpec} property with an {@code @Order} carries either {@code @Explain} or
- * {@code @NoExplanationNeeded} - the short sentence a person flipping a switch in the Steward UI
- * reads, or a deliberate decision that the name and its allowed values already say enough.
+ * Checks that every ordered {@code @ConfigSpec} property carries {@code @Explain} or {@code @NoExplanationNeeded}.
  *
- * <p>steward/62 is the ticket this closes, and it is closed <em>last</em> on purpose: on the day it
- * was written this test would have failed on three files (157 settings), and a guard nobody has ever
- * seen fail is not a guard - it is a comment shaped like one. Whoever changes what counts as "enough"
- * should watch this go red before it goes green again.</p>
- *
- * <p>This reads the interfaces as TEXT rather than through reflection, the same way
- * {@code PlatformTest} and {@code EveryBundleIsCompleteTest} read the files they check: a
- * {@code @ConfigSpec} lives in whichever module owns it, and {@code :common} does not depend on
- * {@code discord-bot}, {@code steward-ui} or {@code steward-worker} - a reflective check would need a
- * dependency this module must not have just to run a test. Scanning the source finds every property
- * without needing its class on any classpath.</p>
- *
- * <p>Every file this walk reaches has to be declared in {@code common/build.gradle.kts} through
- * {@code repositoryRootTestInputs} - four modules' full {@code src/main} trees are already read there
- * for other tests, and three narrower directories were added for this one. Without that declaration
- * Gradle cannot see the dependency and an edit inside a {@code config/} package leaves
- * {@code :common:test} UP-TO-DATE, silently.</p>
+ * Reads the sources as text, since {@code :common} depends on none of the modules that own the specs. Every
+ * file walked must be declared through {@code repositoryRootTestInputs}, or the test stays up to date.
  */
 class ConfigSpecExplanationTest {
 
-    /**
-     * The {@code *Spec.java} files this walk found when the test was written, one per
-     * {@code @ConfigSpec} FILE (a file may declare several nested specs; this is the floor for the
-     * walk finding the file at all, not a count of properties in it).
-     *
-     * <p>A floor, never a ceiling, for the same reason {@code EveryBundleIsCompleteTest.KNOWN} is
-     * one: the walk below finds a new module's config on its own, so what this catches is the walk
-     * silently finding nothing because a module was renamed or {@code config/} moved.</p>
-     */
+    /** The spec files the walk must find at least, so a renamed module cannot make it find nothing. */
     private static final Set<String> KNOWN = Set.of(
             "discord-bot/src/main/java/eu/nordtal/s2/discordbot/config/AccessSpec.java",
             "discord-bot/src/main/java/eu/nordtal/s2/discordbot/config/BotSpec.java",
@@ -90,18 +64,16 @@ class ConfigSpecExplanationTest {
     private static final Pattern NAME = Pattern.compile("@Name\\(\"[^\"]+\"\\)");
 
     @Test
-    @DisplayName("the walk still finds every config spec file it found when this test was written")
-    void theWalkStillFindsTheFilesItWasWrittenFor() {
+    void theWalkStillFindsEveryConfigSpecFileItFoundWhenThisTestWasWritten() {
         final Set<String> found =
                 specFiles().stream().map(RepositoryRoot::relative).collect(Collectors.toCollection(TreeSet::new));
         assertTrue(
                 found.containsAll(KNOWN),
-                "the walk lost sight of a config spec file it used to find. Missing: " + missing(found));
+                "the walk does not find every known config spec file. Missing: " + missing(found));
     }
 
     @Test
-    @DisplayName("every @Order property carries @Explain or @NoExplanationNeeded, never neither")
-    void everyOrderedPropertyIsExplainedOrDeclaredSelfEvident() {
+    void everyOrderPropertyCarriesExplainOrNoexplanationneededNeverNeither() {
         final Map<String, List<String>> unexplained = new TreeMap<>();
         for (final Path file : specFiles()) {
             final String name = RepositoryRoot.relative(file);
@@ -125,8 +97,7 @@ class ConfigSpecExplanationTest {
     }
 
     @Test
-    @DisplayName("every @Order property carries @Name, the name the Steward UI shows instead of the key")
-    void everyOrderedPropertyHasAName() {
+    void everyOrderPropertyCarriesNameTheNameTheStewardUiShowsInsteadOfTheKey() {
         final Map<String, List<String>> unnamed = new TreeMap<>();
         for (final Path file : specFiles()) {
             final String name = RepositoryRoot.relative(file);
@@ -145,8 +116,7 @@ class ConfigSpecExplanationTest {
     }
 
     @Test
-    @DisplayName("no property carries both @Explain and @NoExplanationNeeded")
-    void noPropertyClaimsBothAtOnce() {
+    void noPropertyCarriesBothExplainAndNoexplanationneeded() {
         final Map<String, List<String>> contradictory = new TreeMap<>();
         for (final Path file : specFiles()) {
             final String name = RepositoryRoot.relative(file);
@@ -192,11 +162,11 @@ class ConfigSpecExplanationTest {
     }
 
     /**
-     * Every {@code <module>/src/main/java/**&#47;config/*Spec.java} in the repository.
+     * Every {@code *Spec.java} in a {@code config} directory under any module's {@code src/main/java}.
      *
-     * <p>Matched by directory name rather than by module list, so a module gaining its first
+     * Matched by directory name rather than by module list, so a module gaining its first
      * {@code @ConfigSpec} needs nothing added here - the same shape {@code EveryBundleIsCompleteTest}
-     * uses for message bundles.</p>
+     * uses for message bundles.
      */
     private static List<Path> specFiles() {
         final List<Path> found = new ArrayList<>();

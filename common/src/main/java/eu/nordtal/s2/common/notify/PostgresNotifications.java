@@ -12,21 +12,10 @@ import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 
 /**
- * The pgjdbc half of a listener: one plain JDBC connection with a {@code LISTEN} issued for each
- * channel, polled with {@code PGConnection#getNotifications(int)}.
+ * One plain JDBC connection with a {@code LISTEN} per channel, polled with {@code getNotifications}.
  *
- * <p><b>Not a pooled connection.</b> {@code LISTEN} is session state that would leak to whoever
- * borrowed the connection next, and this one is parked in a blocking read for the life of the
- * process - which is what a pool exists to prevent. It is opened straight from {@link DriverManager}
- * and belongs to one thread.
- *
- * <p>All channels share the one connection: {@code getNotifications} returns whatever arrived on any
- * of them, and every listener here wants the same thing on a wake-up - re-read the authoritative
- * state, because a notification is never the state.
- *
- * <p>It carries a {@code socketTimeout} so a dead peer surfaces as a {@link SQLException} the
- * reconnect loop can act on rather than as a thread parked forever. The parameters are plain values
- * so that every process can share this class whatever its own config type is.
+ * Not pooled: {@code LISTEN} is session state and the connection blocks for the process's life. All
+ * channels share it. A {@code socketTimeout} turns a dead peer into a {@link SQLException} for reconnect.
  */
 public final class PostgresNotifications implements Notifications {
 
@@ -70,8 +59,7 @@ public final class PostgresNotifications implements Notifications {
             throw new IllegalArgumentException("a listener with no channel would park forever");
         }
         for (final String channel : listenOn) {
-            // The name goes into the statement unquoted - it is an identifier, so there is no
-            // placeholder for it.
+            // The name goes into the statement unquoted: an identifier has no placeholder.
             if (!channel.matches("[a-z][a-z0-9_]*")) {
                 throw new IllegalArgumentException("not a usable LISTEN channel name: '" + channel + "'");
             }
@@ -107,7 +95,7 @@ public final class PostgresNotifications implements Notifications {
     /**
      * {@inheritDoc}
      *
-     * <p>{@code getNotifications(timeout)} answers {@code null} both when nothing was published and
+     * {@code getNotifications(timeout)} answers {@code null} both when nothing was published and
      * when the peer has gone away without closing the socket, so every timeout is followed by a
      * liveness check that turns a dead connection into the {@link SQLException} the reconnect loop
      * waits for. That check is one round trip per timeout, which is why the caller passes the poll

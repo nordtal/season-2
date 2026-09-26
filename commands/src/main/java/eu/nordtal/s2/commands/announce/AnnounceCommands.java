@@ -11,26 +11,19 @@ import java.util.Set;
 /**
  * {@code announce <language> <text>}: one line into one language's Discord announcement channel.
  *
- * <p>Sent by a server, never typed: the SMP renders a milestone completion in each language it
+ * Sent by a server, never typed: the SMP renders a milestone completion in each language it
  * has a bundle for and submits one row per language through the
- * {@code command_request} transport; the bot's inbox runs it and posts.</p>
+ * {@code command_request} transport; the bot's inbox runs it and posts.
  *
- * <p>The text arrives already rendered, because the names it carries live in the sender's bundle -
- * a bot that had to know them would need a copy of {@code milestones.yml}.</p>
+ * The text arrives already rendered, because the names it carries live in the sender's bundle -
+ * a bot that had to know them would need a copy of {@code milestones.yml}.
  */
 public final class AnnounceCommands {
 
     private AnnounceCommands() {}
 
     public static final Declaration ANNOUNCE = new Declaration(
-            // SYSTEM because the SMP writes these rows by itself at a milestone, WEB because an
-            // admin can also write one by hand - the same command, two askers, one implementation.
-            //
-            // adminOnly, and it costs the SMP nothing: AdminCheck lets `source = 'CONSOLE'` through
-            // by definition, and that is what Announcer#row writes. What it adds is the second
-            // check, at the moment the inbox runs the row rather than at the moment the browser
-            // submitted it - so a WEB row queued by somebody whose admin role has since been taken
-            // away does not still post into an announcement channel.
+            // SYSTEM because the SMP writes these rows by itself at a milestone.
             List.of("announce"),
             Target.BOT,
             Set.of(Surface.SYSTEM, Surface.WEB),

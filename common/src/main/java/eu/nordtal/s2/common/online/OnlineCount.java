@@ -6,7 +6,7 @@ import java.util.Objects;
 /**
  * One row of {@code online_count}, as read back.
  *
- * <p>There is no {@code EMPTY} constant here the way {@code NetworkSnapshot} has one: an absent
+ * There is no {@code EMPTY} constant here the way {@code NetworkSnapshot} has one: an absent
  * subject is a legitimate answer for this table (proxy has never written it, or not yet
  * this deployment) and {@link OnlineDirectory#current()} leaves it out of the map entirely rather
  * than inventing a placeholder row for it. See {@link OnlineDirectory} for why "no row" and "zero"

@@ -3,16 +3,16 @@ package eu.nordtal.s2.common.network;
 /**
  * The numbers behind the MOTD placeholders, as of the last successful refresh.
  *
- * <p>Immutable and replaced wholesale, never mutated in place: a ping renders from whichever
+ * Immutable and replaced wholesale, never mutated in place: a ping renders from whichever
  * instance it happens to read, and a half-updated snapshot would put two different moments in one
  * MOTD - "12 of 8 alive" is the kind of thing screenshots survive far longer than the bug does.
  *
- * <p><b>Everything here is an approximation with an age</b>, up to
+ * <b>Everything here is an approximation with an age</b>, up to
  * {@code network.yml#snapshot-refresh-seconds} old, and none of it decides anything. That is the
  * whole reason it can be cached at all: a server-list ping is unauthenticated and arrives in
  * bursts, so the database must not be on that path.
  *
- * <p>{@link #EMPTY} is what a proxy that has never managed a refresh renders, and it is all zeroes
+ * {@link #EMPTY} is what a proxy that has never managed a refresh renders, and it is all zeroes
  * and empty strings rather than nulls - the placeholder resolver substitutes it without a special
  * case, so a database that has never answered shows a MOTD with zeroes in it instead of no MOTD.
  *

@@ -8,12 +8,12 @@ import java.util.Objects;
 /**
  * One message, chosen and filled: a bundle key plus the values of its placeholders.
  *
- * <p>Made by a message spec (see {@code eu.nordtal.s2.common.message.spec.MessageSpecs}), never by
+ * Made by a message spec (see {@code eu.nordtal.s2.common.message.spec.MessageSpecs}), never by
  * hand in a module - the spec is what makes the key exist and the placeholders the ones the text
  * names. It is only a reference: the language is chosen where it is rendered, by
  * {@link Messages#format(java.util.Locale, MessageRef)} or {@link MessageRenderer}, so the same
  * value can be rendered for every reader of a broadcast, or carried across the network as key and
- * values and rendered on the other side.</p>
+ * values and rendered on the other side.
  *
  * @param key  the bundle key
  * @param args placeholder name to value, in declaration order; a value that is an Adventure

@@ -16,14 +16,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Every decision {@code /smp} takes, without a server.
  *
- * <h2>What could be asked before this existed</h2>
- * Nothing. All six of these lived as Brigadier handlers inside one Paper plugin, so "what does
+ * Before this, nothing could be asked: all six of these lived as Brigadier handlers inside one
+ * Paper plugin, so "what does
  * {@code /smp objective complete} say when no milestone is active?" was answerable only by starting
  * a server, loading a world, and arranging for no milestone to be active. The cases below are the
  * ones that were therefore never checked - and one of them was wrong: {@code /smp aura} answered an
@@ -41,17 +40,9 @@ class SmpCommandsTest {
         return user;
     }
 
-    // ------------------------------------------------------------------ the declarations
-
     @Test
-    @DisplayName("the two that cannot be undone ask first, and the others do not")
-    void whatIsIrreversible() {
-        // A flag on everything that writes is a flag nobody reads. /smp aura is not guarded because
-        // applying the negative is an exact undo; /smp reload is not because re-reading a file
-        // changes nothing that was not already on disk.
-        //
-        // "/smp farmreset now" was the third and the starkest: it deleted a world a player could be
-        // standing in. It went with the farm world itself on 2026-09-20 (season-2-ingame/30).
+    void theTwoThatCannotBeUndoneAskFirstAndTheOthersDoNot() {
+        // A flag on everything that writes is a flag nobody reads - /smp aura is unguarded because it is its own undo.
         assertEquals(
                 Set.of("/smp objective complete", "/smp milestone unlock"),
                 SmpCommands.declarations().stream()
@@ -61,11 +52,8 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("every /smp declaration is an admin's, and on the console (and web) only")
-    void everyDeclarationIsConsoleOnly() {
-        // ops/18, 2026-09-15: "alles Admin nur noch Konsole und Web" took Surface.GAME and
-        // Surface.DISCORD off every admin command. The two a player types - /aura and /smp status -
-        // are not declarations any more: they are native Brigadier in the smp plugin.
+    void everySmpDeclarationIsAnAdminsAndOnTheConsoleAndWebOnly() {
+        // Every admin command lost Surface.GAME and Surface.DISCORD. The two a player types - /aura and /smp status.
         for (final Declaration declaration : SmpCommands.declarations()) {
             assertTrue(declaration.adminOnly(), declaration.name() + " is not admin-only");
             // Console must never be lost, and game/Discord must both be gone.
@@ -80,11 +68,8 @@ class SmpCommandsTest {
         }
     }
 
-    // ------------------------------------------------------------------ reload
-
     @Test
-    @DisplayName("reload says so, and a refusal names the console rather than swallowing it")
-    void reload() {
+    void reloadSaysSoAndARefusalNamesTheConsoleRatherThanSwallowingIt() {
         assertEquals(
                 List.of("smp.admin.reloaded"), run(new ReloadSmp(), Map.of()).keys());
         assertEquals(List.of("reload"), smp.did);
@@ -97,13 +82,8 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("a refused track is its own answer, and it names what the file disagrees with")
-    void aRefusedTrackNamesTheDisagreement() {
-        // Not the same thing as a reload that threw. The file parsed; what it disagrees with is
-        // progress the season has already recorded - a renamed milestone key, an objective that
-        // changed type, a completed objective whose target moved. The running track is kept, and
-        // the person running this is editing milestones.yml on a live season, so the answer has to
-        // name the rows rather than say that something went wrong.
+    void aRefusedTrackIsItsOwnAnswerAndItNamesWhatTheFileDisagreesWith() {
+        // Not the same thing as a reload that threw. The file parsed.
         smp.trackRefused = List.of(
                 "ancient-debris: has stored progress but is not declared in the file any more.",
                 "logs/oak: changed type from STATISTIC to HAND_IN");
@@ -120,13 +100,9 @@ class SmpCommandsTest {
                 "the reload did not run - the sounds and the wording are re-read regardless");
     }
 
-    // ------------------------------------------------------------------ objectives
-
     @Test
-    @DisplayName("no active milestone and no such objective are different sentences")
-    void theTwoRefusalsStayApart() {
-        // Folding them into one would leave an admin re-reading the milestone file for a key that
-        // is in it.
+    void noActiveMilestoneAndNoSuchObjectiveAreDifferentSentences() {
+        // Folding them into one would leave an admin re-reading the milestone file for a key that is in it.
         assertEquals(
                 List.of("smp.admin.no-active-milestone"),
                 run(new CompleteObjective(), Map.of("key", "netherite")).keys());
@@ -139,8 +115,7 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("completing an objective names both it and its milestone")
-    void completingAnObjective() {
+    void completingAnObjectiveNamesBothItAndItsMilestone() {
         smp.activeMilestone = "the-nether";
         smp.objectives = List.of("netherite");
 
@@ -153,10 +128,8 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("unlocking a milestone does not check the key first, and says which one it was")
-    void unlockingAMilestone() {
-        // The engine is the only thing that knows the whole track, active milestones included, so
-        // asking twice would be two reads for a command run a handful of times a season.
+    void unlockingAMilestoneDoesNotCheckTheKeyFirstAndSaysWhichOneItWas() {
+        // The engine is the only thing that knows the whole track, active milestones included.
         final FakeUser user = run(new UnlockMilestone(), Map.of("key", "the-end"));
 
         assertEquals("smp.admin.milestone-unlocked", user.only().key());
@@ -164,14 +137,9 @@ class SmpCommandsTest {
         assertEquals(List.of("unlock the-end"), smp.did);
     }
 
-    // ------------------------------------------------------------------ aura
-
     @Test
-    @DisplayName("an unlinked target is told about, not told off")
-    void auraOnAnUnlinkedAccount() {
-        // This is the bug the fold found. It used to answer smp.error.no-account-link - "YOUR
-        // Minecraft account is not linked" - which is written for a player about their own account
-        // and told an admin the wrong thing about the person in front of them.
+    void anUnlinkedTargetIsToldAboutNotToldOff() {
+        // Not smp.error.no-account-link, which is addressed to the player, not to the admin asking.
         smp.names.put(SOMEBODY, "Steve");
 
         final FakeUser user = run(new ChangeAura(), Map.of("player", SOMEBODY, "delta", -25));
@@ -182,10 +150,8 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("a correction records who made it")
-    void auraRecordsItsAuthor() {
-        // An unexplained balance is what the reason column exists to prevent, and an admin's
-        // correction is the likeliest one to be questioned.
+    void aCorrectionRecordsWhoMadeIt() {
+        // An unexplained balance is what the reason column exists to prevent.
         smp.names.put(SOMEBODY, "Steve");
         smp.links.put(SOMEBODY, "100000000000000009");
 
@@ -198,18 +164,14 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("a player this server has never seen is named by UUID rather than not at all")
-    void anUnknownNameStillProducesASentence() {
+    void aPlayerThisServerHasNeverSeenIsNamedByUuidRatherThanNotAtAll() {
         // Reachable now that the command can arrive from Discord about somebody who is not here.
         final FakeUser user = run(new ChangeAura(), Map.of("player", SOMEBODY, "delta", 1));
         assertEquals(new PlayerContext(SOMEBODY.toString()), user.only().of("player"));
     }
 
-    // ------------------------------------------------------------------ access
-
     @Test
-    @DisplayName("an unlinked account is said plainly, because it means something else is wrong")
-    void accessOnAnUnlinkedAccount() {
+    void anUnlinkedAccountIsSaidPlainlyBecauseItMeansSomethingElseIsWrong() {
         smp.names.put(SOMEBODY, "Steve");
         smp.access = new SmpEffects.Access(null, false, null);
 
@@ -219,8 +181,7 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("linked, active, and a purchase with a payment link waiting")
-    void accessWithAnOpenPayment() {
+    void linkedActiveAndAPurchaseWithAPaymentLinkWaiting() {
         smp.names.put(SOMEBODY, "Steve");
         smp.access = new SmpEffects.Access("100000000000000009", true, Instant.parse("2026-10-01T00:00:00Z"));
         smp.payment = FakeSmp.payment(true);
@@ -231,8 +192,7 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("a purchase with no payment link is a different line, and that is the point")
-    void aPurchaseThatNeverGotALink() {
+    void aPurchaseWithNoPaymentLinkIsADifferentLineAndThatIsThePoint() {
         // "Chose 60 days" and "asked for a payment link" are different problems to chase.
         smp.names.put(SOMEBODY, "Steve");
         smp.access = new SmpEffects.Access("100000000000000009", false, null);
@@ -244,8 +204,7 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("expired access reads differently from access that never existed")
-    void expiredIsNotTheSameAsNever() {
+    void expiredAccessReadsDifferentlyFromAccessThatNeverExisted() {
         smp.names.put(SOMEBODY, "Steve");
         smp.access = new SmpEffects.Access("100000000000000009", false, Instant.parse("2026-08-01T00:00:00Z"));
 
@@ -255,11 +214,8 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("a failure reading the payment keeps the access line, which is what was asked for")
-    void thePaymentIsASeparateRead() {
-        // The two reads behind this command are separate on purpose. Losing the access line because
-        // the second query failed would be the wrong trade: the access line is the one an admin
-        // came for.
+    void aFailureReadingThePaymentKeepsTheAccessLineWhichIsWhatWasAskedFor() {
+        // The two reads behind this command are separate on purpose. Losing the access line because the second query.
         smp.names.put(SOMEBODY, "Steve");
         smp.access = new SmpEffects.Access("100000000000000009", true, Instant.parse("2026-10-01T00:00:00Z"));
         smp.paymentFailure = new IllegalStateException("the database did not answer");

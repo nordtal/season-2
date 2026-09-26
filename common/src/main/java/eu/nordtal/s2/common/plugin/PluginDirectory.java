@@ -4,34 +4,27 @@ import java.util.List;
 import javax.sql.DataSource;
 
 /**
- * The plugins an admin added on top of the ones the code gives (season-2-ops/129).
+ * The plugins an admin added on top of the ones the code gives.
  *
- * <h2>Why this is a directory and not a config file</h2>
+ * <b>Why this is a directory and not a config file</b>
+ *
  * Because the whole point of the feature is that it survives a redeployment nobody edits a file
  * for. {@code Topology.SERVICES} is code because the plugins on it are not a deployment's decision;
  * these are exactly a deployment's decision, they change between one Tuesday and the next, and they
  * are chosen by somebody clicking a button in a browser. A YAML file in a volume would put them
  * where the browser cannot reach and where a second copy of the list would grow.
  *
- * <p><b>A row is a wish, not an observation.</b> Nothing here says what is installed - the jars on
+ * <b>A row is a wish, not an observation.</b> Nothing here says what is installed - the jars on
  * disk say that, and {@code Installation} reads them on every run. This list is what
  * {@code Resolver} merges into the topology, which is how an added plugin joins the ordinary update
- * cycle instead of being a second mechanism.</p>
+ * cycle instead of being a second mechanism.
  *
- * <p>Nothing here names Paper, Velocity, JDA, JDBI or HikariCP: the factory takes a
- * {@link DataSource} and every process hands in the pool it already owns.</p>
+ * Nothing here names Paper, Velocity, JDA, JDBI or HikariCP: the factory takes a
+ * {@link DataSource} and every process hands in the pool it already owns.
  */
 public interface PluginDirectory {
 
-    /**
-     * What a process with no database behind it knows: nothing, and it says so by answering the
-     * fixed topology unchanged.
-     *
-     * <p>This is the safe direction and it is the same one {@code UpdateDirectory}'s defaults take:
-     * the worst case is a run that does what runs did before this table existed. The opposite
-     * default - throwing - would turn a database hiccup into a worker that cannot resolve at all.
-     * </p>
-     */
+    /** The directory without a database, answering the fixed topology unchanged rather than throwing. */
     PluginDirectory NONE = new PluginDirectory() {};
 
     /**
@@ -55,9 +48,9 @@ public interface PluginDirectory {
     /**
      * Adds a plugin to a service, or refreshes the row that is already there.
      *
-     * <p>Unlike {@link #all()} this has no harmless default: a directory that cannot write and
+     * Unlike {@link #all()} this has no harmless default: a directory that cannot write and
      * pretends it did is a button that reports success and installs nothing, forever. Loud beats
-     * silent, so the default throws and the one real directory overrides it.</p>
+     * silent, so the default throws and the one real directory overrides it.
      */
     default void add(final ManagedPlugin plugin) {
         throw new UnsupportedOperationException("this directory cannot add a plugin: " + plugin.artifact());
@@ -66,9 +59,9 @@ public interface PluginDirectory {
     /**
      * Takes the row away. Doing it twice is not an error.
      *
-     * <p>This removes the <em>wish</em> and nothing else. Deleting the jar and the plugin's data
+     * This removes the <em>wish</em> and nothing else. Deleting the jar and the plugin's data
      * folder is steward-worker's, because only steward-worker has the volumes mounted - and it is
-     * deliberately the same button, so a row cannot outlive its files or the other way round.</p>
+     * deliberately the same button, so a row cannot outlive its files or the other way round.
      */
     default void remove(final String service, final String artifact) {
         throw new UnsupportedOperationException("this directory cannot remove a plugin: " + artifact);

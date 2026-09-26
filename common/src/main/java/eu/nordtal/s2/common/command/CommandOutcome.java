@@ -5,7 +5,8 @@ import java.util.Optional;
 /**
  * What became of a request, as the asking side sees it.
  *
- * <h2>Four states and not two</h2>
+ * <b>Four states and not two</b>
+ *
  * "Did it work" is not enough to say anything useful to somebody watching a spinner. {@code PENDING}
  * and {@code RUNNING} both mean keep waiting and mean different things when the wait runs out - a
  * request nobody ever claimed is a target that is down, and one claimed and never settled is a
@@ -34,9 +35,9 @@ public record CommandOutcome(Status status, Optional<String> result) {
         /**
          * The asker stopped waiting before anything claimed it.
          *
-         * <p>Never written by the target - it refuses to claim an expired row instead, so this
+         * Never written by the target - it refuses to claim an expired row instead, so this
          * status means precisely "nothing ever picked this up", which is the one diagnosis worth
-         * having: the process that owns the command is not listening.</p>
+         * having: the process that owns the command is not listening.
          */
         EXPIRED;
 

@@ -15,18 +15,18 @@ import eu.nordtal.s2.common.update.UpdateKind;
 /**
  * {@code /backup now} - count down, take the servers down, save the volumes, bring them back.
  *
- * <h2>Why it is a separate command and not {@code /update backup}</h2>
- * Because it is a different amount of damage asked for a different reason, and because the person
- * who wants it is usually not updating anything: it is what somebody runs before a change they are
- * not sure about. Sharing the root would put it one tab-completion away from {@code /update now},
- * which is the one command in this network whose neighbours matter.
+ * A separate command and not {@code /update backup}: a different amount of damage asked for a
+ * different reason, and the person who wants it is usually not updating anything - it is what
+ * somebody runs before a change they are not sure about. Sharing the root would put it one
+ * tab-completion away from {@code /update now}, which is the one command in this network whose
+ * neighbours matter.
  *
- * <h2>Why the class lives beside {@code /update} anyway</h2>
- * It writes the same row into the same table, is drawn by the same {@link UpdateFollower}, and is
- * carried out by the same container. Sharing {@link UpdateEffects} means it is in the one list
- * every process already registers ({@code UpdateCommands.all()}), so a process cannot end up
- * without it - which is the failure mode {@code Target.LOCAL} carries: nothing travels, so nothing
- * complains, so a process that forgot simply has no {@code /backup} and no log line about it.
+ * It lives beside {@code /update} anyway: it writes the same row into the same table, is drawn by
+ * the same {@link UpdateFollower}, and is carried out by the same container. Sharing
+ * {@link UpdateEffects} means it is in the one list every process already registers
+ * ({@code UpdateCommands.all()}), so a process cannot end up without it - which is the failure mode
+ * {@code Target.LOCAL} carries: nothing travels, so nothing complains, so a process that forgot
+ * simply has no {@code /backup} and no log line about it.
  */
 public final class RunBackup implements NordtalCommand<UpdateEffects> {
 
@@ -41,13 +41,7 @@ public final class RunBackup implements NordtalCommand<UpdateEffects> {
             try {
                 final long id = effects.submit(UpdateKind.BACKUP, user).id();
                 effects.watch(id, user);
-                // Accepted, not started. submit() writes a row and nothing more: steward-worker can
-                // still refuse this run before any countdown - the daemon unreachable, an empty
-                // backup.volumes, another run holding the lock - and a line that says "backing up"
-                // would then be the last thing anybody was told. The watcher reports the countdown
-                // once the worker has actually recorded it, which is where that news belongs.
-                // SMALL_SUCCESS rather than BIG_SUCCESS for the same reason: the sound says the
-                // command was taken, not that the network is about to go down.
+                // Accepted, not started: steward-worker can still refuse this run before any countdown.
                 user.reply(
                         MESSAGES.backup().started(UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
                         Feedback.SMALL_SUCCESS,

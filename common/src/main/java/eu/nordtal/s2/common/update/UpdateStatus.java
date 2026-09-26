@@ -1,13 +1,9 @@
 package eu.nordtal.s2.common.update;
 
 /**
- * Where an {@link UpdateRequest} has got to. Stored verbatim in {@code update_request.status},
- * which a database {@code CHECK} restricts to these five.
+ * Where an {@link UpdateRequest} has got to, stored in {@code update_request.status}.
  *
- * <p>{@code PENDING -> RUNNING -> DONE | FAILED}, or {@code PENDING -> CANCELLED}. Nothing goes
- * back, and nothing skips {@code RUNNING} - a row that reached a terminal state was claimed by a
- * steward-worker first, which is what makes "claimed" and "finished" two separate facts a reader
- * can tell apart.</p>
+ * {@code PENDING -> RUNNING -> DONE | FAILED}, or {@code PENDING -> CANCELLED}; nothing goes back.
  */
 public enum UpdateStatus {
 
@@ -20,17 +16,10 @@ public enum UpdateStatus {
     /** Finished. {@code result} holds the report. */
     DONE,
 
-    /**
-     * Finished badly. {@code result} says how. Also what a worker marks rows it finds
-     * {@code RUNNING} at startup: nobody is running them, because it is the only process that
-     * claims.
-     */
+    /** Finished badly, with {@code result} saying how; also what a starting worker marks leftover running rows. */
     FAILED,
 
-    /**
-     * Withdrawn before it ran. Only reachable from {@link #PENDING}, and in practice only for a
-     * {@link UpdateKind#RESTART} inside its own countdown.
-     */
+    /** Withdrawn before it ran; only reachable from {@link #PENDING}. */
     CANCELLED;
 
     /** Whether nothing more will happen to this row. */

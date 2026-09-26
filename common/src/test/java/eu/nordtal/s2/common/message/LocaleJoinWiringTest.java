@@ -8,24 +8,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * That every Paper backend actually asks {@link PlayerLocales} for the language at join, and lets go
- * of it at quit.
+ * Checks that every Paper backend asks {@link PlayerLocales} for the language at join and releases it at quit.
  *
- * <h2>Why this is a text search and not a real test</h2>
- * The same reason {@code AdminWatchWiringTest} is: what it protects cannot be reached from a JVM
- * with no server in it. {@link PlayerLocales} is covered properly by {@code PlayerLocalesTest} -
- * the join, the fallback, the quit. What no unit test can reach is <b>whether anything calls it</b>.
- *
- * <p>That is not a hypothetical gap either. {@code smp} built a {@link PlayerLocales}, handed it to
- * fifteen classes, and called {@code joinAsync} from none of them - so {@code of()} answered
- * English for every player, and it was found on 2026-09-05 by a German account reading {@code /smp}
- * in English on the local stack, a minute after the proxy had answered {@code /phase} in German.
- * Both modules were internally consistent; the language was wrong only at the seam, and a season
- * in the wrong language looks exactly like one whose players all chose English.</p>
+ * A text search, because whether anything calls it cannot be reached from a JVM without a server.
  */
 class LocaleJoinWiringTest {
 
@@ -36,8 +24,7 @@ class LocaleJoinWiringTest {
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/listener/PresenceListener.java");
 
     @Test
-    @DisplayName("every backend loads the language at join, off the main thread, and forgets it at quit")
-    void allThreeJoinAndQuit() throws IOException {
+    void everyBackendLoadsTheLanguageAtJoinOffTheMainThreadAndForgetsItAtQuit() throws IOException {
         for (final String relative : PRESENCE_LISTENERS) {
             final String text = read(relative);
             assertTrue(
@@ -60,18 +47,8 @@ class LocaleJoinWiringTest {
     }
 
     @Test
-    @DisplayName("the join line waits for the language it is about, on both servers that print one")
-    void theJoinLineIsNotSentFromAJoinHandler() throws IOException {
-        // The consequence of the rule above, and the one message it costs something. Every other
-        // surface is redrawn on a timer and picks the language up by itself; the join line has
-        // exactly one moment, and at that moment the query is still in flight - so the German
-        // player on the local stack was told "hmtill joined." under a German HUD (finding 116). It
-        // is announced from the locale callback instead.
-        //
-        // Both servers, since 2026-09-09: SystemLines moved into :paper-common and hunger-games
-        // gained the five lines it had never had (finding 149). A second caller is a second place
-        // that can announce one moment too early, and it is exactly the kind of thing a copy of an
-        // existing wiring gets wrong.
+    void theJoinLineWaitsForTheLanguageItIsAboutOnBothServersThatPrintOne() throws IOException {
+        // The join line has one moment, while the query is still in flight, so it is announced from the callback.
         final String lines = read("paper-common/src/main/java/eu/nordtal/s2/papercommon/chat/SystemLines.java");
         final int join = lines.indexOf("public void onJoin(");
         assertTrue(join >= 0, "SystemLines has no onJoin");
@@ -92,9 +69,7 @@ class LocaleJoinWiringTest {
                     source.contains("lines.announceJoin("),
                     presence + " never calls announceJoin, so that server prints no join line at"
                             + " all - which is what makes this worth a test rather than a comment");
-            // Inside the locale callback, not in onJoin. Both files reach the callback through
-            // joinAsync, so "after it" in the file is the whole of what can be checked from here -
-            // and it is the ordering that was got wrong the first time.
+            // Inside the locale callback, which from here can only be checked as coming after joinAsync.
             assertTrue(
                     source.indexOf("joinAsync(") < source.indexOf("lines.announceJoin("),
                     presence + " announces the join line before joinAsync, which is the one moment"
@@ -106,9 +81,8 @@ class LocaleJoinWiringTest {
         final Path path = repositoryRoot().resolve(relative);
         assertTrue(
                 Files.isRegularFile(path),
-                relative + " no longer exists - if a module was renamed"
-                        + " this list has to move with it, because a missing file is a check that silently"
-                        + " stops running");
+                relative + " is missing - a renamed module has to move with this list, because a"
+                        + " missing file is a check that silently stops running");
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 

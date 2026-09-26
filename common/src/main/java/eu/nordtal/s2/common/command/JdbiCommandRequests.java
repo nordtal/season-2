@@ -67,10 +67,7 @@ final class JdbiCommandRequests implements CommandRequests {
 
     @Override
     public void finish(final long id, final boolean ok, final String result) {
-        // No exception when nothing was updated. A row that is no longer RUNNING was expired by its
-        // asker or settled twice by a confused target, and neither is worth throwing over inside
-        // whatever thread just finished running somebody's command - the answer is simply nowhere
-        // to put. The row count is returned by the DAO so a caller that cares can look.
+        // A row no longer RUNNING was expired or settled twice; not worth throwing on a command thread.
         dao.finish(id, ok ? "DONE" : "FAILED", result);
     }
 
@@ -97,8 +94,6 @@ final class JdbiCommandRequests implements CommandRequests {
 
     @Override
     public void close() {
-        // Nothing to close: the pool belongs to whoever handed it over. The method is on the
-        // interface anyway so that a future implementation which owns one can be dropped in without
-        // every caller learning about it.
+        // The pool belongs to whoever handed it over.
     }
 }

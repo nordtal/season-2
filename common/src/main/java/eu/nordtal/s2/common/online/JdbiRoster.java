@@ -15,13 +15,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-/**
- * The only implementation of {@link OnlineRoster}. Package-private for {@link JdbiOnline}'s reason:
- * consumers get it from the factory method on the interface and never name JDBI themselves.
- * <p>
- * It borrows the pool it is given and owns nothing.
- * </p>
- */
+/** The only implementation of {@link OnlineRoster}; it borrows the pool it is given and owns nothing. */
 final class JdbiRoster implements OnlineRoster {
 
     private final OnlineRosterDao dao;
@@ -37,24 +31,19 @@ final class JdbiRoster implements OnlineRoster {
     @Override
     public void replace(final Collection<Presence> connected) {
         Objects.requireNonNull(connected, "connected");
-        // One instant for the whole write, and not Instant.now() per row: the prune below deletes
-        // exactly what is older than this value, so two rows of one write disagreeing about "now"
-        // would delete one of them again on the spot.
+        // One instant for the whole write: the prune deletes what is older, so rows must agree on now.
         final OffsetDateTime now = Instant.now().atOffset(ZoneOffset.UTC);
         final List<OnlineRosterDao.BoundPresence> rows = new ArrayList<>(connected.size());
         final Set<UUID> seen = new HashSet<>();
         for (final Presence presence : connected) {
             Objects.requireNonNull(presence, "presence");
             if (!seen.add(presence.uuid())) {
-                // Loudly, and before anything is written: with an UPSERT a duplicate would simply
-                // let the last one win, silently, and a proxy that reported the same account twice
-                // is a bug worth seeing rather than a row worth picking.
+                // An UPSERT would let a duplicate win silently; a proxy reporting an account twice is a bug.
                 throw new IllegalArgumentException("the same player appears twice in one write: " + presence.uuid());
             }
             rows.add(new OnlineRosterDao.BoundPresence(presence.uuid(), presence.name(), presence.subject(), now));
         }
-        // No early return for an empty collection - unlike JdbiOnline#write, an empty roster is a
-        // statement ("nobody is connected") and the prune is what makes the table say it.
+        // An empty roster means nobody is connected, and the prune makes the table say so.
         dao.replace(rows, now);
     }
 

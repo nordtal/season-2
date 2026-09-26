@@ -15,17 +15,16 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /**
- * What a {@link MessageSpec} says about its bundle, as data: every key with its name, its
- * placeholders, the names of the sections it sits in, how it is written and where it is shown - plus
- * the properties of every context type a role names, and the roles every message has.
+ * What a {@link MessageSpec} says about its bundle, as data, for steward-worker.
  *
- * <p>Written into the jar as {@code messages/<bundle>/schema.json} at build time (see
- * {@link #main(String[])}), which is where steward-worker reads it from, next to the texts it already
- * reads there. The order is the order of the English file, the one a person curated.</p>
+ * Written into the jar as {@code messages/<bundle>/schema.json} at build time by {@link #main(String[])},
+ * in the order of the English file.
  */
 public final class MessageSchema {
 
@@ -39,10 +38,13 @@ public final class MessageSchema {
      * @param component whether it is filled by a Component, written {@code <name>} in the text
      * @param context   the context type of a role, {@code null} for a single value
      */
-    public record Arg(String name, boolean component, String context) {
+    public record Arg(
+            @Nullable String name,
+            boolean component,
+            @Nullable String context) {
 
         /** A free value, no context. */
-        public Arg(final String name, final boolean component) {
+        public Arg(final @Nullable String name, final boolean component) {
             this(name, component, null);
         }
     }
@@ -58,8 +60,8 @@ public final class MessageSchema {
      */
     public record Entry(
             String key,
-            String name,
-            String description,
+            @Nullable String name,
+            @Nullable String description,
             List<Arg> args,
             List<String> section,
             TextFormat format,
@@ -145,11 +147,12 @@ public final class MessageSchema {
         }
     }
 
-    private static TextFormat nearest(final Format method, final Format type, final TextFormat outer) {
+    private static TextFormat nearest(
+            final @Nullable Format method, final @Nullable Format type, final TextFormat outer) {
         return method != null ? method.value() : type != null ? type.value() : outer;
     }
 
-    private static Display nearest(final Shown method, final Shown type, final Display outer) {
+    private static Display nearest(final @Nullable Shown method, final @Nullable Shown type, final Display outer) {
         return method != null ? method.value() : type != null ? type.value() : outer;
     }
 
@@ -182,7 +185,7 @@ public final class MessageSchema {
     }
 
     /** A section's name: on the method that opens it, or on its interface. */
-    static String sectionName(final Method method) {
+    static @Nullable String sectionName(final Method method) {
         final Name own = method.getAnnotation(Name.class);
         if (own != null) {
             return own.value();
@@ -218,7 +221,7 @@ public final class MessageSchema {
             }
             final String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             boolean continued = false;
-            for (final String line : text.split("\n")) {
+            for (final String line : text.split("\n", -1)) {
                 final String trimmed = line.strip();
                 final boolean wasContinued = continued;
                 continued = trimmed.endsWith("\\") && !trimmed.endsWith("\\\\");
@@ -250,39 +253,57 @@ public final class MessageSchema {
         out.append("{\n  \"bundle\": ").append(quote(bundle(spec))).append(",\n  \"messages\": [");
         final List<Entry> entries = entries(spec);
         for (int i = 0; i < entries.size(); i++) {
-            final Entry entry = entries.get(i);
-            out.append(i == 0 ? "\n" : ",\n")
-                    .append("    {\"key\": ")
-                    .append(quote(entry.key()))
-                    .append(", \"name\": ")
-                    .append(quote(entry.name()));
-            if (entry.description() != null) {
-                out.append(", \"description\": ").append(quote(entry.description()));
-            }
-            out.append(", \"format\": ")
-                    .append(quote(entry.format().name()))
-                    .append(", \"shown\": ")
-                    .append(quote(entry.shown().name()));
-            out.append(", \"args\": [");
-            for (int a = 0; a < entry.args().size(); a++) {
-                final Arg arg = entry.args().get(a);
-                out.append(a == 0 ? "" : ", ")
-                        .append("{\"name\": ")
-                        .append(quote(arg.name()))
-                        .append(", \"component\": ")
-                        .append(arg.component());
-                if (arg.context() != null) {
-                    out.append(", \"context\": ").append(quote(arg.context()));
-                }
-                out.append('}');
-            }
-            out.append("], \"section\": [");
-            for (int s = 0; s < entry.section().size(); s++) {
-                out.append(s == 0 ? "" : ", ").append(quote(entry.section().get(s)));
-            }
-            out.append("]}");
+            appendEntry(out, i, entries.get(i));
         }
         out.append("\n  ],\n  \"contexts\": {");
+        appendContexts(out, spec);
+        out.append("\n  },\n  \"globals\": [");
+        for (int g = 0; g < Contexts.GLOBAL_ROLES.size(); g++) {
+            final String role = Contexts.GLOBAL_ROLES.get(g);
+            out.append(g == 0 ? "" : ", ")
+                    .append("{\"name\": ")
+                    .append(quote(role))
+                    .append(", \"context\": ")
+                    .append(quote(Contexts.type(Objects.requireNonNull(Contexts.GLOBALS.get(role), role))))
+                    .append('}');
+        }
+        return out.append("]\n}\n").toString();
+    }
+
+    private static void appendEntry(final StringBuilder out, final int i, final Entry entry) {
+        out.append(i == 0 ? "\n" : ",\n")
+                .append("    {\"key\": ")
+                .append(quote(entry.key()))
+                .append(", \"name\": ")
+                .append(quote(entry.name()));
+        if (entry.description() != null) {
+            out.append(", \"description\": ").append(quote(entry.description()));
+        }
+        out.append(", \"format\": ")
+                .append(quote(entry.format().name()))
+                .append(", \"shown\": ")
+                .append(quote(entry.shown().name()));
+        out.append(", \"args\": [");
+        for (int a = 0; a < entry.args().size(); a++) {
+            final Arg arg = entry.args().get(a);
+            out.append(a == 0 ? "" : ", ")
+                    .append("{\"name\": ")
+                    .append(quote(arg.name()))
+                    .append(", \"component\": ")
+                    .append(arg.component());
+            if (arg.context() != null) {
+                out.append(", \"context\": ").append(quote(arg.context()));
+            }
+            out.append('}');
+        }
+        out.append("], \"section\": [");
+        for (int s = 0; s < entry.section().size(); s++) {
+            out.append(s == 0 ? "" : ", ").append(quote(entry.section().get(s)));
+        }
+        out.append("]}");
+    }
+
+    private static void appendContexts(final StringBuilder out, final Class<?> spec) {
         boolean first = true;
         for (final Map.Entry<String, Class<?>> type : contextTypes(spec).entrySet()) {
             out.append(first ? "\n" : ",\n")
@@ -298,20 +319,9 @@ public final class MessageSchema {
             out.append("]}");
             first = false;
         }
-        out.append("\n  },\n  \"globals\": [");
-        for (int g = 0; g < Contexts.GLOBAL_ROLES.size(); g++) {
-            final String role = Contexts.GLOBAL_ROLES.get(g);
-            out.append(g == 0 ? "" : ", ")
-                    .append("{\"name\": ")
-                    .append(quote(role))
-                    .append(", \"context\": ")
-                    .append(quote(Contexts.type(Contexts.GLOBALS.get(role))))
-                    .append('}');
-        }
-        return out.append("]\n}\n").toString();
     }
 
-    private static String quote(final String value) {
+    private static String quote(final @Nullable String value) {
         if (value == null) {
             return "null";
         }
@@ -337,10 +347,9 @@ public final class MessageSchema {
     }
 
     /**
-     * The build step: {@code <spec class> <output directory>} writes
-     * {@code <output directory>/messages/<bundle>/schema.json}, and refuses a spec that
-     * {@link MessageSpecCheck} finds fault with - a schema that disagrees with its bundle would
-     * mislead the one screen that reads it.
+     * Writes {@code <output directory>/messages/<bundle>/schema.json} for {@code <spec class> <output directory>}.
+     *
+     * Refuses a spec that {@link MessageSpecCheck} finds fault with.
      */
     public static void main(final String[] args) throws Exception {
         if (args.length != 2) {
@@ -362,7 +371,9 @@ public final class MessageSchema {
         final Map<Boolean, List<String>> byKind = new LinkedHashMap<>();
         byKind.put(false, new ArrayList<>());
         byKind.put(true, new ArrayList<>());
-        entry.args().forEach(arg -> byKind.get(arg.component()).add(arg.name()));
+        entry.args()
+                .forEach(arg -> Objects.requireNonNull(byKind.get(arg.component()), "byKind")
+                        .add(arg.name()));
         return byKind;
     }
 }

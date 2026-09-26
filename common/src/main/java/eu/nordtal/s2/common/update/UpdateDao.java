@@ -6,45 +6,20 @@ import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jspecify.annotations.Nullable;
 
-/**
- * The whole SQL surface of steward-worker's inbox, as a JDBI SqlObject interface - the same style
- * as {@code AccessDao} and {@code PhaseDao}.
- * <p>
- * Package-private on purpose: {@link UpdateDirectory} is the API, this is how it is implemented,
- * and no consumer should ever hold a {@code Jdbi} or a DAO of ours.
- * </p>
- */
+/** The SQL surface of steward-worker's inbox; {@link UpdateDirectory} is the API. */
 @RegisterRowMapper(UpdateRequestMapper.class)
 interface UpdateDao {
 
     /**
-     * Writes a request and announces it, as <b>one statement</b>.
+     * Writes a request and announces it on {@code nordtal_update} in one statement.
      *
-     * <h2>The notification rides in the select list</h2>
-     * Exactly as {@code PhaseDao#switchPhase} does it, and for the same reason: a notification is
-     * then only ever emitted for a row that actually committed. It carries <b>no payload</b> - a
-     * listener has to read the table anyway, because notifications are lost while a process is
-     * disconnected, and a payload invites somebody to trust the notification as state. The channel
-     * is {@code nordtal_update}, next to {@code nordtal_phase}.
+     * The notification carries no payload and fires only for a committed row. {@code make_interval} adds
+     * exact seconds from a bind parameter, unaffected by the session's time zone.
      *
-     * <h2>Why {@code make_interval} and not {@code interval 'N seconds'}</h2>
-     * The delay has to come from a bind parameter, and string-concatenating one into an interval
-     * literal is the shape this project does not write. {@code make_interval(secs => ...)} is also
-     * the form that is <em>not</em> calendar arithmetic: V4 forbids {@code interval 'N days'} on a
-     * {@code timestamptz} because days are evaluated in the session's time zone and change length
-     * across a DST boundary. Seconds do not - a second is a second in every zone - so adding them
-     * is exact wherever the writing JVM happens to think it is.
-     *
-     * @param kind         REPORT, UPDATE or RESTART
-     * @param source       DISCORD, GAME or CONSOLE
      * @param requestedBy  a Discord id, a Minecraft name, or {@code null}
-     * @param delaySeconds how long from now steward-worker may act. <b>Zero for everything, since
-     *                     2026-09-08</b>: a countdown is started by {@link #startCountdown} once
-     *                     the worker knows there is work, and this parameter is kept only so that
-     *                     a future caller with a genuine reason to delay a request has a way to
-     *                     say so
-     * @return the row as it was written
+     * @param delaySeconds how long from now steward-worker may act; zero in practice, as the countdown starts later
      */
     @SqlQuery("""
             WITH inserted AS (
@@ -59,16 +34,16 @@ interface UpdateDao {
     UpdateRequest submit(
             @Bind("kind") String kind,
             @Bind("source") String source,
-            @Bind("requestedBy") String requestedBy,
+            @Bind("requestedBy") @Nullable String requestedBy,
             @Bind("delaySeconds") long delaySeconds);
 
     /**
-     * The same insert, with the services this run is for (season-2-ops/127).
+     * The same insert, with the services this run is for.
      *
-     * <p>A second statement rather than one with a nullable bind, because the two say different
+     * A second statement rather than one with a nullable bind, because the two say different
      * things and the one above is what every existing caller means. {@code scope} is NULL for the
      * whole network; see {@code V27__update_request_scope.sql} for why that is the default rather
-     * than an empty string.</p>
+     * than an empty string.
      *
      * @param scope comma-separated compose service names, or {@code null} for the whole network
      */
@@ -86,7 +61,7 @@ interface UpdateDao {
     UpdateRequest submitScoped(
             @Bind("kind") String kind,
             @Bind("source") String source,
-            @Bind("requestedBy") String requestedBy,
+            @Bind("requestedBy") @Nullable String requestedBy,
             @Bind("delaySeconds") long delaySeconds,
             @Bind("scope") String scope);
 
@@ -101,22 +76,13 @@ interface UpdateDao {
 
     /** @return the {@code scope} column, or {@code null} for a whole-network run and for no row. */
     @SqlQuery("SELECT scope FROM update_request WHERE id = :id")
+    @Nullable
     String scope(@Bind("id") long id);
 
     /**
-     * Takes the oldest request that is due, and marks it {@code RUNNING} in the same statement.
+     * Claims the oldest due request and marks it {@code RUNNING} in the same statement.
      *
-     * <h2>{@code FOR UPDATE SKIP LOCKED} is the whole concurrency story</h2>
-     * Two workers can exist for a moment - the long-running one and a one-shot {@code apply} an
-     * operator started by hand. {@code SKIP LOCKED} means the second one takes the next row rather
-     * than blocking on, or worse duplicating, the first one's. The jar swap itself is guarded
-     * separately by an advisory lock; this only guards the row.
-     *
-     * <p>{@code not_before <= now()} used to be what made a restart's countdown real - the row sat
-     * unclaimable for the length of it. Since 2026-09-08 every request is written due immediately
-     * and the countdown is set <em>after</em> the plan is known ({@link #startCountdown}), so this
-     * predicate now only bounds a request somebody deliberately schedules. It is kept because a
-     * claim that ignored {@code not_before} would silently make such a request impossible.</p>
+     * {@code FOR UPDATE SKIP LOCKED} lets a second worker take the next row instead of the same one.
      *
      * @return the claimed request, or empty when there is nothing due
      */
@@ -138,12 +104,9 @@ interface UpdateDao {
     Optional<UpdateRequest> claimNext();
 
     /**
-     * Writes the answer. Only a {@code RUNNING} row is finished, so a second steward-worker cannot
-     * overwrite an answer that is already there.
+     * Writes the answer, only onto a {@code RUNNING} row.
      *
-     * @param id     the row
      * @param status DONE or FAILED
-     * @param result the report, verbatim
      * @return the finished row, or empty when it was not {@code RUNNING} any more
      */
     @SqlQuery("""
@@ -157,10 +120,10 @@ interface UpdateDao {
     /**
      * Rewrites a running request's report and leaves its status alone.
      *
-     * <p>{@code status = 'RUNNING'} in the WHERE is the whole guard: a progress write that arrives
+     * {@code status = 'RUNNING'} in the WHERE is the whole guard: a progress write that arrives
      * after the request was cancelled, or after another worker settled it, changes nothing. The
      * alternative - writing unconditionally - would let a stage that finished a moment before the
-     * cancel overwrite the cancellation with "starting the servers".</p>
+     * cancel overwrite the cancellation with "starting the servers".
      */
     @SqlUpdate("""
             UPDATE update_request
@@ -175,11 +138,11 @@ interface UpdateDao {
     /**
      * Every request written after the one named, oldest first.
      *
-     * <p>The Discord bot's feed: it remembers the highest id it has drawn and asks for what came
+     * The Discord bot's feed: it remembers the highest id it has drawn and asks for what came
      * after it, so a run asked for <em>in game</em> or from a console appears in the admin channel
      * without anybody having to think of posting it. Before this existed, the only run an admin who
      * had not started it could see was one started in Discord - and those are the ones that already
-     * have somebody watching.</p>
+     * have somebody watching.
      *
      * @param id the last one already seen; {@code 0} for everything
      */
@@ -187,31 +150,31 @@ interface UpdateDao {
     java.util.List<UpdateRequest> since(@Bind("id") long id);
 
     /**
-     * The highest id in the table, or zero when it is empty.
-     *
-     * <p>What the feed starts from, so a bot restarting after a season of updates does not post the
-     * whole history into the admin channel. What that costs is the runs that finished while the bot
-     * was down, which {@link #finishedWithin(long)} is for.</p>
-     */
-    /**
      * The most recent requests, newest first.
      *
-     * <p>For a person looking at a list rather than for a process deciding something, which is why
+     * For a person looking at a list rather than for a process deciding something, which is why
      * it is bounded by a count and not by a time: "what happened here lately" has an answer of a
-     * screenful, and a season's worth of rows is not it.</p>
+     * screenful, and a season's worth of rows is not it.
      */
     @SqlQuery("SELECT * FROM update_request ORDER BY id DESC LIMIT :limit")
     java.util.List<UpdateRequest> recent(@Bind("limit") int limit);
 
+    /**
+     * The highest id in the table, or zero when it is empty.
+     *
+     * What the feed starts from, so a bot restarting after a season of updates does not post the
+     * whole history into the admin channel. What that costs is the runs that finished while the bot
+     * was down, which {@link #finishedWithin(long)} is for.
+     */
     @SqlQuery("SELECT coalesce(max(id), 0) FROM update_request")
     long latestId();
 
     /**
      * Every request that reached a terminal state in the last {@code seconds}.
      *
-     * <p>The other half of a boot: a run started in game five minutes ago finished while this bot
+     * The other half of a boot: a run started in game five minutes ago finished while this bot
      * was restarting, so its id is below {@link #latestId()} and the feed would never see it - which
-     * would make the one run nobody watched also the one run nobody ever saw the answer to.</p>
+     * would make the one run nobody watched also the one run nobody ever saw the answer to.
      */
     @SqlQuery("""
             SELECT * FROM update_request
@@ -224,21 +187,23 @@ interface UpdateDao {
     /**
      * Every {@code BACKUP} that reached {@code DONE} inside the window, newest first.
      *
-     * <h2>Why the list and not a {@code LIMIT 1}</h2>
+     * <b>Why the list and not a {@code LIMIT 1}</b>
+     *
      * {@code status = 'DONE'} is only half the question - the other half is whether the report in
      * {@code result} shows anything saved, and that is JSON this module parses in Java rather than
      * in SQL. A single row would therefore have to be believed: a run that settled {@code DONE}
      * having saved nothing would come back as "there is a backup", which is A23 exactly. So the
      * caller walks them newest first and stops at the first one it can prove.
      *
-     * <h2>Why the window is a parameter and not a constant</h2>
+     * <b>Why the window is a parameter and not a constant</b>
+     *
      * It bounds both the scan and the parsing, and every caller has one anyway - "there was a good
      * backup in July" is never the answer anybody wants. Without it this is an unbounded scan of a
      * table that grows for a whole season.
      *
-     * <p>No index is declared for this. The table takes a handful of rows a day and the window is
+     * No index is declared for this. The table takes a handful of rows a day and the window is
      * hours, so the planner reads a few dozen of them; an index on {@code (kind, status, finished)}
-     * would be maintained on every write for a query that runs once a night.</p>
+     * would be maintained on every write for a query that runs once a night.
      *
      * @param seconds how far back to look, from the database's clock
      */
@@ -255,31 +220,20 @@ interface UpdateDao {
     /**
      * Starts the countdown on a request this steward-worker has already claimed.
      *
-     * <h2>Why the countdown begins here and not when the row was written</h2>
-     * Until 2026-09-08 every submitter wrote {@code not_before = now() + 30s} and the worker was
-     * simply forbidden to act before it. So a countdown ran for <b>every</b> update asked for,
-     * including the overwhelmingly common one where nothing is new: thirty seconds of "the servers
-     * are going down" shown to everybody playing, ending in "everything is already current". The
-     * order is now resolve first, count down only if the plan has work in it - which means the
-     * instant can only be set by the process that has just resolved.
+     * <b>Why the countdown begins here and not when the row was written</b>
      *
-     * <p>{@code status = 'RUNNING'} is the guard, and it is what makes the countdown cancellable:
+     * A countdown is only worth running when the plan has work in it, so resolving happens first
+     * and counting down second - which means the instant can only be set by the process that has
+     * just resolved.
+     *
+     * {@code status = 'RUNNING'} is the guard, and it is what makes the countdown cancellable:
      * a cancel flips the row to {@code CANCELLED}, so a countdown cannot be started on, or
-     * extended over, a request somebody has already withdrawn.</p>
+     * extended over, a request somebody has already withdrawn.
      *
-     * <h2>The notification was missing until season-2-ops/19, and every kind lost by it equally</h2>
-     * {@link #submit} rides a {@code pg_notify} in the statement that writes the row, so a listener
-     * hears about a fresh request immediately. This statement moved {@code not_before} to the
-     * instant that actually matters - the one {@link #countingDown()} counts towards - and said
-     * nothing when it did. A listener therefore only ever heard the <em>earlier</em>, premature
-     * notification from {@code submit}, at which point nothing is counting down yet, and had no way
-     * to learn that the real countdown had started except the five-second poll behind it. Since
-     * {@code countingDown()}'s thirty-second chat line requires the full thirty seconds to still be
-     * on the clock, any of those five seconds already spent by the time the poll caught up was that
-     * line gone for good - reproduced 2026-09-17 (Till: "30 Sekunden kam nicht im Chat, nur 10
-     * Sekunden") and confirmed in {@code nordtal-s2-proxy-1}'s own log: every countdown it
-     * had ever announced, {@code UPDATE} and {@code BACKUP} alike, carried 12 beats where a full one
-     * is 13. Nothing here is BACKUP-specific; BACKUP is only the kind Till was testing.
+     * The {@code pg_notify} rides this statement rather than only {@link #submit}: a listener
+     * that heard only the earlier, premature notification from {@code submit} would have no way to
+     * learn that the real countdown - the one {@link #countingDown()} counts towards - had started,
+     * except the poll behind it.
      *
      * @return the row with its new {@code not_before}, or empty when it is no longer running
      */
@@ -298,16 +252,17 @@ interface UpdateDao {
     /**
      * Ends the countdown, atomically, and says whether it was still there to end.
      *
-     * <h2>This is the race, and it is decided here rather than by looking first</h2>
+     * <b>This is the race, and it is decided here rather than by looking first</b>
+     *
      * At the instant the counter reaches zero, one connection is about to stop four servers and
      * another may be carrying out {@code /update cancel}. Both are an {@code UPDATE} on this row,
      * so PostgreSQL serialises them: whichever gets there first holds the row lock, and the second
      * either finds a {@code CANCELLED} row (and matches nothing) or is refused by
      * {@link #cancelCountdown(String)}'s {@code SKIP LOCKED}.
      *
-     * <p>An empty answer therefore means one specific thing - somebody cancelled - and the run must
+     * An empty answer therefore means one specific thing - somebody cancelled - and the run must
      * stop <b>nothing</b>. Reading the status and then acting on it would leave exactly the window
-     * this closes.</p>
+     * this closes.
      *
      * @return the id when the run may go ahead, empty when it was cancelled
      */
@@ -320,50 +275,13 @@ interface UpdateDao {
     Optional<Long> commitCountdown(@Bind("id") long id);
 
     /**
-     * The outage that is counting down right now - what proxy counts down towards, and
-     * what a cancel withdraws.
+     * Returns the outage counting down right now, which proxy shows and a cancel withdraws.
      *
-     * <h2>{@code RUNNING} as well as {@code PENDING}, since 2026-09-08</h2>
-     * The countdown is set by the worker <em>after</em> it has claimed the row, so a row that is
-     * counting down is {@code RUNNING} and not {@code PENDING}. Leaving this at {@code PENDING}
-     * would have made the proxy blind to every countdown there is. {@code PENDING} stays in the set
-     * because it costs nothing and covers the moment between the row being written and a worker
-     * claiming it.
+     * The countdown is set after the claim, so {@code RUNNING} rows count. The kind list is a literal that
+     * {@code UpdateDirectoryIntegrationTest#everythingThatStopsServersCountsDown} holds against
+     * {@link UpdateKind#stopsServers()}. {@code not_before > now()} keeps a running request from looking like one.
      *
-     * <h2>Every kind that takes servers down - and the list has gone stale twice</h2>
-     * It was {@code kind = 'RESTART'} alone, which was complete while a restart was the only thing
-     * with a countdown on it. An {@code UPDATE} now stops servers too and carries the same
-     * {@code not_before} - so leaving this as it was would have counted down for a restart and
-     * said <b>nothing at all</b> before an update, which is the one of the two that also replaces
-     * jars. Players would have been dropped mid-sentence with no warning anywhere. That was
-     * 2026-09-07.
-     *
-     * <p><b>{@code BACKUP} was added on 2026-09-15, and it had been missing since the day the kind
-     * existed.</b> Till stood in the world through a nightly backup: the network stopped, he was
-     * moved to the waiting room, and not one word was said first. {@code UpdateKind#BACKUP}'s own
-     * description opens with "count down, stop, save, start" - the countdown was in the definition
-     * of the thing and absent from the query that shows it. The next method down,
-     * {@link #cancelCountdown(String)}, carried the same list and therefore the same hole: a backup
-     * countdown could not have been stopped either.</p>
-     *
-     * <p><b>{@code DOWN} joined them on 2026-09-19</b> (season-2-ops/125), and it is the one case
-     * where the stop is the finished state rather than a step: a service put down on purpose stays
-     * down. It warns and it can be called off exactly like the other three, because the thirty
-     * seconds are for the players standing on it, not for the run.</p>
-     *
-     * <p><b>This list is a literal and it will go stale again.</b> What stops that is not care, it
-     * is {@code UpdateDirectoryIntegrationTest#everythingThatStopsServersCountsDown}, which asks
-     * {@link UpdateKind#stopsServers()} rather than repeating the names here - so a kind added
-     * tomorrow fails the build rather than the players. A view or a generated {@code IN} clause was
-     * the alternative and was not taken: the names belong in the SQL where somebody reading the
-     * query can see them, and the test is what makes them true.</p>
-     *
-     * <p>{@code not_before > now()} is what keeps a claimed row from looking like a countdown for
-     * the whole of a five-minute run: every request is due immediately now, so without it every
-     * running update would read as a countdown that has reached zero.</p>
-     *
-     * @return the outage being counted down, or empty. There is normally at most one; if a second
-     *         was asked for, the earlier one is the one that will fire and therefore the one to show
+     * @return the outage being counted down, the earliest if there are several, or empty
      */
     @SqlQuery("""
             SELECT * FROM update_request
@@ -378,15 +296,15 @@ interface UpdateDao {
     /**
      * The run that is happening right now - claimed, past its countdown, servers going down.
      *
-     * <p>The complement of {@link #countingDown()}, which is the same rows <em>before</em>
+     * The complement of {@link #countingDown()}, which is the same rows <em>before</em>
      * {@code not_before}. Together they are the whole of "an outage is under way", and the proxy
      * needs both: the countdown is when it moves players out of the way, and this is the minutes
-     * afterwards during which the waiting room has to keep saying why they are sitting there.</p>
+     * afterwards during which the waiting room has to keep saying why they are sitting there.
      *
-     * <p>{@code RUNNING} alone, without a kind filter: a {@code BACKUP} stops the same servers for
+     * {@code RUNNING} alone, without a kind filter: a {@code BACKUP} stops the same servers for
      * the same minutes, and a player held through one deserves the same sentence as a player held
      * through an update. A {@code REPORT} never reaches {@code RUNNING} for long enough to matter
-     * and moves nothing, so including it costs nothing either.</p>
+     * and moves nothing, so including it costs nothing either.
      *
      * @return the running request, or empty
      */
@@ -402,12 +320,12 @@ interface UpdateDao {
     /**
      * Withdraws the countdown that is running, if there still is one.
      *
-     * <p>Guarded by the status rather than by reading first and writing after: the whole point is a
+     * Guarded by the status rather than by reading first and writing after: the whole point is a
      * race against a worker that may be committing the very same countdown this millisecond, and
      * a check-then-act would lose it. {@code FOR UPDATE SKIP LOCKED} is what turns that race into an
      * answer - {@link #commitCountdown(long)} holds the row lock while it commits, so a cancel
      * arriving in that instant skips the row and answers empty, which is "too late" and is exactly
-     * the sentence the admin needs.</p>
+     * the sentence the admin needs.
      *
      * @param reason what goes into {@code result}, naming who cancelled
      * @return the cancelled row, or empty when there was nothing left to cancel
@@ -437,9 +355,9 @@ interface UpdateDao {
     /**
      * When the next pending request becomes due, whether or not that is now.
      *
-     * <p>This is what keeps a countdown honest. The server otherwise sleeps for the poll interval,
+     * This is what keeps a countdown honest. The server otherwise sleeps for the poll interval,
      * and a restart whose minute runs out four seconds into a fifteen-second sleep would fire
-     * eleven seconds after the counter reached zero in front of the players watching it.</p>
+     * eleven seconds after the counter reached zero in front of the players watching it.
      *
      * @return the earliest {@code not_before} among pending rows, or empty when there are none
      */
@@ -447,24 +365,10 @@ interface UpdateDao {
     Optional<java.time.OffsetDateTime> nextDue();
 
     /**
-     * Fails every row still marked {@code RUNNING}.
+     * Fails every row still marked {@code RUNNING}; called once at worker startup.
      *
-     * <p>Called once, at worker startup. Nothing is running them: the only process that claims a
-     * row is a worker, exactly one {@code serve} may exist (its own advisory lock), and this one
-     * has just started. Without it a request killed mid-flight would sit {@code RUNNING} forever
-     * and every surface reading it would show a spinner that never stops.</p>
+     * Only one worker serves, so a row still running was interrupted. A restart is no exception.
      *
-     * <h2>A restart used to be closed as {@code DONE} here, and that inference is gone</h2>
-     * It was right when a restart <em>was</em> one redeploy of the whole project asked for over
-     * HTTP, which took this container down mid-call: finding a {@code RESTART} left
-     * {@code RUNNING} on the next boot
-     * was how the worker learned the restart it asked for had happened. Since 2026-09-07 a restart
-     * cycles the four Minecraft services one at a time and never stops the worker, so a
-     * {@code RESTART} row left {@code RUNNING} means the same thing every other kind does - the
-     * worker died in the middle of it. Reporting that as success would be the one reading nobody
-     * can act on.
-     *
-     * @param result what to write into those rows
      * @return how many there were
      */
     @SqlUpdate("""
@@ -474,8 +378,6 @@ interface UpdateDao {
             """)
     int failOrphans(@Bind("result") String result);
 
-    // ------------------------------------------------------------------ service_hold (V28)
-
     /** Every service being held down, newest first. Usually none. */
     @SqlQuery("SELECT * FROM service_hold ORDER BY since DESC, service")
     @RegisterRowMapper(ServiceHoldMapper.class)
@@ -484,9 +386,9 @@ interface UpdateDao {
     /**
      * Writes the hold, or refreshes the one already there.
      *
-     * <p>{@code ON CONFLICT DO UPDATE} rather than an insert that can fail: pressing Down on a
+     * {@code ON CONFLICT DO UPDATE} rather than an insert that can fail: pressing Down on a
      * service that is already down is not an error, it is somebody making sure. The newer press
-     * wins, so {@code since} and {@code held_by} say who is actually holding it.</p>
+     * wins, so {@code since} and {@code held_by} say who is actually holding it.
      */
     @SqlUpdate("""
             INSERT INTO service_hold (service, held_by, request_id)
@@ -494,7 +396,10 @@ interface UpdateDao {
             ON CONFLICT (service) DO UPDATE
                 SET since = now(), held_by = EXCLUDED.held_by, request_id = EXCLUDED.request_id
             """)
-    void hold(@Bind("service") String service, @Bind("heldBy") String heldBy, @Bind("requestId") Long requestId);
+    void hold(
+            @Bind("service") String service,
+            @Bind("heldBy") @Nullable String heldBy,
+            @Bind("requestId") @Nullable Long requestId);
 
     /** @return how many rows went away; zero when it was not being held, which is not an error */
     @SqlUpdate("DELETE FROM service_hold WHERE service = :service")

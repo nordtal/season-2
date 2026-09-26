@@ -3,21 +3,10 @@ package eu.nordtal.s2.common.hud;
 import eu.nordtal.s2.common.Glyphs;
 
 /**
- * Composes a HUD pill's background of an arbitrary inner width out of {@code Glyphs.BOSSBAR_BG_*}:
- * the left cap, a body of power-of-two segments, the right cap.
+ * Composes a HUD pill background of any inner width from {@code Glyphs.BOSSBAR_BG_*}.
  *
- * <h2>The one fact this class exists for</h2>
- * Every segment is drawn exactly as wide as its name, and the client advances a bitmap glyph by
- * its width <b>plus one</b>. Two segments butted together therefore leave a one-pixel gap unless
- * the composer steps back a pixel after each - so every glyph here is followed by
- * {@link Glyphs#BOSSBAR_SPACE_MINUS_1}, the way {@code BoardFrame} has always done for the board.
- * The 182 px bar this class composed until 2026-09-05 did not, and had a seam at every boundary
- * that nothing ever looked at; {@link BossBarWidthTest} now walks the composition with the pack's
- * own advances and asserts the cursor lands exactly {@code CAP + inner + CAP} to the right.
- *
- * <p>Moved into {@code :common} on 2026-09-01 because the SMP's HUD draws the same bar as the hunger
- * games'; two copies of a glyph composition are two things that drift apart the first time a
- * segment is redrawn.</p>
+ * The client advances a bitmap glyph by its width plus one, so every glyph is followed by
+ * {@link Glyphs#BOSSBAR_SPACE_MINUS_1}; {@link BossBarWidthTest} walks the pack's advances to hold it.
  */
 public final class BossBarWidth {
 
@@ -30,8 +19,7 @@ public final class BossBarWidth {
     private BossBarWidth() {}
 
     /**
-     * A whole pill: left cap, {@code inner} pixels of body, right cap - advancing the cursor by
-     * exactly {@code CAP + inner + CAP}.
+     * Returns a whole pill that advances the cursor by exactly {@code CAP + inner + CAP}.
      *
      * @param inner the body width in pixels, zero or more
      */
@@ -40,11 +28,8 @@ public final class BossBarWidth {
     }
 
     /**
-     * Just the body: {@code width} pixels of segments, largest first, each stepped back by one so
-     * they butt up - standard binary decomposition, since the segment widths are exactly the powers
-     * of two {@code Glyphs} declares.
+     * Returns {@code width} pixels of power-of-two segments, largest first, each stepped back by one.
      *
-     * @param width the body width in pixels; must not be negative
      * @throws IllegalArgumentException if {@code width} is negative
      */
     public static String body(final int width) {

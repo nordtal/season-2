@@ -8,26 +8,24 @@ import eu.nordtal.s2.common.pack.PackAdvances;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Holds the shipped advance table against the pack it was exported from.
  *
- * <p>{@code nordtal/hud/bossbar-advances.properties} is a generated resource - the plugins size a
+ * {@code nordtal/hud/bossbar-advances.properties} is a generated resource - the plugins size a
  * HUD pill from it, and they cannot read the pack themselves. The one way it goes wrong is
  * silently: an icon is redrawn, its rightmost column moves, nobody re-runs the export, and every
  * pill holding that icon is a pixel off. This test derives the table again from
  * {@code bossbar.json} and its PNGs with the client's own rule and fails if the resource is stale,
- * which turns "remember to re-run the script" into a red build.</p>
+ * which turns "remember to re-run the script" into a red build.
  */
 class BossBarAdvancesTest {
 
     private static final String FONT = "resource-pack/src/assets/nordtal/font/bossbar.json";
 
     @Test
-    @DisplayName("the shipped table is what the pack says today")
-    void theResourceMatchesThePack() {
+    void theShippedTableIsWhatThePackSaysToday() {
         final Map<Integer, Integer> pack = PackAdvances.of(FONT);
         final Map<Integer, Integer> shipped = BossBarAdvances.table();
 
@@ -55,8 +53,7 @@ class BossBarAdvancesTest {
     }
 
     @Test
-    @DisplayName("every glyph a HUD line composes with has a known advance")
-    void theCompositionGlyphsAreCovered() {
+    void everyGlyphAHudLineComposesWithHasAKnownAdvance() {
         for (final String glyph : List.of(
                 Glyphs.BOSSBAR_BG_START,
                 Glyphs.BOSSBAR_BG_END,
@@ -79,8 +76,7 @@ class BossBarAdvancesTest {
     }
 
     @Test
-    @DisplayName("a character the font lacks is sized as the missing-glyph box")
-    void anUnknownCharacterIsTheMissingGlyphBox() {
+    void aCharacterTheFontLacksIsSizedAsTheMissingGlyphBox() {
         assertEquals(
                 BossBarAdvances.MISSING,
                 BossBarAdvances.advance(0x1F600),
@@ -90,8 +86,7 @@ class BossBarAdvancesTest {
     }
 
     @Test
-    @DisplayName("a caps and segments advance exactly their drawn width plus one")
-    void theBackgroundsAdvanceTheirWidthPlusOne() {
+    void aCapsAndSegmentsAdvanceExactlyTheirDrawnWidthPlusOne() {
         assertEquals(BossBarWidth.CAP + 1, BossBarAdvances.advance(Glyphs.BOSSBAR_BG_START.codePointAt(0)));
         assertEquals(BossBarWidth.CAP + 1, BossBarAdvances.advance(Glyphs.BOSSBAR_BG_END.codePointAt(0)));
         assertEquals(

@@ -206,7 +206,7 @@ public final class HudRenderer {
                 player.getLocation().getYaw(),
                 nearest.getLocation().getX(),
                 nearest.getLocation().getZ());
-        return Glyphs.BOSSBAR_ARROWS[index];
+        return Glyphs.BOSSBAR_ARROWS.get(index);
     }
 
     private String nearestLootArrow(final Player player) {
@@ -234,7 +234,7 @@ public final class HudRenderer {
                 player.getLocation().getYaw(),
                 nearest.x(),
                 nearest.z());
-        return Glyphs.BOSSBAR_ARROWS[index];
+        return Glyphs.BOSSBAR_ARROWS.get(index);
     }
 
     private static String formatDuration(final long totalSeconds) {

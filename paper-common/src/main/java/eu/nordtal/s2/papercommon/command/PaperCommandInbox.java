@@ -18,18 +18,15 @@ import org.bukkit.plugin.Plugin;
 /**
  * A Paper plugin's end of the command channel: the inbox, its poll, and its wake-up.
  *
- * <h2>Why the bundle it renders with is not the plugin's</h2>
- * It is {@code :commands}' own, loaded on its own. The plugin's layered {@code Messages} would let
- * the module's bundle win, and the module's bundle is allowed MiniMessage - which would reach a
- * Discord admin as a literal {@code <green>}. The shared bundle carries no markup at all, precisely
- * so that one string can be correct on both surfaces, and this is the place that depends on it.
+ * Renders with {@code :commands}' own bundle, loaded on its own, not the plugin's layered
+ * {@code Messages}: the module's bundle is allowed MiniMessage, which would reach a Discord admin
+ * as a literal {@code <green>}. The shared bundle carries no markup at all, so one string is
+ * correct on both surfaces.
  *
- * <h2>The poll here is short, and the admin roster's is not</h2>
- * Thirty seconds is fine for "an admin was revoked" because the notification is the normal path and
- * the poll is the safety net. It is not fine for a command: the asker gives up after thirty seconds,
- * so a missed notification would mean the command is answered exactly when nobody is listening any
- * more. Hence a few seconds here, on Bukkit's own scheduler, which costs a query against a partial
- * index on a table that is empty almost all of the time.
+ * The poll here is a few seconds, shorter than the admin roster's: the asker gives up after
+ * thirty seconds, so a missed notification would answer a command exactly when nobody is listening
+ * any more. It costs a query against a partial index on a table that is empty almost all of the
+ * time.
  */
 public final class PaperCommandInbox {
 
@@ -71,20 +68,19 @@ public final class PaperCommandInbox {
     /**
      * The shared command bundle, alone - and the operator's override on top of it.
      *
-     * <p>Loaded off the plugin's own class loader because {@code :commands} is shaded into it - so
+     * Loaded off the plugin's own class loader because {@code :commands} is shaded into it, so
      * this is the copy that shipped with this build, and a version skew shows up as an unknown key
-     * rather than as a message from another release.</p>
+     * rather than as a message from another release.
      *
-     * <p><b>Alone means one root, not no overrides.</b> The layering is what has to be avoided here,
-     * because the module's own bundle is allowed MiniMessage; the override directory is the
-     * operator's single lever over wording, and until 2026-09-05 it reached the answer a command
-     * gave in chat and not the one it gave to a Discord admin - the same command, reading
-     * differently depending on where it was typed.</p>
+     * <b>Alone means one root, not no overrides.</b> Layering has to be avoided here because the
+     * module's own bundle is allowed MiniMessage; the override directory is the operator's single
+     * lever over wording, and it must reach the answer a command gives in chat as well as the one it
+     * gives to a Discord admin.
      *
-     * <p>The plugin should keep what this returns and reload it wherever it reloads its own, which
+     * The plugin should keep what this returns and reload it wherever it reloads its own, which
      * is what {@link #reloadMessages()} is for. It should <em>not</em> report this bundle's unknown
      * override keys: a key only the module declares is not unknown, it is simply in the other
-     * bundle, and the plugin's layered {@code Messages} already names the genuinely unknown ones.</p>
+     * bundle, and the plugin's layered {@code Messages} already names the genuinely unknown ones.
      */
     public static Messages sharedBundle(final Plugin plugin) {
         return Messages.load(
@@ -98,8 +94,8 @@ public final class PaperCommandInbox {
     /**
      * Re-read the shared bundle and its override.
      *
-     * <p>For the plugin's own reload command to call next to its own reload. Without it the answers
-     * this inbox writes back keep the wording the process started with, for as long as it runs.</p>
+     * For the plugin's own reload command to call next to its own reload. Without it the answers
+     * this inbox writes back keep the wording the process started with, for as long as it runs.
      *
      * @return whether the running wording is now what the files say
      */
@@ -121,8 +117,8 @@ public final class PaperCommandInbox {
     /**
      * Start looking.
      *
-     * <p>Async, always: {@link CommandInbox#drain()} claims rows and runs commands, and the whole
-     * point of the effects layer is that whatever needs the main thread asks for it itself.</p>
+     * Async, always: {@link CommandInbox#drain()} claims rows and runs commands, and the whole
+     * point of the effects layer is that whatever needs the main thread asks for it itself.
      */
     public void start(final Plugin plugin) {
         final long ticks = Math.max(20L, POLL.toSeconds() * 20L);

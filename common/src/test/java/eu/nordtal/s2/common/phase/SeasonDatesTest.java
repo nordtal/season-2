@@ -9,17 +9,16 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The date format both {@code /phase} commands share.
- * <p>
+ *
  * The cases that matter here are the ones a human gets wrong by hand: the offset is not typed, so
  * it has to be derived from the date, and it is not the same offset all year. Everything else is a
  * guard against a typo being read as a date.
- * </p>
  */
 class SeasonDatesTest {
 
     @Test
     void aSummerDateIsTwoHoursAheadOfUtc() {
-        // 2026-10-01 is before the last Sunday of October, so Berlin is still on CEST.
+        // Before the last Sunday of October, so Berlin is still on CEST.
         assertEquals(
                 Instant.parse("2026-10-01T16:00:00Z"),
                 SeasonDates.parse("2026-10-01 18:00").orElseThrow());
@@ -27,8 +26,7 @@ class SeasonDatesTest {
 
     @Test
     void aWinterDateIsOneHourAheadOfUtc() {
-        // Same wall-clock time, five weeks later, one hour further from UTC. This is the whole
-        // reason the offset is not typed by hand.
+        // Same wall-clock time five weeks later, one hour further from UTC.
         assertEquals(
                 Instant.parse("2026-11-15T17:00:00Z"),
                 SeasonDates.parse("2026-11-15 18:00").orElseThrow());
@@ -81,8 +79,7 @@ class SeasonDatesTest {
         assertTrue(
                 shown.startsWith("2026-10-01 18:00"),
                 "the wall-clock time that was typed has to come back, was: " + shown);
-        // The offset itself rather than an abbreviation: "GMT+02:00" needs no knowledge of
-        // which three letters Germany uses in October.
+        // The offset rather than a zone abbreviation, which would need locale knowledge.
         assertTrue(shown.endsWith("GMT+02:00"), "the offset has to be named, was: " + shown);
     }
 }

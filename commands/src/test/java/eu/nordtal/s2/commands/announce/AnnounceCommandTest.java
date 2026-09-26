@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class AnnounceCommandTest {
@@ -45,8 +44,7 @@ class AnnounceCommandTest {
     }
 
     @Test
-    @DisplayName("a line goes into the channel of the language it was rendered in")
-    void postsIntoTheLanguagesChannel() {
+    void aLineGoesIntoTheChannelOfTheLanguageItWasRenderedIn() {
         final Posts posts = new Posts(Set.of("de", "en"));
         final FakeUser user = FakeUser.console();
         new Announce().run(user, values("de", "Aufbruch ist geschafft."), posts);
@@ -55,8 +53,7 @@ class AnnounceCommandTest {
     }
 
     @Test
-    @DisplayName("a language without a channel is said so in the row, not silently dropped")
-    void noChannelIsAnAnswer() {
+    void aLanguageWithoutAChannelIsSaidSoInTheRowNotSilentlyDropped() {
         final Posts posts = new Posts(Set.of("en"));
         final FakeUser user = FakeUser.console();
         new Announce().run(user, values("de", "Aufbruch ist geschafft."), posts);
@@ -66,12 +63,8 @@ class AnnounceCommandTest {
     }
 
     @Test
-    @DisplayName("announce is registered by no command tree, and is askable from Steward")
-    void isSystemAndWeb() {
-        // SYSTEM since 2026-09-06: the SMP writes a row at a milestone and nobody types it. WEB
-        // since 2026-09-13: Till wanted the same line askable by hand. Neither GAME, DISCORD nor
-        // CONSOLE, because those are the three an adapter builds a Brigadier or JDA tree from, and
-        // /announce must not become a command a player can find.
+    void announceIsRegisteredByNoCommandTreeAndIsAskableFromSteward() {
+        // SYSTEM: the SMP writes a row at a milestone and nobody types it. WEB: the owner wanted the same line askable.
         assertEquals(Set.of(Surface.SYSTEM, Surface.WEB), AnnounceCommands.ANNOUNCE.surfaces());
     }
 }

@@ -23,17 +23,15 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Exercises {@link AuditDirectory} against a real PostgreSQL instance running the real migrations.
- * <p>
+ *
  * The filter is the reason this is an integration test and not a unit one: {@code search} is a
  * single statement whose predicates switch themselves off when a parameter is null, and whether
  * PostgreSQL will even accept {@code cast(:action AS varchar) IS NULL} is not a question a mock can
  * answer. Testcontainers is driven by hand from {@link BeforeAll} because the
  * {@code org.testcontainers:junit-jupiter} extension is built against JUnit 5 and this repo is on
  * the JUnit 6 BOM.
- * </p>
- * <p>
+ *
  * These tests <b>skip themselves</b> when no Docker daemon is reachable.
- * </p>
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AuditDirectoryIntegrationTest {
@@ -85,8 +83,6 @@ class AuditDirectoryIntegrationTest {
         directory = AuditDirectory.using(dataSource);
     }
 
-    // ---------------------------------------------------------------- recent
-
     @Test
     void everyColumnSurvivesTheRoundTrip() {
         entry("-1 minutes", "LINK", ADMIN, ALICE, "'" + ALICE_MC + "'", "'linked by hand'");
@@ -137,8 +133,6 @@ class AuditDirectoryIntegrationTest {
     void anEmptyJournalIsAnEmptyListAndNotAFailure() {
         assertTrue(directory.recent(10).isEmpty());
     }
-
-    // ---------------------------------------------------------------- search
 
     @Test
     void searchByActionOnly() {
@@ -199,8 +193,6 @@ class AuditDirectoryIntegrationTest {
         assertEquals(1, directory.search(null, null, 0).size(), "clamped, like recent");
     }
 
-    // ---------------------------------------------------------------- helpers
-
     /** Three entries about Alice, one about Bob, two of which share an action. */
     private static void seedFourEntries() {
         entry("-4 minutes", "LINK", null, ALICE, "'" + ALICE_MC + "'", "'alice-link'");
@@ -214,13 +206,9 @@ class AuditDirectoryIntegrationTest {
     }
 
     /**
-     * Writes one {@code audit_log} row. {@code mcUuid} and {@code detail} arrive already quoted
-     * because both are nullable and {@code NULL} is not a string literal; {@code actor} and
-     * {@code subject} are quoted here because a Discord id always is one when it is present.
+     * Writes one {@code audit_log} row; {@code mcUuid} and {@code detail} arrive quoted or as {@code NULL}.
      *
-     * <p>{@code occurred} is stated relative to the database's clock rather than left to the column
-     * default: several rows written in one transaction would otherwise share it exactly, and the
-     * order these tests assert on would be decided by the {@code id} tiebreak alone.
+     * {@code occurred} is set explicitly, so the asserted order does not rest on the {@code id} tiebreak.
      */
     private static void entry(
             final String occurred,

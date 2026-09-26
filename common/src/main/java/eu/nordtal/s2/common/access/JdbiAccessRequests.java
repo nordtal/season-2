@@ -10,11 +10,9 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
- * The only implementation of {@link AccessRequests}. Package-private: consumers get it from the
- * factory method on the interface and never name JDBI themselves.
+ * The only implementation of {@link AccessRequests}.
  *
- * <p>It borrows the pool it is given and owns nothing, which is why there is no {@code close()}
- * here and none on the interface - the process that built the pool closes the pool.</p>
+ * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
  */
 final class JdbiAccessRequests implements AccessRequests {
 
@@ -39,9 +37,7 @@ final class JdbiAccessRequests implements AccessRequests {
         Objects.requireNonNull(request.kind(), "kind");
         Objects.requireNonNull(request.source(), "source");
         Objects.requireNonNull(request.subject(), "subject");
-        // Clamped rather than rejected: a caller computing a patience from two clocks that disagree
-        // should get a row that expires at once - which is visible - and not an exception on the
-        // path that is trying to grant somebody the access they paid for.
+        // Clamped: a negative patience gives a row that expires at once, which is visible.
         final long seconds = patience == null ? PATIENCE.toSeconds() : Math.max(0L, patience.toSeconds());
         return dao.submit(
                 request.kind().name(),
@@ -62,10 +58,7 @@ final class JdbiAccessRequests implements AccessRequests {
         final int written =
                 dao.finish(id, ok ? AccessRequestStatus.DONE.name() : AccessRequestStatus.FAILED.name(), result);
         if (written == 0) {
-            // Not an exception: the work is done either way, and throwing here would turn a
-            // double-settle into a failure the caller would report as one. It is worth a line,
-            // because the only ways to get here are settling twice and settling a row somebody
-            // else claimed.
+            // Settling twice or settling another's claim is logged, not thrown: the work is done either way.
             System.getLogger(JdbiAccessRequests.class.getName())
                     .log(System.Logger.Level.WARNING, "access request " + id + " was not RUNNING when it was settled");
         }

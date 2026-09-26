@@ -17,7 +17,6 @@ import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.PGConnection;
@@ -27,12 +26,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * The admin tree against a real PostgreSQL running the real migrations: the bootstrap, who may
- * revoke whom, the branch that goes with a revocation, the limit on grants, and the constraints
- * that keep anything but this tree from making an admin.
+ * Tests the admin tree against a real PostgreSQL: bootstrap, revocation rights, branches, limits.
  *
- * <p>Driven by hand from {@link BeforeAll}, as every other integration test in this module, and
- * skipped when no Docker daemon is reachable.</p>
+ * Skipped when no Docker daemon is reachable.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AdminTreeIntegrationTest {
@@ -87,11 +83,8 @@ class AdminTreeIntegrationTest {
         tree = AdminTree.using(dataSource);
     }
 
-    // ---------------------------------------------------------------- the bootstrap
-
     @Test
-    @DisplayName("the first to claim an empty tree is its root, and nobody after them")
-    void theFirstClaimIsTheRoot() {
+    void theFirstToClaimAnEmptyTreeIsItsRootAndNobodyAfterThem() {
         assertTrue(tree.claimRootIfNobody(ROOT));
         assertFalse(tree.claimRootIfNobody(A), "a second claim would be a second root");
 
@@ -102,26 +95,21 @@ class AdminTreeIntegrationTest {
     }
 
     @Test
-    @DisplayName("the claim creates the row when the bot has not written one yet")
-    void theClaimCreatesTheRow() {
+    void theClaimCreatesTheRowWhenTheBotHasNotWrittenOneYet() {
         assertTrue(tree.claimRootIfNobody("500000000000000077"));
         assertTrue(tree.isAdmin("500000000000000077"));
     }
 
     @Test
-    @DisplayName("once the root is gone with nobody under them, the next sign-in claims again")
-    void anEmptyTreeCanBeClaimedAgain() {
+    void onceTheRootIsGoneWithNobodyUnderThemTheNextSignInClaimsAgain() {
         tree.claimRootIfNobody(ROOT);
         tree.dropWithBranch(ROOT);
 
         assertTrue(tree.claimRootIfNobody(A));
     }
 
-    // ---------------------------------------------------------------- granting
-
     @Test
-    @DisplayName("a grant records who granted, and only an admin may grant")
-    void aGrantRecordsTheGranter() {
+    void aGrantRecordsWhoGrantedAndOnlyAnAdminMayGrant() {
         tree.claimRootIfNobody(ROOT);
 
         assertEquals(AdminTree.Grant.ACTOR_NOT_ADMIN, tree.grant(A, B));
@@ -139,8 +127,7 @@ class AdminTreeIntegrationTest {
     }
 
     @Test
-    @DisplayName("nobody who is not in the guild can be made an admin")
-    void onlyAMemberCanBeGranted() {
+    void nobodyWhoIsNotInTheGuildCanBeMadeAnAdmin() {
         tree.claimRootIfNobody(ROOT);
         execute("UPDATE discord_user SET member_state = 'LEFT' WHERE discord_id = '" + A + "'");
         execute("UPDATE discord_user SET member_state = 'BANNED' WHERE discord_id = '" + B + "'");
@@ -155,8 +142,7 @@ class AdminTreeIntegrationTest {
     }
 
     @Test
-    @DisplayName("three grants an hour across all admins together, and the fourth is refused at once")
-    void threeGrantsAnHour() {
+    void threeGrantsAnHourAcrossAllAdminsTogetherAndTheFourthIsRefusedAtOnce() {
         tree.claimRootIfNobody(ROOT);
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(ROOT, A));
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(A, A1));
@@ -176,11 +162,8 @@ class AdminTreeIntegrationTest {
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(A1, A1X), "an hour later it is open again");
     }
 
-    // ---------------------------------------------------------------- revoking
-
     @Test
-    @DisplayName("an admin revokes only strictly below them, and the branch goes with the target")
-    void revokingIsDownwardAndTakesTheBranch() {
+    void anAdminRevokesOnlyStrictlyBelowThemAndTheBranchGoesWithTheTarget() {
         buildTree();
 
         assertEquals(AdminTree.Revocation.Outcome.NOT_BELOW, tree.revoke(A, B).outcome(), "a sibling");
@@ -207,8 +190,7 @@ class AdminTreeIntegrationTest {
     }
 
     @Test
-    @DisplayName("a grandparent may revoke a grandchild, not only a child")
-    void revokingReachesTheWholeBranchBelow() {
+    void aGrandparentMayRevokeAGrandchildNotOnlyAChild() {
         buildTree();
 
         assertEquals(List.of(A1X), tree.revoke(ROOT, A1X).removed());
@@ -216,8 +198,7 @@ class AdminTreeIntegrationTest {
     }
 
     @Test
-    @DisplayName("nobody revokes themselves, not even the root")
-    void nobodyRevokesThemselves() {
+    void nobodyRevokesThemselvesNotEvenTheRoot() {
         buildTree();
 
         assertEquals(AdminTree.Revocation.Outcome.SELF, tree.revoke(ROOT, ROOT).outcome());
@@ -226,8 +207,7 @@ class AdminTreeIntegrationTest {
     }
 
     @Test
-    @DisplayName("leaving the guild drops the branch whoever is above it")
-    void leavingDropsTheBranch() {
+    void leavingTheGuildDropsTheBranchWhoeverIsAboveIt() {
         buildTree();
 
         assertEquals(Set.of(A1, A1X), tree.dropWithBranch(A1));
@@ -236,8 +216,7 @@ class AdminTreeIntegrationTest {
     }
 
     @Test
-    @DisplayName("every account that stops being an admin is notified, once the change committed")
-    void aRevocationNotifiesEveryAccountInTheBranch() throws Exception {
+    void everyAccountThatStopsBeingAnAdminIsNotifiedOnceTheChangeCommitted() throws Exception {
         buildTree();
 
         try (Connection listening = dataSource.getConnection()) {
@@ -262,8 +241,7 @@ class AdminTreeIntegrationTest {
     }
 
     @Test
-    @DisplayName("a grant notifies too")
-    void aGrantNotifies() throws Exception {
+    void aGrantNotifiesToo() throws Exception {
         tree.claimRootIfNobody(ROOT);
 
         try (Connection listening = dataSource.getConnection()) {
@@ -280,11 +258,8 @@ class AdminTreeIntegrationTest {
         }
     }
 
-    // ---------------------------------------------------------------- the schema
-
     @Test
-    @DisplayName("the flag cannot be raised without a grant - the old role mirror's write is refused")
-    void theFlagNeedsAGrant() {
+    void theFlagCannotBeRaisedWithoutAGrantTheOldRoleMirrorsWriteIsRefused() {
         assertThrows(
                 SQLException.class,
                 () -> executeChecked("UPDATE discord_user SET admin = true WHERE discord_id = '" + A + "'"));
@@ -295,8 +270,7 @@ class AdminTreeIntegrationTest {
     }
 
     @Test
-    @DisplayName("there is one root at most, even written by hand")
-    void oneRootAtMost() {
+    void thereIsOneRootAtMostEvenWrittenByHand() {
         tree.claimRootIfNobody(ROOT);
 
         assertThrows(
@@ -304,8 +278,6 @@ class AdminTreeIntegrationTest {
                 () -> executeChecked("UPDATE discord_user SET admin = true,"
                         + " admin_granted_at = now() WHERE discord_id = '" + A + "'"));
     }
-
-    // ---------------------------------------------------------------- helpers
 
     /** ROOT above A and B; A above A1; A1 above A1X. Four grants, so the limit is lifted between. */
     private void buildTree() {

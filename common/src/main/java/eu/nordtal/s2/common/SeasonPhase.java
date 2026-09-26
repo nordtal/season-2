@@ -1,51 +1,35 @@
 package eu.nordtal.s2.common;
 
+import org.jspecify.annotations.Nullable;
+
 /**
- * The phases season 2 moves through. The phase decides who may join and where they land, so a wrong
- * value either opens the SMP to everyone or locks everybody out.
+ * The phases season 2 moves through, deciding who may join and where they land.
  *
- * <p>The current value is one row in PostgreSQL ({@code season_phase}); every process reads it and
- * nobody caches it as truth. The constant names are the exact strings stored in
- * {@code season_phase.phase}, which a {@code CHECK} constraint restricts to these five, so adding
- * one is a migration.
+ * The current value is the one row of {@code season_phase}; the names are the stored strings, restricted
+ * by a {@code CHECK}, so adding one is a migration.
  */
 public enum SeasonPhase {
 
     /**
-     * Before the network has ever opened. Nobody but an admin gets in; everybody else is refused
-     * with a screen that counts down to {@code season_phase.launch}.
+     * Before the network has ever opened; only admins get in, everybody else sees a countdown to launch.
      *
-     * <p>The season's initial state. Nothing switches out of it on its own - the countdown reaching
-     * zero changes what the server browser says and nothing else, because who may join is an
-     * admin's decision rather than a timestamp set weeks earlier.
+     * The initial state. Nothing leaves it on its own: an admin decides when the network opens.
      */
     PRE_LAUNCH,
 
-    /**
-     * Before the start event. Players land in the {@code hunger-games} lobby, and any linked,
-     * non-banned Discord member gets in - an access period is not required.
-     */
+    /** Before the start event; any linked, non-banned member lands in the {@code hunger-games} lobby. */
     PRE_EVENT,
 
-    /**
-     * The hunger games start event itself. Same admission rule as {@link #PRE_EVENT}, and players
-     * land on {@code hunger-games}.
-     */
+    /** The hunger games start event; admission as in {@link #PRE_EVENT}, landing on {@code hunger-games}. */
     START_EVENT,
 
-    /**
-     * The season proper. Players land on {@code smp}, and this is the only phase in which a linked
-     * member also needs an active access period to get in.
-     */
+    /** The season proper; players land on {@code smp} and also need an active access period. */
     SMP,
 
     /**
-     * Planned work. A linked, non-banned member is let onto the network as in every other phase and
-     * then held in {@code limbo}, where the explanation is shown; an admin ({@code
-     * discord_user.admin}) is not moved and reaches the servers being worked on.
+     * Planned work; members are held in {@code limbo} while admins reach the servers.
      *
-     * <p>Also the value a process falls back to when it has never managed to read the row: it is
-     * the one phase that puts a player somewhere harmless.
+     * Also the fallback when a process has never read the row, as it puts players somewhere harmless.
      */
     MAINTENANCE;
 
@@ -56,7 +40,7 @@ public enum SeasonPhase {
      * @return the matching phase, or {@link #MAINTENANCE} for {@code null} or anything
      *         unrecognised - an unreadable phase must never be more permissive than the real one
      */
-    public static SeasonPhase fromDatabase(final String value) {
+    public static SeasonPhase fromDatabase(final @Nullable String value) {
         if (value == null) {
             return MAINTENANCE;
         }

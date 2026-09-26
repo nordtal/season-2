@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,12 +20,12 @@ import org.slf4j.LoggerFactory;
 /**
  * The reconnect loop in {@link NotificationListener}, against a fake {@link Notifications}.
  *
- * <p><b>None of this proves anything about a real dropped socket.</b> A fake that throws on demand
+ * <b>None of this proves anything about a real dropped socket.</b> A fake that throws on demand
  * is not a network partition, and {@code getNotifications} answering {@code null} forever on a
  * silently dead connection cannot be reproduced in a JVM at all - that needs a drill against a real
  * PostgreSQL with the connection killed underneath the process.
  *
- * <p>What these tests do pin is the rule that is a coding mistake rather than an environmental one:
+ * What these tests do pin is the rule that is a coding mistake rather than an environmental one:
  * every reconnect re-reads unconditionally.
  */
 class NotificationListenerTest {
@@ -48,9 +47,7 @@ class NotificationListenerTest {
 
     @Test
     void connectingReReadsEverythingBeforeWaitingForAnyNotification() throws Exception {
-        // A channel that never publishes anything at all. If the listener only refreshed on a
-        // notification, this would refresh zero times - and a change made while the process was
-        // disconnected would be invisible until the next poll.
+        // A channel that never publishes: the listener must still refresh on its own.
         final FakeChannel quiet = FakeChannel.quiet();
         final NotificationListener listener =
                 new NotificationListener(() -> quiet, "test", two(), LOGGER, WAIT, BACKOFF);
@@ -75,10 +72,8 @@ class NotificationListenerTest {
     }
 
     @Test
-    @DisplayName("every refresh runs on every signal, because the channel is never inspected")
-    void allRefreshesRideTheSameSignals() throws Exception {
-        // The reason several channels share one connection: both halves want the identical thing on
-        // a wake-up.
+    void everyRefreshRunsOnEverySignalBecauseTheChannelIsNeverInspected() throws Exception {
+        // Several channels share one connection because each wants the same refresh on a wake-up.
         final NotificationListener listener =
                 new NotificationListener(() -> FakeChannel.publishing(3), "test", two(), LOGGER, WAIT, BACKOFF);
 
@@ -89,8 +84,7 @@ class NotificationListenerTest {
     }
 
     @Test
-    @DisplayName("a refresh that throws does not take the loop, or the other refreshes, down")
-    void aBrokenRefreshIsContainedAndRetried() throws Exception {
+    void aRefreshThatThrowsDoesNotTakeTheLoopOrTheOtherRefreshesDown() throws Exception {
         // A failure in either refresh must not cost the other its propagation.
         final NotificationListener listener = new NotificationListener(
                 () -> FakeChannel.publishing(3),
@@ -115,8 +109,7 @@ class NotificationListenerTest {
 
     @Test
     void aLostConnectionIsReplacedAndTheNewOneReReadsAgain() throws Exception {
-        // Three connections in a row, each dying on its first wait: every one has to re-read on the
-        // way in, because a change in the gap is never announced again.
+        // Every reconnect has to re-read, because a change in the gap is never announced again.
         final AtomicInteger opened = new AtomicInteger();
         final CountDownLatch thirdOpened = new CountDownLatch(3);
         final NotificationListener listener = new NotificationListener(
@@ -142,8 +135,7 @@ class NotificationListenerTest {
 
     @Test
     void aConnectorThatCannotConnectAtAllKeepsTryingWithoutSpinning() throws Exception {
-        // A long backoff for this one, so the assertion below is about the backoff being honoured
-        // rather than about how fast the machine running the test happens to be.
+        // A long backoff, so the assertion does not depend on machine speed.
         final Duration slowBackoff = Duration.ofSeconds(10);
         final AtomicInteger attempts = new AtomicInteger();
         final CountDownLatch tried = new CountDownLatch(1);
@@ -188,18 +180,15 @@ class NotificationListenerTest {
     }
 
     @Test
-    @DisplayName("a listener with nothing to refresh is refused rather than parked forever")
-    void refreshesAreNotOptional() {
+    void aListenerWithNothingToRefreshIsRefusedRatherThanParkedForever() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new NotificationListener(FakeChannel::quiet, "test", List.of(), LOGGER, WAIT, BACKOFF));
     }
 
     @Test
-    @DisplayName("a channel name that is not an identifier is refused, because it is not a parameter")
-    void channelNamesAreCheckedBeforeTheyReachAStatement() {
-        // The name goes into `LISTEN <name>` unquoted - it is an identifier, and there is no
-        // placeholder for one.
+    void aChannelNameThatIsNotAnIdentifierIsRefusedBecauseItIsNotAParameter() {
+        // The name goes into LISTEN unquoted: an identifier has no placeholder.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> PostgresNotifications.connector(
@@ -213,8 +202,6 @@ class NotificationListenerTest {
                 IllegalArgumentException.class,
                 () -> PostgresNotifications.connector("jdbc:postgresql://localhost/x", "u", "p", 3, "test", List.of()));
     }
-
-    // ---------------------------------------------------------------- driving the loop
 
     private static void runBriefly(final NotificationListener listener) throws InterruptedException {
         final Thread thread = start(listener);
@@ -234,12 +221,7 @@ class NotificationListenerTest {
         thread.join(TimeUnit.SECONDS.toMillis(10));
     }
 
-    // ---------------------------------------------------------------- fakes
-
-    /**
-     * A scripted {@link Notifications}: a queue of answers, then either quiet forever or an
-     * exception. A script, not a socket.
-     */
+    /** A scripted {@link Notifications}: a queue of answers, then quiet forever or an exception. */
     private static final class FakeChannel implements Notifications {
 
         private final Deque<Boolean> script = new ArrayDeque<>();
@@ -276,8 +258,7 @@ class NotificationListenerTest {
                 throw new SQLException("the connection went away");
             }
             try {
-                // Stand in for a quiet interval, so the loop does not spin the CPU while a test
-                // watches it.
+                // Stands in for a quiet interval without spinning the CPU.
                 Thread.sleep(timeout.toMillis());
             } catch (final InterruptedException interrupted) {
                 Thread.currentThread().interrupt();

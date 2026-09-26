@@ -9,23 +9,19 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rules {@link MessageRenderer} exists to keep. The one worth reading twice is
- * {@link #aValueCannotInjectTags()}: a message is a template the repository controls, but a
- * placeholder value is a player name.
+ * The rules {@link MessageRenderer} exists to keep.
+ *
+ * A template is controlled by the repository, but a placeholder value is a player name; see
+ * {@link #aValueContainingATagCannotInjectMinimessage()}.
  */
 class MessageRendererTest {
 
     private static final MessageRenderer RENDER = new MessageRenderer(Messages.load("messages/render", Locale.ENGLISH));
 
-    /**
-     * Flattens a component to its text. Adventure 5 moved {@code PlainTextComponentSerializer} into
-     * its own artifact, and a test-only dependency on it would buy nothing this cannot do in five
-     * lines.
-     */
+    /** Flattens a component to its text without the separate plain-text serializer artifact. */
     private static String plain(final Component component) {
         final StringBuilder out = new StringBuilder();
         flatten(component, out);
@@ -40,14 +36,12 @@ class MessageRendererTest {
     }
 
     @Test
-    @DisplayName("a message with no tags renders as its own text")
-    void untaggedTextSurvives() {
+    void aMessageWithNoTagsRendersAsItsOwnText() {
         assertEquals("Nothing to parse here", plain(RENDER.get(Locale.ENGLISH, "plain")));
     }
 
     @Test
-    @DisplayName("tags in a message are parsed, not shown")
-    void tagsAreParsed() {
+    void tagsInAMessageAreParsedNotShown() {
         final Component rendered = RENDER.get(Locale.ENGLISH, "tagged");
         assertEquals("danger and calm", plain(rendered));
         assertTrue(
@@ -56,8 +50,7 @@ class MessageRendererTest {
     }
 
     @Test
-    @DisplayName("a glyph tag names a glyph and draws it in the default font")
-    void aGlyphTagDrawsTheGlyph() {
+    void aGlyphTagNamesAGlyphAndDrawsItInTheDefaultFont() {
         final Component rendered = RENDER.get(Locale.ENGLISH, "glyph");
         assertEquals(eu.nordtal.s2.common.Glyphs.TAG_ADMIN + " Admin", plain(rendered));
         assertTrue(
@@ -66,13 +59,11 @@ class MessageRendererTest {
     }
 
     @Test
-    @DisplayName("a glyph tag with a name nobody knows stays visible as text")
-    void anUnknownGlyphStaysText() {
+    void aGlyphTagWithANameNobodyKnowsStaysVisibleAsText() {
         assertEquals("<glyph:nope> here", plain(RENDER.get(Locale.ENGLISH, "glyph-unknown")));
     }
 
     @Test
-    @DisplayName("a value cannot draw a glyph")
     void aValueCannotDrawAGlyph() {
         assertEquals(
                 "Hello <glyph:admin>", plain(RENDER.format(Locale.ENGLISH, "glyph-in-value", "name", "<glyph:admin>")));
@@ -88,8 +79,7 @@ class MessageRendererTest {
     }
 
     @Test
-    @DisplayName("a component value arrives as a component, not as its text")
-    void componentValuesKeepTheirStyle() {
+    void aComponentValueArrivesAsAComponentNotAsItsText() {
         final Component rendered = RENDER.format(
                 Locale.ENGLISH,
                 "composed",
@@ -104,15 +94,9 @@ class MessageRendererTest {
                         + " what happens when it is flattened to a String and substituted");
     }
 
-    /**
-     * The reason the overload exists at all: vanilla's death message and an advancement's title are
-     * {@code TranslatableComponent}s, and every reader's own client renders them in that reader's
-     * language. A trip through {@code String} would settle the language on the server, once, for
-     * everybody.
-     */
+    /** Checks that a translatable value stays translatable, so each client renders it in its own language. */
     @Test
-    @DisplayName("a translatable value stays translatable")
-    void aTranslatableValueSurvives() {
+    void aTranslatableValueStaysTranslatable() {
         final Component rendered = RENDER.format(
                 Locale.ENGLISH, "composed", Map.of("line", Component.translatable("death.attack.lava")), "who", "Ida");
 
@@ -122,14 +106,9 @@ class MessageRendererTest {
                         + " to reach it as a translatable and not as English text");
     }
 
-    /**
-     * A component value is not escaped and must not need to be - it never meets the parser. What is
-     * still escaped is the ordinary {@code {who}} beside it, and this pins that the two kinds do not
-     * contaminate each other.
-     */
+    /** Checks that a component value is not escaped while a string value beside it still is. */
     @Test
-    @DisplayName("a component value beside a hostile text value is still safe")
-    void theTwoKindsOfValueDoNotMix() {
+    void aComponentValueBesideAHostileTextValueIsStillSafe() {
         final Component rendered = RENDER.format(
                 Locale.ENGLISH, "composed", Map.of("line", Component.text("hello")), "who", "<red>Mallory");
 
@@ -151,16 +130,14 @@ class MessageRendererTest {
     }
 
     @Test
-    @DisplayName("placeholders are substituted before parsing")
-    void placeholdersSubstitute() {
+    void placeholdersAreSubstitutedBeforeParsing() {
         assertEquals(
                 "Hello Till, you have 3 left",
                 plain(RENDER.format(Locale.ENGLISH, "greeting", "name", "Till", "count", 3)));
     }
 
     @Test
-    @DisplayName("a value containing a tag cannot inject MiniMessage")
-    void aValueCannotInjectTags() {
+    void aValueContainingATagCannotInjectMinimessage() {
         final Component rendered = RENDER.format(Locale.ENGLISH, "greeting", "name", "<red>evil</red>", "count", 0);
         assertEquals(
                 "Hello <red>evil</red>, you have 0 left",
@@ -169,12 +146,8 @@ class MessageRendererTest {
     }
 
     @Test
-    @DisplayName("a backslash in a value cannot unescape the tag behind it")
-    void aBackslashCannotUnescapeTheNextTag() {
-        // The attack is one character long. Escaping only '<' turns  \<red>  into  \\<red> , and
-        // MiniMessage reads  \\  as one literal backslash - so the '<' it was protecting arrives at
-        // the parser unguarded and the tag fires. The value below is the shape that matters: a
-        // click tag runs a command as whoever reads the message.
+    void aBackslashInAValueCannotUnescapeTheTagBehindIt() {
+        // Escaping only '<' turns \<red> into \\<red>, which MiniMessage reads as a backslash and a live tag.
         final Component rendered = RENDER.format(
                 Locale.ENGLISH, "greeting", "name", "\\<click:run_command:'/kill @a'>gift</click>", "count", 0);
 
@@ -188,8 +161,7 @@ class MessageRendererTest {
     }
 
     @Test
-    @DisplayName("a lone backslash survives as a lone backslash")
-    void aBackslashIsNotDoubled() {
+    void aLoneBackslashSurvivesAsALoneBackslash() {
         assertEquals(
                 "Hello back\\slash, you have 0 left",
                 plain(RENDER.format(Locale.ENGLISH, "greeting", "name", "back\\slash", "count", 0)),
@@ -205,25 +177,14 @@ class MessageRendererTest {
     }
 
     @Test
-    @DisplayName("an odd parameter count is refused rather than silently dropping one")
-    void oddParametersAreRefused() {
+    void anOddParameterCountIsRefusedRatherThanSilentlyDroppingOne() {
         org.junit.jupiter.api.Assertions.assertThrows(
                 IllegalArgumentException.class, () -> RENDER.format(Locale.ENGLISH, "greeting", "name"));
     }
 
     @Test
-    @DisplayName("a whole Map passed as the parameters says so, instead of counting to one")
-    void aMapWhereThePairsBelongSaysWhatIsWrong() {
-        // This is the shape of season-2-ops/15, and the reason it cost a production defect: a Map is
-        // an Object, `parameters` is Object..., so `format(locale, key, map)` compiles. It then
-        // throws "parameters must alternate name and value, got 1" - a count, about an argument the
-        // caller never counted - and it throws for EVERY call, including one whose map is empty.
-        // ConsoleUser did exactly this and the proxy console could answer no command at all.
-        //
-        // The trap itself is still open by decision (season-2-ops/16): the overload that would close
-        // it can silently redirect existing three-argument calls. What is closed here is the part
-        // that made it expensive - the message now names the mistake instead of describing a
-        // symptom.
+    void aWholeMapPassedAsTheParametersSaysSoInsteadOfCountingToOne() {
+        // A Map is an Object, so format(locale, key, map) compiles and must be refused.
         final IllegalArgumentException refused = org.junit.jupiter.api.Assertions.assertThrows(
                 IllegalArgumentException.class,
                 () -> RENDER.format(Locale.ENGLISH, "greeting", (Object) Map.of("name", "Till")));
@@ -233,10 +194,8 @@ class MessageRendererTest {
     }
 
     @Test
-    @DisplayName("an empty Map is caught too, which is the case that hid the bug")
-    void anEmptyMapIsCaughtAsWell() {
-        // The empty map is the one that matters most: a reply with no placeholders looks like the
-        // safest call in the codebase, and it is the one that threw first.
+    void anEmptyMapIsCaughtTooWhichIsTheCaseThatHidTheBug() {
+        // The empty map is the case that looks safest.
         final IllegalArgumentException refused = org.junit.jupiter.api.Assertions.assertThrows(
                 IllegalArgumentException.class, () -> RENDER.format(Locale.ENGLISH, "greeting", (Object) Map.of()));
 

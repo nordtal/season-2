@@ -18,19 +18,13 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-/**
- * Exercises {@link OnlineRoster} against a real PostgreSQL running the real migration, the same way
- * {@link OnlineDirectoryIntegrationTest} does for the counts - and for the same reason: the upsert
- * and the prune are one transaction's worth of SQL, and no in-memory fake can say anything about
- * whether they actually replace a roster.
- */
+/** Exercises {@link OnlineRoster}'s upsert and prune against a real PostgreSQL. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OnlineRosterIntegrationTest {
 
@@ -77,11 +71,8 @@ class OnlineRosterIntegrationTest {
         roster = OnlineRoster.using(dataSource);
     }
 
-    // ---------------------------------------------------------------- writing and reading back
-
     @Test
-    @DisplayName("a roster nobody has written is empty, not a list of nulls")
-    void anUnwrittenRosterIsEmpty() {
+    void aRosterNobodyHasWrittenIsEmptyNotAListOfNulls() {
         assertTrue(roster.current().isEmpty());
     }
 
@@ -97,8 +88,7 @@ class OnlineRosterIntegrationTest {
     }
 
     @Test
-    @DisplayName("a player the proxy has and no backend does yet keeps a NULL subject, not a guess")
-    void aPlayerBetweenServersHasNoSubject() {
+    void aPlayerTheProxyHasAndNoBackendDoesYetKeepsANullSubjectNotAGuess() {
         roster.replace(List.of(new OnlineRoster.Presence(ADA, "Ada", null)));
 
         final OnlinePlayer player = roster.current().getFirst();
@@ -107,8 +97,7 @@ class OnlineRosterIntegrationTest {
     }
 
     @Test
-    @DisplayName("the name that came with the second write wins - a name is an observation")
-    void aRenamedPlayerKeepsOneRow() {
+    void theNameThatCameWithTheSecondWriteWinsANameIsAnObservation() {
         roster.replace(List.of(new OnlineRoster.Presence(ADA, "Ada", "limbo")));
         roster.replace(List.of(new OnlineRoster.Presence(ADA, "AdaRenamed", "smp")));
 
@@ -120,11 +109,8 @@ class OnlineRosterIntegrationTest {
         assertEquals(Optional.of("smp"), roster.current().getFirst().on());
     }
 
-    // ---------------------------------------------------------------- the set shrinks, too
-
     @Test
-    @DisplayName("a player who logs off is DELETED, not left with an ageing timestamp")
-    void aPlayerWhoLeavesIsDeleted() {
+    void aPlayerWhoLogsOffIsDeletedNotLeftWithAnAgeingTimestamp() {
         roster.replace(
                 List.of(new OnlineRoster.Presence(ADA, "Ada", "smp"), new OnlineRoster.Presence(BEN, "Ben", "smp")));
         assertEquals(2, roster.current().size());
@@ -138,8 +124,7 @@ class OnlineRosterIntegrationTest {
     }
 
     @Test
-    @DisplayName("an empty write empties the table - nobody online is a statement, not a no-op")
-    void anEmptyWriteClearsEverybody() {
+    void anEmptyWriteEmptiesTheTableNobodyOnlineIsAStatementNotANoOp() {
         roster.replace(List.of(new OnlineRoster.Presence(ADA, "Ada", "smp")));
 
         roster.replace(List.of());
@@ -149,8 +134,7 @@ class OnlineRosterIntegrationTest {
     }
 
     @Test
-    @DisplayName("`updated` moves forward for everyone still there")
-    void updatedAdvancesForTheOnesWhoStayed() throws InterruptedException {
+    void updatedMovesForwardForEveryoneStillThere() throws InterruptedException {
         roster.replace(List.of(new OnlineRoster.Presence(ADA, "Ada", "smp")));
         final Instant first = roster.current().getFirst().updated();
 
@@ -163,8 +147,7 @@ class OnlineRosterIntegrationTest {
     }
 
     @Test
-    @DisplayName("one write is one moment - every row of it carries the same instant")
-    void oneWriteIsOneInstant() {
+    void oneWriteIsOneMomentEveryRowOfItCarriesTheSameInstant() {
         roster.replace(
                 List.of(new OnlineRoster.Presence(ADA, "Ada", "smp"), new OnlineRoster.Presence(BEN, "Ben", null)));
 
@@ -176,11 +159,8 @@ class OnlineRosterIntegrationTest {
                 "two rows of one write must not be able to disagree about when it happened");
     }
 
-    // ---------------------------------------------------------------- refusals
-
     @Test
-    @DisplayName("the same player twice in one write is refused before anything is written")
-    void aDuplicateIsRefused() {
+    void theSamePlayerTwiceInOneWriteIsRefusedBeforeAnythingIsWritten() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> roster.replace(List.of(
@@ -193,8 +173,6 @@ class OnlineRosterIntegrationTest {
     void aBlankNameIsRefusedByThePresenceItself() {
         assertThrows(IllegalArgumentException.class, () -> new OnlineRoster.Presence(ADA, " ", "smp"));
     }
-
-    // ---------------------------------------------------------------- plumbing
 
     private long count(final String sql) {
         try (Connection connection = dataSource.getConnection();

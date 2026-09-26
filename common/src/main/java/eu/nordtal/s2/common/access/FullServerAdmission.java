@@ -7,31 +7,27 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Who is let onto a backend that is already full.
  *
- * <p>Admins are exempt from the proxy's player limit, so a full network holds {@code max-players}
+ * Admins are exempt from the proxy's player limit, so a full network holds {@code max-players}
  * plus whichever admins joined it and the backend they are routed to has to have room for them.
  * Bukkit's own bypass is not usable, because it reads {@code ops.json} and an admin here is
  * {@code discord_user.admin} in the database - the only admin list in this repository.
  *
- * <p>The flag is <b>read on {@code AsyncPlayerPreLoginEvent}</b> and only read back during the
+ * The flag is <b>read on {@code AsyncPlayerPreLoginEvent}</b> and only read back during the
  * fullness check: that check fires inside the login pipeline, runs twice for one login, and nothing
  * on a login-critical path may query a database. Reading here is therefore non-destructive, so both
  * firings answer the same. {@link #worthAsking(int, int)} keeps the pre-login lookup off servers
  * that are nowhere near full.
  *
- * <p>Players can join between the pre-login and the check, so a login that was not near the cap when
+ * Players can join between the pre-login and the check, so a login that was not near the cap when
  * it was considered can still be refused. {@link #HEADROOM} covers the ordinary case; a larger burst
  * costs an admin one reconnect.
  *
- * <p>Only admins are held - {@link #remember} with {@code false} removes - so calling it on
+ * Only admins are held - {@link #remember} with {@code false} removes - so calling it on
  * <b>every</b> pre-login is what keeps an entry from outliving a revoked flag.
  */
 public final class FullServerAdmission {
 
-    /**
-     * How much room is left when a login is still close enough to the cap to be worth a query. Not
-     * zero, because the count moves between the pre-login and Paper's check; not large, because
-     * every one of those is a database round trip on a login path.
-     */
+    /** How close to the cap a login must be to be worth a query; the count moves before Paper's check. */
     public static final int HEADROOM = 5;
 
     private final Set<UUID> admins = ConcurrentHashMap.newKeySet();
@@ -46,10 +42,7 @@ public final class FullServerAdmission {
         return online + HEADROOM >= max;
     }
 
-    /**
-     * Records what the pre-login thread found. Call it with {@code false} too - it is what makes a
-     * stale entry from an earlier connection impossible.
-     */
+    /** Records what the pre-login thread found; call it with {@code false} too, so no stale entry remains. */
     public void remember(final UUID mcUuid, final boolean admin) {
         if (admin) {
             admins.add(mcUuid);
@@ -58,11 +51,7 @@ public final class FullServerAdmission {
         }
     }
 
-    /**
-     * Whether this login must be let through a server Paper considers full. <b>Does not consume</b>:
-     * the login validation runs twice, and an answer that flipped would refuse the admin it had just
-     * admitted.
-     */
+    /** Returns whether this login may pass a full server, without consuming the entry, as validation runs twice. */
     public boolean admits(final UUID mcUuid) {
         return admins.contains(mcUuid);
     }

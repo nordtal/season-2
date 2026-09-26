@@ -9,27 +9,20 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The operator's message override: {@code plugins/&lt;name&gt;/messages/&lt;lang&gt;.properties} on
- * top of the bundle in the jar.
+ * Tests the operator's message override on top of the bundle in the jar.
  *
- * <p><b>The case that matters is the second one.</b> A whole-file override is the obvious
- * implementation and the wrong one: it freezes the wording at the moment somebody copied the file,
- * so every key a later release adds is missing and reaches the player as the literal key. Merging
- * key by key is what makes an override survive an update, and {@code aKeyTheOverrideDoesNotName}
- * is the test that says so.</p>
+ * The override merges key by key, so a key it does not name keeps following the jar.
  */
 class MessageOverridesTest {
 
     private static final Locale GERMAN = Locale.GERMAN;
 
     @Test
-    @DisplayName("an override wins over the packaged bundle")
-    void anOverrideWins(@TempDir final Path directory) throws IOException {
+    void anOverrideWinsOverThePackagedBundle(@TempDir final Path directory) throws IOException {
         write(directory, "de", "greeting=Moin {name}!");
         final Messages messages = load(directory);
 
@@ -37,8 +30,7 @@ class MessageOverridesTest {
     }
 
     @Test
-    @DisplayName("a key the override does not name still comes from the jar")
-    void aKeyTheOverrideDoesNotName(@TempDir final Path directory) throws IOException {
+    void aKeyTheOverrideDoesNotNameStillComesFromTheJar(@TempDir final Path directory) throws IOException {
         write(directory, "de", "greeting=Moin {name}!");
         final Messages messages = load(directory);
 
@@ -50,8 +42,7 @@ class MessageOverridesTest {
     }
 
     @Test
-    @DisplayName("English keeps working as the fallback under an override")
-    void englishStaysTheFallback(@TempDir final Path directory) throws IOException {
+    void englishKeepsWorkingAsTheFallbackUnderAnOverride(@TempDir final Path directory) throws IOException {
         write(directory, "de", "greeting=Moin {name}!");
         final Messages messages = load(directory);
 
@@ -59,8 +50,7 @@ class MessageOverridesTest {
     }
 
     @Test
-    @DisplayName("an override for a key nothing declares is reported by name")
-    void anUnknownOverrideKeyIsReported(@TempDir final Path directory) throws IOException {
+    void anOverrideForAKeyNothingDeclaresIsReportedByName(@TempDir final Path directory) throws IOException {
         write(directory, "de", "greting=Moin!\ngreeting=Moin {name}!");
         final Messages messages = load(directory);
 
@@ -72,8 +62,8 @@ class MessageOverridesTest {
     }
 
     @Test
-    @DisplayName("overriding a key only English declares works, and is not reported as a typo")
-    void aGermanOverrideOfAnEnglishOnlyKeyIsNotUnknown(@TempDir final Path directory) throws IOException {
+    void overridingAKeyOnlyEnglishDeclaresWorksAndIsNotReportedAsATypo(@TempDir final Path directory)
+            throws IOException {
         write(directory, "de", "only-english=Diesen Schlüssel gibt es nur auf Englisch.");
         final Messages messages = load(directory);
 
@@ -91,8 +81,7 @@ class MessageOverridesTest {
     }
 
     @Test
-    @DisplayName("reload picks up an edit without a new Messages")
-    void reloadPicksUpAnEdit(@TempDir final Path directory) throws IOException {
+    void reloadPicksUpAnEditWithoutANewMessages(@TempDir final Path directory) throws IOException {
         write(directory, "de", "plain=Erste Fassung.");
         final Messages messages = load(directory);
         assertEquals("Erste Fassung.", messages.get(GERMAN, "plain"));
@@ -108,8 +97,7 @@ class MessageOverridesTest {
     }
 
     @Test
-    @DisplayName("a deleted override falls back to the jar again")
-    void aDeletedOverrideFallsBack(@TempDir final Path directory) throws IOException {
+    void aDeletedOverrideFallsBackToTheJarAgain(@TempDir final Path directory) throws IOException {
         write(directory, "de", "plain=Eigene Fassung.");
         final Messages messages = load(directory);
         assertEquals("Eigene Fassung.", messages.get(GERMAN, "plain"));
@@ -121,8 +109,7 @@ class MessageOverridesTest {
     }
 
     @Test
-    @DisplayName("the directory and its note are written once and never rewritten")
-    void theNoteIsWrittenOnce(@TempDir final Path parent) throws IOException {
+    void theDirectoryAndItsNoteAreWrittenOnceAndNeverRewritten(@TempDir final Path parent) throws IOException {
         final Path directory = parent.resolve("messages");
         load(directory);
 
@@ -140,8 +127,7 @@ class MessageOverridesTest {
     }
 
     @Test
-    @DisplayName("umlauts survive the override, which is read as UTF-8 and not as ISO-8859-1")
-    void umlautsSurvive(@TempDir final Path directory) throws IOException {
+    void umlautsSurviveTheOverrideWhichIsReadAsUtf8AndNotAsIso88591(@TempDir final Path directory) throws IOException {
         write(directory, "de", "plain=Grüße aus Nordtal - schöne Größe.");
         final Messages messages = load(directory);
 
@@ -154,8 +140,7 @@ class MessageOverridesTest {
     }
 
     @Test
-    @DisplayName("no override directory behaves exactly as before")
-    void withoutAnOverrideNothingChanges() {
+    void noOverrideDirectoryBehavesExactlyAsBefore() {
         final Messages messages = Messages.load(MessageOverridesTest.class.getClassLoader(), "messages/test", GERMAN);
 
         assertEquals("Hallo Till!", messages.format(GERMAN, "greeting", "name", "Till"));

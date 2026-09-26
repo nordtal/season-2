@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -13,15 +14,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Holds a {@link MessageSpec} and its bundle to each other: every key of the English file has a
- * method and every method a key, every message and section has a {@link Name}, and the
- * <code>{placeholders}</code> of each text, English and German, are exactly the method's plain
- * arguments - a Component argument has to appear as its {@code <tag>} instead. A role is used through
- * at least one <code>{role.property}</code> its context type has; the global roles may be used
- * anywhere and need not be.
+ * Holds a {@link MessageSpec} and its bundle to each other, key by key and placeholder by placeholder.
  *
- * <p>Each module with a bundle runs this from one test, and the schema build step refuses to
- * write a schema it fails.</p>
+ * Every key has a method and a {@link Name}, and each text's placeholders match the method's arguments.
+ * Each module runs it from a test, and the schema build refuses a spec that fails it.
  */
 public final class MessageSpecCheck {
 
@@ -91,7 +87,7 @@ public final class MessageSpecCheck {
     }
 
     private static List<String> properties(final Map<String, Class<?>> contexts, final String type) {
-        return Contexts.properties(contexts.get(type));
+        return Contexts.properties(Objects.requireNonNull(contexts.get(type), type));
     }
 
     private static void check(

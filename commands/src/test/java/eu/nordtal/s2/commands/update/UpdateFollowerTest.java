@@ -18,12 +18,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.LongFunction;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * One decision about a row, made once for the proxy and the three Paper consoles. Every branch here
- * used to live in {@code :paper-common} alone, which is the module the proxy cannot see.
+ * One decision about a row, made once for the proxy and the three Paper consoles.
+ *
+ * Neither the proxy nor {@code :paper-common} alone can see both, so the decision lives where both do.
  */
 class UpdateFollowerTest {
 
@@ -40,8 +40,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a row that has written nothing yet says nothing and keeps the surface polling")
-    void waits() {
+    void aRowThatHasWrittenNothingYetSaysNothingAndKeepsTheSurfacePolling() {
         final UpdateFollower.Step step =
                 following(id -> Optional.of(row(UpdateStatus.RUNNING, null))).poll(NOW.plusSeconds(30));
         assertTrue(step.says().isEmpty());
@@ -49,8 +48,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a finished report is said as keys, so a German admin reads German")
-    void printsTheReport() {
+    void aFinishedReportIsSaidAsKeysSoAGermanAdminReadsGerman() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
                 .with(new UpdateReport.ServiceLine(
                         "smp",
@@ -64,8 +62,7 @@ class UpdateFollowerTest {
         step.deliver(user);
 
         assertTrue(step.finished());
-        // Not one literal anywhere: a report used to be printed as the worker's own English text,
-        // which is what a German admin got on the longest answer in the network.
+        // Not one literal anywhere: the report is rendered from keys, never from the worker's own English text.
         assertEquals(List.of("update.stage.PLANNED", "update.line.PLANNED", "update.change"), user.keys());
         assertEquals(new ServiceContext("smp"), user.replies.get(1).of("service"));
         assertEquals("smp.jar", user.replies.get(2).of("artefact"));
@@ -77,8 +74,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("an artefact with no build yet is its own line, and not a failure")
-    void printsAnUnsupportedArtefact() {
+    void anArtefactWithNoBuildYetIsItsOwnLineAndNotAFailure() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
                 .with(new UpdateReport.ServiceLine(
                         "smp",
@@ -90,9 +86,7 @@ class UpdateFollowerTest {
                 .poll(NOW)
                 .deliver(user);
 
-        // Its own key, because the sentence is different: nothing is moving, so "{artefact} {from}
-        // -> {to}" has nothing to put on either side of the arrow. And its own line rather than a
-        // silent omission - an artefact dropped from the report is one somebody has to remember.
+        // Its own key, because the sentence is different: nothing is moving.
         assertEquals(
                 List.of("update.stage.NOTHING_TO_DO", "update.line.UNCHANGED", "update.change.unsupported"),
                 user.keys());
@@ -104,8 +98,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("the failed service is the one line that is coloured differently")
-    void theFailureIsFindable() {
+    void theFailedServiceIsTheOneLineThatIsColouredDifferently() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null))
                 .with(new UpdateReport.ServiceLine("limbo", UpdateReport.State.FAILED, List.of(), "did not come back"))
@@ -133,8 +126,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a stage is announced once, when the run reaches it - not on every poll")
-    void stagesAreSaidOnce() {
+    void aStageIsAnnouncedOnceWhenTheRunReachesItNotOnEveryPoll() {
         final UpdateReport[] current = {UpdateReport.at(UpdateReport.Stage.RESOLVING)};
         final FakeUser user = FakeUser.inGame();
         final UpdateFollower follower =
@@ -157,8 +149,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a cancelled countdown names who stopped it, and is not a failure")
-    void cancelledIsNotFailed() {
+    void aCancelledCountdownNamesWhoStoppedItAndIsNotAFailure() {
         final FakeUser user = FakeUser.inGame();
         following(id -> Optional.of(row(UpdateStatus.CANCELLED, "Cancelled by tester")))
                 .poll(NOW)
@@ -172,8 +163,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a row from before V12 is plain text and is still printed as it is")
-    void legacyRowsArePrintedVerbatim() {
+    void aRowFromBeforeV12IsPlainTextAndIsStillPrintedAsItIs() {
         final FakeUser user = FakeUser.inGame();
         following(id -> Optional.of(row(UpdateStatus.FAILED, "plain text from before V12")))
                 .poll(NOW)
@@ -183,8 +173,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a report longer than the chat can hold is cut, and the cut is announced")
-    void longReportsAreCut() {
+    void aReportLongerThanTheChatCanHoldIsCutAndTheCutIsAnnounced() {
         UpdateReport building = UpdateReport.at(UpdateReport.Stage.DONE);
         for (int i = 0; i < UpdateFollower.MAX_LINES + 3; i++) {
             building = building.with(
@@ -203,8 +192,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a row deleted by hand is 'gone', not an endless wait")
-    void gone() {
+    void aRowDeletedByHandIsGoneNotAnEndlessWait() {
         final FakeUser user = FakeUser.inGame();
         final UpdateFollower.Step step = following(id -> Optional.empty()).poll(NOW);
         step.deliver(user);
@@ -213,8 +201,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("past the deadline the row's own status is named, because PENDING means the worker is down")
-    void timesOutNamingTheStatus() {
+    void pastTheDeadlineTheRowsOwnStatusIsNamedBecausePendingMeansTheWorkerIsDown() {
         final FakeUser user = FakeUser.inGame();
         final UpdateFollower.Step step =
                 following(id -> Optional.of(row(UpdateStatus.PENDING, null))).poll(DEADLINE.plusSeconds(1));
@@ -229,8 +216,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a database that cannot be read ends the watch with a sentence and hands the cause back")
-    void unreadable() {
+    void aDatabaseThatCannotBeReadEndsTheWatchWithASentenceAndHandsTheCauseBack() {
         final FakeUser user = FakeUser.inGame();
         final UpdateFollower.Step step = following(id -> {
                     throw new IllegalStateException("pool closed");

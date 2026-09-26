@@ -15,12 +15,12 @@ import java.util.Optional;
 /**
  * The request table, in a map.
  *
- * <p>It enforces the same transitions the SQL does - a claim only takes a row that is
+ * It enforces the same transitions the SQL does - a claim only takes a row that is
  * {@code PENDING} and unexpired, {@code finish} only settles a {@code RUNNING} one, {@code expire}
  * only a {@code PENDING} one - because those guards are what the two ends rely on, and a fake that
  * let anything through would make every test here pass on code the database would refuse.
  * {@code CommandRequestIntegrationTest} in {@code :common} is what proves the real statements agree
- * with this.</p>
+ * with this.
  */
 final class FakeRequests implements CommandRequests {
 
@@ -51,10 +51,10 @@ final class FakeRequests implements CommandRequests {
     /**
      * The journalled insert, as one indivisible step - which is the whole property it exists for.
      *
-     * <p>Nothing in {@code :commands} calls it; {@code steward-ui} does. It is implemented rather
+     * Nothing in {@code :commands} calls it; {@code steward-ui} does. It is implemented rather
      * than left throwing so that a fake which claims to be the request table does not quietly have
      * a hole where an operation of that table should be, and so the line is here to assert on if
-     * something in this module ever starts writing one.</p>
+     * something in this module ever starts writing one.
      */
     @Override
     public long submit(final NewCommandRequest request, final AuditLine journal) {

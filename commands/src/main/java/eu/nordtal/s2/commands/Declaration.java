@@ -5,38 +5,29 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Everything about a command except what it does: its path, its arguments, who may use it, where it
- * can be typed, and which process runs it.
+ * Everything about a command except what it does: its path, arguments, permission, surfaces and target.
  *
- * <h2>The path is the command, on every surface</h2>
- * {@code ["smp", "aura"]} is {@code /smp aura} in chat and {@code /smp aura} in Discord, decided
- * 2026-09-04 - grouped by target rather than flattened, so that somebody who knows one surface knows
- * the other and the target is visible in what they typed. The adapters do not get to rename
- * anything; a command with two names is a command people report bugs about twice.
+ * The path is the command on every surface: {@code ["smp", "aura"]} is {@code /smp aura} in chat
+ * and in Discord alike, grouped by target rather than flattened so that somebody who knows one
+ * surface knows the other and the target is visible in what they typed. The adapters do not get to
+ * rename anything; a command with two names is a command people report bugs about twice.
  *
- * <h2>What the invariants are protecting</h2>
- * Each of the checks below is something that fails late and quietly if it is not caught here:
+ * The invariants below each guard something that fails late and quietly otherwise: a greedy
+ * argument that is not last (Brigadier hands it the whole remainder and then calls the next
+ * argument unexpected - it parses, it just never works), a required argument after an optional one
+ * (there is no way to supply the second without the first), two arguments with one name (Brigadier
+ * takes the last silently), and no surface at all (nothing would register the command, or say so).
  *
- * <ul>
- *   <li><b>A greedy argument that is not last.</b> Brigadier hands it the whole remainder and then
- *       calls the next argument unexpected. It parses, it just never works.</li>
- *   <li><b>A required argument after an optional one.</b> There is no way to supply the second
- *       without the first, so the declaration describes a command that cannot be typed.</li>
- *   <li><b>Two arguments with one name.</b> Brigadier takes the last silently.</li>
- *   <li><b>No surface at all.</b> Nothing would register the command, and nothing would say so.</li>
- * </ul>
+ * Two things this record carries but cannot enforce. {@link #irreversible()} is an obligation on
+ * the adapters, not a checked invariant: every surface confirms an irreversible command - a second
+ * command inside a short window in chat, a button in Discord. The flag lives here so that "which
+ * commands are dangerous" is one list rather than two, and so neither adapter has to keep its own;
+ * whether an adapter honours it is a property of that adapter, and belongs in that adapter's test.
  *
- * <h2>Two things this record carries but cannot enforce</h2>
- * {@link #irreversible()} is an obligation on the adapters, not a checked invariant: every surface
- * confirms an irreversible command, decided 2026-09-04 - a second command inside a short window in
- * chat, a button in Discord. The flag lives here so that "which commands are dangerous" is one list
- * rather than two, and so neither adapter has to keep its own; whether an adapter honours it is a
- * property of that adapter, and belongs in that adapter's test.
- *
- * <p>{@link Surface#DISCORD} on a command whose {@link #target()} is not {@link Target#BOT} is
+ * {@link Surface#DISCORD} on a command whose {@link #target()} is not {@link Target#BOT} is
  * likewise a claim about wiring: it only works if something is carrying request rows to that
  * target. A declaration cannot see whether it is, which is exactly why it is stated here instead of
- * being checked and forgotten.</p>
+ * being checked and forgotten.
  *
  * @param path         the command and its subcommands, e.g. {@code ["smp", "aura"]}
  * @param target       which process runs the effect
@@ -97,14 +88,13 @@ public record Declaration(
     /**
      * {@code /smp aura <player> <delta>} - what to type, with the arguments named.
      *
-     * <h2>Why this is on the declaration and not written out per surface</h2>
-     * Because it is the declaration, spelled out. A usage line kept by hand next to a command is the
+     * Derived rather than written out per surface: a usage line kept by hand next to a command is the
      * first thing to go stale when an argument is added, and the way it goes stale is that it keeps
      * telling people to type something that no longer parses. Deriving it means the two cannot
      * disagree.
      *
-     * <p>Angle brackets for required, square for optional - the convention every Minecraft server
-     * and every man page already uses, so it needs no explaining.</p>
+     * Angle brackets for required, square for optional - the convention every Minecraft server
+     * and every man page already uses, so it needs no explaining.
      */
     public String usage() {
         final StringBuilder text = new StringBuilder(name());
@@ -119,19 +109,21 @@ public record Declaration(
     /**
      * The message key for one sentence saying what this command is for.
      *
-     * <p>Derived from the path, so every command has one and no command can have two.
+     * Derived from the path, so every command has one and no command can have two.
      * {@code CatalogueTest} asserts that every declaration's key exists in both languages - which is
      * what makes it safe for the help output to name it without checking, and what stops a new
      * command from shipping with the literal string {@code command.describe.smp.aura} as its own
-     * explanation.</p>
+     * explanation.
      */
     public String describeKey() {
         return "command.describe." + String.join(".", path);
     }
 
     /**
-     * {@link #describeKey()} as a message. One of the few keys still built from parts: the set of
-     * commands is open, so the spec lists the keys and this names one of them.
+     * {@link #describeKey()} as a message.
+     *
+     * One of the few keys still built from parts: the set of commands is open, so the spec lists
+     * the keys and this names one of them.
      */
     public eu.nordtal.s2.common.message.MessageRef describe() {
         return eu.nordtal.s2.common.message.MessageRef.of(describeKey());
@@ -142,20 +134,16 @@ public record Declaration(
     }
 
     /**
-     * Whether this command has to travel through {@code command_request} to reach its target, when
-     * it is asked for on {@code host}.
+     * Whether this command has to travel through {@code command_request} to reach its target.
      *
-     * <p>The question takes the asking <em>process</em> and not the {@link Surface}, because a
+     * The question takes the asking <em>process</em> and not the {@link Surface}, because a
      * surface does not identify one: {@link Surface#GAME} is four different processes, and
      * {@code /hg start} is local on the hunger games server and remote from the SMP's chat. Asking
-     * by surface would have quietly answered "local" for both.</p>
+     * by surface would have quietly answered "local" for both.
      */
     public boolean isRemoteOn(final Target host) {
         Objects.requireNonNull(host, "host");
-        // Target.LOCAL is never remote, anywhere: its effect is a row in a table every process
-        // already has a pool for, so sending it somewhere would be a round trip to run a statement
-        // the asker could run itself - and the command it exists for, /update, is the one somebody
-        // types when the network is already misbehaving. See Target.LOCAL.
+        // Target.LOCAL is never remote: its effect is a row in a table every process already has a pool for.
         return target != Target.LOCAL && target != host;
     }
 }

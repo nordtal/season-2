@@ -8,17 +8,9 @@ import org.jdbi.v3.sqlobject.statement.SqlBatch;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
 /**
- * The whole SQL surface of {@code online_count}, the same style as {@code MetricDao} and
- * {@code PlaytimeDao}.
- * <p>
- * Package-private: {@link OnlineDirectory} is the API, no consumer ever holds a {@code Jdbi} of
- * ours.
- * </p>
- * <h2>{@code OffsetDateTime}, not {@code Instant}</h2>
- * The same reason {@code MetricDao} gives: an {@code Instant} bound through JDBC is rendered in the
- * JVM's default zone and read back using the server's, which agree on this host and would agree in
- * almost every test - right up until the day they do not. An {@code OffsetDateTime} carries its own
- * offset onto the wire, so there is nothing for either side to assume.
+ * The SQL surface of {@code online_count}; {@link OnlineDirectory} is the API.
+ *
+ * Instants cross as {@code OffsetDateTime}, so neither the JVM's nor the server's zone is assumed.
  */
 @RegisterRowMapper(OnlineCountMapper.class)
 interface OnlineDao {
@@ -26,7 +18,8 @@ interface OnlineDao {
     /**
      * Replaces the row for every subject given, as one JDBC batch.
      *
-     * <h2>{@code DO UPDATE}, not {@code DO NOTHING}</h2>
+     * <b>{@code DO UPDATE}, not {@code DO NOTHING}</b>
+     *
      * The opposite choice from {@code MetricDao#record}, and for the opposite reason: a measurement
      * at an instant is a fact and is never revised, but a player count is a snapshot of right now,
      * and the whole point of writing it again is to replace the stale one. {@code online_count} has
@@ -51,9 +44,6 @@ interface OnlineDao {
     @SqlQuery("SELECT subject, players, updated FROM online_count")
     List<OnlineCount> current();
 
-    /**
-     * One subject's count with its instant already turned into an {@link OffsetDateTime} - see the
-     * note on this interface for why that crossing matters.
-     */
+    /** One subject's count with its instant as an {@link OffsetDateTime}. */
     record BoundCount(String subject, int players, OffsetDateTime updated) {}
 }

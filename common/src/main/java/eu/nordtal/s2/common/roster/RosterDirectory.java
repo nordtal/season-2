@@ -7,7 +7,8 @@ import javax.sql.DataSource;
 /**
  * The access schema as a list: everyone, every payment, every grant of one person.
  *
- * <h2>Why this is not on {@code AccessDirectory}</h2>
+ * <b>Why this is not on {@code AccessDirectory}</b>
+ *
  * That interface is a per-person operational API - grant, revoke, link, "may this UUID join" - and
  * every method on it is on somebody's critical path. This one answers "show me the table", which is
  * a different question with a different shape: it is bounded by a row count instead of by an
@@ -15,23 +16,24 @@ import javax.sql.DataSource;
  * Keeping them apart keeps a page of a web interface from being able to reach for
  * {@code revokeAccess}.
  *
- * <p>It is in {@code :common} because {@code :common} owns the schema. A second module writing its
+ * It is in {@code :common} because {@code :common} owns the schema. A second module writing its
  * own SQL against {@code discord_user} and {@code access_grant} would be a second place that goes
  * stale when a migration lands, and it would go stale silently.
  *
- * <h2>Read-only, and only read-only</h2>
+ * <b>Read-only, and only read-only</b>
+ *
  * Every statement behind this interface is a {@code SELECT}. Nothing here creates, updates or
  * deletes a row; a caller that needs to change something calls
  * {@code eu.nordtal.s2.common.access.AccessDirectory}.
  *
- * <p><b>Blocking.</b> Every method is a database round trip. Never call one from a Paper server's
+ * <b>Blocking.</b> Every method is a database round trip. Never call one from a Paper server's
  * main thread - see the rule in {@code :common}'s README - although in practice the caller is a web
  * request thread in the Steward interface.
  *
- * <p>Nothing on this API refers to Paper, Velocity, Adventure, JDBI or HikariCP, and every record it
+ * Nothing on this API refers to Paper, Velocity, Adventure, JDBI or HikariCP, and every record it
  * returns is built from JDK types only, so it serialises to JSON without an adapter per record.
  *
- * <p>Holds no resource of its own: it borrows the pool it is given, so there is nothing to close.
+ * Holds no resource of its own: it borrows the pool it is given, so there is nothing to close.
  */
 public interface RosterDirectory {
 
@@ -46,11 +48,11 @@ public interface RosterDirectory {
     /**
      * Everyone the bot knows, newest change first.
      *
-     * <p>One statement, not one per person: the account link and both access columns are joined in.
+     * One statement, not one per person: the account link and both access columns are joined in.
      * See {@link Person} for what {@code accessUntil} and {@code accessActive} each mean, and why
      * they disagree about a revoked grant.
      *
-     * <p>Ordered by {@code discord_user.updated} descending - the row's own timestamp, which the bot
+     * Ordered by {@code discord_user.updated} descending - the row's own timestamp, which the bot
      * touches on every mirror of a Discord role, a locale or a member state. It is not "newest
      * member", and there is no column that would answer that: nothing records when a person was
      * first seen.
@@ -62,15 +64,7 @@ public interface RosterDirectory {
      */
     List<Person> people(int limit);
 
-    /**
-     * The one row {@link #people(int)} would print for this account, or empty when there is none
-     * (steward/91) - somebody can be signed into Steward without the bot ever having mirrored a
-     * Discord profile onto this id, and a stranger asking who they are is not the same question as
-     * "list everyone".
-     *
-     * @param discordId the Discord snowflake
-     * @return the row, or empty for an id nobody has ever heard of
-     */
+    /** Returns the row {@link #people(int)} would print for this account, or empty for an unknown id. */
     Optional<Person> personOf(String discordId);
 
     /**
@@ -84,7 +78,7 @@ public interface RosterDirectory {
     /**
      * The payment requests still waiting to be paid, oldest first.
      *
-     * <p>Unbounded, and the second method here that is. It exists so that an interface offering
+     * Unbounded, and the second method here that is. It exists so that an interface offering
      * {@code /access settle} can offer a <em>list</em> rather than a field: a reference is six
      * characters with no meaning, and typing one from memory on the one command that books money is
      * a mistake nobody needs. A limit would make the list quietly incomplete, which is worse than
@@ -97,7 +91,7 @@ public interface RosterDirectory {
     /**
      * Every access grant of one person, newest first, including expired and revoked ones.
      *
-     * <p>Unbounded on purpose, and it is the only method here that is: a grant is written when
+     * Unbounded on purpose, and it is the only method here that is: a grant is written when
      * somebody buys access or an admin hands it out, so one person's list is a handful of rows over
      * a season. The other two read tables that grow without anybody deciding to.
      *

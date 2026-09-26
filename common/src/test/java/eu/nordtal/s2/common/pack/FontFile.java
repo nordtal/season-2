@@ -14,20 +14,10 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * One of the resource pack's four font files, read the way the client reads it.
+ * One of the resource pack's font files, read the way the client reads it.
  *
- * <p>A font is a list of providers. A {@code space} provider gives code points an advance and no
- * pixels; a {@code bitmap} provider names one texture and lays a grid of code points over it, the
- * grid being {@code chars.length} rows by the code point count of each row. The client derives the
- * cell size by dividing the image, so a texture of the wrong size silently shifts every glyph in
- * it - which is one of the things {@link ResourcePackTest} checks.</p>
- *
- * <p>{@code U+0000} in a {@code chars} row means "no character here" and is skipped, which is how
- * a sheet drawn for a subset of its grid is expressed.</p>
- *
- * <p>Public rather than package-private since 2026-09-04, for {@link #texturePath(String)} alone:
- * {@code BoardFrameTest} and {@code MenuTitleTest} live in other packages and each had written that
- * one line for themselves.</p>
+ * A {@code space} provider gives advances; a {@code bitmap} provider lays a grid of code points over one
+ * texture, whose cell size the client derives from the image. {@code U+0000} in a row means no character.
  */
 public final class FontFile {
 
@@ -35,20 +25,11 @@ public final class FontFile {
     private static final String ASSETS = "resource-pack/src/assets";
 
     /**
-     * {@code namespace:path/to.png} to {@code <assets>/namespace/textures/path/to.png}, the way the
-     * client reads it - <b>including the default namespace</b>. Minecraft resolves an id with no
-     * colon against {@code minecraft}; this used to call {@code substring(0, -1)} on one and throw
-     * a {@code StringIndexOutOfBoundsException} naming nothing, out of a static initialiser, so the
-     * whole test class died rather than the one font file. Found by review, 2026-09-04.
+     * Resolves {@code namespace:path/to.png} to its file in the unpacked pack, as the client does.
      *
-     * <p>Public and on the outer class because it was written three times: here,
-     * {@code BoardFrameTest} and {@code MenuTitleTest} each had their own transliteration, and the
-     * third one did not even use a colon - it string-replaced {@code "nordtal:"} and silently
-     * produced a nonsense path for anything else. Three copies of one fact is how one of them comes
-     * to be wrong without the other two noticing.</p>
+     * An id without a colon is in the {@code minecraft} namespace.
      *
      * @param textureId e.g. {@code nordtal:system/join.png}, or {@code font/ascii.png} for vanilla
-     * @return the file in this repository's unpacked pack
      */
     public static Path texturePath(final String textureId) {
         final int colon = textureId.indexOf(':');

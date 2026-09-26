@@ -8,40 +8,23 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * That all three Paper backends actually run the admin watcher, and run it once.
+ * Checks that all three Paper backends run the admin watcher, exactly once.
  *
- * <h2>Why this is a text search and not a real test</h2>
- * The same reason {@code ReadinessWiringTest} and {@code FatalPathsStopTheServerTest} are: what it
- * protects cannot be reached from a JVM with no server in it. {@link AdminOperators} is covered
- * properly by {@code AdminOperatorsTest} - the grant, the removal, the sweep and the fact that a
- * refresh which changes nothing writes nothing are all ordinary code. What no unit test can reach is
- * <b>whether anything calls it</b>.
- *
- * <p>That is not a hypothetical gap. {@code AdminOperators#refresh} was written on 2026-09-04 for
- * exactly this purpose and then had no caller at all for a day - a mechanism that existed, was
- * tested, and did nothing, on the one question ("is this person still an admin?") where doing
- * nothing looks identical to working. A grep is a weak test; it is also the only one available here,
- * and the regression it catches is silent everywhere else.</p>
+ * A text search, because whether anything calls it cannot be reached from a JVM without a server.
  */
 class AdminWatchWiringTest {
 
-    /**
-     * The three dedicated backends. The proxy is not in this list on purpose: it has no operators
-     * to grant, and its own half of the same problem - {@code LoginRoster} going stale - was fixed
-     * on 2026-09-02 and rides its phase listener.
-     */
+    /** The three dedicated backends; the proxy has no operators to grant. */
     private static final List<String> PAPER_PLUGINS = List.of(
             "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java",
             "limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java");
 
     @Test
-    @DisplayName("every backend sweeps ops.json at enable and then starts a watcher")
-    void allThreeSweepAndWatch() throws IOException {
+    void everyBackendSweepsOpsJsonAtEnableAndThenStartsAWatcher() throws IOException {
         for (final String relative : PAPER_PLUGINS) {
             final String text = read(relative);
 
@@ -60,8 +43,7 @@ class AdminWatchWiringTest {
                     text.contains("adminWatch.start("),
                     relative + " builds an AdminWatch and never starts it, which is the same as not"
                             + " having one and looks like having one.");
-            // Either form: the bare call, or the method reference inside Shutdown#quietly, which
-            // is what every disable step became on 2026-09-06 (finding 101).
+            // Either the bare call or the method reference inside Shutdown#quietly.
             assertTrue(
                     text.contains("adminWatch.close()") || text.contains("adminWatch::close"),
                     relative + " never closes its AdminWatch. The listener owns a database connection"
@@ -71,16 +53,11 @@ class AdminWatchWiringTest {
     }
 
     @Test
-    @DisplayName("the gate and the watcher share one FullServerAdmission, because two would drift")
-    void oneAdmissionCachePerBackend() throws IOException {
+    void theGateAndTheWatcherShareOneFullserveradmissionBecauseTwoWouldDrift() throws IOException {
         for (final String relative : PAPER_PLUGINS) {
             final String text = read(relative);
 
-            // FullServerAdmission is warmed on the pre-login thread and read back inside the
-            // fullness check. A second instance is not a duplicate - it is an empty cache, and the
-            // one that answers the fullness check would be the empty one. smp built its instance
-            // inline inside a constructor argument until 2026-09-04, which is precisely the shape
-            // that makes a second `new` look harmless.
+            // A second instance would be an empty cache answering the fullness check.
             assertEquals(
                     1,
                     occurrences(text, "new FullServerAdmission()"),
@@ -104,9 +81,8 @@ class AdminWatchWiringTest {
         final Path path = repositoryRoot().resolve(relative);
         assertTrue(
                 Files.isRegularFile(path),
-                relative + " no longer exists - if a module was renamed"
-                        + " this list has to move with it, because a missing file is a check that silently"
-                        + " stops running");
+                relative + " is missing - a renamed module has to move with this list, because a"
+                        + " missing file is a check that silently stops running");
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 

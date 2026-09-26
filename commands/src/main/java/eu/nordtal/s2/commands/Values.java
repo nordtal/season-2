@@ -6,20 +6,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The arguments a command was actually given, already parsed and checked against its
- * {@link Declaration}.
+ * The arguments a command was actually given, already parsed and checked against its {@link Declaration}.
  *
- * <h2>Why the accessors throw rather than return {@link Optional}</h2>
- * A required argument that is missing here is not a user error - the adapter would have refused the
+ * The accessors throw rather than return {@link Optional} because a required argument that is
+ * missing here is not a user error - the adapter would have refused the
  * input long before, with the platform's own syntax message. It is a declaration and a command that
  * disagree, which is a programming mistake, and the useful behaviour for one of those is a loud
  * failure naming the argument rather than an {@link Optional} that some branch forgets to check and
  * silently treats as "not given".
  *
- * <p>An argument declared {@link Argument#optional()} is the one case where absence is a legitimate
- * answer, and {@link #optionalString} is the accessor that says so out loud.</p>
+ * An argument declared {@link Argument#optional()} is the one case where absence is a legitimate
+ * answer, and {@link #optionalString} is the accessor that says so out loud.
  *
- * <h2>A player is a UUID by the time it gets here</h2>
+ * A player is a UUID by the time it gets here.
  * Both surfaces resolve their own way - a Minecraft name in chat, a member picked from a list in
  * Discord and followed through {@code account_link} - and both end at the same UUID. That is the
  * point of resolving in the adapter: "who does this correct?" is one question with one answer,
@@ -38,15 +37,15 @@ public final class Values {
     /**
      * Every {@link Argument.Kind#CHOICE} in its declared spelling, whatever case it was typed in.
      *
-     * <h2>One place, because the alternative is three</h2>
-     * Discord's dropdown only sends the declared form; both chat adapters type a choice as a plain
+     * One place, because the alternative is three: Discord's dropdown only sends the declared
+     * form; both chat adapters type a choice as a plain
      * word and hand on whatever was typed. Normalising here is what lets a command compare against
      * its own constants without every one of them remembering to be lenient - and it is what keeps
      * {@code /phase set maintenance}, which has worked in chat since the proxy's hand-written
      * adapter, from being refused by the generic check that replaced it.
      *
-     * <p>A value that is not one of the choices at all is left exactly as it was typed:
-     * {@link NordtalCommand#check} is what refuses it, and it has to be able to quote it back.</p>
+     * A value that is not one of the choices at all is left exactly as it was typed:
+     * {@link NordtalCommand#check} is what refuses it, and it has to be able to quote it back.
      */
     private static Map<String, Object> normalise(final Declaration declaration, final Map<String, Object> values) {
         final Map<String, Object> normalised = new java.util.LinkedHashMap<>(values);
@@ -88,9 +87,9 @@ public final class Values {
     /**
      * An {@link Argument.Kind#ACCOUNT}, as a Discord id.
      *
-     * <p>A string and not a {@code long}: Discord ids are snowflakes that exceed what a JSON number
+     * A string and not a {@code long}: Discord ids are snowflakes that exceed what a JSON number
      * can hold safely, they are compared and stored as text everywhere in this repository, and
-     * {@code discord_user.discord_id} is a {@code varchar}.</p>
+     * {@code discord_user.discord_id} is a {@code varchar}.
      */
     public String account(final String name) {
         return get(name, String.class);
@@ -99,10 +98,10 @@ public final class Values {
     /**
      * Whatever was supplied for this argument, untyped - or empty if nothing was.
      *
-     * <p>For the one caller that has to walk a command's arguments without knowing what they are:
+     * For the one caller that has to walk a command's arguments without knowing what they are:
      * {@link eu.nordtal.s2.commands.remote.RequestArguments}, writing them onto a request row. Every
      * other reader knows which argument it wants and what kind it is, and should keep using the
-     * typed accessors, which fail loudly rather than handing back an {@code Object}.</p>
+     * typed accessors, which fail loudly rather than handing back an {@code Object}.
      */
     public Optional<Object> raw(final String name) {
         return Optional.ofNullable(values.get(name));

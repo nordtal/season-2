@@ -16,7 +16,6 @@ import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -25,29 +24,22 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Exercises {@link MetricDirectory} against a real PostgreSQL running the real migrations.
- * <p>
+ *
  * Nothing here has an in-memory stand-in, and the list of things that only a real database can
  * answer is longer for this table than for any other in the module: the idempotence is
  * {@code ON CONFLICT DO NOTHING} on a four-column primary key; the hourly bucket is
  * {@code to_timestamp(floor(epoch / 3600) * 3600)} evaluated by PostgreSQL and held by a CHECK
  * written the same way; {@code avg()} is PostgreSQL's; and the seam between the two resolutions is
  * a scalar {@code min()} inside a UNION ALL. All of it is database behaviour.
- * </p>
- * <p>
+ *
  * Testcontainers is driven by hand from {@link BeforeAll}, like every other integration test in
  * this module - the {@code junit-jupiter} extension is built against JUnit 5 and this repo is on
  * the JUnit 6 BOM - and these tests <b>skip themselves</b> when no Docker daemon is reachable.
- * </p>
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MetricDirectoryIntegrationTest {
 
-    /**
-     * A fixed instant, on an exact UTC hour, so that every expectation below can be written out
-     * rather than computed. {@code Instant.now()} would put the hour boundaries somewhere different
-     * on every run, and the one test that would then fail intermittently is the one about the hour
-     * boundary.
-     */
+    /** A fixed instant on an exact UTC hour, so the hour-boundary tests are deterministic. */
     private static final Instant TEN = Instant.parse("2026-08-01T10:00:00Z");
 
     private static final Instant ELEVEN = Instant.parse("2026-08-01T11:00:00Z");
@@ -93,8 +85,6 @@ class MetricDirectoryIntegrationTest {
         metrics = MetricDirectory.using(dataSource);
     }
 
-    // ---------------------------------------------------------------- writing
-
     @Test
     void aBatchComesBackAsItWasWritten() {
         metrics.record(List.of(
@@ -116,12 +106,8 @@ class MetricDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("the instant written is the instant stored, whatever zone either side is in")
-    void anInstantIsNotShiftedByAZoneOnTheWayIn() {
-        // The quiet one. An Instant bound as a java.sql.Timestamp is rendered by pgjdbc in the
-        // JVM's default zone and read back by the server in ITS zone; the two agree on this host
-        // and in this container, so a shift would never show up in a round trip through the same
-        // code. This asserts against a literal instead, which is the only way to see it.
+    void theInstantWrittenIsTheInstantStoredWhateverZoneEitherSideIsIn() {
+        // pgjdbc and the server may use different zones; only a literal instant shows a shift.
         metrics.record(List.of(new MetricSample("host", "cpu", Instant.parse("2026-08-01T13:37:00Z"), 1.0)));
 
         assertEquals(
@@ -143,8 +129,7 @@ class MetricDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("a sample already written is never revised by a later one")
-    void aReplayedSweepDoesNotRewriteHistory() {
+    void aSampleAlreadyWrittenIsNeverRevisedByALaterOne() {
         metrics.record(List.of(new MetricSample("host", "cpu", TEN, 12.5)));
         metrics.record(List.of(new MetricSample("host", "cpu", TEN, 99.0)));
 
@@ -161,20 +146,15 @@ class MetricDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("a value the mean could not survive is refused before it reaches the table")
-    void nanIsRefused() {
+    void aValueTheMeanCouldNotSurviveIsRefusedBeforeItReachesTheTable() {
         assertThrows(IllegalArgumentException.class, () -> new MetricSample("host", "cpu", TEN, Double.NaN));
         assertThrows(
                 IllegalArgumentException.class, () -> new MetricSample("host", "cpu", TEN, Double.POSITIVE_INFINITY));
     }
 
     @Test
-    @DisplayName("every resolution the code can name is one the CHECK accepts")
-    void theEnumAndTheConstraintAgree() throws Exception {
-        // The thing no unit test can say anything about: Resolution is a Java enum and
-        // metric_sample.resolution is text behind a CHECK, held together by nothing but a migration
-        // somebody remembered to write. A third constant added here without one compiles, passes
-        // everything, reaches a real database and is refused there.
+    void everyResolutionTheCodeCanNameIsOneTheCheckAccepts() throws Exception {
+        // Resolution is a Java enum behind a text CHECK; a constant without a migration fails only here.
         for (final Resolution resolution : Resolution.values()) {
             execute("INSERT INTO metric_sample (subject, metric, resolution, at, value) VALUES " + "('host', 'cpu', '"
                     + resolution.name() + "', timestamptz '2026-08-01 10:00:00+00', 1.0)");
@@ -182,14 +162,9 @@ class MetricDirectoryIntegrationTest {
         assertEquals(Resolution.values().length, count("SELECT count(*) FROM metric_sample"));
     }
 
-    // ---------------------------------------------------------------- compaction
-
     @Test
-    @DisplayName("compaction writes the hour's mean, and the mean is the mean")
-    void compactWritesHourlyMeans() {
-        // 12, 18, 60 has a mean of 30 - which is not any of them, not their sum, not their median
-        // and not the mean of the first two. Every way of getting this wrong shows a different
-        // number, which is the point of choosing them.
+    void compactionWritesTheHoursMeanAndTheMeanIsTheMean() {
+        // The mean 30 differs from the sum, the median and the mean of any two of them.
         metrics.record(List.of(
                 new MetricSample("host", "cpu", TEN, 12.0),
                 new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
@@ -204,11 +179,8 @@ class MetricDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("the hour that is still being measured is not compacted")
-    void aPartialHourIsLeftAlone() {
-        // Half of the eleven o'clock hour, compacted at half past. Were it averaged now the row
-        // would be written once and never revised, so the second half of the hour would arrive and
-        // have nowhere to go - a mean permanently computed from the wrong half of its hour.
+    void theHourThatIsStillBeingMeasuredIsNotCompacted() {
+        // An hour still in progress must not be compacted, or its second half would be lost.
         metrics.record(List.of(
                 new MetricSample("host", "cpu", TEN, 12.0),
                 new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
@@ -226,8 +198,7 @@ class MetricDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("compacting twice leaves exactly the same rows")
-    void compactIsSafeToRunTwice() {
+    void compactingTwiceLeavesExactlyTheSameRows() {
         metrics.record(List.of(
                 new MetricSample("host", "cpu", TEN, 12.0),
                 new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
@@ -241,16 +212,12 @@ class MetricDirectoryIntegrationTest {
         assertEquals(
                 30.0, hourly("host", "cpu", TEN), "and the mean is still the mean of the raw samples, not of itself");
 
-        // The failure this guards against is not a duplicate row - the primary key would stop that
-        // - but a mean folded into a mean, which would show up as a value and not as a row count.
+        // Guards against a mean folded into a mean, which changes the value rather than the row count.
         assertEquals(1, count("SELECT count(*) FROM metric_sample WHERE resolution = 'HOUR'"));
     }
 
-    // ---------------------------------------------------------------- forgetting
-
     @Test
-    @DisplayName("forget removes the raw rows that have a mean, and only those")
-    void forgetRemovesOnlyWhatWasCompacted() {
+    void forgetRemovesTheRawRowsThatHaveAMeanAndOnlyThose() {
         metrics.record(List.of(
                 new MetricSample("host", "cpu", TEN, 12.0),
                 new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
@@ -288,11 +255,8 @@ class MetricDirectoryIntegrationTest {
         assertEquals(15.0, hourly("host", "cpu", TEN), "and the mean outlives them, which is the point");
     }
 
-    // ---------------------------------------------------------------- reading across the seam
-
     @Test
-    @DisplayName("a window spanning both resolutions is one curve with one point per instant")
-    void rangeCrossesTheCompactionBoundary() {
+    void aWindowSpanningBothResolutionsIsOneCurveWithOnePointPerInstant() {
         metrics.record(List.of(
                 new MetricSample("host", "cpu", TEN, 12.0),
                 new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
@@ -325,11 +289,8 @@ class MetricDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("between a compaction and the delete behind it, the raw samples win")
-    void theOverlapIsNotDrawnTwice() {
-        // The days-long state nobody thinks about: compact has written the means and forget has not
-        // run yet, so the ten o'clock hour is in the table twice over. Adding the two together
-        // would put a mean on the graph beside the samples it was computed from.
+    void betweenACompactionAndTheDeleteBehindItTheRawSamplesWin() {
+        // Between compact and forget an hour exists twice; summing both would double it on the graph.
         metrics.record(List.of(
                 new MetricSample("host", "cpu", TEN, 12.0),
                 new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
@@ -349,11 +310,8 @@ class MetricDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("and they win even when no sample happens to sit on the hour")
-    void theOverlapIsNotDrawnTwiceOffTheBoundary() {
-        // The same state as above, with the one accident removed: nothing was recorded at exactly
-        // 10:00. The seam used to be the oldest raw instant itself, so ten o'clock's mean passed
-        // "at < 10:10" and came back beside the two samples it was the average of.
+    void andTheyWinEvenWhenNoSampleHappensToSitOnTheHour() {
+        // Nothing at exactly 10:00, so the seam is not the oldest raw instant itself.
         metrics.record(List.of(
                 new MetricSample("host", "cpu", TEN.plusSeconds(600), 12.0),
                 new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
@@ -373,9 +331,7 @@ class MetricDirectoryIntegrationTest {
 
     @Test
     void aSeriesWithNothingButMeansIsStillACurve() {
-        // coalesce(min(raw), 'infinity') is what this is about: with no raw rows at all the seam
-        // would otherwise be null, and a comparison against null returns no hourly points either -
-        // an empty graph for a year of history that is all there.
+        // With no raw rows, coalesce(min(raw), 'infinity') keeps the seam from being null and the graph empty.
         metrics.record(List.of(
                 new MetricSample("host", "cpu", TEN, 12.0),
                 new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0)));
@@ -397,16 +353,13 @@ class MetricDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("`to` is exclusive, so two adjacent windows do not both contain the point between them")
-    void theWindowIsHalfOpen() {
+    void toIsExclusiveSoTwoAdjacentWindowsDoNotBothContainThePointBetweenThem() {
         metrics.record(
                 List.of(new MetricSample("host", "cpu", TEN, 12.0), new MetricSample("host", "cpu", ELEVEN, 40.0)));
 
         assertEquals(1, metrics.range("host", "cpu", TEN, ELEVEN).size());
         assertEquals(1, metrics.range("host", "cpu", ELEVEN, TWELVE).size());
     }
-
-    // ---------------------------------------------------------------- plumbing
 
     private double hourly(final String subject, final String metric, final Instant hour) {
         try (Connection connection = dataSource.getConnection();

@@ -4,19 +4,20 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Objects;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Maps an {@code update_request} row.
- * <p>
+ *
  * Written out rather than reached for with {@code ConstructorMapper}, for the reason
  * {@code AccessGrantMapper} and {@code PhaseChangeMapper} both give: that mapper matches record
  * components by parameter name, which only survives compilation with {@code -parameters}, and a
  * build flag is a bad thing for a query to depend on. Every instant goes through
  * {@link OffsetDateTime}, the only reliable way out of the PostgreSQL driver that does not pass
  * through the JVM's default time zone.
- * </p>
  */
 public final class UpdateRequestMapper implements RowMapper<UpdateRequest> {
 
@@ -28,14 +29,14 @@ public final class UpdateRequestMapper implements RowMapper<UpdateRequest> {
                 UpdateStatus.fromDatabase(rs.getString("status")),
                 UpdateSource.valueOf(rs.getString("source")),
                 rs.getString("requested_by"),
-                instant(rs, "requested"),
-                instant(rs, "not_before"),
+                Objects.requireNonNull(instant(rs, "requested"), "requested"),
+                Objects.requireNonNull(instant(rs, "not_before"), "not_before"),
                 instant(rs, "started"),
                 instant(rs, "finished"),
                 rs.getString("result"));
     }
 
-    private static Instant instant(final ResultSet rs, final String column) throws SQLException {
+    private static @Nullable Instant instant(final ResultSet rs, final String column) throws SQLException {
         final OffsetDateTime value = rs.getObject(column, OffsetDateTime.class);
         return value == null ? null : value.toInstant();
     }

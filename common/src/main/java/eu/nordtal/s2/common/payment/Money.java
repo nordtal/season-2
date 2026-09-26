@@ -6,13 +6,12 @@ import java.util.Locale;
 
 /**
  * Integer cents in, decimal strings out, and back.
- * <p>
+ *
  * Money is an {@code int} of cents everywhere in this module and an {@code int} of cents in the
  * database. bunq speaks decimal strings ({@code "3.00"}), so the conversion happens here and
  * nowhere else - and it goes through {@link BigDecimal}, never {@code double}. Season 1 parsed
  * amounts with {@code Float.parseFloat} and compared them with {@code <}, which is how you end up
  * deciding that 5.00 is not at least 5.
- * </p>
  */
 public final class Money {
 

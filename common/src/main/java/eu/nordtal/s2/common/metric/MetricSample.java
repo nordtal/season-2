@@ -6,7 +6,7 @@ import java.util.Objects;
 /**
  * One measurement, on its way into the table.
  *
- * <p>There is no {@code resolution} on it, and that is deliberate: a sample is always something
+ * There is no {@code resolution} on it, and that is deliberate: a sample is always something
  * that was <em>measured</em>, and an hourly mean is never measured - it is computed by
  * {@link MetricDirectory#compact(Instant)} out of the rows that were. Putting the field here would
  * let a caller write a mean it invented, which is the one row nobody could tell apart from a real
@@ -27,9 +27,7 @@ public record MetricSample(String subject, String metric, Instant at, double val
         Objects.requireNonNull(metric, "metric");
         Objects.requireNonNull(at, "at");
         if (!Double.isFinite(value)) {
-            // Refused here as well as by the CHECK, because a batch is one statement per sample and
-            // the constraint violation would name a row rather than a series. This message names
-            // the series, which is the thing whose collector is broken.
+            // Refused here too, so the message names the series rather than a batch row.
             throw new IllegalArgumentException(
                     "A metric sample must be finite, and " + subject + '/' + metric + " is " + value);
         }

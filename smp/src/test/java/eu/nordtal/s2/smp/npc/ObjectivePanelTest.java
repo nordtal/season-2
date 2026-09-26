@@ -69,13 +69,13 @@ class ObjectivePanelTest {
 
             assertEquals(
                     x + 3,
-                    PanelWalk.find(runs, Glyphs.FONT_GUI_ROWS[upper], card.icon())
+                    PanelWalk.find(runs, Glyphs.FONT_GUI_ROWS.get(upper), card.icon())
                             .x(),
                     "card " + index + "'s type icon sits three pixels inside its own plate");
 
             // The name is on the card's upper row, the numbers on the row below it. Which is which
             // is the whole reason a card needs two rows at all.
-            final List<Run> name = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS[upper]);
+            final List<Run> name = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(upper));
             assertTrue(
                     name.stream()
                             .anyMatch(run ->
@@ -83,7 +83,7 @@ class ObjectivePanelTest {
                                             && run.x() == x + 15),
                     "card " + index + "'s name is not at x " + (x + 15) + " on row " + upper + ": " + name);
             assertTrue(
-                    PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS[upper + 1]).stream()
+                    PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(upper + 1)).stream()
                             .anyMatch(run -> run.content().equals(MenuFont.fold(card.numbers())) && run.x() == x + 3),
                     "card " + index + "'s numbers are not on the row under its name");
         }
@@ -102,7 +102,7 @@ class ObjectivePanelTest {
         final int right = ObjectivePanel.CARD_X[0] + ObjectivePanel.CARD_WIDTH;
 
         for (final int row : new int[] {ObjectivePanel.CARD_ROW[0], ObjectivePanel.CARD_ROW[0] + 1}) {
-            for (final Run run : PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS[row])) {
+            for (final Run run : PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(row))) {
                 assertTrue(
                         run.end() <= right,
                         "'" + run.content() + "' ends at " + run.end() + " and the card ends at "
@@ -129,7 +129,7 @@ class ObjectivePanelTest {
                     false));
             final List<Run> fills = runs.stream()
                     .filter(run -> run.font().equals(Glyphs.FONT_GUI))
-                    .filter(run -> List.of(Glyphs.GUI_BAR_FILL_TOP).contains(run.content()))
+                    .filter(run -> Glyphs.GUI_BAR_FILL_TOP.contains(run.content()))
                     .toList();
 
             // A bitmap glyph ADVANCES its width plus one, so the pixels a slice paints are its
@@ -188,8 +188,8 @@ class ObjectivePanelTest {
         final int washAt = runs.indexOf(washes.get(0));
         final int lastOnThatCard = runs.stream()
                 .filter(run -> run.x() >= ObjectivePanel.CARD_X[1])
-                .filter(run -> run.font().equals(Glyphs.FONT_GUI_ROWS[ObjectivePanel.CARD_ROW[0]])
-                        || run.font().equals(Glyphs.FONT_GUI_ROWS[ObjectivePanel.CARD_ROW[0] + 1])
+                .filter(run -> run.font().equals(Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.CARD_ROW[0]))
+                        || run.font().equals(Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.CARD_ROW[0] + 1))
                         || run.content().equals(Glyphs.GUI_CARD_TOP))
                 .mapToInt(runs::indexOf)
                 .max()
@@ -206,11 +206,11 @@ class ObjectivePanelTest {
         final List<Run> runs = PanelWalk.runs(surface(FOUR, false, false));
         assertEquals(
                 ObjectivePanel.PILL_X,
-                PanelWalk.find(runs, Glyphs.FONT_GUI_ROWS[ObjectivePanel.HEADING_ROW], Glyphs.GUI_ROW_PILL_DARK)
+                PanelWalk.find(runs, Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.HEADING_ROW), Glyphs.GUI_ROW_PILL_DARK)
                         .x(),
                 "the heading is the darker plate, so it does not read as a fifth thing to click");
 
-        final List<Run> text = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS[ObjectivePanel.HEADING_ROW]);
+        final List<Run> text = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.HEADING_ROW));
         assertEquals(3, text.size(), "the heading draws a name, a bar and a counter: " + text);
         // Draw order is right to left here - the counter is placed first so the bar can be fitted
         // against it - so the assertion is about x, not about order.
@@ -235,7 +235,7 @@ class ObjectivePanelTest {
     @Test
     @DisplayName("the page buttons are drawn only when there is a second page, and on their own cells")
     void thePageButtonsAppearWithTheSecondPage() {
-        final String font = Glyphs.FONT_GUI_ROWS[ObjectivePanel.SHARE_ROW];
+        final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
 
         assertEquals(
                 0,
@@ -265,7 +265,7 @@ class ObjectivePanelTest {
     @Test
     @DisplayName("the plate under the share line stops before the page buttons, not behind them")
     void theSharePlateShortensForTheControls() {
-        final String font = Glyphs.FONT_GUI_ROWS[ObjectivePanel.SHARE_ROW];
+        final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
 
         final Run full = PanelWalk.find(PanelWalk.runs(surface(FOUR, false, false)), font, Glyphs.GUI_ROW_PILL);
         assertEquals(
@@ -294,7 +294,7 @@ class ObjectivePanelTest {
     @Test
     @DisplayName("the share line gets out of the page buttons' way rather than running under them")
     void theShareLineShortensForTheControls() {
-        final String font = Glyphs.FONT_GUI_ROWS[ObjectivePanel.SHARE_ROW];
+        final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
         final String share = "Your share 100.0 % - spins: 12 and some more words after it";
 
         final Run unpaged = PanelWalk.textRuns(PanelWalk.runs(surface(FOUR, false, false, share)), font)
@@ -391,7 +391,7 @@ class ObjectivePanelTest {
     @Test
     @DisplayName("the real share bundle keys are short enough that fit never has to cut them," + " paged or not")
     void theRealShareLinesNeverNeedTruncation() {
-        final String font = Glyphs.FONT_GUI_ROWS[ObjectivePanel.SHARE_ROW];
+        final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
         for (final String language : new String[] {"en", "de"}) {
             final Properties bundle = PanelWalk.bundle(language);
             final String withSpins = bundle.getProperty("smp.objectives.share").replace("{spins}", "999");

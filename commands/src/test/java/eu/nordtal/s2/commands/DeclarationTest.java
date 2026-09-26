@@ -7,16 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Every invariant {@link Declaration} actually enforces, and the one question it answers.
  *
- * <p>These are all the shapes that would otherwise fail late: a greedy argument in the wrong place
+ * These are all the shapes that would otherwise fail late: a greedy argument in the wrong place
  * parses and never works, a required argument behind an optional one describes a command nobody can
  * type, and two arguments with one name lose the first one silently. None of them is visible from a
- * command's own source, which is why the check is in the type every command has to build.</p>
+ * command's own source, which is why the check is in the type every command has to build.
  */
 class DeclarationTest {
 
@@ -25,8 +24,7 @@ class DeclarationTest {
     }
 
     @Test
-    @DisplayName("a greedy argument has to be last")
-    void greedyMustBeLast() {
+    void aGreedyArgumentHasToBeLast() {
         final IllegalArgumentException refused = assertThrows(
                 IllegalArgumentException.class, () -> of(List.of(Argument.greedy("when"), Argument.word("key"))));
 
@@ -34,8 +32,7 @@ class DeclarationTest {
     }
 
     @Test
-    @DisplayName("a greedy argument in last place is fine - /phase launch is exactly this")
-    void greedyLastIsFine() {
+    void aGreedyArgumentInLastPlaceIsFinePhaseLaunchIsExactlyThis() {
         final Declaration launch = new Declaration(
                 List.of("phase", "launch"),
                 Target.PROXY,
@@ -48,8 +45,7 @@ class DeclarationTest {
     }
 
     @Test
-    @DisplayName("a required argument cannot follow an optional one")
-    void requiredCannotFollowOptional() {
+    void aRequiredArgumentCannotFollowAnOptionalOne() {
         final IllegalArgumentException refused = assertThrows(
                 IllegalArgumentException.class,
                 () -> of(List.of(Argument.word("key").optional(), Argument.word("other"))));
@@ -58,8 +54,7 @@ class DeclarationTest {
     }
 
     @Test
-    @DisplayName("an optional argument after a required one is the ordinary case")
-    void optionalAfterRequiredIsFine() {
+    void anOptionalArgumentAfterARequiredOneIsTheOrdinaryCase() {
         assertEquals(
                 2,
                 of(List.of(Argument.word("key"), Argument.word("note").optional()))
@@ -68,33 +63,28 @@ class DeclarationTest {
     }
 
     @Test
-    @DisplayName("two arguments cannot share a name")
-    void namesAreUnique() {
+    void twoArgumentsCannotShareAName() {
         assertThrows(
                 IllegalArgumentException.class, () -> of(List.of(Argument.word("key"), Argument.integer("key", 0, 1))));
     }
 
     @Test
-    @DisplayName("a command on no surface is refused, because nothing would register it")
-    void everyCommandNeedsASurface() {
+    void aCommandOnNoSurfaceIsRefusedBecauseNothingWouldRegisterIt() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new Declaration(List.of("smp"), Target.SMP, Set.of(), true, false, List.of()));
     }
 
     @Test
-    @DisplayName("a path segment cannot be blank")
-    void pathSegmentsAreReal() {
+    void aPathSegmentCannotBeBlank() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new Declaration(List.of("smp", " "), Target.SMP, Set.of(Surface.GAME), true, false, List.of()));
     }
 
     @Test
-    @DisplayName("remote is decided by the asking process, not by the surface")
-    void remoteFollowsTheHost() {
-        // The case that made the earlier signature wrong: Surface.GAME is four different processes,
-        // so asking by surface answered "local" for /hg start typed on the SMP.
+    void remoteIsDecidedByTheAskingProcessNotByTheSurface() {
+        // The case that made the earlier signature wrong: Surface.GAME is four different processes.
         final Declaration start = new Declaration(
                 List.of("hg", "start"),
                 Target.HUNGER_GAMES,
@@ -109,26 +99,22 @@ class DeclarationTest {
     }
 
     @Test
-    @DisplayName("the name is the path, and it is the same string on every surface")
-    void nameIsThePath() {
+    void theNameIsThePathAndItIsTheSameStringOnEverySurface() {
         assertEquals("/smp aura", of(List.of()).name());
     }
 
     @Test
-    @DisplayName("an integer argument with min above max is refused")
-    void integerBoundsMakeSense() {
+    void anIntegerArgumentWithMinAboveMaxIsRefused() {
         assertThrows(IllegalArgumentException.class, () -> Argument.integer("delta", 10, -10));
     }
 
     @Test
-    @DisplayName("a CHOICE with nothing to choose from is refused")
-    void choicesAreNotEmpty() {
+    void aChoiceWithNothingToChooseFromIsRefused() {
         assertThrows(IllegalArgumentException.class, () -> Argument.choice("phase", List.of()));
     }
 
     @Test
-    @DisplayName("a non-CHOICE carrying choices is refused, because nothing would apply them")
-    void onlyChoicesCarryChoices() {
+    void aNonChoiceCarryingChoicesIsRefusedBecauseNothingWouldApplyThem() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new Argument("key", Argument.Kind.WORD, true, 0, 0, List.of("a", "b")));

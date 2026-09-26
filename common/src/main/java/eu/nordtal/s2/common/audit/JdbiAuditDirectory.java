@@ -6,14 +6,12 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The only implementation of {@link AuditDirectory}. Package-private: consumers get it from the
- * factory method on the interface and never name JDBI themselves.
- * <p>
- * It borrows the pool it is given and owns nothing, so there is no {@code close()} here and none on
- * the interface.
- * </p>
+ * The only implementation of {@link AuditDirectory}.
+ *
+ * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
  */
 final class JdbiAuditDirectory implements AuditDirectory {
 
@@ -33,26 +31,23 @@ final class JdbiAuditDirectory implements AuditDirectory {
     }
 
     @Override
-    public List<AuditEntry> search(final String action, final String subject, final int limit) {
+    public List<AuditEntry> search(final @Nullable String action, final @Nullable String subject, final int limit) {
         return dao.search(any(action), any(subject), clamp(limit));
     }
 
     @Override
     public void record(
             final String action,
-            final String actor,
-            final String subject,
-            final java.util.UUID mcUuid,
-            final String detail) {
+            final @Nullable String actor,
+            final @Nullable String subject,
+            final java.util.@Nullable UUID mcUuid,
+            final @Nullable String detail) {
         Objects.requireNonNull(action, "action");
         dao.record(action, actor, subject, mcUuid, detail);
     }
 
-    /**
-     * Turns an empty search box into "no filter". The blank case is folded here rather than in the
-     * SQL so that the statement has one meaning: a parameter is either a value or it is absent.
-     */
-    private static String any(final String filter) {
+    /** Turns an empty search box into no filter, so a statement parameter is a value or absent. */
+    private static @Nullable String any(final @Nullable String filter) {
         return filter == null || filter.isBlank() ? null : filter;
     }
 

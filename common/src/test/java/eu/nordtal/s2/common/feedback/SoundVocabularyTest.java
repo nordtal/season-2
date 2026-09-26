@@ -14,25 +14,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * One sound vocabulary across the whole network: a call site picks a {@link Feedback} category and
- * cannot name a sound. The rule only holds if breaking it fails the build.
+ * Checks that a call site picks a {@link Feedback} category and never names a sound itself.
  *
- * <p>It cannot see whether the sounds are any good or whether two categories are distinguishable -
- * that needs a person with headphones on.
+ * Whether the sounds are good or distinguishable needs a person with headphones.
  */
 class SoundVocabularyTest {
 
     /** Every module that plays a sound to a Minecraft client, or could. */
     private static final List<String> MODULES = List.of("smp", "limbo", "hunger-games", "proxy");
 
-    /**
-     * Every way of naming a sound directly, and what to do instead. Substrings and one small regex
-     * rather than a parser, so the check is readable by whoever it fails on.
-     */
+    /** Every way of naming a sound directly, and what to do instead. */
     private static final Map<String, String> FORBIDDEN = new LinkedHashMap<>(Map.of(
             "playSound(",
             "a call site that plays its own sound. Take a Feedback category through the module's"
@@ -60,14 +54,13 @@ class SoundVocabularyTest {
                     + " adapter in :common would put org.bukkit.entity.Player in a jar that is"
                     + " shaded into a Velocity plugin",
             "proxy/src/main/java/eu/nordtal/s2/proxy/feedback/" + "ProxySounds.java",
-            "proxy's sound adapter (season-2-ingame/28) - the Velocity-side twin of the"
+            "proxy's sound adapter - the Velocity-side twin of the"
                     + " other two: the proxy holds the client connection itself, so it can call"
                     + " Player#playSound the same way RestartWatch already calls sendMessage and"
                     + " showTitle on a player standing on any backend");
 
     @Test
-    @DisplayName("only the sound adapters name a sound")
-    void onlyTheAdaptersNameASound() {
+    void onlyTheSoundAdaptersNameASound() {
         final List<String> offenders = new ArrayList<>();
         for (final String module : MODULES) {
             for (final Path source : sources(module)) {
@@ -98,8 +91,7 @@ class SoundVocabularyTest {
     }
 
     @Test
-    @DisplayName("every allowlisted adapter still exists and still plays something")
-    void theAllowlistHasNoGhosts() {
+    void everyAllowlistedAdapterStillExistsAndStillPlaysSomething() {
         final List<String> gone = ALLOWED.keySet().stream()
                 .filter(relative -> {
                     final Path path = RepositoryRoot.resolve(relative);
@@ -110,28 +102,21 @@ class SoundVocabularyTest {
         assertEquals(
                 List.of(),
                 gone,
-                "an entry here for a file that is gone, or that no longer plays anything, is an"
+                "an entry here for a file that is gone, or that plays nothing any more, is an"
                         + " exception nobody is taking any more - delete it, so the list keeps"
                         + " meaning what it says");
     }
 
-    /**
-     * The enum stays what it is: twelve constants, no members. A method, field or constructor
-     * argument would let a category carry a default sound, and the config file would stop being the
-     * only answer.
-     */
+    /** Checks that the enum has no members, so the config file stays the only source of a sound. */
     @Test
-    @DisplayName("Feedback carries nothing but its constants")
-    void theEnumCarriesNothingButConstants() {
+    void feedbackCarriesNothingButItsConstants() {
         assertEquals(
                 12,
                 Feedback.values().length,
-                "ten categories, of which open/close is two constants, plus STAGING and RECLAIMED"
-                        + " (season-2-ingame/15, Till 2026-09-15 - the owner's decision this guard"
-                        + " exists to require). A THIRTEENTH IS A DECISION FOR THE OWNER - a"
+                "ten categories, of which open/close is two constants, plus STAGING and RECLAIMED."
+                        + " A THIRTEENTH IS A DECISION FOR THE OWNER - a"
                         + " vocabulary that grows to fit each new call site is not a vocabulary");
-        // values/valueOf are the enum's own API; $values is javac's array holder, which it does not
-        // always flag as synthetic.
+        // values/valueOf are the enum's API; $values is javac's array holder, not always marked synthetic.
         assertEquals(
                 List.of(),
                 Stream.of(Feedback.class.getDeclaredMethods())
@@ -150,8 +135,6 @@ class SoundVocabularyTest {
                         .toList(),
                 "a field on Feedback is a sound name waiting to be hardcoded");
     }
-
-    // --- helpers ---------------------------------------------------------------------------
 
     private static List<Path> sources(final String module) {
         final Path root = RepositoryRoot.resolve(module + "/src/main");
@@ -176,19 +159,10 @@ class SoundVocabularyTest {
     }
 
     /**
-     * Code only. Block comments, javadoc and line comments are blanked before anything is searched.
+     * Returns the source with every comment blanked, so a comment explaining the rule does not fail it.
      *
-     * <h2>Why this exists, measured 2026-09-16</h2>
-     * This test used to scan the raw file, and {@code CommandGate}'s javadoc failed it - a comment
-     * that <em>explains this very rule</em> naturally spells out {@code playSound(} and the Adventure
-     * package name, and a naive text search cannot tell that apart from a call. The failure was
-     * real and the code was not: nothing in that file plays anything.
-     *
-     * <p>Blanking rather than deleting, so that no two lines are joined into something that reads
-     * like a call that was never written. A string literal containing {@code //} would confuse this
-     * - a URL in code, say - but the worst that costs is a false <em>pass</em> on the rest of one
-     * line, and this check is a tripwire rather than a parser. The rule it guards is still the
-     * rule: the adapter owns the platform, a call site owns a category.</p>
+     * Blanked rather than deleted, so no two lines are joined. A {@code //} inside a string literal can only
+     * cause a false pass on the rest of that line.
      */
     private static String withoutComments(final String source) {
         final StringBuilder out = new StringBuilder(source.length());

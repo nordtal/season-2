@@ -25,18 +25,16 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Exercises {@link RosterDirectory} against a real PostgreSQL instance running the real migrations.
- * <p>
+ *
  * Nothing here can be done in memory. The whole point of {@code people} is one statement with two
  * {@code LEFT JOIN}s and a {@code LATERAL} aggregate evaluated against PostgreSQL's own clock -
  * {@code bool_or(...)} over no rows, {@code now()} inside the aggregate and the difference between
  * a revoked grant and an absent one have no in-JVM stand-in. Testcontainers is driven by hand from
  * {@link BeforeAll} because the {@code org.testcontainers:junit-jupiter} extension is built against
  * JUnit 5 and this repo is on the JUnit 6 BOM.
- * </p>
- * <p>
+ *
  * These tests <b>skip themselves</b> when no Docker daemon is reachable. A green build on a machine
  * without Docker proves nothing about any of this.
- * </p>
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RosterDirectoryIntegrationTest {
@@ -83,14 +81,11 @@ class RosterDirectoryIntegrationTest {
 
     @BeforeEach
     void freshDirectory() {
-        // TRUNCATE ... CASCADE rather than dropping the schema: it keeps the migration applied once
-        // per class while every test still starts from an empty database.
+        // TRUNCATE ... CASCADE keeps the migration applied once per class while every test starts empty.
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
                 + "player_playtime, discord_user CASCADE");
         directory = RosterDirectory.using(dataSource);
     }
-
-    // ---------------------------------------------------------------- people
 
     @Test
     void somebodyWithNoLinkAndNoGrantIsListedWithNulls() {
@@ -112,12 +107,7 @@ class RosterDirectoryIntegrationTest {
         assertFalse(alice.accessActive());
     }
 
-    /**
-     * steward/119: the roster prints play time, because the prestige tier is derived from it and
-     * there is nothing else to look at. Null rather than zero for somebody with no row - the proxy
-     * writes one on the first flush, and "has never been online" is not "has been online for no
-     * time at all".
-     */
+    /** Checks that play time is null, not zero, for somebody who has never been online. */
     @Test
     void thePlayTimeRidesAlongOnTheSameRow() {
         person(ALICE);
@@ -182,8 +172,7 @@ class RosterDirectoryIntegrationTest {
     @Test
     void aRevokedGrantIsNotActiveButKeepsItsEnd() {
         person(ALICE);
-        // Revoked inside its own window: the login decision has to say no while the list still
-        // shows when the period it took away would have ended.
+        // Revoked inside its own window: login says no while the list still shows the period's end.
         grant(ALICE, "-1 days", "+29 days", true);
 
         final Person alice = directory.people(10).getFirst();
@@ -241,10 +230,7 @@ class RosterDirectoryIntegrationTest {
 
     @Test
     void theDiscordAndMinecraftProfileCacheRideAlongToo() {
-        // steward/44 added six columns - three on discord_user, two on account_link, all nullable -
-        // caching what discord-bot and the proxy last observed. steward/45's identity display
-        // needs them in the same statement people() already is, for the reason the class comment
-        // gives: a few hundred round trips for a page nobody scrolls to the end of.
+        // The identity columns come in the same statement as people(), not one round trip per person.
         person(ALICE);
         execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + ALICE + "', '" + ALICE_MC + "')");
         execute("UPDATE discord_user SET discord_username = 'alice#0', "
@@ -295,8 +281,7 @@ class RosterDirectoryIntegrationTest {
 
     @Test
     void personOfIsTheSameRowPeopleWouldPrint() {
-        // steward/91: /api/me reads this row by discord id rather than paging the whole roster for
-        // one avatar. Same columns, same joins - proven here by comparing it against people().
+        // Read by discord id rather than by paging the roster, compared against people().
         person(ALICE);
         execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + ALICE + "', '" + ALICE_MC + "')");
         execute("UPDATE discord_user SET discord_avatar_url = 'https://cdn.discordapp.com/a.png', "
@@ -322,8 +307,6 @@ class RosterDirectoryIntegrationTest {
 
         assertTrue(directory.personOf("999999999999999999").isEmpty());
     }
-
-    // ---------------------------------------------------------------- payments
 
     @Test
     void paymentsComeBackNewestFirstWithEveryColumn() {
@@ -387,8 +370,6 @@ class RosterDirectoryIntegrationTest {
         assertEquals(1, directory.payments(0).size());
     }
 
-    // ---------------------------------------------------------------- grantsOf
-
     @Test
     void grantsOfOnePersonComeBackNewestFirstAndOnlyTheirs() {
         person(ALICE);
@@ -414,8 +395,6 @@ class RosterDirectoryIntegrationTest {
     void grantsOfSomebodyUnknownIsEmptyRatherThanAFailure() {
         assertTrue(directory.grantsOf("999999999999999999").isEmpty());
     }
-
-    // ---------------------------------------------------------------- helpers
 
     private static List<String> ids(final List<Person> people) {
         return people.stream().map(Person::discordId).toList();

@@ -8,14 +8,12 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The only implementation of {@link PhaseDirectory}. Package-private: consumers get it from the
- * factory method on the interface and never name JDBI themselves.
- * <p>
- * It borrows the pool it is given and owns nothing, which is why there is no {@code close()} here
- * and none on the interface - the process that built the pool closes the pool.
- * </p>
+ * The only implementation of {@link PhaseDirectory}.
+ *
+ * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
  */
 final class JdbiPhaseDirectory implements PhaseDirectory {
 
@@ -31,9 +29,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
 
     @Override
     public SeasonPhase currentPhase() {
-        // fromDatabase(null) is MAINTENANCE, so a missing row and an unrecognised value both come
-        // out as the phase that lets nobody in. A database that cannot be reached at all throws
-        // instead - see the interface for why those two must not be the same answer.
+        // A missing row or unknown value is MAINTENANCE; an unreachable database throws instead.
         return SeasonPhase.fromDatabase(dao.currentPhase().orElse(null));
     }
 
@@ -48,15 +44,13 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
     }
 
     @Override
-    public PhaseChange switchPhase(final SeasonPhase phase, final String actor, final String reason) {
+    public PhaseChange switchPhase(
+            final SeasonPhase phase, final @Nullable String actor, final @Nullable String reason) {
         Objects.requireNonNull(phase, "phase");
 
-        final PhaseChange change = dao.switchPhase(phase.name(), actor, reason);
+        final @Nullable PhaseChange change = dao.switchPhase(phase.name(), actor, reason);
         if (change == null) {
-            // The statement matched no row, which means the season_phase singleton is gone. V4
-            // seeds it and nothing in this codebase deletes it, so this is a corrupted database
-            // rather than a state to recover from silently - and silently would mean an audit
-            // entry for a switch that never happened.
+            // No row matched: the singleton is gone, a corrupted database that must not get an audit entry.
             throw new IllegalStateException(
                     "The season_phase row is missing; the database has not had V4 applied, or the row was deleted by hand");
         }
@@ -64,7 +58,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
     }
 
     @Override
-    public DateChange setLaunch(final Instant at, final String actor) {
+    public DateChange setLaunch(final @Nullable Instant at, final @Nullable String actor) {
         refusePast(at, "The network cannot open in the past");
         final Instant smpStart = dao.smpStart().orElse(null);
         if (at != null && smpStart != null && smpStart.isBefore(at)) {
@@ -76,10 +70,8 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
     }
 
     @Override
-    public DateChange setSmpStart(final Instant at, final String actor) {
-        // Read before the write and deliberately not inside it - see the interface. The point of
-        // this check is the admin who has forgotten which phase the network is in, not two admins
-        // racing each other.
+    public DateChange setSmpStart(final @Nullable Instant at, final @Nullable String actor) {
+        // Read outside the write on purpose: this guards a forgetful admin, not a race.
         if (currentPhase() == SeasonPhase.SMP) {
             throw new SeasonDateRefused("The season is already in SMP, so paid time is being used up right now."
                     + " Moving the start date would hand somebody days they have played or"
@@ -97,7 +89,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
     }
 
     /** Clearing a date is always allowed; only a date that is set can be in the past. */
-    private static void refusePast(final Instant at, final String what) {
+    private static void refusePast(final @Nullable Instant at, final String what) {
         if (at != null && at.isBefore(Instant.now())) {
             throw new SeasonDateRefused(what + ". " + SeasonDates.format(at)
                     + " has already happened - use `" + SeasonDates.CLEAR
@@ -106,7 +98,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
     }
 
     /** The same missing-row check {@link #switchPhase} makes, for the same reason. */
-    private static DateChange written(final DateChange change) {
+    private static DateChange written(final @Nullable DateChange change) {
         if (change == null) {
             throw new IllegalStateException(
                     "The season_phase row is missing; the database has not had V4 applied, or the row was deleted by hand");

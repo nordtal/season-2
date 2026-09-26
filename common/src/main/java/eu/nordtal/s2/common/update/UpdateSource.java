@@ -1,11 +1,9 @@
 package eu.nordtal.s2.common.update;
 
 /**
- * Which surface an {@link UpdateRequest} came from. Stored verbatim in
- * {@code update_request.source}, which a database {@code CHECK} restricts to these three.
+ * Which surface an {@link UpdateRequest} came from, stored in {@code update_request.source}.
  *
- * <p>steward-worker treats all three identically - a restart asked for from a chat line is the same
- * restart. This column exists for the person reading the table afterwards.</p>
+ * steward-worker treats all of them alike; the column is for the person reading the table.
  */
 public enum UpdateSource {
 

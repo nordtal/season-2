@@ -11,7 +11,8 @@ import java.util.Set;
 /**
  * Which commands a player who is not an admin may type, anywhere on the network.
  *
- * <h2>Why there is a list at all</h2>
+ * <b>Why there is a list at all</b>
+ *
  * Velocity's own {@code /server} is open to every player: its permission check only refuses on an
  * explicit {@code FALSE}, and nothing in this network ever set one. So anybody could type
  * {@code /server hunger-games} during the SMP phase and land there, past every routing decision the
@@ -19,25 +20,25 @@ import java.util.Set;
  * {@code /me}, {@code /help}, {@code /trigger}, {@code /list}, {@code /tell} and the whole vanilla
  * completion, none of which this season has an answer for.
  *
- * <h2>What an entry is</h2>
+ * <b>What an entry is</b>
+ *
  * A path, exactly as it is typed and without the slash: {@code smp status}, {@code hg ready},
  * {@code msg}. Not a permission node and not a regular expression - a path, because that is what a
  * player types and what both platforms hand a filter.
  *
- * <h2>The matching rule, and why it works in both directions</h2>
+ * <b>The matching rule, and why it works in both directions</b>
+ *
  * A typed command is allowed when an entry is a prefix of it <em>or</em> it is a prefix of an entry:
  *
- * <ul>
- *   <li>Entry {@code msg} allows {@code /msg Someone hello} - everything under an allowed path is
- *       allowed, because an entry names a command and not one exact invocation.</li>
- *   <li>Entry {@code smp status} allows a bare {@code /smp} - otherwise the one thing a player may
- *       ask the SMP could not be discovered, because typing half a command is how our own help
- *       output is reached. The subcommands they may <em>not</em> run are already refused by
- *       Brigadier's {@code requires}, which is the admin gate proper; this list is about what is
- *       visible and typeable at all.</li>
- * </ul>
+ * Entry {@code msg} allows {@code /msg Someone hello} - everything under an allowed path is
+ * allowed, because an entry names a command and not one exact invocation. Entry {@code smp status}
+ * allows a bare {@code /smp} - otherwise the one thing a player may ask the SMP could not be
+ * discovered, because typing half a command is how our own help output is reached. The subcommands
+ * they may <em>not</em> run are already refused by Brigadier's {@code requires}, which is the admin
+ * gate proper; this list is about what is visible and typeable at all.
  *
- * <h2>Case and namespaces are normalised away</h2>
+ * <b>Case and namespaces are normalised away</b>
+ *
  * A client can send {@code /minecraft:me} or {@code /Me}, and Bukkit resolves both. A filter that
  * compared the raw text would refuse the plain form and wave the namespaced one straight through,
  * which is the failure that looks exactly like working.
@@ -62,10 +63,10 @@ public record CommandAllowlist(List<List<String>> entries) {
     /**
      * Reads configured lines into a list.
      *
-     * <p>A leading slash, surrounding space, repeated spaces and letter case are all accepted and
+     * A leading slash, surrounding space, repeated spaces and letter case are all accepted and
      * normalised: this is read from a YAML file an operator edits, and refusing {@code "/msg "}
      * because of the slash would be a rule nobody can see the point of. A blank line is skipped
-     * rather than refused, for the same reason.</p>
+     * rather than refused, for the same reason.
      */
     public static CommandAllowlist parse(final Collection<String> lines) {
         Objects.requireNonNull(lines, "lines");
@@ -82,9 +83,9 @@ public record CommandAllowlist(List<List<String>> entries) {
     /**
      * The list as one string, for the row the proxy publishes it in.
      *
-     * <p>One entry per line, because that is the one separator a command path can never contain and
+     * One entry per line, because that is the one separator a command path can never contain and
      * the one an operator reading the column by hand can see. It is deliberately not JSON:
-     * {@code :common} carries no JSON library and is not gaining one for a list of words.</p>
+     * {@code :common} carries no JSON library and is not gaining one for a list of words.
      */
     public String serialise() {
         return entries.stream()
@@ -106,8 +107,7 @@ public record CommandAllowlist(List<List<String>> entries) {
     public boolean allows(final String typed) {
         final List<String> path = segments(typed);
         if (path.isEmpty()) {
-            // "/" on its own, or a line of spaces. Not a command; let the platform say so in its
-            // own words rather than answering "that command does not exist" to an empty string.
+            // An empty command is left to the platform to answer.
             return true;
         }
         for (final List<String> entry : entries) {
@@ -122,10 +122,10 @@ public record CommandAllowlist(List<List<String>> entries) {
     /**
      * Whether anything at all under this first segment is allowed.
      *
-     * <p>This is the question the two completion filters ask, because both of them work on root
+     * This is the question the two completion filters ask, because both of them work on root
      * labels: Paper's {@code PlayerCommandSendEvent} hands over the labels of whole commands, and
      * the command tree Velocity sends a client has one child per root. Neither can hide a
-     * subcommand, which is why hiding one is not this list's job - {@code requires} does that.</p>
+     * subcommand, which is why hiding one is not this list's job - {@code requires} does that.
      */
     public boolean allowsRoot(final String label) {
         final List<String> path = segments(label);
@@ -150,20 +150,12 @@ public record CommandAllowlist(List<List<String>> entries) {
     }
 
     /**
-     * {@code "/Minecraft:Me hello there"} to {@code ["me", "hello", "there"]}.
-     *
-     * <p>The namespace is dropped from the <b>first</b> segment only. {@code minecraft:me} and
-     * {@code me} are one command and a list that spelled out both forms would be a list somebody
-     * has to remember to keep in step; an argument that happens to contain a colon is not a
-     * namespace and is left alone.</p>
-     */
-    /**
      * Whether one written line names a command at all.
      *
-     * <p>Blank is not the only way to write nothing: {@code "/"} and {@code "minecraft:"} both
+     * Blank is not the only way to write nothing: {@code "/"} and {@code "minecraft:"} both
      * normalise to the empty path, so they pass a blank check, match no command, and sit in
      * {@code network.yml} looking like an entry that does something. The proxy refuses one at load
-     * rather than starting with a list that quietly has a hole in it.</p>
+     * rather than starting with a list that quietly has a hole in it.
      *
      * @param line one entry as an operator wrote it
      * @return {@code true} when it survives normalisation
@@ -172,6 +164,14 @@ public record CommandAllowlist(List<List<String>> entries) {
         return !segments(line).isEmpty();
     }
 
+    /**
+     * {@code "/Minecraft:Me hello there"} to {@code ["me", "hello", "there"]}.
+     *
+     * The namespace is dropped from the <b>first</b> segment only. {@code minecraft:me} and
+     * {@code me} are one command and a list that spelled out both forms would be a list somebody
+     * has to remember to keep in step; an argument that happens to contain a colon is not a
+     * namespace and is left alone.
+     */
     private static List<String> segments(final String line) {
         if (line == null) {
             return List.of();
@@ -184,7 +184,7 @@ public record CommandAllowlist(List<List<String>> entries) {
             return List.of();
         }
         final List<String> segments = new ArrayList<>();
-        for (final String piece : text.split("\\s+")) {
+        for (final String piece : text.split("\\s+", -1)) {
             if (!piece.isEmpty()) {
                 segments.add(piece.toLowerCase(Locale.ROOT));
             }

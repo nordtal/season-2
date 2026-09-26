@@ -1,14 +1,14 @@
 package eu.nordtal.s2.common.phase;
 
 import java.time.Instant;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What one call to {@link PhaseDirectory#setLaunch} or {@link PhaseDirectory#setSmpStart} did.
- * <p>
+ *
  * Both values come back for the same reason {@link PhaseChange} returns both phases: every caller
  * says it out loud. The two grant counts are only ever non-zero for {@code smp_start}, which is
  * the one date that owns rows other than its own - see {@link PhaseDirectory#setSmpStart}.
- * </p>
  *
  * @param previous the instant the column held before, {@code null} when it was not set
  * @param current  the instant it holds now, {@code null} when the date was cleared
@@ -17,7 +17,8 @@ import java.time.Instant;
  *                 actually reacts to, since one person owning four stacked periods is one person
  *                 affected and not four
  */
-public record DateChange(Instant previous, Instant current, int grants, int accounts) {
+public record DateChange(
+        @Nullable Instant previous, @Nullable Instant current, int grants, int accounts) {
 
     /** @return whether the write asked for the value the column already held */
     public boolean unchanged() {

@@ -15,16 +15,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * One message format across the whole network: MiniMessage, with {@code {named}} placeholders. A
- * mismatch is invisible until a player reads {@code §l} or {@code <bold>} on their screen.
+ * Checks that every message is MiniMessage with {@code {named}} placeholders.
  *
- * <p>Two rules: no message is wrapped in a bare {@code Component.text(messages...)}, which renders a
- * tag as literal text, and no bundle carries a section code, which MiniMessage renders as literal
- * text. Both are checked against the source and the resources, because behaviour needs a player.
+ * No message is wrapped in a bare {@code Component.text(messages...)}, and no bundle carries a section code.
  */
 class OneMessageFormatTest {
 
@@ -32,13 +28,9 @@ class OneMessageFormatTest {
     private static final List<String> MODULES = List.of("smp", "limbo", "hunger-games", "proxy");
 
     /**
-     * Every file in the four modules that still calls {@code Component.text(...)}, and why. Three
-     * kinds of thing legitimately do: text that is not a message (a glyph, an entity's display
-     * name), text that must not be parsed (steward-worker's report), and a message composed in Java
-     * around arbitrary player-supplied text.
+     * Every file that still calls {@code Component.text(...)}, and why.
      *
-     * <p>Adding a file here is cheap and deliberate; adding one <em>without</em> noticing is what
-     * this list exists to prevent.
+     * Allowed are non-message text, text that must not be parsed, and messages built around player text.
      */
     private static final Map<String, String> COMPONENT_TEXT_ALLOWED = Map.ofEntries(
             Map.entry(
@@ -83,8 +75,7 @@ class OneMessageFormatTest {
                             + " somebody greps past"));
 
     @Test
-    @DisplayName("only the listed files compose components by hand")
-    void onlyTheListedFilesUseComponentText() {
+    void onlyTheListedFilesComposeComponentsByHand() {
         final List<String> unlisted = new ArrayList<>();
         for (final String module : MODULES) {
             for (final Path source : sources(module)) {
@@ -107,8 +98,7 @@ class OneMessageFormatTest {
     }
 
     @Test
-    @DisplayName("every allowlisted file still exists")
-    void theAllowlistHasNoGhosts() {
+    void everyAllowlistedFileStillExists() {
         final List<String> gone = COMPONENT_TEXT_ALLOWED.keySet().stream()
                 .filter(relative -> !read(RepositoryRoot.resolve(relative)).contains("Component.text("))
                 .sorted()
@@ -116,14 +106,13 @@ class OneMessageFormatTest {
         assertEquals(
                 List.of(),
                 gone,
-                "an entry here for a file that no longer composes anything by hand is an exception"
+                "an entry here for a file that does not compose anything by hand is an exception"
                         + " nobody is taking any more - delete it, so the list keeps meaning what it"
                         + " says");
     }
 
     @Test
-    @DisplayName("no message is rendered with a bare Component.text")
-    void nothingWrapsAMessageInComponentText() {
+    void noMessageIsRenderedWithABareComponentText() {
         final List<String> offenders = new ArrayList<>();
         for (final String module : MODULES) {
             for (final Path source : sources(module)) {
@@ -143,8 +132,7 @@ class OneMessageFormatTest {
     }
 
     @Test
-    @DisplayName("no bundle carries a legacy section code")
-    void noBundleCarriesASectionCode() {
+    void noBundleCarriesALegacySectionCode() {
         final List<String> offenders = new ArrayList<>();
         for (final String module : MODULES) {
             for (final Path bundle : bundles(module)) {
@@ -162,8 +150,6 @@ class OneMessageFormatTest {
                         + " reaches the player with the code in it. Write the tag instead:"
                         + " §l is <bold>, §r is </bold> or the end of the component");
     }
-
-    // --- helpers ---------------------------------------------------------------------------
 
     private static List<Path> sources(final String module) {
         return walk(module + "/src/main", ".java");

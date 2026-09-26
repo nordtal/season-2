@@ -11,27 +11,28 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * A person in this schema is a discord id, and a Minecraft UUID is never spelled as a string.
  *
- * <h2>The failure it exists for</h2>
+ * <b>The failure it exists for</b>
+ *
  * Every column that names a person - {@code smp_grave.owner_id}, {@code smp_grave.looted_by},
  * {@code smp_aura_event.discord_id}, {@code smp_contribution.discord_id} - is
  * {@code varchar(32)} and holds a discord id. A Minecraft UUID printed with
  * {@code getUniqueId().toString()} is 36 characters and does not fit, and PostgreSQL says so at the
  * moment of the write rather than at the moment of the mistake.
  *
- * <p>{@code Graves#onClosed} did exactly that. {@code markGraveLooted} threw
+ * {@code Graves#onClosed} did exactly that. {@code markGraveLooted} threw
  * {@code value too long for type character varying(32)} on <em>every</em> loot, from inside the
  * async task that also erases the grave and refunds the experience - so no grave was ever marked
  * looted, every grave was restored on every server start, and nobody ever got their levels back.
  * Nothing in the game showed it: the window opens, the items come out, the window closes, which is
  * the whole of what a player can see. It was found by reading the table (finding 132).
  *
- * <h2>Why the rule is absolute</h2>
+ * <b>Why the rule is absolute</b>
+ *
  * There were <b>zero</b> call sites left the day it was written, which is the cheap moment for a
  * rule like this - after the first exception exists it becomes an argument instead of a fact. Where
  * a UUID genuinely belongs in the database it is a {@code uuid} column ({@code account_link.mc_uuid},
@@ -53,8 +54,7 @@ class PeopleAreDiscordIdsTest {
     private static final String FORBIDDEN = "getUniqueId().toString()";
 
     @Test
-    @DisplayName("no Minecraft UUID is turned into a string on its way to the database")
-    void noSourceSpellsAUuid() {
+    void noMinecraftUuidIsTurnedIntoAStringOnItsWayToTheDatabase() {
         final List<String> offenders = new ArrayList<>();
         for (final Path source : sources()) {
             final List<String> lines = read(source);

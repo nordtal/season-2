@@ -10,19 +10,13 @@ import java.util.List;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * season-2-ingame/22: {@code NEUTRAL} and {@code MUTED} have to be distinguishable colours, every
- * tone has to come from a configured palette rather than a hardcoded constant, and a bad hex value
- * has to fall back to the default rather than vanish.
- */
+/** Checks that tones are distinct, come from a configured palette, and fall back on a bad hex value. */
 class TonesTest {
 
     @Test
-    @DisplayName("NEUTRAL and MUTED are painted with different colours")
-    void neutralAndMutedDiffer() {
+    void neutralAndMutedArePaintedWithDifferentColours() {
         final Component neutral = Tones.paint(Component.text("x"), Tone.NEUTRAL, ToneColours.DEFAULTS);
         final Component muted = Tones.paint(Component.text("x"), Tone.MUTED, ToneColours.DEFAULTS);
         assertNotEquals(
@@ -33,23 +27,14 @@ class TonesTest {
                         + " with detail under them read as one wall of identical text");
     }
 
-    /**
-     * {@code Tone.values().length == 5} guards the same thing {@code SoundVocabularyTest} guards for
-     * {@code Feedback}: a sixth tone is a decision for the owner, not something that should compile
-     * silently. {@link ToneColours#parse} iterates {@code Tone.values()}, so a sixth tone is answered
-     * automatically here - the guard that actually matters is in each plugin's own adapter, where the
-     * exhaustive switch from a spec's five accessors to a {@code Map<Tone, String>} stops compiling
-     * until somebody says what the new tone's key is called.
-     */
+    /** Checks that there are exactly five tones, since a sixth is a decision for the owner. */
     @Test
-    @DisplayName("there are exactly five tones - a sixth is a decision for the owner")
-    void exactlyFiveTones() {
+    void thereAreExactlyFiveTonesASixthIsADecisionForTheOwner() {
         assertEquals(5, Tone.values().length);
     }
 
     @Test
-    @DisplayName("every tone parses to a colour, even from an empty declaration")
-    void everyToneHasADefault() {
+    void everyToneParsesToAColourEvenFromAnEmptyDeclaration() {
         final List<String> problems = new ArrayList<>();
         final ToneColours colours = ToneColours.parse(Map.of(), problems::add);
         for (final Tone tone : Tone.values()) {
@@ -64,8 +49,7 @@ class TonesTest {
     }
 
     @Test
-    @DisplayName("an invalid hex value falls back to the default and is reported")
-    void invalidHexFallsBackAndReports() {
+    void anInvalidHexValueFallsBackToTheDefaultAndIsReported() {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
         declared.put(Tone.BAD, "not-a-colour");
         final List<String> problems = new ArrayList<>();
@@ -90,8 +74,7 @@ class TonesTest {
     }
 
     @Test
-    @DisplayName("a blank hex value falls back to the default without a complaint")
-    void blankHexFallsBackSilently() {
+    void aBlankHexValueFallsBackToTheDefaultWithoutAComplaint() {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
         declared.put(Tone.GOOD, "");
         final List<String> problems = new ArrayList<>();

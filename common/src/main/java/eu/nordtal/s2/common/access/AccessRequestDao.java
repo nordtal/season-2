@@ -6,27 +6,24 @@ import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jspecify.annotations.Nullable;
 
-/**
- * The whole SQL surface of the bot's access inbox, as a JDBI SqlObject interface - the same style as
- * {@code UpdateDao} and {@code CommandRequestDao}.
- *
- * <p>Package-private on purpose: {@link AccessRequests} is the API, this is how it is implemented,
- * and no consumer should ever hold a {@code Jdbi} or a DAO of ours.</p>
- */
+/** The SQL surface of the bot's access inbox; {@link AccessRequests} is the API. */
 @RegisterRowMapper(AccessRequestMapper.class)
 interface AccessRequestDao {
 
     /**
      * Writes a request and announces it, as <b>one statement</b>.
      *
-     * <h2>The notification rides in the select list</h2>
+     * <b>The notification rides in the select list</b>
+     *
      * Exactly as {@code UpdateDao#submit} does it, and for the same reason: a notification then only
      * ever exists for a row that actually committed. It carries <b>no payload</b> - a listener has
      * to read the table anyway, because notifications are lost while a process is disconnected, and
      * a payload invites somebody to trust the notification as state.
      *
-     * <h2>{@code make_interval(secs => ...)} and not an interval literal</h2>
+     * <b>{@code make_interval(secs => ...)} and not an interval literal</b>
+     *
      * The patience has to come from a bind parameter, and V4 forbids calendar arithmetic on a
      * {@code timestamptz}: days are evaluated in the session's time zone and change length across a
      * DST boundary. Seconds do not, so adding them is exact wherever the writing JVM thinks it is.
@@ -44,25 +41,16 @@ interface AccessRequestDao {
     AccessRequest submit(
             @Bind("kind") String kind,
             @Bind("subject") String subject,
-            @Bind("argument") String argument,
+            @Bind("argument") @Nullable String argument,
             @Bind("source") String source,
-            @Bind("requestedBy") String requestedBy,
+            @Bind("requestedBy") @Nullable String requestedBy,
             @Bind("patienceSeconds") long patienceSeconds);
 
     /**
-     * Takes the oldest request that has not expired, and marks it {@code RUNNING} in the same
-     * statement.
+     * Claims the oldest unexpired request and marks it {@code RUNNING} in the same statement.
      *
-     * <h2>{@code FOR UPDATE SKIP LOCKED} is the whole concurrency story</h2>
-     * There is meant to be one bot, and "meant to be" is not a guarantee - a rolling restart briefly
-     * runs two. A claim in two statements would hand one grant to both of them and give somebody
-     * twice the days they paid for. {@code SKIP LOCKED} makes the loser take the next row rather
-     * than block behind the winner.
-     *
-     * <h2>{@code expires > now()} is the executing side's half of the boundary</h2>
-     * A row past its patience has been given up on by whoever was watching it. Carrying it out
-     * anyway is how somebody's access gets granted twice, once long after they were told it had
-     * not been. Refusing to claim it closes the window from this end.
+     * {@code FOR UPDATE SKIP LOCKED} keeps two bots from granting one request twice, and
+     * {@code expires > now()} keeps an abandoned request from being carried out late.
      */
     @SqlQuery("""
             UPDATE access_request
@@ -82,9 +70,9 @@ interface AccessRequestDao {
     /**
      * Settle a claimed request.
      *
-     * <p>{@code AND status = 'RUNNING'} so that a bot which somehow settles a row twice writes
+     * {@code AND status = 'RUNNING'} so that a bot which somehow settles a row twice writes
      * once. The second call updates nothing and says so through its row count, which
-     * {@link AccessRequests#finish} logs rather than swallows.</p>
+     * {@link AccessRequests#finish} logs rather than swallows.
      */
     @SqlUpdate("""
             UPDATE access_request
@@ -99,7 +87,8 @@ interface AccessRequestDao {
     /**
      * Gives up on every pending row whose patience has run out.
      *
-     * <h2>Why anybody may run this, and why that is not a race</h2>
+     * <b>Why anybody may run this, and why that is not a race</b>
+     *
      * The bot cannot be the one that expires a row: the case this exists for is a bot that is not
      * running. So the sweep belongs to whoever looks - {@link AccessRequests#outcome} runs it
      * before it reads. {@code status = 'PENDING'} is the whole of the race: a row the bot claimed a
@@ -124,9 +113,9 @@ interface AccessRequestDao {
     /**
      * Every row still waiting, oldest first.
      *
-     * <p>What a reconnecting listener reads: a notification is delivered once and is lost while a
+     * What a reconnecting listener reads: a notification is delivered once and is lost while a
      * process is disconnected, so the first thing after {@code LISTEN} is a full read. The poll is
-     * the guarantee; the notification only makes it immediate.</p>
+     * the guarantee; the notification only makes it immediate.
      */
     @SqlQuery("""
             SELECT *
@@ -140,8 +129,8 @@ interface AccessRequestDao {
     /**
      * Deletes every settled request older than the retention window.
      *
-     * <p>One row per access change is not much, but nothing else ever deletes from this table and
-     * "not much, for ever" is still for ever. Settled only - a pending row is work, not history.</p>
+     * One row per access change is not much, but nothing else ever deletes from this table and
+     * "not much, for ever" is still for ever. Settled only - a pending row is work, not history.
      */
     @SqlUpdate("""
             DELETE FROM access_request

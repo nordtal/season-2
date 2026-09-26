@@ -8,13 +8,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * That every process which reports readiness reports it <em>late</em>.
  *
- * <h2>Why this is a text search and not a real test</h2>
+ * <b>Why this is a text search and not a real test</b>
+ *
  * For the same reason {@code FatalPathsStopTheServerTest} is one: the thing it protects cannot be
  * reached from a JVM with no server and no Discord gateway in it. {@link Readiness} itself is
  * covered properly by {@code ReadinessTest} - the arithmetic and the file handling are ordinary
@@ -23,9 +23,9 @@ import org.junit.jupiter.api.Test;
  * which is what the port already proved and is exactly the signal that reported a Paper server with
  * no season on it as healthy.
  *
- * <p>A grep is a weak test. It is also the only one available here, and the regression it catches -
+ * A grep is a weak test. It is also the only one available here, and the regression it catches -
  * somebody moving the call up while refactoring, or adding a refusal below it - is silent
- * everywhere else until a deployment looks fine and is not.</p>
+ * everywhere else until a deployment looks fine and is not.
  */
 class ReadinessWiringTest {
 
@@ -40,13 +40,12 @@ class ReadinessWiringTest {
     private static final String BOT = "discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java";
 
     @Test
-    @DisplayName("all five processes refresh the marker")
-    void everyProcessBeats() throws IOException {
+    void allFiveProcessesRefreshTheMarker() throws IOException {
         for (final String relative : all()) {
             final String text = read(relative);
             assertTrue(
                     text.contains("eu.nordtal.s2.common.health.Readiness"),
-                    relative + " no longer imports Readiness, so its container has nothing to check"
+                    relative + " does not import Readiness, so its container has nothing to check"
                             + " and reports healthy from the moment the JVM starts");
             assertTrue(
                     text.contains("Readiness.onDefaultPath("),
@@ -61,8 +60,7 @@ class ReadinessWiringTest {
     }
 
     @Test
-    @DisplayName("a Paper plugin starts its heartbeat below every refusal, and off the main thread")
-    void thePaperPluginsBeatOnlyAfterAGoodStart() throws IOException {
+    void aPaperPluginStartsItsHeartbeatBelowEveryRefusalAndOffTheMainThread() throws IOException {
         for (final String relative : PAPER_PLUGINS) {
             final String text = read(relative);
 
@@ -70,7 +68,7 @@ class ReadinessWiringTest {
             final int heartbeat = text.indexOf("startHeartbeat();");
             assertTrue(
                     lastRefusal >= 0,
-                    relative + " has no severe(\"...\") refusal any more, so"
+                    relative + " has no severe(\"...\") refusal, so"
                             + " this test is asserting nothing - check what replaced it");
             assertTrue(heartbeat >= 0, relative + " does not call startHeartbeat()");
             assertTrue(
@@ -82,19 +80,15 @@ class ReadinessWiringTest {
 
             assertTrue(
                     text.contains("runTaskTimerAsynchronously(this, readiness::refresh"),
-                    relative + " no longer beats on Bukkit's ASYNC scheduler. Two things break at"
+                    relative + " does not beat on Bukkit's ASYNC scheduler. Two things break at"
                             + " once: a file write moves onto the main thread, and a server frozen"
                             + " mid-tick keeps beating from a thread the freeze does not touch.");
         }
     }
 
     @Test
-    @DisplayName("the proxy does not beat on its fail-closed path")
-    void theProxyBeatsOnlyWhenTheGateIsUp() throws IOException {
-        // "The proxy is up but nobody can join" announces itself; "the proxy is up and the gate is
-        // off" never did. A misconfigured proxy binds its port and answers pings while
-        // refusing every login there is, so the port can say nothing about it and the marker is the
-        // only thing that can.
+    void theProxyDoesNotBeatOnItsFailClosedPath() throws IOException {
+        // A proxy with the gate off still binds its port, so only the marker can say it refuses logins.
         final String text = read(VELOCITY_PLUGIN);
 
         assertEquals(
@@ -104,7 +98,7 @@ class ReadinessWiringTest {
                         + " the one place it must not be called from");
         assertTrue(
                 text.indexOf("startHeartbeat();") < text.indexOf("private void failClosed("),
-                VELOCITY_PLUGIN + "'s only startHeartbeat() call is no longer inside start(...)");
+                VELOCITY_PLUGIN + "'s only startHeartbeat() call is not inside start(...)");
         assertTrue(
                 text.contains("heartbeat.cancel()"),
                 VELOCITY_PLUGIN + " never cancels the beat, so a proxy on the way down keeps saying"
@@ -112,8 +106,7 @@ class ReadinessWiringTest {
     }
 
     @Test
-    @DisplayName("the bot beats only after Discord is ready and both reconciles are done")
-    void theBotBeatsOnlyAfterItIsFullyUp() throws IOException {
+    void theBotBeatsOnlyAfterDiscordIsReadyAndBothReconcilesAreDone() throws IOException {
         final String text = read(BOT);
 
         final int reconcile = text.lastIndexOf("roles.reconcile();");
@@ -121,7 +114,8 @@ class ReadinessWiringTest {
         final int up = text.indexOf("started = true;");
 
         assertTrue(
-                reconcile >= 0 && marker >= 0 && up >= 0, BOT + " no longer has the three landmarks this test reads");
+                reconcile >= 0 && marker >= 0 && up >= 0,
+                BOT + " is missing one of the three landmarks this test reads");
         assertTrue(
                 reconcile < marker,
                 BOT + " builds its readiness marker before the startup"
@@ -131,9 +125,14 @@ class ReadinessWiringTest {
                 BOT + "'s readiness marker is built after `started = true`, which"
                         + " is the flag that decides whether the constructor cleaned up after itself");
         assertTrue(
-                text.contains("timers.scheduleWithFixedDelay(guarded(\"readiness marker\""),
-                BOT + " no longer beats on the existing timer executor. A pool of its own would keep"
-                        + " reporting healthy while every scheduled duty this bot has was stuck.");
+                text.contains("repeat(guarded(\"readiness marker\""),
+                BOT + " does not schedule its readiness beat the same way as every other duty.");
+        final int repeatDeclaration = text.indexOf("void repeat(");
+        assertTrue(repeatDeclaration >= 0, BOT + " has no repeat(...) helper any more");
+        assertTrue(
+                text.indexOf("timers.scheduleWithFixedDelay(", repeatDeclaration) >= 0,
+                BOT + "'s repeat(...) does not beat on the existing timer executor. A pool of its own"
+                        + " would keep reporting healthy while every scheduled duty this bot has was stuck.");
     }
 
     private static List<String> all() {
@@ -152,11 +151,11 @@ class ReadinessWiringTest {
     /**
      * The last call to the plugin's own {@code severe(...)} refusal.
      *
-     * <p>Whitespace before it, which is the whole subtlety: {@code smp} also calls
+     * Whitespace before it, which is the whole subtlety: {@code smp} also calls
      * {@code getLogger().severe("...")} twice, far below {@code onEnable}, for a milestone track
      * that failed to reload - and that is a warning, not a refusal. A plain
      * {@code lastIndexOf("severe(\"")} finds one of those and this test passes on a plugin whose
-     * heartbeat is in the wrong place.</p>
+     * heartbeat is in the wrong place.
      */
     private static int lastRefusal(final String text) {
         int last = -1;

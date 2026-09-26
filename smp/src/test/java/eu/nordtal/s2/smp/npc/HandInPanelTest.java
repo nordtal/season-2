@@ -72,7 +72,7 @@ class HandInPanelTest {
     @DisplayName("the confirm button sits on the cells that carry its click, and nowhere else")
     void theConfirmButtonIsItsSlots() {
         final List<Run> runs = PanelWalk.runs(surface("808 still needed", "Hand in"));
-        final String font = Glyphs.FONT_GUI_ROWS[HandInPanel.FOOTER_ROW];
+        final String font = Glyphs.FONT_GUI_ROWS.get(HandInPanel.FOOTER_ROW);
         final Run plate = PanelWalk.find(runs, font, Glyphs.GUI_ROW_BUTTON_CONFIRM);
 
         final int first = SlotGeometry.x(SlotGeometry.column(HandInPanel.CONFIRM_SLOTS.get(0)));
@@ -91,7 +91,7 @@ class HandInPanelTest {
     void theLabelIsCentred() {
         for (final String label : new String[] {"Hand in", "Abgeben", "OK"}) {
             final List<Run> runs = PanelWalk.runs(surface("1 still needed", label));
-            final Run text = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS[HandInPanel.FOOTER_ROW]).stream()
+            final Run text = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(HandInPanel.FOOTER_ROW)).stream()
                     .filter(run -> run.content().equals(MenuFont.fold(label)))
                     .findFirst()
                     .orElseThrow();
@@ -112,7 +112,7 @@ class HandInPanelTest {
     void theCountStaysOutOfTheButtonsWay() {
         final List<Run> runs =
                 PanelWalk.runs(surface("999999999 still needed of oak, birch, spruce and every other log", "Hand in"));
-        for (final Run run : PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS[HandInPanel.FOOTER_ROW])) {
+        for (final Run run : PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(HandInPanel.FOOTER_ROW))) {
             if (run.x() < HandInPanel.CONFIRM_X) {
                 assertTrue(
                         run.end() <= HandInPanel.CONFIRM_X,
@@ -130,7 +130,7 @@ class HandInPanelTest {
         // everybody sees, and nothing else in either module compares the two.
         final Run needed = PanelWalk.textRuns(
                         PanelWalk.runs(surface("808 still needed", "Hand in")),
-                        Glyphs.FONT_GUI_ROWS[HandInPanel.FOOTER_ROW])
+                        Glyphs.FONT_GUI_ROWS.get(HandInPanel.FOOTER_ROW))
                 .get(0);
         assertEquals(SlotGeometry.x(1) + HandInPanel.INSET, needed.x());
         assertEquals(

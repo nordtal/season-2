@@ -9,21 +9,16 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The only implementation of {@link UpdateDirectory}. Package-private: consumers get it from the
- * factory method on the interface and never name JDBI themselves.
- * <p>
- * It borrows the pool it is given and owns nothing, which is why there is no {@code close()} here
- * and none on the interface - the process that built the pool closes the pool.
- * </p>
+ * The only implementation of {@link UpdateDirectory}.
+ *
+ * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
  */
 final class JdbiUpdateDirectory implements UpdateDirectory {
 
-    /**
-     * The transaction lock every submit takes before it looks for an open run. The worker's own
-     * advisory locks spell {@code nordtalS} and {@code nordtal1}; this one is {@code nordtalR}.
-     */
+    /** The transaction advisory lock every submit takes before it looks for an open run. */
     private static final long SUBMIT_LOCK = 0x6E6F726474616C52L;
 
     private final Jdbi jdbi;
@@ -36,19 +31,13 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     /**
-     * One run in the whole network: the write happens only when no other run is pending or
-     * running, and a take-down only when none of its services is already held.
+     * Writes a request only when no other run is pending or running and none of its services is held.
      *
-     * <h2>A lock first, then a fresh look</h2>
-     * The lock is taken in its own statement so that the look after it is a new snapshot: under
-     * READ COMMITTED a single statement would read the table as it was before it waited, and two
-     * presses a millisecond apart would both find it empty. Not a unique index, because a queue of
-     * several rows is still a legal state for everything that reads the table - it is only
-     * submitting into one that is refused.
+     * The lock is its own statement so the following look is a fresh snapshot under READ COMMITTED.
      */
     private UpdateRequest guarded(
             final UpdateKind kind,
-            final java.util.List<String> services,
+            final java.util.@Nullable List<String> services,
             final java.util.function.Function<UpdateDao, UpdateRequest> write) {
         return jdbi.inTransaction(handle -> {
             handle.execute("SELECT pg_advisory_xact_lock(?)", SUBMIT_LOCK);
@@ -72,11 +61,13 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     @Override
     public UpdateRequest submit(
-            final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
+            final UpdateKind kind,
+            final UpdateSource source,
+            final @Nullable String requestedBy,
+            final @Nullable Duration delay) {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(source, "source");
-        // Clamped rather than rejected: a caller computing a delay from two clocks that disagree
-        // should get "now", not an exception on a path that is asking for a restart.
+        // Clamped rather than rejected: a delay computed from two disagreeing clocks means now.
         final long seconds = delay == null ? 0L : Math.max(0L, delay.toSeconds());
         return guarded(kind, null, locked -> locked.submit(kind.name(), source.name(), requestedBy, seconds));
     }
@@ -85,16 +76,14 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     public UpdateRequest submit(
             final UpdateKind kind,
             final UpdateSource source,
-            final String requestedBy,
-            final Duration delay,
-            final java.util.List<String> services) {
+            final @Nullable String requestedBy,
+            final @Nullable Duration delay,
+            final java.util.@Nullable List<String> services) {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(source, "source");
         final long seconds = delay == null ? 0L : Math.max(0L, delay.toSeconds());
         final String scope = scopeText(services);
-        // The unscoped statement, not the scoped one with a NULL bind. They are the same row today;
-        // keeping "everything" on the path every existing caller already takes means a change to
-        // one can never quietly become a change to the other.
+        // The unscoped statement, so a change to the scoped one cannot affect existing callers.
         return guarded(
                 kind,
                 services,
@@ -114,7 +103,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public void hold(final String service, final String heldBy, final Long requestId) {
+    public void hold(final String service, final @Nullable String heldBy, final @Nullable Long requestId) {
         dao.hold(service, heldBy, requestId);
     }
 
@@ -126,12 +115,12 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     /**
      * The services as the column holds them, or {@code null} for the whole network.
      *
-     * <p>Blanks are dropped and the order is kept. A list that is empty once the blanks are gone is
+     * Blanks are dropped and the order is kept. A list that is empty once the blanks are gone is
      * {@code null} rather than {@code ""}: the CHECK in V27 would refuse the empty string anyway,
      * and turning "the caller passed a list of nothing" into a row that names nothing would be a
-     * run that stops nothing while claiming to be scoped.</p>
+     * run that stops nothing while claiming to be scoped.
      */
-    static String scopeText(final java.util.List<String> services) {
+    static @Nullable String scopeText(final java.util.@Nullable List<String> services) {
         if (services == null || services.isEmpty()) {
             return null;
         }
@@ -145,11 +134,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     /** The inverse. {@code null} and blank both mean the whole network - see {@code scopeOf}. */
-    static java.util.List<String> parseScope(final String scope) {
+    static java.util.List<String> parseScope(final @Nullable String scope) {
         if (scope == null || scope.isBlank()) {
             return java.util.List.of();
         }
-        return java.util.Arrays.stream(scope.split(","))
+        return java.util.Arrays.stream(scope.split(",", -1))
                 .map(String::strip)
                 .filter(service -> !service.isEmpty())
                 .toList();
@@ -184,9 +173,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     @Override
     public Optional<UpdateRequest> lastSuccessfulBackup(final Duration within) {
         Objects.requireNonNull(within, "within");
-        // Clamped like every other duration on this class: a caller computing a window from a
-        // configured number should get "nothing qualifies", not an exception on the path that is
-        // deciding whether to delete a world.
+        // Clamped: a negative window means nothing qualifies, not an exception.
         return dao.backupsDoneWithin(Math.max(0L, within.toSeconds())).stream()
                 .filter(JdbiUpdateDirectory::saved)
                 .findFirst();
@@ -195,11 +182,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     /**
      * Whether this row's report shows a file, rather than merely a run that did not complain.
      *
-     * <p>{@link UpdateReports#parse} answers empty for anything it cannot read, and empty is
+     * {@link UpdateReports#parse} answers empty for anything it cannot read, and empty is
      * treated as "no" here. That is the opposite of what every drawing surface does with the same
      * text - they fall back to printing it raw - and deliberately so: a Discord embed failing to
      * parse a report should still show something, while a caller deciding whether a world may be
-     * deleted must not accept text it cannot interpret as proof.</p>
+     * deleted must not accept text it cannot interpret as proof.
      */
     private static boolean saved(final UpdateRequest request) {
         return UpdateReports.parse(request.result())
@@ -217,9 +204,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     public Optional<UpdateRequest> finish(final long id, final UpdateStatus status, final String result) {
         Objects.requireNonNull(status, "status");
         if (!status.isFinished() || status == UpdateStatus.CANCELLED) {
-            // CANCELLED is reachable only through cancelCountdown, which is a person withdrawing
-            // a countdown. Letting it in here would mean a worker could report work it had
-            // already started as somebody else's cancellation.
+            // CANCELLED is only for a person withdrawing a countdown, never for work already started.
             throw new IllegalArgumentException("A claimed request finishes as DONE or FAILED, not as " + status);
         }
         return dao.finish(id, status.name(), result);
@@ -233,8 +218,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     @Override
     public Optional<UpdateRequest> startCountdown(final long id, final Duration length) {
         Objects.requireNonNull(length, "length");
-        // Clamped like submit's delay, and for the same reason: a caller computing a countdown from
-        // two clocks should get "now", not an exception on the path that is taking servers down.
+        // Clamped like submit's delay.
         return dao.startCountdown(id, Math.max(0L, length.toSeconds()));
     }
 

@@ -23,27 +23,26 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The menu panel's offset arithmetic, measured against the real {@code nordtal:gui} font.
  *
- * <h2>Why this is worth a test</h2>
+ * <b>Why this is worth a test</b>
+ *
  * Nothing about a wrong offset fails, logs, or throws. The menu opens, the panel is drawn, and it
  * is a few pixels out - which looks like art that does not quite fit rather than like arithmetic
  * that is wrong, so it gets attributed to the placeholder and survives. The one number people get
  * wrong is the advance: a 176px glyph moves the cursor 177, because every bitmap glyph carries a
  * trailing pixel. Assume 176 and every menu on the server is one pixel out in the same direction.
  *
- * <p>So the assertions below do not restate {@code MenuTitle}'s constants back at it. They read
+ * So the assertions below do not restate {@code MenuTitle}'s constants back at it. They read
  * {@code gui.json} and the panel PNGs and derive the advance from the pack, which is the only way
- * this test can disagree with the code.</p>
+ * this test can disagree with the code.
  */
 class MenuTitleTest {
 
     private static final String FONT = "resource-pack/src/assets/nordtal/font/gui.json";
-    private static final String ASSETS = "resource-pack/src/assets";
 
     /** Code point to advance, for the {@code space} provider. */
     private static final Map<Integer, Integer> ADVANCES = new LinkedHashMap<>();
@@ -74,9 +73,7 @@ class MenuTitleTest {
             final String file = provider.get("file").getAsString();
             final BufferedImage image = read(file);
             final int declaredHeight = provider.get("height").getAsInt();
-            // A bitmap glyph is scaled so its rendered height is `height`, and its advance is the
-            // scaled width plus one. Declaring the PNG's own height is what keeps that 1:1 - and a
-            // panel that is not 1:1 is a blurry panel, so the equality is the check, not a detail.
+            // A glyph declared at its PNG height renders 1:1; any other height is blurry.
             assertEquals(
                     image.getHeight(),
                     declaredHeight,
@@ -93,8 +90,7 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("the composed title ends exactly where an uncomposed one would start")
-    void theNetDisplacementIsZero() {
+    void theComposedTitleEndsExactlyWhereAnUncomposedOneWouldStart() {
         for (int rows = 1; rows <= MenuTitle.MAX_ROWS; rows++) {
             assertEquals(
                     0,
@@ -106,8 +102,7 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("a 176px panel advances 177, and the walk back is composed from that")
-    void theAdvanceCarriesTheTrailingPixel() {
+    void a176pxPanelAdvances177AndTheWalkBackIsComposedFromThat() {
         for (final Map.Entry<Integer, Integer> panel : PANELS.entrySet()) {
             assertEquals(
                     MenuTitle.PANEL_ADVANCE,
@@ -126,11 +121,10 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("each chest size draws its own panel and no other")
-    void everyRowCountPicksItsOwnPanel() {
+    void eachChestSizeDrawsItsOwnPanelAndNoOther() {
         for (int rows = 1; rows <= MenuTitle.MAX_ROWS; rows++) {
             final String composed = plain(MenuTitle.panel(rows));
-            final int expected = Glyphs.GUI_PANELS[rows - 1].codePointAt(0);
+            final int expected = Glyphs.GUI_PANELS.get(rows - 1).codePointAt(0);
             final List<Integer> drawn =
                     composed.codePoints().filter(PANELS::containsKey).boxed().toList();
             assertEquals(
@@ -142,8 +136,7 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("every panel rises on the ascent the title anchor needs")
-    void everyPanelDeclaresTheSameAscent() {
+    void everyPanelRisesOnTheAscentTheTitleAnchorNeeds() {
         for (final int codePoint : PANELS.keySet()) {
             assertEquals(
                     13,
@@ -158,8 +151,7 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("every overlay lands on a slot row: its ascent is 13 minus a y inside the window")
-    void everyOverlayLandsInsideTheWindow() {
+    void everyOverlayLandsOnASlotRowItsAscentIs13MinusAYInsideTheWindow() {
         assertTrue(!OVERLAYS.isEmpty(), "the travel overlays were expected in gui.json");
         for (final int codePoint : OVERLAYS.keySet()) {
             final int y = 13 - ASCENTS.get(codePoint);
@@ -171,8 +163,7 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("a canvas draws every overlay at the x it was given, and ends on the anchor")
-    void theCanvasLandsEveryOverlay() {
+    void aCanvasDrawsEveryOverlayAtTheXItWasGivenAndEndsOnTheAnchor() {
         final int width = 68;
         final Component surface = MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL)
                 .overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 9, width)
@@ -208,8 +199,7 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("an overlay that does not fit the window is refused")
-    void anOverlayOffTheWindowThrows() {
+    void anOverlayThatDoesNotFitTheWindowIsRefused() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL).overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 120, 68));
@@ -219,16 +209,14 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("a canvas without overlays is exactly the plain panel")
-    void aBareCanvasIsThePanel() {
+    void aCanvasWithoutOverlaysIsExactlyThePlainPanel() {
         assertEquals(
                 plain(MenuTitle.panel(6)),
                 plain(MenuTitle.on(Glyphs.GUI_PANEL_6).panel()));
     }
 
     @Test
-    @DisplayName("the panel is white and names its font; the readable title does neither")
-    void theStylesAreSplitTheWayTheClientNeeds() {
+    void thePanelIsWhiteAndNamesItsFontTheReadableTitleDoesNeither() {
         final Component title = MenuTitle.of(3, Component.text("Navigation"));
         final Component panel = title.children().get(0);
         final Component readable = title.children().get(1);
@@ -250,8 +238,7 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("a row count the pack has no panel for fails loudly")
-    void anImpossibleRowCountThrows() {
+    void aRowCountThePackHasNoPanelForFailsLoudly() {
         for (final int rows : new int[] {0, -1, 7, 54}) {
             assertThrows(
                     IllegalArgumentException.class,
@@ -262,8 +249,7 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("a shift of nothing is nothing, and one the font cannot express throws")
-    void theShiftIsBoundedByWhatTheFontDeclares() {
+    void aShiftOfNothingIsNothingAndOneTheFontCannotExpressThrows() {
         assertEquals("", MenuTitle.shift(0));
         assertThrows(IllegalArgumentException.class, () -> MenuTitle.shift(256));
         assertThrows(IllegalArgumentException.class, () -> MenuTitle.shift(-1));
@@ -276,8 +262,7 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("every glyph the composition uses is one the font actually declares")
-    void nothingIsComposedOutOfACodePointTheFontDoesNotHave() {
+    void everyGlyphTheCompositionUsesIsOneTheFontActuallyDeclares() {
         final List<String> compositions = new java.util.ArrayList<>();
         for (int rows = 1; rows <= MenuTitle.MAX_ROWS; rows++) {
             compositions.add(plain(MenuTitle.panel(rows)));
@@ -302,16 +287,8 @@ class MenuTitleTest {
     }
 
     @Test
-    @DisplayName("every slot recess is where the client puts the slot, not where the vanilla texture has it")
-    void theRecessesFollowTheClientNotTheTexture() {
-        // ChestMenu's own arithmetic, which is what places the item and the hover square: a chest
-        // slot at y = 18 + 18r, the player's rows at 103 + 18k + 18*(rows - 4), the hotbar at
-        // 161 + 18*(rows - 4). The recess cell starts one pixel above the item, hence the -1.
-        // The vanilla PNG has the player's rows one pixel LOWER than that, and ChestScreen hides
-        // it by blitting its bottom part from texture row 126 onto screen row 125. A panel drawn
-        // as one glyph has no such seam - so copying the texture puts a one-pixel bar between the
-        // hover square and the recess in the player's rows and nowhere else, which is exactly
-        // what a real client showed on 2026-09-05.
+    void everySlotRecessIsWhereTheClientPutsTheSlotNotWhereTheVanillaTextureHasIt() {
+        // ChestMenu's slot arithmetic; the recess cell starts one pixel above the item, hence the -1.
         for (int rows = 1; rows <= MenuTitle.MAX_ROWS; rows++) {
             final List<Integer> expected = new java.util.ArrayList<>();
             for (int r = 0; r < rows; r++) {
@@ -343,8 +320,6 @@ class MenuTitleTest {
         return tops;
     }
 
-    // --- helpers ---------------------------------------------------------------------------
-
     /** What the cursor has moved, in pixels, after drawing this string in {@code nordtal:gui}. */
     private static int displacement(final String composed) {
         return composed.codePoints()
@@ -353,15 +328,7 @@ class MenuTitleTest {
                 .sum();
     }
 
-    /**
-     * The component's own literal, without a serializer - the whole tree, in draw order.
-     *
-     * <p>Deliberately not {@code PlainTextComponentSerializer}: that lives in its own artifact,
-     * which nothing in this module needs. It walks the children since 2026-09-09, when a surface
-     * stopped being one {@code TextComponent}: a row's text is drawn in a row font and a row font
-     * is a different component, so the composition under test is now the concatenation of the
-     * root's content and every descendant's.</p>
-     */
+    /** Returns the literal text of the whole component tree in draw order, without a serializer. */
     private static String plain(final Component component) {
         final StringBuilder out = new StringBuilder();
         if (component instanceof TextComponent text) {

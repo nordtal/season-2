@@ -31,15 +31,14 @@ final class FakeSmp implements SmpEffects {
     /**
      * The same, for the open-payment read alone.
      *
-     * <p>Separate because the two reads behind {@code /smp access} are separate on purpose, and the
-     * property worth pinning is that losing the second does not discard the first.</p>
+     * Separate because the two reads behind {@code /smp access} are separate on purpose, and the
+     * property worth pinning is that losing the second does not discard the first.
      */
     RuntimeException paymentFailure;
 
     @Override
     public void async(final Runnable work) {
-        // Inline, like the inbox's. A command's whole answer has to exist by the time run()
-        // returns, and a test that scheduled it would be asserting against a race.
+        // Inline, like the inbox's. A command's whole answer has to exist by the time run() returns.
         work.run();
     }
 

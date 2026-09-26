@@ -9,8 +9,8 @@ import java.util.UUID;
 /**
  * Everything {@code /hg} touches that only the hunger games server can reach.
  *
- * <h2>The registration is read as one thing</h2>
- * {@link #registration()} answers the game, its state and the participant count together, because
+ * The registration is read as one thing: {@link #registration()} answers the game, its state and
+ * the participant count together, because
  * the three questions {@code /hg start} asks are one read on the far side and three round trips if
  * they are three methods. The count is already the <em>resolved</em> one - {@code Demotion} applied,
  * so a duo whose partner never showed counts as the full-hearted solo it will become - which is a
@@ -42,8 +42,8 @@ public interface HungerGamesEffects extends CommandEffects {
     /**
      * Re-read the message bundles and the operator's override.
      *
-     * <p>Separate from the sounds on purpose: a broken {@code sounds.yml} must not stop a corrected
-     * message from arriving, and a typo'd override must not read as sounds that failed to load.</p>
+     * Separate from the sounds on purpose: a broken {@code sounds.yml} must not stop a corrected
+     * message from arriving, and a typo'd override must not read as sounds that failed to load.
      */
     boolean reloadMessages();
 
@@ -53,19 +53,18 @@ public interface HungerGamesEffects extends CommandEffects {
     /**
      * The recommended minimum, from this server's {@code config.yml}.
      *
-     * <p>Read through the effects rather than carried on the declaration because it is
+     * Read through the effects rather than carried on the declaration because it is
      * configuration, and configuration lives in the process that owns it - a number baked into a
      * shared declaration would be the same on every deployment and unchangeable without a
-     * release.</p>
+     * release.
      */
     int softMinimumParticipants();
 
     /**
      * File the start where this process files admin actions.
      *
-     * <p>The one command that decides the whole event, and until 2026-09-04 nothing in the container
-     * log said it had been run. Who, which game, how many participants the arithmetic saw, and
-     * whether it went ahead below the recommended minimum.</p>
+     * The one command that decides the whole event: who, which game, how many participants the
+     * arithmetic saw, and whether it went ahead below the recommended minimum.
      */
     void recordStart(NordtalUser who, Registration game, boolean confirmedBelowMinimum);
 }

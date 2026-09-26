@@ -25,48 +25,16 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code steward/106}: a command that is not {@link eu.nordtal.s2.commands.Surface#GAME} is not in
- * a player's command tree at all - so Minecraft itself answers "Unknown command", and nothing in
- * this codebase answers anything.
+ * A command without {@link eu.nordtal.s2.commands.Surface#GAME} is absent from a player's command tree.
  *
- * <h2>What this replaces, and why the replacement is the point</h2>
- * {@code season-2-ops/18} took every admin command off {@code GAME}, kept registering them anyway,
- * and answered a player who typed one with {@code command.not-in-game} - "that command still
- * exists, but not here any more". Till saw that sentence in game on 2026-09-17 and called it a
- * misreading of his own requirement: the commands are to be <em>gone</em>. The cost is that
- * Minecraft says "Unknown command", which is exactly what ops/18 was avoiding - and Till took that
- * cost deliberately, which is why this test asserts the cost rather than working around it.
+ * Minecraft answers "Unknown command" and nothing here answers anything else.
  *
- * <h2>Registration and visibility are the same question here</h2>
- * The tree is one tree; Brigadier filters it per source through {@code requires}. There is no
- * "register for the console only" on Paper, so "not registered in game" <em>is</em> a
- * {@code requires} that no {@link Player} passes - and that is the shape the ticket's own fallback
- * sentence names. The console keeps every one of them, which
- * {@code AdminCommandsAreConsoleAndWebOnlyTest#consoleIsNeverTakenAway} says why.
- *
- * <h2>Seen red, 2026-09-17</h2>
- * Against {@code PaperCommands} exactly as ops/18 left it, both assertions below failed - the
- * requirement on {@code /access} and on {@code /smp farmreset} was {@code mayUse} alone, which an
- * admin player passes:
- *
- * <pre>
- * AdminCommandsAreGoneFromTheGameTest &gt; an admin player has no /access in their tree at all FAILED
- *     org.opentest4j.AssertionFailedError: /access carries no Surface.GAME on any of its five
- *     commands, so an admin standing in the world must not have the root in their tree ==&gt;
- *     expected: &lt;false&gt; but was: &lt;true&gt;
- * AdminCommandsAreGoneFromTheGameTest &gt; ...and no /smp farmreset either, while /smp status stays FAILED
- *     org.opentest4j.AssertionFailedError: /smp farmreset is CONSOLE and WEB, so it is not in a
- *     player's tree ==&gt; expected: &lt;false&gt; but was: &lt;true&gt;
- * </pre>
- *
- * <p>The second of those was {@code /smp farmreset}, which went with the farm world on 2026-09-20
- * (season-2-ingame/30). {@code /smp reload} took its place below: it is console-only for the same
- * reason and asks the same question of the tree. The failure above is left verbatim because it is
- * the evidence, and evidence is not edited to match what replaced it.</p>
+ * The tree is one tree, filtered per source through Brigadier's {@code requires}: there is no
+ * "register for the console only" on Paper, so being off {@code GAME} means no {@link Player}
+ * passes that requirement. The console keeps every one of these commands.
  */
 class AdminCommandsAreGoneFromTheGameTest {
 
@@ -76,7 +44,6 @@ class AdminCommandsAreGoneFromTheGameTest {
     private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locale.ENGLISH);
 
     @Test
-    @DisplayName("an admin player has no /access in their tree at all")
     void accessIsGoneForPlayers() {
         final PaperCommands commands = adapter(Target.BOT);
         for (final NordtalCommand<AccessEffects> command : AccessCommands.all()) {
@@ -94,13 +61,12 @@ class AdminCommandsAreGoneFromTheGameTest {
     }
 
     @Test
-    @DisplayName("...and no /smp reload either, while /smp status stays")
-    void onlyTheOffGameBranchesGo() {
+    void smpReloadIsGoneWhileSmpStatusStays() {
         final PaperCommands commands = adapter(Target.SMP);
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
         }
-        // What the smp plugin hangs there: /smp status is native Brigadier since 2026-09-25.
+        // /smp status is native Brigadier, hung on the root by the smp plugin itself.
         commands.extraOpen("smp", Commands.literal("status"));
         final LiteralCommandNode<CommandSourceStack> smp = root(commands.build(), "smp");
         final Predicate<CommandSourceStack> reload = child(smp, "reload").getRequirement();
@@ -147,9 +113,6 @@ class AdminCommandsAreGoneFromTheGameTest {
         return found;
     }
 
-    // ---------------------------------------------------------------- stand-ins
-
-    @SuppressWarnings("unchecked")
     private static <T> T silent(final Class<T> type) {
         return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
             throw new UnsupportedOperationException(

@@ -3,14 +3,9 @@ package eu.nordtal.s2.common.menu;
 import net.kyori.adventure.text.format.TextColor;
 
 /**
- * The five colours a menu paints text and pictograms in - a reading hierarchy, deliberately not the
- * chat palette's moods, because a menu row is neither good nor bad.
+ * The five colours a menu paints text and pictograms in, as a reading hierarchy.
  *
- * <p>The values are the panel's own greys, held here rather than in each menu so a window cannot end
- * up with two kinds of "quiet".
- *
- * <p>Pictograms are drawn white in the pack and tinted here: the client multiplies a glyph by its
- * component's colour, so white art can be painted any colour and dark art cannot be lightened.
+ * Pictograms are drawn white in the pack and tinted here, since the client multiplies by the colour.
  */
 public final class MenuPalette {
 
@@ -26,10 +21,7 @@ public final class MenuPalette {
     /** A control that is there but cannot be used - a page button with no page behind it. */
     public static final TextColor DISABLED = TextColor.color(0x8C8C90);
 
-    /**
-     * A progress bar written as text, on a light plate. Its own colour rather than {@link #INK},
-     * because otherwise the full and empty halves are told apart only by two character shapes.
-     */
+    /** A progress bar written as text, coloured so the full and empty halves differ by more than shape. */
     public static final TextColor PROGRESS = TextColor.color(0x3C6A3E);
 
     private MenuPalette() {}

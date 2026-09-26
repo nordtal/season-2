@@ -142,7 +142,7 @@ public final class PlayerComposition {
      */
     private Component crest(final Identity identity) {
         final int tier = tierOf(identity);
-        return Component.text(" " + Glyphs.PRESTIGE_CRESTS[tier - 1]).decoration(TextDecoration.ITALIC, false);
+        return Component.text(" " + Glyphs.PRESTIGE_CRESTS.get(tier - 1)).decoration(TextDecoration.ITALIC, false);
     }
 
     /**

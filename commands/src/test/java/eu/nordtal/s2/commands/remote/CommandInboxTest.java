@@ -25,14 +25,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The far end of a travelling command.
  *
- * <h2>Every case here is one nobody can rehearse</h2>
- * Producing them against real processes means running two containers on different versions, or
+ * Every case here is one nobody can rehearse: producing them against real processes means running
+ * two containers on different versions, or
  * revoking somebody's admin role in the half-second a request is in flight. They are also the cases
  * that matter most: a command that travelled and silently did nothing is indistinguishable, from
  * where it was typed, from one that worked.
@@ -67,7 +66,11 @@ class CommandInboxTest {
 
     private final FakeRequests requests = new FakeRequests();
     private final List<String> warnings = new ArrayList<>();
-    private final BiConsumer<String, Throwable> warn = (message, cause) -> warnings.add(message);
+    private final BiConsumer<String, Throwable> warn = this::recordWarning;
+
+    private void recordWarning(final String message, final Throwable cause) {
+        warnings.add(message);
+    }
 
     private CommandInbox inbox(final boolean admin) {
         return new CommandInbox(Target.SMP, requests, MESSAGES, request -> admin, warn);
@@ -102,8 +105,7 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("a command runs and its answer is written back into the row")
-    void theAnswerGoesIntoTheRow() {
+    void aCommandRunsAndItsAnswerIsWrittenBackIntoTheRow() {
         final Effects effects = new Effects(new ArrayList<>());
         final CommandInbox inbox = inbox(true)
                 .register(
@@ -123,8 +125,7 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("the answer is rendered in the language on the row, not this server's")
-    void theAnswerIsInTheAskersLanguage() {
+    void theAnswerIsRenderedInTheLanguageOnTheRowNotThisServers() {
         final Effects effects = new Effects(new ArrayList<>());
         final long id = requests.submit(new NewCommandRequest(
                 Target.SMP.name(),
@@ -154,10 +155,8 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("a command that says nothing is reported as having done something anyway")
-    void silenceIsAnAnswer() {
-        // "It worked and said nothing" and "it never ran" look identical to somebody watching a
-        // spinner, which is the whole reason this branch exists rather than an empty result.
+    void aCommandThatSaysNothingIsReportedAsHavingDoneSomethingAnyway() {
+        // "It worked and said nothing" and "it never ran" look identical to somebody watching a spinner.
         final Effects effects = new Effects(new ArrayList<>());
         final long id = submit("smp reload", "");
         inbox(true)
@@ -169,11 +168,8 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("an admin revoked while the request waited is refused here")
-    void theAdminFlagIsReReadAfterClaiming() {
-        // The asking surface checked and let it through. This is the second check, and it is the
-        // one the live revocation was built for - the whole point is that the answer can change
-        // between them.
+    void anAdminRevokedWhileTheRequestWaitedIsRefusedHere() {
+        // The asking surface checked and let it through. This is the second check.
         final Effects effects = new Effects(new ArrayList<>());
         final long id = submit("smp reload", "");
         inbox(false)
@@ -189,8 +185,7 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("a command this build does not have is named as a version skew")
-    void anUnknownCommandSaysWhy() {
+    void aCommandThisBuildDoesNotHaveIsNamedAsAVersionSkew() {
         final long id = submit("smp teleport", "");
         assertEquals(1, inbox(true).drain());
 
@@ -199,8 +194,7 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("arguments this build cannot read settle the row rather than losing it")
-    void malformedArgumentsAreAnswered() {
+    void argumentsThisBuildCannotReadSettleTheRowRatherThanLosingIt() {
         final Effects effects = new Effects(new ArrayList<>());
         final long id = submit("smp aura", "not-a-uuid 5");
         inbox(true)
@@ -213,10 +207,8 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("a command that throws settles its row")
-    void aThrowingCommandIsStillAnswered() {
-        // Otherwise the row stays RUNNING for ever and the asker waits out its whole timeout for an
-        // answer that was decided immediately.
+    void aCommandThatThrowsSettlesItsRow() {
+        // Otherwise the row stays RUNNING for ever and the asker waits out its whole timeout for an answer that was.
         final Effects effects = new Effects(new ArrayList<>());
         final long id = submit("smp reload", "");
         inbox(true)
@@ -233,8 +225,7 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("one wake-up drains everything, because one notification is not one row")
-    void drainingTakesEverythingWaiting() {
+    void oneWakeUpDrainsEverythingBecauseOneNotificationIsNotOneRow() {
         final Effects effects = new Effects(new ArrayList<>());
         submit("smp reload", "");
         submit("smp reload", "");
@@ -250,8 +241,7 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("a request for another target is left alone")
-    void anotherTargetsRowIsNotTouched() {
+    void aRequestForAnotherTargetIsLeftAlone() {
         requests.submit(new NewCommandRequest(
                 Target.HUNGER_GAMES.name(),
                 "hg start",
@@ -267,10 +257,8 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("a request that expired while it queued is never claimed")
-    void anExpiredRowIsNotRun() {
-        // The asker has stopped listening. Running it anyway is how somebody's aura gets corrected
-        // twice - once by the request they gave up on, once by the one they retyped.
+    void aRequestThatExpiredWhileItQueuedIsNeverClaimed() {
+        // The asker has stopped listening. Running it anyway is how somebody's aura gets corrected twice.
         final Effects effects = new Effects(new ArrayList<>());
         requests.submit(new NewCommandRequest(
                 Target.SMP.name(),
@@ -293,16 +281,14 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("a database that stops answering ends the drain instead of spinning")
-    void aFailingClaimStopsTheLoop() {
+    void aDatabaseThatStopsAnsweringEndsTheDrainInsteadOfSpinning() {
         requests.failure = new IllegalStateException("connection refused");
         assertEquals(0, inbox(true).drain());
         assertEquals(List.of("could not claim a command request"), warnings);
     }
 
     @Test
-    @DisplayName("a command belonging to another process cannot be registered here")
-    void theInboxRefusesSomebodyElsesCommand() {
+    void aCommandBelongingToAnotherProcessCannotBeRegisteredHere() {
         final Declaration hungerGames = new Declaration(
                 List.of("hg", "start"), Target.HUNGER_GAMES, Set.of(Surface.GAME), true, true, List.of());
 
@@ -313,8 +299,7 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("two commands cannot claim one path")
-    void oneNamePerCommand() {
+    void twoCommandsCannotClaimOnePath() {
         final Effects effects = new Effects(new ArrayList<>());
         final CommandInbox inbox = inbox(true).register(command(RELOAD, (user, values) -> {}), effects);
 
@@ -323,16 +308,12 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("effects that hand their work to another thread are refused at registration")
-    void theInboxRefusesScheduledEffects() {
-        // The failure this prevents is silent and only visible on the surface furthest from the
-        // logs: the row is settled when run() returns, so scheduled effects would answer "changed
-        // something and said nothing" for work that had not started, and write the real answer into
-        // a row nobody is reading any more.
+    void effectsThatHandTheirWorkToAnotherThreadAreRefusedAtRegistration() {
+        // The failure this prevents is silent and only visible on the surface furthest from the logs: a stuck row.
         record Scheduled(java.util.concurrent.ExecutorService pool) implements CommandEffects {
             @Override
             public void async(final Runnable work) {
-                pool.submit(work);
+                var _ = pool.submit(work);
             }
 
             @Override
@@ -364,17 +345,8 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("a scheduler that finishes before it returns is still a scheduler")
-    void theInboxRefusesAnEagerScheduler() {
-        // THE RACE THIS PINS, and it is not hypothetical: the check asked "did it run?" until
-        // 2026-09-19, and a pool thread that picks the task up between `async` returning and the
-        // flag being read sets the very flag the check reads. That waves a scheduler through -
-        // the dangerous direction - and it is likeliest on exactly the machine least able to
-        // afford it, a loaded one. It was found as a failure of the test above on a CI runner.
-        //
-        // The effects below are that race made deterministic: the work genuinely happens on
-        // another thread, and `async` does not return until it is over. No flag can tell this
-        // apart from Runnable::run. The identity of the thread can, always.
+    void aSchedulerThatFinishesBeforeItReturnsIsStillAScheduler() {
+        // The race this pins: a pool thread that picks the task up between `async` returning and the flag being read.
         record Eager() implements CommandEffects {
             @Override
             public void async(final Runnable work) {
@@ -410,8 +382,7 @@ class CommandInboxTest {
     }
 
     @Test
-    @DisplayName("effects that run the work inline are accepted, which is the whole point")
-    void theInboxAcceptsInlineEffects() {
+    void effectsThatRunTheWorkInlineAreAcceptedWhichIsTheWholePoint() {
         record Inline() implements CommandEffects {
             @Override
             public void async(final Runnable work) {

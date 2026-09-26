@@ -19,7 +19,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.PGConnection;
@@ -29,17 +28,16 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Exercises {@link AccessRequests} against a real PostgreSQL running the real migrations
- * (season-2-community/08).
+ * Exercises {@link AccessRequests} against a real PostgreSQL running the real migrations.
  *
- * <p>Nothing here has an in-memory stand-in, for the same reason {@code UpdateDirectoryIntegrationTest}
+ * Nothing here has an in-memory stand-in, for the same reason {@code UpdateDirectoryIntegrationTest}
  * has none: the claim is {@code FOR UPDATE SKIP LOCKED} inside a data-modifying statement, the
  * patience is {@code now() + make_interval(...)} on the database clock, and the {@code NOTIFY}
  * rides in the same statement as the {@code INSERT} and either commits with it or not at all. All
- * three are PostgreSQL behaviour, not Java behaviour.</p>
+ * three are PostgreSQL behaviour, not Java behaviour.
  *
- * <p>Testcontainers is driven by hand from {@link BeforeAll}, like every other integration test in
- * this module, and these tests <b>skip themselves</b> when no Docker daemon is reachable.</p>
+ * Testcontainers is driven by hand from {@link BeforeAll}, like every other integration test in
+ * this module, and these tests <b>skip themselves</b> when no Docker daemon is reachable.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AccessRequestsIntegrationTest {
@@ -89,8 +87,6 @@ class AccessRequestsIntegrationTest {
                 AccessRequestKind.GRANT, subject, days, AccessRequestSource.STEWARD, "300000000000000001");
     }
 
-    // ---------------------------------------------------------------- writing
-
     @Test
     void aSubmittedRequestComesBackAsItWasWritten() {
         final AccessRequest request = inbox.submit(grant("400000000000000002", 30));
@@ -114,11 +110,7 @@ class AccessRequestsIntegrationTest {
                 "reading it back gives the same row the insert returned");
     }
 
-    /**
-     * The three kinds that carry no number must be writable without one, and asking for one has to
-     * fail loudly rather than answering zero - "grant zero days" and "grant nothing was written"
-     * are the same silent success otherwise.
-     */
+    /** Checks that the kinds without a number are writable without one and refuse to answer one. */
     @Test
     void aKindWithNoArgumentHasNoneAndSaysSo() {
         final AccessRequest request = inbox.submit(
@@ -130,8 +122,7 @@ class AccessRequestsIntegrationTest {
     }
 
     @Test
-    @DisplayName("every kind and every source the code can name is one the CHECK accepts")
-    void theEnumsAndTheConstraintsAgree() {
+    void everyKindAndEverySourceTheCodeCanNameIsOneTheCheckAccepts() {
         for (final AccessRequestKind kind : AccessRequestKind.values()) {
             for (final AccessRequestSource source : AccessRequestSource.values()) {
                 final AccessRequest written =
@@ -144,8 +135,7 @@ class AccessRequestsIntegrationTest {
 
     @Test
     void theInsertAnnouncesItselfOnTheChannel() throws Exception {
-        // The notification rides in the select list of the statement that writes the row, so it is
-        // emitted only for a row that committed - the same shape as the phase and update models.
+        // The notification is emitted in the writing statement, so only for a committed row.
         try (Connection listener = dataSource.getConnection()) {
             try (Statement statement = listener.createStatement()) {
                 statement.execute("LISTEN " + Channels.ACCESS);
@@ -161,8 +151,6 @@ class AccessRequestsIntegrationTest {
             assertEquals("", received[0].getParameter(), "no payload, on purpose - a listener must re-read the table");
         }
     }
-
-    // ---------------------------------------------------------------- claiming
 
     @Test
     void theOldestRowIsClaimedFirstAndOnlyOnce() {
@@ -181,10 +169,7 @@ class AccessRequestsIntegrationTest {
         assertTrue(inbox.claim().isEmpty(), "and then there is nothing left");
     }
 
-    /**
-     * The half of the patience that belongs to the executing side. A bot that wakes up after a long
-     * outage must not carry out a grant somebody was already told had not happened.
-     */
+    /** Checks that a bot waking after an outage does not carry out an expired request. */
     @Test
     void anExpiredRowIsNotClaimed() {
         inbox.submit(grant("400000000000000002", 30), Duration.ZERO);
@@ -194,8 +179,6 @@ class AccessRequestsIntegrationTest {
                 "a row past its patience has been given up on; running it now would grant access a"
                         + " second time, long after the asker was told it had not been granted");
     }
-
-    // ---------------------------------------------------------------- settling
 
     @Test
     void theAnswerIsWrittenBackIntoTheSameRow() {
@@ -224,17 +207,14 @@ class AccessRequestsIntegrationTest {
         assertEquals("first", settled.result(), "a second settle of the same row must not overwrite what happened");
     }
 
-    // ---------------------------------------------------------------- expiring
-
     /**
      * The acceptance the ticket asks for: with no bot running at all, a row stops waiting.
      *
-     * <p>Nobody else can do this. The case is precisely "the bot is not there", so the expiry is
-     * written by whoever looks - {@link AccessRequests#outcome} sweeps before it reads.</p>
+     * Nobody else can do this. The case is precisely "the bot is not there", so the expiry is
+     * written by whoever looks - {@link AccessRequests#outcome} sweeps before it reads.
      */
     @Test
-    @DisplayName("with nothing running, a row expires rather than waiting for ever")
-    void anOverdueRowIsExpiredByWhoeverLooks() {
+    void withNothingRunningARowExpiresRatherThanWaitingForEver() {
         final AccessRequest request = inbox.submit(grant("400000000000000002", 30), Duration.ZERO);
 
         final AccessRequest looked = inbox.outcome(request.id()).orElseThrow();
@@ -244,15 +224,11 @@ class AccessRequestsIntegrationTest {
         assertNull(looked.result(), "nothing ever ran, so there is nothing to report");
     }
 
-    /**
-     * The other half of the same race, and the reason the sweep names {@code PENDING}: a row the bot
-     * claimed a millisecond ago is work in progress, not an abandoned one.
-     */
+    /** Checks that the sweep leaves a request the bot has already claimed alone. */
     @Test
     void theSweepLeavesAClaimedRowAlone() {
         final AccessRequest request = inbox.submit(grant("400000000000000002", 30), Duration.ZERO);
-        // Claimed before the patience ran out - which the claim above cannot do, so it is forced
-        // here, exactly as a bot that took the row a moment before the deadline would have left it.
+        // Forced, as a bot that claimed the row just before the deadline would have left it.
         execute("UPDATE access_request SET status = 'RUNNING', started = now() WHERE id = " + request.id());
 
         assertEquals(0, inbox.expireDue());
@@ -277,8 +253,6 @@ class AccessRequestsIntegrationTest {
     void anUnknownIdIsEmptyRatherThanAnError() {
         assertEquals(Optional.empty(), inbox.outcome(9999L));
     }
-
-    // ---------------------------------------------------------------- housekeeping
 
     @Test
     void purgeTakesSettledHistoryAndLeavesWork() {

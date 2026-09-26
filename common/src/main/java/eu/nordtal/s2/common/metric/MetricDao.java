@@ -10,20 +10,10 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * The whole SQL surface of the time-series table, as a JDBI SqlObject interface - the same style as
- * {@code UpdateDao} and {@code AccessDao}.
- * <p>
- * Package-private on purpose: {@link MetricDirectory} is the API, this is how it is implemented, and
- * no consumer ever holds a {@code Jdbi} or a DAO of ours.
- * </p>
- * <h2>Why every instant crosses this boundary as an {@link OffsetDateTime} and not an
- * {@code Instant}</h2>
- * An {@code Instant} bound through JDBC becomes {@code setTimestamp(java.sql.Timestamp)}, which
- * pgjdbc renders in the JVM's default zone and sends with no type attached; the server then reads
- * it back into a {@code timestamptz} using the <em>server's</em> TimeZone. The two agree on this
- * host and would agree in almost every test - which is exactly what makes the disagreement, when it
- * comes, arrive silently and shift a month of history by an hour. An {@code OffsetDateTime} carries
- * its offset onto the wire, so there is nothing for either side to assume.
+ * The SQL surface of the time-series table; {@link MetricDirectory} is the API.
+ *
+ * Every instant crosses as an {@link OffsetDateTime}: an {@code Instant} is rendered in the JVM zone and
+ * read in the server's, which can shift history silently.
  */
 @RegisterRowMapper(MetricPointMapper.class)
 interface MetricDao {
@@ -31,13 +21,14 @@ interface MetricDao {
     /**
      * Writes one sweep of measurements, as a JDBC batch.
      *
-     * <h2>{@code ON CONFLICT DO NOTHING} and not {@code DO UPDATE}</h2>
+     * <b>{@code ON CONFLICT DO NOTHING} and not {@code DO UPDATE}</b>
+     *
      * The primary key is (subject, metric, resolution, at), so a replayed sweep collides with
      * itself exactly. Keeping what is there rather than overwriting it is the stronger of the two
      * promises: a measurement at an instant is a fact, and a collector that has just restarted and
      * is re-sending its last sweep must not be able to revise history, only to fail to add to it.
      *
-     * <p>It is also what keeps {@link #compactInto} honest. If a raw sample could be rewritten
+     * It is also what keeps {@link #compactInto} honest. If a raw sample could be rewritten
      * after its hour had been averaged, the mean and the rows behind it would disagree, and the
      * rows are deleted shortly afterwards - so the disagreement would outlive the evidence.
      *
@@ -54,34 +45,36 @@ interface MetricDao {
     /**
      * One series over a window, across the seam between the two resolutions.
      *
-     * <h2>Two index scans and a UNION ALL, rather than one scan with an OR in it</h2>
+     * <b>Two index scans and a UNION ALL, rather than one scan with an OR in it</b>
+     *
      * Both halves name {@code subject}, {@code metric} and {@code resolution} by equality and then
      * bound {@code at} - which is the primary key read forwards, twice. The obvious single query
      * with {@code (resolution = 'RAW' OR (resolution = 'HOUR' AND ...))} cannot use the index that
      * way: {@code resolution} sits between the equalities and the range, so the range on {@code at}
      * stops being an index condition and every row of the series gets read and filtered instead.
      *
-     * <h2>The seam is the <i>hour</i> of the oldest raw sample</h2>
+     * <b>The seam is the <i>hour</i> of the oldest raw sample</b>
+     *
      * The scalar subquery is a {@code min()} over the same three equality columns, so it is one
      * index probe. {@code coalesce(..., 'infinity')} is the case that reads oddly and matters most:
      * a series with no raw rows at all - everything already compacted - must return every hourly
      * point rather than none.
      *
-     * <p><b>The bucket around that {@code min()} is not decoration.</b> An hourly {@code at} is
+     * <b>The bucket around that {@code min()} is not decoration.</b> An hourly {@code at} is
      * always an exact hour start; a raw sample almost never is. Compared against the raw instant,
      * the mean for ten o'clock passes {@code at < 10:00:07} and comes back <i>next to the very
      * samples it was averaged from</i> - one hour drawn twice, once flattened and once not. The
      * only arrangement that escaped it was a series whose oldest raw sample sat exactly on the
      * boundary, which is what the first test of this happened to build. Truncated to its hour, the
-     * comparison is {@code 10:00 < 10:00}, which is false, and the raw rows answer alone.</p>
+     * comparison is {@code 10:00 < 10:00}, which is false, and the raw rows answer alone.
      *
-     * <p>The bucket expression is {@link #compactInto}'s, character for character, and for the
+     * The bucket expression is {@link #compactInto}'s, character for character, and for the
      * reason given there: on a {@code timestamptz}, {@code date_trunc('hour', ...)} is neither
-     * immutable nor UTC.</p>
+     * immutable nor UTC.
      *
-     * <p>An hour that has both a mean and its raw rows is therefore answered from the raw rows.
+     * An hour that has both a mean and its raw rows is therefore answered from the raw rows.
      * That is the overlap between a compaction and the delete behind it, and it is the state this
-     * query exists to get right.</p>
+     * query exists to get right.
      *
      * @param from inclusive
      * @param to   exclusive
@@ -118,18 +111,20 @@ interface MetricDao {
     /**
      * Averages every raw sample before {@code cut} into its UTC hour and writes the means.
      *
-     * <h2>Running it twice writes nothing the second time</h2>
+     * <b>Running it twice writes nothing the second time</b>
+     *
      * {@code ON CONFLICT DO NOTHING} on the same primary key: an hour that already has its mean
      * keeps it. That is what makes the operation safe to repeat after a crash, and it is also why
      * nothing can be double-counted - {@code avg()} always reads {@code resolution = 'RAW'} rows,
      * never other means, so a mean is never folded into a mean.
      *
-     * <p>The consequence, stated plainly: an hourly mean is written <b>once</b> and is never
+     * The consequence, stated plainly: an hourly mean is written <b>once</b> and is never
      * revised. A raw sample that arrives for an hour already averaged does not change it. That is
      * why {@code cut} must be an hour boundary the collector is finished with - see
      * {@link MetricDirectory#compact}.
      *
-     * <h2>The bucket expression is the migration's, character for character</h2>
+     * <b>The bucket expression is the migration's, character for character</b>
+     *
      * {@code to_timestamp(floor(extract(epoch FROM at) / 3600) * 3600)} is also the table's
      * alignment CHECK. If the two ever drifted apart, this INSERT would be refused by the
      * constraint - which is the failure one wants, but only because they are written the same way
@@ -158,28 +153,7 @@ interface MetricDao {
     /**
      * Deletes raw samples before {@code cut} whose hour already has a mean.
      *
-     * <p>The match against the hourly rows is the whole safety of this statement. Without it the
-     * delete would be "old enough", and a compaction that never ran - or ran and failed - would be
-     * indistinguishable from one that worked, right up until somebody asked for the month that is
-     * now gone.
-     *
-     * <h2>A join and not a correlated {@code EXISTS}, and this one was measured</h2>
-     * The obvious spelling is {@code AND EXISTS (SELECT 1 FROM metric_sample hourly WHERE ... AND
-     * hourly.at = <bucket of raw.at>)}. It is correct and it is unusable: the join condition
-     * contains an expression of the outer row, so no hash or merge join is available and the
-     * planner is left with a nested loop over every raw row. On 950 400 rows - one month of this
-     * host's eleven series, the real number - it had not finished after <b>seven minutes</b> and
-     * was killed (PostgreSQL 17.11, 2026-09-12). The nightly job would have held that transaction
-     * open for the whole of it.
-     *
-     * <p>Written as a join against the small side, the same work is a hash join: 7 920 hourly rows
-     * hashed once, one scan of the raw rows probing it. Measured on the same data,
-     * <b>4.2 seconds</b> for all 950 400 deletions.
-     *
-     * <p>It is a semi-join in effect and not a multiplying one: the subquery's three columns are
-     * the primary key with {@code resolution} fixed, so a raw row matches at most one hourly row.
-     * A {@code DELETE} removes a row once in any case, but the property is worth stating - it is
-     * what makes the returned count the number of rows that went.
+     * A join against the hourly rows rather than a correlated {@code EXISTS}, which cannot use a hash join.
      *
      * @param cut exclusive, and an exact UTC hour
      * @return how many raw rows went
@@ -198,14 +172,6 @@ interface MetricDao {
             """)
     int forget(@Bind("cut") OffsetDateTime cut);
 
-    /**
-     * A {@link MetricSample} with its instant already turned into an {@link OffsetDateTime}, which
-     * is the only form that crosses to pgjdbc without a zone being assumed on the way. See the
-     * note on this interface.
-     *
-     * <p>A record rather than four parallel lists because {@code @SqlBatch} binds one object per
-     * statement, and because four lists that must stay the same length is the bug that gets written
-     * the first time somebody filters one of them.
-     */
+    /** A {@link MetricSample} with its instant as an {@link OffsetDateTime}, one object per batch statement. */
     record BoundSample(String subject, String metric, OffsetDateTime at, double value) {}
 }

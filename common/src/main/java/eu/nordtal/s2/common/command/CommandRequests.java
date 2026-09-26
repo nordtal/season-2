@@ -7,17 +7,17 @@ import javax.sql.DataSource;
 /**
  * The inbox every process shares: one admin command, addressed to the JVM that can carry it out.
  *
- * <p>The processes share nothing but one PostgreSQL - there is no socket between them - so a command
+ * The processes share nothing but one PostgreSQL - there is no socket between them - so a command
  * is a row plus a {@code pg_notify} that the owning process listens for. A request therefore
  * survives a target that happens to be restarting.
  *
- * <p>The asker writes the row, waits, and writes {@code EXPIRED} when it gives up; {@link #expire}
+ * The asker writes the row, waits, and writes {@code EXPIRED} when it gives up; {@link #expire}
  * only touches a row still {@code PENDING}, so it can never cancel work already running. The target
  * claims atomically, refuses anything past its expiry, re-reads the admin flag, runs the command and
  * settles the row - it never writes {@code EXPIRED}, which is what makes that status mean exactly
  * "nothing ever picked this up".
  *
- * <p>It does not know what a command is: {@link #submit} takes a path and an argument line as
+ * It does not know what a command is: {@link #submit} takes a path and an argument line as
  * strings, because {@code :common} is compiled against no platform and no command model.
  */
 public interface CommandRequests extends AutoCloseable {
@@ -32,7 +32,7 @@ public interface CommandRequests extends AutoCloseable {
     /**
      * Write a request, its journal line and the wake-up as one statement.
      *
-     * <p>For a surface that has to record who asked: the row and the line commit together or
+     * For a surface that has to record who asked: the row and the line commit together or
      * neither does. Writing the row first and the journal second is the ordinary rule everywhere
      * else in this schema (see {@code AuditDirectory#record}), and it is the wrong rule here -
      * this table is not a record of something that happened, it is work somebody is about to do.
@@ -77,7 +77,7 @@ public interface CommandRequests extends AutoCloseable {
     /**
      * Deletes every settled request older than {@code days}, and answers how many.
      *
-     * <p>Called once by steward-worker at the start of {@code serve}, where nothing else is running
+     * Called once by steward-worker at the start of {@code serve}, where nothing else is running
      * yet. Deliberately not on a timer, so a container that has not restarted keeps its rows longer
      * than the window.
      *
@@ -89,10 +89,7 @@ public interface CommandRequests extends AutoCloseable {
     @Override
     void close();
 
-    /**
-     * Over a pool somebody else owns and closes - every process in this network already has one, and
-     * a second pool would hold connections open for a table that is almost always empty.
-     */
+    /** Returns requests over a pool somebody else owns and closes. */
     static CommandRequests borrowing(final DataSource dataSource) {
         return JdbiCommandRequests.borrowing(dataSource);
     }

@@ -22,16 +22,15 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The shared bundle: the same file in two languages, complete, and free of markup.
  *
- * <p>{@code Messages} degrades to the key rather than throwing, so a key present in one language
+ * {@code Messages} degrades to the key rather than throwing, so a key present in one language
  * only reaches somebody as the literal string {@code phase.failed}. Markup is checked because this
  * bundle is rendered as MiniMessage on Minecraft and as Discord markdown in the guild - either
- * syntax is literal text on the other surface.</p>
+ * syntax is literal text on the other surface.
  */
 class MessageBundlesTest {
 
@@ -77,13 +76,11 @@ class MessageBundlesTest {
     }
 
     @Test
-    @DisplayName("every key a shared command names actually exists, in both languages")
-    void noCommandNamesAKeyThatIsNotThere() throws IOException {
+    void everyKeyASharedCommandNamesActuallyExistsInBothLanguages() throws IOException {
         final Set<String> declared = keysOf("en");
         final List<String> missing = new ArrayList<>();
 
-        // Literals only: a key built by concatenation cannot be checked this way. The one such key,
-        // SetPhase#consequenceKey, is walked against SeasonPhase.values() in PhaseCommandsTest.
+        // Literals only: a key built by concatenation cannot be checked this way. The one such key.
         final Pattern named = Pattern.compile("(?:reply|phrase)\\(\\s*\"([a-z][a-z0-9.-]*)\"");
         for (final Path source : sources()) {
             final Matcher matcher = named.matcher(Files.readString(source, StandardCharsets.UTF_8));
@@ -105,10 +102,8 @@ class MessageBundlesTest {
     }
 
     @Test
-    @DisplayName("the shared bundle carries no markup, because it is rendered on two surfaces")
-    void neitherSurfacesSyntaxLeaksIntoTheOther() throws IOException {
-        // MiniMessage tags would print as <b>...</b> in Discord; Discord's ** would print as
-        // asterisks in chat.
+    void theSharedBundleCarriesNoMarkupBecauseItIsRenderedOnTwoSurfaces() throws IOException {
+        // MiniMessage tags would print as <b>...</b> in Discord; Discord's ** would print as asterisks in chat.
         final List<String> offending = new ArrayList<>();
         for (final String language : List.of("en", "de")) {
             final Properties bundle = load(language);
@@ -126,10 +121,8 @@ class MessageBundlesTest {
     }
 
     @Test
-    @DisplayName("every stage and every service state steward-worker can report has a line to say")
-    void theUpdateReportIsFullyTranslated() throws IOException {
-        // The sweep above cannot see these: the key is built from an enum constant, so a stage
-        // added to UpdateReport would reach an admin as the literal string update.stage.PAUSING.
+    void everyStageAndEveryServiceStateStewardWorkerCanReportHasALineToSay() throws IOException {
+        // The sweep above cannot see these: the key is built from an enum constant.
         final Properties english = load("en");
         final Properties german = load("de");
         final List<String> missing = new ArrayList<>();
@@ -142,8 +135,7 @@ class MessageBundlesTest {
             check(english, german, "update.state." + state, missing);
         }
         for (final UpdateReport.Change.State state : UpdateReport.Change.State.values()) {
-            // MOVING is two keys rather than one - a first install has no version to move FROM -
-            // so the family is not "one key per constant" and is named by hand.
+            // MOVING is two keys rather than one - a first install has no version to move FROM.
             switch (state) {
                 case MOVING -> {
                     check(english, german, "update.change", missing);
@@ -160,11 +152,8 @@ class MessageBundlesTest {
     }
 
     @Test
-    @DisplayName("a service's chat line ends with the same word its Discord field uses")
-    void theTwoStateLabelsStayOneLabel() throws IOException {
-        // update.line.* is "{service.name}: stopped" for chat; update.state.* is "stopped" alone, for a
-        // Discord field that already carries the service as its heading. Two families for one word
-        // drift unless the build holds them together.
+    void aServicesChatLineEndsWithTheSameWordItsDiscordFieldUses() throws IOException {
+        // update.line.* is "{service.name}: stopped" for chat; update.state.* is "stopped" alone.
         for (final String language : List.of("en", "de")) {
             final Properties bundle = load(language);
             for (final UpdateReport.State state : UpdateReport.State.values()) {
@@ -193,11 +182,8 @@ class MessageBundlesTest {
     }
 
     @Test
-    @DisplayName("the consequence sentences say the thing the confirmation exists for")
-    void theConsequencesNameWhatActuallyHappens() throws IOException {
-        // Content assertions, worth their brittleness here: a switch to SMP disconnects a player
-        // with no active access rather than moving them to limbo, and the confirmation exists so
-        // that an admin reads that before clicking, in either language.
+    void theConsequenceSentencesSayTheThingTheConfirmationExistsFor() throws IOException {
+        // Content assertions, worth their brittleness here: a switch to SMP disconnects a player with no active access.
         final Properties english = load("en");
         final Properties german = load("de");
 
@@ -215,8 +201,7 @@ class MessageBundlesTest {
                 german.getProperty("phase.consequence.MAINTENANCE").contains("Admins"),
                 german.getProperty("phase.consequence.MAINTENANCE"));
 
-        // Access is only required from SMP onwards. Saying otherwise would be the confirmation
-        // lying about what a switch costs.
+        // Access is only required from SMP onwards - saying otherwise would be the confirmation lying about the switch.
         for (final String free : List.of("phase.consequence.PRE_EVENT", "phase.consequence.START_EVENT")) {
             assertTrue(english.getProperty(free).contains("hunger-games"), free + ": " + english.getProperty(free));
             assertTrue(
@@ -224,8 +209,6 @@ class MessageBundlesTest {
                     free + " claims somebody is disconnected: " + english.getProperty(free));
         }
     }
-
-    // ---------------------------------------------------------------- helpers
 
     private static Set<String> placeholders(final String template) {
         final Set<String> found = new TreeSet<>();

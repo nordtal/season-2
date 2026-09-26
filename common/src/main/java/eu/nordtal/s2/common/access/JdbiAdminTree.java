@@ -14,10 +14,10 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 /**
  * The only implementation of {@link AdminTree}.
  *
- * <p><b>Every write takes one transaction-scoped advisory lock first.</b> The checks and the write
+ * <b>Every write takes one transaction-scoped advisory lock first.</b> The checks and the write
  * are separate statements - "is anybody an admin", "were three grants made this hour", "is the
  * target below me" - and two of them racing would each see the state before the other. The lock
- * makes them one at a time, which costs nothing at the rate admins are appointed.</p>
+ * makes them one at a time, which costs nothing at the rate admins are appointed.
  */
 final class JdbiAdminTree implements AdminTree {
 

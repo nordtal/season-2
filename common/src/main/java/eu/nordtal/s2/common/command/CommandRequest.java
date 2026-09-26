@@ -7,8 +7,8 @@ import java.util.UUID;
 /**
  * A request one process has claimed and is about to run.
  *
- * <p>Read-only. The row is written once by the asker and settled once by the target; nothing amends
- * it in between, which is what makes {@link CommandRequests#claim} safe to be a single statement.</p>
+ * Read-only. The row is written once by the asker and settled once by the target; nothing amends
+ * it in between, which is what makes {@link CommandRequests#claim} safe to be a single statement.
  *
  * @param id          the row, for settling it afterwards
  * @param command     the command path joined with spaces, no leading slash

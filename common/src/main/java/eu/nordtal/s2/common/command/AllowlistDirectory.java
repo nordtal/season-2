@@ -9,7 +9,8 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 /**
  * The one command allowlist, as the network's five processes share it.
  *
- * <h2>One truth, written by the proxy and read by the backends</h2>
+ * <b>One truth, written by the proxy and read by the backends</b>
+ *
  * The list itself lives in the proxy's {@code network.yml}, because that is where an operator edits
  * it and because the proxy is the process that enforces it first - it sees every command a player
  * types, including the ones destined for a backend. The three Paper servers need the same list for
@@ -17,13 +18,14 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
  * away from that file. So the proxy publishes it and they read it, on the poll and the
  * {@code LISTEN} the admin roster already taught this repository to trust.
  *
- * <p>Which means the backends can be behind by up to one poll interval after an edit, and are told
+ * Which means the backends can be behind by up to one poll interval after an edit, and are told
  * nothing at all if the proxy has never run. Both are deliberate: the proxy's own enforcement is
  * neither delayed nor optional, and a backend with no list falls back to what this network did
  * before the list existed - see {@code CommandFilter}, which fails <em>open</em> and says so in the
- * log rather than silently refusing every command on the server.</p>
+ * log rather than silently refusing every command on the server.
  *
- * <h2>Nothing from JDBI appears here</h2>
+ * <b>Nothing from JDBI appears here</b>
+ *
  * The same rule {@code AccessDirectory} follows: the factory takes a {@code javax.sql.DataSource},
  * so a consumer never compiles against JDBI even though this is a database-backed thing.
  */
@@ -47,17 +49,10 @@ public final class AllowlistDirectory {
     }
 
     /**
-     * What the network currently allows, or empty when no proxy has ever published a list.
+     * Returns what the network allows, or empty when no proxy has ever published a list.
      *
-     * <h2>Why empty rather than {@link CommandAllowlist#NOTHING}</h2>
-     * Because "nobody has written a list" and "the list is empty" are different situations and a
-     * reader has to be able to tell them apart: the first is a proxy that has not started yet, the
-     * second is an operator who emptied the list on purpose. Collapsing them would make a backend
-     * that came up before the proxy refuse every command on the server, which looks exactly like
-     * commands being broken.
-     *
-     * <p><b>Never call this on a Paper server's main thread.</b> It is a round trip, and the rule
-     * this repository has had since 2026-09-01 has no exceptions.</p>
+     * Empty differs from {@link CommandAllowlist#NOTHING}, which would refuse every command. A round trip:
+     * never call it on a Paper server's main thread.
      */
     public java.util.Optional<CommandAllowlist> published() {
         return dao.read(AllowlistDao.KEY).map(CommandAllowlist::deserialise);

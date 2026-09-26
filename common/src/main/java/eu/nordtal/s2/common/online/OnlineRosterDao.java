@@ -13,10 +13,11 @@ import org.jdbi.v3.sqlobject.transaction.Transaction;
 
 /**
  * The whole SQL surface of {@code online_player}, the same style as {@link OnlineDao}.
- * <p>
+ *
  * Package-private: {@link OnlineRoster} is the API, no consumer ever holds a {@code Jdbi} of ours.
- * </p>
- * <h2>{@code OffsetDateTime}, not {@code Instant}</h2>
+ *
+ * <b>{@code OffsetDateTime}, not {@code Instant}</b>
+ *
  * {@link OnlineDao}'s reason, unchanged: an {@code Instant} bound through JDBC is rendered in the
  * JVM's default zone and read back using the server's, which agree on this host and would agree in
  * almost every test - right up until the day they do not.
@@ -25,13 +26,10 @@ import org.jdbi.v3.sqlobject.transaction.Transaction;
 interface OnlineRosterDao {
 
     /**
-     * Upserts everyone given, as one JDBC batch - the same {@code DO UPDATE} bargain
-     * {@link OnlineDao#write} makes, for the same reason: a presence is a snapshot of right now and
-     * the point of writing it again is to replace the older one.
+     * Upserts everyone given, as one JDBC batch.
      *
-     * @param rows one per connected player; JDBI refuses an empty iterable, which is why
-     *             {@link #replace} guards it rather than passing nothing through
-     * @return one count per statement, always 1 - an UPSERT never fails to affect a row
+     * @param rows one per connected player; JDBI refuses an empty iterable, so {@link #replace} guards it
+     * @return one count per statement, always 1
      */
     @SqlBatch("""
             INSERT INTO online_player (mc_uuid, mc_name, subject, updated)
@@ -46,7 +44,8 @@ interface OnlineRosterDao {
     /**
      * Deletes everyone this write did not touch.
      *
-     * <h2>By timestamp, and not by "not in this list"</h2>
+     * <b>By timestamp, and not by "not in this list"</b>
+     *
      * Every row of one {@link #replace} carries the same instant, so "older than this write" is
      * exactly "was not in this write" - with no id list to build, no {@code NOT IN} that grows with
      * the player count, and nothing to get wrong when the list is empty. Strictly {@code <} and not
@@ -62,7 +61,7 @@ interface OnlineRosterDao {
     /**
      * The upsert and the prune as one transaction, which is the only way the two are ever run.
      *
-     * <p>Together, because a reader between them would see the old roster and the new one at once -
+     * Together, because a reader between them would see the old roster and the new one at once -
      * a player counted twice under two names, or a leaver still sitting there next to a joiner. One
      * transaction makes the swap a single moment for anybody reading, which is the same promise
      * {@code /api/services} makes by reading the roster once per response.
@@ -84,8 +83,7 @@ interface OnlineRosterDao {
     List<OnlinePlayer> current();
 
     /**
-     * One presence with its instant already turned into an {@link OffsetDateTime} - see the note on
-     * this interface for why that crossing matters.
+     * One presence with its instant as an {@link OffsetDateTime}.
      *
      * @param subject may be {@code null}: the proxy has this player and no backend does yet
      */

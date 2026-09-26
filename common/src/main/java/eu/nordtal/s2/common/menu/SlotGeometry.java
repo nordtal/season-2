@@ -1,18 +1,10 @@
 package eu.nordtal.s2.common.menu;
 
 /**
- * Where a chest slot is, in the window's own pixels - the numbers a panel is drawn against.
+ * Where a chest slot is, in the window's own pixels.
  *
- * <p>Read off the extracted 26.2 {@code gui/container/generic_54.png} on 2026-09-04 and recorded
- * in {@code resource-pack/tools/generate_gui_panels.py}, whose comment is the measurement's
- * record. This class is the Java mirror of those three numbers, so a menu that draws something
- * <em>at a slot</em> - the balloon's cards, the next menu's - derives its pixel coordinates from
- * the slot index rather than restating them. {@code MenuTitleTest} holds the two mirrors together
- * by reading the panel PNGs back.</p>
- *
- * <p>The cell's origin is the dark shadow pixel at its top-left, <b>not</b> the 16 × 16 the item
- * sits in: the item area is at (8, 18) and every tutorial quotes that, but the cell that has to be
- * drawn starts one pixel up and to the left.</p>
+ * Mirrors {@code resource-pack/tools/generate_gui_panels.py}; {@code MenuTitleTest} holds the two
+ * together. A cell's origin is its top-left shadow pixel, one up and left of the item area.
  */
 public final class SlotGeometry {
 

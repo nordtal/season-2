@@ -121,7 +121,7 @@ public final class GravePanel {
         final int footer = footerRow(contentRows);
         final MenuTitle.Canvas canvas = MenuTitle.onPlain(rows(contentRows));
 
-        canvas.overlay(Glyphs.GUI_GRAVE_SLAB[contentRows - 1], SLAB_X, SLAB_WIDTH);
+        canvas.overlay(Glyphs.GUI_GRAVE_SLAB.get(contentRows - 1), SLAB_X, SLAB_WIDTH);
         canvas.rowText(MenuFont.fit(experience, TAKE_X - 4 - EXPERIENCE_X), footer, EXPERIENCE_X, MenuPalette.INK);
 
         canvas.rowArt(Glyphs.GUI_ROW_BUTTON_TAKE, footer, TAKE_X, null);

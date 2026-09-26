@@ -13,16 +13,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Turns a {@link MessageSpec} interface into an object whose methods return filled
- * {@link MessageRef}s.
+ * Turns a {@link MessageSpec} interface into an object whose methods return filled {@link MessageRef}s.
  *
- * <pre>
- * SmpMessages m = MessageSpecs.create(SmpMessages.class);
- * renderer.format(locale, m.duel().won(opponent));   // smp.duel.won, {opponent}
- * </pre>
- *
- * <p>A {@code default} method runs as written, which is where a spec maps an enum or a config
- * value onto one of its own methods - the one place a key used to be glued together from parts.</p>
+ * {@code MessageSpecs.create(SmpMessages.class).duel().won(opponent)} resolves to key {@code smp.duel.won}
+ * with the {@code opponent} parameter. A {@code default} method runs as written.
  */
 public final class MessageSpecs {
 
@@ -112,7 +106,11 @@ public final class MessageSpecs {
                 return switch (method.getName()) {
                     case "toString" -> type.getSimpleName() + "[" + prefix + "]";
                     case "hashCode" -> System.identityHashCode(proxy);
-                    case "equals" -> proxy == args[0];
+                    // Every proxy has its own handler, so sharing this handler is being this proxy.
+                    case "equals" ->
+                        args[0] != null
+                                && Proxy.isProxyClass(args[0].getClass())
+                                && Proxy.getInvocationHandler(args[0]).equals(this);
                     default -> throw new UnsupportedOperationException(method.toString());
                 };
             }

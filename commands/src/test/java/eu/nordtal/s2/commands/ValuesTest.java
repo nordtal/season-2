@@ -9,12 +9,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * What {@link Values} does when a command and its declaration disagree - which is the only way it
- * can be wrong, because a user's mistake never reaches it.
+ * What {@link Values} does when a command and its declaration disagree.
+ *
+ * The only way it can be wrong, because a user's mistake never reaches it.
  */
 class ValuesTest {
 
@@ -27,8 +27,7 @@ class ValuesTest {
             List.of(Argument.player("player"), Argument.integer("delta", -10_000, 10_000)));
 
     @Test
-    @DisplayName("the arguments come back as what they were declared to be")
-    void readsWhatWasGiven() {
+    void theArgumentsComeBackAsWhatTheyWereDeclaredToBe() {
         final UUID player = UUID.randomUUID();
         final Values values = new Values(AURA, Map.of("player", player, "delta", 50));
 
@@ -37,8 +36,7 @@ class ValuesTest {
     }
 
     @Test
-    @DisplayName("a missing argument names itself and the command, rather than reading as absent")
-    void missingArgumentIsLoud() {
+    void aMissingArgumentNamesItselfAndTheCommandRatherThanReadingAsAbsent() {
         final Values values = new Values(AURA, Map.of("player", UUID.randomUUID()));
 
         final IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> values.integer("delta"));
@@ -48,11 +46,8 @@ class ValuesTest {
     }
 
     @Test
-    @DisplayName("an argument read as the wrong kind says which two kinds disagreed")
-    void wrongKindIsLoud() {
-        // The adapter parsed a player as a name instead of resolving it. Without this the command
-        // would get a ClassCastException from somewhere inside itself, naming neither the argument
-        // nor the command.
+    void anArgumentReadAsTheWrongKindSaysWhichTwoKindsDisagreed() {
+        // The adapter parsed a player as a name instead of resolving it - without this the command reads it wrong.
         final Values values = new Values(AURA, Map.of("player", "Till", "delta", 1));
 
         final IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> values.player("player"));
@@ -62,8 +57,7 @@ class ValuesTest {
     }
 
     @Test
-    @DisplayName("an optional argument that was not given is absent, not an error")
-    void optionalIsAllowedToBeMissing() {
+    void anOptionalArgumentThatWasNotGivenIsAbsentNotAnError() {
         final Declaration start = new Declaration(
                 List.of("hg", "start"),
                 Target.HUNGER_GAMES,

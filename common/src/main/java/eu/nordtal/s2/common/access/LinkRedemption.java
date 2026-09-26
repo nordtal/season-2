@@ -2,21 +2,14 @@ package eu.nordtal.s2.common.access;
 
 import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The outcome of redeeming a link code, from
- * {@link AccessDirectory#redeemLinkCode(String, String)}.
- * <p>
- * A record rather than an exception: an invalid code or an already-linked account are both
- * ordinary outcomes of typing a code into a Discord modal, not failures worth a stack trace. The
- * bot's modal handler switches on {@link #status()} to pick the message it shows back.
- * </p>
+ * The outcome of {@link AccessDirectory#redeemLinkCode(String, String)}; ordinary outcomes, not exceptions.
  *
- * @param status the outcome
- * @param mcUuid the Minecraft account that was linked, only present when {@link #status()} is
- *               {@link Status#LINKED}
+ * @param mcUuid the Minecraft account that was linked, present only for {@link Status#LINKED}
  */
-public record LinkRedemption(Status status, UUID mcUuid) {
+public record LinkRedemption(Status status, @Nullable UUID mcUuid) {
 
     /** @return a freshly written link */
     public static LinkRedemption linked(final UUID mcUuid) {

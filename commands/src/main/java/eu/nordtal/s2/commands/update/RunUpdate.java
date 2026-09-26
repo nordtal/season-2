@@ -15,8 +15,8 @@ import eu.nordtal.s2.common.update.UpdateKind;
 /**
  * {@code /update now} and {@code /update restart} - the two that take servers away.
  *
- * <h2>One class for both, because they differ by one enum value</h2>
- * Both stop the services, both count down for {@link UpdateDirectory#UPDATE_COUNTDOWN}, both are
+ * One class for both, because they differ by one enum value:
+ * both stop the services, both count down for {@link UpdateDirectory#UPDATE_COUNTDOWN}, both are
  * confirmed before the countdown even starts, and both are cancelled by the same
  * {@code /update cancel}. The only difference is whether jars move in the gap - which is the
  * steward-worker's business and not this command's. Two classes would be two places for the countdown
@@ -37,20 +37,13 @@ public final class RunUpdate implements NordtalCommand<UpdateEffects> {
 
     @Override
     public void run(final NordtalUser user, final Values values, final UpdateEffects effects) {
-        final UpdateKind kind = declaration == UpdateCommands.RESTART ? UpdateKind.RESTART : UpdateKind.UPDATE;
+        final UpdateKind kind = UpdateCommands.RESTART.equals(declaration) ? UpdateKind.RESTART : UpdateKind.UPDATE;
 
         effects.async(() -> {
             try {
                 final long id = effects.submit(kind, user).id();
                 effects.watch(id, user);
-                // Everybody else is told by the proxy, which is the only process that sees every
-                // player. This line is for the person who typed it, and its job is to name the way
-                // back out while there still is one.
-                //
-                // Accepted, not started - the same correction RunBackup carries. submit() writes a
-                // row; the worker can still find nothing to do, or refuse the run before any
-                // countdown. update.started already words it conditionally ("if there is
-                // anything"), so only the tone was overclaiming.
+                // Accepted, not started: submit() writes a row.
                 user.reply(
                         MESSAGES.update().started(UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
                         Feedback.SMALL_SUCCESS,

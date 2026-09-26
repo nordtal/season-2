@@ -5,16 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * {@link SeasonPhase} sits on the login path: every case has to end in a phase rather than an
- * exception, and an unreadable value must never be more permissive than the real one.
- */
+/** Checks that every {@link SeasonPhase} case ends in a phase, never more permissive than the real one. */
 class SeasonPhaseTest {
 
     @Test
     void theOrderingIsTheNetworksRoutingOrder() {
-        // The season runs PRE_LAUNCH -> PRE_EVENT -> START_EVENT -> SMP, with MAINTENANCE as the
-        // interruption of any of them. Pinned because something later may switch on ordinals.
+        // PRE_LAUNCH, PRE_EVENT, START_EVENT, SMP, then MAINTENANCE; pinned in case something uses ordinals.
         assertEquals(
                 List.of(
                         SeasonPhase.PRE_LAUNCH,

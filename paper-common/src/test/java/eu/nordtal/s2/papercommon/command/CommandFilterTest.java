@@ -20,25 +20,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.command.UnknownCommandEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.plugin.Plugin;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 
-/**
- * season-2-ingame/13: a refused command paints {@link eu.nordtal.s2.common.message.Tone#BAD}
- * already - both refusal sites build their own {@code Component} and never go through
- * {@link eu.nordtal.s2.commands.NordtalUser#reply}, which is where the {@link Feedback} overload
- * lives - so the colour arrived and the sound never did. Till, 2026-09-15: the sound has to play
- * "auch generell bei fremden Befehlen".
- *
- * <h2>Seen red before the fix</h2>
- * Run against {@code CommandFilter} before this ticket, this class does not compile: there was no
- * constructor taking a {@link PaperUser.Chime} at all, {@link #onUnknownCommand} never called one,
- * and neither did {@link #onCommand}. The ticket's own inventory table names exactly this gap -
- * {@code CommandFilter#onUnknownCommand}, {@code Tone.BAD} present, no {@code Feedback} - and this
- * is the test that holds it to "plays REFUSED", which is what "must fail against today's code"
- * means for a class that could not previously express the assertion at all.
- */
+/** A refused command plays {@link Feedback#REFUSED} as well as its {@code Tone.BAD} colour. */
 class CommandFilterTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000003");
@@ -70,7 +55,6 @@ class CommandFilterTest {
     }
 
     @Test
-    @DisplayName("a command Paper cannot find at all plays REFUSED, not just Tone.BAD")
     void unknownCommandPlaysRefused() {
         final SpyChime chime = new SpyChime();
         final CommandFilter filter = filter(() -> Optional.empty(), chime);
@@ -82,15 +66,10 @@ class CommandFilterTest {
 
         filter.onUnknownCommand(event);
 
-        assertEquals(
-                List.of(Feedback.REFUSED),
-                chime.played,
-                "onUnknownCommand paints Tone.BAD already (see refusal()) but must also play"
-                        + " Feedback.REFUSED - season-2-ingame/13");
+        assertEquals(List.of(Feedback.REFUSED), chime.played, "onUnknownCommand must play Feedback.REFUSED too");
     }
 
     @Test
-    @DisplayName("the console typing an unknown command triggers no chime - it has no ears")
     void consoleUnknownCommandIsSilent() {
         final SpyChime chime = new SpyChime();
         final CommandFilter filter = filter(() -> Optional.empty(), chime);
@@ -106,16 +85,12 @@ class CommandFilterTest {
     }
 
     @Test
-    @DisplayName("a command that exists but is not on the allowlist plays REFUSED too")
     void disallowedCommandPlaysRefused() {
         final SpyChime chime = new SpyChime();
         final CommandFilter filter = filter(() -> Optional.of(CommandAllowlist.NOTHING), chime);
         filter.refresh();
 
-        // The 3-arg constructor, not the 2-arg one: the 2-arg form calls player.getServer() to
-        // default the recipient set to every online player, which this test's Player proxy has no
-        // server behind to answer. An explicit empty recipient set is unrelated to what is under
-        // test here - onCommand never reads it.
+        // The 3-arg constructor: the 2-arg form calls player.getServer(), which this proxy cannot answer.
         final PlayerCommandPreprocessEvent event =
                 new PlayerCommandPreprocessEvent(player(), "/spawn", java.util.Set.of());
 
@@ -124,8 +99,6 @@ class CommandFilterTest {
         assertTrue(event.isCancelled());
         assertEquals(List.of(Feedback.REFUSED), chime.played);
     }
-
-    // ---------------------------------------------------------------- stand-ins, no server behind them
 
     private static Plugin silentPlugin() {
         return (Plugin) Proxy.newProxyInstance(

@@ -11,25 +11,13 @@ import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link Platform} and {@code gradle/libs.versions.toml} are two copies of one fact, and this is
- * what makes the second one fail loudly.
+ * Holds {@link Platform} and {@code gradle/libs.versions.toml} and the other mirrors to the same versions.
  *
- * <h2>What each half is for</h2>
- * The catalog is what the modules <em>compile</em> against; {@link Platform} is what steward-worker
- * <em>installs</em> and what {@code compose.yml} names. Nothing else compares them, and the way
- * they part company is silent in both directions: a catalog bumped on its own gives a network
- * running one Minecraft version and plugins built for another, and a constant bumped on its own
- * gives a worker fetching a Paper the plugins were never compiled for. Either way the first
- * symptom is a plugin that does not load, on a server, in front of players.
- *
- * <p>The file is at the repository root and in no source set, so {@code common/build.gradle.kts}
- * declares it through {@code repositoryRootTestInputs}. Without that Gradle cannot see it, an edit
- * to the catalog leaves {@code :common:test} UP-TO-DATE, and the one check that would have caught
- * the drift is the one that does not run.</p>
+ * The catalog is what modules compile against and {@link Platform} is what the worker installs. The mirrors
+ * are declared through {@code repositoryRootTestInputs}, without which this test would stay up to date.
  */
 class PlatformTest {
 
@@ -41,11 +29,8 @@ class PlatformTest {
     }
 
     @Test
-    @DisplayName("MINECRAFT is the version the paper-api coordinate is built from")
-    void theMinecraftVersionIsTheOneTheModulesCompileAgainst() {
-        // The catalog spells it 26.2.build.121-stable: Paper dropped -R0.1-SNAPSHOT with the 26.x
-        // scheme and puts the build in the coordinate instead. Only the part in front of `.build.`
-        // is a Minecraft version - and it is the only part Fill and Modrinth understand.
+    void minecraftIsTheVersionThePaperApiCoordinateIsBuiltFrom() {
+        // Only the part in front of `.build.` is a Minecraft version, and the only part Fill and Modrinth understand.
         final String paper = version("paper");
         final int build = paper.indexOf(".build.");
         assertTrue(
@@ -63,10 +48,8 @@ class PlatformTest {
     }
 
     @Test
-    @DisplayName("VELOCITY_API is the velocity-api the proxy is compiled against")
-    void theVelocityApiVersionIsTheOneTheProxyCompilesAgainst() {
-        // This is the number the update report compares a resolved Velocity version against, and it
-        // is only worth anything if it is the version the proxy plugin was actually built with.
+    void velocityApiIsTheVelocityApiTheProxyIsCompiledAgainst() {
+        // The update report compares against this, so it must be the version the proxy plugin is built with.
         assertEquals(
                 version("velocity"),
                 Platform.VELOCITY_API,
@@ -76,12 +59,8 @@ class PlatformTest {
     }
 
     @Test
-    @DisplayName("the catalog's Velocity falls inside the family steward-worker follows")
-    void theCatalogVersionIsAMemberOfTheFamily() {
-        // VELOCITY_FAMILY is Fill's key for a major, not a version - `4.0.0` is what it calls the
-        // whole 4.x line. What has to hold is that the line the worker follows is the line the
-        // proxy is compiled for: following major 5 while compiling against 4.2.0 is not a warning
-        // in a report, it is a proxy that does not start.
+    void theCatalogsVelocityFallsInsideTheFamilyStewardWorkerFollows() {
+        // VELOCITY_FAMILY names a major line, which must be the line the proxy is compiled for.
         assertEquals(
                 major(Platform.VELOCITY_API),
                 major(Platform.VELOCITY_FAMILY),
@@ -97,12 +76,8 @@ class PlatformTest {
 
     /** One {@code name = "value"} out of the catalog's {@code [versions]} table. */
     @Test
-    @DisplayName("PACK_FORMAT is the number the shipped pack.mcmeta carries")
-    void thePackFormatIsTheOneTheClientIsSent() throws IOException {
-        // Parsed out of the real file rather than compared against a copy. The failure this
-        // protects against is quiet by construction: a client accepts a pack whose format is behind
-        // and only warns, so the way it surfaces is a season running on art nobody noticed was for
-        // an older version.
+    void packFormatIsTheNumberTheShippedPackMcmetaCarries() throws IOException {
+        // A client accepts an older pack format with only a warning, so drift would go unnoticed.
         final String mcmeta =
                 Files.readString(repositoryRoot().resolve("resource-pack/src/pack.mcmeta"), StandardCharsets.UTF_8);
         final Matcher format = Pattern.compile("\"pack_format\"\\s*:\\s*(\\d+)").matcher(mcmeta);
@@ -116,12 +91,8 @@ class PlatformTest {
     }
 
     @Test
-    @DisplayName("all three Paper descriptors declare API_VERSION, and it is MINECRAFT")
-    void everyPaperPluginDeclaresTheSameApiVersion() throws IOException {
-        // Three files, one fact. A descriptor left behind is not a build failure and not a startup
-        // failure - Paper accepts an older api-version and quietly applies the compatibility
-        // behaviour that goes with it, which is the kind of difference that shows up as one server
-        // behaving unlike the other two.
+    void allThreePaperDescriptorsDeclareApiVersionAndItIsMinecraft() throws IOException {
+        // Paper accepts an older api-version silently and applies its compatibility behaviour.
         for (final String module : new String[] {"smp", "limbo", "hunger-games"}) {
             final Path descriptor = repositoryRoot().resolve(module + "/src/main/resources/paper-plugin.yml");
             final Matcher declared = Pattern.compile("(?m)^api-version:\\s*[\"']?([^\"'\\s]+)[\"']?$")

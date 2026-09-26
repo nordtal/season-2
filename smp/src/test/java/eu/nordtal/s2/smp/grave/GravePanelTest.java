@@ -48,7 +48,7 @@ class GravePanelTest {
     void theSlabIsExactlyTheContentRows() {
         for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
             final Run slab =
-                    PanelWalk.find(PanelWalk.runs(surface(rows)), Glyphs.FONT_GUI, Glyphs.GUI_GRAVE_SLAB[rows - 1]);
+                    PanelWalk.find(PanelWalk.runs(surface(rows)), Glyphs.FONT_GUI, Glyphs.GUI_GRAVE_SLAB.get(rows - 1));
             final BufferedImage art = PanelWalk.image("grave_slab_" + rows + ".png");
 
             assertEquals(
@@ -166,7 +166,7 @@ class GravePanelTest {
     @DisplayName("the take-all button sits on the cells that carry its click")
     void theButtonIsItsSlots() {
         for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
-            final String font = Glyphs.FONT_GUI_ROWS[GravePanel.footerRow(rows)];
+            final String font = Glyphs.FONT_GUI_ROWS.get(GravePanel.footerRow(rows));
             final Run plate = PanelWalk.find(PanelWalk.runs(surface(rows)), font, Glyphs.GUI_ROW_BUTTON_TAKE);
             final List<Integer> slots = GravePanel.takeAllSlots(rows);
             assertEquals(SlotGeometry.x(SlotGeometry.column(slots.get(0))) + GravePanel.INSET, plate.x());
@@ -182,7 +182,7 @@ class GravePanelTest {
         final Component title = GravePanel.title(
                 Component.text("Grave"), 3, "+999999999 XP and a great deal more text than that", "Take all");
         for (final Run run : PanelWalk.textRuns(
-                PanelWalk.runs(PanelWalk.surface(title)), Glyphs.FONT_GUI_ROWS[GravePanel.footerRow(3)])) {
+                PanelWalk.runs(PanelWalk.surface(title)), Glyphs.FONT_GUI_ROWS.get(GravePanel.footerRow(3)))) {
             if (run.x() < GravePanel.TAKE_X) {
                 assertTrue(run.end() <= GravePanel.TAKE_X, "'" + run.content() + "' runs under the take-all button");
             }
@@ -194,7 +194,7 @@ class GravePanelTest {
     void anEmptyExperienceLineDrawsNothing() {
         final List<Run> runs =
                 PanelWalk.runs(PanelWalk.surface(GravePanel.title(Component.text("Grave"), 2, "", "Take all")));
-        final List<Run> text = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS[2]);
+        final List<Run> text = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(2));
         assertEquals(
                 1,
                 text.size(),

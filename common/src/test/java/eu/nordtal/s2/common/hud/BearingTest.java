@@ -20,15 +20,13 @@ class BearingTest {
 
     @Test
     void targetToTheRightOfFacingIsAQuarterTurn() {
-        // Facing south (yaw 0), target due west (-X) is 90 degrees clockwise from south in
-        // Minecraft's yaw convention -> index 4 (90 / 22.5).
+        // Facing south (yaw 0), due west is 90 degrees clockwise, so index 4.
         assertEquals(4, Bearing.arrowIndex(0, 0, 0, -10, 0));
     }
 
     @Test
     void playerYawIsSubtractedFromTheBearing() {
-        // Facing east (yaw -90 in this convention... verified relatively): rotate the player's own
-        // facing by 90 and the target by the same amount, the arrow index must be unchanged.
+        // Rotating the player's facing and the target by the same amount leaves the index unchanged.
         final int base = Bearing.arrowIndex(0, 0, 0, 0, 10);
         final int rotated = Bearing.arrowIndex(0, 0, 90, -10, 0);
         assertEquals(base, rotated);

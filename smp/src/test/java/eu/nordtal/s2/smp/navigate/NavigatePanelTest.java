@@ -56,7 +56,7 @@ class NavigatePanelTest {
                 "the panel has to start on the window's left edge");
 
         for (int row = 0; row < THREE.size(); row++) {
-            final String font = Glyphs.FONT_GUI_ROWS[row];
+            final String font = Glyphs.FONT_GUI_ROWS.get(row);
             assertEquals(
                     NavigatePanel.PILL_X,
                     PanelWalk.find(runs, font, Glyphs.GUI_ROW_PILL).x(),
@@ -94,12 +94,12 @@ class NavigatePanelTest {
                 .toList();
 
         assertEquals(1, frames.size(), "exactly one entry is the one being navigated to");
-        assertEquals(Glyphs.FONT_GUI_ROWS[1], frames.get(0).font(), "the second entry is the active one");
+        assertEquals(Glyphs.FONT_GUI_ROWS.get(1), frames.get(0).font(), "the second entry is the active one");
         assertEquals(NavigatePanel.PILL_X, frames.get(0).x());
 
         final int frameAt = runs.indexOf(frames.get(0));
         final int lastOfRow = runs.stream()
-                .filter(run -> run.font().equals(Glyphs.FONT_GUI_ROWS[1]))
+                .filter(run -> run.font().equals(Glyphs.FONT_GUI_ROWS.get(1)))
                 .mapToInt(runs::indexOf)
                 .max()
                 .orElseThrow();
@@ -125,7 +125,7 @@ class NavigatePanelTest {
     @DisplayName("every control's plate sits inside the slot cell that carries its click")
     void theControlsSitOnTheirSlots() {
         final List<Run> runs = PanelWalk.runs(surface(THREE, true, true));
-        final String font = Glyphs.FONT_GUI_ROWS[NavigatePanel.CONTROL_ROW];
+        final String font = Glyphs.FONT_GUI_ROWS.get(NavigatePanel.CONTROL_ROW);
 
         final Run stop = PanelWalk.find(runs, font, Glyphs.GUI_ROW_BUTTON_WIDE);
         assertEquals(
@@ -154,7 +154,7 @@ class NavigatePanelTest {
     @DisplayName("a page button with no page behind it is drawn greyed rather than left off")
     void aDeadPageButtonIsStillDrawn() {
         final List<Run> runs = PanelWalk.runs(surface(THREE, false, false));
-        final String font = Glyphs.FONT_GUI_ROWS[NavigatePanel.CONTROL_ROW];
+        final String font = Glyphs.FONT_GUI_ROWS.get(NavigatePanel.CONTROL_ROW);
         assertEquals(
                 2,
                 runs.stream()

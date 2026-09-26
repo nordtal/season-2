@@ -11,19 +11,14 @@ import org.bukkit.scheduler.BukkitTask;
 /**
  * Follows an update request on a Paper server and prints its answer when it lands.
  *
- * <h2>Who this reaches, and who it does not</h2>
- * The Paper console, and nobody else. Velocity executes every command it knows itself and never
- * hands it to a backend, and since 2026-09-08 the proxy knows {@code /update} - so a <em>player</em>
- * who types it is answered by the proxy's own watcher, and this class is what a person at
- * {@code docker exec ... mc} gets. Until the same day the three Paper watchers were believed to be
- * the player's path, and the proxy drew nothing: every admin in the network got the acknowledgement
- * and never the answer.
+ * Reaches the Paper console and nobody else: Velocity executes {@code /update} itself and never
+ * hands it to a backend, so this is what a person at {@code docker exec ... mc} gets, while a
+ * player typing it is answered by the proxy's own watcher instead.
  *
- * <h2>What is left of this class, and why</h2>
- * A Bukkit timer. What to say, when a row is finished, gone or overdue, and how much of a report
- * fits are {@link UpdateFollower}'s, decided once in {@code :commands} for every chat surface. This
- * class needs a Bukkit scheduler, which is exactly the rule for living here: code belongs in
- * {@code :paper-common} only if it needs a Paper type.
+ * What is left of this class is a Bukkit timer. What to say, when a row is finished, gone or
+ * overdue, and how much of a report fits are {@link UpdateFollower}'s, decided once in
+ * {@code :commands} for every chat surface. This class needs a Bukkit scheduler, which is exactly
+ * the rule for living here: code belongs in {@code :paper-common} only if it needs a Paper type.
  */
 public final class UpdateWatcher {
 

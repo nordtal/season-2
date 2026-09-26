@@ -11,34 +11,32 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * "Type it again" - the confirmation for an irreversible command on a surface that has no buttons.
  *
- * <h2>Why this is here and not in an adapter</h2>
- * Because it holds no platform type at all: a map, a clock and a window. The Paper and Velocity
+ * Here and not in an adapter because it holds no platform type at all: a map, a clock and a window.
+ * The Paper and Velocity
  * adapters both need it, and Discord needs none of it - a button is its confirmation, and the shape
  * of the two has nothing in common beyond the fact that {@link Declaration#irreversible()} is set.
  * That is why the flag is an obligation on adapters rather than something {@code run} checks: this
  * class is one adapter's way of honouring it.
  *
- * <h2>What is keyed, and why it is the whole command</h2>
- * The identity <em>and</em> the exact command line. Keying on the identity alone would let
+ * What is keyed is the identity <em>and</em> the exact command line - the whole command. Keying on
+ * the identity alone would let
  * {@code /phase set MAINTENANCE} confirm a {@code /phase set SMP} typed thirty seconds earlier,
  * which on this particular command is the difference between letting only admins in and
  * disconnecting everybody without access. A confirmation must confirm the thing it was asked about.
  *
- * <h2>The cost on the emergency path, stated because it is real</h2>
- * The proxy's {@code /phase set} is what an admin runs when Discord is down. It used to switch
- * immediately and now takes two invocations, which is a deliberate second or two during an incident;
- * decided by the owner on 2026-09-04, "two-step everywhere". What is bought is that the one command
- * that disconnects every player without active access cannot be run by a mistyped tab completion.
+ * The proxy's {@code /phase set} is what an admin runs when Discord is down. Confirming it costs a
+ * deliberate second or two during an incident: what is bought is that the one command that
+ * disconnects every player without active access cannot be run by a mistyped tab completion.
  */
 public final class Confirmations {
 
     /**
      * How long a pending confirmation stands.
      *
-     * <p>Long enough to read the sentence and type the command again; short enough that walking away
+     * Long enough to read the sentence and type the command again; short enough that walking away
      * from a keyboard does not leave one armed. Not configuration: nothing else in the repository
      * depends on the number, and a value somebody could set to an hour would quietly turn the whole
-     * mechanism into a delay.</p>
+     * mechanism into a delay.
      */
     public static final Duration WINDOW = Duration.ofSeconds(30);
 
@@ -59,9 +57,9 @@ public final class Confirmations {
     /**
      * Ask whether this exact command, from this exact person, was already asked for.
      *
-     * <p><b>Consumes.</b> A confirmed command clears its own entry, so running it a third time asks
+     * <b>Consumes.</b> A confirmed command clears its own entry, so running it a third time asks
      * again rather than going straight through - the window is one confirmation wide, not a period
-     * during which the command is unguarded.</p>
+     * during which the command is unguarded.
      *
      * @param user what was typed, and by whom
      * @param what the full command line, arguments included
@@ -79,11 +77,11 @@ public final class Confirmations {
     /**
      * Remember that this command was asked for, without answering anything.
      *
-     * <p>For a surface whose confirmation is a <b>different command</b> rather than the same one
+     * For a surface whose confirmation is a <b>different command</b> rather than the same one
      * again - {@code /hg start} warns and {@code /hg start confirm} goes through. Those two cannot
      * use {@link #confirm} on the second step, because it arms on a miss: a bare
      * {@code /hg start confirm} typed twice would then arm itself and go through on the second
-     * attempt, having never shown the warning it exists for.</p>
+     * attempt, having never shown the warning it exists for.
      */
     public void arm(final NordtalUser user, final String what) {
         final Instant now = clock.instant();
@@ -92,8 +90,9 @@ public final class Confirmations {
     }
 
     /**
-     * Was this command armed, and is the window still open? <b>Consumes either way, and never
-     * arms.</b>
+     * Was this command armed, and is the window still open?
+     *
+     * <b>Consumes either way, and never arms.</b>
      *
      * @return {@code true} when a live confirmation was waiting - and only then
      */
@@ -127,9 +126,9 @@ public final class Confirmations {
     /**
      * Whoever this is, as one string.
      *
-     * <p>The Minecraft account first, because that is the identity a game surface always has and the
+     * The Minecraft account first, because that is the identity a game surface always has and the
      * one an admin is typing under. The console has neither identity and falls back to its name,
-     * which is enough: there is one console per process.</p>
+     * which is enough: there is one console per process.
      */
     private static String identityOf(final NordtalUser user) {
         return user.minecraftUuid().map(UUID::toString).or(user::discordId).orElseGet(() -> "console:" + user.name());
@@ -138,8 +137,8 @@ public final class Confirmations {
     /**
      * Drops what has timed out.
      *
-     * <p>On every call rather than on a timer: the map only ever holds admins mid-command, so it is
-     * a handful of entries, and a timer would be a thread for a map that is usually empty.</p>
+     * On every call rather than on a timer: the map only ever holds admins mid-command, so it is
+     * a handful of entries, and a timer would be a thread for a map that is usually empty.
      */
     private void sweep(final Instant now) {
         pending.entrySet().removeIf(entry -> entry.getValue().plus(window).isBefore(now));

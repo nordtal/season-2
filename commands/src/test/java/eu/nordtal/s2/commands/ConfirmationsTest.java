@@ -11,16 +11,15 @@ import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The "type it again" confirmation, driven by a settable clock rather than by sleeping.
  *
- * <p>Every case here is about a way the mechanism could look like it works and not: confirming a
+ * Every case here is about a way the mechanism could look like it works and not: confirming a
  * different command, confirming somebody else's, confirming twice, or confirming after the window
  * has passed. None of them is visible from the class's own source, and the command it guards is the
- * one that disconnects every player without access.</p>
+ * one that disconnects every player without access.
  */
 class ConfirmationsTest {
 
@@ -48,17 +47,14 @@ class ConfirmationsTest {
     private static final NordtalUser SOMEBODY_ELSE = user("99999999-8888-7777-6666-555555555555");
 
     @Test
-    @DisplayName("the first ask is not a confirmation; the second one is")
-    void twoInvocations() {
+    void theFirstAskIsNotAConfirmationTheSecondOneIs() {
         assertFalse(confirmations.confirm(TILL, "/phase set SMP"));
         assertTrue(confirmations.confirm(TILL, "/phase set SMP"));
     }
 
     @Test
-    @DisplayName("a confirmation is consumed, so the third invocation asks again")
-    void confirmingDoesNotDisarmTheCommand() {
-        // Otherwise the window would be a period during which the command is unguarded rather than
-        // one confirmation wide.
+    void aConfirmationIsConsumedSoTheThirdInvocationAsksAgain() {
+        // Otherwise the window would be a period during which the command is unguarded rather than one confirmation.
         confirmations.confirm(TILL, "/phase set SMP");
         assertTrue(confirmations.confirm(TILL, "/phase set SMP"));
         assertFalse(
@@ -67,11 +63,8 @@ class ConfirmationsTest {
     }
 
     @Test
-    @DisplayName("a pending confirmation confirms only the command it was asked about")
-    void theArgumentsArePartOfTheKey() {
-        // The case this exists for: /phase set MAINTENANCE lets only admins in, /phase set SMP
-        // disconnects everybody without access. Keying on the person alone would let the second one
-        // ride the first one's confirmation.
+    void aPendingConfirmationConfirmsOnlyTheCommandItWasAskedAbout() {
+        // The case this exists for: /phase set MAINTENANCE lets only admins in.
         assertFalse(confirmations.confirm(TILL, "/phase set MAINTENANCE"));
         assertFalse(
                 confirmations.confirm(TILL, "/phase set SMP"),
@@ -80,16 +73,14 @@ class ConfirmationsTest {
     }
 
     @Test
-    @DisplayName("one admin cannot confirm another admin's command")
-    void confirmationsAreNotShared() {
+    void oneAdminCannotConfirmAnotherAdminsCommand() {
         assertFalse(confirmations.confirm(TILL, "/phase set SMP"));
         assertFalse(confirmations.confirm(SOMEBODY_ELSE, "/phase set SMP"));
         assertTrue(confirmations.confirm(TILL, "/phase set SMP"));
     }
 
     @Test
-    @DisplayName("a confirmation that arrives after the window is a fresh ask, not a switch")
-    void theWindowIsEnforced() {
+    void aConfirmationThatArrivesAfterTheWindowIsAFreshAskNotASwitch() {
         assertFalse(confirmations.confirm(TILL, "/phase set SMP"));
         now = now.plusSeconds(31);
         assertFalse(
@@ -99,16 +90,14 @@ class ConfirmationsTest {
     }
 
     @Test
-    @DisplayName("confirming on the last second of the window still works")
-    void theBoundaryIsInclusive() {
+    void confirmingOnTheLastSecondOfTheWindowStillWorks() {
         assertFalse(confirmations.confirm(TILL, "/phase set SMP"));
         now = now.plusSeconds(30);
         assertTrue(confirmations.confirm(TILL, "/phase set SMP"));
     }
 
     @Test
-    @DisplayName("expired entries are dropped rather than accumulating for the life of the process")
-    void nothingIsKeptForever() {
+    void expiredEntriesAreDroppedRatherThanAccumulatingForTheLifeOfTheProcess() {
         confirmations.confirm(TILL, "/phase set SMP");
         confirmations.confirm(TILL, "/phase launch 2026-10-01 18:00");
         assertEquals(2, confirmations.size());
@@ -119,20 +108,15 @@ class ConfirmationsTest {
     }
 
     @Test
-    @DisplayName("cancelling forgets the pending confirmation")
-    void forgettingWorks() {
+    void cancellingForgetsThePendingConfirmation() {
         confirmations.confirm(TILL, "/phase set SMP");
         confirmations.forget(TILL, "/phase set SMP");
         assertFalse(confirmations.confirm(TILL, "/phase set SMP"));
     }
 
     @Test
-    @DisplayName("consume never arms, so the second step of a two-command flow cannot arm itself")
-    void consumeIsCheckOnly() {
-        // The bug this method exists to make impossible: /hg start warns and /hg start confirm goes
-        // through, so the second step cannot use confirm() - that arms on a miss, and a bare
-        // /hg start confirm typed twice would then start a game below the recommended minimum
-        // having never shown the warning.
+    void consumeNeverArmsSoTheSecondStepOfATwoCommandFlowCannotArmItself() {
+        // The bug this method exists to make impossible: /hg start warns and /hg start confirm goes through.
         assertFalse(confirmations.consume(TILL, "/hg start"));
         assertFalse(
                 confirmations.consume(TILL, "/hg start"),
@@ -141,8 +125,7 @@ class ConfirmationsTest {
     }
 
     @Test
-    @DisplayName("arm then consume is the two-command flow, and consuming twice does not repeat")
-    void armAndConsume() {
+    void armThenConsumeIsTheTwoCommandFlowAndConsumingTwiceDoesNotRepeat() {
         confirmations.arm(TILL, "/hg start");
         assertTrue(confirmations.consume(TILL, "/hg start"));
         assertFalse(
@@ -151,16 +134,14 @@ class ConfirmationsTest {
     }
 
     @Test
-    @DisplayName("an armed confirmation expires the same way a retype one does")
-    void armingExpires() {
+    void anArmedConfirmationExpiresTheSameWayARetypeOneDoes() {
         confirmations.arm(TILL, "/hg start");
         now = now.plusSeconds(31);
         assertFalse(confirmations.consume(TILL, "/hg start"));
     }
 
     @Test
-    @DisplayName("the console has no identity of its own and still gets its own key")
-    void theConsoleIsAnIdentityToo() {
+    void theConsoleHasNoIdentityOfItsOwnAndStillGetsItsOwnKey() {
         final NordtalUser console = new StubUser(null, null, "console");
         assertFalse(confirmations.confirm(console, "/phase set SMP"));
         assertFalse(

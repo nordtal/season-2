@@ -18,52 +18,18 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The season 2 message system: one map of strings per language, a lookup with named parameters,
- * and English as the fallback for everything.
- * <p>
- * Every user-visible string in season 2 goes through this - bot embeds, DMs, disconnect screens
- * and plugin messages alike. It is deliberately small: {@code java.util.ResourceBundle} was not
- * used because its per-call locale negotiation, its {@code MissingResourceException} and its
- * caching behaviour are all things this needs the opposite of. A missing key must never throw on
- * a login path, and must be reported once rather than once per player per second.
- * </p>
+ * Looks up every user-visible string of season 2 by language and key, with English as fallback.
  *
- * <h2>Bundle format</h2>
- * One {@code .properties} file per language on the classpath, read as <b>UTF-8</b>:
- * <pre>
- * messages/access/en.properties
- * messages/access/de.properties
- * </pre>
- * Keys are dotted and lowercase ({@code disconnect.not-linked}). Parameters are named and written
- * in braces:
- * <pre>
- * disconnect.expired=Your access ran out on {date}. Buy more in #{channel}.
- * </pre>
- *
- * <h2>Fallback</h2>
- * Language match, then English, then the key itself. The key is returned rather than an empty
- * string or an exception so that a missing translation shows up on screen as
- * {@code disconnect.expired} - visible, reportable, and harmless.
- *
- * <h2>The operator's override</h2>
- * The bundle in the jar is the default and the place a wording change belongs - it is in the
- * repository, it is reviewable, and it ships to every deployment at once. On top of it a module may
- * name a directory on disk, {@code plugins/<name>/messages/}, whose {@code <lang>.properties} files
- * are merged <b>key by key</b>.
- *
- * <p><b>Key by key, not file by file</b>, and that is the whole design. A whole-file override
- * freezes the wording at the day it was copied: every key added by a later release is missing from
- * it, and what the player sees is the literal key. Merging per key means an override file holds
- * only the lines somebody actually wanted to change, and everything else keeps following the jar.
- * The cost is that a typo'd key in an override does nothing at all rather than failing - so
- * {@link #unknownOverrideKeys()} reports the ones no bundle declares, and each module logs them.</p>
- *
- * <p>{@link #reload()} re-reads both layers in place, so a reload command does not have to rewire
- * every holder of this object. The map is replaced wholesale, never mutated.</p>
+ * Bundles are UTF-8 {@code .properties} files per language ({@code messages/access/en.properties}) with
+ * dotted lowercase keys and named parameters in braces. Lookup falls back from the language to English to
+ * the key itself, and never throws. An operator directory {@code plugins/<name>/messages/} is merged over
+ * the packaged bundle key by key, so an override holds only the changed lines; keys no bundle declares are
+ * reported by {@link #unknownOverrideKeys()}. {@link #reload()} replaces the map wholesale, in place.
  */
 public final class Messages {
 
@@ -74,13 +40,9 @@ public final class Messages {
     private final List<Locale> locales;
 
     /** The operator's override directory, or {@code null} when this bundle has none. */
-    private final Path overrides;
+    private final @Nullable Path overrides;
 
-    /**
-     * language tag -> key -> template. Replaced wholesale by {@link #reload()}, never mutated -
-     * volatile because a reload runs on whatever thread the command came in on and every other
-     * thread reading a message has to see the new map or the old one, not half of each.
-     */
+    /** Language tag to key to template; volatile because {@link #reload()} swaps it from any thread. */
     private volatile Map<String, Map<String, String>> byLanguage;
 
     /** Override keys no bundle declares. Replaced with the map above. */
@@ -90,7 +52,10 @@ public final class Messages {
     private final Set<String> reportedMissing = ConcurrentHashMap.newKeySet();
 
     private Messages(
-            final List<String> roots, final ClassLoader classLoader, final Path overrides, final List<Locale> locales) {
+            final List<String> roots,
+            final ClassLoader classLoader,
+            final @Nullable Path overrides,
+            final List<Locale> locales) {
         this.roots = roots;
         this.classLoader = classLoader;
         this.overrides = overrides;
@@ -130,9 +95,9 @@ public final class Messages {
     /**
      * Loads a bundle from a class loader and merges an operator's override directory over it.
      *
-     * <p>The directory is created if it is not there, together with a {@code README.txt} that says
+     * The directory is created if it is not there, together with a {@code README.txt} that says
      * what belongs in it - an empty folder in a data directory teaches nobody anything, and this is
-     * the only place an operator would look for the mechanism.</p>
+     * the only place an operator would look for the mechanism.
      *
      * @param classLoader the loader to read the packaged bundle from
      * @param root        the resource directory, e.g. {@code messages/smp}
@@ -143,35 +108,26 @@ public final class Messages {
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
     public static Messages load(
-            final ClassLoader classLoader, final String root, final Path overrides, final Locale... locales) {
+            final ClassLoader classLoader, final String root, final @Nullable Path overrides, final Locale... locales) {
         return load(classLoader, List.of(Objects.requireNonNull(root, "root")), overrides, locales);
     }
 
     /**
-     * Loads several bundles as one, layered in the order given, and merges the operator's override
-     * directory over all of them.
+     * Loads several bundles as one, layered in the order given, with the override directory on top.
      *
-     * <h2>What this is for, and it is exactly one thing</h2>
-     * A command declared in {@code :commands} and adapted on two surfaces has to say the same
-     * sentence on both, so its keys belong to the command rather than to either process. They ship
-     * in {@code :commands}' own bundle, and a process loads that <em>plus</em> its own. Before
-     * 2026-09-04 the alternative was a copy of every shared key in every process's bundle, which is
-     * the same two-sources-of-truth this repository keeps writing findings about.
+     * Later roots win, so the shared {@code :commands} bundle goes first and a process can reword a line.
      *
-     * <p><b>Later roots win.</b> That makes a process able to reword a shared line for its own
-     * surface without editing the shared bundle - and it is also the reason the shared root goes
-     * first in every call: a process's own key of the same name is the more specific one.</p>
-     *
-     * @param classLoader the loader to read the packaged bundles from
-     * @param roots       the resource directories, least specific first, at least one
-     * @param overrides   {@code plugins/<name>/messages}, or {@code null} for no override layer
-     * @param locales     the languages to load; English is always loaded
-     * @return the loaded bundle
+     * @param roots     the resource directories, least specific first, at least one
+     * @param overrides {@code plugins/<name>/messages}, or {@code null} for no override layer
+     * @param locales   the languages to load; English is always loaded
      * @throws IllegalStateException if no root supplies English
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
     public static Messages load(
-            final ClassLoader classLoader, final List<String> roots, final Path overrides, final Locale... locales) {
+            final ClassLoader classLoader,
+            final List<String> roots,
+            final @Nullable Path overrides,
+            final Locale... locales) {
         Objects.requireNonNull(classLoader, "classLoader");
         Objects.requireNonNull(roots, "roots");
         if (roots.isEmpty()) {
@@ -191,9 +147,9 @@ public final class Messages {
     /**
      * Re-reads the packaged bundle and the override directory, and swaps the result in.
      *
-     * <p>Every holder of this object keeps working against the same reference, which is the point:
+     * Every holder of this object keeps working against the same reference, which is the point:
      * a {@code Messages} is handed to listeners, HUD renderers and commands at startup, and a
-     * reload that produced a new instance would reach none of them.</p>
+     * reload that produced a new instance would reach none of them.
      *
      * @throws IllegalStateException if English is in neither layer
      * @throws UncheckedIOException  if a file exists but cannot be read
@@ -202,36 +158,10 @@ public final class Messages {
         final Map<String, Map<String, String>> loaded = new LinkedHashMap<>();
         final Set<String> unknown = new java.util.TreeSet<>();
 
-        // Every packaged key of every language, read before any override is judged. An override is
-        // "unknown" when NO packaged bundle declares the key - not when the bundle of its own
-        // language does not. German is allowed to override a key English declares and German
-        // inherits: the merge below stores it, get(GERMAN, key) returns the operator's text, and it
-        // works. Seeding the question from one language reported exactly that working override as a
-        // typo, which is worse than saying nothing - the operator is told to check the spelling of
-        // a line they can see taking effect. Found by review, 2026-09-04.
+        final Map<String, Map<String, String>> packagedByLanguage = readPackaged();
+        // An override is unknown only when no language declares the key; German may override an English-only key.
         final Set<String> declaredAnywhere = new java.util.HashSet<>();
-        final Map<String, Map<String, String>> packagedByLanguage = new LinkedHashMap<>();
-        for (final Locale locale : locales) {
-            final String language = Locales.tag(locale);
-            // Layered least-specific first, so a process's own key of the same name wins over
-            // the shared one it inherits from :commands.
-            Map<String, String> packaged = null;
-            for (final String root : roots) {
-                final Map<String, String> fromRoot = read(classLoader, root, language);
-                if (fromRoot == null) {
-                    continue;
-                }
-                if (packaged == null) {
-                    packaged = new HashMap<>(fromRoot);
-                } else {
-                    packaged.putAll(fromRoot);
-                }
-            }
-            if (packaged != null) {
-                packagedByLanguage.put(language, packaged);
-                declaredAnywhere.addAll(packaged.keySet());
-            }
-        }
+        packagedByLanguage.values().forEach(packaged -> declaredAnywhere.addAll(packaged.keySet()));
 
         for (final Locale locale : locales) {
             final String language = Locales.tag(locale);
@@ -255,8 +185,7 @@ public final class Messages {
             if (operator != null) {
                 operator.forEach((key, value) -> {
                     merged.put(key, value);
-                    // An override for a key NO bundle declares is a typo, and a silent one: the
-                    // entry is stored and never looked up. Collected here so the module can log it.
+                    // An override for a key no bundle declares is a silent typo; collected so the module can log it.
                     if (!declaredAnywhere.contains(key)) {
                         unknown.add(language + "/" + key);
                     }
@@ -269,6 +198,31 @@ public final class Messages {
         unknownOverrideKeys = Set.copyOf(unknown);
         // A key that was missing before a reload may exist after one; keep reporting honest.
         reportedMissing.clear();
+    }
+
+    /** Reads every packaged bundle per language, layering the roots least specific first. */
+    private Map<String, Map<String, String>> readPackaged() {
+        final Map<String, Map<String, String>> packagedByLanguage = new LinkedHashMap<>();
+        for (final Locale locale : locales) {
+            final String language = Locales.tag(locale);
+            // Least specific first, so a process's own key wins over the one it inherits from :commands.
+            Map<String, String> packaged = null;
+            for (final String root : roots) {
+                final Map<String, String> fromRoot = read(classLoader, root, language);
+                if (fromRoot == null) {
+                    continue;
+                }
+                if (packaged == null) {
+                    packaged = new HashMap<>(fromRoot);
+                } else {
+                    packaged.putAll(fromRoot);
+                }
+            }
+            if (packaged != null) {
+                packagedByLanguage.put(language, packaged);
+            }
+        }
+        return packagedByLanguage;
     }
 
     /**
@@ -320,7 +274,7 @@ public final class Messages {
     }
 
     /** Reads {@code <overrides>/<language>.properties}, or {@code null} if there is none. */
-    private static Map<String, String> readOverride(final Path overrides, final String language) {
+    private static @Nullable Map<String, String> readOverride(final @Nullable Path overrides, final String language) {
         if (overrides == null) {
             return null;
         }
@@ -350,15 +304,15 @@ public final class Messages {
         return List.copyOf(unique.values());
     }
 
-    private static Map<String, String> read(final ClassLoader classLoader, final String root, final String language) {
+    private static @Nullable Map<String, String> read(
+            final ClassLoader classLoader, final String root, final String language) {
         final String resource = root + "/" + language + ".properties";
         try (InputStream stream = classLoader.getResourceAsStream(resource)) {
             if (stream == null) {
                 return null;
             }
 
-            // Read as UTF-8 explicitly. Properties.load(InputStream) is ISO-8859-1 and would turn
-            // every umlaut in the German bundle into mojibake.
+            // Properties.load(InputStream) is ISO-8859-1 and would garble every umlaut.
             final Properties properties = new Properties();
             properties.load(new InputStreamReader(stream, StandardCharsets.UTF_8));
 
@@ -427,12 +381,11 @@ public final class Messages {
 
     /**
      * Looks a key up and substitutes named parameters written as <code>{name}</code>.
-     * <p>
+     *
      * Substitution is a single left-to-right pass over the template, so a value that itself
      * contains braces is never re-scanned - a player name of <code>{name}</code> cannot expand
      * into anything. A placeholder with no matching parameter is left in the text rather than
      * blanked, so it is visible in a screenshot.
-     * </p>
      *
      * @param locale     the language wanted; {@code null} means English
      * @param key        the message key
@@ -473,12 +426,9 @@ public final class Messages {
     }
 
     /**
-     * Renders a message a spec chose, as plain text with its placeholders substituted - a context's
-     * as <code>{role.property}</code>, and the global roles' in every message.
+     * Renders a message a spec chose as plain text, with context and global placeholders substituted.
      *
-     * @param locale  the language wanted; {@code null} means English
-     * @param message the key and its values
-     * @return the formatted message
+     * @param locale the language wanted; {@code null} means English
      */
     public String format(final Locale locale, final MessageRef message) {
         return format(locale, message.key(), Contexts.flatten(message.args()));

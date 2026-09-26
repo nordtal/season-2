@@ -10,7 +10,7 @@ import java.util.Set;
 /**
  * {@code /network reload} - the proxy's one command besides {@code /phase}.
  *
- * <h2>The console is an admin here, and for {@code /phase} it is not</h2>
+ * The console is an admin here, and for {@code /phase} it is not.
  * {@code /phase} requires a player because it takes a decision about the season and the audit row
  * records who took it. A reload changes no state anybody can be asked about, and the proxy console
  * is where an operator already is when they have just edited a file on the host. So this one carries
@@ -24,11 +24,8 @@ public final class NetworkCommands {
     /**
      * {@code /network reload} - the wording, and nothing that is wired into a running proxy.
      *
-     * <h2>Console only, 2026-09-15 (ops/18)</h2>
-     * "alles Admin nur noch Konsole und Web" removed {@link Surface#GAME} and {@link
-     * Surface#DISCORD} from this declaration too. The class javadoc above, about the console being
-     * an admin here, is unaffected - it is now the <em>only</em> surface an admin reaches this
-     * through, {@link Surface#CONSOLE} rather than one of three.
+     * Console only: neither {@link Surface#GAME} nor {@link Surface#DISCORD} reaches this
+     * declaration. {@link Surface#CONSOLE} is the only surface an admin reaches it through.
      */
     public static final Declaration RELOAD = new Declaration(
             List.of("network", "reload"), Target.PROXY, Set.of(Surface.CONSOLE), true, false, List.of());

@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The one mapping in {@link Glyphs} that is a decision rather than a constant.
  *
- * <p>A flag beside a name says what to greet somebody in, so getting it wrong is not cosmetic - and
+ * A flag beside a name says what to greet somebody in, so getting it wrong is not cosmetic - and
  * the fallbacks matter more than the hits: an unexpected locale, or one that has not been read yet,
  * has to render as a flag rather than as a missing-glyph box.
  */

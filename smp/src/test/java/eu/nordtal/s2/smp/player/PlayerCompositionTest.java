@@ -108,7 +108,7 @@ class PlayerCompositionTest {
         assertTrue(line.contains("Till"), "the name");
         assertTrue(line.contains(Glyphs.TAG_ADMIN), "the admin letter");
         assertTrue(line.contains(Glyphs.BADGE_DONOR_STAR), "the donor star");
-        assertTrue(line.contains(Glyphs.PRESTIGE_CRESTS[0]), "the crest");
+        assertTrue(line.contains(Glyphs.PRESTIGE_CRESTS.get(0)), "the crest");
         assertTrue(line.contains("42"), "the aura");
     }
 
@@ -119,7 +119,7 @@ class PlayerCompositionTest {
 
         assertTrue(tag.contains(Glyphs.FLAG_GERMANY));
         assertTrue(tag.contains("Till"));
-        assertTrue(tag.contains(Glyphs.PRESTIGE_CRESTS[0]));
+        assertTrue(tag.contains(Glyphs.PRESTIGE_CRESTS.get(0)));
         assertFalse(
                 tag.contains("42"), "aura on a nametag is a packet to everyone in range on every death and hand-in");
     }
@@ -131,7 +131,7 @@ class PlayerCompositionTest {
 
         assertTrue(prefix.contains(Glyphs.FLAG_GERMANY));
         assertTrue(prefix.contains("Till"));
-        assertTrue(prefix.contains(Glyphs.PRESTIGE_CRESTS[0]));
+        assertTrue(prefix.contains(Glyphs.PRESTIGE_CRESTS.get(0)));
         assertFalse(prefix.contains(Glyphs.TAG_ADMIN), "chat is not where authority is announced");
         assertFalse(prefix.contains("42"));
     }
@@ -151,12 +151,12 @@ class PlayerCompositionTest {
     @Test
     void everybodyHasACrestAndItRisesWithTime() {
         final String fresh = plain(composition.nameTag("Till", ordinary()));
-        assertTrue(fresh.contains(Glyphs.PRESTIGE_CRESTS[0]));
+        assertTrue(fresh.contains(Glyphs.PRESTIGE_CRESTS.get(0)));
 
         final long manyHours = Prestige.defaults().secondsFor(Prestige.TIER_COUNT);
         final Identity veteran = new Identity(Locale.GERMAN, false, false, 0, manyHours);
         assertTrue(
-                plain(composition.nameTag("Till", veteran)).contains(Glyphs.PRESTIGE_CRESTS[Prestige.TIER_COUNT - 1]));
+                plain(composition.nameTag("Till", veteran)).contains(Glyphs.PRESTIGE_CRESTS.get(Prestige.TIER_COUNT - 1)));
     }
 
     @Test

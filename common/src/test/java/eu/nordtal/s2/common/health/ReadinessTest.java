@@ -13,64 +13,55 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The freshness rule, driven by explicit timestamps.
  *
- * <p>Not one case here sleeps. The whole reason {@link Readiness#fresh(Instant, Instant, Duration)}
+ * Not one case here sleeps. The whole reason {@link Readiness#fresh(Instant, Instant, Duration)}
  * takes both instants is that a heartbeat test which waits for real time to pass is a test that is
- * either slow or flaky, and usually both - and the arithmetic is the half that can be wrong.</p>
+ * either slow or flaky, and usually both - and the arithmetic is the half that can be wrong.
  */
 class ReadinessTest {
 
     private static final Instant BEAT = Instant.parse("2026-09-04T12:00:00Z");
 
     @Test
-    @DisplayName("a marker written a moment ago is fresh")
-    void aRecentBeatIsFresh() {
+    void aMarkerWrittenAMomentAgoIsFresh() {
         assertTrue(Readiness.fresh(BEAT, BEAT, Readiness.STALE_AFTER));
         assertTrue(Readiness.fresh(BEAT, BEAT.plusSeconds(29), Readiness.STALE_AFTER));
         assertTrue(Readiness.fresh(BEAT, BEAT.plusSeconds(89), Readiness.STALE_AFTER));
     }
 
     @Test
-    @DisplayName("the window closes exactly where compose.yml's `-lt 90` closes it")
-    void theBoundaryMatchesTheShell() {
-        // compose.yml cannot read STALE_AFTER - it is a shell test inside a YAML file - so the two
-        // are two copies of one number, and the boundary is the part that drifts silently. An age of
-        // exactly 90 is stale in `test ... -lt 90`, and it has to be stale here too.
+    void theWindowClosesExactlyWhereComposeYmlsLt90ClosesIt() {
+        // compose.yml holds a copy of this boundary: an age of exactly 90 is stale in `test ... -lt 90`.
         assertTrue(Readiness.fresh(BEAT, BEAT.plusMillis(89_999), Readiness.STALE_AFTER));
         assertFalse(Readiness.fresh(BEAT, BEAT.plusSeconds(90), Readiness.STALE_AFTER));
         assertFalse(Readiness.fresh(BEAT, BEAT.plusSeconds(91), Readiness.STALE_AFTER));
     }
 
     @Test
-    @DisplayName("three missed beats is what makes a marker stale")
-    void staleAfterIsThreeBeats() {
-        // The two constants are not independent: 90s is 3 x 30s, and a beat interval raised past a
-        // third of the window would make a perfectly healthy process flap.
+    void threeMissedBeatsIsWhatMakesAMarkerStale() {
+        // A beat interval above a third of the window would make a healthy process flap.
         assertEquals(
                 3,
                 Readiness.STALE_AFTER.toSeconds() / Readiness.BEAT.toSeconds(),
-                "STALE_AFTER is no longer three beats - a container will now go red on fewer missed"
-                        + " refreshes than the comment in Readiness claims");
+                "STALE_AFTER is not three beats - a container goes red on a different number of"
+                        + " missed refreshes than the comment in Readiness claims");
         assertEquals(0, Readiness.STALE_AFTER.toSeconds() % Readiness.BEAT.toSeconds());
     }
 
     @Test
-    @DisplayName("a marker from the future is fresh, because the shell says so too")
-    void aClockThatJumpedReadsAsFresh() {
-        // `test $(( now - mtime )) -lt 90` is true for a negative age. Answering differently here
-        // would be a second answer to one question, which is worse than being generous.
+    void aMarkerFromTheFutureIsFreshBecauseTheShellSaysSoToo() {
+        // `test $(( now - mtime )) -lt 90` is true for a negative age, so this must be too.
         assertTrue(Readiness.fresh(BEAT, BEAT.minusSeconds(3600), Readiness.STALE_AFTER));
     }
 
     @Test
-    @DisplayName("refresh creates the marker, its parent directory, and moves its modification time")
-    void refreshWritesTheFile(@TempDir final Path directory) throws IOException {
+    void refreshCreatesTheMarkerItsParentDirectoryAndMovesItsModificationTime(@TempDir final Path directory)
+            throws IOException {
         final Path marker = directory.resolve("nested/nordtal-ready");
         final Readiness readiness = new Readiness(marker, complaint -> {
             throw new AssertionError("a working refresh complained: " + complaint);
@@ -79,9 +70,7 @@ class ReadinessTest {
         assertTrue(readiness.refresh());
         assertTrue(Files.isRegularFile(marker), "the marker was not created");
 
-        // The healthcheck reads the modification time and never the content, so a refresh that left
-        // mtime alone would be invisible to the only thing that reads this file. Set it back by hand
-        // rather than sleeping, then refresh again.
+        // The healthcheck reads only the mtime, so it is backdated by hand rather than slept on.
         final FileTime backdated = FileTime.from(Instant.now().minusSeconds(600));
         Files.setLastModifiedTime(marker, backdated);
         assertTrue(readiness.refresh());
@@ -95,8 +84,7 @@ class ReadinessTest {
     }
 
     @Test
-    @DisplayName("a marker that is not there is not fresh, and neither is an old one")
-    void theFileAnswerAgreesWithThePredicate(@TempDir final Path directory) throws IOException {
+    void aMarkerThatIsNotThereIsNotFreshAndNeitherIsAnOldOne(@TempDir final Path directory) throws IOException {
         final Path marker = directory.resolve("nordtal-ready");
         assertFalse(
                 Readiness.fresh(marker, Instant.now(), Readiness.STALE_AFTER),
@@ -113,10 +101,9 @@ class ReadinessTest {
     }
 
     @Test
-    @DisplayName("a marker that cannot be written complains once, and again after a recovery")
-    void aFailedRefreshIsReportedOnce(@TempDir final Path directory) throws IOException {
-        // A file where a directory has to be: createDirectories fails, so every refresh fails. The
-        // point is the count - a complaint twice a minute for ever is a log nobody reads.
+    void aMarkerThatCannotBeWrittenComplainsOnceAndAgainAfterARecovery(@TempDir final Path directory)
+            throws IOException {
+        // A file where a directory has to be makes every refresh fail; it must be logged once.
         final Path blocked = directory.resolve("blocked");
         Files.writeString(blocked, "not a directory\n", StandardCharsets.UTF_8);
 
@@ -136,8 +123,7 @@ class ReadinessTest {
         assertTrue(readiness.refresh());
         assertEquals(1, complaints.size(), "a successful refresh complained: " + complaints);
 
-        // ...and a failure after a recovery is news again, rather than being swallowed by the flag
-        // that silenced the first run of failures.
+        // A failure after a recovery is logged again.
         Files.delete(blocked.resolve("nordtal-ready"));
         Files.delete(blocked);
         Files.writeString(blocked, "not a directory\n", StandardCharsets.UTF_8);

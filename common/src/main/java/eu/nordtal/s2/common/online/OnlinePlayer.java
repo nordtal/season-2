@@ -6,19 +6,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * One row of {@code online_player}, as read back - a player proxy saw connected at
- * {@code updated} (steward/111).
+ * One row of {@code online_player}: a player the proxy saw connected at {@code updated}.
  *
- * <p>The sibling of {@link OnlineCount} and deliberately not a field on it: that record is one
- * subject's number, this is one person. Neither knows whether it is still true - see
- * {@link OnlineRoster} for why {@code updated} travels with the row rather than being judged where
- * it is written.
- *
- * @param uuid    the Minecraft account, the identifier the rest of the schema already uses
  * @param name    the name last seen on the connection; a cached observation, never a key
- * @param subject the compose service this player was on, or {@code null} for a player the proxy had
- *                and no backend did yet - mid-transfer, or between login and the first server. Not
- *                a guess and not "offline": {@link #on()} is how a reader says so out loud
+ * @param subject the compose service the player was on, or {@code null} while no backend has them yet
  * @param updated when the proxy last saw them connected
  */
 public record OnlinePlayer(UUID uuid, String name, String subject, Instant updated) {

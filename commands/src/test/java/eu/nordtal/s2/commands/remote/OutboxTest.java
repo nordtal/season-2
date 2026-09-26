@@ -23,14 +23,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The near end of a travelling command: the wait, and the three ways it can end.
  *
- * <h2>Real timings, shrunk</h2>
- * The scheduler is a real one and the timeout is milliseconds rather than thirty seconds. That is
+ * Real timings, shrunk: the scheduler is a real one and the timeout is milliseconds rather than
+ * thirty seconds. That is
  * deliberate over a fake clock: what this class actually does is reschedule itself, and a fake
  * scheduler would prove that the arithmetic is right while saying nothing about whether the
  * rescheduling terminates. The waits here are bounded by a latch, never by a sleep.
@@ -50,9 +49,13 @@ class OutboxTest {
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final FakeRequests requests = new FakeRequests();
     private final List<String> warnings = new ArrayList<>();
-    private final BiConsumer<String, Throwable> warn = (message, cause) -> warnings.add(message);
+    private final BiConsumer<String, Throwable> warn = this::recordWarning;
 
     private final Outbox outbox = new Outbox(requests, scheduler, Duration.ofMillis(300), Duration.ofMillis(5), warn);
+
+    private void recordWarning(final String message, final Throwable cause) {
+        warnings.add(message);
+    }
 
     @AfterEach
     void stop() throws InterruptedException {
@@ -76,8 +79,7 @@ class OutboxTest {
     }
 
     @Test
-    @DisplayName("the request carries the asker's identity, language and arguments")
-    void whatIsWrittenOntoTheRow() {
+    void theRequestCarriesTheAskersIdentityLanguageAndArguments() {
         final FakeUser user = FakeUser.inDiscord();
         outbox.send(AURA, user, aura(-25));
         until(user, 1);
@@ -92,8 +94,7 @@ class OutboxTest {
     }
 
     @Test
-    @DisplayName("the answer comes back verbatim, because the target already rendered it")
-    void theAnswerIsPrintedNotRendered() {
+    void theAnswerComesBackVerbatimBecauseTheTargetAlreadyRenderedIt() {
         final FakeUser user = FakeUser.inDiscord();
         outbox.send(AURA, user, aura(10));
         until(user, 1);
@@ -107,8 +108,7 @@ class OutboxTest {
     }
 
     @Test
-    @DisplayName("a failure on the far side adds a sentence of its own")
-    void aFailureIsSaidOutLoud() {
+    void aFailureOnTheFarSideAddsASentenceOfItsOwn() {
         final FakeUser user = FakeUser.inDiscord();
         outbox.send(AURA, user, aura(10));
         until(user, 1);
@@ -120,8 +120,7 @@ class OutboxTest {
     }
 
     @Test
-    @DisplayName("nothing ever picked it up: that is the target being down, and it says so")
-    void noAnswerAtAll() {
+    void nothingEverPickedItUpThatIsTheTargetBeingDownAndItSaysSo() {
         final FakeUser user = FakeUser.inDiscord();
         outbox.send(AURA, user, aura(10));
         until(user, 2);
@@ -135,10 +134,8 @@ class OutboxTest {
     }
 
     @Test
-    @DisplayName("claimed just as the wait ran out is a different sentence, and a better one")
-    void losingTheExpiryRaceIsReportedAsRunning() {
-        // The good case: it IS running. Saying "no answer" here would tell an admin nothing
-        // happened while a milestone was being unlocked behind them.
+    void claimedJustAsTheWaitRanOutIsADifferentSentenceAndABetterOne() {
+        // The good case: it IS running. Saying "no answer" here would tell an admin nothing happened while a milestone.
         final FakeUser user = FakeUser.inDiscord();
         outbox.send(AURA, user, aura(10));
         until(user, 1);
@@ -151,8 +148,7 @@ class OutboxTest {
     }
 
     @Test
-    @DisplayName("a database that refuses the write answers rather than hanging")
-    void aFailedSubmitIsAnswered() {
+    void aDatabaseThatRefusesTheWriteAnswersRatherThanHanging() {
         requests.failure = new IllegalStateException("connection refused");
         final FakeUser user = FakeUser.inDiscord();
         outbox.send(AURA, user, aura(10));
@@ -163,8 +159,7 @@ class OutboxTest {
     }
 
     @Test
-    @DisplayName("the console's request carries no identity, which the row's own CHECK also says")
-    void theConsoleIsAnonymous() {
+    void theConsolesRequestCarriesNoIdentityWhichTheRowsOwnCheckAlsoSays() {
         final FakeUser console = FakeUser.console();
         outbox.send(AURA, console, aura(1));
         until(console, 1);
@@ -176,8 +171,7 @@ class OutboxTest {
     }
 
     @Test
-    @DisplayName("a value the declaration cannot express is refused before anything is written")
-    void anUnsendableValueNeverBecomesARow() {
+    void aValueTheDeclarationCannotExpressIsRefusedBeforeAnythingIsWritten() {
         final Declaration word = new Declaration(
                 List.of("smp", "objective", "complete"),
                 Target.SMP,
@@ -198,10 +192,8 @@ class OutboxTest {
     }
 
     @Test
-    @DisplayName("a console user is refused an identity by the row itself")
-    void theRowRefusesAConsoleWithAnIdentity() {
-        // Belt and braces with the CHECK in V11: the record refuses it too, so the failure names
-        // the adapter that built it rather than arriving as a constraint violation.
+    void aConsoleUserIsRefusedAnIdentityByTheRowItself() {
+        // Belt and braces with the CHECK in V11: the record refuses it too.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new NewCommandRequest(

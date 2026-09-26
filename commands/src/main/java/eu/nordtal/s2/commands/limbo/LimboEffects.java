@@ -5,9 +5,9 @@ import eu.nordtal.s2.commands.CommandEffects;
 /**
  * The one thing {@code /limbo reload} touches, and the reason it is only one.
  *
- * <p>{@code config.yml} names the waiting world and the title refresh interval, and re-reading those
+ * {@code config.yml} names the waiting world and the title refresh interval, and re-reading those
  * while the room is running would mean rebuilding it under the players standing in it. A message is
- * safe to swap mid-flight; a world is not.</p>
+ * safe to swap mid-flight; a world is not.
  */
 public interface LimboEffects extends CommandEffects {
 

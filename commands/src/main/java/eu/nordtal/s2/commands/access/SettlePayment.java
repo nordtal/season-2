@@ -13,8 +13,8 @@ import eu.nordtal.s2.common.phase.SeasonDates;
 /**
  * {@code /access settle <reference>} - book a payment by hand.
  *
- * <h2>The one manual path out of the automatic one</h2>
- * A payment on a reference that is not {@code OPEN} is never booked automatically; it goes to the
+ * The one manual path out of the automatic one: a payment on a reference that is not
+ * {@code OPEN} is never booked automatically; it goes to the
  * admin channel, and this is what an admin runs afterwards. So the two refusals below are the whole
  * point of the command: an unknown reference is a typo, and a reference that is not open is the
  * automatic path having already dealt with it - which are opposite problems and must not share a
@@ -43,8 +43,7 @@ public final class SettlePayment implements NordtalCommand<AccessEffects> {
 
             switch (settled.outcome()) {
                 case UNKNOWN -> user.reply(MESSAGES.access().settle().unknown(reference), Feedback.REFUSED, Tone.BAD);
-                // WARN and not BAD: the reference exists and nothing went wrong - it is simply
-                // already settled or cancelled, which is a different thing to go and look at.
+                // WARN and not BAD: the reference exists and nothing went wrong.
                 case NOT_OPEN ->
                     user.reply(
                             MESSAGES.access().settle().notOpen(reference, settled.status()),

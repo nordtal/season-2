@@ -4,20 +4,21 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Objects;
 import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Maps a row of {@link RosterDao#people(int)}.
- * <p>
+ *
  * Written out rather than reached for with {@code ConstructorMapper}, for the reason
  * {@code AccessGrantMapper} gives: that mapper matches record components by parameter name, which
  * only survives compilation with {@code -parameters}, and this repository does not set it. It also
  * documents that every point in time comes back as {@code timestamptz} and is converted through
  * {@link OffsetDateTime} - the only way to get an {@link Instant} out of the PostgreSQL driver
  * without going through the JVM's default time zone.
- * </p>
  */
 public final class PersonMapper implements RowMapper<Person> {
 
@@ -29,7 +30,7 @@ public final class PersonMapper implements RowMapper<Person> {
                 rs.getBoolean("donor"),
                 rs.getBoolean("admin"),
                 rs.getString("locale"),
-                instant(rs, "updated"),
+                Objects.requireNonNull(instant(rs, "updated"), "updated"),
                 rs.getObject("mc_uuid", UUID.class),
                 instant(rs, "linked"),
                 instant(rs, "access_until"),
@@ -42,15 +43,14 @@ public final class PersonMapper implements RowMapper<Person> {
                 instant(rs, "discord_avatar_url_updated"),
                 rs.getString("mc_name"),
                 instant(rs, "mc_name_updated"),
-                // getObject, not getLong: the latter answers 0 for SQL NULL, and zero is a play
-                // time somebody could actually have.
+                // getObject, since getLong answers 0 for NULL and zero is a real play time.
                 rs.getObject("playtime_seconds", Long.class),
                 rs.getString("admin_granted_by"),
                 instant(rs, "admin_granted_at"));
     }
 
     /** The one conversion every mapper in this package uses; see the class comment. */
-    static Instant instant(final ResultSet rs, final String column) throws SQLException {
+    static @Nullable Instant instant(final ResultSet rs, final String column) throws SQLException {
         final OffsetDateTime value = rs.getObject(column, OffsetDateTime.class);
         return value == null ? null : value.toInstant();
     }

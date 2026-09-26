@@ -6,7 +6,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** The name an admin reads for this message or section in the Steward UI. Plain language, standing on its own in a search result. */
+/**
+ * The name an admin reads for this message or section in the Steward UI.
+ *
+ * Plain language, standing on its own in a search result.
+ */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})

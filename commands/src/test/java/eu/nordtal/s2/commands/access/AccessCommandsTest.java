@@ -18,14 +18,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Everything {@code /access} decides, without a guild, a bank or a bot.
  *
- * <h2>What was previously unaskable</h2>
- * All of it. These four commands lived as JDA handlers building English strings with a
+ * These four commands lived as JDA handlers building English strings with a
  * {@code StringBuilder}, so "what does {@code /access settle} say when the reference is already
  * paid?" needed a real guild, a real admin and a real payment. Two of the answers below were also
  * simply absent before: there was no admin check at all, and no sentence for a member who has left
@@ -120,22 +118,16 @@ class AccessCommandsTest {
         return user;
     }
 
-    // ------------------------------------------------------------------ the declarations
-
     @Test
-    @DisplayName("every one is admin-only, which four of them were not")
     void theAdminCheckThatWasMissing() {
-        // grant-access, revoke-access, access-status and settle ran on Discord's own
-        // DefaultMemberPermissions and nothing else - so the network's admin list and the list of
-        // people who could grant paid access were two different lists.
+        // grant-access, revoke-access, access-status and settle ran on Discord's own DefaultMemberPermissions.
         for (final Declaration declaration : AccessCommands.declarations()) {
             assertTrue(declaration.adminOnly(), declaration.name());
         }
     }
 
     @Test
-    @DisplayName("the four that move money or paid time ask first")
-    void whatIsIrreversible() {
+    void theFourThatMoveMoneyOrPaidTimeAskFirst() {
         assertEquals(
                 Set.of("/access grant", "/access revoke", "/access unlink", "/access settle"),
                 AccessCommands.declarations().stream()
@@ -145,22 +137,16 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("granting is bounded, which the Discord command was not")
     void grantIsBounded() {
-        // It hand-checked "greater than zero" and had no upper bound at all, so a mistyped 3650 was
-        // a decade of free access and one keystroke away from 365.
+        // It hand-checked "greater than zero" and had no upper bound at all.
         final var days = AccessCommands.GRANT.arguments().getLast();
         assertEquals(1, days.min());
         assertEquals(365, days.max());
     }
 
     @Test
-    @DisplayName("all six are reachable from the console, and from nowhere a player or a bot user reaches")
     void consoleAndWebOnly() {
-        // ops/18, 2026-09-15: "alles Admin nur noch Konsole und Web" (owner) took every admin
-        // command off Surface.GAME and Surface.DISCORD - /access status and /access reload
-        // included, even though both only read. See AdminCommandsAreConsoleAndWebOnlyTest for the
-        // catalogue-wide version of this assertion; this one is the module-local tripwire.
+        // Every admin command is off Surface.GAME and Surface.DISCORD - /access status and /access reload included.
         for (final Declaration declaration : AccessCommands.declarations()) {
             assertTrue(
                     declaration.surfaces().contains(Surface.CONSOLE),
@@ -174,14 +160,8 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("nothing is in Discord any more, which supersedes the narrower steward/25 cut")
     void nothingIsInDiscordAnyMore() {
-        // steward/25 (2026-09-14) took Discord away from the writing four and left it on the two
-        // that read, /access status and /access reload, because they only read. ops/18
-        // (2026-09-15, this test's replacement for theWritingFourLeftDiscord) went further and
-        // took Discord off every admin command including those two - so the set this test used to
-        // name is now empty, not because steward/25 was undone but because it was overtaken by a
-        // broader decision that does not carve out an exception for reading.
+        // Every admin command is off Discord, /access status and /access reload included even though both only read.
         assertEquals(
                 Set.of(),
                 AccessCommands.declarations().stream()
@@ -191,14 +171,9 @@ class AccessCommandsTest {
                 "the set of /access commands reachable in Discord changed");
     }
 
-    // ------------------------------------------------------------------ the behaviour
-
     @Test
-    @DisplayName("the subject is a Discord account, not a Minecraft one - which is the point")
     void theSubjectIsADiscordAccount() {
-        // Written as a PLAYER argument for half an afternoon, which resolves through account_link on
-        // both surfaces - so /access grant could not have been used on the person it exists for: a
-        // member whose payment arrived outside the normal flow and who has never linked.
+        // Written as a PLAYER argument for half an afternoon, which resolves through account_link on both surfaces.
         for (final Declaration declaration : AccessCommands.declarations()) {
             final long subjects = declaration.arguments().stream()
                     .filter(argument -> argument.name().equals("member"))
@@ -207,10 +182,8 @@ class AccessCommandsTest {
                             argument.kind(),
                             declaration.name() + " resolves its subject through account_link"))
                     .count();
-            // Counted, because a filter that matches nothing passes a forEach silently: renaming
-            // the argument from `member` to `player` is the exact regression this exists to catch,
-            // and it would have left the loop body unreached and the test green.
-            if (declaration == AccessCommands.SETTLE || declaration == AccessCommands.RELOAD_MESSAGES) {
+            // Counted, because a filter that matches nothing passes a forEach silently: renaming the argument from.
+            if (declaration.equals(AccessCommands.SETTLE) || declaration.equals(AccessCommands.RELOAD_MESSAGES)) {
                 assertEquals(0, subjects, declaration.name() + " takes no member");
                 continue;
             }
@@ -219,10 +192,8 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("a member who has left the guild is its own answer, not 'not linked'")
-    void aDepartedMember() {
-        // The link is still a row and the person is gone. Folding the two would send an admin
-        // looking for a link that is right there.
+    void aDepartedMemberIsItsOwnAnswerNotUnlinked() {
+        // The link is still a row and the person is gone; folding the two would send an admin looking for a link.
         bot.status = null;
         assertEquals(
                 List.of("access.no-such-member"),
@@ -230,8 +201,7 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("status prints the whole account, in message keys rather than English")
-    void status() {
+    void statusPrintsTheWholeAccountInMessageKeys() {
         bot.status = new AccessEffects.Status(
                 "Steve",
                 Optional.of(Instant.parse("2026-12-01T00:00:00Z")),
@@ -260,8 +230,7 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("an account with nothing on it still says so line by line")
-    void anEmptyAccount() {
+    void anEmptyAccountStillSaysSoLineByLine() {
         bot.status = new AccessEffects.Status(
                 "Steve", Optional.empty(), false, Locale.ENGLISH, Optional.empty(), List.of(), List.of());
 
@@ -278,8 +247,7 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("granting names the days and the new end, and records who did it")
-    void grant() {
+    void grantNamesTheDaysAndTheNewEndAndRecordsWhoDidIt() {
         final FakeUser user = run(new GrantAccess(), Map.of("member", DISCORD, "days", 30));
 
         assertEquals("access.granted", user.only().key());
@@ -288,10 +256,8 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("revoking nothing is a different sentence from revoking something")
-    void revokeNothing() {
-        // "Revoked 0 grant(s)" is a sentence an admin has to work out. An admin who ran this on the
-        // wrong person should be told nothing happened.
+    void revokingNothingIsADifferentSentenceFromRevokingSomething() {
+        // "Revoked 0 grant(s)" is a sentence an admin has to work out. An admin who ran this on the wrong person.
         bot.revoked = 0;
         assertEquals(
                 List.of("access.revoked.none"),
@@ -304,15 +270,13 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("the three ways a settlement ends are three sentences")
-    void settle() {
+    void theThreeWaysASettlementEndsAreThreeSentences() {
         bot.settlement = new AccessEffects.Settled(AccessEffects.Settlement.UNKNOWN, null, 0, null);
         assertEquals(
                 List.of("access.settle.unknown"),
                 run(new SettlePayment(), Map.of("reference", "NT-ZZZZZZ")).keys());
 
-        // Not open is the automatic path having already dealt with it - the opposite problem from a
-        // typo, so it names the status rather than sharing a sentence.
+        // Not open is the automatic path having already dealt with it - the opposite problem from a typo.
         bot.settlement = new AccessEffects.Settled(AccessEffects.Settlement.NOT_OPEN, null, 60, "PAID");
         final FakeUser notOpen = run(new SettlePayment(), Map.of("reference", "NT-A1B2C3"));
         assertEquals("access.settle.not-open", notOpen.only().key());
@@ -326,10 +290,8 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("a reload reports the override keys no bundle declares")
-    void reload() {
-        // An override key nothing declares is stored and never used, which looks exactly like one
-        // that works. The moment somebody edits the file is the only time saying so is useful.
+    void aReloadReportsTheOverrideKeysNoBundleDeclares() {
+        // An override key nothing declares is stored and never used.
         assertEquals(
                 List.of("access.messages.reloaded"),
                 run(new ReloadBotMessages(), Map.of()).keys());
@@ -346,8 +308,7 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("a database that does not answer changes nothing and says so")
-    void aFailureChangesNothing() {
+    void aFailureChangesNothingAndSaysSo() {
         bot.failure = new IllegalStateException("connection refused");
         assertEquals(
                 List.of("access.failed"),

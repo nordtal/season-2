@@ -11,39 +11,17 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * A wrapped line in a message bundle keeps the space that separated the two words.
+ * Checks that a wrapped line in a message bundle keeps the space that separated the two words.
  *
- * <h2>Why this is a test and not a habit</h2>
- * {@code Properties.load} joins a continued line to the next one and <b>strips the next line's
- * leading whitespace</b>, so the indentation that makes a wrapped bundle readable contributes
- * nothing to the value. The separator has to be on the <em>first</em> line, before the backslash.
- * Six values in this repository were written without it on 2026-09-04 and reached a player as
- * {@code neugelesen}, {@code bleibenunverändert}, {@code Theconsole} and {@code sayswhether} - one
- * of them in both languages, all six in text an operator reads after typing a reload command.
- *
- * <p>Nothing else can catch it. The file parses, the key resolves, both languages carry the same
- * keys and the same placeholders, so {@code MessageBundlesTest} is green; the only symptom is two
- * words with no space between them, in a string nobody diffs. The failure mode is invisible in the
- * source too, because the source is where the space <em>looks</em> present - on the following
- * line.</p>
- *
- * <p>The rule is deliberately absolute rather than an allowlist: no value in this repository wants
- * to be split mid-word, and a value that ever did could be written as one long line instead. An
- * absolute rule needs no maintenance and cannot be weakened by accident.</p>
+ * {@code Properties.load} strips the continuation line's leading whitespace, so the separator has to
+ * be on the first line, before the backslash. The rule is absolute: no value wants a mid-word split.
  */
 class BundleContinuationTest {
 
-    /**
-     * Every module that ships a message bundle - the four Minecraft-facing ones, the bot, and the
-     * shared one.
-     *
-     * <p>{@code commands} was missing here until 2026-09-06, which left the continuation rule
-     * unchecked on the one bundle <em>every</em> surface loads - and it carries continued lines.
-     */
+    /** Every module that ships a message bundle. */
     private static final List<String> BUNDLE_ROOTS = List.of(
             "smp/src/main/resources/messages",
             "limbo/src/main/resources/messages",
@@ -51,15 +29,10 @@ class BundleContinuationTest {
             "proxy/src/main/resources/messages",
             "discord-bot/src/main/resources/messages",
             "commands/src/main/resources/messages",
-            // :paper-common's, new 2026-09-09 with the five system lines. Added here in the same
-            // commit that created it, because the last root this list gained - commands' - was
-            // added two days after the bundle existed, and for two days the one bundle every
-            // surface loads was the one bundle outside these checks.
             "paper-common/src/main/resources/messages");
 
     @Test
-    @DisplayName("a continued line ends with a space, so the two words stay two words")
-    void everyContinuationKeepsItsSeparator() {
+    void aContinuedLineEndsWithASpaceSoTheTwoWordsStayTwoWords() {
         final List<String> glued = new ArrayList<>();
         for (final Path bundle : bundles()) {
             final List<String> lines = read(bundle);
@@ -86,33 +59,19 @@ class BundleContinuationTest {
     }
 
     /**
-     * A count in a sentence picks a key; it never picks a parenthesis.
+     * Checks that a count in a sentence picks a key, never a parenthesis such as "spin(s)".
      *
-     * <h2>Why an absolute rule</h2>
-     * "spin(s)" is not a sentence in English and its German equivalent is worse still: the two this
-     * caught on 2026-09-06 read "verdiente Dreh(s)" and "Zugangszeitraum/-raeume von {accounts}
-     * Konto/Konten", the second of which is a slash construction a reader has to unpick. Both were
-     * player- or admin-facing, and one of them - {@code smp.wheel.none} - was watched being shown to
-     * a real client, saying "You have 0 earned spin(s) waiting" underneath a refusal that had
-     * already said there were none.
-     *
-     * <p>The alternative costs one line of Java, and this repository already writes it: the wheel
-     * picks {@code smp.wheel.available.one} at one spin. So the rule is absolute
-     * rather than an allowlist - there is no value that genuinely wants a parenthetical plural, and
-     * an allowlist is where the next one would go.</p>
+     * The rule is absolute; a count picks a {@code .one} key instead.
      */
     @Test
-    @DisplayName("a count picks a key rather than a parenthetical plural")
-    void noValueSpellsItsPluralWithAParenthesis() {
+    void aCountPicksAKeyRatherThanAParentheticalPlural() {
         final List<String> parenthesised = new ArrayList<>();
         for (final Path bundle : bundles()) {
             final List<String> lines = read(bundle);
             boolean continued = false;
             for (int i = 0; i < lines.size(); i++) {
                 final String line = lines.get(i);
-                // The value only: a comment is not read by anybody but us, and this rule is about
-                // what a player is shown. A file explaining the rule - "# never write spin(s)" -
-                // must not fail the test that enforces it.
+                // The value only, so a comment explaining the rule does not fail it.
                 final String value = continued ? line : valueOf(line);
                 continued = continues(line);
                 if (value == null) {
@@ -136,10 +95,10 @@ class BundleContinuationTest {
     /**
      * The value a line declares, or {@code null} if it declares none.
      *
-     * <p>A properties comment starts with {@code #} or {@code !} after any leading whitespace, and
+     * A properties comment starts with {@code #} or {@code !} after any leading whitespace, and
      * a key ends at the first unescaped {@code =} or {@code :} - or, for a key with no separator at
      * all, at the first unescaped whitespace. A line that is neither a comment nor a declaration is
-     * blank.</p>
+     * blank.
      */
     private static String valueOf(final String line) {
         final String trimmed = line.stripLeading();

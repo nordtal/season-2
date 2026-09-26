@@ -5,11 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
-/**
- * {@link Locales} sits on the login path - it turns a database column into the language a
- * disconnect screen is rendered in - so every one of these cases has to end in a locale rather
- * than an exception.
- */
+/** Checks that every case of {@link Locales} ends in a locale, since it sits on the login path. */
 class LocalesTest {
 
     @Test

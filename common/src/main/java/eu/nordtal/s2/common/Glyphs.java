@@ -1,27 +1,23 @@
 package eu.nordtal.s2.common;
 
+import java.util.List;
+
 /**
- * Code points of the characters the resource pack defines, so a plugin never hardcodes a
- * private-use escape that the pack has since moved.
+ * Code points of the characters the resource pack defines, grouped by font.
  *
- * <p>This class and the pack's font files are mirrors of one allocation; a change is a change in
- * all of them, and {@code ResourcePackTest} fails when they drift.
- *
- * <p>Constants are grouped by font. <b>The fonts allocate independently</b>, so the same code point
- * means a different glyph depending on which font a component names - see {@link #FONT_BOSSBAR}.
+ * This class and the pack's font files mirror one allocation, and {@code ResourcePackTest} fails
+ * when they drift. The fonts allocate independently, so a code point means a different glyph in
+ * each font a component names - see {@link #FONT_BOSSBAR}.
  */
 public final class Glyphs {
 
     private Glyphs() {}
 
     /**
-     * A code point as a string, so the constants below can be read as hex instead of as
-     * surrogate pairs.
+     * Returns a code point as a string, so the constants below read as hex rather than surrogates.
      *
-     * <p>Every glyph lives in Supplementary Private Use Area-A, {@code U+F0000..U+FFFFD}, rather
-     * than in the basic plane's {@code U+E000..U+F8FF}: the common glyph plugins auto-assign from
-     * {@code U+E000} upward and would collide silently with a merged pack, and Minecraft's own
-     * {@code unifont_pua} provider covers the basic range.
+     * Every glyph lives in Supplementary Private Use Area-A, {@code U+F0000..U+FFFFD}: glyph plugins
+     * auto-assign from {@code U+E000} upward, and Minecraft's {@code unifont_pua} covers that range.
      */
     private static String cp(final int codePoint) {
         return Character.toString(codePoint);
@@ -30,13 +26,10 @@ public final class Glyphs {
     // === Font keys ===
 
     /**
-     * The font a component has to name for the {@code nordtal:bossbar} code points below to
-     * resolve at all.
+     * The font a component names for the {@code nordtal:bossbar} code points below to resolve.
      *
-     * <p>A bossbar code point left in {@code minecraft:default} does not fall back to nothing: it
-     * draws whatever that font put at the same code point ({@link #BOSSBAR_BG_4} and
-     * {@link #TAG_ADMIN} are both {@code U+FE004}). Every component carrying these glyphs must name
-     * its font.
+     * A bossbar code point left in {@code minecraft:default} draws whatever that font has there
+     * ({@link #BOSSBAR_BG_4} and {@link #TAG_ADMIN} are both {@code U+FE004}).
      */
     public static final String FONT_BOSSBAR = "nordtal:bossbar";
 
@@ -47,18 +40,13 @@ public final class Glyphs {
     public static final String FONT_GUI = "nordtal:gui";
 
     /**
-     * The six row fonts, one per chest row, in which every {@code GUI_ROW_*} code point and all
-     * readable row text resolves.
+     * The six row fonts, indexed by chest row from the top, in which every {@code GUI_ROW_*} resolves.
      *
-     * <p>A glyph's only vertical control is its font's {@code ascent}, so the row is carried in the
-     * font rather than in the code point: all six declare the same characters at that row's
-     * ascents. Indexed by row, {@code FONT_GUI_ROWS[0]} being the top chest row; naming the wrong
-     * one draws the right picture on the wrong row.
+     * A glyph's only vertical control is its font's {@code ascent}, so the row is carried in the font:
+     * all six declare the same characters at that row's ascents.
      */
-    public static final String[] FONT_GUI_ROWS = {
-        "nordtal:gui_r0", "nordtal:gui_r1", "nordtal:gui_r2",
-        "nordtal:gui_r3", "nordtal:gui_r4", "nordtal:gui_r5",
-    };
+    public static final List<String> FONT_GUI_ROWS = List.of(
+            "nordtal:gui_r0", "nordtal:gui_r1", "nordtal:gui_r2", "nordtal:gui_r3", "nordtal:gui_r4", "nordtal:gui_r5");
 
     // === minecraft:default ===
 
@@ -77,7 +65,7 @@ public final class Glyphs {
     /**
      * The flag glyph for a language, which is the one every surface draws beside a player's name.
      *
-     * <p>It maps a language, not a country, so the mapping is a choice: {@code en} without a
+     * It maps a language, not a country, so the mapping is a choice: {@code en} without a
      * country falls to the United Kingdom because the server is a European one, and anything
      * unmapped (a null locale included) gets the neutral flag rather than a missing glyph.
      */
@@ -116,23 +104,23 @@ public final class Glyphs {
     public static final String PRESTIGE_CREST_12 = cp(0xFE03B);
     public static final String PRESTIGE_CREST_13 = cp(0xFE03C);
 
-    /**
-     * All thirteen prestige crests, tier 1 first, for {@code tier - 1} indexing against
-     * {@code player_playtime.seconds} thresholds.
-     */
-    public static final String[] PRESTIGE_CRESTS = {
-        PRESTIGE_CREST_01, PRESTIGE_CREST_02, PRESTIGE_CREST_03, PRESTIGE_CREST_04,
-        PRESTIGE_CREST_05, PRESTIGE_CREST_06, PRESTIGE_CREST_07, PRESTIGE_CREST_08,
-        PRESTIGE_CREST_09, PRESTIGE_CREST_10, PRESTIGE_CREST_11, PRESTIGE_CREST_12,
-        PRESTIGE_CREST_13,
-    };
+    /** All thirteen prestige crests, tier 1 first, for {@code tier - 1} indexing. */
+    public static final List<String> PRESTIGE_CRESTS = List.of(
+            PRESTIGE_CREST_01,
+            PRESTIGE_CREST_02,
+            PRESTIGE_CREST_03,
+            PRESTIGE_CREST_04,
+            PRESTIGE_CREST_05,
+            PRESTIGE_CREST_06,
+            PRESTIGE_CREST_07,
+            PRESTIGE_CREST_08,
+            PRESTIGE_CREST_09,
+            PRESTIGE_CREST_10,
+            PRESTIGE_CREST_11,
+            PRESTIGE_CREST_12,
+            PRESTIGE_CREST_13);
 
-    // System-line icons - U+FE080..U+FE085, height 7 / ascent 7, minecraft:default. The markers in
-    // front of the lines a player reads all day: chat, join, leave, death, advancement, announce.
-    //
-    // The art is white on purpose: Minecraft multiplies a glyph by the component's text colour, so
-    // white can be tinted to whatever the message bundle asks for and black cannot be tinted
-    // lighter.
+    // System-line icons, U+FE080..U+FE085: white, because a glyph is multiplied by the text colour.
 
     /** The rule between a player's name and what they said. Not a character - 3 px wide. */
     public static final String SEPARATOR = cp(0xFE080);
@@ -146,9 +134,9 @@ public final class Glyphs {
     public static final String ICON_ANNOUNCE = cp(0xFE085);
 
     /**
-     * The glyphs of {@code minecraft:default} by name, in the order an editor offers them - what a
-     * message writes as {@code <glyph:name>}. Read from {@code glyph-names.txt} beside this class,
-     * because the steward-ui build reads the same file for its menu and cannot read Java.
+     * Returns the glyphs of {@code minecraft:default} by the name a message writes as {@code <glyph:name>}.
+     *
+     * Read from {@code glyph-names.txt} beside this class, which the steward-ui build reads as well.
      */
     public static java.util.Map<String, String> named() {
         return Named.TABLE;
@@ -164,12 +152,12 @@ public final class Glyphs {
                     throw new IllegalStateException("glyph-names.txt is missing beside Glyphs");
                 }
                 for (final String line :
-                        new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).split("\n")) {
+                        new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).split("\n", -1)) {
                     final String trimmed = line.strip();
                     if (trimmed.isEmpty() || trimmed.startsWith("#")) {
                         continue;
                     }
-                    final String[] parts = trimmed.split("\\s+");
+                    final String[] parts = trimmed.split("\\s+", -1);
                     table.put(parts[0], cp(Integer.parseInt(parts[1], 16)));
                 }
             } catch (final java.io.IOException e) {
@@ -179,14 +167,9 @@ public final class Glyphs {
         }
     }
 
-    // === nordtal:board ===
-    // The objective board and aura leaderboard's frame. A dedicated font rather than
-    // minecraft:default: the tiled segments need their own negative-advance space provider to close
-    // the automatic 1px trailing gap every bitmap glyph gets, and that mechanic has no business in
-    // the font ordinary chat and nametags use.
+    // nordtal:board: its own font, because closing the tiles' 1 px gap needs a negative-space provider.
 
-    // Space advances - negative, mirrors nordtal:bossbar's own block (fonts allocate
-    // independently, so reusing the same code points here is not a collision).
+    // Negative space advances; the fonts allocate independently, so these code points do not collide.
     public static final String BOARD_SPACE_MINUS_1 = cp(0xFF001);
     public static final String BOARD_SPACE_MINUS_2 = cp(0xFF002);
     public static final String BOARD_SPACE_MINUS_4 = cp(0xFF004);
@@ -196,9 +179,7 @@ public final class Glyphs {
     public static final String BOARD_SPACE_MINUS_64 = cp(0xFF064);
     public static final String BOARD_SPACE_MINUS_128 = cp(0xFF128);
 
-    // Space advances - positive. There is no +64 or +128: the naming rule puts the decimal advance
-    // in the low digits, and "FFF" + "128" is six hex digits, past the end of SPUA-A. Wider shifts
-    // repeat the +32.
+    // Positive space advances; no +64 or +128, because "FFF" + "128" is past the end of SPUA-A.
     public static final String BOARD_SPACE_PLUS_1 = cp(0xFFF01);
     public static final String BOARD_SPACE_PLUS_2 = cp(0xFFF02);
     public static final String BOARD_SPACE_PLUS_4 = cp(0xFFF04);
@@ -226,8 +207,7 @@ public final class Glyphs {
     public static final String BOARD_EDGE_V_LEFT = cp(0xFE04C);
     public static final String BOARD_EDGE_V_RIGHT = cp(0xFE04D);
 
-    // Divider, tiled in powers of two like the horizontal edge - U+FE04E..U+FE055. Allocated
-    // separately from the outer edge so an interior rule can differ from the border.
+    // Divider, U+FE04E..U+FE055, apart from the outer edge so an interior rule can differ from it.
     public static final String BOARD_DIVIDER_1 = cp(0xFE04E);
     public static final String BOARD_DIVIDER_2 = cp(0xFE04F);
     public static final String BOARD_DIVIDER_4 = cp(0xFE050);
@@ -259,10 +239,7 @@ public final class Glyphs {
     public static final String BOSSBAR_SPACE_PLUS_16 = cp(0xFFF16);
     public static final String BOSSBAR_SPACE_PLUS_32 = cp(0xFFF32);
 
-    // Bar background segments - U+FE000..U+FE128, height 14 / ascent 6. A HUD line is one rounded
-    // pill per piece of information: START, a body composed from the power-of-two segments, END.
-    // Every segment is exactly as wide as its name and the client advances a bitmap glyph by its
-    // width plus one, so the composer (BossBarWidth) steps back a pixel after each.
+    // Bar background segments; the client adds 1 px after each, which BossBarWidth steps back over.
     public static final String BOSSBAR_BG_END = cp(0xFE000);
     public static final String BOSSBAR_BG_START = cp(0xFE0FF);
     public static final String BOSSBAR_BG_1 = cp(0xFE001);
@@ -276,17 +253,12 @@ public final class Glyphs {
 
     // Status icons - U+FEF00..U+FEF0F, height 10 / ascent 4
     public static final String BOSSBAR_ICON_COMPASS = cp(0xFEF00);
-    // A pennant-on-a-pole sprite in four colours - a land indicator picked by the player's
-    // position: blue inside a preserved area, green on permanent land, red in a reset zone, white
-    // in the protected spawn. Nothing in season 2 draws them yet.
+    // Land-indicator pennants: blue preserved, green permanent, red reset zone, white spawn.
     public static final String BOSSBAR_ICON_FBLUE = cp(0xFEF01);
     public static final String BOSSBAR_ICON_FGREEN = cp(0xFEF02);
     public static final String BOSSBAR_ICON_FRED = cp(0xFEF03);
     public static final String BOSSBAR_ICON_FWHITE = cp(0xFEF04);
-    // Dimension icons - U+FEF05, U+FEF07 and U+FEF08, one per world the SMP/hunger games HUDs
-    // name. U+FEF06 was the farm world and is a deliberate gap since 2026-09-20
-    // (season-2-ingame/30): a code point is an address, and renumbering the two below it would
-    // move art that is already drawn in order to close a hole nobody can see.
+    // Dimension icons; U+FEF06 is a deliberate gap, because a code point is an address.
     public static final String BOSSBAR_ICON_DIM_OVERWORLD = cp(0xFEF05);
     public static final String BOSSBAR_ICON_DIM_NETHER = cp(0xFEF07);
     public static final String BOSSBAR_ICON_DIM_END = cp(0xFEF08);
@@ -296,8 +268,7 @@ public final class Glyphs {
     public static final String BOSSBAR_ICON_LOOT_POINT = cp(0xFEF0B);
     public static final String BOSSBAR_ICON_BORDER = cp(0xFEF0C);
 
-    // Bearing arrows - U+FEF10..U+FEF1F, height 10 / ascent 4, sixteen 22.5-degree steps clockwise
-    // from straight ahead.
+    // Bearing arrows, sixteen 22.5-degree steps clockwise from straight ahead.
     public static final String BOSSBAR_ARROW_000_0 = cp(0xFEF10);
     public static final String BOSSBAR_ARROW_022_5 = cp(0xFEF11);
     public static final String BOSSBAR_ARROW_045_0 = cp(0xFEF12);
@@ -316,29 +287,31 @@ public final class Glyphs {
     public static final String BOSSBAR_ARROW_337_5 = cp(0xFEF1F);
 
     /**
-     * All sixteen bearing arrows, {@link #BOSSBAR_ARROW_000_0} first, in clockwise order - the
-     * array a bearing-in-degrees calculation indexes with {@code Math.floorMod(Math.round(bearing
-     * / 22.5), 16)}.
+     * All sixteen bearing arrows, clockwise from {@link #BOSSBAR_ARROW_000_0}.
+     *
+     * A bearing in degrees indexes it with {@code Math.floorMod(Math.round(bearing / 22.5), 16)}.
      */
-    public static final String[] BOSSBAR_ARROWS = {
-        BOSSBAR_ARROW_000_0, BOSSBAR_ARROW_022_5, BOSSBAR_ARROW_045_0, BOSSBAR_ARROW_067_5,
-        BOSSBAR_ARROW_090_0, BOSSBAR_ARROW_112_5, BOSSBAR_ARROW_135_0, BOSSBAR_ARROW_157_5,
-        BOSSBAR_ARROW_180_0, BOSSBAR_ARROW_202_5, BOSSBAR_ARROW_225_0, BOSSBAR_ARROW_247_5,
-        BOSSBAR_ARROW_270_0, BOSSBAR_ARROW_292_5, BOSSBAR_ARROW_315_0, BOSSBAR_ARROW_337_5,
-    };
+    public static final List<String> BOSSBAR_ARROWS = List.of(
+            BOSSBAR_ARROW_000_0,
+            BOSSBAR_ARROW_022_5,
+            BOSSBAR_ARROW_045_0,
+            BOSSBAR_ARROW_067_5,
+            BOSSBAR_ARROW_090_0,
+            BOSSBAR_ARROW_112_5,
+            BOSSBAR_ARROW_135_0,
+            BOSSBAR_ARROW_157_5,
+            BOSSBAR_ARROW_180_0,
+            BOSSBAR_ARROW_202_5,
+            BOSSBAR_ARROW_225_0,
+            BOSSBAR_ARROW_247_5,
+            BOSSBAR_ARROW_270_0,
+            BOSSBAR_ARROW_292_5,
+            BOSSBAR_ARROW_315_0,
+            BOSSBAR_ARROW_337_5);
 
-    // === nordtal:gui ===
-    //
-    // A menu on this server is an ordinary chest inventory whose TITLE carries a bitmap glyph big
-    // enough to cover the whole window: the glyph rises out of the title's baseline on a large
-    // positive ascent and the slots draw on top of it, because the client renders labels after the
-    // background. There is one glyph per chest size rather than one panel, because a window is
-    // 114 + 18*rows pixels tall.
+    // nordtal:gui: a menu is a chest whose title glyph covers the window, one glyph per chest size.
 
-    // Space advances - negative at U+FF001..U+FF128, positive at U+FF801..U+FF928 (the same
-    // decimal-digit convention one bit higher, so +16 is U+FF816 next to -16 at U+FF016). Sharing
-    // code points with board.json and bossbar.json is not a collision: the fonts allocate
-    // independently.
+    // Space advances: negative at U+FF001..U+FF128, positive at U+FF801..U+FF928.
     public static final String GUI_SPACE_MINUS_1 = cp(0xFF001);
     public static final String GUI_SPACE_MINUS_2 = cp(0xFF002);
     public static final String GUI_SPACE_MINUS_4 = cp(0xFF004);
@@ -357,8 +330,7 @@ public final class Glyphs {
     public static final String GUI_SPACE_PLUS_64 = cp(0xFF864);
     public static final String GUI_SPACE_PLUS_128 = cp(0xFF928);
 
-    // Panels - U+FE060..U+FE065, one per chest size, ascent 13 and height = the window's own
-    // pixel height so each renders 1:1.
+    // Panels, one per chest size, each as tall as its window so it renders 1:1.
     public static final String GUI_PANEL_1 = cp(0xFE060);
     public static final String GUI_PANEL_2 = cp(0xFE061);
     public static final String GUI_PANEL_3 = cp(0xFE062);
@@ -367,24 +339,17 @@ public final class Glyphs {
     public static final String GUI_PANEL_6 = cp(0xFE065);
 
     /** The six panels, one row first, for {@code rows - 1} indexing. */
-    public static final String[] GUI_PANELS = {
-        GUI_PANEL_1, GUI_PANEL_2, GUI_PANEL_3, GUI_PANEL_4, GUI_PANEL_5, GUI_PANEL_6,
-    };
+    public static final List<String> GUI_PANELS =
+            List.of(GUI_PANEL_1, GUI_PANEL_2, GUI_PANEL_3, GUI_PANEL_4, GUI_PANEL_5, GUI_PANEL_6);
 
-    // The balloon's travel panel and its two state overlays - U+FE066..U+FE06A. The panel is a
-    // 6-row window with the four world cards baked in; what varies is a card's state, and each
-    // state is one tile-sized glyph declared twice - once per tile row, at the ascent that lands it
-    // on that row - drawn over the panel by walking the cursor back to the card's x.
+    // Travel panel and its card-state overlays, each overlay declared once per tile row.
     public static final String GUI_TRAVEL_PANEL = cp(0xFE066);
     public static final String GUI_TRAVEL_LOCKED_TOP = cp(0xFE067);
     public static final String GUI_TRAVEL_LOCKED_BOTTOM = cp(0xFE068);
     public static final String GUI_TRAVEL_HERE_TOP = cp(0xFE069);
     public static final String GUI_TRAVEL_HERE_BOTTOM = cp(0xFE06A);
 
-    // The same six panels WITHOUT the container's own slot recesses - U+FE06B..U+FE070. A list menu
-    // draws a pill across a whole row, and a recess under it would show around every pill. The
-    // player's own rows and the hotbar keep their recesses in both variants, because those slots
-    // hold real items whatever the menu above them is.
+    // The same panels without slot recesses, for list menus whose pills span a whole row.
     public static final String GUI_PANEL_PLAIN_1 = cp(0xFE06B);
     public static final String GUI_PANEL_PLAIN_2 = cp(0xFE06C);
     public static final String GUI_PANEL_PLAIN_3 = cp(0xFE06D);
@@ -393,21 +358,16 @@ public final class Glyphs {
     public static final String GUI_PANEL_PLAIN_6 = cp(0xFE070);
 
     /** The six recess-free panels, one row first, for {@code rows - 1} indexing. */
-    public static final String[] GUI_PANELS_PLAIN = {
-        GUI_PANEL_PLAIN_1, GUI_PANEL_PLAIN_2, GUI_PANEL_PLAIN_3,
-        GUI_PANEL_PLAIN_4, GUI_PANEL_PLAIN_5, GUI_PANEL_PLAIN_6,
-    };
+    public static final List<String> GUI_PANELS_PLAIN = List.of(
+            GUI_PANEL_PLAIN_1,
+            GUI_PANEL_PLAIN_2,
+            GUI_PANEL_PLAIN_3,
+            GUI_PANEL_PLAIN_4,
+            GUI_PANEL_PLAIN_5,
+            GUI_PANEL_PLAIN_6);
     // U+FE071..U+FE07F is this font's room to grow.
 
-    // === nordtal:gui_r0 .. nordtal:gui_r5 ===
-    //
-    // The row furniture - U+FE100..U+FE11F. Every one of these is declared in ALL SIX row fonts at
-    // that row's ascent, so the code point says WHAT is drawn and FONT_GUI_ROWS[row] says WHERE. A
-    // GUI_ROW_* constant in nordtal:gui itself draws nothing: that font declares none of them.
-    //
-    // Their advances are deliberately not written down here: they are a property of the PNGs,
-    // exported into :common's own resources and read by MenuFont, so a redrawn glyph cannot leave a
-    // stale number behind.
+    // Row furniture, declared in all six row fonts; advances come from the PNGs via MenuFont.
 
     /** A list entry's plate, 158 px wide and 14 tall - the width of the slot area inset 2. */
     public static final String GUI_ROW_PILL = cp(0xFE100);
@@ -424,26 +384,16 @@ public final class Glyphs {
     /** The same square plate, greyed - a page button with no page on the other side of it. */
     public static final String GUI_ROW_BUTTON_SMALL_OFF = cp(0xFE104);
 
-    /**
-     * The same 158 px plate in a darker grey: a heading row rather than an entry, so it does not
-     * read as another thing to click.
-     */
+    /** The 158 px plate in a darker grey, for a heading row that is not clickable. */
     public static final String GUI_ROW_PILL_DARK = cp(0xFE105);
 
-    /**
-     * A 50 px gold button plate - the hand-in's confirm, the only button in these menus whose click
-     * cannot be undone by clicking again.
-     */
+    /** A 50 px gold button plate, for the hand-in's confirm, which a second click cannot undo. */
     public static final String GUI_ROW_BUTTON_CONFIRM = cp(0xFE106);
 
     /** A 68 px button plate in the affirming style - the grave's "take everything". */
     public static final String GUI_ROW_BUTTON_TAKE = cp(0xFE107);
 
-    /**
-     * The entry plate again at 122 px: seven slot cells instead of nine, for a row that carries
-     * controls on its right. The text on such a row is already fitted to stop before them, so the
-     * full plate was grey where nothing was ever drawn (season-2-ingame/17).
-     */
+    /** The entry plate at 122 px, for a row that carries controls on its right. */
     public static final String GUI_ROW_PILL_SHORT = cp(0xFE108);
 
     // Row icons - U+FE110..U+FE11A, 8 x 8, drawn white so a component's colour can tint them.
@@ -454,8 +404,7 @@ public final class Glyphs {
     public static final String GUI_ROW_ICON_PREV = cp(0xFE114);
     public static final String GUI_ROW_ICON_NEXT = cp(0xFE115);
 
-    // The objective card's four states. The icon is the state on that card, so exactly one of these
-    // four is drawn on a card and never two.
+    // The objective card's four states; exactly one is drawn on a card.
     public static final String GUI_ROW_ICON_HAND_IN = cp(0xFE116);
     public static final String GUI_ROW_ICON_STATISTIC = cp(0xFE117);
     public static final String GUI_ROW_ICON_ADVANCEMENT = cp(0xFE118);
@@ -465,14 +414,7 @@ public final class Glyphs {
     public static final String GUI_ROW_ICON_AURA = cp(0xFE11A);
     // U+FE11B..U+FE1FF is this block's room to grow.
 
-    // === nordtal:gui, menu surfaces - U+FE200..U+FE2FF ===
-    //
-    // Art that spans MORE THAN ONE chest row cannot be a row glyph - a row font carries one ascent
-    // per layer per row, and a card two rows tall has no row - so these live in nordtal:gui with an
-    // ascent apiece, and a picture that can land on two rows is declared twice.
-    //
-    // Code points in this repository are kept globally distinct across fonts, even though nothing
-    // forces it, so that a number read in a log or a screenshot names one thing.
+    // Menu surfaces taller than one row live in nordtal:gui, one ascent per glyph.
 
     /** The objective card, 68 x 32, on the upper of the two card rows (top y 37). */
     public static final String GUI_CARD_TOP = cp(0xFE200);
@@ -487,40 +429,31 @@ public final class Glyphs {
     public static final String GUI_CARD_DONE_BOTTOM = cp(0xFE203);
 
     /**
-     * The progress bar's fill, in powers of two, for the upper card row. The bar's track is baked
-     * into the card, so an empty bar draws nothing.
+     * The progress bar's fill in powers of two, for the upper card row.
+     *
+     * The track is baked into the card, so an empty bar draws nothing.
      */
-    public static final String[] GUI_BAR_FILL_TOP = {
-        cp(0xFE210), cp(0xFE211), cp(0xFE212), cp(0xFE213), cp(0xFE214), cp(0xFE215),
-    };
+    public static final List<String> GUI_BAR_FILL_TOP =
+            List.of(cp(0xFE210), cp(0xFE211), cp(0xFE212), cp(0xFE213), cp(0xFE214), cp(0xFE215));
 
-    /**
-     * The hand-in screen's tray: one sunken surface 162 x 54 over three chest rows, deliberately
-     * not a recess per slot the way {@link #GUI_GRAVE_SLAB} is.
-     */
+    /** The hand-in's tray: one sunken surface of 162 x 54 over three chest rows. */
     public static final String GUI_HANDIN_TRAY = cp(0xFE204);
 
     /**
-     * The grave's slab: a recess per slot on stone, one glyph per row count, deliberately not one
-     * surface the way {@link #GUI_HANDIN_TRAY} is. Indexed from one row; five is the most there can
-     * be, because a player carries at most forty-one stacks and the sixth row is the footer.
+     * The grave's slab, one glyph per row count from one row up to five.
+     *
+     * Five is the most there can be: a player carries at most forty-one stacks and row six is the footer.
      */
-    public static final String[] GUI_GRAVE_SLAB = {
-        cp(0xFE205), cp(0xFE206), cp(0xFE207), cp(0xFE208), cp(0xFE209),
-    };
+    public static final List<String> GUI_GRAVE_SLAB =
+            List.of(cp(0xFE205), cp(0xFE206), cp(0xFE207), cp(0xFE208), cp(0xFE209));
 
-    /**
-     * The wheel's own panel: five rows with a ring of twelve prize cells and a hub. A whole window
-     * like {@link #GUI_TRAVEL_PANEL} rather than an overlay, because a circle on a 9 x 5 grid is a
-     * band between the cells and not a thing that lands on any one of them.
-     */
+    /** The wheel's panel: five rows with a ring of twelve prize cells and a hub. */
     public static final String GUI_WHEEL_RING = cp(0xFE20A);
 
     /** The same six, for the lower card row. */
-    public static final String[] GUI_BAR_FILL_BOTTOM = {
-        cp(0xFE218), cp(0xFE219), cp(0xFE21A), cp(0xFE21B), cp(0xFE21C), cp(0xFE21D),
-    };
+    public static final List<String> GUI_BAR_FILL_BOTTOM =
+            List.of(cp(0xFE218), cp(0xFE219), cp(0xFE21A), cp(0xFE21B), cp(0xFE21C), cp(0xFE21D));
 
     /** The widths {@link #GUI_BAR_FILL_TOP} draws, in the same order. */
-    public static final int[] GUI_BAR_FILL_WIDTHS = {1, 2, 4, 8, 16, 32};
+    public static final List<Integer> GUI_BAR_FILL_WIDTHS = List.of(1, 2, 4, 8, 16, 32);
 }

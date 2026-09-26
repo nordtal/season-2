@@ -20,13 +20,12 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Every message bundle in the repository, in both languages, complete.
  *
- * <p><b>Why here and not once per module.</b> Four of the seven modules that ship a bundle had a
+ * <b>Why here and not once per module.</b> Four of the seven modules that ship a bundle had a
  * parity guard of their own and three did not - {@code discord-bot}, {@code limbo} and
  * {@code paper-common}. The gap is invisible by construction: English is {@code Messages}'
  * fallback for everything, so a key with no German is answered <i>in English</i>. Nothing throws,
@@ -34,25 +33,25 @@ import org.junit.jupiter.api.Test;
  * German text, which is the least likely kind of defect to be reported by anyone. Copying the same
  * ninety lines into three more modules would have closed today's gap and left the next module to
  * discover the rule by not having it. This walks the tree instead, so a module that gains a bundle
- * is covered the day it gains one, without anybody remembering anything.</p>
+ * is covered the day it gains one, without anybody remembering anything.
  *
- * <p>It does not replace the per-module tests. Those also check that every key <i>named in code</i>
- * exists, which needs the module's own sources and is a different question from parity.</p>
+ * It does not replace the per-module tests. Those also check that every key <i>named in code</i>
+ * exists, which needs the module's own sources and is a different question from parity.
  *
- * <p>The files are declared in {@code common/build.gradle.kts} through
+ * The files are declared in {@code common/build.gradle.kts} through
  * {@code repositoryRootTestInputs}. Without that Gradle cannot see them and an edit to a bundle
- * leaves {@code :common:test} UP-TO-DATE - the failure mode this whole mechanism exists for.</p>
+ * leaves {@code :common:test} UP-TO-DATE - the failure mode this whole mechanism exists for.
  */
 class EveryBundleIsCompleteTest {
 
     /**
      * The bundles that existed when this test was written.
      *
-     * <p>It is a floor, never a ceiling: the walk below finds bundles on its own, so a new module
+     * It is a floor, never a ceiling: the walk below finds bundles on its own, so a new module
      * needs no line here. What the list catches is the opposite and nastier case - a walk that
      * silently finds nothing because somebody moved {@code messages/} or renamed
      * {@code resources}. A green test over zero bundles looks exactly like a green test over
-     * seven.</p>
+     * seven.
      */
     private static final Set<String> KNOWN = Set.of(
             "commands/src/main/resources/messages/commands",
@@ -66,17 +65,15 @@ class EveryBundleIsCompleteTest {
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([a-z0-9_-]+)}");
 
     @Test
-    @DisplayName("the walk finds every bundle this repository had when the test was written")
-    void theWalkStillFindsTheBundlesItWasWrittenFor() {
+    void theWalkFindsEveryBundleThisRepositoryHadWhenTheTestWasWritten() {
         assertTrue(
                 bundles().keySet().containsAll(KNOWN),
-                "the walk lost sight of a bundle it used to find. Missing: "
+                "the walk does not find every known bundle. Missing: "
                         + missingFrom(bundles().keySet()));
     }
 
     @Test
-    @DisplayName("a bundle ships both languages, because German is not a fallback")
-    void everyBundleShipsBothLanguages() {
+    void aBundleShipsBothLanguagesBecauseGermanIsNotAFallback() {
         final Map<String, Set<String>> incomplete = new TreeMap<>();
         bundles().forEach((name, languages) -> {
             if (!languages.equals(Set.of("en", "de"))) {
@@ -88,7 +85,6 @@ class EveryBundleIsCompleteTest {
     }
 
     @Test
-    @DisplayName("every key exists in both languages")
     void everyKeyExistsInBothLanguages() {
         final Map<String, Set<String>> untranslated = new TreeMap<>();
         for (final String name : bundles().keySet()) {
@@ -115,8 +111,7 @@ class EveryBundleIsCompleteTest {
     }
 
     @Test
-    @DisplayName("a translation uses the same placeholders as its original")
-    void thePlaceholdersOfATranslationMatchItsOriginal() {
+    void aTranslationUsesTheSamePlaceholdersAsItsOriginal() {
         final Map<String, String> wrong = new TreeMap<>();
         for (final String name : bundles().keySet()) {
             final Properties english = load(name, "en");
@@ -136,10 +131,7 @@ class EveryBundleIsCompleteTest {
         assertEquals(Map.of(), wrong, "one of these prints a literal {name} to somebody, and the other does not");
     }
 
-    /**
-     * Every {@code <module>/src/main/resources/messages/<bundle>} in the repository, against the
-     * language codes lying in it.
-     */
+    /** Returns every message bundle directory in the repository, with the language codes in it. */
     private static Map<String, Set<String>> bundles() {
         final Map<String, Set<String>> found = new TreeMap<>();
         for (final Path module : childDirectories(RepositoryRoot.path())) {

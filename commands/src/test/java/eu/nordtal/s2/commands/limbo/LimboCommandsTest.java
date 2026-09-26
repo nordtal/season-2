@@ -7,16 +7,15 @@ import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The waiting room's one command.
  *
- * <p>Small, and worth having for one reason: nobody can type it where it runs. A player on limbo is
+ * Small, and worth having for one reason: nobody can type it where it runs. A player on limbo is
  * mid-login and has no chat, so before this command could travel, the only way to reload the wording
  * of the eight titles that <em>are</em> this server's whole user interface was a shell on the
- * production host.</p>
+ * production host.
  */
 class LimboCommandsTest {
 
@@ -50,8 +49,7 @@ class LimboCommandsTest {
     }
 
     @Test
-    @DisplayName("a reload that worked and one that did not are different sentences")
-    void bothOutcomes() {
+    void aReloadThatWorkedAndOneThatDidNotAreDifferentSentences() {
         assertEquals(List.of("limbo.admin.reloaded"), run().keys());
 
         limbo.succeeds = false;
@@ -60,19 +58,13 @@ class LimboCommandsTest {
     }
 
     @Test
-    @DisplayName("it is console only, since ops/18 took every admin command off game and Discord")
-    void itIsConsoleOnly() {
-        // Until 2026-09-15 this asserted GAME, DISCORD and CONSOLE, for the reason the class
-        // javadoc still gives: nobody can type this where it runs. ops/18 ("alles Admin nur noch
-        // Konsole und Web", owner) decided that reasoning no longer wins for an admin command - the
-        // wording still needs to be reloadable, and console still reaches every backend, which is
-        // exactly what is left once GAME and DISCORD are gone.
+    void itIsConsoleOnlySinceOps18TookEveryAdminCommandOffGameAndDiscord() {
+        // Every admin command loses GAME and DISCORD regardless of who could type it where - console remains.
         assertEquals(java.util.Set.of(Surface.CONSOLE), LimboCommands.RELOAD.surfaces());
     }
 
     @Test
-    @DisplayName("it is not confirmed, because re-reading a file undoes nothing")
-    void itIsNotGuarded() {
+    void itIsNotConfirmedBecauseReReadingAFileUndoesNothing() {
         assertTrue(!LimboCommands.RELOAD.irreversible());
     }
 }

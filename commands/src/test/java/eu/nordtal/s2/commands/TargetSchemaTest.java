@@ -13,25 +13,23 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * {@link Target} and the {@code CHECK} on {@code command_request.target} are one fact in two places.
  *
- * <h2>Why the pairing needs a test rather than care</h2>
- * The enum is in this module and the constraint is in {@code :common}'s migration, and neither is
- * visible from the other. A sixth process added here writes rows the database refuses - which is a
- * constraint violation inside whichever adapter submitted it, at the moment somebody typed a command
- * that has never worked. A constant removed here leaves rows nothing will ever claim.
+ * The pairing needs a test rather than care, because the enum is in this module and the
+ * constraint is in {@code :common}'s migration, and neither is visible from the other. A sixth
+ * process added here writes rows the database refuses - a constraint violation inside whichever
+ * adapter submitted it, at the moment somebody typed a command that has never worked. A constant
+ * removed here leaves rows nothing will ever claim.
  *
- * <p>The same pairing exists for {@code SeasonPhase} and {@code season_phase.phase}, established in
- * V4 for the same reason. This is that rule applied to the second enum the schema pins.</p>
+ * The same pairing exists for {@code SeasonPhase} and {@code season_phase.phase}, for the same
+ * reason. This is that rule applied to the second enum the schema pins.
  *
- * <h2>It reads the file off the classpath, not off a path</h2>
- * {@code :common}'s resources are on this module's runtime classpath, so the migration is reachable
- * as a resource and no {@code repositoryRootTestInputs} declaration is needed. That also means the
- * file this reads is the one that would actually be applied.
+ * It reads the migration file off the classpath, not off a path: {@code :common}'s resources are
+ * on this module's runtime classpath, so no {@code repositoryRootTestInputs} declaration is
+ * needed, and the file this reads is the one that would actually be applied.
  */
 class TargetSchemaTest {
 
@@ -48,8 +46,7 @@ class TargetSchemaTest {
     }
 
     @Test
-    @DisplayName("every Target is permitted by the CHECK, and the CHECK permits nothing else")
-    void theEnumAndTheConstraintAgree() throws IOException {
+    void everyTargetIsPermittedByTheCheckAndTheCheckPermitsNothingElse() throws IOException {
         final Matcher check = Pattern.compile("CHECK\\s*\\(target IN \\(([^)]*)\\)\\)", Pattern.CASE_INSENSITIVE)
                 .matcher(sql());
         assertTrue(check.find(), "no CHECK on command_request.target in " + MIGRATION);
@@ -74,14 +71,8 @@ class TargetSchemaTest {
     }
 
     @Test
-    @DisplayName("LOCAL is deliberately NOT permitted by the CHECK")
-    void aLocalCommandCanNeverBecomeARow() throws IOException {
-        // The one target that is not an address, and the constraint is where that is enforced
-        // rather than merely intended. A LOCAL command runs in whichever process was asked, so a
-        // command_request row carrying it would be a row addressed to nobody: no inbox would ever
-        // claim it, and the asker would wait out the timeout being told that "this process" is
-        // down. Adding it to the CHECK to make the set above tidy is the exact mistake this case
-        // exists to refuse.
+    void localIsDeliberatelyNotPermittedByTheCheck() throws IOException {
+        // The one target that is not an address, and the constraint is where that is enforced rather than merely.
         assertTrue(
                 !sql().contains("'LOCAL'"),
                 "command_request's CHECK permits LOCAL. It must not: a LOCAL command never"
@@ -90,11 +81,8 @@ class TargetSchemaTest {
     }
 
     @Test
-    @DisplayName("every Target names a message key that both bundles carry")
-    void everyTargetCanBeNamedToAPerson() throws IOException {
-        // The sentence "no answer within 30 seconds - {target} is either down" is the one place a
-        // process is named to somebody who is waiting for it, and it is produced on the surface
-        // furthest from the logs.
+    void everyTargetNamesAMessageKeyThatBothBundlesCarry() throws IOException {
+        // The sentence "no answer within 30 seconds - {target} is either down" is where a process gets named.
         final String en = bundle("messages/commands/en.properties");
         final String de = bundle("messages/commands/de.properties");
 

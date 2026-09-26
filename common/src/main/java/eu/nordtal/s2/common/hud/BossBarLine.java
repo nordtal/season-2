@@ -6,31 +6,35 @@ import java.util.Objects;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.ShadowColor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One HUD line: a row of pills, each drawn as wide as what it holds, in {@code nordtal:bossbar}.
  *
- * <h2>What a pill is</h2>
+ * <b>What a pill is</b>
+ *
  * A rounded, dark, translucent background sized to its content, with a lighter rim - one per
- * piece of information, separated by a gap, in the manner of Origin Realms (owner's call,
- * 2026-09-05). The SMP's status line is {@code [icon world] [milestone 42 %]}; the hunger games'
+ * piece of information, separated by a gap, in the manner of Origin Realms. The SMP's status line
+ * is {@code [icon world] [milestone 42 %]}; the hunger games'
  * players line is {@code [icon 3 alive · 2 dead ↗]}. A bearing arrow rides inside the pill of the
  * text it belongs to, not in one of its own.
  *
- * <h2>How one is drawn</h2>
+ * <b>How one is drawn</b>
+ *
  * The background first ({@link BossBarWidth#pill}), which leaves the cursor at the pill's right
  * edge; then the cursor walks back to the content column, draws the content, and walks forward
  * to the right edge again. That is only possible because every advance in this font is known
  * ({@link BossBarAdvances}) - the client centres a boss bar name by its total width, and a line
  * whose total width is exact is a line that sits where it should.
  *
- * <h2>The component</h2>
+ * <b>The component</b>
+ *
  * The whole line is <b>one</b> text component naming {@link Glyphs#FONT_BOSSBAR}: the font carries
  * its own ascii sheet, so the readable text is drawn by it too rather than falling out of the
  * styling. And it carries <b>no shadow</b>: the client draws every glyph a second time one pixel
  * down and right, and on a background composed of tiles butted against each other that second
  * copy bleeds out of each tile into the next. The readable text loses its shadow with it, which is
- * the deliberate trade for keeping the line un-split (owner's call, 2026-09-05).
+ * the deliberate trade for keeping the line un-split.
  */
 public final class BossBarLine {
 
@@ -51,7 +55,7 @@ public final class BossBarLine {
      * @param icon a {@code nordtal:bossbar} icon or arrow, or null for a text-only pill
      * @param text what the pill says, already translated; may be empty for an icon-only pill
      */
-    public record Pill(String icon, String text) {
+    public record Pill(@Nullable String icon, String text) {
 
         public Pill {
             Objects.requireNonNull(text, "text");
@@ -85,17 +89,14 @@ public final class BossBarLine {
         for (int index = 0; index < pills.size(); index++) {
             final String content = pills.get(index).content();
             final int width = BossBarAdvances.width(content);
-            // The content's advance ends one pixel past its last drawn column - the separator the
-            // client adds after every glyph. Without the -1 that pixel lands in the right-hand
-            // padding, and a pill reads as one pixel roomier on the right than on the left.
+            // The content's advance ends one pixel past its last column; without the -1 the right padding grows.
             final int inner = PADDING + Math.max(0, width - 1) + PADDING;
 
             out.append(BossBarWidth.pill(inner));
             // The pill left the cursor at its right edge; the content column is CAP + PADDING in.
             out.append(left(inner + BossBarWidth.CAP - PADDING));
             out.append(content);
-            // ...and forward to the pill's right edge: wherever the content's advance left the
-            // cursor, the edge is CAP + inner + CAP from the pill's start.
+            // Forward to the pill's right edge, CAP + inner + CAP from its start.
             out.append(right(inner + BossBarWidth.CAP - PADDING - width));
             if (index < pills.size() - 1) {
                 out.append(right(GAP));
@@ -107,8 +108,8 @@ public final class BossBarLine {
     /**
      * Moves the cursor {@code pixels} to the left, out of the font's eight negative advances.
      *
-     * <p>Unlike {@code MenuTitle.shift} this repeats the largest advance rather than refusing past
-     * 255, because a pill is as wide as a translated milestone name and nothing bounds that.</p>
+     * Unlike {@code MenuTitle.shift} this repeats the largest advance rather than refusing past
+     * 255, because a pill is as wide as a translated milestone name and nothing bounds that.
      */
     public static String left(final int pixels) {
         return shift(pixels, LEFT_WIDTHS, LEFT_GLYPHS);

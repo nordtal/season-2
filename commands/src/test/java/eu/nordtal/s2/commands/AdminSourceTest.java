@@ -10,34 +10,28 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * That the admin check behind a command tree is a cache and never a query.
  *
- * <h2>Why this is not obvious and was wrong twice</h2>
- * Brigadier evaluates a node's {@code requires} predicate <b>while building the command tree it
- * sends to a client</b>, on a thread that must not block - once per player, per rebuild. A
+ * Brigadier evaluates a node's {@code requires} predicate while building the command tree it sends
+ * to a client, on a thread that must not block - once per player, per rebuild. A
  * {@code dao.isAdmin(uuid)} there is a database round trip inside that, and it looks perfectly
- * ordinary in the constructor call that passes it. It was written into {@code hunger-games} during
- * the fold and caught by re-reading rather than by anything failing.
+ * ordinary in the constructor call that passes it. A subtler way to get it wrong is passing
+ * {@code FullServerAdmission}, which does hold an admin flag - but only fills it at pre-login when
+ * the server is near its cap, so on a server that is never near its cap it would answer "nobody is
+ * an admin" forever, silently.
  *
- * <p>The second way to get it wrong is subtler and cost limbo its whole command: passing
- * {@code FullServerAdmission}, which does hold an admin flag - but only fills it at pre-login
- * <em>when the server is near its cap</em>. On limbo, which every login on the network crosses and
- * which is never near its cap, it would have answered "nobody is an admin" for ever, silently.</p>
- *
- * <p>{@code AdminWatch#isAdmin} is the source that is right everywhere: it is the same set the
+ * {@code AdminWatch#isAdmin} is the source that is right everywhere: it is the same set the
  * operator grant is applied from, so a command tree and {@code ops.json} cannot disagree about who
- * is an admin either.</p>
+ * is an admin either.
  */
 class AdminSourceTest {
 
     /** Each Paper plugin, and the in-memory source it is allowed to use. */
     private static final Map<String, String> SOURCES = Map.of(
-            // smp holds the flag in Identities for the nametag composition anyway, and that cache is
-            // fed by the same AdminWatch.
+            // smp holds the flag in Identities for the nametag composition anyway.
             "smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java",
             "identities.of(mcUuid).admin()",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java",
@@ -49,20 +43,18 @@ class AdminSourceTest {
     private static final List<String> FORBIDDEN = List.of("dao.isAdmin(", "access.admins()", "admission.admits(");
 
     @Test
-    @DisplayName("every command tree reads an in-memory admin source")
-    void theSourceIsACache() throws IOException {
+    void everyCommandTreeReadsAnInMemoryAdminSource() throws IOException {
         final List<String> wrong = new ArrayList<>();
         for (final Map.Entry<String, String> entry : SOURCES.entrySet()) {
             final String source = read(entry.getKey());
             if (!source.contains(entry.getValue())) {
-                wrong.add(entry.getKey() + " no longer passes " + entry.getValue() + " as its admin source");
+                wrong.add(entry.getKey() + " does not pass " + entry.getValue() + " as its admin source");
             }
         }
         assertEquals(List.of(), wrong);
     }
 
     @Test
-    @DisplayName("no command tree answers the admin question with a query or with the fullness cache")
     void nothingQueriesInRequires() throws IOException {
         final List<String> wrong = new ArrayList<>();
         for (final String file : SOURCES.keySet()) {
@@ -71,8 +63,7 @@ class AdminSourceTest {
             if (adapter < 0) {
                 continue;
             }
-            // The constructor call itself: that is where the predicate is handed over, and where
-            // both mistakes were made.
+            // The constructor call itself: that is where the predicate is handed over.
             final String call = source.substring(adapter, Math.min(source.length(), adapter + 900));
             for (final String forbidden : FORBIDDEN) {
                 if (call.contains(forbidden)) {
@@ -89,22 +80,8 @@ class AdminSourceTest {
     }
 
     @Test
-    @DisplayName("a subtree is gated only when everything runnable below it is admin-only")
     void anOpenCommandIsNotGatedByItsRoot() throws IOException {
-        // Brigadier's requires gates a whole subtree, and both adapters put one on every child of
-        // a root. /smp status was declared open until 2026-09-25, and a player who typed it got "Incorrect argument for
-        // command" with a red caret,
-        // because the node had been hidden from their tree (finding 117, seen on the local stack).
-        //
-        // steward/106, 2026-09-17: the literal asked for here used to be
-        // `adminOnly(child) ? sub.requires(this::mayUse) : sub`. Both adapters now ask gate(child),
-        // which answers the same question about the admin flag AND the one steward/106 added about
-        // Surface.GAME, and returns null for a node that is open to everyone - so "gated only when
-        // something below it says so" is still exactly what is being read, through one method
-        // instead of one ternary. The behaviour behind both halves is held where a tree can
-        // actually be built: AdminCommandsAreGoneFromTheGameTest (paper-common) and
-        // VelocityCommandsGameSurfaceTest (proxy) assert /smp status stays open to a
-        // player while /smp reload and /access do not.
+        // Brigadier's requires gates a whole subtree, and both adapters put one on every child of a root.
         for (final String relative : List.of(
                 "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/PaperCommands.java",
                 "proxy/src/main/java/eu/nordtal/s2/proxy/command/VelocityCommands.java")) {
@@ -119,14 +96,10 @@ class AdminSourceTest {
             assertTrue(
                     source.contains("declaration().surfaces().contains(") && source.contains("Surface.GAME)"),
                     relative + " decides the gate without asking which surfaces the declaration"
-                            + " carries - steward/106: a command off Surface.GAME is not registered"
-                            + " for a player at all");
+                            + " carries - a command off Surface.GAME is not registered for a player"
+                            + " at all");
         }
-        // Nothing in the catalogue is open under a root any more: /aura and /smp status, the last
-        // two, became native Brigadier in the smp plugin on 2026-09-25. The check above can
-        // therefore not be falsified from the catalogue, and is held instead by a made-up open
-        // declaration in PaperCommandsRootGateTest (paper-common) and VelocityCommandsRootGateTest
-        // (proxy), which build a real tree with one.
+        // Nothing in the catalogue is open under a root any more.
     }
 
     private static String read(final String relative) throws IOException {
@@ -135,7 +108,7 @@ class AdminSourceTest {
             candidate = candidate.getParent();
         }
         final Path source = candidate.resolve(relative);
-        assertTrue(Files.isRegularFile(source), relative + " no longer exists");
+        assertTrue(Files.isRegularFile(source), relative + " is missing");
         return Files.readString(source, StandardCharsets.UTF_8);
     }
 }

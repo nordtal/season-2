@@ -9,15 +9,14 @@ import java.util.UUID;
 /**
  * Everything {@code /smp} touches that only the SMP server can reach.
  *
- * <h2>Where the line is drawn</h2>
  * Nothing here decides anything. Which sentence comes back when no milestone is active, whether an
  * unknown objective key is worth a database round trip, what a correction of zero aura should do -
  * all of that is in the command classes, where it can be asserted without a world. What is left is
  * the work itself, and every one of these needs something bound to this JVM: a world folder, the
  * milestone engine's in-memory track, the identity cache the nametags are drawn from.
  *
- * <h2>Two instances of this exist per server, and the difference matters</h2>
- * One built with the plugin's async scheduler, for {@code /smp} typed in chat; one built with
+ * Two instances of this exist per server, and the difference matters:
+ * one built with the plugin's async scheduler, for {@code /smp} typed in chat; one built with
  * {@code Runnable::run}, for the command inbox - which settles a request row the moment the command
  * returns and would otherwise write an empty answer. {@code CommandInbox#register} refuses the wrong
  * one at startup rather than letting it be discovered on the surface furthest from the logs.
@@ -56,8 +55,8 @@ public interface SmpEffects extends CommandEffects {
     /**
      * Close one objective by hand, paying out scaled to what was actually collected.
      *
-     * <p>Never the full pot - that is what makes an escape hatch never worth more than doing the
-     * work, and it is the same arithmetic a real completion uses.</p>
+     * Never the full pot - that is what makes an escape hatch never worth more than doing the
+     * work, and it is the same arithmetic a real completion uses.
      */
     void completeObjective(String milestone, String objective);
 

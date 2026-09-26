@@ -14,14 +14,14 @@ import java.util.UUID;
 /**
  * The arguments of a travelling command, as the line that would have been typed after its path.
  *
- * <p>A line rather than JSON: {@code :common} has no JSON parser on purpose (jackson is gone, gson
+ * A line rather than JSON: {@code :common} has no JSON parser on purpose (jackson is gone, gson
  * must never be shaded into a Paper plugin). The line is unambiguous by construction, because
  * {@link Declaration} allows at most one {@link Argument.Kind#GREEDY_STRING} and only in last
- * position, and no other kind can contain a space.</p>
+ * position, and no other kind can contain a space.
  *
- * <p>Both directions throw rather than run the command with something plausible: a value that would
+ * Both directions throw rather than run the command with something plausible: a value that would
  * not survive the trip, or a line that does not match the declaration, means two adapters disagree
- * - not that a user typed something wrong.</p>
+ * - not that a user typed something wrong.
  */
 public final class RequestArguments {
 
@@ -45,9 +45,7 @@ public final class RequestArguments {
                     throw new IllegalArgumentException(
                             declaration.name() + " is missing required argument '" + argument.name() + "'");
                 }
-                // Optionals are trailing, so the first absent value ends the line. A later value
-                // supplied after an absent optional cannot be written back and must not be dropped
-                // silently.
+                // Optionals are trailing, so the first absent value ends the line - a value after that is refused.
                 for (final Argument later : declaration
                         .arguments()
                         .subList(
@@ -74,8 +72,7 @@ public final class RequestArguments {
                         + argument.name() + "' is empty, which is indistinguishable from absent"
                         + " once it is a line");
             }
-            // decode() skips the spaces between arguments before reading the greedy one, so a
-            // leading or trailing space would not survive the round trip.
+            // decode() skips the spaces between arguments before reading the greedy one.
             if (argument.kind() == Argument.Kind.GREEDY_STRING && !text.equals(text.strip())) {
                 throw new IllegalArgumentException(declaration.name() + ": argument '"
                         + argument.name() + "' begins or ends with whitespace (\"" + text
@@ -140,8 +137,7 @@ public final class RequestArguments {
         return switch (argument.kind()) {
             case WORD, GREEDY_STRING, REFERENCE -> token;
             case ACCOUNT -> {
-                // A Discord snowflake is ASCII '0'..'9'; Character.isDigit would also accept
-                // Devanagari and Arabic-Indic digits.
+                // A Discord snowflake is ASCII '0'..'9'; Character.isDigit would also accept other scripts' digits.
                 if (!token.chars().allMatch(digit -> digit >= '0' && digit <= '9')) {
                     throw new IllegalArgumentException(declaration.name() + ": argument '"
                             + argument.name() + "' is a Discord account and was sent \"" + token
@@ -151,8 +147,7 @@ public final class RequestArguments {
                 yield token;
             }
             case CHOICE -> {
-                // Case-insensitive in, declared spelling out: the far side compares against its own
-                // constants.
+                // Case-insensitive in, declared spelling out: the far side compares against its own constants.
                 yield argument.match(token)
                         .orElseThrow(() -> new IllegalArgumentException(declaration.name() + ": '" + token
                                 + "' is not one of " + argument.choices() + " for argument '" + argument.name() + "'"));

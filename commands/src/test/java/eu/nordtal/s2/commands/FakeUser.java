@@ -12,22 +12,21 @@ import java.util.UUID;
 /**
  * Somebody asking for a command, recorded rather than rendered.
  *
- * <p>This class is the point of {@code :commands} in one file. Before it, "what does {@code /phase}
+ * This class is the point of {@code :commands} in one file. Before it, "what does {@code /phase}
  * say back when the phase was already the one asked for?" could only be answered by a real Velocity
  * proxy with a real client, or a real Discord guild with a real admin - which is why the answer had
- * drifted into two different sentences on the two surfaces without anybody noticing.</p>
+ * drifted into two different sentences on the two surfaces without anybody noticing.
  */
 public final class FakeUser implements NordtalUser {
 
-    /** Every reply, as {@code key} plus its placeholders, in the order they were sent. */
     /**
      * Everything this user was told, in order.
      *
-     * <p>Concurrent, because it is not always written from the thread that reads it: {@code Outbox}
+     * Concurrent, because it is not always written from the thread that reads it: {@code Outbox}
      * answers from its own scheduler and again from the task that gives up waiting, and
      * {@code OutboxTest} then reads {@code size()} from the test thread. An {@link ArrayList} there
      * has no happens-before edge, so the wait could spin past a reply that had already been made
-     * and fail on the timeout instead.</p>
+     * and fail on the timeout instead.
      */
     public final List<Reply> replies = new java.util.concurrent.CopyOnWriteArrayList<>();
 
@@ -119,8 +118,8 @@ public final class FakeUser implements NordtalUser {
     /**
      * Answers the key itself, marked.
      *
-     * <p>A real adapter renders it against a bundle; what a test wants to know is <em>which</em> key
-     * a command asked for, which the marker makes visible in an assertion failure.</p>
+     * A real adapter renders it against a bundle; what a test wants to know is <em>which</em> key
+     * a command asked for, which the marker makes visible in an assertion failure.
      */
     @Override
     public String phrase(final MessageRef message) {

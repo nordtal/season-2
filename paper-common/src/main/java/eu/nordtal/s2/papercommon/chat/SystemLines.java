@@ -24,51 +24,34 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
- * The five lines a player reads all day - said, joined, left, died, earned - written by us on every
- * Paper server rather than by vanilla on one of them.
+ * The five lines a player reads all day - said, joined, left, died, earned - rendered here rather than by vanilla.
  *
- * <h2>Why replace them at all</h2>
- * Not for decoration. Vanilla broadcasts one line in <em>the server's</em> language to a server
- * where half the players read German, and it broadcasts it as a bare name with no flag, no icon and
- * nothing of the composition every other surface draws - so the lines everybody reads most are the
- * only surface in the season that looks like nothing was done to it. Each of these is sent per
- * reader, in that reader's language.
+ * Vanilla broadcasts each one as a bare name with no flag or icon, in the server's own language.
+ * Each of these five is rendered per reader, in that reader's own language instead.
  *
- * <h2>Why it is here and not in {@code smp}</h2>
- * <b>It was in {@code smp}, and that was the whole of the defect.</b> Until 2026-09-09 the hunger
- * games - the season's flagship event, the one every player attends at the same moment - had
- * vanilla chat, vanilla join and leave and vanilla death messages, in yellow, in one language, with
- * no flag on anybody (finding 149). The class was written for the SMP and nothing about it was
- * about the SMP; the one part that genuinely differed is the composition, which is now an argument.
+ * A death message and an advancement title keep vanilla's own {@code TranslatableComponent}: the
+ * client renders it, so each reader gets it in their own language, with the mob's name and the
+ * killer's weapon in it, off the same packet. The wording is vanilla's and the line is ours - and on
+ * the hunger games that line is also the kill feed.
  *
- * <h2>Two of the five keep vanilla's own component, and that is the point</h2>
- * A death message and an advancement title are {@code TranslatableComponent}s: the <em>client</em>
- * renders them, so a German client reads "wurde von einem Zombie getötet" and an English one reads
- * "was slain by a Zombie", off the same packet, with the mob's name and the killer's weapon in it.
- * Fifty hand-written keys per language could not match that and would go stale on the next
- * Minecraft release. So the wording is vanilla's and the <em>line</em> is ours - and on the hunger
- * games that line is the kill feed, which is why it needs no key of its own there either.
- *
- * <h2>The rule that decides whether a death is announced</h2>
- * <b>We announce a death exactly when vanilla would have.</b> {@code event.deathMessage()} being
- * {@code null} already means somebody has decided this death is not news - {@code smp}'s
- * {@code DuelListener} does it for an arena death, which costs nobody anything and is already
- * reported to the two people it concerns, and {@code /gamerule showDeathMessages false} does it for
- * the whole server. Reading that instead of asking every subsystem in turn is what keeps this class
- * from having to know about duels, and it cannot be got wrong by an event-priority accident.
+ * A death is announced exactly when vanilla would have announced it: {@code
+ * event.deathMessage()} being {@code null} already means the death is not news, whether because it
+ * is an arena death reported elsewhere or because {@code /gamerule showDeathMessages false} silenced
+ * the whole server. Reading that instead of asking every subsystem in turn keeps this class from
+ * needing to know about duels.
  */
 public final class SystemLines implements Listener {
 
     /**
      * How this server draws a player in a line about them.
      *
-     * <p>The one thing that genuinely differs between the two servers: the SMP draws a flag, a name
+     * The one thing that genuinely differs between the two servers: the SMP draws a flag, a name
      * and a prestige crest earned over a season, the hunger games draw a flag and a name because
      * nobody has been there longer than an hour. Everything else about these five lines is the
-     * same, which is why this is an argument rather than a subclass.</p>
+     * same, which is why this is an argument rather than a subclass.
      *
-     * <p>Called on the main thread for the four broadcast lines and on Paper's chat thread for the
-     * chat line, so an implementation must read from a cache and never from a database.</p>
+     * Called on the main thread for the four broadcast lines and on Paper's chat thread for the
+     * chat line, so an implementation must read from a cache and never from a database.
      */
     @FunctionalInterface
     public interface Composition {
@@ -93,10 +76,10 @@ public final class SystemLines implements Listener {
     /**
      * The chat line: the composition, a hairline rule, and what was typed.
      *
-     * <p>Paper calls the renderer once per recipient, which is what makes "in the reader's
+     * Paper calls the renderer once per recipient, which is what makes "in the reader's
      * language" free. The two languages in one line are deliberate and are two different people's:
      * the flag belongs to whoever is <em>speaking</em>, because it says what to greet them in, and
-     * the words around it belong to whoever is reading.</p>
+     * the words around it belong to whoever is reading.
      */
     @EventHandler(ignoreCancelled = true)
     public void onChat(final AsyncChatEvent event) {
@@ -107,8 +90,9 @@ public final class SystemLines implements Listener {
     }
 
     /**
-     * Suppresses the vanilla line. <b>The replacement is not sent from here</b>, see
-     * {@link #announceJoin(Player)}.
+     * Suppresses the vanilla line.
+     *
+     * <b>The replacement is not sent from here</b>, see {@link #announceJoin(Player)}.
      */
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
@@ -118,13 +102,12 @@ public final class SystemLines implements Listener {
     /**
      * The join line, once the joining player's language is known.
      *
-     * <p>Called by each module's presence listener from the callback that loads the locale, and not
+     * Called by each module's presence listener from the callback that loads the locale, and not
      * from a join handler, because a join handler is exactly one moment too early: the language is a
-     * database read taken off the main thread (finding 96), so a line broadcast at join renders in
-     * English for the very player it is about. Everything else on either server - the HUD, the
-     * boards, the tab list - is redrawn on a timer and picks the language up by itself; this is the
-     * one message with a single moment, and on the local stack it was the one German player being
-     * told <i>hmtill joined.</i> under a German HUD (finding 116).</p>
+     * database read taken off the main thread, so a line broadcast at join would render in English
+     * for the very player it is about. Everything else on either server - the HUD, the boards, the
+     * tab list - is redrawn on a timer and picks the language up by itself; this is the one message
+     * with a single moment.
      *
      * @param player the player who has just arrived, and whose locale has just landed
      */
@@ -135,7 +118,7 @@ public final class SystemLines implements Listener {
     /**
      * {@code LOWEST}, and the priority is load-bearing rather than tidy.
      *
-     * <p>{@code smp}'s {@code JoinGate#onQuit} forgets the identity at the default priority, and the
+     * {@code smp}'s {@code JoinGate#onQuit} forgets the identity at the default priority, and the
      * identity is what carries the flag and the crest - so a handler that ran after it would
      * announce a departure with a default English flag and a tier-1 crest for everybody. The one
      * ordering this class depends on is therefore written down here rather than left to registration
@@ -146,8 +129,7 @@ public final class SystemLines implements Listener {
         event.quitMessage(null);
         final Player leaving = event.getPlayer();
         final Component who = composition.of(leaving);
-        // Not to the person leaving: they are on a disconnect screen, and the line would be the
-        // last thing scrolled past on a chat they can no longer read.
+        // Not to the person leaving: they are already on a disconnect screen, unable to read it.
         broadcast(MESSAGES.system().leave(Glyphs.ICON_LEAVE, who), viewer -> !viewer.equals(leaving));
     }
 
@@ -163,9 +145,7 @@ public final class SystemLines implements Listener {
 
     @EventHandler
     public void onAdvancement(final PlayerAdvancementDoneEvent event) {
-        // Nullable by design in Paper: it is already null for a recipe unlock, for an advancement
-        // whose display says not to announce it, and when the gamerule is off. Every one of those
-        // is a decision that has already been taken, and none of them is ours to overturn.
+        // Nullable by design in Paper: null for a recipe unlock, a silent advancement, or the gamerule off.
         if (event.message() == null) {
             return;
         }
@@ -183,12 +163,11 @@ public final class SystemLines implements Listener {
     /**
      * One system line, from somewhere other than a Bukkit event.
      *
-     * <p>The five handlers above cover everything vanilla announces. This is for the death vanilla
+     * The five handlers above cover everything vanilla announces. This is for a death vanilla
      * does <em>not</em> announce: a hunger games participant killed through the armor stand standing
-     * in for them while they are offline. {@code EntityDeathEvent} carries no death message, so the
-     * one elimination the victim cannot see happening was also the one nobody else was told about
-     * (owner, 2026-09-09). The caller supplies the wording; the icon, the per-reader language and
-     * the shape stay here, so such a line cannot drift away from the ones beside it.</p>
+     * in for them while they are offline, which carries no {@code EntityDeathEvent} death message.
+     * The caller supplies the wording; the icon, the per-reader language and the shape stay here, so
+     * such a line cannot drift away from the ones beside it.
      *
      * @param message a message from the caller's own spec, its {@code icon} one of {@link Glyphs}'
      *                icons
@@ -200,7 +179,7 @@ public final class SystemLines implements Listener {
     /**
      * Renders {@code message} once per reader, in that reader's language.
      *
-     * <p>Per reader rather than once: a locale is a cache lookup and these fire a handful of times
+     * Per reader rather than once: a locale is a cache lookup and these fire a handful of times
      * an hour, which is the opposite end of the scale from the boss bar's four renders a second.
      */
     private void broadcast(final MessageRef message, final Predicate<Player> to) {
@@ -217,7 +196,7 @@ public final class SystemLines implements Listener {
     /**
      * The reader's language, or English for an audience that is not a player.
      *
-     * <p>The console is such an audience, and so is anything else that has been given a copy of
+     * The console is such an audience, and so is anything else that has been given a copy of
      * chat; neither has a row in {@code discord_user}, so there is nothing to look up rather than
      * something missing.
      */

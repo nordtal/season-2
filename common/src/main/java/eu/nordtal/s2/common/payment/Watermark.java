@@ -12,25 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The cut-off the payment poll applies: payments created before it are ignored, completely and
- * forever.
+ * The cut-off before which the payment poll ignores payments, forever.
  *
- * <h2>It decides itself, once</h2>
- * The first start that finds no stored value writes the instant of that start. That is the only
- * cut-off that is correct by construction - a date written into a config file in advance is either
- * too early, in which case the first poll books up to fifty historical payments on the bunq account
- * with the grants, roles, DMs and public thank-yous that go with them, or too late, in which case
- * real purchases in the gap are silently ignored.
- * <p>
- * The write is {@code ON CONFLICT DO NOTHING} and there is no code path that updates the row, so
- * two containers starting together agree on whichever got there first, and a later start never
- * moves the cut-off forward.
- * </p>
- *
- * <h2>The override does not replace it</h2>
- * {@code payment.watermark} in {@code access.yml} wins when it is set, but the stored value is
- * still written if it is missing. Emptying the override therefore falls back to the original
- * first-start instant rather than to whenever the bot happened to restart.
+ * The first start writes its own instant with {@code ON CONFLICT DO NOTHING}, and nothing updates it. The
+ * {@code payment.watermark} override wins when set, but the stored value is still written.
  */
 public final class Watermark {
 
@@ -51,8 +36,7 @@ public final class Watermark {
     public static Instant resolve(final Jdbi jdbi, final String configured) {
         final BotSettingDao dao = jdbi.onDemand(BotSettingDao.class);
 
-        // Written even when an override is set, so removing the override later falls back to the
-        // first start rather than to now.
+        // Written even with an override, so removing it later falls back to the first start.
         final Instant now = Instant.now();
         if (dao.insertIfAbsent(KEY, now.toString()) == 1) {
             log.info(

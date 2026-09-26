@@ -14,9 +14,9 @@ import java.util.Optional;
 /**
  * A process that answers {@code /phase}, scripted.
  *
- * <p>{@link #async} runs inline. That is not a shortcut: the thing under test is what a command
+ * {@link #async} runs inline. That is not a shortcut: the thing under test is what a command
  * decides and in which order it says it, and a thread would only make the assertions racy without
- * proving anything the real schedulers do not already own.</p>
+ * proving anything the real schedulers do not already own.
  */
 final class FakeEffects implements PhaseEffects, PhaseDirectory {
 
@@ -80,8 +80,6 @@ final class FakeEffects implements PhaseEffects, PhaseDirectory {
     public void warn(final String what, final Throwable failure) {
         warnings.add(what);
     }
-
-    // ---------------------------------------------------------------- PhaseDirectory
 
     @Override
     public SeasonPhase currentPhase() {

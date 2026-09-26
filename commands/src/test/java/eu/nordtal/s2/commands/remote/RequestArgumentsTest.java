@@ -15,14 +15,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The wire format of a travelling command's arguments.
  *
- * <h2>Why the round trip is asserted over every declaration and not over examples</h2>
- * The format is a line, and it works because {@link Declaration}'s own invariants make the split
+ * The round trip is asserted over every declaration and not over examples, because the format is
+ * a line, and it works because {@link Declaration}'s own invariants make the split
  * unambiguous - one greedy argument at most, last, and no other kind can hold a space. That is a
  * claim about <em>every</em> declaration rather than about the ones somebody thought to write a case
  * for, so the test walks {@link Catalogue} and would fail the moment a command is declared in a
@@ -32,8 +31,7 @@ import org.junit.jupiter.api.Test;
 class RequestArgumentsTest {
 
     @Test
-    @DisplayName("every declared command's arguments survive the round trip")
-    void everyDeclarationRoundTrips() {
+    void everyDeclaredCommandsArgumentsSurviveTheRoundTrip() {
         for (final Declaration declaration : Catalogue.all()) {
             final Values sent = sample(declaration);
             final String line = RequestArguments.encode(declaration, sent);
@@ -50,8 +48,7 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("a command with no arguments is an empty line, not a missing one")
-    void noArgumentsIsEmpty() {
+    void aCommandWithNoArgumentsIsAnEmptyLineNotAMissingOne() {
         final Declaration declaration =
                 new Declaration(List.of("smp", "reload"), Target.SMP, Set.of(Surface.GAME), true, false, List.of());
 
@@ -61,8 +58,7 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("a greedy argument keeps its spaces because it is last")
-    void greedyKeepsSpaces() {
+    void aGreedyArgumentKeepsItsSpacesBecauseItIsLast() {
         final Declaration declaration = new Declaration(
                 List.of("phase", "launch"),
                 Target.PROXY,
@@ -80,11 +76,8 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("a word carrying a space is refused rather than silently split")
-    void aWordWithASpaceIsRefused() {
-        // Only reachable if an adapter parsed something as the wrong kind - so it is a programming
-        // mistake, and the useful behaviour is a sentence naming the argument rather than a command
-        // that runs with the first half of its key.
+    void aWordCarryingASpaceIsRefusedRatherThanSilentlySplit() {
+        // Only reachable if an adapter parsed something as the wrong kind - so it is a programming mistake.
         final Declaration declaration = new Declaration(
                 List.of("smp", "objective", "complete"),
                 Target.SMP,
@@ -100,8 +93,7 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("a missing required argument is a disagreement between adapters, not a default")
-    void aMissingRequiredArgumentThrows() {
+    void aMissingRequiredArgumentIsADisagreementBetweenAdaptersNotADefault() {
         final Declaration declaration = new Declaration(
                 List.of("smp", "aura"),
                 Target.SMP,
@@ -117,11 +109,8 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("an integer outside its declared bounds does not reach the command")
-    void anIntegerOutsideItsBoundsThrows() {
-        // The bounds are on the declaration, so Brigadier and JDA both enforce them where the
-        // command was typed. This is the third place, and it is the one that matters: a row can be
-        // written by an older build whose bounds were wider.
+    void anIntegerOutsideItsDeclaredBoundsDoesNotReachTheCommand() {
+        // The bounds are on the declaration, so Brigadier and JDA both enforce them where the command was typed. This.
         final Declaration declaration = new Declaration(
                 List.of("smp", "aura"),
                 Target.SMP,
@@ -135,8 +124,7 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("a choice that is not one of them is refused")
-    void anUnknownChoiceThrows() {
+    void aChoiceThatIsNotOneOfThemIsRefused() {
         final Declaration declaration = new Declaration(
                 List.of("phase", "set"),
                 Target.PROXY,
@@ -149,8 +137,7 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("a player argument arrives resolved, and anything else is refused")
-    void aPlayerIsAlwaysAUuid() {
+    void aPlayerArgumentArrivesResolvedAndAnythingElseIsRefused() {
         final Declaration declaration = new Declaration(
                 List.of("smp", "access"),
                 Target.SMP,
@@ -169,8 +156,7 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("tokens after the last declared argument are refused")
-    void leftoverTokensThrow() {
+    void tokensAfterTheLastDeclaredArgumentAreRefused() {
         final Declaration declaration =
                 new Declaration(List.of("smp", "reload"), Target.SMP, Set.of(Surface.GAME), true, false, List.of());
 
@@ -178,8 +164,7 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("an absent optional argument ends the line and is absent on the far side")
-    void anOptionalMayBeAbsent() {
+    void anAbsentOptionalArgumentEndsTheLineAndIsAbsentOnTheFarSide() {
         final Declaration declaration = new Declaration(
                 List.of("hg", "start"),
                 Target.HUNGER_GAMES,
@@ -195,10 +180,8 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("a choice sent in another case arrives in the declared spelling")
-    void aChoiceIsNormalisedOnTheWayOff() {
-        // The asking adapter may have taken `maintenance` off a chat line; the far side compares it
-        // against its own constants.
+    void aChoiceSentInAnotherCaseArrivesInTheDeclaredSpelling() {
+        // The asking adapter may have taken `maintenance` off a chat line.
         final Declaration declaration = new Declaration(
                 List.of("phase", "set"),
                 Target.PROXY,
@@ -214,11 +197,8 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("a greedy value that begins or ends with a space is refused, not silently trimmed")
-    void greedyWhitespaceIsRefused() {
-        // decode() walks past the spaces between arguments before it reads the greedy one, so
-        // encode(" foo") comes back as "foo" - the far side runs the command with a different value
-        // and nothing anywhere says so. A pasted date reaches this path.
+    void aGreedyValueThatBeginsOrEndsWithASpaceIsRefusedNotSilentlyTrimmed() {
+        // decode() walks past the spaces between arguments before it reads the greedy one.
         final Declaration declaration = new Declaration(
                 List.of("phase", "launch"),
                 Target.PROXY,
@@ -237,11 +217,8 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("a value supplied after an absent optional is refused rather than dropped")
-    void aGapInTheOptionalsIsRefused() {
-        // Declaration only forbids a REQUIRED argument after an optional one, so two optionals with
-        // a hole between them is expressible. The line cannot carry the hole, and encoding used to
-        // stop at the first absent value and lose everything after it in silence.
+    void aValueSuppliedAfterAnAbsentOptionalIsRefusedRatherThanDropped() {
+        // Declaration only forbids a REQUIRED argument after an optional one.
         final Declaration declaration = new Declaration(
                 List.of("hg", "start"),
                 Target.HUNGER_GAMES,
@@ -257,10 +234,8 @@ class RequestArgumentsTest {
     }
 
     @Test
-    @DisplayName("a Discord id is ASCII digits, and Character.isDigit is not that test")
-    void anAccountIsAsciiDigits() {
-        // Devanagari digits pass Character.isDigit. The far side hands this straight to a query and
-        // to a mention, where it would look like a member who simply does not exist.
+    void aDiscordIdIsAsciiDigitsAndCharacterIsdigitIsNotThatTest() {
+        // Devanagari digits pass Character.isDigit. The far side hands this straight to a query and to a mention.
         final Declaration declaration = new Declaration(
                 List.of("access", "revoke"),
                 Target.BOT,
@@ -283,8 +258,7 @@ class RequestArgumentsTest {
                     argument.name(),
                     switch (argument.kind()) {
                         case WORD, REFERENCE -> "sample-key";
-                        // Deliberately with spaces: a greedy argument that does not exercise them proves
-                        // nothing, and it is the one kind that is allowed to carry them.
+                        // Deliberately with spaces: a greedy argument that does not exercise them proves nothing.
                         case GREEDY_STRING -> "2026-10-01 18:00";
                         case INTEGER -> argument.min();
                         case PLAYER -> UUID.fromString("11111111-2222-3333-4444-555555555555");

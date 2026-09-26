@@ -13,9 +13,9 @@ import eu.nordtal.s2.common.message.context.DiscordMemberContext;
 /**
  * {@code /access unlink <member>} - break somebody else's account link.
  *
- * <p>For a player who has lost the Discord or Minecraft account they linked. Confirmed because the
+ * For a player who has lost the Discord or Minecraft account they linked. Confirmed because the
  * admin who does it cannot undo it: re-linking needs a code the <em>player</em> generates in game,
- * so an accidental unlink leaves somebody outside the login gate until they can get to a client.</p>
+ * so an accidental unlink leaves somebody outside the login gate until they can get to a client.
  */
 public final class UnlinkAccount implements NordtalCommand<AccessEffects> {
 

@@ -25,14 +25,7 @@ public final class ReportUpdate implements NordtalCommand<UpdateEffects> {
             try {
                 final long id = effects.submit(UpdateKind.REPORT, user).id();
                 effects.watch(id, user);
-                // An acknowledgement and not the answer: resolving every source takes seconds and
-                // the surfaces read the row themselves - Discord by editing its embed, the game by
-                // printing the report when it lands. This command's job ends at "it has been asked
-                // for".
-                //
-                // The id is deliberately not in the sentence. It was, and it is a database
-                // primary key being read out to somebody who cannot do anything with it; the one
-                // reader who can is looking at steward-worker's log, where it still is.
+                // An acknowledgement and not the answer: surfaces read the row themselves.
                 user.reply(MESSAGES.update().asked(), Feedback.SMALL_SUCCESS, Tone.GOOD);
             } catch (final RunRefused refused) {
                 user.reply(Refusals.of(refused), Feedback.REFUSED, Tone.BAD);

@@ -2,12 +2,15 @@ package eu.nordtal.s2.common.update;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link UpdateReport} to and from the JSON that lives in {@code update_request.result}.
  *
- * <h2>Hand-written, and that is the cheaper choice here</h2>
+ * <b>Hand-written, and that is the cheaper choice here</b>
+ *
  * {@code :common} is compiled against no platform and declares its whole persistence stack
  * {@code compileOnly} so that a plugin taking one class does not take a megabyte. A JSON library
  * would be the first dependency in this module that exists purely to move four record types across
@@ -16,7 +19,8 @@ import java.util.Optional;
  * rather than as an error. The whole grammar here is objects, arrays, strings and one enum, and the
  * writer and the reader are on the same side of the wire in the same build.
  *
- * <h2>An unreadable row is not an error</h2>
+ * <b>An unreadable row is not an error</b>
+ *
  * {@link #parse} answers empty rather than throwing. The rows this reads are written by another
  * process, possibly an older one mid-deployment, and the caller is a Discord embed or a chat line:
  * failing to draw a report is a worse outcome than drawing the raw text, which is what every caller
@@ -25,8 +29,6 @@ import java.util.Optional;
 public final class UpdateReports {
 
     private UpdateReports() {}
-
-    // ---------------------------------------------------------------- writing
 
     public static String toJson(final UpdateReport report) {
         final StringBuilder out = new StringBuilder(256);
@@ -54,12 +56,7 @@ public final class UpdateReports {
                         .append(quote(change.from()))
                         .append(",\"to\":")
                         .append(quote(change.to()));
-                // Written only when it is not the default, the way `detail` is - and here that has
-                // a second effect worth naming. A reader older than 2026-09-09 throws on a key it
-                // does not know, and UpdateReports#parse turns that into "this is not a report",
-                // which every surface draws as the raw text. Omitting the common case means a
-                // network mid-deployment keeps drawing ordinary runs properly, and only a report
-                // that actually carries an unsupported artefact falls back.
+                // Written only when not the default, so an older reader still parses ordinary reports.
                 if (change.state() != UpdateReport.Change.State.MOVING) {
                     out.append(",\"state\":").append(quote(change.state().name()));
                 }
@@ -85,7 +82,7 @@ public final class UpdateReports {
     }
 
     /** {@code null} becomes the JSON literal, which is how "nothing installed" survives the trip. */
-    private static String quote(final String value) {
+    private static String quote(final @Nullable String value) {
         if (value == null) {
             return "null";
         }
@@ -110,14 +107,13 @@ public final class UpdateReports {
         return out.append('"').toString();
     }
 
-    // ---------------------------------------------------------------- reading
-
     /**
-     * @param json the {@code result} column, which may be {@code null}, empty, or the plain text a
-     *             version of this software older than 2026-09-07 wrote
+     * Parses the {@code result} column into a report.
+     *
+     * @param json the {@code result} column, which may be {@code null}, empty, or plain text
      * @return the report, or empty when this is not one
      */
-    public static Optional<UpdateReport> parse(final String json) {
+    public static Optional<UpdateReport> parse(final @Nullable String json) {
         if (json == null || json.isBlank() || json.charAt(0) != '{') {
             return Optional.empty();
         }
@@ -131,9 +127,9 @@ public final class UpdateReports {
     /**
      * A cursor over the text, reading only the shape {@link #toJson} writes.
      *
-     * <p>Not a general JSON parser and not trying to be one: it accepts what this class produces
+     * Not a general JSON parser and not trying to be one: it accepts what this class produces
      * and rejects everything else by throwing, which {@link #parse} turns into "this is not a
-     * report".</p>
+     * report".
      */
     private static final class Reader {
 
@@ -187,7 +183,7 @@ public final class UpdateReports {
                     break;
                 }
             }
-            return new UpdateReport.ServiceLine(service, state, changes, detail);
+            return new UpdateReport.ServiceLine(Objects.requireNonNull(service, "service"), state, changes, detail);
         }
 
         private UpdateReport.Change change() {
@@ -210,7 +206,8 @@ public final class UpdateReports {
                     break;
                 }
             }
-            return new UpdateReport.Change(artefact, from, to, state);
+            return new UpdateReport.Change(
+                    Objects.requireNonNull(artefact, "artefact"), from, Objects.requireNonNull(to, "to"), state);
         }
 
         /** Runs {@code element} once per array entry, and eats an empty array without calling it. */
@@ -244,7 +241,7 @@ public final class UpdateReports {
             return false;
         }
 
-        private String nullableString() {
+        private @Nullable String nullableString() {
             skipSpace();
             if (text.startsWith("null", at)) {
                 at += 4;

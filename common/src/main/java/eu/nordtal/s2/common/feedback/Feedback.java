@@ -3,7 +3,7 @@ package eu.nordtal.s2.common.feedback;
 /**
  * The whole sound vocabulary of the network. A call site picks one of these and nothing else.
  *
- * <p>The emptiness is deliberate: no sound name, no pitch, no volume, no method. What a category
+ * The emptiness is deliberate: no sound name, no pitch, no volume, no method. What a category
  * sounds like is a per-module {@code config.yml} decision parsed into {@link FeedbackSounds}, so a
  * call site can never name a sound of its own. The list is fixed - growing it to fit each new call
  * site is what would stop it being a vocabulary.
@@ -40,18 +40,9 @@ public enum Feedback {
     /** Everybody hears it: a milestone for everyone who did not finish it, a phase switch. */
     NETWORK_EVENT,
 
-    /**
-     * A staged moment: the season's opening on a player's first join, and whatever else the staging
-     * device is later pointed at. Its {@code sounds.yml} key ships empty - which every module treats
-     * as silence - because the sound it wants arrives with the art.
-     */
+    /** A staged moment, such as the season's opening; its sound key ships empty, which means silence. */
     STAGING,
 
-    /**
-     * Something is given back, heard by everyone standing nearby rather than by one player: a grave
-     * settling once it is empty. Not {@link #LOSS} - that is something taken from you, and this is its
-     * opposite - and not {@link #SMALL_SUCCESS}, which belongs to the pickup itself rather than to the
-     * grave disappearing. Added for season-2-ingame/15, Till 2026-09-15.
-     */
+    /** Something is given back, heard by everyone nearby, such as an emptied grave settling. */
     RECLAIMED
 }

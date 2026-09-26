@@ -21,9 +21,7 @@ public final class Announce implements NordtalCommand<AnnounceEffects> {
         final String language = values.string("language");
         final String text = values.string("text");
         effects.async(() -> {
-            // The answer is written into the request row and read by nobody in a hurry; it is
-            // there so that "why did the announcement not appear" has a row that says "no
-            // channel for de" rather than a DONE row and silence.
+            // The answer is written into the request row and read by nobody in a hurry.
             final boolean posted = effects.post(language, text);
             user.reply(
                     posted

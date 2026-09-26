@@ -2,20 +2,21 @@ package eu.nordtal.s2.common.roster;
 
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One row of {@code payment_request}, whole, for a list of every purchase there has been.
  *
- * <p>This is not {@code eu.nordtal.s2.common.access.OpenPayment} and does not replace it. That one
+ * This is not {@code eu.nordtal.s2.common.access.OpenPayment} and does not replace it. That one
  * answers "is this person in the middle of paying" for a single account and carries only what a
  * Discord message needs; this one is a row of a table somebody is scrolling through, so it carries
  * the identity ({@code id}, {@code discordId}), the money and the three timestamps.
  *
- * <p><b>Read-only.</b> {@code payment_request} is a state machine with one owner - the bot's
+ * <b>Read-only.</b> {@code payment_request} is a state machine with one owner - the bot's
  * {@code Purchases} - and a second writer is a second half-finished purchase. Nothing in this
  * package writes it.
  *
- * <p>{@code bunq_payment_id} is deliberately absent: it identifies a payment inside somebody's bank
+ * {@code bunq_payment_id} is deliberately absent: it identifies a payment inside somebody's bank
  * account and is of no use to a reader who cannot open bunq, while {@code settled} already answers
  * whether it arrived.
  *
@@ -42,8 +43,8 @@ public record Payment(
         int amountCents,
         int donationCents,
         String status,
-        Long bunqTabId,
-        String shareUrl,
+        @Nullable Long bunqTabId,
+        @Nullable String shareUrl,
         Instant created,
         Instant expires,
-        Instant settled) {}
+        @Nullable Instant settled) {}

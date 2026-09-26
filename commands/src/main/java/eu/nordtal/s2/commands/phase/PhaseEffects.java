@@ -12,29 +12,20 @@ import java.util.Optional;
 /**
  * The back half of {@code /phase}: everything the two processes that answer it do differently.
  *
- * <h2>Why this interface is so thin</h2>
- * Because most of {@code /phase} was already shared and nobody had noticed. The write goes through
+ * This interface is thin because most of {@code /phase} is already shared. The write goes through
  * {@link PhaseDirectory#switchPhase}, which is in {@code :common} and which <b>both</b>
- * implementations already called - one SQL statement writing the row, the {@code audit_log} entry
- * and the {@code NOTIFY} together. What was duplicated was the four hundred lines around it:
- * parsing a phase name, parsing a date, deciding which of five sentences comes back, and the order
- * they are said in.
- *
- * <p>So what is left here really is per-process, and it is worth listing why each one is:</p>
- * <ul>
- *   <li>{@link #observation()} - the proxy holds the phase in its {@code PhaseWatch} and answers
- *       {@code /phase} from memory <em>on purpose</em>: this is the command somebody runs while the
- *       network is misbehaving, and it should still say something useful when the database cannot
- *       be reached. The bot holds nothing and reads the row.</li>
- *   <li>{@link #afterWrite()} - a process that caches the phase has to re-read it rather than wait
- *       for its own notification to come back around, so that the reply and the log agree. The bot
- *       caches nothing and does nothing here.</li>
- *   <li>{@link #recordSwitch} / {@link #recordDate} - where a process files admin actions. The bot
- *       writes a mention into the admin channel; the proxy writes a {@code WARN} line. Neither is a
- *       message key, because neither is read by the person who typed the command.</li>
- *   <li>{@link #async} - Velocity's scheduler and the bot's worker executor. Both exist because the
- *       calling thread is one nothing may block: Brigadier's, or a JDA gateway thread.</li>
- * </ul>
+ * implementations call - one SQL statement writing the row, the {@code audit_log} entry
+ * and the {@code NOTIFY} together. What is left here is per-process: {@link #observation()}, because
+ * the proxy holds the phase in its {@code PhaseWatch} and answers {@code /phase} from memory
+ * <em>on purpose</em> (this is the command somebody runs while the network is misbehaving, and it
+ * should still say something useful when the database cannot be reached, while the bot holds
+ * nothing and reads the row); {@link #afterWrite()}, because a process that caches the phase has to
+ * re-read it rather than wait for its own notification to come back around, so that the reply and
+ * the log agree (the bot caches nothing and does nothing here); {@link #recordSwitch} and
+ * {@link #recordDate}, where a process files admin actions (the bot writes a mention into the admin
+ * channel, the proxy writes a {@code WARN} line, and neither is a message key because neither is
+ * read by the person who typed the command); and {@link #async}, Velocity's scheduler and the bot's
+ * worker executor, both because the calling thread is one nothing may block.
  */
 public interface PhaseEffects extends CommandEffects {
 

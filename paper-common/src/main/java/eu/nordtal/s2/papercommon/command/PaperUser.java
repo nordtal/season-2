@@ -20,18 +20,19 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Whoever typed a command on a Paper server - a player, or the console.
  *
- * <p><b>The console is always an admin</b>, and that is the single exception to
+ * <b>The console is always an admin</b>, and that is the single exception to
  * {@code discord_user.admin} being the only admin list. It is not a second list: the console is a
  * shell inside the container, and anybody holding one can edit that table by hand. Refusing them
  * would only remove the path that still works when the database holds no admin at all.
  *
- * <p>The console gets English, because it has no account and therefore no language.
+ * The console gets English, because it has no account and therefore no language.
  *
- * <p>Commands do their work on Bukkit's async scheduler, so every reply hops to the main thread -
+ * Commands do their work on Bukkit's async scheduler, so every reply hops to the main thread -
  * carrying the message <em>and</em> its sound in one tick, because two hops read as lag.
  */
 public final class PaperUser implements NordtalUser {
@@ -94,7 +95,7 @@ public final class PaperUser implements NordtalUser {
             final Player player,
             final Locale locale,
             final boolean admin,
-            final String discordId,
+            final @Nullable String discordId,
             final Messages messages,
             final Chime chime,
             final java.util.function.Supplier<ToneColours> colours) {
@@ -102,17 +103,18 @@ public final class PaperUser implements NordtalUser {
     }
 
     /**
-     * The same, with the Discord account resolved only if something asks - the overload to use
-     * whenever the source is anything but a cache. See {@link #discordId()}.
+     * The same, with the Discord account resolved only if something asks. See {@link #discordId()}.
+     *
+     * The overload to use whenever the source is anything but a cache.
      */
     public static PaperUser of(
             final Plugin plugin,
             final Player player,
-            final Locale locale,
+            final @Nullable Locale locale,
             final boolean admin,
             final java.util.function.Supplier<Optional<String>> discordId,
             final Messages messages,
-            final Chime chime,
+            final @Nullable Chime chime,
             final java.util.function.Supplier<ToneColours> colours) {
         return new PaperUser(
                 Objects.requireNonNull(plugin, "plugin"),
@@ -148,10 +150,11 @@ public final class PaperUser implements NordtalUser {
     }
 
     /**
-     * Their Discord account, <b>resolved when asked and not when this object is built</b>: a
-     * {@code PaperUser} is built inside a Brigadier handler on the main thread for every invocation,
-     * so an eager lookup would be a database query there. The callers that need the answer read it
-     * on their own scheduler.
+     * Their Discord account, <b>resolved when asked and not when this object is built</b>.
+     *
+     * A {@code PaperUser} is built inside a Brigadier handler on the main thread for every
+     * invocation, so an eager lookup would be a database query there. The callers that need the
+     * answer read it on their own scheduler.
      */
     @Override
     public Optional<String> discordId() {
@@ -185,8 +188,7 @@ public final class PaperUser implements NordtalUser {
 
     @Override
     public void reply(final MessageRef message) {
-        // send(..., null) rather than delegating to an overload: with both a Feedback and a Tone
-        // overload in scope, reply(message, null) is ambiguous and does not compile.
+        // send(..., null): reply(message, null) would be ambiguous between the Feedback and Tone overloads.
         send(render(message), null);
     }
 
@@ -202,15 +204,13 @@ public final class PaperUser implements NordtalUser {
 
     @Override
     public void reply(final MessageRef message, final Feedback feedback, final Tone tone) {
-        // One hop, carrying all three: the line, its colour and its chime. Painting before the hop
-        // rather than inside it keeps everything that touches Adventure off the main thread.
+        // One hop carrying the line, colour and chime: painting first keeps Adventure off the main thread.
         send(Tones.paint(render(message), tone, colours.get()), feedback);
     }
 
     @Override
     public String phrase(final MessageRef message) {
-        // Plain text: the result is substituted into another message that is itself parsed as
-        // MiniMessage, and a component serialised back into that string would arrive as tags.
+        // Plain text: the result is substituted into a message re-parsed as MiniMessage, where tags would leak through.
         return PlainTextComponentSerializer.plainText().serialize(render(message));
     }
 
@@ -224,11 +224,12 @@ public final class PaperUser implements NordtalUser {
     }
 
     /**
-     * One hop to the main thread, carrying the line and its sound together. Scheduled
-     * unconditionally rather than only when off-thread, so that two replies keep the order they were
-     * written in whichever thread each came from.
+     * One hop to the main thread, carrying the line and its sound together.
+     *
+     * Scheduled unconditionally rather than only when off-thread, so that two replies keep the
+     * order they were written in whichever thread each came from.
      */
-    private void send(final Component message, final Feedback feedback) {
+    private void send(final Component message, final @Nullable Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             sender.sendMessage(message);
             if (feedback != null && sender instanceof Player player) {

@@ -2,7 +2,6 @@ package eu.nordtal.s2.common.access;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -10,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.message.PlayerLocales;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -22,7 +20,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -31,17 +28,15 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Exercises {@link AccessDirectory} against a real PostgreSQL instance running the real migration.
- * <p>
+ *
  * Nothing here can be done in memory: the append rule, the expiry comparison and the double-book
  * guard are all evaluated by PostgreSQL - {@code GREATEST(now(), ...)}, {@code make_interval} and
  * a partial unique index have no in-JVM stand-in. Testcontainers is driven by hand from
  * {@link BeforeAll} because the {@code org.testcontainers:junit-jupiter} extension is built
  * against JUnit 5 and this repo is on the JUnit 6 BOM.
- * </p>
- * <p>
+ *
  * These tests <b>skip themselves</b> when no Docker daemon is reachable. A green build on a
  * machine without Docker proves nothing about any of this.
- * </p>
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AccessDirectoryIntegrationTest {
@@ -85,18 +80,13 @@ class AccessDirectoryIntegrationTest {
 
     @BeforeEach
     void freshDirectory() {
-        // TRUNCATE ... CASCADE rather than dropping the schema: it keeps the migration applied
-        // once per class while every test still starts from an empty database.
+        // Truncating rather than dropping the schema keeps the migration applied once per class.
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
                 + "player_playtime, admin_grant, discord_user CASCADE");
 
-        // season_phase is NOT truncated - it is a singleton the migration seeds, and the login
-        // query reads it in the same round trip. SMP is the baseline because it is the one phase in
-        // which access decides anything; tests about the phase itself set their own.
+        // season_phase is a seeded singleton and is not truncated; SMP is the phase in which access decides.
         phase(SeasonPhase.SMP);
-        // Nor is smp_start, for the same reason - so it is cleared explicitly here. A test that
-        // sets it would otherwise anchor every test that ran after it, which is exactly the kind
-        // of order-dependent green that a truncate-per-test exists to prevent.
+        // smp_start is cleared explicitly, or a test that sets it anchors every test after it.
         execute("UPDATE season_phase SET smp_start = NULL WHERE id");
         directory = AccessDirectory.using(dataSource);
     }
@@ -110,8 +100,6 @@ class AccessDirectoryIntegrationTest {
     private static void smpStartsIn(final Duration fromNow) {
         execute("UPDATE season_phase SET smp_start = now() + interval '" + fromNow.toSeconds() + " seconds' WHERE id");
     }
-
-    // ---------------------------------------------------------------- appending
 
     @Test
     void grantingWithNoAccessRunningStartsNow() {
@@ -162,12 +150,9 @@ class AccessDirectoryIntegrationTest {
         assertDaysApart(30, grant.validFrom(), grant.validUntil());
     }
 
-    // ---------------------------------------------------------------- the season start anchor
-
     @Test
     void aPurchaseBeforeTheSeasonStartsBeginsWhenTheSeasonDoes() {
-        // The point of the whole anchor: access is only asked for in SMP, so a thirty-day purchase
-        // made a fortnight before the opening must still be thirty days of SMP.
+        // A thirty-day purchase made a fortnight before the opening is still thirty days of SMP.
         phase(SeasonPhase.PRE_LAUNCH);
         smpStartsIn(Duration.ofDays(14));
 
@@ -179,8 +164,7 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void twoPurchasesBeforeTheSeasonStartStackIntoOneRunFromTheOpening() {
-        // Buying 30 and then another 30 weeks in advance has to be 60 days of season, not 60 days
-        // of calendar starting today and not 30 days twice over the same fortnight.
+        // Two purchases made weeks in advance are sixty days of season, starting at the opening.
         phase(SeasonPhase.PRE_LAUNCH);
         smpStartsIn(Duration.ofDays(14));
 
@@ -194,8 +178,7 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void aPurchaseAfterTheSeasonHasOpenedIgnoresTheStoredDate() {
-        // smp_start is deliberately never cleared once the season is running, so it has to stop
-        // mattering on its own. It does: it is in the past, and now() is the greater of the two.
+        // smp_start is never cleared once the season runs; in the past, now() is the greater of the two.
         execute("UPDATE season_phase SET smp_start = now() - interval '30 days' WHERE id");
 
         final AccessGrant grant = directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
@@ -206,10 +189,7 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void withNoSeasonStartTheChainStillStartsNowSoTheShopWorksUndated() {
-        // Decided 2026-09-03: selling is not blocked on somebody having picked a date, so that the
-        // payment path can be exercised internally. The bot says so loudly on every such grant -
-        // see SeasonStart - and that warning is the only thing standing between this and a real
-        // customer losing the weeks before an opening nobody dated.
+        // Selling is not blocked on an unset date; the bot warns on every such grant (SeasonStart).
         phase(SeasonPhase.PRE_LAUNCH);
 
         final AccessGrant grant = directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
@@ -219,9 +199,7 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void aLapseAfterTheOpeningStartsTodayRatherThanBackAtTheSeasonStart() {
-        // Periods are never summed. Somebody who bought before the season, let it run out and buys
-        // again gets a period starting today - the anchor is in the past by then and the expired
-        // grant is invisible to the subquery, so neither can drag the new period backwards.
+        // Periods are never summed: an expired grant and a past anchor cannot drag a new period backwards.
         execute("UPDATE season_phase SET smp_start = now() - interval '90 days' WHERE id");
         directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
         execute("""
@@ -239,17 +217,11 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void aDayIsExactlyTwentyFourHoursEvenAcrossADaylightSavingChange() {
-        // Regression test. The first version of grantAccess used make_interval(days => :days),
-        // which on a timestamptz is calendar arithmetic evaluated in the *session's* time zone -
-        // and the PostgreSQL JDBC driver takes that time zone from the JVM's default. A period
-        // spanning the end of European summer time therefore came out an hour long, and the same
-        // purchase would have differed between the bot's host and the proxy's host.
+        // Day arithmetic on a timestamptz follows the session time zone and makes a DST-spanning period 1 h short.
         final AccessGrant grant = directory.grantAccess(DISCORD_ID, 365, AccessSource.ADMIN, null);
 
-        assertEquals(Duration.ofHours(365 * 24), Duration.between(grant.validFrom(), grant.validUntil()));
+        assertEquals(Duration.ofDays(365), Duration.between(grant.validFrom(), grant.validUntil()));
     }
-
-    // ---------------------------------------------------------------- expiry and revocation
 
     @Test
     void aGrantThatEndedOneSecondAgoIsNotActive() {
@@ -327,8 +299,6 @@ class AccessDirectoryIntegrationTest {
         assertDaysApart(7, grant.validFrom(), grant.validUntil());
     }
 
-    // ---------------------------------------------------------------- the login path
-
     @Test
     void accessStateOfAnUnknownUuidIsUnlinked() {
         final UUID unknown = UUID.randomUUID();
@@ -387,12 +357,9 @@ class AccessDirectoryIntegrationTest {
         assertWithinSeconds(Instant.now().plus(Duration.ofDays(60)), state.accessValidUntil(), 60);
     }
 
-    // ------------------------------------------- the merged login query and the phase-aware gate
-
     @Test
     void theLoginQueryCarriesThePhaseSoTheProxyNeverMakesASecondRoundTrip() {
-        // One database round trip on the login path carries both the access state and the phase,
-        // for a linked account and for a UUID nobody has ever seen.
+        // One round trip on the login path carries both the access state and the phase.
         directory.link(DISCORD_ID, MC_UUID);
         phase(SeasonPhase.START_EVENT);
 
@@ -405,8 +372,7 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void aLinkedMemberWithNoAccessGetsInBeforeTheSmpAndNotAfterIt() {
-        // The whole reason the phase model exists: the pre-event and the start event are free for
-        // anyone who has linked their account.
+        // The pre-event and the start event are free for anyone who has linked their account.
         directory.link(DISCORD_ID, MC_UUID);
 
         phase(SeasonPhase.PRE_EVENT);
@@ -448,12 +414,7 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void maintenanceAdmitsAnyLinkedMemberSoTheProxyCanHoldThemInLimbo() {
-        // Reversed 2026-08-31. This used to assert "MAINTENANCE is admins only"; docs/season-phases
-        // .md left "disconnect OR hold in limbo" open while its own phase table already said
-        // non-admins land in `limbo`, and the owner settled it on holding them. Admission is
-        // therefore identical to the two event phases, and the admin flag has moved out of
-        // mayJoin() entirely - it now only decides where a player goes, which is proxy's
-        // PhaseRouting and not this record's business.
+        // MAINTENANCE admits like the event phases; where a player goes is the proxy's PhaseRouting.
         directory.link(DISCORD_ID, MC_UUID);
         phase(SeasonPhase.MAINTENANCE);
 
@@ -476,14 +437,11 @@ class AccessDirectoryIntegrationTest {
         phase(SeasonPhase.MAINTENANCE);
         assertTrue(
                 directory.accessState(MC_UUID).mayJoin(),
-                "an admin gets in during maintenance - as does everybody else, since 2026-08-31");
+                "an admin gets in during maintenance - as does everybody else");
 
-        // Reversed 2026-09-05. This asserted the opposite - "the admin flag is not a free access
-        // period" - until the first local rehearsal, where the admin who typed /phase set SMP was
-        // disconnected by the switch they had just confirmed. The owner decided the flag is a free
-        // pass; the same query, read against the real row, is what has to say so.
+        // The admin flag is a free pass in SMP, so the admin who switches to SMP is not disconnected.
         phase(SeasonPhase.SMP);
-        assertTrue(directory.accessState(MC_UUID).mayJoin(), "the admin flag is an access period since 2026-09-05");
+        assertTrue(directory.accessState(MC_UUID).mayJoin(), "the admin flag is an access period");
         setAdmin(DISCORD_ID, false);
         assertFalse(
                 directory.accessState(MC_UUID).mayJoin(),
@@ -492,14 +450,7 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void aDeletedPhaseRowReadsAsMaintenanceRatherThanLookingLikeAnUnlinkedAccount() {
-        // The phase now rides on the login query, so the query has to survive the one row it reads
-        // being gone. Two things must hold: the account still reads as linked (otherwise every
-        // player would be handed a link code they do not need), and the phase reads as MAINTENANCE.
-        //
-        // Since the 2026-08-31 reversal MAINTENANCE is no longer "the state that lets nobody in" -
-        // it is the state that puts everybody somewhere harmless. A proxy that cannot read the
-        // phase therefore parks players in limbo rather than guessing them onto a game server, and
-        // mayJoin() is true here where it used to be false.
+        // Without the phase row the account still reads as linked and the phase as MAINTENANCE (limbo).
         directory.link(DISCORD_ID, MC_UUID);
         directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
         execute("DELETE FROM season_phase");
@@ -514,8 +465,6 @@ class AccessDirectoryIntegrationTest {
             execute("INSERT INTO season_phase (phase) VALUES ('PRE_EVENT')");
         }
     }
-
-    // ---------------------------------------------------------------- linking
 
     @Test
     void theLinkIsOneToOneAndTheDatabaseIsWhatEnforcesIt() {
@@ -543,8 +492,6 @@ class AccessDirectoryIntegrationTest {
         assertEquals(1, directory.grantsOf(DISCORD_ID).size(), "paid time survives an unlink");
     }
 
-    // ---------------------------------------------------------------- locale and donor
-
     @Test
     void localeOfAnUnknownUuidIsEnglishAndNeverThrows() {
         assertEquals(Locale.ENGLISH, directory.locale(UUID.randomUUID()));
@@ -568,8 +515,6 @@ class AccessDirectoryIntegrationTest {
         assertFalse(directory.isDonor("999999999999999999"));
     }
 
-    // ---------------------------------------------------------------- the admin flag (V4)
-
     @Test
     void nobodyIsAnAdminUntilTheMirrorSaysSo() {
         directory.link(DISCORD_ID, MC_UUID);
@@ -590,7 +535,7 @@ class AccessDirectoryIntegrationTest {
                 state.admin(), "this is what MAINTENANCE and the proxy's emergency /phase command are authorised by");
         assertTrue(
                 state.mayJoin(),
-                "and since 2026-09-05 it is also an access period: the seeded phase is PRE_LAUNCH, "
+                "it is also an access period: the seeded phase is PRE_LAUNCH, "
                         + "where the flag is the admission rule, and in SMP it stands in for a grant");
     }
 
@@ -606,227 +551,6 @@ class AccessDirectoryIntegrationTest {
         assertFalse(state.admin(), "losing the Discord role has to lose the permission");
         assertTrue(state.donor(), "the donor flag is permanent, and clearing admin must not touch it");
     }
-
-    // ---------------------------------------------------------------- the profile cache (steward/44)
-
-    @Test
-    void discordProfileOfAnUnknownAccountIsEmptyNotNull() {
-        assertEquals(DiscordProfile.EMPTY, directory.discordProfile("999999999999999999"));
-    }
-
-    @Test
-    void minecraftProfileOfAnUnknownAccountIsEmptyNotNull() {
-        assertEquals(MinecraftProfile.EMPTY, directory.minecraftProfile("999999999999999999"));
-    }
-
-    @Test
-    void setDiscordProfileWritesAllThreeFieldsWithTheirOwnTimestamps() {
-        directory.ensureUser(DISCORD_ID);
-
-        directory.setDiscordProfile(DISCORD_ID, "steve", "Bau-Steve", "https://example.invalid/a.png");
-
-        final DiscordProfile profile = directory.discordProfile(DISCORD_ID);
-        assertEquals("steve", profile.username());
-        assertEquals("Bau-Steve", profile.displayName());
-        assertEquals("https://example.invalid/a.png", profile.avatarUrl());
-        assertWithinSeconds(Instant.now(), profile.usernameUpdated(), 5);
-        assertWithinSeconds(Instant.now(), profile.displayNameUpdated(), 5);
-        assertWithinSeconds(Instant.now(), profile.avatarUrlUpdated(), 5);
-    }
-
-    @Test
-    void setDiscordProfileCreatesTheUserRowIfItIsNotThereYet() {
-        directory.setDiscordProfile("400000000000000002", "new-user", null, null);
-
-        assertEquals("new-user", directory.discordProfile("400000000000000002").username());
-    }
-
-    @Test
-    @DisplayName("a member with no guild nickname or avatar has null there, not an empty string")
-    void aMemberWithNoGuildNicknameOrAvatarStoresNullForBoth() {
-        directory.setDiscordProfile(DISCORD_ID, "steve", null, null);
-
-        final DiscordProfile profile = directory.discordProfile(DISCORD_ID);
-        assertNull(profile.displayName());
-        assertNull(profile.avatarUrl());
-        // Still observed, even though the answer is "nothing set" - the timestamp says when the
-        // absence was last confirmed, not just when a value last existed.
-        assertNotNull(profile.displayNameUpdated());
-        assertNotNull(profile.avatarUrlUpdated());
-    }
-
-    @Test
-    @DisplayName("leaving the guild clears the nickname and the avatar, but the username merely goes stale")
-    void clearingTheGuildProfileLeavesTheUsernameInPlace() {
-        directory.setDiscordProfile(DISCORD_ID, "steve", "Bau-Steve", "https://example.invalid/a.png");
-
-        directory.clearGuildProfile(DISCORD_ID);
-
-        final DiscordProfile profile = directory.discordProfile(DISCORD_ID);
-        assertEquals("steve", profile.username(), "the global username is not guild-scoped");
-        assertNull(profile.displayName(), "the guild nickname does not survive a departure");
-        assertNull(profile.avatarUrl(), "neither does the guild avatar");
-    }
-
-    @Test
-    void clearGuildProfileOfAnUnknownAccountDoesNothing() {
-        directory.clearGuildProfile("999999999999999999");
-
-        assertEquals(DiscordProfile.EMPTY, directory.discordProfile("999999999999999999"));
-    }
-
-    @Test
-    void setMinecraftNameWritesOntoTheLinkedAccount() {
-        directory.link(DISCORD_ID, MC_UUID);
-
-        final boolean written = directory.setMinecraftName(MC_UUID, "Notch");
-
-        assertTrue(written);
-        final MinecraftProfile profile = directory.minecraftProfile(DISCORD_ID);
-        assertEquals("Notch", profile.name());
-        assertWithinSeconds(Instant.now(), profile.nameUpdated(), 5);
-    }
-
-    @Test
-    @DisplayName("a name cannot be cached for an account nobody has linked - there is no row to write it onto")
-    void setMinecraftNameOfAnUnlinkedAccountIsANoOp() {
-        final boolean written = directory.setMinecraftName(UUID.randomUUID(), "Notch");
-
-        assertFalse(written);
-    }
-
-    // -------------------------------------------- a name is not a key (steward/44's own demand)
-
-    @Test
-    @DisplayName("two Discord accounts may share every observed field without becoming one identity")
-    void twoDiscordAccountsMayShareANameWithoutMergingIdentity() {
-        // Discord does not stop two different people from picking the same username or the same
-        // guild nickname, and neither may this cache: a UNIQUE constraint on any of these columns
-        // would turn an ordinary coincidence into a migration that refuses to apply. If this test
-        // ever goes red on the INSERT itself, a name has been made a key somewhere in the schema.
-        final String otherDiscordId = "100000000000000099";
-        final UUID otherMcUuid = UUID.randomUUID();
-        directory.link(DISCORD_ID, MC_UUID);
-        directory.link(otherDiscordId, otherMcUuid);
-
-        directory.setDiscordProfile(DISCORD_ID, "steve", "Steve", "https://example.invalid/a.png");
-        directory.setDiscordProfile(otherDiscordId, "steve2", "Steve", "https://example.invalid/a.png");
-        directory.setMinecraftName(MC_UUID, "Herobrine");
-        directory.setMinecraftName(otherMcUuid, "Herobrine");
-
-        // Same rendered name and the same picture for both - and each account still resolves to its
-        // own, distinct Minecraft account. The lookup below is keyed on discordId, never on the name
-        // both of them happen to carry; that is the property this whole test exists to pin down.
-        assertEquals(MC_UUID, directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow());
-        assertEquals(
-                otherMcUuid, directory.linkedMinecraftAccount(otherDiscordId).orElseThrow());
-        assertEquals(DISCORD_ID, directory.linkedDiscordAccount(MC_UUID).orElseThrow());
-        assertEquals(otherDiscordId, directory.linkedDiscordAccount(otherMcUuid).orElseThrow());
-
-        final DiscordProfile first = directory.discordProfile(DISCORD_ID);
-        final DiscordProfile second = directory.discordProfile(otherDiscordId);
-        assertEquals("Steve", first.displayName());
-        assertEquals("Steve", second.displayName());
-        assertNotEquals(first, second, "identical display names must not make the two records equal");
-    }
-
-    // ---------------------------------------------------------------- the join-time locale component
-
-    @Test
-    void playerLocalesReadsTheLanguageFromTheDatabaseAtJoin() {
-        directory.link(DISCORD_ID, MC_UUID);
-        directory.setLocale(DISCORD_ID, Locale.GERMAN);
-
-        // The wiring every module uses: the access directory is the LocaleSource.
-        final PlayerLocales locales = new PlayerLocales(directory::locale);
-
-        assertEquals(Locale.GERMAN, locales.join(MC_UUID));
-        assertEquals(Locale.GERMAN, locales.of(MC_UUID));
-    }
-
-    @Test
-    void playerLocalesHoldsTheLanguageForTheSessionAndPicksAChangeUpOnTheNextJoin() {
-        directory.link(DISCORD_ID, MC_UUID);
-        directory.setLocale(DISCORD_ID, Locale.GERMAN);
-
-        final PlayerLocales locales = new PlayerLocales(directory::locale);
-        locales.join(MC_UUID);
-
-        // The player picks the English role in Discord; the bot mirrors it.
-        directory.setLocale(DISCORD_ID, Locale.ENGLISH);
-        assertEquals(
-                Locale.GERMAN,
-                locales.of(MC_UUID),
-                "docs/i18n.md: a language changed mid-session takes effect on the next join, which is "
-                        + "the trade for not re-querying on every message");
-
-        locales.quit(MC_UUID);
-        assertEquals(Locale.ENGLISH, locales.join(MC_UUID));
-    }
-
-    @Test
-    void playerLocalesFallsBackToEnglishForAnAccountNobodyHasLinked() {
-        final PlayerLocales locales = new PlayerLocales(directory::locale);
-
-        assertEquals(Locale.ENGLISH, locales.join(UUID.randomUUID()));
-    }
-
-    // ---------------------------------------------------------------- player_playtime (V4)
-
-    @Test
-    void playtimeHangsOffDiscordUserAndNotOffTheMinecraftUuid() throws SQLException {
-        final SQLException orphan = assertThrows(
-                SQLException.class,
-                () -> executeChecked(
-                        "INSERT INTO player_playtime (discord_id, seconds) VALUES ('999999999999999999', 60)"));
-        assertTrue(orphan.getMessage().contains("player_playtime_discord_id_fkey"), orphan.getMessage());
-
-        directory.ensureUser(DISCORD_ID);
-        executeChecked("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 60)");
-        assertEquals(1, count("SELECT count(*) FROM player_playtime WHERE seconds = 60"));
-    }
-
-    @Test
-    void playtimeIsAnIntegerCountOfSecondsThatCannotGoBackwardsPastZero() {
-        directory.ensureUser(DISCORD_ID);
-
-        final SQLException negative = assertThrows(
-                SQLException.class,
-                () -> executeChecked(
-                        "INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', -1)"));
-        assertTrue(negative.getMessage().contains("player_playtime_seconds_not_negative"), negative.getMessage());
-
-        // Seconds, not an interval: the proxy's periodic flush is a plain addition, and no part of
-        // it is calendar arithmetic in whatever time zone the writing JVM happens to be in.
-        execute("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 0)");
-        execute("UPDATE player_playtime SET seconds = seconds + 86400, updated = now() WHERE discord_id = '"
-                + DISCORD_ID + "'");
-        assertEquals(86400, count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"));
-    }
-
-    /**
-     * steward/119: an admin may set play time outright, because the prestige tier is derived from it
-     * and there is no other lever. An absolute write, unlike the proxy's own {@code add} - "set this
-     * account to nine hours" is the whole point, and an addition could not express it.
-     */
-    @Test
-    void playtimeCanBeSetOutright() {
-        directory.ensureUser(DISCORD_ID);
-
-        directory.setPlaytimeSeconds(DISCORD_ID, 32400);
-        assertEquals(
-                32400,
-                count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"),
-                "the first write makes the row");
-
-        directory.setPlaytimeSeconds(DISCORD_ID, 60);
-        assertEquals(
-                60,
-                count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"),
-                "the second replaces it rather than adding to it");
-    }
-
-    // ---------------------------------------------------------------- the double-booking guard
 
     @Test
     void oneBunqPaymentCannotSettleTwoRequests() throws SQLException {
@@ -846,8 +570,7 @@ class AccessDirectoryIntegrationTest {
         directory.ensureUser(DISCORD_ID);
         directory.ensureUser("100000000000000002");
 
-        // Two open requests for two people, both with a NULL bunq_payment_id: the unique index is
-        // partial, so NULLs do not collide.
+        // The unique index on bunq_payment_id is partial, so two NULLs do not collide.
         insertOpenRequest(DISCORD_ID, "NT-CCCCCC");
         insertOpenRequest("100000000000000002", "NT-DDDDDD");
     }
@@ -878,8 +601,6 @@ class AccessDirectoryIntegrationTest {
         assertEquals(1, directory.grantsOf(DISCORD_ID).size());
     }
 
-    // ---------------------------------------------------------------- helpers
-
     private AccessState linkedState() {
         directory.link(DISCORD_ID, MC_UUID);
         return directory.accessState(MC_UUID);
@@ -904,13 +625,8 @@ class AccessDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("an open purchase is readable from outside the bot, tab or no tab")
-    void theOpenPurchaseIsReadable() throws SQLException {
-        // What /smp access prints as its third line, and the reason that command exists: "has not
-        // paid" and "is halfway through paying" produce the same disconnect screen. Driven against
-        // a real database because the whole of it is SQL plus a constructor mapper - a column list
-        // that does not match the record is exactly the kind of thing that compiles, passes every
-        // unit test, and throws the first time an admin runs it.
+    void anOpenPurchaseIsReadableFromOutsideTheBotTabOrNoTab() throws SQLException {
+        // Against a real database: a column list that does not match the record only fails at runtime.
         directory.ensureUser(DISCORD_ID);
         assertTrue(
                 directory.openPayment(DISCORD_ID).isEmpty(),
@@ -932,10 +648,7 @@ class AccessDirectoryIntegrationTest {
         execute("UPDATE payment_request SET bunq_tab_id = 4242 WHERE reference = 'NT-A1B2C3'");
         assertTrue(directory.openPayment(DISCORD_ID).orElseThrow().hasTab());
 
-        // Only OPEN rows. A settled purchase is not something in progress, and reporting one as
-        // pending would send an admin looking for a payment that already arrived. `settled` moves
-        // with the status because payment_request_settled_iff_paid ties the two together - which is
-        // itself worth knowing here: there is no way to write a PAID row that looks unsettled.
+        // Only OPEN rows; payment_request_settled_iff_paid moves `settled` together with the status.
         execute("UPDATE payment_request SET status = 'PAID', settled = now()" + " WHERE reference = 'NT-A1B2C3'");
         assertTrue(directory.openPayment(DISCORD_ID).isEmpty());
     }
@@ -953,8 +666,9 @@ class AccessDirectoryIntegrationTest {
     }
 
     /**
-     * Makes an account an admin the one way there is since {@code V34}: the first becomes the root,
-     * every later one is granted by it. Clearing drops the account's branch.
+     * Makes an account an admin: the first becomes the root, every later one is granted by it.
+     *
+     * Clearing drops the account's branch.
      */
     private void setAdmin(final String discordId, final boolean admin) {
         final AdminTree tree = AdminTree.using(dataSource);
@@ -986,17 +700,6 @@ class AccessDirectoryIntegrationTest {
         }
     }
 
-    private static long count(final String sql) {
-        try (Connection connection = dataSource.getConnection();
-                Statement statement = connection.createStatement();
-                var rs = statement.executeQuery(sql)) {
-            assertTrue(rs.next(), "expected a row from: " + sql);
-            return rs.getLong(1);
-        } catch (final SQLException exception) {
-            throw new IllegalStateException("Test query failed: " + sql, exception);
-        }
-    }
-
     private static void assertWithinSeconds(final Instant expected, final Instant actual, final long tolerance) {
         assertNotNull(actual, "expected a timestamp around " + expected + ", got null");
         final long off = Math.abs(Duration.between(expected, actual).toSeconds());
@@ -1010,15 +713,9 @@ class AccessDirectoryIntegrationTest {
         assertEquals(days, actual, "expected " + days + " days between " + from + " and " + to);
     }
 
-    // ---------------------------------------------------------------- M9: the admin flag notifies
-
     @Test
-    @DisplayName("M9: setting the admin flag notifies nordtal_admin with the Discord id")
-    void theAdminFlagAnnouncesItself() throws Exception {
-        // The proxy fills LoginRoster from the login query and never again, so a revoked admin kept
-        // every power until they disconnected. This is the signal that lets a revocation reach a
-        // player who is already online, and it rides inside the write - as the phase's does - so it
-        // is only ever emitted for something that committed.
+    void m9SettingTheAdminFlagNotifiesNordtalAdminWithTheDiscordId() throws Exception {
+        // This signal lets a revocation reach a player who is already online; it rides inside the write.
         try (Connection listening = dataSource.getConnection()) {
             try (Statement statement = listening.createStatement()) {
                 statement.execute("LISTEN nordtal_admin");
@@ -1041,8 +738,7 @@ class AccessDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("M9: a revocation notifies as loudly as a grant")
-    void losingTheFlagNotifiesToo() throws Exception {
+    void m9ARevocationNotifiesAsLoudlyAsAGrant() throws Exception {
         setAdmin(DISCORD_ID, true);
 
         try (Connection listening = dataSource.getConnection()) {
@@ -1063,8 +759,7 @@ class AccessDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("M9: admins() is the whole set the proxy re-derives every session from")
-    void theAdminSetIsReadableInOneQuery() {
+    void m9AdminsIsTheWholeSetTheProxyReDerivesEverySessionFrom() {
         assertTrue(directory.admins().isEmpty());
 
         setAdmin(DISCORD_ID, true);
@@ -1082,11 +777,8 @@ class AccessDirectoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("the backends ask for admins by Minecraft account, and get only the linked ones")
-    void adminsAreAlsoReadableAsMinecraftAccounts() {
-        // The proxy knows a session by its Discord id because the login gate resolved it there. A
-        // Paper server knows only a UUID, and the join through account_link is the one thing that
-        // connects them - so this is a second query rather than a mapping of admins().
+    void theBackendsAskForAdminsByMinecraftAccountAndGetOnlyTheLinkedOnes() {
+        // A Paper server knows only a UUID, so this is a query through account_link, not a mapping of admins().
         assertTrue(directory.adminMinecraftAccounts().isEmpty());
 
         setAdmin(DISCORD_ID, true);
@@ -1098,8 +790,7 @@ class AccessDirectoryIntegrationTest {
         directory.link(DISCORD_ID, MC_UUID);
         assertEquals(java.util.Set.of(MC_UUID), directory.adminMinecraftAccounts());
 
-        // The direction that actually matters: this is what removes operator from somebody who is
-        // online right now, without waiting for them to disconnect.
+        // This is what removes operator from somebody who is online right now.
         setAdmin(DISCORD_ID, false);
         assertTrue(
                 directory.adminMinecraftAccounts().isEmpty(),

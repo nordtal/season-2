@@ -10,15 +10,14 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * An item that draws nothing and carries a tooltip - what sits under a card painted into a menu's
- * title.
+ * An item that draws nothing and carries a tooltip - what sits under a card painted into a menu's title.
  *
- * <p>A menu whose surface is a glyph in the inventory title still needs an item in every slot a
+ * A menu whose surface is a glyph in the inventory title still needs an item in every slot a
  * player can hover or click, and a vanilla item would draw its icon over the art. This one selects
  * the pack's {@code nordtal:blank} model, which renders no pixels at all; the material underneath
  * does not matter, because the menus that use it cancel every click.
  *
- * <p>The name and every lore line are set non-italic explicitly, since a custom name renders in
+ * The name and every lore line are set non-italic explicitly, since a custom name renders in
  * italics unless told otherwise.
  */
 public final class BlankItem {

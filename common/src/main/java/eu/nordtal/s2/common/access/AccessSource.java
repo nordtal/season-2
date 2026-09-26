@@ -1,9 +1,6 @@
 package eu.nordtal.s2.common.access;
 
-/**
- * Where an {@link AccessGrant} came from. Stored verbatim in {@code access_grant.source}, which a
- * database {@code CHECK} constraint restricts to these two.
- */
+/** Where an {@link AccessGrant} came from, stored in {@code access_grant.source}. */
 public enum AccessSource {
 
     /** Paid for through a {@code payment_request}. Carries a {@code payment_request_id}. */

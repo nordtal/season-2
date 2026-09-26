@@ -19,13 +19,13 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * That both Paper servers with players on them actually write the five system lines.
  *
- * <h2>The failure this exists for, which lasted the whole of the build</h2>
+ * <b>The failure this exists for, which lasted the whole of the build</b>
+ *
  * {@code SystemLines} was written for {@code smp} and lived in {@code smp}, so the hunger games -
  * the season's flagship event, the one every player on the network attends at the same moment - had
  * vanilla chat, vanilla join and leave and vanilla death messages: yellow, in the server's language
@@ -33,11 +33,12 @@ import org.junit.jupiter.api.Test;
  * modules compiled, both had complete bundles, both had green tests, and the difference was one
  * class one of them did not construct.
  *
- * <p>That is exactly the shape {@code AdminWatchWiringTest} was written for and for the same
+ * That is exactly the shape {@code AdminWatchWiringTest} was written for and for the same
  * reason: a mechanism that exists, is tested, and has no caller looks identical to one that works.
- * So this is a text search over the two plugins' main classes, like that one.</p>
+ * So this is a text search over the two plugins' main classes, like that one.
  *
- * <h2>What it deliberately does not check</h2>
+ * <b>What it deliberately does not check</b>
+ *
  * That the lines look right. Nothing in a JVM with no server in it can: a chat renderer is called by
  * Paper per recipient, a death message is a component off a packet, and an icon is a code point in a
  * font. What a rehearsal has to answer is in the report and in the owner's checklist.
@@ -47,9 +48,9 @@ class SystemLinesWiringTest {
     /**
      * The two servers a player stands on and talks on, and the class each has to build.
      *
-     * <p>{@code limbo} is deliberately not here: nobody speaks there, everybody is hidden from
+     * {@code limbo} is deliberately not here: nobody speaks there, everybody is hidden from
      * everybody else, and the whole interface is one title on a black screen. A join line in the
-     * waiting room would be a line about a player nobody can see, addressed to nobody.</p>
+     * waiting room would be a line about a player nobody can see, addressed to nobody.
      */
     private static final List<String> PLUGINS = List.of(
             "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java",
@@ -68,8 +69,7 @@ class SystemLinesWiringTest {
     private static final Pattern SLOT = Pattern.compile("<(_[a-zA-Z][a-zA-Z0-9]*)>");
 
     @Test
-    @DisplayName("both Paper servers with players on them build and register SystemLines")
-    void bothServersWriteTheirOwnLines() {
+    void bothPaperServersWithPlayersOnThemBuildAndRegisterSystemlines() {
         final List<String> missing = new ArrayList<>();
         for (final String plugin : PLUGINS) {
             final String source = read(RepositoryRoot.resolve(plugin));
@@ -88,8 +88,7 @@ class SystemLinesWiringTest {
     }
 
     @Test
-    @DisplayName("both Paper servers load the shared bundle those lines are written in")
-    void bothServersLoadTheBundle() {
+    void bothPaperServersLoadTheSharedBundleThoseLinesAreWrittenIn() {
         final List<String> missing = new ArrayList<>();
         for (final String plugin : PLUGINS) {
             if (!read(RepositoryRoot.resolve(plugin)).contains("\"messages/paper-common\"")) {
@@ -102,8 +101,7 @@ class SystemLinesWiringTest {
     }
 
     @Test
-    @DisplayName("every key SystemLines names exists in both languages")
-    void everyKeyIsTranslated() {
+    void everyKeySystemlinesNamesExistsInBothLanguages() {
         final Properties english = load("en");
         final Properties german = load("de");
         for (final String key : KEYS) {
@@ -117,8 +115,7 @@ class SystemLinesWiringTest {
     }
 
     @Test
-    @DisplayName("both languages carry the same parameters and the same component slots")
-    void bothLanguagesFillTheSameHoles() {
+    void bothLanguagesCarryTheSameParametersAndTheSameComponentSlots() {
         final Properties english = load("en");
         final Properties german = load("de");
         final List<String> wrong = new ArrayList<>();
@@ -126,8 +123,7 @@ class SystemLinesWiringTest {
             final Map<String, Set<String>> left = holes(english.getProperty(key));
             final Map<String, Set<String>> right = holes(german.getProperty(key));
             if (!left.equals(right)) {
-                // An unresolved <_slot> renders as NOTHING AT ALL, in silence - which is why the
-                // slots are checked separately from the parameters rather than by counting braces.
+                // An unresolved <_slot> renders as nothing, so slots are checked separately from parameters.
                 wrong.add(key + ": en " + left + " vs de " + right);
             }
         }
@@ -165,7 +161,7 @@ class SystemLinesWiringTest {
     private static String read(final Path source) {
         assertTrue(
                 Files.isRegularFile(source),
-                source + " no longer exists - a missing file is a" + " check that silently stops running");
+                source + " is missing, and a missing file is a check that silently stops running");
         try {
             return Files.readString(source, StandardCharsets.UTF_8);
         } catch (final IOException e) {

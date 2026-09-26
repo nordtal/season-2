@@ -124,7 +124,7 @@ class PlatformTest {
         // behaving unlike the other two.
         for (final String module : new String[] {"smp", "limbo", "hunger-games"}) {
             final Path descriptor = repositoryRoot().resolve(module + "/src/main/resources/paper-plugin.yml");
-            final Matcher declared = Pattern.compile("(?m)^api-version:\\s*'?([^'\\s]+)'?$")
+            final Matcher declared = Pattern.compile("(?m)^api-version:\\s*[\"']?([^\"'\\s]+)[\"']?$")
                     .matcher(Files.readString(descriptor, StandardCharsets.UTF_8));
             assertTrue(declared.find(), module + "'s paper-plugin.yml declares no api-version");
             assertEquals(

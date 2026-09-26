@@ -190,6 +190,13 @@ class ReloadReachesTheTrackTest {
         if (candidate == null) {
             throw new IllegalStateException("no settings.gradle.kts above the working directory");
         }
-        return Files.readString(candidate.resolve(relative), StandardCharsets.UTF_8);
+        return joined(Files.readString(candidate.resolve(relative), StandardCharsets.UTF_8));
+    }
+
+    // palantir-java-format wraps a long call anywhere; the checks read each call as one line.
+    private static String joined(final String source) {
+        return source.replaceAll("\\(\\s*\\n\\s*", "(")
+                .replaceAll("\\s*\\n\\s*\\.", ".")
+                .replaceAll("(=|,|->)\\s*\\n\\s*", "$1 ");
     }
 }

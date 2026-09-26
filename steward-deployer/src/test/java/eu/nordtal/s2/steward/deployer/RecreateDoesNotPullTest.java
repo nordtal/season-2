@@ -89,7 +89,7 @@ class RecreateDoesNotPullTest {
                 source + " no longer exists - if it moved, this path"
                         + " has to move with it, because a missing file is a check that silently stops"
                         + " running");
-        final String text = Files.readString(source, StandardCharsets.UTF_8);
+        final String text = joined(Files.readString(source, StandardCharsets.UTF_8));
         final int start = last ? text.lastIndexOf(signature) : text.indexOf(signature);
         assertTrue(start >= 0, "no method starting `" + signature + "` in " + source);
         int depth = 0;
@@ -111,5 +111,12 @@ class RecreateDoesNotPullTest {
         }
         assertTrue(candidate != null, "no settings.gradle.kts above the working directory");
         return candidate;
+    }
+
+    // palantir-java-format wraps a long signature anywhere; the checks read it as one line.
+    private static String joined(final String source) {
+        return source.replaceAll("\\(\\s*\\n\\s*", "(")
+                .replaceAll("\\s*\\n\\s*\\.", ".")
+                .replaceAll("(=|,|->)\\s*\\n\\s*", "$1 ");
     }
 }

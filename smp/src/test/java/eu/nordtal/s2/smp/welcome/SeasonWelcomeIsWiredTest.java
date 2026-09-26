@@ -139,9 +139,16 @@ class SeasonWelcomeIsWiredTest {
             }
             final Path source = candidate.resolve(relative);
             assertTrue(Files.isRegularFile(source), relative + " no longer exists");
-            return Files.readString(source, StandardCharsets.UTF_8);
+            return joined(Files.readString(source, StandardCharsets.UTF_8));
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + relative, e);
         }
+    }
+
+    // palantir-java-format wraps a long call anywhere; the checks read each call as one line.
+    private static String joined(final String source) {
+        return source.replaceAll("\\(\\s*\\n\\s*", "(")
+                .replaceAll("\\s*\\n\\s*\\.", ".")
+                .replaceAll("(=|,|->)\\s*\\n\\s*", "$1 ");
     }
 }

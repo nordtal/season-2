@@ -146,7 +146,7 @@ class ReadinessWiringTest {
     private static String read(final String relative) throws IOException {
         final Path source = repositoryRoot().resolve(relative);
         assertTrue(Files.isRegularFile(source), source + " is not where this test expects it");
-        return Files.readString(source, StandardCharsets.UTF_8);
+        return joined(Files.readString(source, StandardCharsets.UTF_8));
     }
 
     /**
@@ -187,5 +187,12 @@ class ReadinessWiringTest {
         }
         throw new IllegalStateException(
                 "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+    }
+
+    // palantir-java-format wraps a long call anywhere; the checks read each call as one line.
+    private static String joined(final String source) {
+        return source.replaceAll("\\(\\s*\\n\\s*", "(")
+                .replaceAll("\\s*\\n\\s*\\.", ".")
+                .replaceAll("(=|,|->)\\s*\\n\\s*", "$1 ");
     }
 }

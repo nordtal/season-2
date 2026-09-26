@@ -3,44 +3,41 @@
 #   curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
 #
 # That is the install, and it needs no checkout: the script asks what only a person knows, writes
-# the environment file itself, and installs the stack INTO THE DIRECTORY IT IS RUN FROM. It then
-# stays there as ./nordtal.sh, which is how a setting is changed afterwards.
+# the environment file itself, and installs the stack into the directory it is run from. It stays
+# there afterward as ./nordtal.sh, for changing a setting later.
 #
-# THE INSTALLATION IS A DIRECTORY (season-2-ops/124). NORDTAL_DIR is its absolute path, and every
-# volume in this file defaults to a directory under it - the worlds, the databases, the plugin
-# configs, the backups. Nothing here needs a Docker volume any more, which is what makes SFTP a way
-# in again; see the long note at proxy's plugins/ line for why that turned over.
+# The installation is that directory. NORDTAL_DIR is its absolute path, and every volume in this
+# file defaults to a directory under it - the worlds, the databases, the plugin configs, the
+# backups - which is what makes SFTP a way in to them.
 #
-# NOBODY FILLS IN A .env. .env.example beside this file is the reference for what a setting is
+# Nobody fills in a .env. .env.example beside this file is the reference for what a setting is
 # called; the environment file itself is created by deploy/nordtal.sh at STEWARD_ENV_FILE, mode 600,
-# and every `docker compose` typed by hand needs `--env-file` to see it. It is deliberately NOT in
+# and every `docker compose` typed by hand needs `--env-file` to see it. It is deliberately not in
 # the installation directory: it holds every secret the deployment has, and the installation
 # directory is the one somebody reaches over SFTP.
 #
-# THIS FILE LIVES AT THE REPOSITORY ROOT and is copied from here into steward-deployer's image
-# (§8b), which is the one thing in the stack allowed to create a container. "Which compose file is
-# live" therefore has a version number for an answer. Everything else that belongs to the deployment
-# is still in deploy/ - including deploy/nordtal.sh, the only part of this that runs on the host.
+# This file lives at the repository root and is copied from here into steward-deployer's image,
+# which is the one thing in the stack allowed to create a container, so "which compose file is
+# live" has a version number for an answer. Everything else that belongs to the deployment is
+# still in deploy/, including deploy/nordtal.sh, the only part of this that runs on the host.
 #
-# CADDY'S CONFIGURATION IS IN HERE TOO, as an inline `configs:` block at the foot of the file, for
-# the same reason: the deployer runs compose from inside its own image, so a Caddyfile on the host
-# would be a file it cannot see.
+# Caddy's configuration is in here too, as an inline `configs:` block at the foot of the file: the
+# deployer runs compose from inside its own image, so a Caddyfile on the host would be a file it
+# cannot see.
 #
-# EVERY IMAGE IS PULLED, NOTHING IS BUILT ON THE HOST. A deploy pulls and never builds, and
-# four of these images COPY a jar that Gradle produces and .gitignore excludes, so a host with only
-# a checkout could not build them. Five come from ghcr.io/nordtal, pushed by release.yml - minecraft,
-# discord-bot, steward-worker, steward-ui, steward-deployer - and the two that are somebody else's
-# (postgres, caddy) come from Docker Hub. The `build:` blocks that remain are for developing here.
+# Every image is pulled, nothing is built on the host. Four of these images COPY a jar that Gradle
+# produces and .gitignore excludes, so a host with only a checkout could not build them. Five come
+# from ghcr.io/nordtal, pushed by release.yml - minecraft, discord-bot, steward-worker, steward-ui,
+# steward-deployer - and the two that are somebody else's (postgres, caddy) come from Docker Hub.
+# The `build:` blocks that remain are for developing here.
 #
-# EVERY IMAGE IS `latest`, AND THERE IS NO WAY TO PIN ONE. That is the decision, not an oversight,
-# and it is the same one this project already made about the Paper build: a rollback lever is a
-# version number written down outside gradle.properties, and every version number written down twice
-# in this repository has gone stale - IMAGE_TAG's own example said 0.2.1 while the release was 0.8.1.
-# A bad release is fixed by publishing a better one. The escape hatch that remains is not a version:
+# Every image is `latest`, and there is no way to pin one: a rollback lever is a version number
+# written down outside gradle.properties, and a bad release is fixed by publishing a better one.
+# The escape hatch that remains is not a version:
 #
 #   MC_IMAGE=...        one image somewhere else entirely, if it ever comes to that
 #
-# The images are a FLOOR, not the version of what runs: steward-worker replaces jars inside the
+# The images are a floor, not the version of what runs: steward-worker replaces jars inside the
 # volumes at runtime, and it follows whatever GitHub calls the latest release.
 #
 # COMPOSE_PROFILES in .env decides what "everything" means. Production is `db,bot,mc,backup`:
@@ -49,46 +46,41 @@
 #   COMPOSE_PROFILES=db,bot            bot and database, no Minecraft at all
 #   COMPOSE_PROFILES=db,bot,mc,backup  the production network
 #
-# `standby` IS NOT IN ANY OF THOSE AND MUST NOT BE (season-2-ops/119). proxy-standby and
-# limbo-standby exist for the minute an update run needs them and are stopped again; a selection
-# carrying that profile runs the network twice all season, on a host that has been out of memory
-# once already. The run starts them by name.
+# `standby` is not in any of those and must not be. proxy-standby and limbo-standby exist for the
+# minute an update run needs them and are stopped again; a selection carrying that profile runs the
+# network twice all season. The run starts them by name.
 #
 # `backup` belongs in that default. The database is the only irreversible risk in this project, so
 # an opt-in backup sidecar is one forgotten variable away from none - and a selection that omits it
 # breaks `down`, because the sidecar is never stopped and the network cannot then be removed.
 #
-# WHATEVER IS CHOSEN, `up` AND `down` HAVE TO USE THE SAME SELECTION. Compose only acts on the
+# Whatever is chosen, `up` and `down` have to use the same selection: Compose only acts on the
 # services the current selection names, in both directions.
 #
-# STEWARD-WORKER HAS NO PROFILE, so it is in every selection. It is the only process that applies the
-# schema, so nothing else can correctly start before it; and it answers /update in Discord and
+# steward-worker has no profile, so it is in every selection. It is the only process that applies
+# the schema, so nothing else can correctly start before it; and it answers /update in Discord and
 # /smp update in game, which needs it running rather than run.
 #
 # The bot has no Minecraft dependency and never waits for a proxy or a backend; the `bot` profile is
 # what preserves that.
 #
-# THERE IS NO depends_on ON THE DATABASE, deliberately: compose pulls a profiled dependency in
+# There is no depends_on on the database, deliberately: compose pulls a profiled dependency in
 # whether you asked for it or not, which would make "point at an external PostgreSQL" impossible
 # without editing this file. Every service fails fast on an unreachable database and
 # `restart: unless-stopped` retries it.
 #
-# THERE IS A depends_on ON STEWARD-WORKER, and it is the one ordering rule this file can express:
-# after a redeploy the whole stack starts at once, and without it a plugin can come up against a
-# schema older than itself. The worker becomes healthy the moment the schema is current. This is
-# safe where a database dependency would not be, because the worker has no profile.
+# There is a depends_on on steward-worker, the one ordering rule this file can express: after a
+# redeploy the whole stack starts at once, and without it a plugin can come up against a schema
+# older than itself. The worker becomes healthy the moment the schema is current. This is safe
+# where a database dependency would not be, because the worker has no profile.
 
 name: nordtal-s2
 
-# ---------------------------------------------------------------------------------------------
 # Shared by the four Minecraft services. They differ only in environment: which server software,
 # which build, which plugin jars. Nothing about a specific server is baked into the image.
-# ---------------------------------------------------------------------------------------------
 x-minecraft: &minecraft
   profiles: ["mc"]
-  # A DEPLOY NEVER RUNS THIS: it pulls and does not build. The block is kept because it is
-  # how this image is developed locally, and because build.yml runs the same build on every push,
-  # which catches a Dockerfile that COPYs a file .dockerignore excludes.
+  # A deploy never runs this: it pulls and does not build. Kept for developing the image locally.
   build:
     context: ./deploy/minecraft
   image: ${MC_IMAGE:-ghcr.io/nordtal/minecraft:latest}
@@ -97,24 +89,20 @@ x-minecraft: &minecraft
     # The schema, and nothing else. Not the database - see the note at the top of this file.
     steward-worker:
       condition: service_healthy
-  # The entrypoint MUST be PID 1: it traps SIGTERM and turns it into a graceful save, and it holds
+  # The entrypoint must be PID 1: it traps SIGTERM and turns it into a graceful save, and it holds
   # the stdout that `docker logs` reads. `init: true` would put tini there instead and break both.
   init: false
   # 10s (the default) does not save a border-4000 world. The entrypoint forwards SIGTERM to the
   # JVM, whose shutdown hook saves and stops; this is the time it is given to finish.
   stop_grace_period: 180s
-  # HEALTHY MEANS "THE SEASON PLUGIN IS RUNNING", NOT "A JVM EXISTS". Both conditions are needed: a
-  # plugin that throws in onEnable leaves Paper running with an open port and every jar in plugins/,
-  # which is indistinguishable from health outside the JVM. The marker is written at the very end of
-  # onEnable and refreshed every 30s, so a process that stops ticking stops writing it.
-  #
-  # THIS SUPERSEDES THE `HEALTHCHECK` IN deploy/minecraft/Dockerfile - a compose healthcheck replaces
-  # the image's outright - which is why the TCP half is repeated here.
-  #
-  # 90 SECONDS IS THREE MISSED BEATS, a literal because a shell test in a YAML file cannot read
-  # Readiness.STALE_AFTER. :steward-worker's TopologyTest holds the two equal.
-  #
-  # `bash -c` and not CMD-SHELL: /bin/sh in this image is dash, which has no /dev/tcp.
+  # Healthy means the season plugin is running, not that a JVM exists: a plugin that throws in
+  # onEnable leaves Paper running with an open port and every jar in plugins/, indistinguishable
+  # from health outside the JVM. The marker is written at the end of onEnable and refreshed every
+  # 30s, so a process that stops ticking stops writing it. This replaces the `HEALTHCHECK` in
+  # deploy/minecraft/Dockerfile outright, which is why the TCP half is repeated here. 90 seconds is
+  # three missed beats, a literal because a shell test in a YAML file cannot read
+  # Readiness.STALE_AFTER; :steward-worker's TopologyTest holds the two equal. `bash -c` and not
+  # CMD-SHELL: /bin/sh in this image is dash, which has no /dev/tcp.
   healthcheck:
     test:
       [
@@ -129,49 +117,38 @@ x-minecraft: &minecraft
     # the accept queue can refuse a connection during a long tick, and a backend that flickers red on
     # a lag spike is a signal people learn to ignore.
     retries: 3
-    # FIVE MINUTES: the marker lands strictly later than the port, being the last line of onEnable
+    # Five minutes: the marker lands strictly later than the port, being the last line of onEnable
     # after four worlds are loaded. Nothing waits on a Minecraft service being healthy, so a generous
     # window costs a longer "starting" while a short one makes every restart flap red first.
     start_period: 300s
   environment: &minecraft-env
     TZ: ${TZ:-Europe/Berlin}
-    # SERVER_VERSION, set per service below, is a LITERAL and deliberately not from .env: it is the
-    # Minecraft version for the three Paper backends and Fill's name for Velocity's major on the
-    # proxy, both mirrored by eu.nordtal.s2.common.Platform, which is what steward-worker resolves
-    # against and what every plugin here is compiled for.
-    #
+    # SERVER_VERSION, set per service below, is a literal and deliberately not from .env: it
+    # mirrors eu.nordtal.s2.common.Platform, which steward-worker resolves against.
     # There is no SERVER_BUILD: the worker owns the server jar, the entrypoint runs whatever build
-    # is in .server/, and an empty cache is filled from the Fill API's newest STABLE build. Nothing
-    # pins a build anywhere.
-    #
-    # The plugin jars are the `steward-worker` service's, not this container's - two owners is one
-    # too many. What this container still owns is the server jar, the datapacks and the seeded
-    # configuration.
+    # is in .server/, and an empty cache is filled from the Fill API's newest STABLE build.
+    # The plugin jars are the `steward-worker` service's, not this container's. This container
+    # still owns the server jar, the datapacks and the seeded configuration.
   logging: &logging
     driver: json-file
     options:
       max-size: "10m"
       max-file: "5"
 
-# ---------------------------------------------------------------------------------------------
 # One database, five clients: the bot and the four Minecraft services. Each process reads its own
 # environment prefix - NORDTAL_DATABASE_* for the bot, NORDTAL_SMP_DATABASE_* for the SMP plugin,
 # and so on - but the three values are always the same ones, so they are written once here.
-#
-# NORDTAL_DATABASE_* in .env points the WHOLE stack at a PostgreSQL outside it; POSTGRES_* is the
-# one this compose runs. Nothing has to be filled in per plugin, and nothing is edited inside a
-# volume: a plugin whose database.yml is left at its defaults still gets these.
-# ---------------------------------------------------------------------------------------------
+# NORDTAL_DATABASE_* in .env points the whole stack at a PostgreSQL outside it; POSTGRES_* is the
+# one this compose runs.
 x-database:
   url: &db-url ${NORDTAL_DATABASE_JDBC_URL:-jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nordtal}}
   username: &db-username ${NORDTAL_DATABASE_USERNAME:-${POSTGRES_USER:-nordtal}}
   password: &db-password ${NORDTAL_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD or NORDTAL_DATABASE_PASSWORD in .env}}
 
 services:
-  # -------------------------------------------------------------------------------------------
   postgres:
     profiles: ["db"]
-    # THE ONE SERVICE ON BOTH SEGMENTS, and that is what makes the split work at all: everything
+    # The one service on both segments, and that is what makes the split work at all: everything
     # here is a client of this database, and only the Steward services may reach each other. See
     # the `networks:` block at the foot of this file.
     networks: ["default", "steward"]
@@ -189,13 +166,13 @@ services:
       - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - ${POSTGRES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/postgres-data}:/var/lib/postgresql/data
-      # WHERE THE NIGHTLY DUMP LANDS, and it has to be mounted HERE rather than only in
-      # steward-worker. The worker runs `pg_dump` INSIDE this container - which is how the dump can
-      # never be taken by a client older than its server - so the path it writes to is this
-      # container's, not the worker's. Without this line pg_dump fails on a directory that does not
-      # exist, every night, and the volume archives beside it keep succeeding.
+      # Where the nightly dump lands, mounted here rather than only in steward-worker: the worker
+      # runs `pg_dump` inside this container - which is how the dump can never be taken by a client
+      # older than its server - so the path it writes to is this container's, not the worker's.
+      # Without this line pg_dump fails on a directory that does not exist, every night, and the
+      # volume archives beside it keep succeeding.
       #
-      # postgres-data itself is deliberately NOT backed up: a tar of a live PGDATA is torn and it
+      # postgres-data itself is deliberately not backed up: a tar of a live PGDATA is torn and it
       # fails at restore, which is the worst place for it to fail.
       - ${STEWARD_BACKUPS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-backups}:/backups
     healthcheck:
@@ -206,33 +183,25 @@ services:
       start_period: 30s
     logging: *logging
 
-  # -------------------------------------------------------------------------------------------
-  # The Discord bot. No Minecraft dependency and, since steward/109, no bank either: PostgreSQL and
-  # the Discord gateway. It asks steward-worker for a payment link by writing a row. It validates
-  # the schema and refuses to start on a database nobody migrated. Runbook: discord-bot/README.md.
+  # The Discord bot: PostgreSQL and the Discord gateway, no Minecraft dependency and no bank
+  # credential. It asks steward-worker for a payment link by writing a row. It validates the
+  # schema and refuses to start on a database nobody migrated. Runbook: discord-bot/README.md.
   #
-  # THE SERVICE NAME IS `discord-bot` AND IT IS THE SAME STRING AS EVERYTHING ELSE ABOUT THIS JAR:
-  # the module directory, the artefact id in :steward-worker's Topology, the volume path the worker
-  # writes to (/volumes/discord-bot) and the image. It was `bot` until 2026-09-11, and that one
-  # shorter name was a whole class of failure: the worker looks the container runtime up for the
-  # service called `discord-bot`, got nothing back, and refused the entire run - "NOTHING WAS
-  # INSTALLED", every server stopped and started again for no reason. TopologyTest now holds the two
-  # equal.
+  # The service name `discord-bot` is the same string as the module directory, the artefact id in
+  # :steward-worker's Topology, the volume path the worker writes to (/volumes/discord-bot) and
+  # the image; TopologyTest holds them equal.
   #
-  # THE PROFILE IS STILL `bot`, deliberately. A profile name is not a service name, and renaming it
-  # would invalidate every COMPOSE_PROFILES=db,bot,mc,backup already written into a .env on a host.
+  # The profile is still `bot`, deliberately: a profile name is not a service name, and renaming
+  # it would invalidate every COMPOSE_PROFILES=db,bot,mc,backup already written into a .env.
   discord-bot:
     profiles: ["bot"]
-    # THE IMAGE TAG IS A FLOOR, NOT THE VERSION. The bot runs whatever discord-bot-*.jar is in the
-    # `bot-jar` volume; the jar baked into the image only makes a first deployment possible. What is
-    # actually running is printed by the entrypoint on every start.
+    # The image tag is a floor, not the version: the bot runs whatever discord-bot-*.jar is in the
+    # `bot-jar` volume, and what is actually running is printed by the entrypoint on every start.
     image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:latest}
     build:
       # Compose cannot run Gradle: `./gradlew :discord-bot:shadowJar` has to happen first, which is
-      # why a production host pulls this image. There are no build args at all any more - the
-      # Dockerfile finds its jar in build/libs by glob - which also settles the older trap that a
-      # `:?` in a build arg is interpolated even by a deploy that only pulls, and would have stopped
-      # the deploy before it reached a single image.
+      # why a production host pulls this image instead. No build args: the Dockerfile finds its
+      # jar in build/libs by glob.
       context: ./discord-bot
     restart: unless-stopped
     depends_on:
@@ -256,28 +225,26 @@ services:
     environment:
       TZ: ${TZ:-Europe/Berlin}
 
-      # --- database.yml ------------------------------------------------------------------
+      # database.yml
       NORDTAL_DATABASE_JDBC_URL: *db-url
       NORDTAL_DATABASE_USERNAME: *db-username
       NORDTAL_DATABASE_PASSWORD: *db-password
       NORDTAL_DATABASE_MAXIMUM_POOL_SIZE: ${NORDTAL_DATABASE_MAXIMUM_POOL_SIZE:-}
       NORDTAL_DATABASE_LOG_SQL: ${NORDTAL_DATABASE_LOG_SQL:-}
 
-      # --- bot.yml -----------------------------------------------------------------------
+      # bot.yml
       NORDTAL_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:?set NORDTAL_BOT_TOKEN in .env}
-      # NORDTAL_BOT_BUNQ_API_KEY and NORDTAL_BOT_BUNQ_ACCOUNT_ID were here until steward/109. They
-      # are NORDTAL_STEWARD_BUNQ_* on the steward-worker service now - this process has neither the
-      # key nor the bunq SDK. An environment file that still carries the old names hands them to
-      # nobody, and the only thing that says so is steward-worker's start line.
+      # This process has neither the bunq key nor the bunq SDK; those are NORDTAL_STEWARD_BUNQ_*
+      # on the steward-worker service.
 
-      # --- access.yml --------------------------------------------------------------------
-      # TWO OF THESE ARE REQUIRED AND THE REST ARE FEATURES. The guild says where the bot lives;
+      # access.yml
+      # Two of these are required and the rest are features. The guild says where the bot lives;
       # the admin role says who may administer it, and without it nobody can log in to Steward to
       # fill the rest in. Both are asked for by deploy/nordtal.sh.
       NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
       NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/nordtal.sh asks for it}
       #
-      # Everything below is `:-` on purpose. An EMPTY environment variable is UNSET to jcore -
+      # Everything below is `:-` on purpose. An empty environment variable is unset to jcore -
       # EnvOverlay skips a blank rather than writing it over the file - so leaving one of these out
       # keeps whatever access.yml says, which is what the web interface edits. Empty there in turn
       # means the feature behind the id is simply not served, and the bot names every one of them
@@ -290,12 +257,11 @@ services:
       NORDTAL_ACCESS_LANGUAGES: ${NORDTAL_ACCESS_LANGUAGES:-}
       NORDTAL_ACCESS_TIERS: ${NORDTAL_ACCESS_TIERS:-}
       NORDTAL_ACCESS_DONATION_CENTS: ${NORDTAL_ACCESS_DONATION_CENTS:-}
-      # How often the bot re-reads the payment seam in THIS database. It is not a bank call any
-      # more; NORDTAL_STEWARD_BUNQ_POLL_INTERVAL_SECONDS is the one that costs an HTTP request.
+      # How often the bot re-reads the payment seam in this database. It is not a bank call;
+      # NORDTAL_STEWARD_BUNQ_POLL_INTERVAL_SECONDS is the one that costs an HTTP request.
       NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS: ${NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS:-}
       # Stays with the bot: it writes the payment_request row, so this number becomes `expires` and
-      # is the same one the buyer is told the link is good for. NORDTAL_ACCESS_PAYMENT_WATERMARK and
-      # NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT moved with the bank (steward/109).
+      # is the same one the buyer is told the link is good for.
       NORDTAL_ACCESS_PAYMENT_REQUEST_TTL_HOURS: ${NORDTAL_ACCESS_PAYMENT_REQUEST_TTL_HOURS:-}
       NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS: ${NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS:-}
       NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES: ${NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES:-}
@@ -306,8 +272,7 @@ services:
       - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/app/lib
     logging: *logging
 
-  # -------------------------------------------------------------------------------------------
-  # The resource pack, served off this machine. NOT PART OF PRODUCTION: `devpack` is a profile and
+  # The resource pack, served off this machine. Not part of production: `devpack` is a profile and
   # nothing on the production host selects it - there the client fetches the pack from the GitHub
   # release URL steward-worker wrote into pack.yml.
   #
@@ -328,7 +293,6 @@ services:
       - ${PACK_ROOT:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/pack}:/usr/share/nginx/html:ro
     logging: *logging
 
-  # -------------------------------------------------------------------------------------------
   # The Velocity proxy. The only service that publishes a port to the network.
   proxy:
     <<: *minecraft
@@ -336,210 +300,145 @@ services:
     # holds no world at all: everything it knows is read back out of the database and out of
     # velocity.toml when it starts, so it is the cheapest process on this host to lose.
     oom_score_adj: 500
-    # ANCHORED SO THE STANDBY IS THE SAME BLOCK AND NOT A COPY OF IT (season-2-ops/119).
-    # proxy-standby below writes `environment: *proxy-env` - one YAML node, used twice - so a
-    # variable added here reaches both proxies and cannot reach only one. A copied block would
-    # drift in the one direction nobody looks: the standby is the process that carries every player
-    # for ten seconds, and it would carry them under last month's settings.
+    # Anchored so the standby is the same block and not a copy of it: proxy-standby below writes
+    # `environment: *proxy-env`, one YAML node used twice, so a variable added here reaches both
+    # proxies and cannot reach only one.
     environment: &proxy-env
       <<: *minecraft-env
       SERVER_KIND: velocity
-      # What this volume has to hold before the proxy is allowed to start. Filename prefixes, split
-      # the way steward-worker splits them (JarName, ${file%-*.jar}); a MINIMUM, never an exact set,
-      # so a hand-installed extra is fine.
-      #
-      # SIMPLE VOICE CHAT'S PROXY PLUGIN IS DELIBERATELY NOT IN THIS LIST. The worker installs it
-      # and carries the row in its Topology, but voice chat is optional for a player and this
-      # container is the whole network: a proxy refusing to start because an alpha of somebody
-      # else's plugin did not resolve is an outage bought for something nice to have.
+      # What this volume has to hold before the proxy is allowed to start: filename prefixes, split
+      # the way steward-worker splits them (JarName, ${file%-*.jar}). A minimum, never an exact
+      # set, so a hand-installed extra is fine. Simple Voice Chat's proxy plugin is deliberately
+      # not in this list: voice chat is optional for a player, so an alpha of it failing to resolve
+      # should not refuse the whole proxy.
       EXPECTED_PLUGINS: ${PROXY_EXPECTED_PLUGINS:-proxy}
-      # THE PLAYER LIMIT AND THE MOTD both belong to the plugin: the proxy answers every ping
-      # with the MOTD for the current phase and refuses the login that would exceed the limit. These
-      # are jcore environment overrides, so they win over network.yml and are never written back.
-      #
-      # NETWORK_MAX_PLAYERS is the ONLY number that decides who gets on the network: the same
-      # variable sets MAX_PLAYERS on all three Paper backends below, so what the browser advertises,
-      # what the login gate enforces and what a backend's tab list shows are one value. Raising it
-      # needs the backends restarted too, not just this proxy.
-      #
-      # The five MOTDs are one per season phase, listed here so .env can override them without
-      # anybody learning the NORDTAL_ naming rule. Leaving one unset keeps network.yml's default.
+      # The player limit and the MOTD both belong to the plugin: the proxy answers every ping with
+      # the MOTD for the current phase and refuses the login that would exceed the limit. These are
+      # jcore environment overrides, so they win over network.yml and are never written back.
+      # NETWORK_MAX_PLAYERS is the only number that decides who gets on the network: the same
+      # variable sets MAX_PLAYERS on all three Paper backends below. Raising it needs the backends
+      # restarted too, not just this proxy. The five MOTDs are one per season phase; leaving one
+      # unset keeps network.yml's default.
       NORDTAL_PROXY_NETWORK_MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       NORDTAL_PROXY_NETWORK_MOTD_PRE_LAUNCH: ${NETWORK_MOTD_PRE_LAUNCH:-}
       NORDTAL_PROXY_NETWORK_MOTD_PRE_EVENT: ${NETWORK_MOTD_PRE_EVENT:-}
       NORDTAL_PROXY_NETWORK_MOTD_START_EVENT: ${NETWORK_MOTD_START_EVENT:-}
       NORDTAL_PROXY_NETWORK_MOTD_SMP: ${NETWORK_MOTD_SMP:-}
       NORDTAL_PROXY_NETWORK_MOTD_MAINTENANCE: ${NETWORK_MOTD_MAINTENANCE:-}
-      # FILL'S NAME FOR VELOCITY'S MAJOR, NOT A VERSION. The proxy follows the newest release inside
-      # the 4.x line, which Fill calls `4.0.0`; the entrypoint and the worker both resolve it out of
-      # Platform.VELOCITY_FAMILY. A literal and not a variable, because a platform version is a
-      # property of the season and not of a deployment. TopologyTest holds this against the constant.
+      # Fill's name for Velocity's major, not a version. A literal and not a variable, because a
+      # platform version is a property of the season, not of a deployment; TopologyTest holds this
+      # against Platform.VELOCITY_FAMILY.
       SERVER_VERSION: "4.0.0"
       HEAP: ${PROXY_HEAP:-1G}
-      # The whole java command line, and therefore an ESCAPE HATCH RATHER THAN A SETTING: what
-      # entrypoint.sh builds out of HEAP is the default it replaces, so a value here that forgets
-      # -Xmx silently drops the heap size with it. Empty by default, which is how it stays the
-      # default (season-2-ops/08 - it was documented in dev.env.example and read by the entrypoint,
-      # and compose handed it to nobody, so setting it did nothing at all until 2026-09-18).
+      # The whole java command line, an escape hatch rather than a setting: what entrypoint.sh
+      # builds out of HEAP is the default it replaces, so a value here that forgets -Xmx silently
+      # drops the heap size with it.
       JVM_OPTS: ${PROXY_JVM_OPTS:-}
       # Modern forwarding. The same value reaches the three backends below as
       # PAPER_VELOCITY_SECRET, so there is nothing to paste into a config file any more.
       VELOCITY_FORWARDING_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
       # The network topology, used only to seed velocity.toml on a fresh volume. The names are
-      # what proxy's gate.yml#server-* keys expect; the hosts are these service names.
-      #
-      # LIMBO-STANDBY IS IN THE LIST ALTHOUGH IT IS ALMOST NEVER RUNNING (season-2-ops/119), and
-      # that is deliberate on both counts. Velocity does not mind a registered server that is down -
-      # it only minds being asked to send somebody there - and a server that is NOT registered
-      # cannot be connected to at all, from either proxy, at the one moment it exists. Both proxies
-      # read this same value, so both know the name.
-      #
-      # SEEDED ONCE AND NEVER AGAIN: the entrypoint writes velocity.toml only onto a fresh volume
-      # ("velocity.toml exists - not touched"), so a deployment that has already started does not
-      # learn this name from here. Adding it to a running volume is a deployment step, by hand.
+      # what proxy's gate.yml#server-* keys expect; the hosts are these service names. limbo-standby
+      # is in the list although it is almost never running: Velocity does not mind a registered
+      # server that is down, but a server that is not registered cannot be connected to at all at
+      # the one moment it exists. Seeded once and never again - the entrypoint writes velocity.toml
+      # only onto a fresh volume - so adding a name to a running volume is a deployment step by hand.
       VELOCITY_SERVERS: ${VELOCITY_SERVERS:-limbo=limbo:25565 limbo-standby=limbo-standby:25565 hunger-games=hunger-games:25565 smp=smp:25565}
       VELOCITY_TRY: ${VELOCITY_TRY:-limbo}
-      # WHERE A CLIENT REACHES THIS NETWORK FROM OUTSIDE, host and port, and the one new setting
-      # season-2-ops/119 adds. A transfer names an address to the client and the client connects to
-      # it itself, so nothing inside this stack can work it out: `proxy:25565` is a compose name and
-      # a DNS name that resolves here is not necessarily the one players type. deploy/nordtal.sh
-      # asks for it.
-      #
-      # THE PORT IS PART OF IT AND IS NOT OPTIONAL. A SRV record hides the port from a player typing
-      # a name into their client, but the transfer packet carries host AND port and no SRV lookup
-      # stands between it and the connection.
-      #
-      # Empty is allowed and means one thing: no transfer is offered, and an update takes the
-      # network down the way it always did. That is a season without live proxy swaps, not a broken
-      # one - so it must not be a `:?`, which would stop a deployment that never wanted the feature.
+      # Where a client reaches this network from outside, host and port. A transfer names an
+      # address to the client and the client connects to it itself, so nothing inside this stack
+      # can work it out; deploy/nordtal.sh asks for it. The port is not optional: the transfer
+      # packet carries host and port, and no SRV lookup stands between it and the connection. Empty
+      # means no transfer is offered and an update takes the network down instead - a season
+      # without live proxy swaps, not a broken one, so this must not be a `:?`.
       NORDTAL_PROXY_NETWORK_PUBLIC_ADDRESS: ${NETWORK_PUBLIC_ADDRESS:-}
-      # The other half of the pair, and the reason the address above needs no second copy for the
-      # standby: the two proxies differ by a port number and nothing else. This is the SAME value
-      # the standby publishes below, so a changed port moves both sides at once.
+      # The other half of the pair: the two proxies differ by a port number and nothing else. The
+      # same value the standby publishes below, so a changed port moves both sides at once.
       NORDTAL_PROXY_NETWORK_STANDBY_PORT: ${PROXY_STANDBY_PORT:-25566}
-      # WHICH OF THE TWO PROXIES THIS PROCESS IS (season-2-ops/121), and the ONE value the standby
-      # below overrides. It is in the shared block rather than only in the standby's so that the
-      # live proxy says `false` out loud: a proxy that believed it was the standby would watch
-      # public-address, find ITSELF answering, and transfer every player to the address they are
-      # already on, for ever. Written here, that mistake needs somebody to edit this line.
+      # Which of the two proxies this process is; the standby below overrides it. It sits in the
+      # shared block rather than only in the standby's so the live proxy says `false` out loud - a
+      # proxy that believed it was the standby would watch public-address, find itself answering,
+      # and transfer every player to the address they are already on, forever.
       NORDTAL_PROXY_NETWORK_STANDBY: "false"
-      # THE PROXY IS BEHIND A GUARD (season-2-ops/162), and this is the only place that says so.
       # caddy owns 25565 and hands the stream on with a PROXY header; without this key Velocity
       # reads that header as the client's first packet and drops the connection. The entrypoint
-      # writes it into velocity.toml on EVERY start - a value in a volume outlives a changed
-      # default - and an unset variable leaves the file alone, which is what a deployment without a
-      # guard needs. Both proxies read it: the standby is reached through the guard too.
+      # writes it into velocity.toml on every start, and an unset variable leaves the file alone,
+      # which is what a deployment without a guard needs. Both proxies read it.
       VELOCITY_HAPROXY: ${VELOCITY_HAPROXY:-true}
-      # THE RESOURCE PACK IS NOT A VARIABLE HERE, and must not become one: a jcore environment
-      # override wins over the file and is never written back, so the worker writing a new sha1 into
-      # pack.yml while PACK_URL and PACK_SHA1 were set would write into a value nothing reads.
-      #
-      # pack.yml in this volume is the place, and `steward-worker bootstrap` writes it, taking the
-      # URL from the release asset and the hash from the .sha1 asset beside it.
-      #
-      # The proxy refuses to start with an empty url or sha1 while pack.enabled is true. On a brand
-      # new volume that means: bring proxy up once so it writes its config, then run the
-      # worker, then start it for real. See deploy/README.md.
+      # The resource pack is not a variable here and must not become one: a jcore environment
+      # override wins over the file and is never written back, so the worker writing a new sha1
+      # into pack.yml while PACK_URL and PACK_SHA1 were set would write into a value nothing reads.
+      # pack.yml in this volume is the place; `steward-worker bootstrap` writes it, taking the URL
+      # from the release asset and the hash from the .sha1 asset beside it. The proxy refuses to
+      # start with an empty url or sha1 while pack.enabled is true; see deploy/README.md.
       NORDTAL_PROXY_DATABASE_JDBC_URL: *db-url
       NORDTAL_PROXY_DATABASE_USERNAME: *db-username
       NORDTAL_PROXY_DATABASE_PASSWORD: *db-password
-    # NO PUBLISHED PORTS SINCE season-2-ops/162, and that is the whole of the guard's cost here.
-    # 25565 and the voice port beside it belong to `caddy` now, which hands the stream to this
-    # container while it answers and to `proxy-standby` while it does not. Publishing them here as
-    # well would take the numbers away from the guard and leave the 26-second hole exactly where it
-    # was. Velocity still binds 0.0.0.0:25565 INSIDE this container, and the voice plugin still
-    # binds whatever port Velocity did - nothing about either changed, only who is reachable from
-    # outside.
+    # No published ports: 25565 and the voice port beside it belong to `caddy`, which hands the
+    # stream to this container while it answers and to `proxy-standby` while it does not. Velocity
+    # still binds 0.0.0.0:25565 inside this container; only who is reachable from outside changed.
     #
-    # WHAT CAME WITH IT, and what must move with it if this is ever undone: VELOCITY_HAPROXY above,
-    # which makes Velocity read the client's real address out of the guard's PROXY header. A proxy
-    # behind the guard without that key answers nobody; a proxy in front of nothing with it answers
-    # nobody either.
+    # What comes with VELOCITY_HAPROXY above: a proxy behind the guard without that key answers
+    # nobody, and a proxy in front of nothing with it answers nobody either.
     volumes:
       - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/data
-      # PLUGINS/ IS ITS OWN DIRECTORY, separate from the server's. Everything else under /data - the
-      # world, the .server/ jar cache, logs/ - stays in mc-<name>: a plugin's config.yml,
-      # milestones.yml, sounds.yml and pack.yml are hand-edited and worth backing up on their own
-      # schedule, while a world is 4 GB.
+      # plugins/ is its own directory, separate from the server's: config.yml, milestones.yml,
+      # sounds.yml and pack.yml are hand-edited and worth backing up on their own schedule, while
+      # the world under /data is 4 GB.
       #
-      # THE DEFAULT IS A PATH AND THE VOLUME NAME IS THE EXCEPTION - which is the other way round
-      # since 2026-09-19 (season-2-ops/124), and the sentence that stood here is worth keeping to
-      # read: "THE DEFAULT MUST BE A VOLUME NAME AND THE BIND IS THE EXCEPTION. A path under a
-      # directory a deployment checks out is deleted the next time it is checked out, taking every
-      # hand-edited config with it (finding 151)."
+      # A value with a `/` in it is a bind mount to Docker and a value without one is a volume
+      # name; nothing else distinguishes them. Setting one of these variables to `mc-smp-plugins`
+      # puts that directory into a named volume, which is what deploy/dev.env.example does for the
+      # local stack. :steward-worker's TopologyTest asserts that the default is a path, because SFTP
+      # reads a directory and cannot see into a Docker volume.
       #
-      # THAT CHECKOUT ONLY EXISTED FOR ARCANE, AND ARCANE WAS REMOVED ON 2026-09-15. Nothing on the
-      # host checks this repository out any more - the compose file arrives inside steward-deployer's
-      # image - so there is no next checkout to delete anything, and finding 151 cannot happen. What
-      # replaced Arcane's file browser is SFTP, which is the reason the rule turns over rather than
-      # merely lapsing: SFTP reads a directory and cannot see into a Docker volume at all, so a
-      # named volume is now the thing that puts a hand-edited config out of reach.
-      #
-      # THE PATH IS ABSOLUTE, AND IT HAS TO BE: steward-deployer runs `docker compose
-      # --project-directory /app` INSIDE ITS OWN IMAGE, so compose would resolve a relative bind
+      # The path is absolute, and it has to be: steward-deployer runs `docker compose
+      # --project-directory /app` inside its own image, so compose would resolve a relative bind
       # against a directory that exists only in that image. NORDTAL_DIR is the installation
       # directory as an absolute host path, written by deploy/nordtal.sh - the same shape, and for
       # the same reason, as STEWARD_ENV_DIR further down.
-      #
-      # A value with a `/` in it is a bind mount to Docker and a value without one is a volume name;
-      # nothing else distinguishes them. That is unchanged, and it is the way back: setting one of
-      # these variables to `mc-smp-plugins` puts that directory into a named volume again, which is
-      # exactly what deploy/dev.env.example does for the local stack. :steward-worker's TopologyTest
-      # asserts that the DEFAULT is a path.
       - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/data/plugins
 
-  # -------------------------------------------------------------------------------------------
-  # THE STANDBY PROXY (season-2-ops/119). The same proxy, on a second port, for the ten seconds the
-  # real one is being restarted: players are transferred here, the proxy and the backends come back,
-  # and they are transferred home. It exists for that window and is stopped again afterwards - it is
-  # in no ordinary profile, so `up` in production never starts it.
+  # The standby proxy: the same proxy, on a second port, for the seconds the real one is being
+  # restarted. Players are transferred here, the proxy and the backends come back, and they are
+  # transferred home. It exists for that window and is stopped again afterwards - it is in no
+  # ordinary profile, so `up` in production never starts it.
   #
-  # IT IS ITS MODEL, NOT A VARIANT OF IT: `*proxy-env` is the proxy's own environment node, used a
-  # second time rather than copied, so the two cannot differ in a setting. What differs is the name,
-  # the published port and the two volumes - and that list is the whole design (Till, 2026-09-19).
+  # It is its model, not a variant of it: `*proxy-env` is the proxy's own environment node, used a
+  # second time rather than copied, so the two cannot differ in a setting. What differs is the
+  # name, the published port and the two volumes.
   #
-  # ITS VOLUMES ARE ITS OWN, and that is not tidiness: two Velocity processes on one /data would
-  # fight over the same files, and two Paper processes on one world directory fight over
-  # session.lock outright. What fills the plugins/ one is steward-worker, which installs into it the
-  # same jars it installs into the live proxy's - see Topology.SERVICES_WITH_STANDBY.
+  # Its volumes are its own: two Velocity processes on one /data would fight over the same files,
+  # and two Paper processes on one world directory fight over session.lock outright. steward-worker
+  # fills the plugins/ one with the same jars it installs into the live proxy's; see
+  # Topology.SERVICES_WITH_STANDBY.
   proxy-standby:
     <<: *minecraft
-    # THE SAME LIGHTNING ROD VALUE AS THE PROXY IT STANDS IN FOR (season-2-ops/119). A standby holds
-    # exactly what its model holds - nothing that cannot be made again in seconds - and the moment
-    # it exists is the moment this host is tightest on memory, because for that window the network
-    # is running twice. Leaving the two standbys at 0 would put the SMP server, with the world since
-    # its last autosave, back at the top of the kernel's list at precisely the wrong minute.
+    # The same OOM-adjustment value as the proxy it stands in for. A standby holds exactly what
+    # its model holds, nothing that cannot be made again in seconds, and the moment it exists is
+    # the moment this host is tightest on memory, since the network is running twice.
     # :steward-deployer's OomLightningRodTest holds all four equal.
     oom_score_adj: 500
-    # ITS OWN PROFILE, so the production selection (db,bot,mc,backup,steward) does not start it.
-    # `mc` would mean a second proxy and a second limbo running all season for nothing; a run that
-    # needs them starts them by name. It replaces the merged `profiles: ["mc"]` rather than adding
-    # to it - an explicit key wins over an anchor's.
+    # Its own profile, so the production selection does not start it: `mc` would mean a second
+    # proxy and a second limbo running all season for nothing, so a run that needs them starts
+    # them by name. This replaces the merged `profiles: ["mc"]` rather than adding to it.
     profiles: ["standby"]
-    # A MERGE AND NO LONGER A PLAIN ALIAS, for exactly one key (season-2-ops/121). Everything the
-    # live proxy's block says still reaches this one and cannot reach only one of them - that is
-    # what the anchor is for and it is unchanged. What is added is the one fact no process can work
-    # out about itself: Velocity binds 0.0.0.0:25565 inside BOTH containers and Docker renumbers
-    # outside, so the port below is invisible from in here. Without this line the standby would
-    # behave exactly like the live proxy - it would release parked players onto the backends and
-    # never send anybody home - and nothing would say so.
+    # A merge rather than a plain alias, for exactly one key: everything the live proxy's block
+    # says still reaches this one, and what is added is the one fact no process can work out about
+    # itself. Velocity binds 0.0.0.0:25565 inside both containers and Docker renumbers outside, so
+    # the port below is invisible from in here. Without this line the standby would behave exactly
+    # like the live proxy: releasing parked players onto the backends and never sending anybody home.
     environment:
       <<: *proxy-env
       NORDTAL_PROXY_NETWORK_STANDBY: "true"
-    # NO PUBLISHED PORTS EITHER, for the same reason and with one addition (season-2-ops/162): the
-    # standby is reached from outside on ${PROXY_STANDBY_PORT} because that is the number the live
-    # proxy names to a client it transfers - and that number is now the guard's, forwarded here with
-    # a PROXY header. Everything below this line is the reading of what it used to publish, kept
-    # because it is still the truth about voice:
+    # No published ports either: the standby is reached from outside on ${PROXY_STANDBY_PORT},
+    # which is the number the live proxy names to a client it transfers, forwarded through the
+    # guard with a PROXY header.
     #
-    # VOICE CHAT DOES NOT REACH THIS PROXY. voicechat-proxy.properties ships `port: -1`, so the
-    # plugin binds whatever port Velocity bound - 25565, in here - and hands the CLIENT that same
-    # number. On the live proxy host and container port are equal and that works; here they cannot
-    # be, so a client transferred here is told to send audio to <host>:25565. During the window that
-    # is the guard, which hands UDP to whichever proxy is answering - so it lands on the standby
-    # exactly while the live proxy is down, and on the live proxy the moment it is back. Nobody
-    # loses their session over the seconds in between, and making it exact needs `voice_host` in
-    # this volume's plugins/voicechat/voicechat-proxy.properties, a file nothing here writes.
+    # Voice chat does not reach this proxy directly. voicechat-proxy.properties ships `port: -1`,
+    # so the plugin binds whatever port Velocity bound - 25565, in here - and hands the client that
+    # same number. The guard hands UDP to whichever proxy is answering, so it lands on the standby
+    # while the live proxy is down and on the live proxy the moment it is back.
     volumes:
       - ${PROXY_STANDBY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby}:/data
       # plugins/ in its own directory, as everywhere else here - and this is the one steward-worker
@@ -547,21 +446,14 @@ services:
       # different resource pack on the way through.
       - ${PROXY_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby-plugins}:/data/plugins
 
-  # -------------------------------------------------------------------------------------------
   # The waiting room. Needs the database for one thing only: the player's language.
   limbo:
     <<: *minecraft
-    # THE LIGHTNING ROD WHEN MEMORY RUNS OUT (season-2-ops/115, Till, 2026-09-19).
-    # On 2026-09-18 the host's global OOM killer took the SMP server: it was the largest process at
-    # 3 GB, and "largest" is the whole of the kernel's default answer. `mem_limit` would not have
-    # helped - Docker's own documentation says "The OOM priority on containers isn't adjusted", and
-    # measured here all ten containers sat at oom_score_adj 0 while the kill itself was
-    # constraint=CONSTRAINT_NONE, a host-wide choice a cgroup limit cannot influence.
-    # So the decision is not *whether* something dies but *what first*, and it is Till's: this
-    # service and the proxy hold almost nothing that cannot be made again in seconds, while the SMP
-    # server holds the world since the last autosave and postgres holds everything that cannot be
-    # regenerated at all. A positive value here does not make a kill more likely; it makes this the
-    # one chosen when a kill happens anyway.
+    # The lightning rod when memory runs out. `mem_limit` does not change which container the
+    # kernel's global OOM killer picks, so this decides not whether something dies but what first:
+    # this service and the proxy hold almost nothing that cannot be made again in seconds, while the
+    # SMP server holds the world since the last autosave and postgres holds everything that cannot
+    # be regenerated at all.
     oom_score_adj: 500
     # Anchored for limbo-standby, for the reason written at proxy's own block above.
     environment: &limbo-env
@@ -569,11 +461,10 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: "26.2"
       EXPECTED_PLUGINS: ${LIMBO_EXPECTED_PLUGINS:-limbo}
-      # THE SAME NUMBER THE PROXY IS GIVEN, out of the same .env variable, which is why this is not a
-      # second setting. The proxy owns the decision and refuses at the login gate where it can say
-      # why; this only makes sure a backend is never a SMALLER limit than the advertised one (Paper's
-      # own default is 20) and never shows a bigger one on a tab list. Admins past a full network are
-      # admitted here by the plugin - see common's FullServerAdmission.
+      # The same number the proxy is given, out of the same .env variable. The proxy owns the
+      # decision and refuses at the login gate where it can say why; this only keeps a backend from
+      # advertising a different limit on its tab list. Admins past a full network are admitted here
+      # by the plugin - see common's FullServerAdmission.
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${LIMBO_HEAP:-1G}
       JVM_OPTS: ${LIMBO_JVM_OPTS:-}
@@ -583,7 +474,7 @@ services:
       # A Paper server given a forwarding secret is a backend: the entrypoint sets
       # online-mode=false and seeds modern forwarding for it. Paper reads the secret from
       # this variable itself, which replaces pasting it into three config files - it does
-      # NOT keep it out of the volume, Paper writes it into paper-global.yml on first load.
+      # not keep it out of the volume, Paper writes it into paper-global.yml on first load.
       PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
       NORDTAL_LIMBO_DATABASE_JDBC_URL: *db-url
       NORDTAL_LIMBO_DATABASE_USERNAME: *db-username
@@ -593,18 +484,12 @@ services:
       # plugins/ in its own volume, the rest in mc-limbo - see proxy above.
       - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/data/plugins
 
-  # -------------------------------------------------------------------------------------------
-  # THE STANDBY WAITING ROOM (season-2-ops/119). A second limbo, so that a run which restarts the
-  # limbo still has somewhere to put the people who are in it - and so that a run which restarts the
-  # SMP has a waiting room the whole time.
-  #
-  # IT IS A BACKEND AND NOT A SECOND NETWORK, which is what keeps this small: a Paper backend can be
-  # served by both proxies at once, because they share the forwarding secret and neither owns it.
-  # Both velocity.toml files therefore list `limbo-standby` (see VELOCITY_SERVERS above) whether it
-  # is running or not.
-  #
-  # PUBLISHES NOTHING, exactly like the limbo it stands in for: a backend is reached over this
-  # compose network by whichever proxy is currently carrying the player.
+  # The standby waiting room: a second limbo, so a run that restarts limbo still has somewhere to
+  # put the people who are in it, and a run that restarts the SMP has a waiting room the whole
+  # time. It is a backend and not a second network: a Paper backend can be served by both proxies
+  # at once, since they share the forwarding secret and neither owns it, so both velocity.toml
+  # files list `limbo-standby` whether it is running or not. Publishes nothing, like the limbo it
+  # stands in for.
   limbo-standby:
     <<: *minecraft
     # The same value as limbo's, for the reason written at proxy-standby above.
@@ -615,7 +500,6 @@ services:
       - ${LIMBO_STANDBY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby}:/data
       - ${LIMBO_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby-plugins}:/data/plugins
 
-  # -------------------------------------------------------------------------------------------
   # The start event. Runs once, then the phase turns to SMP and this can be stopped.
   hunger-games:
     <<: *minecraft
@@ -623,15 +507,13 @@ services:
       <<: *minecraft-env
       SERVER_KIND: paper
       SERVER_VERSION: "26.2"
-      # SIMPLE VOICE CHAT IS INSTALLED HERE AND IS NOT IN THIS LIST. It runs here and on smp, not on
-      # limbo, where the waiting room is seconds long. It is out of the guard because voice chat is
-      # optional for a player: a missing jar is a quiet evening, a guard entry for it is a server
-      # that will not start.
+      # Simple Voice Chat is installed here and is not in this list: it is optional for a player, so
+      # a missing jar should be a quiet evening rather than a server that will not start.
       EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       JVM_OPTS: ${HUNGER_GAMES_JVM_OPTS:-}
-      # The hand-built event world. The plugin does NOT load a world of its own - it disables itself
+      # The hand-built event world. The plugin does not load a world of its own - it disables itself
       # when that world is not there - so level-name is what brings it up. The two defaults are
       # asserted against each other by :hunger-games' ComposeWorldTest, which reads this file.
       LEVEL_NAME: ${HUNGER_GAMES_LEVEL_NAME:-hunger_games}
@@ -639,7 +521,7 @@ services:
       # A Paper server given a forwarding secret is a backend: the entrypoint sets
       # online-mode=false and seeds modern forwarding for it. Paper reads the secret from
       # this variable itself, which replaces pasting it into three config files - it does
-      # NOT keep it out of the volume, Paper writes it into paper-global.yml on first load.
+      # not keep it out of the volume, Paper writes it into paper-global.yml on first load.
       PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
       NORDTAL_HUNGER_GAMES_DATABASE_JDBC_URL: *db-url
       NORDTAL_HUNGER_GAMES_DATABASE_USERNAME: *db-username
@@ -649,7 +531,6 @@ services:
       # plugins/ in its own volume, the rest in mc-hunger-games - see proxy above.
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/data/plugins
 
-  # -------------------------------------------------------------------------------------------
   # The SMP - four worlds, and the only service with required third-party plugins.
   smp:
     <<: *minecraft
@@ -658,15 +539,11 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: "26.2"
       # DisplayTags and PacketEvents are resolved by steward-worker - DisplayTags from its own
-      # repository's releases, PacketEvents from Modrinth filtered to this Minecraft version
-      # and `paper` - and are not pinned here.
-      #
-      # They are still REQUIRED: smp's paper-plugin.yml declares DisplayTags load: BEFORE,
-      # required: true, and PacketEvents is required under it. The guard is in entrypoint.sh.
-      # Terralith and Dungeons and Taverns, pinned by sha512, fetched into the level-name world's
-      # datapacks/ folder BEFORE the server starts. Datapacks are server-global and read once at
-      # start, so this one folder feeds every world this server generates - and a pack added
-      # later changes no terrain.
+      # repository's releases, PacketEvents from Modrinth filtered to this Minecraft version and
+      # `paper` - and are not pinned here, but they are still required: smp's paper-plugin.yml
+      # declares DisplayTags load: BEFORE, required: true, and PacketEvents required under it.
+      # Terralith and Dungeons and Taverns, pinned by sha512, are fetched into the level-name
+      # world's datapacks/ folder before the server starts; a pack added later changes no terrain.
       DATAPACK_URLS: ${SMP_DATAPACK_URLS:-f5283548323149ecd3f218b8efbe03c1c582df3f40b6bb3b095ba9e4cac0c87108b98adabd6ebd3a8037ec239773a253f75b8bee7db52e6f5663bf9dc63c2ea3@https://cdn.modrinth.com/data/8oi3bsk5/versions/CzijfXJQ/Terralith_26.2_v2.6.4.zip cf026b67f4fc0f5ab15229995f11faf43fdd41b29777a6756151276e83da65f887fe03b6356c5011f8ba32371f98941778928e4258e81b4c97411a40af1635ca@https://cdn.modrinth.com/data/tpehi7ww/versions/CS77UwHE/Dungeons%20and%20Taverns%20v5.3.2.zip}
       # Must match SmpSpec#world-nordtal: without it Paper generates `world`, the datapacks above go
       # into a folder nothing reads, and the SMP refuses to start on a season world that does not
@@ -677,12 +554,12 @@ services:
       # holds one is compared and warned about, never re-rolled. Terralith and Dungeons and Taverns
       # decide the terrain on top of it, so this number produces a different landscape without them.
       LEVEL_SEED: ${SMP_LEVEL_SEED:-1837371427}
-      # All three, by FILENAME PREFIX. The third-party prefix is not the worker's artefact id
+      # All three, by filename prefix. The third-party prefix is not the worker's artefact id
       # (`packetevents` resolves to packetevents-spigot-*.jar): Topology reads it back off the
       # resolved filename and this list assumes it, so a publisher renaming the jar stops this
       # container with the prefix in the message.
       #
-      # TWO PLUGINS ARE DELIBERATELY NOT IN THIS LIST. CoreProtect cannot be installed at all while
+      # Two plugins are deliberately not in this list. CoreProtect cannot be installed at all while
       # its publisher has no build for this Minecraft version, and an artefact that cannot be
       # installed must not be one this container refuses to start without. Simple Voice Chat can be,
       # but voice chat is optional for a player: a server nobody can talk on is a far smaller thing
@@ -698,7 +575,7 @@ services:
       # A Paper server given a forwarding secret is a backend: the entrypoint sets
       # online-mode=false and seeds modern forwarding for it. Paper reads the secret from
       # this variable itself, which replaces pasting it into three config files - it does
-      # NOT keep it out of the volume, Paper writes it into paper-global.yml on first load.
+      # not keep it out of the volume, Paper writes it into paper-global.yml on first load.
       PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
@@ -708,23 +585,22 @@ services:
       # plugins/ in its own volume, the rest in mc-smp - see proxy above.
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/data/plugins
 
-  # -------------------------------------------------------------------------------------------
   # steward-worker. No profile, because everything else in this stack depends on it.
   #
-  # WHAT IT OWNS: the database schema, and the version of every jar that runs anywhere here - the
+  # What it owns: the database schema, and the version of every jar that runs anywhere here - the
   # four servers' plugins, their Paper and Velocity jars, the proxy's resource-pack url and sha1,
   # the bot's jar, and its own.
   #
-  # WHAT IT IS NOT: a scheduler. `serve` applies the schema once at startup and then does nothing at
+  # What it is not: a scheduler. `serve` applies the schema once at startup and then does nothing at
   # all until somebody writes a row into update_request - no timer, no watching, no "check for
   # updates on boot". A crash restart at three in the morning must not move a version.
   #
-  # THE THREE ONE-SHOT COMMANDS work beside the running one, and are how a first deployment happens,
+  # The three one-shot commands work beside the running one, and are how a first deployment happens,
   # because the servers refuse to start on an empty plugins folder:
   #
   #   docker compose run --rm steward-worker report     # resolve and report. Writes no file a server reads.
   #   docker compose run --rm steward-worker migrate    # the schema, and nothing else.
-  #   docker compose run --rm steward-worker bootstrap  # fill EMPTY volumes. Upgrades nothing.
+  #   docker compose run --rm steward-worker bootstrap  # fill empty volumes. Upgrades nothing.
   #
   # A bootstrap takes a PostgreSQL advisory lock, so it cannot collide with the service: the second
   # one to ask is refused rather than queued.
@@ -735,17 +611,17 @@ services:
       context: ./steward-worker
     image: ${STEWARD_WORKER_IMAGE:-ghcr.io/nordtal/steward-worker:latest}
     restart: unless-stopped
-    # ONLY THE STEWARD SEGMENT (§3). This container holds the docker socket and serves an API that
+    # Only the Steward segment. This container holds the docker socket and serves an API that
     # can read any log and type on any console; a Minecraft server able to resolve the name
     # `steward-worker` would make a compromised plugin into exactly that. It reaches PostgreSQL
     # because PostgreSQL is on both segments, and GitHub because any bridge network has a way out.
     networks: ["steward"]
-    # `serve`. THIS LINE IS ALSO WHAT A `run` INHERITS: a `docker compose run` naming no subcommand
-    # is handed this one and starts a SECOND daemon. Removing it does not help - a `run` against a
-    # service with no `command` takes the image's CMD instead. The read-only run is
-    # `steward-worker report`, by name, and that is why the name exists.
+    # `serve`. A `docker compose run` naming no subcommand inherits this line and starts a second
+    # daemon. Removing it does not help - a `run` against a service with no `command` takes the
+    # image's CMD instead. The read-only run is `steward-worker report`, by name, and that is why
+    # the name exists.
     command: ["serve"]
-    # THIS IS A CONTAINER, so `localhost` in any URL given to it is this container and not the
+    # This is a container, so `localhost` in any URL given to it is this container and not the
     # host. This mapping is what makes http://host.docker.internal:<port> work on Linux as well as
     # on Docker Desktop; it costs nothing and is what any future host-side address needs.
     extra_hosts:
@@ -756,15 +632,15 @@ services:
       test: ["CMD-SHELL", "test -f /tmp/steward-worker-ready"]
       interval: 10s
       timeout: 3s
-      # 15 minutes: on a FIRST deployment the marker is written only once the bootstrap has downloaded
+      # 15 minutes: on a first deployment the marker is written only once the bootstrap has downloaded
       # four server jars and every plugin. Nothing acts on "unhealthy" here except the depends_on
       # below, which simply keeps waiting.
       retries: 90
       start_period: 120s
     environment:
       TZ: ${TZ:-Europe/Berlin}
-      # --- database.yml ------------------------------------------------------------------
-      # THIS IS THE PROCESS THAT MIGRATES. `serve` applies the schema at startup and then becomes
+      # database.yml
+      # This is the process that migrates. `serve` applies the schema at startup and then becomes
       # healthy; `steward-worker migrate` applies it and nothing else; `steward-worker bootstrap`
       # does it before it moves a jar, so a plugin never comes up against a schema older than
       # itself.
@@ -772,61 +648,50 @@ services:
       NORDTAL_STEWARD_DATABASE_USERNAME: *db-username
       NORDTAL_STEWARD_DATABASE_PASSWORD: *db-password
 
-      # --- steward.yml -------------------------------------------------------------------
-      # WHICH RELEASE IS NOT A SETTING. steward-worker follows whatever GitHub calls the latest
-      # release of each repository, and there is no variable and no config key that says otherwise -
-      # the rollback-by-tag lever was removed on 2026-09-09 for the reason at the top of this file.
+      # steward.yml
+      # Which release is not a setting: steward-worker follows whatever GitHub calls the latest
+      # release of each repository, and there is no variable and no config key that says otherwise.
       # What a server runs is the jar lying in its volume, never a variable claiming to describe it.
       NORDTAL_STEWARD_SEASON_REPO: ${SEASON_REPO:-}
       # No platform version and no build pin here, deliberately: the versions are constants in
       # :common, because a Minecraft version is a property of the season rather than of an
       # installation, and the newest STABLE build is what all five processes install and run.
-      # Whether `serve` fills EMPTY volumes before it reports ready. This is what lets a stack come up
+      # Whether `serve` fills empty volumes before it reports ready. This is what lets a stack come up
       # with nobody typing anything on the host: a Minecraft server refuses to start on an empty
       # plugins folder, and a deploy that only pulls images cannot run
       # `docker compose run --rm steward-worker bootstrap`.
       #
       # It cannot move a version - only artefacts with nothing installed at all are fetched - so a
       # restart of a live network finds nothing missing and does nothing. No fallback here: a blank
-      # variable is UNSET to jcore, so StewardSpec#bootstrap (true) stands and steward.yml stays
+      # variable is unset to jcore, so StewardSpec#bootstrap (true) stands and steward.yml stays
       # editable. Repeating the default here would pin it and make the setting unchangeable.
       NORDTAL_STEWARD_BOOTSTRAP: ${STEWARD_WORKER_BOOTSTRAP:-}
       # Optional. Raises GitHub's unauthenticated limit of 60 requests per hour per IP; a run makes
       # two GitHub calls, so it only matters on a host sharing its address with something busy.
       NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_WORKER_GITHUB_TOKEN:-}
-      # --- the internal API steward-ui reads this container through ------------------------
-      # THE SAME SECRET BOTH CONTAINERS ARE GIVEN, out of one variable, because two copies of a
+      # the internal API steward-ui reads this container through
+      # The same secret both containers are given, out of one variable, because two copies of a
       # shared secret is one copy that is wrong. Empty would mean the API does not start at all and
       # the interface says "could not look" on every page - so it is required rather than optional.
       NORDTAL_STEWARD_API_TOKEN: ${STEWARD_API_TOKEN:?set STEWARD_API_TOKEN in .env - the secret steward-ui and steward-worker share, `openssl rand -hex 32`}
 
       # There is no restart endpoint and no panel here any more. Stopping and starting go through
-      # the Docker socket mounted below; the whole `arcane:` block of steward.yml was removed on
-      # 2026-09-13, along with the ARCANE_* variables that used to be repeated here. A deployed
-      # steward.yml still carrying that block loses it with a WARN and a .bak rather than refusing
-      # to start - ConfigsTest holds that.
+      # the Docker socket mounted below. A deployed steward.yml carrying the old `arcane:` block
+      # loses it with a WARN and a .bak rather than refusing to start - ConfigsTest holds that.
 
-      # --- steward.yml#deployer (season-2-ops/22) -----------------------------------------
-      # RECREATING a container - the one thing the socket above cannot be asked to do safely -
-      # goes through steward-deployer's own HTTP API instead, on the `steward` network both
-      # containers already sit on. A THIRD READER OF THE SAME SECRET, not a new one:
-      # steward-ui and steward-deployer already share STEWARD_DEPLOYER_TOKEN for the identical
-      # header, and this is the same variable, not a second one to keep in step with it. Empty
-      # would mean an update whose image has moved can never recreate the container it stopped -
-      # so it is required rather than optional, exactly like the api token above.
+      # steward.yml#deployer
+      # Recreating a container, the one thing the socket above cannot be asked to do safely, goes
+      # through steward-deployer's own HTTP API instead, on the `steward` network both containers
+      # already sit on. This is the same STEWARD_DEPLOYER_TOKEN steward-ui and steward-deployer
+      # already share for the identical header, not a second one to keep in step with it.
       NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui, steward-worker and steward-deployer share, `openssl rand -hex 32`}
 
-      # --- steward.yml#bunq (steward/109) -------------------------------------------------
-      # THE ONLY BANK CREDENTIAL IN THIS FILE, and the only container that gets one. It was
-      # NORDTAL_BOT_BUNQ_* on discord-bot until steward/109; the bot now asks for a payment link by
-      # writing a row and is told the answer by a notification.
-      #
-      # Optional, and deliberately not `:?` - a season without a bunq account is a season that does
-      # everything except take money. That is also what makes a renamed variable invisible: an
-      # environment file still carrying NORDTAL_BOT_BUNQ_* produces a stack where every container is
-      # healthy and no payment is ever noticed. The ONE thing that says which it is, is the line
-      # steward-worker logs at startup - "bunq is ON: ..." or "bunq is OFF: ...". Read it after a
-      # deploy that touched these. deploy/nordtal.sh asks for both and accepts Enter for neither.
+      # steward.yml#bunq
+      # The only bank credential in this file, and the only container that gets one; the bot asks
+      # for a payment link by writing a row and is told the answer by a notification.
+      # Optional, and deliberately not `:?`: a season without a bunq account is a season that does
+      # everything except take money. steward-worker logs "bunq is ON" or "bunq is OFF" at startup,
+      # which is the one place that says which it is. deploy/nordtal.sh accepts Enter for neither.
       NORDTAL_STEWARD_BUNQ_API_KEY: ${NORDTAL_STEWARD_BUNQ_API_KEY:-}
       NORDTAL_STEWARD_BUNQ_ACCOUNT_ID: ${NORDTAL_STEWARD_BUNQ_ACCOUNT_ID:-}
       # How often bunq itself is asked, and how far back the fallback reference scan looks. Both
@@ -835,16 +700,12 @@ services:
       NORDTAL_STEWARD_BUNQ_RECENT_PAYMENT_COUNT: ${NORDTAL_STEWARD_BUNQ_RECENT_PAYMENT_COUNT:-}
       # Leave empty on a fresh database: the first start stamps its own instant into bot_setting and
       # no later start rewrites it. Without it the first poll books up to 50 historical bunq
-      # payments, roles, DMs and public thank-yous included. It is the SAME ROW the bot used to
-      # write under NORDTAL_ACCESS_PAYMENT_WATERMARK, which is what stops this move from re-reading
-      # a season of history.
+      # payments, roles, DMs and public thank-yous included.
       NORDTAL_STEWARD_BUNQ_WATERMARK: ${NORDTAL_STEWARD_BUNQ_WATERMARK:-}
     volumes:
       - ${STEWARD_WORKER_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-worker-config}:/app/config
       # bunq binds an API context to the device and IP it was registered from: the contents are
-      # created by the container that will use it and are never copied from anywhere - not from a
-      # laptop and not from the discord-bot container this volume was mounted into until
-      # steward/109. See steward/101 for the one ops step that makes that true.
+      # created by the container that will use it and are never copied from anywhere.
       - ${BUNQ_CONTEXT:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bunq-context}:/app/bunq
       # Everything this module owns, under the names Topology expects beneath volumes-root. Writable,
       # because `apply` puts the jars here and writes proxy's pack.yml.
@@ -852,23 +713,17 @@ services:
       - ${LIMBO_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo}:/volumes/limbo
       - ${HUNGER_GAMES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games}:/volumes/hunger-games
       - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/volumes/smp
-      # THE SAME FOUR plugins/ SOURCES THE SERVERS READ, EXPRESSION FOR EXPRESSION. Copying the
-      # default rather than the variable, or spelling one differently, splits the two sides in the
-      # one way nothing can see: this container installs into its own volume, `apply` reports
-      # success, the jars are on disk, and no server runs one of them. TopologyTest holds the two
-      # halves together, character for character.
+      # The same four plugins/ sources the servers read, expression for expression: spelling one
+      # differently here splits the two sides in a way nothing can see, so `apply` would report
+      # success into a volume no server reads from. TopologyTest holds the two halves equal.
       - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/volumes/proxy/plugins
       - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/volumes/limbo/plugins
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/volumes/hunger-games/plugins
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/volumes/smp/plugins
-      # THE TWO STANDBYS' plugins/ (season-2-ops/119). Nothing is resolved or downloaded for these:
-      # after every apply the worker copies the live service's plugins/ onto its standby's, so the
-      # replacement starts on the jars that were just installed and on the same pack.yml - see
-      # Standbys. Without these two lines that copy has nowhere to write and says so, and a standby
-      # started for a swap would refuse to boot on an empty plugins folder.
-      #
-      # THEY ARE NOT BACKED UP, deliberately: every byte in them is a copy of a directory three
-      # lines above that is.
+      # The two standbys' plugins/. Nothing is resolved or downloaded for these: after every apply
+      # the worker copies the live service's plugins/ onto its standby's, so the replacement starts
+      # on the jars that were just installed and on the same pack.yml - see Standbys. Not backed up:
+      # every byte in them is a copy of a directory three lines above that is.
       - ${PROXY_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby-plugins}:/volumes/proxy-standby/plugins
       - ${LIMBO_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby-plugins}:/volumes/limbo-standby/plugins
       # The bot's jar and this container's own: to the code above them both are the same shape as a
@@ -878,26 +733,18 @@ services:
       # new jar here and carries on running the old one: no process replaces the jar it is executing,
       # so the new one takes effect at the restart and never during a run.
       - ${STEWARD_WORKER_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-worker-jar}:/volumes/steward-worker
-      # THE CONFIGURATION OF EVERY SERVICE IN THE STACK, mounted a second time so the interface can
-      # draw a form for it (§10a.6). One directory per compose service, named after it, because
-      # that is exactly what the page shows as the service a file belongs to.
+      # The configuration of every service in the stack, mounted a second time so the interface can
+      # draw a form for it. One directory per compose service, named after it, because that is what
+      # the page shows as the service a file belongs to. These files are 0600 root:root and this
+      # service runs as root, which is why they live here and not on steward-ui. They are writable:
+      # saving is also the reload, since a write publishes on `nordtal_config`. A volume left out
+      # here is simply not listed.
       #
-      # THEY LIVE HERE AND NOT ON steward-ui, since 2026-09-14: these files are 0600 root:root and
-      # this is a service that runs as root. See the block on steward-ui's volumes for what was
-      # measured and why loosening the files was the wrong repair.
-      #
-      # THEY ARE WRITABLE, AND THAT IS THE DECISION (Till, 2026-09-13): saving is what makes the
-      # page worth having, and it is also the reload - a write publishes on `nordtal_config`, which
-      # is what made ReloadSmp, ReloadNetwork, ReloadHungerGames and ReloadBotMessages unnecessary.
-      # A volume left out here is simply not listed; the page says nothing about what it cannot see.
-      #
-      # NOT THE SAME MOUNTS AS THE FOUR /volumes/* ONES ABOVE, even where they name the same volume.
-      # Those are where `apply` installs jars; these are what the editor lists, and the editor's
-      # names are compose service names because that is what the page shows. One path per purpose.
-      #
-      # THE FOUR PLUGIN VOLUMES USE THE SAME EXPRESSIONS THE SERVERS DO, character for character.
-      # Spelling one differently here would show an operator a file nothing reads - the same class
-      # of failure TopologyTest holds shut for the /volumes/* lines above.
+      # Not the same mounts as the four /volumes/* ones above, even where they name the same
+      # volume: those are where `apply` installs jars, these are what the editor lists. The four
+      # plugin volumes use the same expressions the servers do, character for character - spelling
+      # one differently here would show an operator a file nothing reads, the same class of failure
+      # TopologyTest holds shut for the /volumes/* lines above.
       - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/configs/steward-ui
       - ${STEWARD_WORKER_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-worker-config}:/configs/steward-worker
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/configs/discord-bot
@@ -905,72 +752,59 @@ services:
       - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/configs/limbo
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/configs/hunger-games
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/configs/smp
-      # THE VOLUMES THIS SERVICE SAVES, READ-ONLY (§9a).
+      # The volumes this service saves, read-only. One line per volume in
+      # steward.yml#backup.volumes, mounted where TarSnapshots looks for it. `:ro` is load-bearing
+      # here: these are worlds and databases, the one thing in this stack that cannot be rebuilt
+      # from the repository, and this container's other job is writing jars. A volume named in the
+      # config but missing here is a failed line naming the path, not a small archive that looks
+      # like a success.
       #
-      # One line per volume in steward.yml#backup.volumes, mounted where TarSnapshots looks for it.
-      # `:ro` is load-bearing here, unlike on the socket below: these are worlds and databases, the
-      # one thing in this stack that cannot be rebuilt from the repository, and this container's
-      # other job is writing jars. A backup that can write to what it is saving is one bug away
-      # from being what destroyed it.
+      # Proxy and limbo are deliberately absent, both their data and their plugin volumes: neither
+      # holds anything a restart does not write again - velocity.toml is seeded by
+      # deploy/minecraft/entrypoint.sh, forwarding.secret is rewritten from
+      # VELOCITY_FORWARDING_SECRET on every start, pack.yml is written by the worker's own
+      # PackWriter, and the limbo's world is generated. A backup does not have to take the proxy
+      # down to save a file nothing would miss.
       #
-      # A volume named in the config but missing here is a FAILED line naming the path - not a
-      # small archive that looks like a success. That distinction matters because a run once
-      # reported success having saved nothing.
-      #
-      # PROXY AND LIMBO ARE DELIBERATELY ABSENT, both their data and their plugin volumes
-      # (season-2-ops/137, Till's decision on 2026-09-20). Neither holds anything a restart does
-      # not write again: velocity.toml is seeded by deploy/minecraft/entrypoint.sh, forwarding.secret
-      # is rewritten from VELOCITY_FORWARDING_SECRET on EVERY start, pack.yml is written by the
-      # worker's own PackWriter, and the limbo's world is generated. What that buys is the reason
-      # it was asked for - a backup no longer has to take the proxy down, so it no longer moves
-      # anybody off the network to save a file nothing would miss.
-      #
-      # THE PLUGIN LINES CARRY THE SAME ${*_PLUGINS} EXPRESSION as the server's and the worker's
-      # above, and that is not decoration. These used to name the default volume outright, so a
-      # deployment that set one of those variables backed up a volume nothing ran from while the
-      # live configuration was saved nowhere - an archive that restores cleanly and restores the
-      # wrong thing. TopologyTest holds all three sides against each other now, expression for
-      # expression.
+      # The plugin lines carry the same ${*_PLUGINS} expression as the server's and the worker's
+      # above, character for character: spelling one differently would back up a volume nothing
+      # runs from while the live configuration is saved nowhere. TopologyTest holds all three sides
+      # against each other.
       - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/backup-sources/nordtal-s2_mc-smp:ro
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/backup-sources/nordtal-s2_mc-smp-plugins:ro
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/backup-sources/nordtal-s2_mc-hunger-games-plugins:ro
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/backup-sources/nordtal-s2_bot-config:ro
       - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/backup-sources/nordtal-s2_steward-ui-config:ro
-      # Where the archives and the database dump land. NOT one of the volumes above: a backup
+      # Where the archives and the database dump land. Not one of the volumes above: a backup
       # directory inside a backed-up volume grows by its own contents every night.
       - ${STEWARD_BACKUPS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-backups}:/backups
-      # THE DOCKER SOCKET, AND WHAT THAT ACTUALLY MEANS.
+      # The Docker socket. With this, steward-worker can read every container's state, health,
+      # image digest, log and resource use, and can stop and start them, which is how the interface
+      # answers "what is running", "is anything behind its registry" and "what did it just print".
       #
-      # With this, steward-worker can read every container's state, health, image digest, log and
-      # resource use, and can stop and start them - which is how the interface answers "what is
-      # running", "is anything behind its registry" and "what did it just print". Before 2026-09-12
-      # all of that went through a management panel whose image check never asked a registry at all:
-      # four releases ran behind while it reported everything current.
-      #
-      # IT IS NOT READ-ONLY AND CANNOT BE MADE READ-ONLY. Appending `:ro` restricts the socket FILE,
-      # not the API behind it; a container that can talk to this socket can do anything the daemon
-      # can, including starting a privileged container. The restraint is in the code above it -
-      # DockerOps reads, stops and starts, and refuses to create containers - and the boundary that
-      # matters is §3's: steward-ui gets no socket at all, because the web interface is the part an
-      # attacker reaches first.
+      # It is not read-only and cannot be made read-only: appending `:ro` restricts the socket
+      # file, not the API behind it, and a container that can talk to this socket can do anything
+      # the daemon can, including starting a privileged container. The restraint is in the code
+      # above it: DockerOps reads, stops and starts, and refuses to create containers, and the
+      # boundary that matters is that steward-ui gets no socket at all, because the web interface
+      # is the part an attacker reaches first.
       - /var/run/docker.sock:/var/run/docker.sock
     logging: *logging
 
-  # -------------------------------------------------------------------------------------------
-  # steward-ui - the web interface, and THE ONE SERVICE HERE THAT HOLDS NO DOCKER SOCKET (§3).
+  # steward-ui - the web interface, and the one service here that holds no docker socket.
   #
   # That is the whole of its privilege: it can reach steward-worker and steward-deployer over the
   # `steward` network with two different secrets, and it can reach PostgreSQL. Everything it knows
   # about a container it asked the worker for; every container it creates, the deployer created.
   #
-  # WHAT THE BOUNDARY ACTUALLY BUYS, so nobody relies on what it does not: it does not stop somebody
-  # who takes this container from calling the worker's API - it stops them from calling anything but
-  # its fixed-shape endpoints. There is no open `exec` anywhere in this stack, because `docker exec
-  # … mc list` and `docker exec … sh` are the same permission to the daemon and the restriction can
-  # therefore only live in our code.
+  # What the boundary actually buys, so nobody relies on what it does not: it does not stop
+  # somebody who takes this container from calling the worker's API, it stops them from calling
+  # anything but its fixed-shape endpoints. There is no open `exec` anywhere in this stack, because
+  # `docker exec … mc list` and `docker exec … sh` are the same permission to the daemon and the
+  # restriction can therefore only live in our code.
   steward-ui:
     profiles: ["steward"]
-    # A DEPLOY NEVER RUNS THIS - it pulls. Kept because it is how the image is developed here, and
+    # A deploy never runs this, it pulls. Kept because it is how the image is developed here, and
     # because build.yml catches a Dockerfile that COPYs a file .dockerignore excludes.
     build:
       context: ./steward-ui
@@ -988,24 +822,18 @@ services:
     environment:
       TZ: ${TZ:-Europe/Berlin}
 
-      # --- database.yml ------------------------------------------------------------------
+      # database.yml
       # The same database as everything else, under this service's own prefix.
       NORDTAL_STEWARD_UI_DATABASE_JDBC_URL: *db-url
       NORDTAL_STEWARD_UI_DATABASE_USERNAME: *db-username
       NORDTAL_STEWARD_UI_DATABASE_PASSWORD: *db-password
 
-      # --- steward-ui.yml ----------------------------------------------------------------
-      # ONE NAME, TWO USES. This is the value Caddy answers on and the redirect URI Discord is
-      # given, derived from the same variable so the two cannot disagree - which they would, once,
-      # silently, on the day somebody changed one of them.
-      #
-      # STEWARD_UI_PUBLIC_URL overrides the whole address, and exists for the one case where the
-      # browser does not reach this container through Caddy at all (season-2-ops/146): a Vite dev
-      # server on http://localhost:5173 IS the address, so `https://<host>` would be the wrong
-      # redirect URI and the wrong WebAuthn origin. Unset - which is every real deployment - the
-      # name below is still the only source, and STEWARD_HOST is still required; Compose evaluates
-      # the inner `:?` only when the default is the one being used, which was measured rather than
-      # assumed.
+      # steward-ui.yml
+      # One name, two uses: the value Caddy answers on and the redirect URI Discord is given,
+      # derived from the same variable so the two cannot disagree. STEWARD_UI_PUBLIC_URL overrides
+      # the whole address for the one case where the browser does not reach this container through
+      # Caddy at all - a Vite dev server on http://localhost:5173 is the address, so
+      # `https://<host>` would be the wrong redirect URI and the wrong WebAuthn origin.
       NORDTAL_STEWARD_UI_PUBLIC_URL: ${STEWARD_UI_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}}
       # The domain security keys are registered against. Empty means "whatever steward-ui.yml
       # says", which on a real host is nordtal.eu and is what jcore's EnvOverlay does with a
@@ -1013,80 +841,56 @@ services:
       # the host of the address above and refuses the container otherwise - so an address that is
       # not under nordtal.eu needs this line or nothing starts at all.
       NORDTAL_STEWARD_UI_WEBAUTHN_RELYING_PARTY_ID: ${STEWARD_WEBAUTHN_RP_ID:-}
-      # The worker's secret and the deployer's, and they are NOT the same value. The deployer may
-      # create containers and the worker may not; one token for both would make that boundary a
+      # The worker's secret and the deployer's, and they are not the same value: the deployer may
+      # create containers and the worker may not, so one token for both would make that boundary a
       # comment in a Java file.
       NORDTAL_STEWARD_UI_WORKER_TOKEN: ${STEWARD_API_TOKEN:?set STEWARD_API_TOKEN in .env - the secret steward-ui and steward-worker share, `openssl rand -hex 32`}
       NORDTAL_STEWARD_UI_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui and steward-deployer share, and a DIFFERENT one, `openssl rand -hex 32`}
-      # Discord sign-in. The BOT'S application, reused: one client id, a second secret. Empty
+      # Discord sign-in: the bot's application, reused, one client id and a second secret. Empty
       # values mean nobody can sign in, and the sign-in page names the one that is missing rather
-      # than failing at Discord - so these are not `:?`.
+      # than failing at Discord, so these are not `:?`.
       NORDTAL_STEWARD_UI_DISCORD_CLIENT_ID: ${STEWARD_UI_DISCORD_CLIENT_ID:-}
       NORDTAL_STEWARD_UI_DISCORD_CLIENT_SECRET: ${STEWARD_UI_DISCORD_CLIENT_SECRET:-}
-      # A SECOND COPY of what the bot's access.yml says, deliberately: two processes, two volumes,
+      # A second copy of what the bot's access.yml says, deliberately: two processes, two volumes,
       # no shared file. Written from the same .env variables so they start out agreeing.
       NORDTAL_STEWARD_UI_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
-      # THE BOT'S TOKEN, READ-ONLY AND FOR ONE THING: asking Discord what the guild's roles and
-      # channels are CALLED, so the configuration editor offers a list to pick from instead of a
-      # field to transcribe an eighteen-digit id into. Steward never sends a message with it, never
-      # changes a role, and never puts it in an answer, a log or a browser - what leaves the process
-      # is a list of {id, name} that is public inside the guild anyway.
-      #
-      # Giving a web server the bot's token is a real widening and is worth saying out loud: whoever
-      # reaches this container's filesystem or environment has the bot. The alternative was a second
-      # application with its own token, which is a second thing to rotate and a second bot in the
-      # member list for no gain - the token is already on this host, in the service next door.
-      # Empty is fine: the pickers fall back to a text field and the ids still work.
+      # The bot's token, read-only and for one thing: asking Discord what the guild's roles and
+      # channels are called, so the configuration editor offers a list to pick from. Steward never
+      # sends a message with it, never changes a role, and never puts it in an answer, a log or a
+      # browser. Empty is fine: the pickers fall back to a text field and the ids still work.
       NORDTAL_STEWARD_UI_DISCORD_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:-}
-      # Web Push (steward/98). A VAPID keypair, generated once per deployment with
-      # `docker exec nordtal-s2-steward-ui-1 steward-ui generate-vapid-keys` (the image ships
-      # that wrapper on purpose - see its Dockerfile) - never `:?`, because both
-      # blank is the ordinary "not configured yet" state WebPushSpec already reads it as, the same
-      # shape worker.token and deployer.token use above. jcore treats a set-but-empty variable as
-      # unset (EnvOverlay#applyTo, `raw.isBlank()`), so leaving these two empty here never
-      # overwrites a keypair a previous run already wrote into steward-ui.yml - it only matters on
-      # the very first start, before the file has one.
+      # A VAPID keypair for Web Push, generated once per deployment with `docker exec
+      # nordtal-s2-steward-ui-1 steward-ui generate-vapid-keys`. Never `:?`: blank is the ordinary
+      # "not configured yet" state WebPushSpec reads it as, and leaving these empty here never
+      # overwrites a keypair a previous run already wrote into steward-ui.yml.
       NORDTAL_STEWARD_UI_WEB_PUSH_PUBLIC_KEY: ${STEWARD_UI_WEB_PUSH_PUBLIC_KEY:-}
       NORDTAL_STEWARD_UI_WEB_PUSH_PRIVATE_KEY: ${STEWARD_UI_WEB_PUSH_PRIVATE_KEY:-}
     ports:
-      # LOOPBACK, AND THAT IS THE WHOLE POINT (season-2-ops/146). In production Caddy is the way in
-      # and this publish is only reachable from a shell on the host, where it is worth having when
-      # the question is whether the interface or the proxy in front of it is the broken half.
-      # Locally it is the way in: `npm run dev` proxies to 127.0.0.1:8080, and before this line
-      # steward-ui published nothing at all, so the dev server had nothing to talk to.
-      #
-      # It collides with pack-host, which defaults to the same 127.0.0.1:8080 - two local profiles,
-      # never both wanted at once, and STEWARD_UI_PORT is the way out if somebody does want both.
+      # Loopback, and that is the whole point: in production Caddy is the way in, and this publish
+      # is only reachable from a shell on the host. Locally it is the way in: `npm run dev` proxies
+      # to 127.0.0.1:8080. It collides with pack-host, which defaults to the same address - two
+      # local profiles, never both wanted at once, and STEWARD_UI_PORT is the way out if somebody
+      # does want both.
       - "${STEWARD_UI_BIND:-127.0.0.1}:${STEWARD_UI_PORT:-8080}:8080"
     volumes:
       - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/app/config
-      # THE STACK'S CONFIGURATION IS NOT MOUNTED HERE, AND THAT IS THE DECISION (Till, 2026-09-14).
-      # It was, from 2026-09-13 until then - seven volumes under /configs, so the interface could
-      # draw a form for every service's settings. It could not read one of them.
-      #
-      # WHAT WAS MEASURED. Every config jcore writes is 0600 root:root - 22 files, counted - and
-      # this is the only service in the stack that does not run as root (uid 10001). So every file
-      # was unreadable and unwritable to it, the listing drew them all greyed out, and tapping one
-      # answered `HTTP 400 ... Permission denied` with the path in it. Making the files readable
-      # would have been the wrong repair: database.yml holds the Postgres password and bot.yml the
-      # Discord token, and this is the container an attacker reaches first.
-      #
-      # WHERE THEY WENT. steward-worker, which runs as root and already holds the docker socket for
-      # exactly this reason (§3). The interface proxies GET/PUT /api/config to it over the internal
-      # API and keeps what it is good at: the security key in front of the form.
+      # The stack's configuration is not mounted here. Every config jcore writes is 0600 root:root,
+      # and this is the only service in the stack that does not run as root (uid 10001), so it can
+      # neither read nor write any of those files - and making them readable would be the wrong
+      # repair, since database.yml holds the Postgres password and bot.yml the Discord token, and
+      # this is the container an attacker reaches first. steward-worker holds them instead, since
+      # it already runs as root and holds the docker socket; the interface proxies GET/PUT
+      # /api/config to it over the internal API.
     logging: *logging
 
-  # -------------------------------------------------------------------------------------------
-  # steward-deployer - the only process in this stack allowed to create a container (§8a, §8b).
+  # steward-deployer - the only process in this stack allowed to create a container.
   #
-  # IT CARRIES THIS FILE INSIDE ITS OWN IMAGE. "Which compose.yml is live" is therefore answered by
-  # an image tag rather than by a commit hash, and there is no working tree on the host that
-  # somebody can edit and lose at the next sync - which is the failure mode Arcane's GitOps
-  # checkout had, and the reason this service exists.
+  # It carries this file inside its own image, so "which compose.yml is live" is answered by an
+  # image tag rather than by a working tree somebody can edit on the host.
   #
-  # IT NEVER RECREATES ITSELF. `Compose.SELF` is refused wherever a service name is accepted: it is
-  # the container the request travels through, so the answer would never come back. Renewing this
-  # one is deploy/nordtal.sh's job on the host (§9c).
+  # It never recreates itself: `Compose.SELF` is refused wherever a service name is accepted,
+  # since it is the container the request travels through and the answer would never come back.
+  # Renewing this one is deploy/nordtal.sh's job on the host.
   steward-deployer:
     profiles: ["steward"]
     build:
@@ -1095,10 +899,8 @@ services:
     restart: unless-stopped
     networks: ["steward"]
     healthcheck:
-      # busybox wget - this image is `25-jre-alpine`, not the Ubuntu-based `25-jre`, and the
-      # difference matters: measured 2026-09-13, the Alpine one carries wget and the Ubuntu one
-      # carries neither wget nor curl. A healthcheck against a binary that is not there is a
-      # service that answers every request and is reported unhealthy forever.
+      # busybox wget: this image is `25-jre-alpine`, which carries wget but neither curl nor the
+      # Ubuntu-based `25-jre`'s tools.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/api/health"]
       interval: 30s
       timeout: 10s
@@ -1106,81 +908,59 @@ services:
       start_period: 30s
     environment:
       TZ: ${TZ:-Europe/Berlin}
-      # IT REFUSES TO SERVE WITHOUT THIS. A process that can recreate every container in the stack,
-      # unauthenticated on a shared network, is a remote root shell with extra steps - and a
-      # service that only logs a warning about that gets deployed anyway.
+      # It refuses to serve without this: a process that can recreate every container in the
+      # stack, unauthenticated on a shared network, is a remote root shell with extra steps.
       NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui and steward-deployer share, `openssl rand -hex 32`}
-      # WHAT `up` MEANS HAS TO BE THE SAME SELECTION ON BOTH SIDES. This service runs
-      # `docker compose up` with the mounted environment file as its --env-file (steward/102: the
-      # file mounted under a directory, not a literal `.env` - see the volumes comment below), so
-      # COMPOSE_PROFILES comes from there and not from here; the variable is repeated only so that a
+      # What `up` means has to be the same selection on both sides. This service runs
+      # `docker compose up` with the mounted environment file as its --env-file, so
+      # COMPOSE_PROFILES comes from there and not from here; the variable is repeated only so a
       # `docker compose` typed on the host and a deploy from the interface act on the same services.
       COMPOSE_PROFILES: ${COMPOSE_PROFILES:-db,bot,mc,backup,steward}
-      # AND THE SAME PROJECT, for a sharper reason. This service names the project on its own
-      # command line, so if it ever disagreed with the project compose used out here it would not
-      # fail - it would deploy a SECOND, empty stack beside the running one, with its own volumes
-      # and its own database, and the first sign would be a fresh world. The default is spelled in
-      # two places (here and StewardDeployer) so that neither can be the only one.
+      # And the same project: this service names the project on its own command line, so if it
+      # disagreed with the project compose used out here it would deploy a second, empty stack
+      # beside the running one. The default is spelled in two places (here and StewardDeployer).
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-nordtal-s2}
-      # steward/102: the file name inside the directory mounted below, so this process knows what
-      # to open under /app/env. NOT the path itself - the directory is the mount now, not the file
-      # (see the volumes comment) - so only the name survives the trip into the container.
+      # The file name inside the directory mounted below, not the path - the directory is the
+      # mount, not the file, so only the name survives the trip into the container.
       NORDTAL_STEWARD_ENV_FILE: /app/env/${STEWARD_ENV_FILE_NAME:?set STEWARD_ENV_FILE_NAME in .env - the file name (not the path) of the environment file, derived from STEWARD_ENV_FILE by deploy/nordtal.sh}
     volumes:
-      # THE SOCKET. It is not read-only and cannot be made read-only: `:ro` restricts the socket
-      # FILE and not the API behind it, and a container that can talk to this daemon can start a
-      # privileged one. The restraint is that this process runs `docker compose` with a file it
-      # cannot be given from outside, and that steward-ui - the part an attacker reaches first -
-      # has no socket at all.
+      # The socket. It is not read-only and cannot be made read-only: `:ro` restricts the socket
+      # file, not the API behind it. The restraint is that this process runs `docker compose` with
+      # a file it cannot be given from outside, and that steward-ui has no socket at all.
       - /var/run/docker.sock:/var/run/docker.sock
-      # THE DIRECTORY HOLDING THE DEPLOYMENT'S SECRETS, not the file itself (steward/102). A FILE
-      # bind mount follows the INODE, not the path: when the host replaces this file - any `mv` over
-      # a temp file, which is how a secret is rotated, not edited - the old inode is unlinked from
-      # the host but stays mounted here, orphaned, forever, for the life of this container. Nothing
-      # about that looks wrong from in here: the path still resolves, the content is just from
-      # before the rotation, and every `${X:?}` in this file still sees a value - so a recreated
-      # service silently gets secrets from before the last rotation. A DIRECTORY bind re-resolves
-      # the path on every access, so a file replaced after this container started is visible without
-      # recreating it. READ-ONLY, and an ABSOLUTE host path: this is the one file in the deployment
-      # that is in no image and in no repository, and deploy/nordtal.sh is what puts it where
-      # STEWARD_ENV_FILE points - this mounts the directory around it.
+      # The directory holding the deployment's secrets, not the file itself: a file bind mount
+      # follows the inode, so when the host replaces this file by rotating the secret, the old
+      # inode stays mounted here, orphaned, for the life of this container - a recreated service
+      # would silently get secrets from before the last rotation. A directory bind re-resolves the
+      # path on every access. Read-only, and an absolute host path: this is the one file in the
+      # deployment that is in no image and in no repository; deploy/nordtal.sh puts it where
+      # STEWARD_ENV_FILE points.
       - ${STEWARD_ENV_DIR:?set STEWARD_ENV_DIR in .env - the directory holding STEWARD_ENV_FILE, derived from it by deploy/nordtal.sh}:/app/env:ro
     logging: *logging
 
-  # -------------------------------------------------------------------------------------------
   # Caddy - HTTPS for the interface, and the only thing in this file that listens on the internet
-  # besides the Minecraft proxy (§9c: chosen over Traefik because automatic certificates without
-  # configuration is the entire requirement).
+  # besides the Minecraft proxy - chosen over Traefik because automatic certificates without
+  # configuration is the entire requirement.
   #
-  # THE CADDYFILE IS IN THIS FILE, as an inline `configs:` block. It could not usefully be a file on
+  # The Caddyfile is in this file, as an inline `configs:` block. It could not usefully be a file on
   # the host: steward-deployer runs compose with `--project-directory /app` inside its own image, so
-  # a relative bind would point into the image and an absolute one would be a second thing the setup
-  # script has to place and keep in step with this file. Verified on 2026-09-13 that both compose
-  # versions in play support inline content - the host's v5.5.1 and the v2.40.3 baked into the
-  # deployer image - and that ${...} inside it is interpolated exactly like anywhere else.
+  # a relative bind would point into the image and an absolute one would be a second thing to keep
+  # in step with this file. Both compose versions in play support inline content and interpolate
+  # `${...}` inside it exactly like anywhere else - which is also the trap, since Caddy's own
+  # environment syntax is `{$VAR}` and compose eats that too. Caddy placeholders without a `$`, such
+  # as `{http.request.uri}`, pass through untouched.
   #
-  # WHICH IS ALSO THE TRAP: Caddy's own environment syntax is `{$VAR}`, and compose eats that too
-  # (measured, not assumed - it warns "variable is not set" and substitutes a blank). Caddy
-  # placeholders without a `$` - `{http.request.uri}` and the like - pass through untouched. So
-  # every value here is interpolated by compose, and none by Caddy.
-  #
-  # ONE CERTIFICATE, FOR ONE NAME. Ports 80 and 443 on this host were free when this was written
-  # (checked 2026-09-12); 80 is not decoration, it is how the HTTP-01 challenge is answered and how
-  # a browser typing the bare name is redirected.
+  # One certificate, for one name. Port 80 is not decoration: it is how the HTTP-01 challenge is
+  # answered and how a browser typing the bare name is redirected.
   caddy:
-    # TWO PROFILES SINCE season-2-ops/162, AND THE SECOND ONE IS THE GAME PORT. This container is no
-    # longer only the way to the interface: it is the guard in front of 25565, so a selection that
-    # runs the network without it runs a network nobody can reach. `mc` is therefore not a
-    # convenience here - it is what keeps `db,bot,mc,backup` a complete deployment.
-    #
-    # IT DOES NOT MAKE STEWARD OPTIONAL. The one caddyfile below carries the interface's site and
-    # its ACME address as well as the guard, so STEWARD_HOST and STEWARD_ACME_EMAIL are required on
-    # every installation, `steward` in the profile list or not. Running the network means running
-    # Steward, which since the admin tree moved into it is the only way to administer it anyway.
-    #
-    # AND IT IS IN NO PROFILE AN UPDATE RUN TOUCHES, which is the other half of the same ticket. A
-    # run stops services by name out of Topology.SERVICES, and this one is not in it - a guard that
-    # restarted with the proxy would have moved the dead port rather than closed it.
+    # Two profiles, and the second one is the game port: this container is not only the way to the
+    # interface, it is the guard in front of 25565, so a selection that runs the network without it
+    # runs a network nobody can reach. It does not make Steward optional either: the one caddyfile
+    # below carries the interface's site and its ACME address as well as the guard, so
+    # STEWARD_HOST and STEWARD_ACME_EMAIL are required on every installation. It is in no profile an
+    # update run touches: a run stops services by name out of Topology.SERVICES, and this one is
+    # not in it, since a guard that restarted with the proxy would move the dead port rather than
+    # close it.
     profiles: ["steward", "mc"]
     build:
       # Caddy with the layer 4 app built in - see deploy/caddy/Dockerfile for why that cannot be a
@@ -1188,11 +968,11 @@ services:
       context: ./deploy/caddy
     image: ${CADDY_IMAGE:-ghcr.io/nordtal/caddy:latest}
     restart: unless-stopped
-    # BOTH NETWORKS, because this container now has a foot in each: `steward` for the interface it
-    # has always fronted, `default` for the two proxies it hands Minecraft connections to.
+    # Both networks: `steward` for the interface it fronts, `default` for the two proxies it hands
+    # Minecraft connections to.
     networks: ["steward", "default"]
-    # NO depends_on, deliberately. A reverse proxy that will not start because its upstream is
-    # unhealthy is a host that answers nothing at all - not even the 502 that would say which half
+    # No depends_on, deliberately: a reverse proxy that will not start because its upstream is
+    # unhealthy is a host that answers nothing at all, not even the 502 that would say which half
     # is broken. Caddy retries the upstream by itself on every request.
     ports:
       - "${CADDY_BIND:-0.0.0.0}:80:80"
@@ -1200,16 +980,14 @@ services:
       # HTTP/3. Caddy advertises it in Alt-Svc whether or not this is published, so leaving it out
       # is a browser trying a port nothing listens on and falling back a moment later.
       - "${CADDY_BIND:-0.0.0.0}:443:443/udp"
-      # THE GAME PORT, AND IT IS PUBLISHED HERE AND NOWHERE ELSE (season-2-ops/162). Neither proxy
-      # publishes anything any more: they are reached through the layer4 routes in the `caddyfile`
-      # config below, which is what lets a connection arriving during a proxy restart be handed to
-      # the standby instead of refused. 26 seconds of that, measured in run 73.
+      # The game port, published here and nowhere else: neither proxy publishes anything any more,
+      # they are reached through the layer4 routes in the `caddyfile` config below, which is what
+      # lets a connection arriving during a proxy restart be handed to the standby instead of
+      # refused.
       - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
-      # Voice is UDP on the same number and goes the same way. Read the long note at the standby's
-      # old port block for what it costs today; the guard does not make it worse and makes the
-      # window itself shorter.
+      # Voice is UDP on the same number and goes the same way.
       - "${PROXY_BIND:-0.0.0.0}:25565:25565/udp"
-      # THE STANDBY'S PORT, for the same reason and not for symmetry: a player the live proxy
+      # The standby's port, for the same reason and not for symmetry: a player the live proxy
       # transfers is told to connect to this number himself, and with the PROXY protocol turned on
       # in velocity.toml a connection that did not come through here is one the standby drops.
       - "${PROXY_BIND:-0.0.0.0}:${PROXY_STANDBY_PORT:-25566}:25566"
@@ -1218,14 +996,13 @@ services:
       - source: caddyfile
         target: /etc/caddy/Caddyfile
     volumes:
-      # THE CERTIFICATES AND THE ACME ACCOUNT KEY. This volume is why a recreate of this container
-      # does not ask Let's Encrypt for a new certificate - and why losing it is a rate limit away
-      # from an outage rather than a free retry.
+      # The certificates and the ACME account key. This volume is why a recreate of this container
+      # does not ask Let's Encrypt for a new certificate.
       - ${CADDY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/caddy-data}:/data
       - ${CADDY_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/caddy-config}:/config
     healthcheck:
       # The admin API on 127.0.0.1:2019, which is Caddy's own answer to "is my configuration
-      # loaded". Measured 2026-09-13: caddy:2-alpine is v2.11.4 and carries busybox wget, no curl.
+      # loaded". caddy:2-alpine carries busybox wget, no curl.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
       interval: 30s
       timeout: 5s
@@ -1241,24 +1018,15 @@ configs:
       {
       	email ${STEWARD_ACME_EMAIL:?set STEWARD_ACME_EMAIL in .env - where Let's Encrypt sends expiry warnings}
 
-      	# THE GUARD IN FRONT OF 25565 (season-2-ops/162). Everything else in this file is HTTP;
-      	# this app is not, which is why the image is built rather than pulled - see
-      	# deploy/caddy/Dockerfile.
-      	#
-      	# WHAT IT IS FOR: from SIGTERM to the moment the new Velocity listens, there is no proxy.
-      	# Run 73 measured 26 seconds of it, and in those seconds the standby is up, healthy, and
-      	# unreachable. `lb_policy first` means the live proxy is always preferred and the standby
-      	# is only ever the answer when the live one does not take the connection.
-      	#
-      	# THE UPSTREAMS ARE NAMES AND ARE RESOLVED PER CONNECTION, which is what makes this work at
-      	# all: a stopped container is gone from Docker's DNS, so the dial fails outright rather
-      	# than hanging, and the next upstream is tried inside lb_try_duration.
-      	#
-      	# proxy_protocol v2 IS NOT OPTIONAL HERE. Behind a layer 4 proxy Velocity sees this
-      	# container's address for every player; the header carries the real one, and
-      	# `haproxy-protocol = true` in velocity.toml is the other half - compose.yml sets
-      	# VELOCITY_HAPROXY beside the proxies and the entrypoint writes it. Changing one without
-      	# the other is a network that answers nobody.
+      	# The guard in front of 25565. Everything else in this file is HTTP; this app is not, which
+      	# is why the image is built rather than pulled - see deploy/caddy/Dockerfile. From SIGTERM
+      	# to the moment the new Velocity listens there is no proxy, and `lb_policy first` means the
+      	# live proxy is always preferred, the standby only ever answering when the live one does
+      	# not take the connection. The upstreams are names, resolved per connection: a stopped
+      	# container is gone from Docker's DNS, so the dial fails outright and the next upstream is
+      	# tried inside lb_try_duration. proxy_protocol v2 is not optional here: Velocity sees this
+      	# container's address for every player unless the header carries the real one, and
+      	# `haproxy-protocol = true` in velocity.toml is the other half of that.
       	layer4 {
       		0.0.0.0:25565 {
       			route {
@@ -1291,7 +1059,7 @@ configs:
       		}
 
       		# The standby's own number, the one a transfer names to the client. One upstream and no
-      		# failover: a player sent to the standby is being sent AWAY from the live proxy, so
+      		# failover: a player sent to the standby is being sent away from the live proxy, so
       		# handing him back to it would undo the move he is in the middle of.
       		0.0.0.0:25566 {
       			route {
@@ -1315,12 +1083,11 @@ configs:
       ${STEWARD_HOST} {
       	encode zstd gzip
 
-      	# NO Content-Security-Policy is set here, and adding one is a decision with a trap in it.
-      	# season-2-ops/129 puts Modrinth's plugin thumbnails on the service pages and the browser
-      	# loads them from cdn.modrinth.com directly (Till, 2026-09-19). A CSP added later without
-      	# an `img-src` naming that host does not fail: the pictures simply stay blank, and the only
-      	# place it is reported is a console nobody has open. `CaddyPolicyTest` in steward-ui holds
-      	# exactly that conditional - no policy is fine, a policy that forgets the host is not.
+      	# No Content-Security-Policy is set here. The service pages load Modrinth's plugin
+      	# thumbnails from cdn.modrinth.com directly, so a CSP added later without an `img-src`
+      	# naming that host does not fail loudly, it just leaves the pictures blank.
+      	# `CaddyPolicyTest` in steward-ui holds that conditional: no policy is fine, a policy that
+      	# forgets the host is not.
       	#
       	# Everything behind this is steward-ui, which holds no docker socket. There is no second
       	# route here and there must not be: steward-worker's internal API and steward-deployer's
@@ -1334,23 +1101,15 @@ configs:
       	}
       }
 
-# ---------------------------------------------------------------------------------------------
-# THE VOLUMES, WHICH THIS DEPLOYMENT NO LONGER USES - and they stay declared for that reason.
-#
-# Since season-2-ops/124 every mount above defaults to a directory under NORDTAL_DIR, so on a
-# normal installation not one of these is created: the installation is a directory, `ls` is how you
-# look at it and SFTP is how you reach it. What each block still describes is the DATA - what is in
-# it, whether it is backed up and why - and that did not change with where it lives.
-#
-# They are declared because a name without a slash is still a volume name to Docker, and that is
-# the way back: deploy/dev.env.example points the local stack's world and jar variables at these,
-# and a host that cannot have a bind for whatever reason sets the one variable it has to.
-#
-# A declared volume that nothing mounts is not created by `up`; it is a definition, not a thing.
-# ---------------------------------------------------------------------------------------------
+# Every mount above defaults to a directory under NORDTAL_DIR, so on a normal installation not one
+# of these named volumes is created: the installation is a directory, `ls` is how you look at it
+# and SFTP is how you reach it. They stay declared as the way back: deploy/dev.env.example points
+# the local stack's world and jar variables at these names, and a host that cannot have a bind for
+# whatever reason sets the one variable it has to. A declared volume that nothing mounts is not
+# created by `up`; it is a definition, not a thing.
 volumes:
   # Every archive steward-worker writes: one tar.zst per volume per run, plus the database dump.
-  # It is deliberately NOT in backup.volumes - saving the backups into the backups is how a disk
+  # It is deliberately not in backup.volumes - saving the backups into the backups is how a disk
   # fills up overnight - and it is what the Storage Box upload reads when there is one.
   steward-backups:
   postgres-data:
@@ -1362,7 +1121,7 @@ volumes:
   steward-ui-config:
   # Caddy's certificates and its ACME account key. Losing this is not a free retry: the next start
   # asks Let's Encrypt for a new certificate, and their rate limit is what turns that into an
-  # outage. It is deliberately NOT in the backup list - a certificate is reissued, and an archive
+  # outage. It is deliberately not in the backup list - a certificate is reissued, and an archive
   # of a private key is one more copy of a private key.
   caddy-data:
   caddy-config:
@@ -1371,39 +1130,33 @@ volumes:
   # `steward-worker bootstrap`.
   bot-jar:
   steward-worker-jar:
-  # The installed bunq API context. steward-worker's since steward/109; it hung off discord-bot
-  # before that. Its CONTENTS ARE NEVER COPIED between containers or hosts - bunq binds an installed
-  # key to a device and an IP, so a copied context is refused by the API and the refusal only shows
-  # up inside a poll. Deliberately not backed up for the same reason.
+  # The installed bunq API context. Its contents are never copied between containers or hosts:
+  # bunq binds an installed key to a device and an IP, so a copied context is refused by the API.
+  # Deliberately not backed up for the same reason.
   bunq-context:
   mc-proxy:
   mc-limbo:
   mc-hunger-games:
   mc-smp:
-  # The four plugins/ folders, one volume each and separate from the server volume beside them. THEY
-  # HOLD THE ONLY HAND-EDITED FILES IN THE DEPLOYMENT - every plugin's config.yml, smp's
-  # milestones.yml and sounds.yml, the proxy's pack.yml - so they are worth a nightly snapshot,
-  # and they are separate from the worlds so that saving them is not saving four gigabytes of
-  # terrain. The jars in them are steward-worker's and are not worth saving.
-  #
-  # The four variables above point at directories under NORDTAL_DIR by default, so none of these
-  # four is created either; deploy/dev.env.example is where they are still asked for by name.
+  # The four plugins/ folders, one volume each and separate from the server volume beside them.
+  # They hold the only hand-edited files in the deployment - every plugin's config.yml, smp's
+  # milestones.yml and sounds.yml, the proxy's pack.yml - so they are worth a nightly snapshot, and
+  # they are separate from the worlds so that saving them is not saving four gigabytes of terrain.
+  # The jars in them are steward-worker's and are not worth saving.
   mc-proxy-plugins:
   mc-limbo-plugins:
   mc-hunger-games-plugins:
   mc-smp-plugins:
-  # THE TWO STANDBYS (season-2-ops/119), declared for the same reason as everything above them:
-  # the default is a directory under NORDTAL_DIR and these names are the way back to a volume.
-  # Nothing in them is worth keeping - the server volume is a Velocity or Paper installation that
-  # rebuilds itself, and the plugins one is a copy steward-worker makes after every apply - so
-  # neither is in the backup list, and losing one costs the next apply and nothing else.
+  # The two standbys, declared for the same reason as everything above them. Nothing in them is
+  # worth keeping: the server volume is a Velocity or Paper installation that rebuilds itself, and
+  # the plugins one is a copy steward-worker makes after every apply, so neither is in the backup
+  # list and losing one costs the next apply and nothing else.
   mc-proxy-standby:
   mc-proxy-standby-plugins:
   mc-limbo-standby:
   mc-limbo-standby-plugins:
 
-# ---------------------------------------------------------------------------------------------
-# TWO SEGMENTS, AND THE LINE BETWEEN THEM IS THE POINT (§3).
+# Two segments, and the line between them is the point.
 #
 #   default   PostgreSQL and its ordinary clients: the four Minecraft services and the bot.
 #   steward   PostgreSQL again, plus steward-worker, steward-ui, steward-deployer and Caddy.
@@ -1412,11 +1165,11 @@ volumes:
 # can deploy", and a compromised third-party plugin would be a deploy button. A Minecraft container
 # on `default` cannot even resolve the name `steward-worker`, let alone ask it for a console.
 #
-# WHY POSTGRES IS ON BOTH rather than the worker being on `default`: the worker is the container
+# Postgres is on both rather than the worker being on `default` alone: the worker is the container
 # with the docker socket and the console endpoint, and the database is a database. Putting the
 # smaller privilege on both sides is the cheaper mistake.
 #
-# `default` IS NAMED EXPLICITLY so that nothing changes for the services that do not mention a
+# `default` is named explicitly so that nothing changes for the services that do not mention a
 # network - the four Minecraft ones, the bot, pack-host. Compose puts them here, under the name it
 # would have used anyway, and adding this block does not silently move them.
 networks:

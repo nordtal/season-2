@@ -7,9 +7,9 @@
 # A button there would work in every situation except the one it exists for. So /operations/restore
 # builds the command and a person runs it here - which is where they would have to be anyway.
 #
-# WHERE IT READS AND WRITES: the installation directory, which since season-2-ops/124 holds one
-# directory per volume - `mc-smp` for `nordtal-s2_mc-smp` - and, for a host installed before that,
-# the named Docker volumes it used to hold. It works with either and says which one it is using.
+# Where it reads and writes: the installation directory, which holds one directory per volume -
+# `mc-smp` for `nordtal-s2_mc-smp`. A host installed before that layout still has the named Docker
+# volumes instead. It works with either and says which one it is using.
 #
 #   sudo bash deploy/restore.sh --list                                  what is on the disk
 #   sudo bash deploy/restore.sh nordtal-s2_mc-smp-20260913T031500Z.tar.zst
@@ -37,7 +37,7 @@ log()  { printf '\033[36m[restore]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[restore]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[restore]\033[0m %s\n' "$*" >&2; exit 1; }
 
-# --- decisions, kept apart so they can be tested ---------------------------------------------------
+# decisions, kept apart so they can be tested
 # Same arrangement as deploy/nordtal.sh and deploy/dev: everything above the source guard is a question
 # with an answer and no side effect, and deploy/restore-test.sh drives it without Docker. The two
 # that matter are which kind of file this is and whether a confirmation counts - one decides whether
@@ -74,8 +74,8 @@ volume_of() {
     sed -E "s/-${STAMP_PATTERN}\.tar\.zst$//" <<<"$name"
 }
 
-# WHERE A VOLUME'S CONTENTS ACTUALLY LIVE SINCE season-2-ops/124, which is the one thing about
-# this script that the move to directories changed.
+# Where a volume's contents actually live: a directory under the installation, or a named Docker
+# volume on a host installed before that layout.
 #
 # An archive is still named after the volume it came from - `nordtal-s2_mc-smp` - because that is
 # what the backup mounts it as and renaming archives would break every archive already written. The
@@ -95,7 +95,7 @@ directory_for() {
 
 # The stamp out of any archive name, for naming the scratch database after the dump it came from.
 #
-# `sed -n 1p` and not `head -1`, and that is not a style preference (season-2-ops/27, 2026-09-16):
+# `sed -n 1p` and not `head -1`, and that is not a style preference:
 # head closes the pipe the moment it has its line, grep upstream takes SIGPIPE, and `set -o pipefail`
 # then reports 141 for a pipeline that did exactly what it was asked. Measured on this host: about
 # one in two thousand such pipelines. sed reads its input to the end, so there is no early close and
@@ -113,10 +113,10 @@ restore_confirmed() {
     [[ -n "$wanted" && "$typed" == "$wanted" ]]
 }
 
-# --- sourced rather than executed ----------------------------------------------------------------
+# sourced rather than executed
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
 
-# --- arguments -------------------------------------------------------------------------------------
+# arguments
 ARCHIVE=""
 ENV_FILE="${STEWARD_ENV_FILE:-$DEFAULT_ENV_FILE}"
 BACKUPS_VOLUME=""
@@ -148,7 +148,7 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 PROJECT="${PROJECT:-$DEFAULT_PROJECT}"
 # The installation directory, which is where every volume in this deployment now is. An environment
-# file without it is one written before season-2-ops/124, and everything below then falls back to
+# file without it was written before that layout, and everything below then falls back to
 # the named volumes it was written for.
 NORDTAL_DIR=""
 if [[ -f "$ENV_FILE" ]]; then
@@ -227,7 +227,7 @@ esac
 in_backups "test -f '/backups/$ARCHIVE'" \
     || die "there is no $ARCHIVE in $BACKUPS_VOLUME. \`--list\` shows what is there."
 
-# --- a database dump: into a new database, never over the live one -----------------------------------
+# a database dump: into a new database, never over the live one
 if [[ "$kind" == database ]]; then
     # THIS DOES NOT RESTORE THE DATABASE, and that is the decision. A dump put straight over the
     # live one destroys the state you would need to work out what went wrong, and it does it before
@@ -262,7 +262,7 @@ if [[ "$kind" == database ]]; then
     exit 0
 fi
 
-# --- a volume archive: stop, replace, start ---------------------------------------------------------
+# a volume archive: stop, replace, start
 VOLUME="$(volume_of "$ARCHIVE")"
 
 TARGET="$(source_for "$VOLUME" || true)"

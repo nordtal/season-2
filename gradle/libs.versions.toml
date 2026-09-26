@@ -5,41 +5,26 @@ paper = "26.2.build.121-stable"
 # velocity-api 4.2.0 is compiled for Java 25 and ships the @Plugin annotation processor
 # that generates velocity-plugin.json.
 #
-# 4.1.1 -> 4.2.0 on 2026-09-14, and it was a correction and not an upgrade: Fill published 4.2.0
-# into the 4.0.0 family, the proxy follows that family by design, and nordtal-s2-proxy-1
-# was already running velocity-4.2.0-30.jar while this said 4.1.1. Three update reports (ids 1, 3
-# and 5 in `update_request`) carried the note that says so and blocked nothing, which is the
-# mechanism working - and the note names this line as the fix.
+# Fill publishes into the 4.0.0 family and the proxy follows that family by design, so this line
+# tracks whatever build Fill actually ships under it rather than a fixed minor version.
 velocity = "4.2.0"
 # jcore is published from github.com/nordtal/jcore via JitPack; the coordinate version is the git
 # tag. It exports no logging backend, so consumers declare logback themselves.
 #
-# 3.1.0 -> 4.0.0 -> 4.1.0, both on 2026-09-16, both tagged and green:
-#
-# 4.0.0 writes a `<name>.schema.json` beside every YAML it writes (steward/54), and the YAML it
-# writes carries no comments and no header any more - the explanations moved into the schema, for
-# steward/50's configuration-interface redesign. A file jcore already wrote loses its comments the
-# next time it is saved; nothing here migrates that for a deployed volume, which is the point of
-# steward/55 and steward/56.
-#
-# 4.1.0 puts the file-level `@ConfigSpec(header)` back. 4.0.0 took it out of the YAML and gave it no
-# new home, so it was written into no file at all - and BotSpec's header is the only place that says
-# the Discord token and the bunq key come from NORDTAL_BOT_TOKEN and friends rather than from the
-# file somebody is looking at. It is the schema root's `explanation` now. discord-bot's ConfigsTest
-# went red on exactly that string, which is how it was found; that test reads the schema now.
-#
-# 4.1.1 (2026-09-16, steward/72) is the other half of 4.0.0's move: only `@Explain` ever reached the
-# schema, so a property with no `@Explain` of its own - still nearly everything in this repository -
-# showed an empty explanation where a `@Comment` paragraph used to sit in the YAML. The schema now
-# falls back to `@Comment`, joined with '\n', whenever `@Explain` is absent; `@Explain` still always
-# wins once a setting has one. Writing the short `@Explain` sentences for all 302 settings is
-# steward/62, file by file, and is unaffected by this bump.
+# It writes a `<name>.schema.json` beside every YAML it writes, and the YAML itself carries no
+# comments and no header - the explanations live in the schema instead, as each property's
+# `@Explain` sentence, or its `@Comment` paragraph joined with '\n' when no `@Explain` is given;
+# `@Explain` always wins once a setting has one. The file-level `@ConfigSpec(header)` lands in the
+# schema root's `explanation`, which is the only place a header like BotSpec's - naming
+# NORDTAL_BOT_TOKEN and friends as the real source of the Discord token and the bunq key - actually
+# surfaces. A file jcore already wrote loses its comments the next time it is saved; nothing here
+# migrates that for a deployed volume.
 jcore = "4.4.0"
-# Our own Paper plugin, via JitPack. `smp` takes it compileOnly and NEVER shades it - the api
+# Our own Paper plugin, via JitPack. `smp` takes it compileOnly and never shades it - the api
 # module is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to
 # be installed on the SMP server.
 #
-# NOT A FIXED VERSION, deliberately: `steward.yml` ships `display-tags-release: latest`, so the jar
+# Not a fixed version, deliberately: `steward.yml` ships `display-tags-release: latest`, so the jar
 # that runs on the SMP is whatever the fork released most recently, and a pinned compile version
 # can only agree with that by accident. The cost is that a DisplayTags release can turn CI red with
 # no commit in between; if one does, pin this line to the last good version and say why - do not
@@ -47,15 +32,13 @@ jcore = "4.4.0"
 displaytags = "latest.release"
 jda = "6.0.0-rc.4"
 bunq = "1.28.0.6"
-# OkHttp, and it is HERE only because steward-worker carries a patched copy of one of the bunq SDK's
-# own classes (com/bunq/sdk/http/BunqRequestBuilder.java) and therefore has to COMPILE against
+# OkHttp, and it is here only because steward-worker carries a patched copy of one of the bunq SDK's
+# own classes (com/bunq/sdk/http/BunqRequestBuilder.java) and therefore has to compile against
 # OkHttp, while the SDK only brings it at runtime scope.
 #
-# IT MUST BE WHAT THE BUNQ SDK ITSELF RESOLVES, and it is declared `implementation` rather than
+# It must be what the bunq SDK itself resolves, and it is declared `implementation` rather than
 # `compileOnly` precisely so it cannot drift: Gradle picks the higher of this and the SDK's
-# transitive one for BOTH the compile and the runtime classpath, so the two can never disagree.
-# Measured 2026-09-18 with `:steward-worker:dependencies --configuration runtimeClasspath`:
-# com.github.bunq:sdk_java:1.28.0.6 brings com.squareup.okhttp3:okhttp:3.14.9.
+# transitive one for both the compile and the runtime classpath, so the two can never disagree.
 okhttp = "3.14.9"
 guava = "33.6.0-jre"
 logback = "1.5.18"
@@ -81,65 +64,60 @@ slf4j = "2.0.18"
 # junit-jupiter module is deliberately not used - it is built against JUnit 5 and this
 # repo is on the JUnit 6 BOM.
 testcontainers = "1.21.4"
-# jimfs: an in-memory NIO filesystem, test-only. steward/104's ownership-preserving write needs a
-# file owned by somebody other than the test process to prove anything - the real filesystem only
-# lets root hand that out, and this host's own sessions already run as uid 0 (workspace/02), which
-# makes the interesting failure untestable there and untestable in CI for the opposite reason.
-# Jimfs has no privilege model at all, so a fabricated owner survives or does not on its own
-# merits, the same "prove it from the other side" fix workspace/02 already made for jcore's
-# AtomicConfigWriterTest - which is also where this exact version comes from: checked against
-# jcore's build.gradle.kts 2026-09-17, still 1.3.2.
+# jimfs: an in-memory NIO filesystem, test-only. Testing an ownership-preserving write needs a file
+# owned by somebody other than the test process to prove anything - the real filesystem only lets
+# root hand that out, and a session already running as uid 0 makes the interesting failure
+# untestable there and untestable in CI for the opposite reason. Jimfs has no privilege model at
+# all, so a fabricated owner survives or does not on its own merits, the same fix jcore's own
+# AtomicConfigWriterTest uses - which is also where this exact version comes from.
 jimfs = "1.3.2"
 # Gson, and only :common's tests use it - the resource-pack consistency test parses the three
 # font JSON files, and hand-rolling a JSON reader for that is 80 lines nobody would ever review.
 # Pinned to what Paper ships in libraries/, so the parser reading the fonts is the one the
 # client-facing platform uses. Never shaded: Paper and Velocity both provide it.
 gson = "2.14.0"
-# Javalin, the web layer of steward-ui and the small internal API of steward-deployer. Checked on
-# Maven Central 2026-09-12: 7.2.3 is the current release. It pulls jetty-server, jetty-ee10-servlet
-# and the jetty websocket module, and NOTHING ELSE that matters here - jackson-databind, gson,
-# brotli4j and zstd-jni are all `optional` in its POM, so the json mapper is a deliberate choice
-# rather than a transitive surprise. That choice is gson, the parser jcore already exports; a second
-# databind on the classpath is how the repo got two Gson types that were not each other.
+# Javalin, the web layer of steward-ui and the small internal API of steward-deployer. It pulls
+# jetty-server, jetty-ee10-servlet and the jetty websocket module, and nothing else that matters
+# here - jackson-databind, gson, brotli4j and zstd-jni are all `optional` in its POM, so the json
+# mapper is a deliberate choice rather than a transitive surprise. That choice is gson, the parser
+# jcore already exports; a second databind on the classpath is how the repo got two Gson types that
+# were not each other.
 javalin = "7.2.3"
 # The Gradle plugin that downloads its own Node for the vite build of steward-ui's frontend. This
 # host has no node and is not going to get one: the plugin unpacks a private copy under build/.
-# Checked in the Gradle Plugin Portal 2026-09-12.
 node = "7.1.0"
-# WebAuthn, server side. Checked on Maven Central 2026-09-14: <release>2.9.0.
+# WebAuthn, server side.
 #
-# IT IS IN :steward-ui AND NOWHERE ELSE, and that is a decision rather than an accident. It pulls
-# jackson-databind, guava, cbor and httpclient5 - and jcore 3.0.0 dropped Jackson on purpose, and
-# :common takes nothing but JDBI, HikariCP, slf4j and the driver. Both rules are untouched: this is
-# a standalone JVM service with its own image, not a Paper plugin and not :common. There is no
+# It is in :steward-ui and nowhere else, and that is a decision rather than an accident. It pulls
+# jackson-databind, guava, cbor and httpclient5 - and jcore dropped Jackson on purpose, and :common
+# takes nothing but JDBI, HikariCP, slf4j and the driver. Both rules are untouched: this is a
+# standalone JVM service with its own image, not a Paper plugin and not :common. There is no
 # maintained Jackson-free WebAuthn library for Java; webauthn4j has the same dependency and is at
 # 0.29. The alternative was writing the verification by hand - CBOR, COSE, ES256 - which is exactly
 # the kind of hand-written sign-in code where one missed step makes the whole factor worthless.
-# Till decided it that way on 2026-09-14, with those alternatives named.
 webauthn = "2.9.0"
-# Jackson, compileOnly and ONLY in :steward-ui, and only because of one exception type.
+# Jackson, compileOnly and only in :steward-ui, and only because of one exception type.
 #
-# webauthn-server-core declares Jackson at RUNTIME scope, so its classes are not on anybody's
+# webauthn-server-core declares Jackson at runtime scope, so its classes are not on anybody's
 # compile classpath - which is a better boundary than the one this repository was going to draw by
 # hand, and it is left standing. The one thing that leaks through it is `JsonProcessingException`:
-# `PublicKeyCredentialCreationOptions.toJson()` declares it, and javac cannot compile a CALL to
+# `PublicKeyCredentialCreationOptions.toJson()` declares it, and javac cannot compile a call to
 # that method without being able to resolve the type, catch-clause or not.
 #
 # So jackson-core - not databind - is declared compileOnly, purely so the throws clause resolves.
 # Nothing is compiled against a Jackson API; at runtime the version webauthn-server-core resolves
-# is the one that is used. Pinned to what it resolves today (checked 2026-09-14).
+# is the one that is used. Pinned to what it currently resolves.
 jackson = "2.22.2"
-# CBOR, and ONLY in :steward-ui's tests. An authenticator's answer is CBOR inside base64url
+# CBOR, and only in :steward-ui's tests. An authenticator's answer is CBOR inside base64url
 # inside JSON, so a test that plays one has to be able to write it. It is already on the runtime
-# classpath (webauthn-server-core brings it); this pins it so the TEST compiles against the same
-# version rather than against whatever a transitive range resolves to today. Resolved 4.5.6 on
-# 2026-09-14, which is what this names.
+# classpath (webauthn-server-core brings it); this pins it so the test compiles against the same
+# version rather than against whatever a transitive range resolves to today.
 cbor = "4.5.6"
 junit = "6.0.0"
 shadow = "9.6.1"
 runpaper = "3.1.0"
-# Web Push (steward/98), in :steward-ui only. Checked on Maven Central 2026-09-18: 1.3.0 is the
-# current release, and its POM declares exactly one dependency, org.jetbrains.kotlin:kotlin-stdlib
+# Web Push, in :steward-ui only. Its POM declares exactly one dependency,
+# org.jetbrains.kotlin:kotlin-stdlib
 # - "zero external dependencies" per its own README, meaning zero beyond the Kotlin runtime itself.
 # No Bouncy Castle: it builds the aes128gcm payload encryption and the VAPID ES256 JWT on
 # java.security/javax.crypto alone, which is why it was picked over nl.martijndwars's fork

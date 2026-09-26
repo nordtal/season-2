@@ -25,6 +25,11 @@
         <property name="message" value="An inline comment is one line."/>
     </module>
     <module name="RegexpSingleline">
+        <property name="id" value="commentLength"/>
+        <property name="format" value="^(?=.{121,}$)\s*(//|/\*|\*)"/>
+        <property name="message" value="A comment line fits in 120 columns."/>
+    </module>
+    <module name="RegexpSingleline">
         <property name="id" value="markdownDoc"/>
         <property name="format" value="^\s*///"/>
         <property name="message" value="Doc comments use /** */, not ///."/>

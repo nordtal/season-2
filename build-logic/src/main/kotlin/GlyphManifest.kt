@@ -13,11 +13,11 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 
 /**
- * Writes the glyphs a message can name - [names], read against the pack's `minecraft:default` -
- * into [target] as `manifest.json` plus one `<name>.png` each, for an editor's glyph menu.
+ * Writes the glyphs a message can name into [target] as `manifest.json` plus one `<name>.png` each.
  *
- * Only the default font: the `nordtal:` fonts are layout pieces a message never names. A name the
- * font does not declare fails the build here; `GlyphNamesTest` in `:common` says the same on `check`.
+ * Reads [names] against the pack's `minecraft:default` only: the `nordtal:` fonts are layout
+ * pieces a message never names. A name the font does not declare fails the build here;
+ * `GlyphNamesTest` in `:common` says the same on `check`.
  */
 abstract class GlyphManifest : DefaultTask() {
     @get:InputFile

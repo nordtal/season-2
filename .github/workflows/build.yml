@@ -1,8 +1,7 @@
 name: build
 
-# Every push to main and every pull request. The release workflow only runs when a release is
-# published, so without this a broken main - a compile error, a red test - stays invisible until
-# somebody tags, and then it fails on the release instead of on the commit that caused it.
+# The release workflow only runs when a release is published, so this is what catches a broken
+# main before somebody tags.
 on:
   push:
     branches: [main]
@@ -41,19 +40,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
-      # `build` is compile + test + every shadowJar, because nordtal.shaded makes `build` depend
-      # on `shadowJar`. The integration tests need a Docker daemon; ubuntu-latest has one, and
-      # without it Testcontainers tests skip themselves rather than fail, so a green run on a
-      # machine without Docker would prove less than it looks.
+      # `build` is compile + test + every shadowJar; nordtal.shaded makes `build` depend on
+      # `shadowJar`. The integration tests need a Docker daemon, which ubuntu-latest has.
       - name: Build and test
         run: ./gradlew build
 
-      # ALL FOUR IMAGES ARE BUILT HERE AND NONE IS PUSHED. Until 2026-09-02 only release.yml ever
-      # built one, so a Dockerfile that COPYs a file the .dockerignore excludes could not fail
-      # before a release - which is exactly how the bot image missed its own entrypoint that day.
-      # Since release.yml now publishes all four, a Dockerfile that does not build is a release that
-      # does not finish, and this is where that is caught instead. They take seconds and the two
-      # that need jars have them from `build` above.
+      # Built here so a Dockerfile that fails to build is caught on every push, not only on release.
       - name: Build the images without pushing
         run: |
           version="$(grep '^version=' gradle.properties | cut -d= -f2)"

@@ -5,14 +5,11 @@ import org.gradle.api.file.Directory
 import javax.inject.Inject
 
 /**
- * Files at the repository root that a module's tests read straight off the filesystem instead of
- * from their own resources.
+ * Files at the repository root that a module's tests read straight off the filesystem.
  *
- * Two tests do that, and both on purpose: `TopologyTest` reads `compose.yml` and `ConfigsTest`
- * reads `.env.example`, because a fixture copy of either would be a second source of truth that
- * nothing compares. The cost is that Gradle cannot see the dependency - the file is outside every
- * source set - so editing it leaves the test task UP-TO-DATE and the check that exists to catch
- * the drift is the one thing that does not run. Declaring it here is what closes that.
+ * Such a file is outside every source set, so Gradle cannot see the dependency on its own; without
+ * declaring it here, editing the file leaves the test task UP-TO-DATE and the check that exists to
+ * catch the drift is the one thing that does not run.
  */
 abstract class RepositoryRootTestInputs
     @Inject

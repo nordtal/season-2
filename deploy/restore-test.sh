@@ -2,12 +2,12 @@
 #
 # The decisions in deploy/restore.sh, exercised without Docker and without an archive.
 #
-# WHY THIS EXISTS: restore.sh empties a volume before it fills it, and one of those volumes is
-# nordtal-s2_mc-smp - Nordtal, a hand-built world that is in no repository and in no release. It is
-# the same class of thing as `deploy/dev reset`, which is why the confirmation below has the same
-# shape, and it is tested for the same reason: running it and looking is too late.
+# restore.sh empties a volume before it fills it, and one of those volumes is nordtal-s2_mc-smp -
+# Nordtal, a hand-built world that is in no repository and in no release. It is the same class of
+# thing as `deploy/dev reset`, which is why the confirmation below has the same shape, and it is
+# tested for the same reason: running it and looking is too late.
 #
-# WHAT IT CANNOT SAY ANYTHING ABOUT: whether a restored volume then holds what the archive held.
+# What it cannot say anything about is whether a restored volume then holds what the archive held.
 # That needs Docker and a real archive, and it is a restore drill rather than a test.
 set -Eeuo pipefail
 
@@ -31,7 +31,6 @@ kind_is() {
     [[ "$actual" == "$expected" ]] || bad "'$name' is '$actual', expected '$expected'"
 }
 
-# ------------------------------------------------------------------------------------------------
 case_begin "the names steward-worker actually writes are recognised"
 # Taken from TarSnapshots and DatabaseDump: <volume>-<stamp>.tar.zst and nordtal-<stamp>.dump, the
 # stamp being yyyyMMdd'T'HHmmss'Z' in UTC.
@@ -58,7 +57,6 @@ case_begin "the stamp is read back for naming and for saying what is lost"
     || bad "the stamp was not found in a dump"
 ok "both kinds give up their stamp"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "a half-written archive is its own answer, not an error to squint at"
 # steward-worker writes every archive under .partial and renames it only after reading it back. A
 # .partial is therefore the one file in that directory that looks restorable and is not.
@@ -101,7 +99,6 @@ case_begin "a volume archive with no volume name in front of the stamp is not a 
 [[ "$(archive_kind "-20260913T031500Z.tar.zst")" == unknown ]] || bad "a nameless archive was accepted"
 ok "there has to be a name in front of the stamp"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "the confirmation has to be the volume's own name"
 restore_confirmed nordtal-s2_mc-smp nordtal-s2_mc-smp || bad "the name typed back was not accepted"
 ok "the name is accepted"
@@ -123,11 +120,10 @@ restore_confirmed "" ""  && bad "an empty target accepted an empty confirmation"
 restore_confirmed "" "y" && bad "an empty target accepted anything at all"
 ok "nothing can be confirmed against an empty name"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "an archive's volume name is a directory in the installation"
-# The mapping season-2-ops/124 rests on: the directory is the volume name without the project
-# prefix, and nothing else translates the two. Getting it wrong restores a world into a directory
-# nothing mounts, which looks exactly like a restore that worked.
+# The directory is the volume name without the project prefix, and nothing else translates the
+# two. Getting it wrong restores a world into a directory nothing mounts, which looks exactly like
+# a restore that worked.
 [[ "$(directory_for nordtal-s2_mc-smp nordtal-s2 /srv/nordtal)" == "/srv/nordtal/mc-smp" ]] \
     || bad "the world"
 [[ "$(directory_for nordtal-s2_mc-smp-plugins nordtal-s2 /srv/nordtal)" \
@@ -142,7 +138,6 @@ directory_for other_mc-smp nordtal-s2 /srv/nordtal \
     && bad "another deployment's volume answered anyway"
 ok "prefix off, directory under the installation; no prefix and no root answer nothing"
 
-# ------------------------------------------------------------------------------------------------
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

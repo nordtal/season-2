@@ -1,8 +1,6 @@
 // Not a Java module. Its only job is packing src/ into the zip the release ships and the
-// pack-install server serves.
-//
-// The client is sent a URL *and* a SHA-1; Minecraft refuses the pack if they disagree, so the
-// hash is generated on every build rather than written down anywhere.
+// pack-install server serves. The client is sent a URL and a SHA-1 and refuses the pack if they
+// disagree, so the hash is generated on every build rather than written down anywhere.
 
 import eu.nordtal.s2.build.CheckNoTrackerIds
 import eu.nordtal.s2.build.CheckSourcesTracked
@@ -33,8 +31,7 @@ val packSha1 =
         description = "Writes the SHA-1 of the pack zip next to it."
 
         source.set(packZip.flatMap { it.archiveFile })
-        // `layout` stays outside the lambda: a provider that closes over the script's scope
-        // cannot be serialized into the configuration cache.
+        // `layout` stays outside the lambda: a provider closing over the script's scope cannot be cached.
         target.set(
             layout.buildDirectory.file(
                 packZip.flatMap { it.archiveFileName }.map { "distributions/$it.sha1" },

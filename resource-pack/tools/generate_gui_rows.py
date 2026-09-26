@@ -92,8 +92,8 @@ BUTTON_TAKE_WIDTH = 4 * ROW_PITCH - 2 * INSET
 # Seven slot cells inset 2: the same pill, ending where the last two cells of a row begin.
 # A row that carries controls on its right - today only the objective menu's page arrows -
 # needs its plate to stop before them rather than run underneath: the sentence on it is
-# already shortened to that point, so the grey island kept reaching two cells further than
-# anything drawn on it (season-2-ingame/17).
+# already shortened to that point, so the grey island would otherwise reach two cells further
+# than anything drawn on it.
 PILL_SHORT_WIDTH = 7 * ROW_PITCH - 2 * INSET
 
 # --- The palette. Everything here is the panel's own, plus the three button styles. ---

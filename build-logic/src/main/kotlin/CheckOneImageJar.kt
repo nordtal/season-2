@@ -11,27 +11,11 @@ import org.gradle.work.DisableCachingByDefault
 /**
  * Fails when more than one jar matches the glob the module's `Dockerfile` copies.
  *
- * Every one of the four image modules has the same line:
- *
- * ```dockerfile
- * COPY build/libs/<module>-*.jar /app/app.jar
- * ```
- *
- * `steward-ui/.dockerignore` already knows what that costs and says so in as many words - "Two
- * matches is not an error - BuildKit picks one and says nothing" - and takes the thin jar back out
- * of the context so that only one remains. **What it cannot take out is an older version**, and
- * Gradle never removes one: `build/libs` keeps every jar it has ever written, so the commit that
- * moves `gradle.properties` from 0.8.7 to 0.9.0 leaves two behind and every later image build picks
- * one of them without saying which.
- *
- * Measured on the dev host on 2026-09-15, after `675fd29` had bumped the version: `steward-ui`,
- * `steward-worker` and `discord-bot` each held two, `steward-deployer` three. A hand-built image can
- * therefore carry the previous release, come up healthy, serve the interface, and differ only in a
- * feature that does not fire. That is a bad afternoon, and it is indistinguishable from a bug.
- *
- * So this counts what the context would really contain and refuses rather than choosing. It fires
- * exactly when the hazard is real - locally, after a version bump - and never in CI, where
- * `build/libs` is written once into an empty checkout.
+ * Every image module's `Dockerfile` copies with `build/libs/<module>-*.jar`, after
+ * `.dockerignore` removes the thin jar. Gradle never deletes an old jar from `build/libs`, so a
+ * version bump in `gradle.properties` leaves the previous one behind and a later image build
+ * picks between them without saying which. This task counts what the build context would really
+ * contain and refuses rather than letting BuildKit choose silently.
  */
 @DisableCachingByDefault(
     because = "Its result depends on files left behind by earlier builds, which are not an input",
@@ -58,8 +42,7 @@ abstract class CheckOneImageJar : DefaultTask() {
             return
         }
         val prefix = "${artifact.get()}-"
-        // Exactly the glob, minus what .dockerignore takes back out. Counting anything else would
-        // be a guard against a different build than the one that runs.
+        // Exactly the glob, minus what .dockerignore takes back out.
         val matches =
             directory
                 .listFiles()

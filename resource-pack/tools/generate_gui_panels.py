@@ -88,9 +88,9 @@ CORNER_CHAMFER = (3, 2, 1)
 # BalloonMenu) carries the same slot map; TILE_* below is what its overlay offsets are
 # derived from, through MenuTitleTest reading these PNGs back.
 #
-# The bottom right is empty since 2026-09-20. There were four cards, one per world, until
-# the farm world went with season-2-ingame/30; the hole is at the end of the reading order
-# rather than in the middle, where it would read as a card that failed to draw.
+# The bottom right is empty: there are three worlds and four cards, one per world plus the gap.
+# The hole is at the end of the reading order rather than in the middle, where it would read as
+# a card that failed to draw.
 TILE_COLUMNS = 4
 TILE_ROWS = 3
 TILE_INSET = 2

@@ -43,14 +43,11 @@ tasks.named<Test>("test") {
         .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
-// A source file Git ignores compiles here and does not exist on CI. See CheckSourcesTracked; the
-// task is on `check` so that every local `./gradlew build` asks the question, which is the only
-// place it can still be answered cheaply.
-// Both values are read here rather than inside the task block: a Task is ExtensionAware too, so
-// `the<SourceSetContainer>()` in there resolves against the task and finds nothing.
+// Read here, not inside the task block: a Task is ExtensionAware too, and the<SourceSetContainer>() there resolves against the task instead.
 val sourceDirectoriesOfEverySourceSet = the<SourceSetContainer>().map { it.allSource.srcDirs }
 val repositoryRootDirectory = rootProject.layout.projectDirectory
 
+// Catches a source file Git ignores but the local build still compiles; see CheckSourcesTracked.
 val checkSourcesTracked =
     tasks.register<CheckSourcesTracked>("checkSourcesTracked") {
         sourceDirectories.from(sourceDirectoriesOfEverySourceSet)

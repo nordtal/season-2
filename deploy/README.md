@@ -93,7 +93,7 @@ every installation, including one whose `COMPOSE_PROFILES` leaves `steward` out,
    curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
    ```
 
-   **That directory is the installation** (season-2-ops/124). Every volume in `compose.yml`
+   **That directory is the installation**. Every volume in `compose.yml`
    defaults to a folder in it — `mc-smp`, `mc-smp-plugins`, `postgres-data`, `steward-backups`,
    one per volume and named exactly like the volume it replaced — so reading a plugin's
    `config.yml` over SFTP is opening a file, and deleting the installation is deleting one folder.
@@ -115,11 +115,11 @@ every installation, including one whose `COMPOSE_PROFILES` leaves `steward` out,
    **Rotating a value in this file means editing it in place** (`sed -i`, or write to a temp file
    and `cat` the result back over the original with `>`), never replacing it (`mv` a new file over
    it, or any editor that writes-then-renames to save). `steward-deployer` mounts the _directory_
-   holding this file, not the file itself (steward/102) — a directory bind re-resolves the path on
+   holding this file, not the file itself — a directory bind re-resolves the path on
    every access, so an edit in place is visible immediately, but a replacement changes which inode
    `STEWARD_ENV_FILE_NAME` resolves to under that directory, which is exactly what a directory bind
-   is for and is not a problem here. What _is_ still a trap, on a host running an older
-   `steward-deployer` image built before steward/102 — check `docker inspect
+   is for and is not a problem here. What _is_ still a trap, on a host running a `steward-deployer`
+   image old enough to bind the file directly — check `docker inspect
 nordtal-s2-steward-deployer-1` for whether its mount `Source` is this file or its parent
    directory — is that an older image still binds the _file_, and a replacement there orphans the
    old inode behind that mount for the life of the container, silently. Editing in place is the one
@@ -252,13 +252,13 @@ Velocity falls back to its _default_ one, which routes three hostnames at server
 define — and then refuses to start with _"Your configuration is invalid"_.
 
 **`accepts-transfers` is enforced on every start, on a file the entrypoint did not write** — the
-only key in `velocity.toml` treated that way, and season-2-ops/160 is why. It is what a live proxy
-swap needs from Velocity: without it the receiving proxy refuses every player the other one hands
+only key in `velocity.toml` treated that way, because it is what a live proxy swap needs from
+Velocity: without it the receiving proxy refuses every player the other one hands
 it, and from the player's seat that is a network that is simply gone. The seeding writes it once,
-so both proxy volumes on the dev host — older than that line — did not have it, and the first live
-test of the swap died on exactly that. Missing table, table without the key, and an explicit
+so a proxy volume older than that line does not have it, and a swap against one fails on exactly
+that. Missing table, table without the key, and an explicit
 `false` are three different edits and it makes all three; a file that already says so is left
-byte-identical, and a copy of a real pre-160 `velocity.toml` was run through it to prove both ends.
+byte-identical.
 A root-level key of that name is read by nothing, so it is called out in the log rather than
 quietly deleted.
 
@@ -405,7 +405,7 @@ container that has the volumes; the result is an `UpdateReport` written into
 `update_request.result` as JSON, one line per service and one entry per artefact moving.
 
 **On the host, when neither door can be reached**, `./nordtal.sh` in the installation directory
-writes the same row itself (season-2-ops/153):
+writes the same row itself:
 
 ```bash
 ./nordtal.sh update                # the whole network, now, and wait for the report
@@ -811,8 +811,8 @@ was just installed, never on whatever is newest at the moment it starts.
 
 **What voice chat does on the standby proxy: nothing.** Simple Voice Chat's proxy plugin ships
 `port: -1`, which means "the port Velocity bound", and Velocity binds 25565 inside every proxy
-container. The plugin therefore hands the client 25565 - which is the guard's port
-(season-2-ops/162), and the guard sends UDP to whichever proxy is answering. So audio follows the
+container. The plugin therefore hands the client 25565 - which is the guard's port,
+and the guard sends UDP to whichever proxy is answering. So audio follows the
 same failover the game connection does: while the live proxy is down it lands on the standby, and
 the moment it is back it lands there. `PROXY_STANDBY_PORT` (25566 by default) is published by the
 guard for UDP as well as TCP so that the day the plugin's `voice_host` is set the port is already
@@ -920,10 +920,10 @@ its readability, which is checked when it is written and again before a restore 
 `deploy/restore-test.sh` pins which names are recognised and that the confirmation cannot be
 satisfied by "yes", by a bare Return or by a neighbouring volume's name; it runs on `check`.
 
-**Both halves were rehearsed on 2026-09-17** (steward/88), on this host, against that morning's
-`024500Z` backup: a `pg_dump` into a `restore_<stamp>` database beside the live one, and a volume
-archive over `steward-ui-config`. Two things the rehearsal found, neither of which is a defect and
-both of which will mislead the next person who checks the result:
+**Both halves can be rehearsed on this host** against a `024500Z` backup: a `pg_dump` into a
+`restore_<stamp>` database beside the live one, and a volume archive over `steward-ui-config`. Two
+things a rehearsal finds, neither of which is a defect and both of which will mislead whoever
+checks the result:
 
 - **`restore.sh` starts the services it stopped again, and they write into the volume on start.**
   A restored volume is therefore not byte for byte the archive once the service is up: for
@@ -938,7 +938,7 @@ both of which will mislead the next person who checks the result:
   That one second is the whole sequence: tar first, service second.
 
 **Restoring `steward-ui-config` brings back its VAPID keypair too, and that is not a neutral
-byte** (steward/117, filed the day steward/98 shipped Web Push). A browser's push subscription is
+byte.** A browser's push subscription is
 bound to the `applicationServerKey` it subscribed under; overwrite the keypair — by restoring an
 older archive, or by `docker volume rm steward-ui-config` for any other reason — and every row in
 `steward_push_subscription` survives while none of them verify against a push service any more.

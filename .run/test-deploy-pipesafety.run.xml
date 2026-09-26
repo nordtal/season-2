@@ -1,7 +1,7 @@
 <!--
   gradlew checkPipeSafety
 
-  `deploy/pipe-safety-test.sh` — every script under `pipefail` for the `| head` shape that turns a reader's SIGPIPE into the pipeline's exit status (season-2-ops/27). The one suite that is not a test FOR one script.
+  `deploy/pipe-safety-test.sh` — every script under `pipefail` for the `| head` shape that turns a reader's SIGPIPE into the pipeline's exit status. The one suite that is not a test for one script.
 
   Why these are Gradle configurations while the `dev:` folders are shell ones - and what the
   interpreter note means - is in .run/README.md.

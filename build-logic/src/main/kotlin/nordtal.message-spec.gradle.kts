@@ -1,11 +1,7 @@
-// Writes messages/<bundle>/schema.json into the jar, generated from the module's message spec: the
-// names, placeholders and sections steward-worker shows next to the texts it already reads from the
-// same jar. The step runs MessageSpecCheck first and fails the build on a spec that disagrees with
-// its bundle, so a jar never carries a schema that describes different texts than it ships.
-//
-// The classpath is the compiled classes plus the resource SOURCE directories, not the processed
-// resources: processResources is what picks the schema up, so depending on its output would be a
-// cycle.
+// Writes messages/<bundle>/schema.json into the jar from the module's message spec: the names,
+// placeholders and sections steward-worker shows next to the texts it reads from the same jar.
+// The classpath is the resource source directories, not the processed resources, because
+// processResources is what picks the schema up, and depending on its output would be a cycle.
 
 plugins {
     java
@@ -28,8 +24,7 @@ val messageSchema =
         inputs.property("specClass", messageSpec.specClass)
         inputs.files(main.output.classesDirs, main.resources.srcDirs)
         outputs.dir(schemaDirectory)
-        // Locals, not the script's own properties: a lambda that reaches the script cannot be stored in
-        // the configuration cache.
+        // Locals, not the script's own properties: a lambda reaching the script cannot be cached.
         val specClass = messageSpec.specClass
         val output = schemaDirectory
         argumentProviders.add(

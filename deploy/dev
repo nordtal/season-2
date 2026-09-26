@@ -30,18 +30,18 @@ set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# --- the questions, borrowed rather than copied (season-2-ops/147) --------------------------------
-# THE CUT IS TILL'S AND IT IS EXACT: the two scripts share the QUESTIONS and nothing else. Sourcing
+# the questions, borrowed rather than copied
+# The cut is exact: the two scripts share the QUESTIONS table and nothing else. Sourcing
 # `deploy/nordtal.sh` stops at its own seam - everything below that line is the installation, and
 # none of it runs here - so what arrives is the table (QUESTIONS, QUESTION_KIND, QUESTION_CHECK,
 # QUESTION_PROMPT, QUESTION_HINT), the shape checks, `env_value`/`set_assignment`, and the four
 # functions that ask and write down an answer.
 #
-# NOT SHARED, and this is the point rather than an omission: pulling images instead of building
+# Not shared, and this is the point rather than an omission: pulling images instead of building
 # them, /etc/nordtal, waiting for DNS and Let's Encrypt, the self-update out of GitHub, `chown`,
 # root. A local stack is a checkout and a `docker compose`, and none of that belongs in it.
 #
-# IT IS SOURCED HERE, BEFORE THIS FILE'S OWN DEFINITIONS, on purpose. nordtal.sh defines `log`,
+# It is sourced here, before this file's own definitions, on purpose. nordtal.sh defines `log`,
 # `warn` and `die` too, and they print `[nordtal]`; sourcing it afterwards would relabel every line
 # this script prints. Whoever is defined last wins, so this script's own three are below.
 # shellcheck source=deploy/nordtal.sh
@@ -62,7 +62,7 @@ log()  { printf '\033[36m[dev]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[dev]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[dev]\033[0m %s\n' "$*" >&2; exit 1; }
 
-# --- the guard on the one destructive command ---------------------------------------------------
+# the guard on the one destructive command
 # `reset` deletes a server's whole volume, and on smp that volume holds Nordtal - a hand-built world
 # that exists in no repository and in no release. deploy/minecraft/entrypoint-test.sh exists for
 # exactly this class of thing, and so does deploy/dev-test.sh, which sources this file to drive the
@@ -89,7 +89,7 @@ reset_confirmed() {
     [[ -n "$wanted" && "$typed" == "$wanted" ]]
 }
 
-# --- which of the shared questions a local setup asks (season-2-ops/147) --------------------------
+# which of the shared questions a local setup asks
 # The table is nordtal.sh's; the SELECTION is this file's, because the two setups are not the same
 # setup. What falls away locally is everything a public deployment needs and a checkout does not:
 #
@@ -101,10 +101,10 @@ reset_confirmed() {
 #                           first log line, which is the documented state and not a fault.
 #   COMPOSE_PROFILES        the example already carries the local selection.
 #
-# And one question is added, because season-2-ops/146 showed that without it the interface cannot
-# start at all: the address the BROWSER uses. It is asked rather than assumed because it is the one
+# And one question is added: the address the browser uses. Without it the interface cannot start
+# at all, and it is asked rather than assumed because it is the one
 # thing that differs between "a container on this machine" and "a Vite dev server in front of it",
-# and `webauthn.relying-party-id` is then DERIVED from it rather than asked for a second time - it
+# and `webauthn.relying-party-id` is then derived from it rather than asked for a second time - it
 # has to be that host or a parent of it, so asking twice is only a way to get it wrong.
 LOCAL_QUESTIONS=(
     EULA
@@ -128,11 +128,11 @@ host_of_url() {
     printf '%s' "${rest%%:*}"
 }
 
-# THE FIVE DISCORD ANSWERS ARE OPTIONAL HERE AND REQUIRED THERE, and that is the whole difference
+# The five Discord answers are optional here and required there, and that is the whole difference
 # between a deployment and a checkout. A production install with no bot token is a broken
 # deployment; a local one is a stack that comes up, runs four servers and a database, and simply
 # has no bot and nobody able to sign in - which is the right state to be in until there is a test
-# application and a test guild to point it at (season-2-ops/150). Pressing Enter writes nothing, so
+# application and a test guild to point it at. Pressing Enter writes nothing, so
 # the example's harmless placeholder stays and compose still interpolates.
 LOCAL_KINDS_APPLIED=false
 apply_local_questions() {
@@ -146,7 +146,7 @@ apply_local_questions() {
     QUESTION_KIND[NORDTAL_ACCESS_ROLES_ADMIN]=optional-plain
 
     local skip="Press Enter to skip: the stack still comes up, the bot simply does not run and
-        nobody can sign in to the interface. season-2-ops/150 is the test application this wants."
+        nobody can sign in to the interface."
     QUESTION_HINT[NORDTAL_BOT_TOKEN]="A TEST application's token, never the production bot's - it would
         join the real guild from your laptop. $skip"
     QUESTION_HINT[STEWARD_UI_DISCORD_CLIENT_ID]="The same test application, OAuth2 page. Its redirect URI
@@ -188,10 +188,10 @@ ask_local_questions() {
     set_assignment "$ENV_FILE" STEWARD_WEBAUTHN_RP_ID "$host"
     log "STEWARD_WEBAUTHN_RP_ID = $host (derived from the address above)"
 
-    # AND THE ONE ANSWER THAT DOES NOT WORK, said here rather than found later:
+    # And the one answer that does not work, said here rather than found later:
     # `Configs.requireRelyingParty` wants at least a name and a suffix, because a browser refuses a
     # relying party id that is a public suffix. `localhost` is the one named exception to that
-    # (season-2-ops/148) and needs nothing here; any OTHER single label - `intranet`, a machine
+    # and needs nothing here; any other single label - `intranet`, a machine
     # name off a company resolver - is refused, and refused at startup with a sentence naming both
     # values. Saying so now costs a line and saves reading a stack trace.
     if [[ "$host" != *.* && "$host" != localhost ]]; then
@@ -202,7 +202,7 @@ ask_local_questions() {
     fi
 }
 
-# --- sourced rather than executed ----------------------------------------------------------------
+# sourced rather than executed
 # Everything ABOVE this line is definitions; everything below reaches for Gradle, Docker and the
 # working tree. dev-test.sh sources this file to exercise the reset guard, the same way
 # entrypoint-test.sh sources entrypoint.sh - see the long comment there.
@@ -210,12 +210,12 @@ ask_local_questions() {
 
 cd "$ROOT"
 
-# `sed -n '1p'`, not `head -n1` (season-2-ops/27, 2026-09-17): head closes the pipe the moment it
+# `sed -n '1p'`, not `head -n1`: head closes the pipe the moment it
 # has its line, and under this file's `set -Eeuo pipefail` that turns sed's SIGPIPE into this
 # function's exit status. gradle.properties carries exactly one `version=` line by design (one
 # repo-wide version drives every artifact - see the root CLAUDE.md), so this almost never showed,
-# which is exactly the shape of the bug: found while building the season-2-ops/27 guard, not by
-# anyone hitting it.
+# which is exactly the shape of bug that a guard like this one is built to catch rather than
+# something anyone would have hit by hand.
 version() { sed -n 's/^version=//p' gradle.properties | sed -n '1p'; }
 
 compose() {
@@ -243,10 +243,10 @@ plugins_dir() {
 }
 
 pack_root() {
-    # The same read, for the directory pack-host serves. Hardcoded as deploy/pack in two places
-    # until 2026-09-06: with PACK_ROOT pointed anywhere else, `deploy/dev pack` wrote a correct URL
-    # and SHA-1 into pack.yml for a zip the host does not serve, and every client then failed the
-    # download with nothing saying why (finding 112).
+    # The same read, for the directory pack-host serves. Hardcoded as deploy/pack in both places:
+    # with PACK_ROOT pointed anywhere else, `deploy/dev pack` would write a correct URL and SHA-1
+    # into pack.yml for a zip the host does not serve, and every client would then fail the
+    # download with nothing saying why.
     local value
     value="$(sed -n 's/^PACK_ROOT=//p' "$ENV_FILE" 2>/dev/null | tail -n1)"
     printf '%s' "${value:-./deploy/pack}"
@@ -255,13 +255,13 @@ pack_root() {
 compose_project() {
     # What Docker labels this project's volumes with, in compose's own order of precedence:
     # COMPOSE_PROJECT_NAME from the env file, then compose.yml's top-level name:, then the
-    # directory name. It is nordtal-s2 here and NOT season-2, which is exactly why this reads the
+    # directory name. It is nordtal-s2 here and not season-2, which is exactly why this reads the
     # file instead of assuming the default.
     local value
     value="$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' "$ENV_FILE" 2>/dev/null | tail -n1)"
     # `sed -n '1p'`, not `head -n1` - same reason as version() above: compose.yml's top-level
     # `name:` is unique by construction, but the anti-pattern is the same regardless of how likely
-    # a second match is (season-2-ops/27).
+    # a second match is.
     [[ -n "$value" ]] || value="$(sed -n 's/^name: *//p' "$ROOT/compose.yml" 2>/dev/null | sed -n '1p')"
     [[ -n "$value" ]] || value="$(basename "$ROOT" | tr '[:upper:]' '[:lower:]')"
     printf '%s' "$value"
@@ -271,7 +271,7 @@ compose_project() {
 # version cannot be picked up silently.
 jar_of() { printf '%s/build/libs/%s-%s.jar' "$1" "$1" "$(version)"; }
 
-# --- init ----------------------------------------------------------------------------------------
+# init
 cmd_init() {
     if [[ -f "$ENV_FILE" ]]; then
         log "$ENV_FILE already exists; leaving it alone"
@@ -279,7 +279,7 @@ cmd_init() {
         # The example is still the base, and it stays one: ~290 lines of local paths, ports and
         # profiles that nobody should be asked about. What it is NOT any more is the place a person
         # fills in by hand - the four REPLACE_ME secrets are generated and the questions below are
-        # asked, in nordtal.sh's own words (season-2-ops/147).
+        # asked, in nordtal.sh's own words.
         cp "$EXAMPLE" "$ENV_FILE"
         log "wrote $ENV_FILE from $EXAMPLE"
 
@@ -312,7 +312,7 @@ cmd_init() {
     log "next: deploy/dev up"
 }
 
-# --- building and installing ---------------------------------------------------------------------
+# building and installing
 build_modules() {
     local modules=("$@")
     local tasks=()
@@ -347,7 +347,7 @@ install_module() {
     log "installed $(basename "$jar") into $target"
 }
 
-# --- up ------------------------------------------------------------------------------------------
+# up
 cmd_up() {
     [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is not there. Run: deploy/dev init"
     build_modules "${MODULES[@]}"
@@ -366,14 +366,14 @@ cmd_up() {
     compose build steward-worker proxy
 
     # Our jars are already in plugins/, so the worker's bootstrap - which installs only what is
-    # MISSING - fetches the third-party plugins, the Paper and Velocity jars and pack.yml, and
+    # missing - fetches the third-party plugins, the Paper and Velocity jars and pack.yml, and
     # leaves ours alone. That is the whole of the first start.
     compose up -d
     log "up. First start downloads Paper, Velocity and the third-party plugins; give it a few"
     log "minutes and watch with: deploy/dev logs"
 }
 
-# --- deploy --------------------------------------------------------------------------------------
+# deploy
 cmd_deploy() {
     local modules=("$@")
     (( ${#modules[@]} == 0 )) && modules=("${MODULES[@]}")
@@ -389,14 +389,13 @@ cmd_deploy() {
     done
     # restart and not `up -d`: the jar is a file the container reads at start, so restarting the
     # existing container is enough and is the fast path this whole command exists for. The cost is
-    # that a change to deploy/dev.env does NOT reach a restarted container - compose would have to
-    # recreate it - which is why `up` is the answer after editing that file. Measured the hard way
-    # on 2026-09-05: a switch set in dev.env, a `deploy`, and a server still on the old value.
+    # that a change to deploy/dev.env does not reach a restarted container - compose would have to
+    # recreate it - which is why `up` is the answer after editing that file, not `deploy`.
     log "restarting: ${modules[*]}"
     compose restart "${modules[@]}"
 }
 
-# --- pack ----------------------------------------------------------------------------------------
+# pack
 cmd_pack() {
     sh gradlew :resource-pack:packZip
     local zip sha name pack_yml
@@ -416,7 +415,7 @@ cmd_pack() {
     port="$(sed -n 's/^PACK_PORT=//p' "$ENV_FILE" | tail -n1)"
     port="${port:-8080}"
 
-    # THE SAME TWO LINES STEWARD-WORKER'S PackWriter OWNS, and no others. It rewrites url and sha1
+    # The same two lines steward-worker's PackWriter owns, and no others. It rewrites url and sha1
     # and has no opinion about enabled, force or apply-timeout-seconds; neither does this.
     perl -pi -e "s|^url:.*|url: \"http://localhost:$port/$name\"|" "$pack_yml"
     perl -pi -e "s|^sha1:.*|sha1: \"$sha\"|" "$pack_yml"
@@ -425,16 +424,16 @@ cmd_pack() {
     compose restart proxy
 }
 
-# --- ui ------------------------------------------------------------------------------------------
-# The interface, with a browser in front of it and hot reload behind (season-2-ops/149).
+# ui
+# The interface, with a browser in front of it and hot reload behind.
 #
-# THE DEFAULT IS THE CONTAINER. steward-ui is published on 127.0.0.1:8080 (season-2-ops/146) and
+# The default is the container. steward-ui is published on 127.0.0.1:8080 and
 # the Vite dev server proxies /api and /auth to it, so working on the frontend needs Docker and
 # Node and no JDK in the foreground at all. The other half - editing the Java - is the run
-# configuration in `.run/`, and the two CANNOT run at once: both want :8080. That is a sentence
+# configuration in `.run/`, and the two cannot run at once: both want :8080. That is a sentence
 # here and in the README rather than a surprise in a log file.
 #
-# CADDY STAYS OUT, and it is left out BY NAME rather than by a profile of its own. Naming a
+# Caddy stays out, and it is left out by name rather than by a profile of its own. Naming a
 # service activates its profile, so `steward` need not be in COMPOSE_PROFILES either; a new profile
 # would have to be added to the production selection in /etc/nordtal/season-2.env as well, and
 # forgetting that makes the interface unreachable from the internet. Locally Caddy has nothing to
@@ -442,7 +441,7 @@ cmd_pack() {
 cmd_ui() {
     [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is not there. Run: deploy/dev init"
 
-    # ONE PORT, TWO LOCAL PROFILES. pack-host and steward-ui both default to 127.0.0.1:8080, and
+    # One port, two local profiles. pack-host and steward-ui both default to 127.0.0.1:8080, and
     # `devpack` is on in every local env file. Docker's own message for that is about a bind
     # address, three services after the one that matters, so the collision is named here instead.
     local pack_port steward_port
@@ -454,7 +453,7 @@ cmd_ui() {
        URL is written by 'deploy/dev pack', which reads that value, so nothing else has to change."
     fi
 
-    # THE WHOLE STACK, not the four services the interface reads directly: what it draws is the
+    # The whole stack, not the four services the interface reads directly: what it draws is the
     # servers, their plugins and their players, and a page whose every card says "not running" is
     # not the page anybody wants to work on. COMPOSE_PROFILES picks what that means - db,mc,devpack
     # locally - and the three steward services are named rather than added to it, because `steward`
@@ -464,7 +463,7 @@ cmd_ui() {
     log "and the three services the interface is"
     compose up -d steward-worker steward-ui steward-deployer
 
-    # THE PRIVATE NODE IS SEARCHED FOR, NEVER SPELLED OUT. The directory carries the platform in
+    # The private node is searched for, never spelled out. The directory carries the platform in
     # its name - node-v24.21.0-linux-x64 here, something else on a Mac - so a written path works on
     # exactly one machine. Gradle downloads it and installs the packages; this only has to find it
     # afterwards. (`npx vitest` with no node on PATH exits 0 having tested nothing, which is how
@@ -485,7 +484,7 @@ cmd_ui() {
     PATH="$node:$PATH" npm --prefix "$ROOT/steward-ui/frontend" run dev
 }
 
-# --- the rest ------------------------------------------------------------------------------------
+# the rest
 cmd_logs()    { compose logs -f "$@"; }
 cmd_ps()      { compose ps; }
 cmd_stop()    { compose stop; }
@@ -515,11 +514,11 @@ repository and in no release."
     # command must not be able to make.
     # The volume is read off the container while it still exists, which is exact: whatever is
     # mounted at /data is this project's world by definition. Only if there is no container does
-    # this fall back to the labels - and then on BOTH of them. The fallback filtered on the logical
-    # name alone until 2026-09-06, so a single mc-smp volume belonging to another compose project on
-    # this machine passed the "exactly one" check and was deleted (finding 113).
+    # this fall back to the labels - and then on both of them, the project label and the logical
+    # name together: the logical name alone lets a same-named mc-smp volume belonging to another
+    # compose project on this machine pass the "exactly one" check.
     local volume
-    # `sed -n '1p'`, not `head -n1` (season-2-ops/27, 2026-09-17): `compose ps -aq` is a real
+    # `sed -n '1p'`, not `head -n1`: `compose ps -aq` is a real
     # subprocess, not a small sed match, and the comment three lines up already anticipates more
     # than one container answering for this service - exactly the case where head closing the pipe
     # early can turn an ordinary lookup into a SIGPIPE under this file's `set -Eeuo pipefail`.
@@ -544,7 +543,7 @@ ${volume}"
     log "$service is reset. The next 'deploy/dev up' recreates it from an empty volume."
 }
 
-# --- dispatch ------------------------------------------------------------------------------------
+# dispatch
 command="${1:-}"
 shift || true
 case "$command" in

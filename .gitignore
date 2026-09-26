@@ -1,13 +1,8 @@
-# Every directory pattern in this file is anchored with a leading slash, and that is not a style
-# preference. An unanchored `foo/` matches a directory named `foo` at *any* depth, including a
-# Java package - and because the result is an *ignored* file rather than an untracked one, it
-# never shows up in `git status`. It has bitten this repo twice: `config/` kept
-# eu.nordtal.s2.paymentsbot.config out of the first commits, and `run/` kept
-# eu.nordtal.s2.steward.worker.run out of the repository until the CI build failed on it.
-#
-# The cost of anchoring is that a build directory in a place no pattern lists is not ignored. That
-# failure is loud - the files appear as untracked in `git status` - which is exactly the trade we
-# want. `:checkSourcesTracked` is the net under all of this; see build-logic.
+# Every directory pattern here is anchored with a leading slash. An unanchored `foo/` would match
+# a directory named `foo` at any depth, including a Java package, and the result is an ignored
+# file rather than an untracked one, so it never shows up in `git status`. A build directory in a
+# place no pattern lists is therefore untracked instead, which is loud; `:checkSourcesTracked` in
+# build-logic checks for it.
 
 ### Build output ###
 /.gradle/
@@ -32,16 +27,11 @@ bunq-config.conf
 /*/run/
 
 # The four servers' plugins/ folders, bound into the containers by compose.yml (SERVERS_ROOT).
-# Jars steward-worker fetched and configs an operator edited - runtime state that happens to sit
-# next to the source, which is the price of being able to open plugins/smp/config.yml in an editor.
 /deploy/servers/
 # The pack zip the devpack profile serves on localhost. Built from resource-pack/, never edited.
 /deploy/pack/
-# The local environment file, and it is a SECRET FILE (season-2-ops/147). It was a copy of the
-# example with obvious placeholders in it until `deploy/dev init` started asking real questions;
-# it now holds a generated database password, two Steward tokens and - for anybody who answers
-# them - a Discord application's client secret and a bot token. Untracked is not enough on its own,
-# because `git add -A` does not ask.
+# Holds a generated database password, two Steward tokens and, once answered, a Discord
+# application's client secret and bot token. Never commit it even with `git add -A`.
 /deploy/dev.env
 # Everything NORDTAL_DIR points at locally: worlds, jars, configs, the database's data directory.
 /deploy/local/
@@ -68,9 +58,6 @@ bunq-config.conf
 /*/bin/
 
 ### Python ###
-# The pack tools are scripts, not a package, but generate_gui_panels.py imports the PNG writer
-# out of generate_dummy_textures.py rather than keeping a second copy of it - and an import is
-# what makes CPython write a cache directory. Anchored, like every other directory pattern here.
 /resource-pack/tools/__pycache__/
 
 ### Mac OS ###

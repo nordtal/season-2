@@ -3,13 +3,13 @@
 # The decisions in deploy/nordtal.sh, exercised without a Docker daemon, without a resolver and
 # without a real environment file.
 #
-# WHY THIS EXISTS, and it is the same shape of reason as dev-test.sh and entrypoint-test.sh: two of
-# the functions below decide whether a host gets a certificate or waits forever, and one decides
-# whether a secrets file is read or executed. None of the three can be checked by running the script
-# and looking - the run either waits or it deploys.
+# This is the same shape of reason as dev-test.sh and entrypoint-test.sh: two of the functions
+# below decide whether a host gets a certificate or waits forever, and one decides whether a
+# secrets file is read or executed. None of the three can be checked by running the script and
+# looking - the run either waits or it deploys.
 #
-# WHAT IT CANNOT SAY ANYTHING ABOUT: whether the deployment then works. That needs a daemon, a name
-# that resolves and a release, and it is an item on the checklist rather than a test.
+# What it cannot say anything about is whether the deployment then works. That needs a daemon, a
+# name that resolves and a release, and it is an item on the checklist rather than a test.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,12 +20,11 @@ failed=0
 current_case=""
 case_begin() { current_case="$1"; }
 
-# Membership without a pipe, and that is the whole point (season-2-ops/27, 2026-09-16). This used to
-# be `printf '%s\n' "${REQUIRED[@]}" | grep -qx "$name"`, which is wrong under the `pipefail` on the
-# line above: grep -q closes the pipe the moment it matches, printf upstream takes SIGPIPE, and
-# pipefail reports 141 for a pipeline whose grep succeeded. Measured on this host: five misses in
-# nine thousand, which is about one in a hundred whole runs of this file - enough that CI went red
-# on a commit and green on the identical tree when it was re-run, which is the worst kind of guard.
+# Membership without a pipe, and that is the whole point: `printf '%s\n' "${REQUIRED[@]}" |
+# grep -qx "$name"` is wrong under the `pipefail` on the line above - grep -q closes the pipe the
+# moment it matches, printf upstream takes SIGPIPE, and pipefail reports 141 for a pipeline whose
+# grep succeeded. A flaky pass rate on an otherwise deterministic check is exactly the worst kind
+# of guard.
 contains() {
     local needle="$1"; shift
     local item
@@ -63,7 +62,6 @@ NORDTAL_ACCESS_LANGUAGES='[
 STEWARD_ENV_FILE=/etc/nordtal/season-2.env
 FIXTURE
 
-# ------------------------------------------------------------------------------------------------
 case_begin "a value is read out of the file, quotes and all"
 [[ "$(env_value "$ENV" PLAIN)"    == "value" ]]            || bad "PLAIN"
 [[ "$(env_value "$ENV" QUOTED)"   == "in double quotes" ]] || bad "QUOTED kept its quotes"
@@ -74,7 +72,6 @@ case_begin "a value is read out of the file, quotes and all"
 [[ "$(env_value "$WORK/nope" PLAIN)" == "" ]]              || bad "a file that is not there"
 ok "plain, quoted, exported, empty, absent"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "reading the file never runs it"
 # This is the whole reason env_value greps instead of sourcing. An environment file is not a script:
 # `POSTGRES_PASSWORD=a(b` is a good password and a syntax error, and a value with a $( in it would
@@ -85,7 +82,6 @@ env_value "$ENV" BRACKETS  >/dev/null
 [[ "$(env_value "$ENV" BRACKETS)" == 'a(b)c' ]] || bad "a value with brackets did not survive"
 ok "a command substitution is text, and brackets are not syntax"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "missing means absent, empty or still REPLACE_ME - and nothing else"
 missing="$(env_missing "$ENV" PLAIN QUOTED EMPTY BLANK ABSENT STILL)"
 for name in EMPTY BLANK ABSENT STILL; do
@@ -103,7 +99,6 @@ grep -q 'in double quotes' <<<"$missing" && bad "a value appeared in the report"
 grep -q 'REPLACE_ME'       <<<"$missing" && bad "a value appeared in the report"
 ok "only names came back"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "a REPLACE_ME inside a value is found, one in a comment is not"
 lines="$(env_replace_me_lines "$ENV")"
 [[ -n "$lines" ]] || bad "the REPLACE_ME inside the language table was not found"
@@ -111,7 +106,6 @@ comment_line="$(grep -n 'this line is the documentation' "$ENV" | cut -d: -f1)"
 grep -qx "$comment_line" <<<"$lines" && bad "the explanatory comment was reported as a leftover"
 ok "the value is found, the documentation is not"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "the steward profile has to be selected"
 # Without it caddy, steward-ui and steward-deployer are defined and never started - and the stack
 # comes up entirely healthy with no interface on it, which is the state nobody would think to check.
@@ -125,7 +119,6 @@ for wrong in "" "db,bot,mc,backup" "stewards" "steward-ui" "db,bot,steward2"; do
 done
 ok "the real selection passes; four near misses and an empty one do not"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "the environment file's path has to be absolute"
 is_absolute "/etc/nordtal/season-2.env" || bad "an absolute path was refused"
 for wrong in "" "." "./.env" "env/.env" "~/.env"; do
@@ -135,7 +128,6 @@ for wrong in "" "." "./.env" "env/.env" "~/.env"; do
 done
 ok "a relative path, a bare dot, a tilde and an empty string are all refused"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "the name has to point at THIS host, entirely"
 ours=$'45.155.173.214\n2a01:4f8::1'
 
@@ -165,22 +157,20 @@ for nothing in "" " " $'\n'; do
 done
 ok "no answer is reported, not passed over"
 
-# ------------------------------------------------------------------------------------------------
-# steward/107: nordtal.sh's own `up` (via steward-deployer's Compose#pull) pulls every image compose.yml
+# nordtal.sh's own `up` (via steward-deployer's Compose#pull) pulls every image compose.yml
 # names, unconditionally, before it stops anything - there is no `pull_policy` anywhere that would
 # make it "only what's missing". A tag the registry still answers for silently replaces whatever this
 # host built locally under the same name, which is exactly how the release-less workaround
 # deploy/README.md documents (`docker compose build <service>` + `up -d --no-deps <service>`) gets
 # quietly undone by the next `nordtal.sh` run. at_risk_images is the decision that has to catch this
-# before §7's `up` ever runs - given as data, not as a live docker call, the same way
+# before `up` ever runs - given as data, not as a live docker call, the same way
 # addresses_not_ours above takes `resolved`/`ours` as strings rather than calling `getent` itself.
 #
-# THE FIRST VERSION OF THIS CHECK COMPARED ONLY RepoDigests AGAINST "[]", and measured wrong on this
-# very host: the containerd image store (unlike the classic one) assigns a RepoDigest to a locally
-# built image too - identical to its image ID - so `loc == "[]"` never fired here, and the warning
-# was silent for exactly the case it exists for (steward found this by rebuilding steward-ui and
-# steward-deployer locally on 2026-09-17 and watching the check say nothing). What actually answers
-# "would a pull replace this" is a THIRD input: what the registry currently serves under the tag.
+# Comparing only RepoDigests against "[]" is not enough: the containerd image store (unlike the
+# classic one) assigns a RepoDigest to a locally built image too, identical to its image ID, so
+# `loc == "[]"` never fires there and the warning stays silent for exactly the case it exists for.
+# What actually answers "would a pull replace this" is a third input: what the registry currently
+# serves under the tag.
 case_begin "no local RepoDigests at all is RISK, whatever the registry says"
 pairs=$'nordtal/discord-bot:redtest-107\tdiscord-bot'
 local_digests=$'nordtal/discord-bot:redtest-107\t[]'
@@ -199,10 +189,10 @@ registry_digests=$'ghcr.io/nordtal/minecraft:latest\tsha256:same0000'
 ok "an image whose local digest matches what the registry currently serves is silent"
 
 case_begin "local and registry digest disagree - RISK (the containerd-store case)"
-# This is the shape steward measured against the real host: `docker image inspect` on
-# ghcr.io/nordtal/steward-ui:latest, freshly rebuilt with \`docker compose build\`, answered a
-# RepoDigest (containerd's own image ID, not "[]"), and \`docker buildx imagetools inspect\` against
-# the same tag answered a DIFFERENT manifest digest - the one the last release published.
+# The shape of the containerd store: `docker image inspect` on a freshly rebuilt
+# ghcr.io/nordtal/steward-ui:latest answers a RepoDigest (containerd's own image ID, not "[]"), and
+# `docker buildx imagetools inspect` against the same tag answers a different manifest digest - the
+# one the last release published.
 pairs=$'ghcr.io/nordtal/steward-ui:latest\tsteward-ui'
 local_digests=$'ghcr.io/nordtal/steward-ui:latest\t["ghcr.io/nordtal/steward-ui@sha256:a429f360e0c8"]'
 registry_digests=$'ghcr.io/nordtal/steward-ui:latest\tsha256:39d016200b67'
@@ -235,9 +225,8 @@ case_begin "an image never seen locally, or with nothing at all to go on, is sil
 [[ -z "$(at_risk_images "$pairs_shared" "" "")" ]] || bad "an image absent from local_digests produced a finding"
 ok "no compose config and no local digests both come back silent, not as a false alarm"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "a generated secret lands in the file whatever the assignment looks like"
-# THE FAILURE THIS IS FOR: set_secret looked for the name one way and replaced it another.
+# The failure this is for: set_secret looked for the name one way and replaced it another.
 # `env_value` accepts leading whitespace and an `export`, and so does the grep that decides whether
 # there is a line to replace - but the awk that does the replacing compared the whole first field,
 # so `  NAME=` was found and not replaced, and `export NAME=` was not found at all and appended a
@@ -299,9 +288,8 @@ for wrong in "" "info" "info@" "@nordtal.eu" "info@nordtal" "in fo@nordtal.eu" "
 done
 ok "an address passes; a missing half, a missing dot and a space do not"
 
-# season-2-ops/119. The port is the half worth testing: it is the one people leave out, because
-# every client they have ever used let them - and the transfer packet is the one place that does
-# not.
+# The port is the half worth testing: it is the one people leave out, because every client they
+# have ever used let them - and the transfer packet is the one place that does not.
 for address in play.nordtal.eu:25565 nordtal.eu:25566 45.155.173.214:25565; do
     looks_like_public_address "$address" || bad "the address $address was refused"
 done
@@ -333,8 +321,8 @@ grep -q 'ENVIRON\["SET_ASSIGNMENT_VALUE"\]' "$SETUP" || bad "the value does not 
 ok "set_assignment hands the value to awk through the environment"
 
 case_begin "what a deployment demands of a person is the short list"
-# The regression this guards: every role and channel used to be in REQUIRED, so a host could not be
-# deployed until somebody had hand-written six snowflakes into a file. They are optional now - an
+# The regression this guards: putting every role and channel in REQUIRED means a host cannot be
+# deployed until somebody has hand-written six snowflakes into a file. They stay optional - an
 # unset channel means that feature is not served - and this is the list that is left.
 for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA NORDTAL_BOT_TOKEN \
             NORDTAL_ACCESS_GUILD_ID NORDTAL_ACCESS_ROLES_ADMIN STEWARD_HOST STEWARD_ACME_EMAIL \
@@ -352,7 +340,6 @@ done
 contains NORDTAL_DIR "${REQUIRED[@]}" || bad "NORDTAL_DIR is not required and should be"
 ok "fifteen required; the roles, the channels, the languages, the tiers and bunq are not"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "a value full of shell metacharacters survives the round trip"
 # The same argument env_value makes: an environment file is not a script. A generated secret is hex
 # today, but this function is the one place a value is written, and the next caller may not be.
@@ -364,7 +351,6 @@ set_assignment "$secrets" NAME 'a(b)c$(touch "'"$WORK"'/executed")'
     || bad "a value with brackets and a substitution did not come back unchanged"
 ok "a value is text on the way in and text on the way out"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "a secret is three dots, whatever is behind them"
 # The rule this guards is the one that cannot be checked by looking at the menu once: a value is
 # masked by its KIND, so a new secret added to the table is masked without anybody remembering to.
@@ -376,7 +362,6 @@ case_begin "a secret is three dots, whatever is behind them"
 [[ "$(shown_value licence "true")"            == "true" ]] || bad "the licence"
 ok "secret and optional-secret are dots; everything else reads back as itself"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "every secret in the menu is masked by kind, and no kind is missing one"
 # The menu prints QUESTION_KIND[name] and nothing else, so a name in QUESTIONS with no kind would
 # print an empty mask - which `shown_value` would then treat as "not a secret" and echo.
@@ -394,7 +379,6 @@ for name in NORDTAL_BOT_TOKEN STEWARD_UI_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_B
 done
 ok "twelve questions, all four columns each, and the three secrets are secret kinds"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "a bare Return in the menu deploys nothing"
 # The same decision deploy/restore.sh makes about a confirmation: the one answer somebody gives
 # without reading is the empty one, and here it would stop four Minecraft servers.
@@ -412,7 +396,6 @@ case_begin "a bare Return in the menu deploys nothing"
 [[ "$(menu_choice "yes" 11)" == "" ]]        || bad "yes is not one of the answers"
 ok "deploy, quit and a number in range; everything else redraws"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "a profile selection is a list of names and not a path"
 looks_like_profiles "db,bot,mc,backup,steward" || bad "the production selection"
 looks_like_profiles "bot"                      || bad "one profile"
@@ -422,7 +405,6 @@ looks_like_profiles "db,,bot"                  && bad "an empty profile was acce
 looks_like_profiles ""                         && bad "nothing was accepted"
 ok "names and commas; a path, an empty element and nothing are refused"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "one directory in the installation has an owner, and it is the interface's"
 # A bind mount does not carry the image's ownership the way a named volume does, and steward-ui is
 # the one service that does not run as root. If this list ever loses that entry, the interface comes
@@ -438,7 +420,6 @@ done
 [[ -z "$(dir_owner "mc-smp")" ]]           || bad "mc-smp has an owner and should not"
 ok "steward-ui-config is chowned to 10001:10001 and nothing else is"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "a downloaded file has to be this script before it replaces this script"
 # The renewal runs what it fetched. A proxy's login page, a 404 body and half a download are all
 # things `curl` reports as a success, and the third one is valid bash right up to where it stops.
@@ -454,12 +435,11 @@ looks_like_this_script "$WORK/half.sh" && bad "a truncated script was accepted"
 looks_like_this_script "$WORK/empty.sh" && bad "an empty file was accepted"
 ok "the shebang, the marker and a syntax check"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "update: the flags, and what they refuse"
-# season-2-ops/153. THIS COMMAND STOPS SERVERS, so a flag that is not understood must stop the
-# command rather than be ignored - and the kind, the scope and the delay all have to be the shape
-# the database's own constraints expect, because the alternative is a constraint violation three
-# layers down with nothing saying which flag caused it.
+# This command stops servers, so a flag that is not understood must stop the command rather than
+# be ignored - and the kind, the scope and the delay all have to be the shape the database's own
+# constraints expect, because the alternative is a constraint violation three layers down with
+# nothing saying which flag caused it.
 
 # `die` exits, so every refusal is checked in a subshell.
 refuses() {
@@ -512,7 +492,6 @@ parse_update_args --in 10 --no-wait --timeout 60
     || bad "--in/--no-wait/--timeout did not all land"
 ok "the countdown, the timeout and not waiting at all"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "update: the statement, and why it is safe to assemble by hand"
 sql="$(update_insert_sql UPDATE "" 0 "till@nordtal-test")"
 grep -q "'CONSOLE'" <<<"$sql" || bad "the source is not CONSOLE"
@@ -527,7 +506,7 @@ grep -q "'smp'" <<<"$sql"   || bad "the scope did not reach the statement"
 grep -q "make_interval(mins => 15)" <<<"$sql" || bad "the fifteen minutes did not"
 ok "a scoped, delayed run carries both"
 
-# THE PROPERTY THAT MAKES THE CONCATENATION SAFE: every value went through a shape check, so no
+# The property that makes the concatenation safe: every value went through a shape check, so no
 # quote survives to close the one the statement opened. The requester is the only value a person
 # does not type, and it is the one that could carry anything at all.
 for wrong in "o'brien@host" 'a";DROP TABLE update_request;--' "$(printf 'a\tb')"; do
@@ -545,7 +524,6 @@ case "$requester" in
 esac
 ok "the requester of this very host fits the column and carries nothing to escape"
 
-# ------------------------------------------------------------------------------------------------
 case_begin "update: which statuses end the wait"
 for over in DONE FAILED CANCELLED; do
     update_is_over "$over" || bad "$over did not end the wait"
@@ -564,7 +542,6 @@ for wrong in "" " " SMP "smp," ",smp" "smp,,limbo" "smp limbo" "../smp" "smp;"; 
 done
 ok "the scope check is update_request_scope_check, spelled the same way"
 
-# ------------------------------------------------------------------------------------------------
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

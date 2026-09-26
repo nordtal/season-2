@@ -1,5 +1,6 @@
-package eu.nordtal.displaytags.util;
+package eu.nordtal.displaytags.nametag;
 
+import eu.nordtal.displaytags.DependencyUtil;
 import eu.nordtal.displaytags.DisplayTags;
 import me.neznamy.tab.api.TabAPI;
 import me.neznamy.tab.api.event.EventBus;
@@ -7,12 +8,12 @@ import me.neznamy.tab.api.event.player.PlayerLoadEvent;
 import me.neznamy.tab.api.nametag.NameTagManager;
 
 /**
- * Compatibility layer for the TAB plugin (<a href="https://github.com/NEZNAMY/TAB">NEZNAMY/TAB</a>).
- * <p>
+ * Compatibility layer for the TAB plugin ({@code https://github.com/NEZNAMY/TAB}).
+ *
  * TAB manages scoreboard teams itself. When it is present and handling name tags, DisplayTags must
  * not send its own team packets, otherwise both plugins fight over the same teams. Instead, TAB is
  * asked to hide the vanilla name tag for every player it loads.
- * <p>
+ *
  * Every call into TAB's API lives in the nested {@link Hook} class so that this class can be loaded
  * and queried on servers where TAB is absent, or where an incompatible TAB version is installed:
  * the linkage error is then confined to {@code Hook} and caught here.
@@ -22,7 +23,7 @@ public final class TabUtil {
 
     private TabUtil() {}
 
-    public static void load(DisplayTags plugin) {
+    public static void load(final DisplayTags plugin) {
         available = false;
         if (!DependencyUtil.enabledTAB()) return;
 
@@ -51,8 +52,9 @@ public final class TabUtil {
     }
 
     /**
-     * Whether TAB is present and currently handling name tags. When this returns {@code true},
-     * DisplayTags must leave the scoreboard teams alone.
+     * Whether TAB is present and currently handling name tags.
+     *
+     * When this returns {@code true}, DisplayTags must leave the scoreboard teams alone.
      */
     public static boolean managesNameTags() {
         if (!available) return false;
@@ -66,9 +68,9 @@ public final class TabUtil {
     }
 
     private static final class Hook {
-        static void registerNameTagHider(DisplayTags plugin) {
+        static void registerNameTagHider(final DisplayTags plugin) {
             // TAB only creates its event bus once it has finished loading, so this can be null.
-            EventBus eventBus = TabAPI.getInstance().getEventBus();
+            final EventBus eventBus = TabAPI.getInstance().getEventBus();
             if (eventBus == null) {
                 plugin.getLogger()
                         .warning(
@@ -77,7 +79,7 @@ public final class TabUtil {
             }
 
             eventBus.register(PlayerLoadEvent.class, (event) -> {
-                NameTagManager manager = TabAPI.getInstance().getNameTagManager();
+                final NameTagManager manager = TabAPI.getInstance().getNameTagManager();
                 if (manager == null) return;
 
                 if (plugin.config().nametag().isEnabled()) {
@@ -87,7 +89,7 @@ public final class TabUtil {
         }
 
         static boolean hasNameTagManager() {
-            TabAPI api = TabAPI.getInstance();
+            final TabAPI api = TabAPI.getInstance();
             return api != null && api.getNameTagManager() != null;
         }
     }

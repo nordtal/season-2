@@ -8,8 +8,10 @@ import eu.nordtal.displaytags.wrapper.display.TextAlignment;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.bukkit.util.Vector;
+import org.jspecify.annotations.Nullable;
 
 public class NameTagConfiguration {
     private boolean enabled;
@@ -17,26 +19,27 @@ public class NameTagConfiguration {
     private int updateInterval;
     private int visibilityDistance;
 
-    private List<String> lines;
+    private @Nullable List<String> lines;
     private boolean textShadow;
-    private SeeThroughMode seeThrough;
+    private @Nullable SeeThroughMode seeThrough;
     private int sneakTextOpacity;
-    private TextAlignment textAlignment;
-    private String background;
-    private DisplayBillboard billboard;
-    private Vector offset;
-    private Vector scale;
+    private @Nullable TextAlignment textAlignment;
+    private @Nullable String background;
+    private @Nullable DisplayBillboard billboard;
+    private @Nullable Vector offset;
+    private @Nullable Vector scale;
 
-    public void load(DisplayTagsConfigurationSpec config) {
-        TextAlignment alignment = parse(
+    public void load(final DisplayTagsConfigurationSpec config) {
+        final TextAlignment alignment = parse(
                 TextAlignment.class,
                 "display.text-alignment",
                 config.nametag().display().textAlignment());
-        DisplayBillboard billboard = parse(
+        final DisplayBillboard billboard = parse(
                 DisplayBillboard.class,
                 "display.billboard",
                 config.nametag().display().billboard());
-        SeeThroughMode seeThrough = parseSeeThrough(config.nametag().display().seeThrough());
+        final SeeThroughMode seeThrough =
+                parseSeeThrough(config.nametag().display().seeThrough());
         parseBackground(config.nametag().display().background());
 
         this.enabled = config.nametag().enabled();
@@ -71,7 +74,7 @@ public class NameTagConfiguration {
     }
 
     public List<String> getLines() {
-        return this.lines;
+        return Objects.requireNonNull(this.lines, "load() has not run");
     }
 
     public boolean hasTextShadow() {
@@ -82,12 +85,13 @@ public class NameTagConfiguration {
      * What the name tag does behind a block.
      */
     public SeeThroughMode getSeeThrough() {
-        return this.seeThrough;
+        return Objects.requireNonNull(this.seeThrough, "load() has not run");
     }
 
     /**
-     * The text opacity applied while a player is sneaking, or {@code -1} for
-     * "fully opaque", which disables the effect.
+     * The text opacity applied while a player is sneaking.
+     *
+     * {@code -1} means "fully opaque", which disables the effect.
      */
     public int getSneakTextOpacity() {
         return this.sneakTextOpacity;
@@ -98,30 +102,32 @@ public class NameTagConfiguration {
     }
 
     public TextAlignment getTextAlignment() {
-        return this.textAlignment;
+        return Objects.requireNonNull(this.textAlignment, "load() has not run");
     }
 
     public String getBackground() {
-        return this.background;
+        return Objects.requireNonNull(this.background, "load() has not run");
     }
 
     public DisplayBillboard getBillboard() {
-        return this.billboard;
+        return Objects.requireNonNull(this.billboard, "load() has not run");
     }
 
     public Vector getOffset() {
-        return this.offset;
+        return Objects.requireNonNull(this.offset, "load() has not run");
     }
 
     public Vector getScale() {
-        return this.scale;
+        return Objects.requireNonNull(this.scale, "load() has not run");
     }
 
     /**
-     * Reads an enum-valued setting and reports what is actually allowed if it does not match, so a
-     * typo produces a readable message instead of a bare {@code IllegalArgumentException}.
+     * Reads an enum-valued setting.
+     *
+     * Reports what is actually allowed if it does not match, so a typo produces a readable message
+     * instead of a bare {@code IllegalArgumentException}.
      */
-    private static <E extends Enum<E>> E parse(Class<E> type, String key, String value) {
+    private static <E extends Enum<E>> E parse(final Class<E> type, final String key, final @Nullable String value) {
         if (value != null) {
             try {
                 return Enum.valueOf(type, value.trim().toUpperCase(Locale.ROOT));
@@ -130,7 +136,7 @@ public class NameTagConfiguration {
             }
         }
 
-        String allowed = Arrays.stream(type.getEnumConstants())
+        final String allowed = Arrays.stream(type.getEnumConstants())
                 .map((constant) -> constant.name().toLowerCase(Locale.ROOT))
                 .collect(Collectors.joining(", "));
 
@@ -140,14 +146,14 @@ public class NameTagConfiguration {
 
     /**
      * Reads {@code display.see-through}.
-     * <p>
-     * The setting held a YAML boolean until 2.1.1, and jcore hands such a value to a string
-     * property as {@code "true"} or {@code "false"} - so a configuration written for an older
-     * version parses here unchanged and keeps the behaviour it asked for.
+     *
+     * Accepts the plain YAML booleans jcore passes it as {@code "true"} or {@code "false"}.
      */
-    private static SeeThroughMode parseSeeThrough(String value) {
-        SeeThroughMode mode = SeeThroughMode.parse(value);
-        if (mode != null) return mode;
+    private static SeeThroughMode parseSeeThrough(final @Nullable String value) {
+        final SeeThroughMode mode = SeeThroughMode.parse(value);
+        if (mode != null) {
+            return mode;
+        }
 
         throw new IllegalArgumentException("nametag.display.see-through: '" + value + "' is not a valid value. "
                 + "Available values: vanilla (visible through blocks but dimmed, like a "
@@ -156,10 +162,11 @@ public class NameTagConfiguration {
     }
 
     /**
-     * Validates the background setting at load time. Without this the failure would only surface
-     * later, while a player is joining and their name tag is being built.
+     * Validates the background setting at load time.
+     *
+     * A bad value is refused here instead of only surfacing later while a player's name tag is built.
      */
-    private static void parseBackground(String background) {
+    private static void parseBackground(final String background) {
         try {
             Util.parseDisplayBackground(background);
         } catch (RuntimeException error) {
@@ -169,11 +176,14 @@ public class NameTagConfiguration {
     }
 
     /**
-     * Text opacity is sent as a single byte, so anything outside of -1 (fully opaque)
-     * and 0-255 would wrap around into a nonsensical value.
+     * Text opacity is sent as a single byte.
+     *
+     * Anything outside of -1 (fully opaque) and 0-255 would wrap around into a nonsensical value.
      */
-    private static int clampOpacity(int opacity) {
-        if (opacity < 0) return -1;
+    private static int clampOpacity(final int opacity) {
+        if (opacity < 0) {
+            return -1;
+        }
         return Math.min(opacity, 255);
     }
 }

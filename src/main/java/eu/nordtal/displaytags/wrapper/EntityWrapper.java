@@ -3,11 +3,18 @@ package eu.nordtal.displaytags.wrapper;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityType;
 import com.github.retrooper.packetevents.util.Vector3d;
-import com.github.retrooper.packetevents.wrapper.play.server.*;
-import eu.nordtal.displaytags.util.PacketUtil;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDestroyEntities;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPassengers;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
+import eu.nordtal.displaytags.PacketUtil;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
@@ -17,7 +24,7 @@ public class EntityWrapper {
     private final EntityType type;
     private Location location;
 
-    public EntityWrapper(EntityType type) {
+    public EntityWrapper(final EntityType type) {
         this.entityId = SpigotReflectionUtil.generateEntityId();
         this.uuid = UUID.randomUUID();
         this.type = type;
@@ -32,7 +39,7 @@ public class EntityWrapper {
         return this.location;
     }
 
-    public void setLocation(Location location) {
+    public void setLocation(final Location location) {
         this.location = location;
     }
 
@@ -40,34 +47,34 @@ public class EntityWrapper {
         return new ArrayList<>();
     }
 
-    public void spawnFor(UUID viewer) {
+    public void spawnFor(final UUID viewer) {
         PacketUtil.sendPacket(viewer, this.spawnPacket());
     }
 
-    public void updateFor(UUID viewer) {
+    public void updateFor(final UUID viewer) {
         PacketUtil.sendPacket(viewer, this.metadataPacket());
     }
 
-    public void teleportFor(UUID viewer) {
+    public void teleportFor(final UUID viewer) {
         PacketUtil.sendPacket(viewer, this.teleportPacket());
     }
 
-    public void despawnFor(UUID viewer) {
+    public void despawnFor(final UUID viewer) {
         PacketUtil.sendPacket(viewer, this.destroyPacket());
     }
 
-    public void mountFor(UUID viewer, int vehicleId) {
+    public void mountFor(final UUID viewer, final int vehicleId) {
         mountAllFor(viewer, vehicleId, this.entityId);
     }
 
     /**
      * Mounts several entities on one vehicle in a single packet.
-     * <p>
-     * {@code SetPassengers} is absolute - it replaces the vehicle's whole passenger list - so two
-     * entities that each send their own packet do not add up: the second one throws the first off
-     * the vehicle again. Everything that has to ride the same vehicle has to go out together.
+     *
+     * {@code SetPassengers} is absolute, replacing the vehicle's whole passenger list, so two entities
+     * that each send their own packet do not add up: the second one throws the first off the vehicle
+     * again. Everything that has to ride the same vehicle has to go out together.
      */
-    public static void mountAllFor(UUID viewer, int vehicleId, int... passengerIds) {
+    public static void mountAllFor(final UUID viewer, final int vehicleId, final int... passengerIds) {
         PacketUtil.sendPacket(viewer, passengersPacket(vehicleId, passengerIds));
     }
 
@@ -77,9 +84,9 @@ public class EntityWrapper {
                 Optional.of(this.uuid),
                 this.type,
                 SpigotConversionUtil.fromBukkitLocation(this.location).getPosition(),
-                location.getPitch(),
-                location.getYaw(),
-                location.getYaw(),
+                this.location.getPitch(),
+                this.location.getYaw(),
+                this.location.getYaw(),
                 0,
                 Optional.of(Vector3d.zero()));
     }
@@ -93,7 +100,7 @@ public class EntityWrapper {
         return new WrapperPlayServerEntityMetadata(this.entityId, this.getEntityData());
     }
 
-    private static WrapperPlayServerSetPassengers passengersPacket(int vehicleId, int... passengers) {
+    private static WrapperPlayServerSetPassengers passengersPacket(final int vehicleId, final int... passengers) {
         return new WrapperPlayServerSetPassengers(vehicleId, passengers);
     }
 

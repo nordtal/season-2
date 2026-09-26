@@ -1,36 +1,37 @@
-package eu.nordtal.displaytags.util;
+package eu.nordtal.displaytags.commands;
 
+import eu.nordtal.displaytags.ComponentUtil;
 import java.util.List;
 import org.bukkit.command.CommandSender;
 
 public class MessageUtil {
     private static final String PREFIX = "<#00BFFF>DisplayTags";
 
-    public static void success(CommandSender sender, String message) {
+    public static void success(final CommandSender sender, final String message) {
         send(sender, format("{success} <reset>{success_color}" + message));
     }
 
-    public static void warning(CommandSender sender, String message) {
+    public static void warning(final CommandSender sender, final String message) {
         send(sender, format("{warn} <reset>{warn_color}" + message));
     }
 
-    public static void error(CommandSender sender, String message) {
+    public static void error(final CommandSender sender, final String message) {
         send(sender, format("{danger} <reset>{danger_color}" + message));
     }
 
-    public static void send(CommandSender sender, String message) {
+    public static void send(final CommandSender sender, final String message) {
         sender.sendMessage(ComponentUtil.render(format(prefixed(message))));
     }
 
-    public static void send(CommandSender sender, List<String> messages) {
+    public static void send(final CommandSender sender, final List<String> messages) {
         messages.forEach((message) -> send(sender, message));
     }
 
-    public static String prefixed(String message) {
+    public static String prefixed(final String message) {
         return format("{prefix} <dark_gray>» <reset>" + message);
     }
 
-    private static String format(String input) {
+    private static String format(final String input) {
         return input.replace("{prefix}", PREFIX)
                 .replace("{success}", "{start}{success_color}✔{end}")
                 .replace("{warn}", "{start}{warn_color}⚠{end}")

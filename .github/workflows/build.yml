@@ -3,12 +3,9 @@ name: build
 # Every push to main and every pull request. release.yml only runs when a release is published, so
 # without this a broken main - a compile error, a source file Git ignores - stays invisible until
 # somebody tags, and then it fails on the release instead of on the commit that caused it.
-# nordtal/season-2 learned that on 2026-09-02: its first build.yml run on main failed immediately on
-# a package that had been missing from the repository for days while every local build was green.
 #
-# This repository had no CI at all before 2026-09-02, which is worse than it sounds here: it has
-# NO TESTS, so `check` is checkSourcesTracked and a compile. That is exactly the pair of failures a
-# fresh checkout produces and a laptop does not, and nothing else in this repository looks for them.
+# This repository has no tests, so `check` is checkSourcesTracked and a compile - exactly the pair
+# of failures a fresh checkout produces and a laptop does not, and nothing else here looks for them.
 on:
   push:
     branches: [main]
@@ -48,16 +45,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
 
       # `build` is compile + checkSourcesTracked + shadowJar in both projects. jcore comes from
-      # JitPack, which needs no token; a JitPack build of com.github.nordtal:jcore:3.0.0 that has
-      # never been requested is built on first request and can take a few minutes.
+      # JitPack, which needs no token; a JitPack build that has never been requested before is
+      # built on first request and can take a few minutes.
       - name: Build
         run: ./gradlew build
 
       # The same three exclusions release.yml asserts, checked on every commit rather than only on
-      # the one somebody tags. Paper ships gson, snakeyaml and slf4j-api itself and a second copy in
-      # the plugin jar is a classloader clash - silent, in slf4j's case, which is how it survived in
-      # the 2.1.0 build from 2026-08-30 to 2026-09-03. All three arrive transitively through jcore,
-      # so any jcore bump can put them back.
+      # the one somebody tags. Paper ships gson, snakeyaml and slf4j-api itself, and a second copy
+      # in the plugin jar is a classloader clash - silent, in slf4j's case. All three arrive
+      # transitively through jcore, so any jcore bump can put them back.
       - name: The shaded jar carries jcore's config and none of Paper's own libraries
         run: |
           version="$(sed -n "s/^version = '\(.*\)'$/\1/p" build.gradle)"

@@ -1,22 +1,18 @@
 name: release
 
-# A release is a GitHub release, published by a human - the same arrangement as
-# nordtal/season-2/.github/workflows/release.yml, and for the same reason: publishing a release
-# from a brand-new tag and from a tag that has existed for weeks both build, which a `push: tags`
-# trigger cannot do. `git push --tags` on its own builds nothing. Tag, then publish the release.
+# A release is a GitHub release, published by a human. Publishing from a brand-new tag and from a
+# tag that has existed for weeks both build, which a `push: tags` trigger cannot do. `git push
+# --tags` on its own builds nothing - tag, then publish the release.
 #
-# WHY THIS EXISTS: the 2.0.0 release (2026-08-29) carried a jar somebody built locally and attached
-# by hand, and `main` sat at 2.1.0 with the jcore config move for days without a release at all.
 # season-2's updater follows this repository's /releases/latest, so a fix that is not released
-# is a fix that never reaches a server - and a jar built on a laptop is one nobody can rebuild.
+# never reaches a server, and a jar attached by hand is one nobody else can rebuild.
 #
 # The version in build.gradle is the single source of truth; the tag must equal it exactly. Tags
-# here carry NO leading 'v' (2.0.0, not v2.0.0) - season-2's updater.yml says so under
-# display-tags-release, and the check below refuses a 'v'.
+# here carry no leading 'v' (2.0.0, not v2.0.0), and the check below refuses one.
 #
-# THE ASSET NAME IS AN INTERFACE. season-2's updater matches the installed jar by filename prefix
-# (papermc-display-tags-<version>.jar -> 'papermc-display-tags'); renaming the artifact would
-# make every deployed copy an "unclaimed" jar that nothing supersedes.
+# The asset name is an interface: season-2's updater matches the installed jar by filename prefix
+# (papermc-display-tags-<version>.jar -> 'papermc-display-tags'). Renaming the artifact would make
+# every deployed copy an "unclaimed" jar that nothing supersedes.
 on:
   release:
     types: [published]
@@ -83,12 +79,12 @@ jobs:
           # The shaded jar, not the thin one: it has to carry jcore's config package.
           unzip -Z1 "$jar" | grep -q '^eu/nordtal/jcore/config/' \
             || { echo "$jar does not contain eu.nordtal.jcore.config - is this the thin jar?" >&2; exit 1; }
-          # And none of the three Paper provides itself. A second copy of any of them is a
-          # classloader clash, and slf4j's version of that clash is silent: jcore's ConfigHandle
-          # logs through slf4j, a plugin-local slf4j-api finds no provider, and the result is one
-          # "No SLF4J providers were found" line and nothing else ever again. It was in the 2.1.0
-          # jar until 2026-09-03, arriving transitively through jcore, which is why this check
-          # names all three rather than the two somebody remembered.
+          # None of the three below belongs in this jar either - Paper provides all three itself.
+          # A second copy is a classloader clash, and slf4j's version of that clash is silent:
+          # jcore's ConfigHandle logs through slf4j, a plugin-local slf4j-api finds no provider,
+          # and the result is one "No SLF4J providers were found" line and nothing else ever again.
+          # All three arrive transitively through jcore, which is why this check names all three
+          # rather than the two most people remember.
           if unzip -Z1 "$jar" | grep -qE '^(com/google/gson|org/yaml/snakeyaml|org/slf4j)/'; then
             echo "$jar shades gson, snakeyaml or slf4j-api, which Paper already provides:" >&2
             unzip -Z1 "$jar" | grep -E '^(com/google/gson|org/yaml/snakeyaml|org/slf4j)/' | head -5 >&2

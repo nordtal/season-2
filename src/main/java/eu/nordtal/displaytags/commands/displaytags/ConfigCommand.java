@@ -1,9 +1,9 @@
 package eu.nordtal.displaytags.commands.displaytags;
 
+import eu.nordtal.displaytags.commands.MessageUtil;
 import eu.nordtal.displaytags.commands.framework.CommandGroup;
 import eu.nordtal.displaytags.commands.framework.SubCommand;
 import eu.nordtal.displaytags.config.NameTagConfiguration;
-import eu.nordtal.displaytags.util.MessageUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -11,7 +11,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.util.Vector;
 
 public class ConfigCommand extends SubCommand {
-    public ConfigCommand(CommandGroup group) {
+    public ConfigCommand(final CommandGroup group) {
         super(group);
         super.setName("config");
         super.setDescription("View the plugin configuration.");
@@ -19,11 +19,11 @@ public class ConfigCommand extends SubCommand {
     }
 
     @Override
-    public boolean execute(CommandSender sender, String[] args) {
-        NameTagConfiguration config = this.getPlugin().config().nametag();
-        String background = config.getBackground();
+    public boolean execute(final CommandSender sender, final String[] args) {
+        final NameTagConfiguration config = this.getPlugin().config().nametag();
+        final String background = config.getBackground();
 
-        List<String> messages = new ArrayList<>();
+        final List<String> messages = new ArrayList<>();
         messages.add("<dark_gray>• <white>Name Tags");
         messages.add("  <white>Enabled <dark_gray>→ " + booleanToString(config.isEnabled()));
         messages.add("  <white>Show To Self <dark_gray>→ " + booleanToString(config.showToSelf()));
@@ -51,7 +51,7 @@ public class ConfigCommand extends SubCommand {
         return true;
     }
 
-    private String vector(Vector vector) {
+    private static String vector(final Vector vector) {
         return String.join(
                 "\n",
                 List.of(
@@ -60,40 +60,48 @@ public class ConfigCommand extends SubCommand {
                         "<white>Z <dark_gray>→ <gray>" + vector.getZ()));
     }
 
-    private String hover(String text) {
+    private static String hover(final String text) {
         return "<hover:show_text:'" + escapeArgument(text) + "'><gray><u>Hover";
     }
 
     /**
      * Escapes a single-quoted MiniMessage tag argument.
-     * <p>
-     * A configured line containing an apostrophe would otherwise close the argument early and leave
-     * the rest of the tag as literal text. MiniMessage unescapes a backslash before the surrounding
-     * quote character (and before a backslash) inside a quoted argument, so escaping those two is
-     * enough - everything else in the line is still parsed as MiniMessage, which is intended.
+     *
+     * Without it, a configured line containing an apostrophe could close the argument early and
+     * spill the rest of the line as literal text.
      */
-    private String escapeArgument(String text) {
+    private static String escapeArgument(final String text) {
         return text.replace("\\", "\\\\").replace("'", "\\'");
     }
 
-    private String opacity(int opacity) {
-        if (opacity < 0) return "<red>Disabled";
+    private static String opacity(final int opacity) {
+        if (opacity < 0) {
+            return "<red>Disabled";
+        }
         return "<gray>" + opacity + " <dark_gray>(0-255)";
     }
 
-    private String booleanToString(boolean value) {
+    private static String booleanToString(final boolean value) {
         return value ? "<green>Yes" : "<red>No";
     }
 
-    private String background(String background) {
-        if (Objects.equals(background, "default")) return "Default";
-        if (Objects.equals(background, "transparent")) return "Transparent";
+    private static String background(final String background) {
+        if (Objects.equals(background, "default")) {
+            return "Default";
+        }
+        if (Objects.equals(background, "transparent")) {
+            return "Transparent";
+        }
         return background;
     }
 
-    private String color(String hex) {
-        if (Objects.equals(hex, "default")) return "<gray>";
-        if (Objects.equals(hex, "transparent")) return "<white>";
+    private static String color(final String hex) {
+        if (Objects.equals(hex, "default")) {
+            return "<gray>";
+        }
+        if (Objects.equals(hex, "transparent")) {
+            return "<white>";
+        }
         return "<" + hex + ">";
     }
 }

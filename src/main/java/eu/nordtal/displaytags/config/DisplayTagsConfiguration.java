@@ -9,20 +9,15 @@ import java.io.File;
 
 /**
  * Owns {@code plugins/DisplayTags/config.yml}.
- * <p>
- * Up to 2.0.0 this called {@code io.github.revxrsal:spec:1.5} directly and had to know two of
- * its sharp edges itself: the Gson number policy (without which whole numbers were written back
- * as {@code 1.0}) and the fact that a mistyped key was deleted from the file on the next save.
- * Both are handled by jcore's hardened copy now, so neither this class nor any other caller has
- * to know about them.
- * <p>
- * <b>Since jcore 4.0.0 (this plugin followed to 4.2.1 on 2026-09-17):</b> the YAML jcore writes
- * carries no comments and no header any more. The first load, reload or save after upgrading
- * rewrites {@code config.yml} down to bare keys and values — every {@code @Comment} still on the
- * spec interfaces in this package is still read, but it no longer reaches the file. It is written
- * instead into {@code config.schema.json} beside the YAML, for a future reader that does not exist
- * in this plugin yet. An operator who opens {@code config.yml} after an update and finds the
- * explanations gone is seeing the intended behaviour, not a bug.
+ *
+ * Validation and defaulting go through jcore's config layer, so this class does not have to guard
+ * against a mistyped key being silently deleted or a whole number being rewritten as a float.
+ *
+ * The YAML jcore writes carries no comments and no header. The first load, reload or save rewrites
+ * {@code config.yml} down to bare keys and values — every {@code @Comment} on the spec interfaces in
+ * this package is still read, but it no longer reaches the file. It is written instead into
+ * {@code config.schema.json} beside the YAML. An operator who opens {@code config.yml} after an
+ * update and finds the explanations gone is seeing the intended behaviour, not a bug.
  */
 public class DisplayTagsConfiguration {
 
@@ -36,14 +31,11 @@ public class DisplayTagsConfiguration {
      *                         not exist, or holds a value this plugin cannot use. The caller is
      *                         expected to disable the plugin - the server itself keeps running.
      */
-    public DisplayTagsConfiguration(DisplayTags plugin) throws ConfigException {
-        File file = new File(plugin.getDataFolder(), FILE_NAME);
+    public DisplayTagsConfiguration(final DisplayTags plugin) throws ConfigException {
+        final File file = new File(plugin.getDataFolder(), FILE_NAME);
         this.nameTagConfig = new NameTagConfiguration();
 
-        // The validator both checks and applies. NameTagConfiguration#load parses every value
-        // that can fail before it assigns anything, so a rejected reload leaves the previously
-        // loaded settings intact - and jcore only publishes the new values once the validator
-        // has accepted them.
+        // NameTagConfiguration#load parses every value first, so a rejected reload keeps the old settings.
         this.handle = ConfigLoader.builder(file, DisplayTagsConfigurationSpec.class)
                 .envPrefix("NORDTAL_DISPLAYTAGS")
                 .validator(this.nameTagConfig::load)
@@ -51,8 +43,10 @@ public class DisplayTagsConfiguration {
     }
 
     /**
-     * Re-reads the file. Applies the same strictness as startup: an unknown key or an unusable
-     * value is refused and the settings already in effect are kept.
+     * Re-reads the file.
+     *
+     * Applies the same strictness as startup: an unknown key or an unusable value is refused and
+     * the settings already in effect are kept.
      *
      * @throws IllegalArgumentException with a message written for whoever has to fix the file
      */
@@ -60,9 +54,7 @@ public class DisplayTagsConfiguration {
         try {
             this.handle.reload();
         } catch (ConfigException error) {
-            // Deliberately an IllegalArgumentException carrying only the message: the caller
-            // (DisplayTags#reloadPlugin) prints it to the console for an operator, and jcore's
-            // message already names the file, the setting and what is wrong with it.
+            // DisplayTags#reloadPlugin prints this; jcore's message already names the file and the setting.
             throw new IllegalArgumentException(error.getMessage(), error);
         }
     }

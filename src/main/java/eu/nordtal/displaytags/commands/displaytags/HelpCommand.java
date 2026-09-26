@@ -1,41 +1,43 @@
 package eu.nordtal.displaytags.commands.displaytags;
 
+import eu.nordtal.displaytags.ComponentUtil;
+import eu.nordtal.displaytags.commands.MessageUtil;
 import eu.nordtal.displaytags.commands.framework.CommandGroup;
 import eu.nordtal.displaytags.commands.framework.SubCommand;
-import eu.nordtal.displaytags.util.ComponentUtil;
-import eu.nordtal.displaytags.util.MessageUtil;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
+import org.jspecify.annotations.Nullable;
 
 public class HelpCommand extends SubCommand {
-    private Component HELP_MESSAGE;
+    private @Nullable Component helpMessage;
 
-    public HelpCommand(CommandGroup group) {
+    public HelpCommand(final CommandGroup group) {
         super(group);
         this.setName("help");
         this.setDescription("List the available commands under <gray>/" + group.getName() + "<white>.");
     }
 
     @Override
-    public boolean execute(CommandSender sender, String[] args) {
-        if (this.HELP_MESSAGE == null) {
-            Collection<SubCommand> commands = this.getCommandGroup().getCommands();
+    public boolean execute(final CommandSender sender, final String[] args) {
+        Component message = this.helpMessage;
+        if (message == null) {
+            final Collection<SubCommand> commands = this.getCommandGroup().getCommands();
 
-            List<String> lines = new ArrayList<>();
+            final List<String> lines = new ArrayList<>();
             lines.add(MessageUtil.prefixed(
                     String.format("Commands <dark_gray>(<white>%s<dark_gray>)<white>:", commands.size())));
 
-            commands.forEach((cmd) -> lines.add(String.format(
-                    "<gray>/%s <dark_gray>→ <white>%s",
-                    cmd.getName(), cmd.getDescription() != null ? cmd.getDescription() : "No description.")));
+            commands.forEach((cmd) ->
+                    lines.add(String.format("<gray>/%s <dark_gray>→ <white>%s", cmd.getName(), cmd.getDescription())));
 
-            this.HELP_MESSAGE = ComponentUtil.render(lines);
+            message = ComponentUtil.render(lines);
+            this.helpMessage = message;
         }
 
-        sender.sendMessage(this.HELP_MESSAGE);
+        sender.sendMessage(message);
         return true;
     }
 }

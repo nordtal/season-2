@@ -1,20 +1,20 @@
 package eu.nordtal.displaytags.commands.framework;
 
 import eu.nordtal.displaytags.DisplayTags;
-import eu.nordtal.displaytags.util.MessageUtil;
+import eu.nordtal.displaytags.commands.MessageUtil;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.jetbrains.annotations.NotNull;
 
 public abstract class CommandGroup extends Command {
     protected DisplayTags plugin;
     private final Map<String, SubCommand> commands = new HashMap<>();
 
-    protected CommandGroup(String name, DisplayTags plugin) {
+    protected CommandGroup(final String name, final DisplayTags plugin) {
         super(name);
         this.plugin = plugin;
     }
@@ -23,7 +23,7 @@ public abstract class CommandGroup extends Command {
         return this.plugin;
     }
 
-    public void addCommand(SubCommand command) {
+    public void addCommand(final SubCommand command) {
         this.commands.put(command.getName(), command);
     }
 
@@ -32,15 +32,14 @@ public abstract class CommandGroup extends Command {
     }
 
     @Override
-    public boolean execute(
-            @NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String @NotNull [] args) {
+    public boolean execute(final CommandSender sender, final String commandLabel, final String[] args) {
         if (args.length == 0) {
             MessageUtil.error(sender, "Unknown sub-command.");
             return true;
         }
 
-        String commandName = args[0].toLowerCase();
-        SubCommand command = commands.get(commandName);
+        final String commandName = args[0].toLowerCase(Locale.ROOT);
+        final SubCommand command = this.commands.get(commandName);
         if (command == null) {
             MessageUtil.error(sender, "Unknown sub-command.");
             return true;
@@ -55,15 +54,18 @@ public abstract class CommandGroup extends Command {
     }
 
     @Override
-    public @NotNull List<String> tabComplete(
-            @NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args)
+    public List<String> tabComplete(final CommandSender sender, final String alias, final String[] args)
             throws IllegalArgumentException {
-        String name = args[0].toLowerCase();
+        final String name = args[0].toLowerCase(Locale.ROOT);
         if (args.length == 1) {
-            return commands.values().stream()
+            return this.commands.values().stream()
                     .filter((cmd) -> {
-                        if (!cmd.getName().startsWith(name)) return false;
-                        if (cmd.getPermission() != null) return sender.hasPermission(cmd.getPermission());
+                        if (!cmd.getName().startsWith(name)) {
+                            return false;
+                        }
+                        if (cmd.getPermission() != null) {
+                            return sender.hasPermission(cmd.getPermission());
+                        }
 
                         return true;
                     })
@@ -71,7 +73,7 @@ public abstract class CommandGroup extends Command {
                     .toList();
         }
 
-        SubCommand command = commands.get(name);
+        final SubCommand command = this.commands.get(name);
         if (command != null) {
             return command.tabComplete(sender, sliceArgs(args));
         }
@@ -79,9 +81,11 @@ public abstract class CommandGroup extends Command {
         return List.of();
     }
 
-    private String[] sliceArgs(String[] args) {
-        if (args.length <= 1) return new String[0];
-        String[] sliced = new String[args.length - 1];
+    private static String[] sliceArgs(final String[] args) {
+        if (args.length <= 1) {
+            return new String[0];
+        }
+        final String[] sliced = new String[args.length - 1];
         System.arraycopy(args, 1, sliced, 0, sliced.length);
         return sliced;
     }

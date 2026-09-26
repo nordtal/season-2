@@ -1,13 +1,14 @@
-package eu.nordtal.displaytags.util;
+package eu.nordtal.displaytags.nametag;
 
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTeams;
+import eu.nordtal.displaytags.PacketUtil;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 
 /**
  * Hides the vanilla player name tag from individual viewers.
- * <p>
+ *
  * DisplayTags renders its own text display above the player's head. Without this, the client would
  * render both that display and the vanilla name tag, resulting in two names per player. The vanilla
  * name tag is suppressed by putting the target into a client-side scoreboard team whose name tag
@@ -22,10 +23,10 @@ public final class VanillaNameTagUtil {
      * @return {@code true} if a team packet was sent, {@code false} if TAB is handling the vanilla
      *         name tags and DisplayTags left the scoreboard alone
      */
-    public static boolean hide(Player target, UUID viewerId) {
+    public static boolean hide(final Player target, final UUID viewerId) {
         if (TabUtil.managesNameTags()) return false;
 
-        WrapperPlayServerTeams.ScoreBoardTeamInfo teamInfo = new WrapperPlayServerTeams.ScoreBoardTeamInfo(
+        final WrapperPlayServerTeams.ScoreBoardTeamInfo teamInfo = new WrapperPlayServerTeams.ScoreBoardTeamInfo(
                 Component.empty(),
                 Component.empty(),
                 Component.empty(),
@@ -48,7 +49,7 @@ public final class VanillaNameTagUtil {
      * @return {@code true} if a team packet was sent, {@code false} if TAB is handling the vanilla
      *         name tags and DisplayTags left the scoreboard alone
      */
-    public static boolean show(Player target, UUID viewerId) {
+    public static boolean show(final Player target, final UUID viewerId) {
         if (TabUtil.managesNameTags()) return false;
 
         PacketUtil.sendPacket(
@@ -64,14 +65,13 @@ public final class VanillaNameTagUtil {
 
     /**
      * The client-side team name used for a player.
-     * <p>
+     *
      * Keyed by the player's UUID rather than their entity id: the entity id changes on respawn, which
      * would orphan the team on the client and let the vanilla name come back. The UUID is written
-     * without its dashes, which keeps the name at 44 characters - far below the 32767 the team name
-     * field allows since 1.18 (PacketEvents 2.13.0 {@code WrapperPlayServerTeams}, and Paper 26.2's
-     * {@code ClientboundSetPlayerTeamPacket} reads it with the default {@code readUtf()} limit).
+     * without its dashes, which keeps the name at 44 characters, far below the 32767 the team name
+     * field allows.
      */
-    private static String getTeamName(Player target) {
+    private static String getTeamName(final Player target) {
         return "displaytags_" + target.getUniqueId().toString().replace("-", "");
     }
 }

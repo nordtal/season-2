@@ -1,14 +1,13 @@
-package eu.nordtal.displaytags.util;
+package eu.nordtal.displaytags;
 
-import eu.nordtal.displaytags.DisplayTags;
 import org.bukkit.plugin.PluginManager;
 
 public class DependencyUtil {
     private static boolean enabledPlaceholderAPI;
     private static boolean enabledTAB;
 
-    public static void load(DisplayTags plugin) {
-        PluginManager pluginManager = plugin.getServer().getPluginManager();
+    public static void load(final DisplayTags plugin) {
+        final PluginManager pluginManager = plugin.getServer().getPluginManager();
         if (pluginManager.isPluginEnabled("PlaceholderAPI")) {
             enabledPlaceholderAPI = true;
             plugin.getLogger()

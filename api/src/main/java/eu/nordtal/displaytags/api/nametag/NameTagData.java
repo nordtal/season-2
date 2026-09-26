@@ -5,7 +5,11 @@ import java.util.List;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.util.Vector;
+import org.jspecify.annotations.Nullable;
 
+/**
+ * The mutable settings behind a single {@link PlayerNameTag}.
+ */
 public class NameTagData {
     private boolean showToSelf = true;
     private int visibilityDistance = 32;
@@ -24,27 +28,45 @@ public class NameTagData {
     private Vector translation = new Vector(0, 0, 0);
     private Vector scale = new Vector(1, 1, 1);
 
+    /**
+     * @return whether the name is shown to the player it belongs to
+     */
     public boolean shouldShowToSelf() {
         return this.showToSelf;
     }
 
-    public void setShowToSelf(boolean showToSelf) {
+    /**
+     * @param showToSelf whether the name is shown to the player it belongs to
+     */
+    public void setShowToSelf(final boolean showToSelf) {
         this.showToSelf = showToSelf;
     }
 
+    /**
+     * @return the maximum distance, in blocks, a viewer can see the name tag from
+     */
     public int getVisibilityDistance() {
         return this.visibilityDistance;
     }
 
-    public void setVisibilityDistance(int visibilityDistance) {
+    /**
+     * @param visibilityDistance the maximum distance, in blocks, a viewer can see the name tag from
+     */
+    public void setVisibilityDistance(final int visibilityDistance) {
         this.visibilityDistance = visibilityDistance;
     }
 
+    /**
+     * @return the configured lines, before any placeholder substitution
+     */
     public List<String> getLines() {
         return this.lines;
     }
 
-    public void setLines(List<String> lines) {
+    /**
+     * @param lines the configured lines, before any placeholder substitution
+     */
+    public void setLines(final List<String> lines) {
         this.lines = lines;
     }
 
@@ -52,7 +74,7 @@ public class NameTagData {
         return this.textAlignment;
     }
 
-    public void setTextAlignment(TextDisplay.TextAlignment textAlignment) {
+    public void setTextAlignment(final TextDisplay.TextAlignment textAlignment) {
         this.textAlignment = textAlignment;
     }
 
@@ -60,15 +82,21 @@ public class NameTagData {
         return this.billboard;
     }
 
-    public void setBillboard(Display.Billboard billboard) {
+    public void setBillboard(final Display.Billboard billboard) {
         this.billboard = billboard;
     }
 
+    /**
+     * @return whether the text is drawn with a shadow
+     */
     public boolean hasTextShadow() {
         return this.textShadow;
     }
 
-    public void setTextShadow(boolean textShadow) {
+    /**
+     * @param textShadow whether the text is drawn with a shadow
+     */
+    public void setTextShadow(final boolean textShadow) {
         this.textShadow = textShadow;
     }
 
@@ -76,7 +104,10 @@ public class NameTagData {
         return this.seeThrough;
     }
 
-    public void setSeeThrough(SeeThroughMode seeThrough) {
+    /**
+     * @param seeThrough the new mode, or {@code null} to fall back to {@link SeeThroughMode#NEVER}
+     */
+    public void setSeeThrough(final @Nullable SeeThroughMode seeThrough) {
         this.seeThrough = seeThrough == null ? SeeThroughMode.NEVER : seeThrough;
     }
 
@@ -93,50 +124,69 @@ public class NameTagData {
     }
 
     /**
+     * @param seeThrough the new value
      * @deprecated use {@link #setSeeThrough(SeeThroughMode)}. {@code true} maps to
      *             {@link SeeThroughMode#ALWAYS} and {@code false} to {@link SeeThroughMode#NEVER},
      *             which is what these two values meant before {@link SeeThroughMode#VANILLA}
      *             existed.
      */
     @Deprecated
-    public void setSeeThrough(boolean seeThrough) {
+    public void setSeeThrough(final boolean seeThrough) {
         this.seeThrough = seeThrough ? SeeThroughMode.ALWAYS : SeeThroughMode.NEVER;
     }
 
+    /**
+     * @return the packed ARGB background colour, as produced by {@link Util#parseDisplayBackground}
+     */
     public int getBackground() {
         return this.background;
     }
 
-    public void setBackground(int background) {
+    /**
+     * @param background the packed ARGB background colour
+     */
+    public void setBackground(final int background) {
         this.background = background;
     }
 
-    public void setBackground(String background) {
+    /**
+     * @param background {@code "default"}, {@code "transparent"}, or a hex colour such as
+     *                   {@code "#FFFFFF"}
+     */
+    public void setBackground(final String background) {
         this.background = Util.parseDisplayBackground(background);
     }
 
+    /**
+     * @return the text opacity, or {@code -1} for "fully opaque" (the vanilla default)
+     */
     public int getTextOpacity() {
         return this.textOpacity;
     }
 
-    public void setTextOpacity(int textOpacity) {
+    /**
+     * @param textOpacity the text opacity, or {@code -1} for "fully opaque"
+     */
+    public void setTextOpacity(final int textOpacity) {
         this.textOpacity = textOpacity;
     }
 
     /**
      * Whether the player is sneaking.
-     * <p>
+     *
      * This is not a cosmetic setting but the state the rendering depends on: with
      * {@link SeeThroughMode#VANILLA} a sneaking player's name is not drawn through blocks at all,
      * which is what vanilla does. It is kept here rather than read from the player because
      * {@code PlayerToggleSneakEvent} fires <em>before</em> the state is applied, so at that moment
      * {@code Player#isSneaking()} still reports the state the player is leaving.
+     *
+     * @return whether the player is sneaking
      */
     public boolean isSneaking() {
         return this.sneaking;
     }
 
-    public void setSneaking(boolean sneaking) {
+    public void setSneaking(final boolean sneaking) {
         this.sneaking = sneaking;
     }
 
@@ -144,7 +194,7 @@ public class NameTagData {
         return this.translation;
     }
 
-    public void setTranslation(Vector translation) {
+    public void setTranslation(final Vector translation) {
         this.translation = translation;
     }
 
@@ -152,7 +202,7 @@ public class NameTagData {
         return this.scale;
     }
 
-    public void setScale(Vector scale) {
+    public void setScale(final Vector scale) {
         this.scale = scale;
     }
 }

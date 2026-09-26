@@ -1,6 +1,10 @@
 package eu.nordtal.displaytags.config.spec;
 
-import eu.nordtal.jcore.config.spec.annotation.*;
+import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Reload;
+import eu.nordtal.jcore.config.spec.annotation.Save;
 
 @ConfigSpec(
         header = {

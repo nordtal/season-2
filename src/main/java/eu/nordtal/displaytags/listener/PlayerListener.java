@@ -8,43 +8,45 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.*;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
 
 public class PlayerListener implements Listener {
     private final DisplayTags plugin;
 
-    public PlayerListener(DisplayTags plugin) {
+    public PlayerListener(final DisplayTags plugin) {
         this.plugin = plugin;
     }
 
-    // The name tag is created once the client has loaded into the world. On PlayerJoinEvent the
-    // client is not ready yet and the spawn packets would be dropped.
+    // Waits for the client to finish loading the world; on PlayerJoinEvent the spawn packets would be dropped.
     @EventHandler
-    public void onPlayerClientLoadedWorld(PlayerClientLoadedWorldEvent event) {
-        if (plugin.config().nametag().isEnabled()) {
+    public void onPlayerClientLoadedWorld(final PlayerClientLoadedWorldEvent event) {
+        if (this.plugin.config().nametag().isEnabled()) {
             // Tick right away instead of waiting up to one update-interval for the scheduler.
             this.plugin.getNameTagManager().createNameTag(event.getPlayer()).tick();
         }
     }
 
     @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        if (plugin.config().nametag().isEnabled()) {
+    public void onPlayerQuit(final PlayerQuitEvent event) {
+        if (this.plugin.config().nametag().isEnabled()) {
             this.plugin.getNameTagManager().removeNameTag(event.getPlayer());
         }
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onPlayerSneakToggle(PlayerToggleSneakEvent event) {
-        NameTagConfiguration config = this.plugin.config().nametag();
+    public void onPlayerSneakToggle(final PlayerToggleSneakEvent event) {
+        final NameTagConfiguration config = this.plugin.config().nametag();
         if (!config.isEnabled()) return;
 
-        PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
+        final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
         if (tag == null) return;
 
-        // Sneaking is recorded even where it changes no opacity: with see-through: vanilla it also
-        // decides whether the name is drawn through blocks at all, the way vanilla stops drawing
-        // its see-through pass for a sneaking player.
+        // With see-through: vanilla, sneaking also decides whether the name draws through blocks at all.
         tag.getData().setSneaking(event.isSneaking());
 
         if (config.hasSneakTextOpacity()) {
@@ -56,58 +58,53 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onPlayerTeleport(PlayerTeleportEvent event) {
-        if (plugin.config().nametag().isEnabled()) {
-            Player player = event.getPlayer();
-            PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(player);
+    public void onPlayerTeleport(final PlayerTeleportEvent event) {
+        if (this.plugin.config().nametag().isEnabled()) {
+            final Player player = event.getPlayer();
+            final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(player);
             if (tag == null) return;
 
-            // The event fires before the player is moved, so the destination has to be taken from
-            // the event - the player's own location is still the one they are leaving.
+            // The event fires before the player moves, so the destination comes from the event, not the player.
             tag.teleportForViewers(event.getTo());
 
             // Distance and world can only be re-evaluated once the move has actually happened.
             this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
-                PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
+                final PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
                 if (current != null) current.tick();
             });
         }
     }
 
     @EventHandler
-    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-        if (plugin.config().nametag().isEnabled()) {
-            PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
+    public void onPlayerChangedWorld(final PlayerChangedWorldEvent event) {
+        if (this.plugin.config().nametag().isEnabled()) {
+            final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
             if (tag == null) return;
 
-            // The display lives in the world it was spawned in, so it has to be despawned for
-            // everyone and re-evaluated against the new world.
+            // The display lives in the world it was spawned in, so it must despawn before re-evaluating.
             tag.despawnForViewers();
             tag.tick();
         }
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onPlayerGameModeChange(PlayerGameModeChangeEvent event) {
-        if (plugin.config().nametag().isEnabled()) {
-            Player player = event.getPlayer();
+    public void onPlayerGameModeChange(final PlayerGameModeChangeEvent event) {
+        if (this.plugin.config().nametag().isEnabled()) {
+            final Player player = event.getPlayer();
             if (this.plugin.getNameTagManager().getByPlayer(player) == null) return;
 
-            // The game mode is only applied once every listener has run, so Player#getGameMode()
-            // still reports the mode the player is leaving. Ticking here would evaluate visibility
-            // against the old mode - a player leaving spectator would stay hidden. Re-evaluate on
-            // the next tick instead, when the new mode is actually in effect.
+            // Player#getGameMode() still reports the old mode here, so visibility is re-evaluated next tick instead.
             this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
-                PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
+                final PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
                 if (current != null) current.tick();
             });
         }
     }
 
     @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        if (plugin.config().nametag().isEnabled()) {
-            PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
+    public void onPlayerDeath(final PlayerDeathEvent event) {
+        if (this.plugin.config().nametag().isEnabled()) {
+            final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
             if (tag == null) return;
 
             tag.despawnForViewers();
@@ -115,9 +112,9 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerRespawn(PlayerRespawnEvent event) {
-        if (plugin.config().nametag().isEnabled()) {
-            PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
+    public void onPlayerRespawn(final PlayerRespawnEvent event) {
+        if (this.plugin.config().nametag().isEnabled()) {
+            final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
             if (tag == null) return;
 
             tag.tick();

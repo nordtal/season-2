@@ -8,6 +8,7 @@ import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import java.util.List;
+import java.util.Locale;
 import org.bukkit.entity.Display;
 
 @ConfigSpec
@@ -70,7 +71,7 @@ public interface NameTagDisplayConfigurationSpec {
     @Key("text-alignment")
     @Comment({"The alignment of the name tag's text display.", "Available values: \"left\", \"right\", \"center\""})
     default String textAlignment() {
-        return TextAlignment.CENTER.name().toLowerCase();
+        return TextAlignment.CENTER.name().toLowerCase(Locale.ROOT);
     }
 
     @Order(6)
@@ -88,7 +89,7 @@ public interface NameTagDisplayConfigurationSpec {
     @Key("billboard")
     @Comment({"The billboard of the name tag's display.", "Available values: fixed, vertical, horizontal, center"})
     default String billboard() {
-        return Display.Billboard.CENTER.name().toLowerCase();
+        return Display.Billboard.CENTER.name().toLowerCase(Locale.ROOT);
     }
 
     @Order(8)

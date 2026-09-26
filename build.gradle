@@ -27,24 +27,7 @@ dependencies {
 
 	implementation(project(":api"))
 
-	// The configuration system. jcore vendors Spec (the library this plugin used directly until
-	// 3.0.0) and hardens it: unknown keys abort instead of being deleted silently, writes are
-	// atomic, reload is locked, and the Gson number policy this file used to have to set itself
-	// is applied there now.
-	//
-	// Only eu.nordtal.jcore.config is used here. jcore also exports its JDBI/HikariCP/Flyway
-	// persistence layer, which is another ~8 MB of shaded jar this plugin has no use for, so the
-	// whole persistence side is excluded. If this plugin ever needs a database, drop the
-	// exclusions rather than adding a second dependency.
-	//
-	// 3.0.0 -> 4.2.1 on 2026-09-17 (steward/54), following season-2 onto the same tag. The API
-	// this plugin calls (ConfigLoader.builder/envPrefix/validator/load, ConfigHandle#reload) did
-	// not change, but the YAML this plugin writes did: config.yml carries no comments and no
-	// header any more from the next time it is saved (this plugin's own load-time normalisation
-	// counts as a save). The explanations moved to a config.schema.json jcore writes beside the
-	// file - nothing here reads that file yet, so until something does, an operator opening
-	// config.yml after an update sees only keys and values. See the Javadoc on
-	// DisplayTagsConfiguration for the same note at the code's entry point.
+	// Only eu.nordtal.jcore.config is used here, so jcore's JDBI/HikariCP/Flyway persistence layer is excluded below.
 	implementation("com.github.nordtal:jcore:4.2.1") {
 		exclude group: "org.jdbi"
 		exclude group: "com.zaxxer"
@@ -54,10 +37,7 @@ dependencies {
 		exclude group: "commons-io"
 	}
 
-	// Paper 26.2 ships gson 2.14.0 and snakeyaml 2.6 in its libraries/ directory and the plugin
-	// classloader resolves both - verified on this repo's own runServer on 2026-08-30 with
-	// Class.forName in onEnable. They are compileOnly so they stay out of the shaded jar; see
-	// the shadowJar block.
+	// Paper resolves gson and snakeyaml itself from its libraries/ directory, so these stay compileOnly and out of the shaded jar; see the shadowJar block.
 	compileOnly("com.google.code.gson:gson:2.14.0")
 	compileOnly("org.yaml:snakeyaml:2.6")
 
@@ -73,38 +53,18 @@ tasks {
 		downloadPlugins {
 			modrinth("packetevents", "2.13.0+spigot")
 			hangar("PlaceholderAPI", "2.12.3")
-			// TAB publishes several Modrinth versions numbered "6.1.2" (modern, legacy 1.7-1.12 and
-			// 1.20.5-1.21.4). The version number alone resolves to the wrong one, so pin the id of
-			// the 26.2 build.
+			// TAB publishes several Modrinth versions numbered "6.1.2"; the id pins the 26.2 build.
 			modrinth("tab-was-taken", "Za7G9fdJ")
 		}
 	}
 
-	// shadowJar takes over the plain artifact name, so the thin jar has to move out of the way -
-	// otherwise both tasks write to build/libs/papermc-display-tags-<version>.jar.
+	// shadowJar takes over the plain artifact name, so the thin jar moves out of the way to avoid a collision in build/libs.
 	jar {
 		archiveClassifier.set("thin")
 	}
 
 	shadowJar {
-		// jcore's config package is already under eu.nordtal, so there is nothing to relocate -
-		// the old relocate("revxrsal.spec", "eu.nordtal.libs.spec") is gone with the direct
-		// Spec dependency.
-		//
-		// Gson, SnakeYAML and slf4j-api all come from Paper at runtime - paper-api brings all
-		// three transitively, checked with `gradlew dependencies` on 2026-09-03. Excluding them
-		// keeps a second copy out of the jar and avoids a version clash with the platform's own.
-		// If a future Paper release stops shipping one, this is what breaks - re-run the
-		// Class.forName check before bumping the platform.
-		//
-		// slf4j is the one that was missed until 2026-09-03. It arrives transitively through
-		// jcore, whose ConfigHandle logs through it, and a plugin-local copy resolves no provider:
-		// the failure is a quiet "No SLF4J providers were found" and every config log line gone.
-		// The release workflow asserts all three are absent for that reason.
-		//
-		// Only the exclusion is needed for it. Unlike gson and snakeyaml there is no compileOnly
-		// line for slf4j in the dependency block, because paper-api already puts it on the compile
-		// classpath and a pinned version here would be a third number that has to track Paper's.
+		// Gson, SnakeYAML and slf4j-api come from Paper at runtime; a bundled slf4j-api resolves no provider next to Paper's and silently drops logging.
 		dependencies {
 			exclude(dependency("com.google.code.gson:gson"))
 			exclude(dependency("org.yaml:snakeyaml"))
@@ -154,12 +114,7 @@ processResources {
 	}
 }
 
-// A source file Git ignores compiles here and does not exist on a fresh checkout, which makes the
-// local build and CI two different programs. nordtal/season-2 lost a release to exactly that on
-// 2026-09-02: an unanchored `run/` in .gitignore matched the Java package eu.nordtal.s2.updater.run
-// as readily as the server working directory, and an *ignored* file is not an untracked one -
-// `git status` stayed clean the whole time. .gitignore is anchored here for the same reason; this
-// asks Git the question anyway, on every `./gradlew build`, before the commit that would hide it.
+// A source file Git ignores compiles here but does not exist on a fresh checkout, so the local build and CI would otherwise be two different programs.
 allprojects { proj ->
 	proj.plugins.withId('java') {
 		def repositoryRoot = rootProject.layout.projectDirectory.asFile
@@ -171,8 +126,7 @@ allprojects { proj ->
 			group = 'verification'
 			description = 'Fails when a source file is ignored by Git and therefore missing from the repository.'
 
-			// .gitignore, the global ignore file and the index are inputs no task can declare, so
-			// there is no honest up-to-date check here. The work is one `git` call.
+			// .gitignore, the global ignore file and the index are inputs no task can declare, so there is no honest up-to-date check here.
 			outputs.upToDateWhen { false }
 
 			doLast {
@@ -190,8 +144,7 @@ allprojects { proj ->
 					return
 				}
 
-				// Untracked *and* ignored: a tracked file that happens to match an ignore rule is
-				// still in the repository, which is all this cares about.
+				// Untracked and ignored: a tracked file that happens to match an ignore rule is still in the repository, which is all this cares about.
 				def command = [
 					'git',
 					'ls-files',
@@ -228,9 +181,7 @@ allprojects { proj ->
 	}
 }
 
-// CONVENTIONS.md, as far as a tool can check it. Formatting is always enforced. `conventions.comments`
-// enforces the comment and tracker-ID rules, `conventions.enforced` every rule; both are set in
-// gradle.properties once the code passes, or on the command line to see the findings.
+// CONVENTIONS.md, as far as a tool can check it: `conventions.comments` enforces the comment and tracker-ID rules, `conventions.enforced` every rule.
 def flag = { String name ->
 	providers.gradleProperty(name).map {
 		it.toBoolean()

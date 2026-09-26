@@ -3,6 +3,8 @@ package eu.nordtal.s2.proxy.routing;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.proxy.PhaseServers;
+import eu.nordtal.s2.proxy.ProxyRole;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

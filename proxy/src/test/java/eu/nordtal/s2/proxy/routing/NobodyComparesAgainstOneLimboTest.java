@@ -2,6 +2,7 @@ package eu.nordtal.s2.proxy.routing;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.proxy.PhaseServers;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -100,7 +101,7 @@ class NobodyComparesAgainstOneLimboTest {
      * object every other class is given, and the other only asks whether it is blank.</p>
      */
     private static final Map<String, String> MAY_READ_THE_CONFIG_KEY = Map.of(
-            "proxy/src/main/java/eu/nordtal/s2/proxy/routing/PhaseServers.java",
+            "proxy/src/main/java/eu/nordtal/s2/proxy/PhaseServers.java",
             "builds the object everybody else is handed",
             "proxy/src/main/java/eu/nordtal/s2/proxy/config/Configs.java",
             "refuses a blank name at load, which is a check and not a use",

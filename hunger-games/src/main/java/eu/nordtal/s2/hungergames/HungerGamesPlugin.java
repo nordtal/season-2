@@ -28,7 +28,6 @@ import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.HungerGamesPool;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Ceremony;
-import eu.nordtal.s2.hungergames.game.GameState;
 import eu.nordtal.s2.hungergames.game.HungerGamesManager;
 import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.hungergames.hud.HudRenderer;

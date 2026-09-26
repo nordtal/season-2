@@ -2,7 +2,7 @@ package eu.nordtal.s2.proxy.update;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import eu.nordtal.s2.proxy.routing.ProxyRole;
+import eu.nordtal.s2.proxy.ProxyRole;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;

@@ -4,6 +4,7 @@ import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.db.HgMember;
@@ -11,7 +12,6 @@ import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Ceremony;
-import eu.nordtal.s2.hungergames.game.GameState;
 import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.hungergames.player.ArenaComposition;
 import eu.nordtal.s2.papercommon.chat.SystemLines;

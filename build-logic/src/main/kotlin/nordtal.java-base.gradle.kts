@@ -6,6 +6,7 @@ import eu.nordtal.s2.build.RepositoryRootTestInputs
 
 plugins {
     id("java")
+    id("nordtal.conventions")
 }
 
 group = "eu.nordtal"
@@ -31,12 +32,13 @@ dependencies {
 
 // A test that reads a file at the repository root has to say so, or Gradle reports the task
 // UP-TO-DATE after that file is edited. See RepositoryRootTestInputs for why two tests do it.
-val repositoryRootTestInputs = extensions.create<RepositoryRootTestInputs>(
-    "repositoryRootTestInputs", rootProject.layout.projectDirectory)
+val repositoryRootTestInputs =
+    extensions.create<RepositoryRootTestInputs>("repositoryRootTestInputs", rootProject.layout.projectDirectory)
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
-    inputs.files(repositoryRootTestInputs.files)
+    inputs
+        .files(repositoryRootTestInputs.files)
         .withPropertyName("repositoryRootTestInputs")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 }
@@ -49,10 +51,11 @@ tasks.named<Test>("test") {
 val sourceDirectoriesOfEverySourceSet = the<SourceSetContainer>().map { it.allSource.srcDirs }
 val repositoryRootDirectory = rootProject.layout.projectDirectory
 
-val checkSourcesTracked = tasks.register<CheckSourcesTracked>("checkSourcesTracked") {
-    sourceDirectories.from(sourceDirectoriesOfEverySourceSet)
-    repositoryRoot.set(repositoryRootDirectory)
-}
+val checkSourcesTracked =
+    tasks.register<CheckSourcesTracked>("checkSourcesTracked") {
+        sourceDirectories.from(sourceDirectoriesOfEverySourceSet)
+        repositoryRoot.set(repositoryRootDirectory)
+    }
 
 tasks.named("check") {
     dependsOn(checkSourcesTracked)

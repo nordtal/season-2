@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build, e.g. v0.1.0'
+        description: "Tag to build, e.g. v0.1.0"
         required: true
 
 permissions:
@@ -35,12 +35,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: "25"
 
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
@@ -95,9 +96,19 @@ jobs:
           fi
           echo "pack ok: sha1 $actual, pack.mcmeta at the root"
 
-      # Uploads the assets onto the release that triggered this run. The release notes are
-      # deliberately left alone - a human wrote them, and generate_release_notes would replace
-      # them with a generated changelog on every re-run.
+      - name: Write the release notes
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: ${{ runner.temp }}/notes.md
+
+      - name: Put the release notes on the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ env.TAG }}" --notes-file "$RUNNER_TEMP/notes.md"
+
       - name: Attach the artifacts to the release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
@@ -198,4 +209,3 @@ jobs:
           tags: |
             ghcr.io/nordtal/steward-deployer:${{ env.VERSION }}
             ghcr.io/nordtal/steward-deployer:latest
-

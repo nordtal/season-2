@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "import", "unicorn", "oxc", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off"
+  },
+  "env": { "browser": true },
+  "ignorePatterns": ["dist/**"]
+}

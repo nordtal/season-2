@@ -54,6 +54,9 @@ include("commands")
 // against no platform on purpose. Shaded into the three Paper plugins.
 include("paper-common")
 
+// The architecture rules of CONVENTIONS.md, checked across every module's classes.
+include("architecture")
+
 // Non-Java module: packs src/ into the resource pack zip.
 include("resource-pack")
 
@@ -82,7 +85,7 @@ if (buildRoot.isPresent) {
         allprojects {
             val relativePath = path.removePrefix(":").replace(':', '/')
             layout.buildDirectory.set(
-                if (relativePath.isEmpty()) root.resolve("root-project") else root.resolve(relativePath)
+                if (relativePath.isEmpty()) root.resolve("root-project") else root.resolve(relativePath),
             )
         }
     }

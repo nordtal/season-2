@@ -7,6 +7,7 @@
 // convention plugins, never here.
 plugins {
     base
+    id("nordtal.root-conventions")
 }
 
 tasks.register("releaseArtifacts") {
@@ -56,20 +57,25 @@ tasks.register("imageContexts") {
 val entrypointScript = layout.projectDirectory.file("deploy/minecraft/entrypoint.sh")
 val entrypointTest = layout.projectDirectory.file("deploy/minecraft/entrypoint-test.sh")
 
-val checkEntrypoint = tasks.register<Exec>("checkEntrypoint") {
-    group = "verification"
-    description = "Runs deploy/minecraft/entrypoint-test.sh against fixture directories."
-    // bash, not sh: the script and the entrypoint it sources both use BASH_SOURCE and [[ ]]. No
-    // Docker and no network - the whole point is that it runs everywhere `check` does.
-    commandLine("bash", entrypointTest.asFile.absolutePath)
-    inputs.file(entrypointScript).withPropertyName("entrypoint")
-    inputs.file(entrypointTest).withPropertyName("test")
-    val marker = layout.buildDirectory.file("checkEntrypoint/passed")
-    outputs.file(marker).withPropertyName("marker")
-    doLast {
-        marker.get().asFile.apply { parentFile.mkdirs() }.writeText("passed\n")
+val checkEntrypoint =
+    tasks.register<Exec>("checkEntrypoint") {
+        group = "verification"
+        description = "Runs deploy/minecraft/entrypoint-test.sh against fixture directories."
+        // bash, not sh: the script and the entrypoint it sources both use BASH_SOURCE and [[ ]]. No
+        // Docker and no network - the whole point is that it runs everywhere `check` does.
+        commandLine("bash", entrypointTest.asFile.absolutePath)
+        inputs.file(entrypointScript).withPropertyName("entrypoint")
+        inputs.file(entrypointTest).withPropertyName("test")
+        val marker = layout.buildDirectory.file("checkEntrypoint/passed")
+        outputs.file(marker).withPropertyName("marker")
+        doLast {
+            marker
+                .get()
+                .asFile
+                .apply { parentFile.mkdirs() }
+                .writeText("passed\n")
+        }
     }
-}
 
 // The same arrangement for deploy/dev, and for the same reason: `deploy/dev reset` deletes a
 // server's volume, which on smp is a hand-built world that is in no repository and in no release.
@@ -77,18 +83,23 @@ val checkEntrypoint = tasks.register<Exec>("checkEntrypoint") {
 val devScript = layout.projectDirectory.file("deploy/dev")
 val devTest = layout.projectDirectory.file("deploy/dev-test.sh")
 
-val checkDev = tasks.register<Exec>("checkDev") {
-    group = "verification"
-    description = "Runs deploy/dev-test.sh against deploy/dev's reset guard."
-    commandLine("bash", devTest.asFile.absolutePath)
-    inputs.file(devScript).withPropertyName("dev")
-    inputs.file(devTest).withPropertyName("test")
-    val marker = layout.buildDirectory.file("checkDev/passed")
-    outputs.file(marker).withPropertyName("marker")
-    doLast {
-        marker.get().asFile.apply { parentFile.mkdirs() }.writeText("passed\n")
+val checkDev =
+    tasks.register<Exec>("checkDev") {
+        group = "verification"
+        description = "Runs deploy/dev-test.sh against deploy/dev's reset guard."
+        commandLine("bash", devTest.asFile.absolutePath)
+        inputs.file(devScript).withPropertyName("dev")
+        inputs.file(devTest).withPropertyName("test")
+        val marker = layout.buildDirectory.file("checkDev/passed")
+        outputs.file(marker).withPropertyName("marker")
+        doLast {
+            marker
+                .get()
+                .asFile
+                .apply { parentFile.mkdirs() }
+                .writeText("passed\n")
+        }
     }
-}
 
 // And the third, for deploy/nordtal.sh (deploy/setup.sh until 2026-09-19, season-2-ops/124). Its
 // subject is not a deletion this time but a wait: §10 says a finished setup means everything works,
@@ -100,18 +111,23 @@ val checkDev = tasks.register<Exec>("checkDev") {
 val setupScript = layout.projectDirectory.file("deploy/nordtal.sh")
 val setupTest = layout.projectDirectory.file("deploy/nordtal-test.sh")
 
-val checkSetup = tasks.register<Exec>("checkSetup") {
-    group = "verification"
-    description = "Runs deploy/nordtal-test.sh against deploy/nordtal.sh's checks."
-    commandLine("bash", setupTest.asFile.absolutePath)
-    inputs.file(setupScript).withPropertyName("setup")
-    inputs.file(setupTest).withPropertyName("test")
-    val marker = layout.buildDirectory.file("checkSetup/passed")
-    outputs.file(marker).withPropertyName("marker")
-    doLast {
-        marker.get().asFile.apply { parentFile.mkdirs() }.writeText("passed\n")
+val checkSetup =
+    tasks.register<Exec>("checkSetup") {
+        group = "verification"
+        description = "Runs deploy/nordtal-test.sh against deploy/nordtal.sh's checks."
+        commandLine("bash", setupTest.asFile.absolutePath)
+        inputs.file(setupScript).withPropertyName("setup")
+        inputs.file(setupTest).withPropertyName("test")
+        val marker = layout.buildDirectory.file("checkSetup/passed")
+        outputs.file(marker).withPropertyName("marker")
+        doLast {
+            marker
+                .get()
+                .asFile
+                .apply { parentFile.mkdirs() }
+                .writeText("passed\n")
+        }
     }
-}
 
 // And the fourth, for deploy/restore.sh - which is the same class of thing as `deploy/dev reset`
 // and needs no separate argument: it empties a volume before it fills it, and one of those volumes
@@ -119,18 +135,23 @@ val checkSetup = tasks.register<Exec>("checkSetup") {
 val restoreScript = layout.projectDirectory.file("deploy/restore.sh")
 val restoreTest = layout.projectDirectory.file("deploy/restore-test.sh")
 
-val checkRestore = tasks.register<Exec>("checkRestore") {
-    group = "verification"
-    description = "Runs deploy/restore-test.sh against deploy/restore.sh's guards."
-    commandLine("bash", restoreTest.asFile.absolutePath)
-    inputs.file(restoreScript).withPropertyName("restore")
-    inputs.file(restoreTest).withPropertyName("test")
-    val marker = layout.buildDirectory.file("checkRestore/passed")
-    outputs.file(marker).withPropertyName("marker")
-    doLast {
-        marker.get().asFile.apply { parentFile.mkdirs() }.writeText("passed\n")
+val checkRestore =
+    tasks.register<Exec>("checkRestore") {
+        group = "verification"
+        description = "Runs deploy/restore-test.sh against deploy/restore.sh's guards."
+        commandLine("bash", restoreTest.asFile.absolutePath)
+        inputs.file(restoreScript).withPropertyName("restore")
+        inputs.file(restoreTest).withPropertyName("test")
+        val marker = layout.buildDirectory.file("checkRestore/passed")
+        outputs.file(marker).withPropertyName("marker")
+        doLast {
+            marker
+                .get()
+                .asFile
+                .apply { parentFile.mkdirs() }
+                .writeText("passed\n")
+        }
     }
-}
 
 // And the fifth, but shaped differently from the other four: it has no single script it is a test
 // FOR. season-2-ops/27 found that `pipefail` turns an early-exiting pipe reader's SIGPIPE into the
@@ -142,18 +163,23 @@ val checkRestore = tasks.register<Exec>("checkRestore") {
 // script and its test, because that dynamic discovery - not a fixed pair of files - is the point.
 val pipeSafetyTest = layout.projectDirectory.file("deploy/pipe-safety-test.sh")
 
-val checkPipeSafety = tasks.register<Exec>("checkPipeSafety") {
-    group = "verification"
-    description = "Scans every pipefail script under deploy/ for an early-terminating pipe reader (season-2-ops/27)."
-    commandLine("bash", pipeSafetyTest.asFile.absolutePath)
-    // The whole directory, not just the guard script: it discovers its targets at run time, so
-    // Gradle has to invalidate on any change under deploy/, not only on the guard itself.
-    inputs.dir(layout.projectDirectory.dir("deploy")).withPropertyName("deploy")
-    val marker = layout.buildDirectory.file("checkPipeSafety/passed")
-    outputs.file(marker).withPropertyName("marker")
-    doLast {
-        marker.get().asFile.apply { parentFile.mkdirs() }.writeText("passed\n")
+val checkPipeSafety =
+    tasks.register<Exec>("checkPipeSafety") {
+        group = "verification"
+        description = "Scans every pipefail script under deploy/ for an early-terminating pipe reader (season-2-ops/27)."
+        commandLine("bash", pipeSafetyTest.asFile.absolutePath)
+        // The whole directory, not just the guard script: it discovers its targets at run time, so
+        // Gradle has to invalidate on any change under deploy/, not only on the guard itself.
+        inputs.dir(layout.projectDirectory.dir("deploy")).withPropertyName("deploy")
+        val marker = layout.buildDirectory.file("checkPipeSafety/passed")
+        outputs.file(marker).withPropertyName("marker")
+        doLast {
+            marker
+                .get()
+                .asFile
+                .apply { parentFile.mkdirs() }
+                .writeText("passed\n")
+        }
     }
-}
 
 tasks.named("check") { dependsOn(checkEntrypoint, checkDev, checkSetup, checkRestore, checkPipeSafety) }

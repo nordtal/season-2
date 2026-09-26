@@ -1,4 +1,4 @@
-package eu.nordtal.s2.proxy.routing;
+package eu.nordtal.s2.proxy;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.proxy.config.GateSpec;

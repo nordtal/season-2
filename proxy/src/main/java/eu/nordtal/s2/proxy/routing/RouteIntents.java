@@ -4,6 +4,8 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
 import com.velocitypowered.api.proxy.Player;
+import eu.nordtal.s2.proxy.PhaseServers;
+import eu.nordtal.s2.proxy.PlayerRouter;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import java.util.Objects;
 import java.util.UUID;

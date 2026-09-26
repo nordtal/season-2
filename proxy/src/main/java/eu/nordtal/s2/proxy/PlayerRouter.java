@@ -1,4 +1,4 @@
-package eu.nordtal.s2.proxy.routing;
+package eu.nordtal.s2.proxy;
 
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.player.PlayerChooseInitialServerEvent;
@@ -15,6 +15,9 @@ import eu.nordtal.s2.proxy.gate.GateMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import eu.nordtal.s2.proxy.pack.PackStation;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
+import eu.nordtal.s2.proxy.routing.PhaseRouting;
+import eu.nordtal.s2.proxy.routing.RouteDecision;
+import eu.nordtal.s2.proxy.routing.RouteIntents;
 import eu.nordtal.s2.proxy.update.ParkedSeats;
 import java.time.Instant;
 import java.util.HashSet;

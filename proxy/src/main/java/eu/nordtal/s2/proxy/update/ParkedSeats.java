@@ -1,6 +1,6 @@
 package eu.nordtal.s2.proxy.update;
 
-import eu.nordtal.s2.proxy.routing.PhaseServers;
+import eu.nordtal.s2.proxy.PhaseServers;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;

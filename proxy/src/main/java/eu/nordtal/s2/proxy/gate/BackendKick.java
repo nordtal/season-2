@@ -4,7 +4,7 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.player.KickedFromServerEvent;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-import eu.nordtal.s2.proxy.routing.PhaseServers;
+import eu.nordtal.s2.proxy.PhaseServers;
 import java.util.Locale;
 import java.util.Objects;
 import net.kyori.adventure.text.Component;

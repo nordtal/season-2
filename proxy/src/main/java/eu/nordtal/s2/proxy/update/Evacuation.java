@@ -7,7 +7,7 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.proxy.routing.PhaseServers;
+import eu.nordtal.s2.proxy.PhaseServers;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;

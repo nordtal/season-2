@@ -2,7 +2,7 @@ package eu.nordtal.s2.proxy.pack;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.limbo.WaitReason;
-import eu.nordtal.s2.proxy.routing.ProxyRole;
+import eu.nordtal.s2.proxy.ProxyRole;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

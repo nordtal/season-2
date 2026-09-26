@@ -35,7 +35,7 @@ import org.slf4j.Logger;
  *
  * <p>
  * Maintenance refuses nobody here: a non-admin is let onto the proxy and
- * {@code eu.nordtal.s2.proxy.routing.PlayerRouter} puts them in {@code limbo}, where the
+ * {@code eu.nordtal.s2.proxy.PlayerRouter} puts them in {@code limbo}, where the
  * explanation is shown. An <b>unlinked</b> player is still refused with a link code, in every phase.
  * </p>
  * <p>

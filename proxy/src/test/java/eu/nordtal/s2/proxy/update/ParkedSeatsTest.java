@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.proxy.routing.PhaseServers;
+import eu.nordtal.s2.proxy.PhaseServers;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;

@@ -17,7 +17,7 @@ public final class OnlineCounts {
 
     /**
      * The proxy's own subject in {@code online_count} - the network total, next to the three
-     * backends. Not one of {@link eu.nordtal.s2.proxy.routing.PhaseServers}' names because
+     * backends. Not one of {@link eu.nordtal.s2.proxy.PhaseServers}' names because
      * it names this process, not a phase's destination, and is never configurable the way they are.
      */
     public static final String PROXY = "proxy";

@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <h2>Why a timeout and not a real health check</h2>
  * This proxy has no way to ask a backend "are you all right" that is more honest than trying to
- * connect a player to it - which is exactly what {@link eu.nordtal.s2.proxy.routing.PlayerRouter}
+ * connect a player to it - which is exactly what {@link eu.nordtal.s2.proxy.PlayerRouter}
  * already does on every release. So the breaker does not poll anything of its own: it goes
  * <i>open</i> the instant a backend is caught misbehaving, stays open for {@link #RETRY}, and then
  * goes <i>half-open</i> - {@link #isSuspended} answers {@code false} again for exactly the one

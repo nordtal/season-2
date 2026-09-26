@@ -2,6 +2,8 @@ package eu.nordtal.s2.proxy.routing;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessState;
+import eu.nordtal.s2.proxy.PhaseServers;
+import eu.nordtal.s2.proxy.ProxyRole;
 import eu.nordtal.s2.proxy.gate.GateOutcome;
 import java.util.Objects;
 import java.util.Set;

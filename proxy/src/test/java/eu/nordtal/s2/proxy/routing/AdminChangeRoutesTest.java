@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 class AdminChangeRoutesTest {
 
     private static final String PLUGIN = "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
-    private static final String ROUTER = "proxy/src/main/java/eu/nordtal/s2/proxy/routing/PlayerRouter.java";
+    private static final String ROUTER = "proxy/src/main/java/eu/nordtal/s2/proxy/PlayerRouter.java";
 
     @Test
     @DisplayName("a changed admin flag forces a re-route, not just a roster update")

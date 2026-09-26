@@ -1,4 +1,4 @@
-package eu.nordtal.s2.hungergames.game;
+package eu.nordtal.s2.hungergames;
 
 import java.time.Instant;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package eu.nordtal.s2.proxy.routing;
+package eu.nordtal.s2.proxy;
 
 /**
  * Which of the two proxies this process is (season-2-ops/121).

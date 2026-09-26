@@ -3,6 +3,7 @@ package eu.nordtal.s2.proxy.command;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.commands.CommandMessages;
+import eu.nordtal.s2.commands.Update;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
@@ -52,7 +53,7 @@ class ConsoleUserTest {
         }
     }
 
-    private static final CommandMessages.Update UPDATE = CommandMessages.MESSAGES.update();
+    private static final Update UPDATE = CommandMessages.MESSAGES.update();
 
     @Test
     @DisplayName("a reply with no placeholders arrives, which is the case that was broken")

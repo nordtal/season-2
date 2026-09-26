@@ -54,7 +54,8 @@ decision records.
 - **Package by feature**: `eu.nordtal.<repo>.<module>.<feature>`, never by layer. _(partly checked)_
 - **No `util`, `helper` or `misc` packages** inside a module. Code shared by several
   features lives at the module root. _(checked)_
-- **No package cycles.** _(checked by ArchUnit)_
+- **No cycles between feature packages**, each counted with its subpackages. The module root,
+  which wires the features and holds what they share, is exempt. _(checked by ArchUnit)_
 
 ## Tests
 

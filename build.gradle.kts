@@ -1,14 +1,18 @@
+import net.ltgt.gradle.errorprone.CheckSeverity
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
     id("java")
     id("java-library")
     id("com.gradleup.shadow") version "9.6.1"
     id("maven-publish")
+    id("checkstyle")
+    id("com.diffplug.spotless") version "8.10.3"
+    id("net.ltgt.errorprone") version "5.1.1"
 }
-
 
 group = "eu.nordtal"
 version = System.getenv("VERSION") ?: "local"
-
 
 repositories {
     mavenCentral()
@@ -70,7 +74,14 @@ dependencies {
     // https://mvnrepository.com/artifact/org.postgresql/postgresql  (JDBC driver, loaded by service lookup)
     runtimeOnly("org.postgresql:postgresql:42.7.13")
 
+    api("org.jspecify:jspecify:1.0.1")
+
+    errorprone("com.google.errorprone:error_prone_core:2.50.0")
+    errorprone("com.uber.nullaway:nullaway:0.14.2")
+
     // -- test --
+
+    testImplementation("com.tngtech.archunit:archunit-junit5:1.5.1")
 
     testImplementation(platform("org.junit:junit-bom:5.14.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -131,55 +142,161 @@ tasks.test {
 val repositoryRootDirectory = layout.projectDirectory.asFile
 val sourceDirectoriesOfEverySourceSet = sourceSets.flatMap { it.allSource.srcDirs }
 
-val checkSourcesTracked = tasks.register("checkSourcesTracked") {
-    group = "verification"
-    description = "Fails when a source file is ignored by Git and therefore missing from the repository."
+val checkSourcesTracked =
+    tasks.register("checkSourcesTracked") {
+        group = "verification"
+        description = "Fails when a source file is ignored by Git and therefore missing from the repository."
 
-    // .gitignore, the global ignore file and the index are inputs no task can declare, so there is
-    // no honest up-to-date check here. The work is one `git` call.
-    outputs.upToDateWhen { false }
+        // .gitignore, the global ignore file and the index are inputs no task can declare, so there is
+        // no honest up-to-date check here. The work is one `git` call.
+        outputs.upToDateWhen { false }
 
-    val taskPath = path
-    doLast {
-        if (!repositoryRootDirectory.resolve(".git").exists()) return@doLast
+        val taskPath = path
+        doLast {
+            if (!repositoryRootDirectory.resolve(".git").exists()) return@doLast
 
-        val pathspecs = sourceDirectoriesOfEverySourceSet
-            .filter { it.isDirectory }
-            .map { repositoryRootDirectory.toPath().relativize(it.toPath()).joinToString("/") }
-            .sorted()
-        if (pathspecs.isEmpty()) return@doLast
+            val pathspecs =
+                sourceDirectoriesOfEverySourceSet
+                    .filter { it.isDirectory }
+                    .map { repositoryRootDirectory.toPath().relativize(it.toPath()).joinToString("/") }
+                    .sorted()
+            if (pathspecs.isEmpty()) return@doLast
 
-        // Untracked *and* ignored: a tracked file that happens to match an ignore rule is still in
-        // the repository, which is all this cares about.
-        val command = listOf(
-            "git", "ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--"
-        ) + pathspecs
-        val process = ProcessBuilder(command)
-            .directory(repositoryRootDirectory)
-            .redirectErrorStream(true)
-            .start()
-        process.outputStream.close()
-        val output = process.inputStream.bufferedReader().use { it.readText() }
-        val exit = process.waitFor()
-        if (exit != 0) {
-            throw GradleException("`${command.joinToString(" ")}` failed with exit code $exit:\n$output")
-        }
+            // Untracked *and* ignored: a tracked file that happens to match an ignore rule is still in
+            // the repository, which is all this cares about.
+            val command =
+                listOf(
+                    "git",
+                    "ls-files",
+                    "--others",
+                    "--ignored",
+                    "--exclude-standard",
+                    "-z",
+                    "--",
+                ) + pathspecs
+            val process =
+                ProcessBuilder(command)
+                    .directory(repositoryRootDirectory)
+                    .redirectErrorStream(true)
+                    .start()
+            process.outputStream.close()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            val exit = process.waitFor()
+            if (exit != 0) {
+                throw GradleException("`${command.joinToString(" ")}` failed with exit code $exit:\n$output")
+            }
 
-        val ignored = output.split('\u0000').filter { it.isNotBlank() }
-        if (ignored.isNotEmpty()) {
-            throw GradleException(buildString {
-                appendLine("Git ignores these files, so they are not in the repository:")
-                ignored.forEach { appendLine("    $it") }
-                appendLine()
-                appendLine("They sit under a source directory covered by $taskPath, so this build sees them and a")
-                appendLine("build from a fresh checkout does not. Find the rule with")
-                appendLine("    git check-ignore -v <path>")
-                appendLine("and anchor it in .gitignore (`/build/`, never a bare `build/`), then `git add` the files.")
-            })
+            val ignored = output.split('\u0000').filter { it.isNotBlank() }
+            if (ignored.isNotEmpty()) {
+                throw GradleException(
+                    buildString {
+                        appendLine("Git ignores these files, so they are not in the repository:")
+                        ignored.forEach { appendLine("    $it") }
+                        appendLine()
+                        appendLine("They sit under a source directory covered by $taskPath, so this build sees them and a")
+                        appendLine("build from a fresh checkout does not. Find the rule with")
+                        appendLine("    git check-ignore -v <path>")
+                        appendLine("and anchor it in .gitignore (`/build/`, never a bare `build/`), then `git add` the files.")
+                    },
+                )
+            }
         }
     }
-}
 
 tasks.named("check") {
     dependsOn(checkSourcesTracked)
+}
+
+// CONVENTIONS.md, as far as a tool can check it. Formatting is always enforced. `conventions.comments`
+// enforces the comment and tracker-ID rules, `conventions.enforced` every rule; both are set in
+// gradle.properties once the code passes, or on the command line to see the findings.
+fun flag(name: String) = providers.gradleProperty(name).map { it.toBoolean() }.getOrElse(false)
+
+val conventionsEnforced = flag("conventions.enforced")
+val commentsEnforced = conventionsEnforced || flag("conventions.comments")
+
+spotless {
+    java {
+        target("src/*/java/**/*.java")
+        palantirJavaFormat("2.99.0")
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint("1.8.0")
+    }
+}
+
+checkstyle {
+    toolVersion = "14.1.0"
+    maxWarnings = 0
+    isIgnoreFailures = !commentsEnforced
+    isShowViolations = commentsEnforced
+    configProperties = mapOf("apiDocSeverity" to "error", "codeSeverity" to if (conventionsEnforced) "error" else "ignore")
+}
+
+tasks.named<Checkstyle>("checkstyleTest") {
+    configProperties = checkstyle.configProperties + ("apiDocSeverity" to "ignore")
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        enabled = conventionsEnforced
+        disableWarningsInGeneratedCode = true
+        // CONVENTIONS.md allows a doc comment of tags only when the name and tags say everything.
+        disable("MissingSummary")
+        check("NullAway", if (name == "compileJava") CheckSeverity.ERROR else CheckSeverity.OFF)
+        option("NullAway:AnnotatedPackages", "eu.nordtal")
+    }
+    if (conventionsEnforced) options.compilerArgs.add("-Werror")
+}
+
+tasks.test {
+    systemProperty("conventions.enforced", conventionsEnforced)
+}
+
+// Issue-tracker IDs never go into the repository; the pattern lists every prefix the trackers used.
+val trackerIdPattern = Regex("""\b(steward|season-2-ops|season-2-ingame|season-2-community|workspace)/\d+\b|\bNT\d+-\d+\b""")
+
+val checkNoTrackerIds =
+    tasks.register("checkNoTrackerIds") {
+        group = "verification"
+        description = "Fails when a tracked file mentions an issue-tracker ID."
+        outputs.upToDateWhen { false }
+        val root = repositoryRootDirectory
+        val enforced = commentsEnforced
+        doLast {
+            if (!root.resolve(".git").exists()) return@doLast
+            val process = ProcessBuilder("git", "ls-files", "-z").directory(root).start()
+            process.outputStream.close()
+            val files =
+                process.inputStream
+                    .bufferedReader()
+                    .use { it.readText() }
+                    .split('\u0000')
+                    .filter { it.isNotBlank() }
+            process.waitFor()
+            val hits =
+                files.flatMap { path ->
+                    val file = root.resolve(path)
+                    if (!file.isFile || file.length() > 1_000_000) return@flatMap emptyList()
+                    val text = runCatching { file.readText() }.getOrNull() ?: return@flatMap emptyList()
+                    if ('\u0000' in text) return@flatMap emptyList()
+                    text
+                        .lineSequence()
+                        .withIndex()
+                        .filter { trackerIdPattern.containsMatchIn(it.value) }
+                        .map { "$path:${it.index + 1}: ${trackerIdPattern.find(it.value)!!.value}" }
+                        .toList()
+                }
+            if (hits.isEmpty()) return@doLast
+            val report = "Issue-tracker IDs in the repository:\n" + hits.joinToString("\n") { "    $it" }
+            if (enforced) throw GradleException(report) else logger.lifecycle("${hits.size} issue-tracker IDs, not yet enforced.")
+        }
+    }
+
+tasks.named("check") {
+    dependsOn(checkNoTrackerIds)
 }

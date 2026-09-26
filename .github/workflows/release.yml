@@ -19,6 +19,9 @@ on:
   push:
     tags: ['*']
 
+permissions:
+  contents: write
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -28,6 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v6
         with:
@@ -47,3 +52,16 @@ jobs:
       # Testcontainers-backed tests execute instead of skipping themselves.
       - name: Build and test as JitPack would, with Docker available
         run: VERSION="${{ github.ref_name }}" ./gradlew build publishToMavenLocal
+
+      - name: Write the release notes
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: ${{ runner.temp }}/notes.md
+
+      - name: Publish a GitHub release with the notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" --title "${{ github.ref_name }}" --notes-file "$RUNNER_TEMP/notes.md"

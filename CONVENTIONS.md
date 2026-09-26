@@ -75,7 +75,8 @@ The release notes are generated from these subjects by git-cliff (`cliff.toml`).
 - **Commit scope** is the module directory (`feat(steward-ui): …`, `fix(smp): …`), `deploy` for
   `deploy/` and `compose.yml`, `build-logic` for `build-logic/` and the version catalog.
 - **Architecture** _(checked by ArchUnit)_:
-  - `:common` depends only on the JDK, JDBI, HikariCP, slf4j-api and the PostgreSQL driver.
+  - `:common` depends only on the JDK, JDBI, HikariCP, slf4j-api, the PostgreSQL driver, JSpecify
+    and Adventure, which both platforms provide.
   - No Paper plugin calls a blocking `join`; database work leaves the main thread.
   - Only `steward-worker` runs Flyway `migrate()`. `discord-bot` only validates, plugins do neither.
 - **steward-ui frontend** is formatted by oxfmt and linted by oxlint with type-aware rules

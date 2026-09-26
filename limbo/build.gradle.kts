@@ -15,7 +15,8 @@ tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option(
             "NullAway:KnownInitializers",
-            "eu.nordtal.s2.limbo.LimboPlugin.start,eu.nordtal.s2.limbo.LimboPlugin.wireCommandInbox")
+            "eu.nordtal.s2.limbo.LimboPlugin.start,eu.nordtal.s2.limbo.LimboPlugin.wireCommandInbox",
+        )
     }
 }
 

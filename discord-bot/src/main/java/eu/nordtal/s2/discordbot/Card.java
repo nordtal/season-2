@@ -12,18 +12,16 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 /**
  * The one way this bot draws an embed.
  *
- * <h2>An embed is UI, not a paragraph in a box</h2>
- * A title, one-word headings, and values that are data: {@code smp 0.9.3 → 0.9.4} rather than a
- * sentence saying the plugin was updated. What happened is the colour, when is the timestamp, and
- * who asked is a field. Every embed the bot sends goes through here so the next one cannot drift
- * back into prose.
+ * An embed is UI, not a paragraph in a box: A title, one-word headings, and values that are data:
+ * {@code smp 0.9.3 → 0.9.4} rather than a sentence saying the plugin was updated. What happened is the colour, when
+ * is the timestamp, and who asked is a field. Every embed the bot sends goes through here so the next one cannot
+ * drift back into prose.
  *
- * <h2>Discord's limits are answered here, once</h2>
- * 25 fields, 1024 characters per field, 4096 in the description and 6000 across the whole embed.
- * JDA refuses an embed over any of them, and the person watching then sees nothing at all.
- * {@link #block} is the answer for anything that grows with the network: its lines are packed into
- * as few fields as they fit, and what does not fit is <em>counted</em> ("+3 more") rather than cut
- * off mid-line. There is no fallback to a code block. A code block is for something to copy.
+ * Discord's limits are answered here, once: 25 fields, 1024 characters per field, 4096 in the description and 6000
+ * across the whole embed. JDA refuses an embed over any of them, and the person watching then sees nothing at all.
+ * {@link #block} is the answer for anything that grows with the network: its lines are packed into as few fields as
+ * they fit, and what does not fit is counted ("+3 more") rather than cut off mid-line. There is no fallback to a
+ * code block. A code block is for something to copy.
  */
 public final class Card {
 
@@ -86,8 +84,9 @@ public final class Card {
     }
 
     /**
-     * One line per item under one heading, full width, continued into further fields when it
-     * outgrows one - and summarised by {@code more} once the embed itself is full.
+     * One line per item under one heading, full width, continued into further fields when it outgrows one.
+     *
+     * Summarised by {@code more} once the embed itself is full.
      *
      * @param more what to say about the lines that did not fit, given how many there were
      */
@@ -95,8 +94,7 @@ public final class Card {
         if (lines.isEmpty()) {
             return this;
         }
-        // Enough for the heading of one more field plus a "+N more" line, so the summary always
-        // fits where it is needed - measured from the longest the count can make it.
+        // Enough for the heading of one more field plus a "+N more" line, measured from the longest the count makes.
         final int reserve = CONTINUED.length() + more.apply(lines.size()).length() + 1;
         final List<String> chunks = new ArrayList<>();
         StringBuilder chunk = new StringBuilder();
@@ -160,7 +158,7 @@ public final class Card {
         return embed.build();
     }
 
-    // ---------------------------------------------------------------- formatting
+    // Formatting.
 
     /** A transition: the old value plain, the new one bold, an arrow between. */
     public static String arrow(final String from, final String to) {
@@ -176,8 +174,9 @@ public final class Card {
     }
 
     /**
-     * Makes text from outside - a player name, an artefact, a failure message - read as itself,
-     * so an underscore in a name does not turn the rest of the line italic.
+     * Makes text from outside read as itself.
+     *
+     * A player name, an artefact, a failure message - so an underscore in it does not turn the rest italic.
      */
     public static String escape(final String text) {
         return text.replaceAll("([\\\\*_~`|>])", "\\\\$1");
@@ -195,7 +194,7 @@ public final class Card {
         return seconds / 3600 + " h " + seconds % 3600 / 60 + " min";
     }
 
-    // ---------------------------------------------------------------- the arithmetic
+    // The arithmetic.
 
     private Card add(final String name, final String value, final boolean inline) {
         final String heading = cut(name, FIELD_NAME);

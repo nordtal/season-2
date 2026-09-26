@@ -15,16 +15,15 @@ import net.dv8tion.jda.api.entities.Role;
 /**
  * The Discord admin role, kept to match the admin tree in the database - one way.
  *
- * <p>Admins are granted and revoked in Steward. The role is a decoration of that decision: this
- * adds it to every admin in the guild and takes it from everybody else who holds it, a role given
- * by hand in Discord included. Nothing here ever writes the database.</p>
+ * Admins are granted and revoked in Steward. The role is a decoration of that decision: this adds it to every admin
+ * in the guild and takes it from everybody else who holds it, a role given by hand in Discord included. Nothing here
+ * ever writes the database.
  *
- * <p>It runs on every wake of the access listener - a grant or revocation notifies
- * {@code nordtal_admin}, and the thirty-second poll catches a notification that was lost and a
- * role somebody handed out by hand.</p>
+ * It runs on every wake of the access listener - a grant or revocation notifies {@code nordtal_admin}, and the
+ * thirty-second poll catches a notification that was lost and a role somebody handed out by hand.
  *
- * <p>A failure is alerted once per account and then kept quiet until it succeeds: a bot whose role
- * sits below the admin role would otherwise post the same line every thirty seconds.</p>
+ * A failure is alerted once per account and then kept quiet until it succeeds: a bot whose role sits below the admin
+ * role would otherwise post the same line every thirty seconds.
  */
 @Slf4j
 public final class AdminRole {
@@ -74,8 +73,7 @@ public final class AdminRole {
         for (final String discordId : shouldHave) {
             final Member member = guild.getMemberById(discordId);
             if (member == null) {
-                // Not in the member cache. Leaving drops the admin anyway, so this is a cache that
-                // has not caught up, and the next pass sees them.
+                // Not in the member cache: leaving drops the admin anyway, so the next pass catches up.
                 continue;
             }
             guild.addRoleToMember(member, role)

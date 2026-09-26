@@ -23,42 +23,40 @@ import org.jspecify.annotations.Nullable;
 /**
  * Renames one channel per language so the guild's sidebar says what the network is doing.
  *
- * <h2>The whole design is one API limit</h2>
- * Discord allows <b>two renames per ten minutes per channel</b>. It is undocumented
- * (discord/discord-api-docs#1900, read 2026-09-03) and abusing the route is reported to produce
- * immediate hard blocks, so this class is built to stay well inside it rather than to discover
- * where it is:
- * <ul>
- *   <li>the tick runs every minute and costs <b>nothing</b> unless the name actually changed -
- *       {@link StatusName} is deliberately coarse so that it rarely does;</li>
- *   <li>a channel is renamed at most once every {@value #MINIMUM_RENAME_MINUTES} minutes whatever
- *       the tick decides, which caps any ten-minute window at two;</li>
- *   <li>each language is its own channel and therefore its own budget.</li>
- * </ul>
+ * The whole design is one API limit: Discord allows two renames per ten minutes per channel.
  *
- * <h2>What "changed" is measured against</h2>
- * The last name <b>this bot set</b>, not the name Discord reports. Discord normalises the names of
- * text channels - lower case, spaces to hyphens - so a name read back is frequently not the name
- * that was sent, and comparing against it would rename the channel on every single tick, for ever.
- * (A voice channel keeps the name verbatim, which is why one is the better shape for this; the bot
- * works with either and does not care which it is given.)
+ * It is undocumented (discord/discord-api-docs#1900) and abusing the route is reported to produce immediate hard
+ * blocks, so this class is built to stay well inside it rather than to discover where it is:
  *
- * <p>The consequence is that a restart renames every configured channel once, because nothing is
- * remembered across one. That is one call per language per restart and is the cheapest correct
- * answer available.
+ * - the tick runs every minute and costs nothing unless the name actually changed - {@link StatusName} is
+ *   deliberately coarse so that it rarely does;
  *
- * <h2>Failure costs freshness and nothing else</h2>
- * An unreachable database or a channel that is gone leaves the name as it is; the next tick is the
- * retry. Nothing is cleared and nothing is blanked - a sidebar entry frozen at last hour's number
- * is better than one that says the season has no players.
+ * - a channel is renamed at most once every {@value #MINIMUM_RENAME_MINUTES} minutes whatever the tick decides,
+ *   which caps any ten-minute window at two;
+ *
+ * - each language is its own channel and therefore its own budget.
+ *
+ * What "changed" is measured against: The last name this bot set, not the name Discord reports. Discord normalises
+ * the names of text channels - lower case, spaces to hyphens - so a name read back is frequently not the name that
+ * was sent, and comparing against it would rename the channel on every single tick, for ever. (A voice channel keeps
+ * the name verbatim, which is why one is the better shape for this; the bot works with either and does not care
+ * which it is given.)
+ *
+ * The consequence is that a restart renames every configured channel once, because nothing is remembered across one.
+ * That is one call per language per restart and is the cheapest correct answer available.
+ *
+ * Failure costs freshness and nothing else: An unreachable database or a channel that is gone leaves the name as it
+ * is; the next tick is the retry. Nothing is cleared and nothing is blanked - a sidebar entry frozen at last hour's
+ * number is better than one that says the season has no players.
  */
 @Slf4j
 public final class StatusChannels {
 
     /**
-     * The floor between two renames of the same channel. Half of Discord's budget, so a second
-     * rename that lands right on the boundary still cannot break it, and there is room left over
-     * for the one rename a restart costs.
+     * The floor between two renames of the same channel.
+     *
+     * Half of Discord's budget, so a second rename that lands right on the boundary still cannot break it, and
+     * there is room left over for the one rename a restart costs.
      */
     static final int MINIMUM_RENAME_MINUTES = 6;
 
@@ -71,10 +69,9 @@ public final class StatusChannels {
 
     /**
      * Channel id to the name this bot last got Discord to accept, and when it last tried.
-     * <p>
-     * Concurrent because the failure callback runs on a JDA thread while {@link #tick()} runs on
-     * the bot's timer, and the two write the same entry.
-     * </p>
+     *
+     * Concurrent because the failure callback runs on a JDA thread while {@link #tick()} runs on the bot's timer, and
+     * the two write the same entry.
      */
     private final Map<String, Rename> attempts = new ConcurrentHashMap<>();
 
@@ -123,8 +120,9 @@ public final class StatusChannels {
     }
 
     /**
-     * One pass: read the state, render a name per language, rename what changed. Called from the
-     * bot's timer once a minute.
+     * One pass: read the state, render a name per language, rename what changed.
+     *
+     * Called from the bot's timer once a minute.
      */
     public void tick() {
         final SeasonPhase phase = phases.currentPhase();
@@ -137,9 +135,7 @@ public final class StatusChannels {
             return;
         }
 
-        // Only PRE_LAUNCH counts down, and only the three phases with a game running need counts.
-        // Reading neither during MAINTENANCE is not an optimisation for its own sake: it is one
-        // fewer query that can fail while the network is already in trouble.
+        // Reading neither during MAINTENANCE is one fewer query that can fail while the network is already down.
         final Instant launch = phase == SeasonPhase.PRE_LAUNCH ? phases.launch().orElse(null) : null;
         final NetworkSnapshot snapshot = needsCounts(phase) ? snapshots.snapshot() : NetworkSnapshot.EMPTY;
         final Instant now = clock.instant();
@@ -150,9 +146,10 @@ public final class StatusChannels {
     }
 
     /**
-     * A phase that differs from the one the previous tick saw is posted into every announcement
-     * channel, in that channel's language. The first tick after a start only remembers: a bot that
-     * restarts during SMP must not announce SMP.
+     * A phase that differs from the one the previous tick saw is posted into every announcement channel.
+     *
+     * Each channel gets it in its own language. The first tick after a start only remembers: a bot that restarts
+     * during SMP must not announce SMP.
      */
     private void announceIfChanged(final SeasonPhase phase) {
         final SeasonPhase previous = lastSeen;
@@ -175,10 +172,7 @@ public final class StatusChannels {
             return;
         }
         if (previous != null && Duration.between(previous.at(), now).toMinutes() < MINIMUM_RENAME_MINUTES) {
-            // The name is stale by design for a few minutes. The next tick tries again; nothing is
-            // lost, because the value it would have written is recomputed from scratch each time.
-            // This is also what stops a channel Discord keeps refusing from being retried every
-            // minute - the cooldown counts attempts, not successes.
+            // Stale by design: the next tick recomputes from scratch, and the cooldown counts attempts, not successes.
             return;
         }
 
@@ -193,20 +187,13 @@ public final class StatusChannels {
             return;
         }
 
-        // Optimistic: the name is recorded as confirmed before the request, so a rename Discord
-        // accepted but whose callback we never saw is not sent twice. A callback that reports
-        // failure takes it back again - see below.
+        // Optimistic: recorded as confirmed before the request, so a missed callback does not resend it.
         final Rename sent = new Rename(name, now);
         attempts.put(channelId, sent);
         channel.getManager()
                 .setName(name)
                 .queue(success -> log.debug("Status channel for '{}' is now \"{}\"", language.tag(), name), failure -> {
-                    // Forget the name but keep the attempt time. Without this the entry would still
-                    // claim the channel is called `name`, and the next tick would return at the
-                    // equality check above - so a channel that failed once would stay stale until
-                    // the rendered text happened to change, which for a days-and-hours countdown is
-                    // an hour and for MAINTENANCE is for ever. Conditional, so a callback arriving
-                    // after a later tick has already written something else cannot undo it.
+                    // Forget the name, keep the attempt time, so a failed rename is retried rather than stuck stale.
                     attempts.replace(channelId, sent, new Rename(null, sent.at()));
                     log.warn(
                             "Could not rename the status channel for '{}' to \"{}\"; it will be"

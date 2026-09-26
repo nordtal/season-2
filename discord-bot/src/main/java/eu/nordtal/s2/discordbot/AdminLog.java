@@ -12,20 +12,16 @@ import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The admin surface: one row in {@code audit_log} and, when a human is needed, one line in the
- * admin channel.
+ * The admin surface: one row in {@code audit_log} and, when a human is needed, one line in the admin channel.
  *
- * <h2>Two things, deliberately together</h2>
- * Every admin action writes both. Splitting them made it possible - and in season 1, normal - for
- * something to be logged to the console and never surface anywhere a human looks. A failed DM is
- * the example the concept calls out by name.
+ * Two things, deliberately together: Every admin action writes both. Splitting them made it possible - and in season
+ * 1, normal - for something to be logged to the console and never surface anywhere a human looks. A failed DM is the
+ * example the concept calls out by name.
  *
- * <h2>Mention or not</h2>
- * {@link #alert(String)} mentions the admin role; {@link #note(String)} does not. Everything that
- * needs somebody to do something is an alert - an unmatchable payment, a payment on an expired
- * reference, a DM that bounced, a role that could not be set. Routine records - a link, an admin
- * grant that already happened - are notes. A channel that pings for everything is a channel with
- * notifications turned off.
+ * Mention or not: {@link #alert(String)} mentions the admin role; {@link #note(String)} does not. Everything that
+ * needs somebody to do something is an alert - an unmatchable payment, a payment on an expired reference, a DM that
+ * bounced, a role that could not be set. Routine records - a link, an admin grant that already happened - are notes.
+ * A channel that pings for everything is a channel with notifications turned off.
  */
 @Slf4j
 public final class AdminLog {
@@ -43,9 +39,9 @@ public final class AdminLog {
     /**
      * Something needs a human. Mentions the admin role, when there is one to mention.
      *
-     * <p>No ping role configured does not silence the alert - it posts the same sentence without
-     * the mention. An alert nobody is notified about is still an alert somebody scrolling the
-     * channel can read; an alert that was not posted is nothing.</p>
+     * No ping role configured does not silence the alert - it posts the same sentence without the mention. An alert
+     * nobody is notified about is still an alert somebody scrolling the channel can read; an alert that was not posted
+     * is nothing.
      */
     public void alert(final String text) {
         post(
@@ -62,15 +58,15 @@ public final class AdminLog {
     /**
      * Posts an embed and hands its message id back, so a caller can rewrite it later.
      *
-     * <p>The one thing in the admin channel that is not a finished sentence: an update run is drawn
-     * when it starts and edited as it works, the same way the asker's own ephemeral message is. It
-     * goes through this class rather than reaching for the channel directly because "which channel
-     * is the admin channel, and what happens when it is missing" is answered here once.</p>
+     * The one thing in the admin channel that is not a finished sentence: an update run is drawn when it starts and
+     * edited as it works, the same way the asker's own ephemeral message is. It goes through this class rather than
+     * reaching for the channel directly because "which channel is the admin channel, and what happens when it is
+     * missing" is answered here once.
      *
-     * @param embed  what to draw
+     * @param embed what to draw
      * @param sentId called with the message id once Discord has accepted it, on a JDA thread. Not
-     *               called at all when the post fails, which is why a caller has to treat "no id
-     *               yet" as an ordinary state rather than as an error
+     *     called at all when the post fails, which is why a caller has to treat "no id yet" as an
+     *     ordinary state rather than as an error.
      */
     public void post(final MessageEmbed embed, final Consumer<String> sentId) {
         final MessageChannel channel = channel();
@@ -86,8 +82,8 @@ public final class AdminLog {
     /**
      * Rewrites a message this class posted.
      *
-     * <p>A failure is logged and nothing else: the message is a drawing of a row that is the real
-     * record, and an admin channel that cannot be edited must not be able to stop a run.</p>
+     * A failure is logged and nothing else: the message is a drawing of a row that is the real record, and an admin
+     * channel that cannot be edited must not be able to stop a run.
      */
     public void edit(final String messageId, final MessageEmbed embed) {
         final MessageChannel channel = channel();
@@ -118,16 +114,13 @@ public final class AdminLog {
         try {
             dao.record(action, actor, subject, mcUuid, detail);
         } catch (final RuntimeException exception) {
-            // Never let an audit write take down the thing it is auditing. The action itself has
-            // already happened by the time we get here.
+            // Never let an audit write take down the thing it is auditing; the action already happened.
             log.error("Could not write the audit_log row for {} ({})", action, detail, exception);
         }
     }
 
     private @Nullable MessageChannel channel() {
-        // Unconfigured and unresolvable are two different situations and must not read the same in
-        // a log. The first is a deployment that has not picked a channel; the second is a channel
-        // that was picked and has since been deleted or hidden from the bot.
+        // Unconfigured and unresolvable read differently in a log: no channel picked, or one since removed.
         if (!Configured.isSet(config.channels().admin())) {
             return null;
         }
@@ -144,8 +137,7 @@ public final class AdminLog {
     private void post(final String text) {
         final MessageChannel channel = channel();
         if (channel == null) {
-            // At warn rather than error: with no admin channel configured this is the ONLY place
-            // the message exists, so it has to be readable, and it is not a fault.
+            // At warn, not error: with no admin channel this is the only place the message exists.
             log.warn("No admin channel, so this was not posted to Discord: {}", text);
             return;
         }

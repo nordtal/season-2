@@ -25,21 +25,18 @@ import java.util.concurrent.Executor;
 /**
  * {@link AccessEffects} against this bot.
  *
- * <h2>Everything here is three things at once</h2>
- * A grant is a row, a Discord role and a direct message in the recipient's own language; a
- * revocation is the same three in reverse. Only this process holds a JDA session, which is why these
- * are the bot's effects and not {@code :common}'s - and why a Paper server asking for one writes a
+ * Everything here is three things at once: A grant is a row, a Discord role and a direct message in the recipient's
+ * own language; a revocation is the same three in reverse. Only this process holds a JDA session, which is why these
+ * are the bot's effects and not {@code :common} 's - and why a Paper server asking for one writes a
  * {@code command_request} row rather than doing it itself.
  *
- * <h2>The audit row is written here and not by the command</h2>
- * {@code audit_log} is this bot's, and its shape - action, actor, subject, detail - is a Discord
- * shape. A command that built one would be a command that knows what a Discord id is for; the
- * command hands over a {@link NordtalUser} and this decides what to file.
+ * The audit row is written here and not by the command: {@code audit_log} is this bot's, and its shape - action,
+ * actor, subject, detail - is a Discord shape. A command that built one would be a command that knows what a Discord
+ * id is for; the command hands over a {@link NordtalUser} and this decides what to file.
  *
- * <h2>Two instances, as everywhere</h2>
- * The one behind the slash commands runs its work on the bot's worker pool, because a JDA gateway
- * thread has three seconds. The one behind the command inbox runs it inline, because the inbox
- * settles a request row when the command returns.
+ * Two instances, as everywhere: The one behind the slash commands runs its work on the bot's worker pool, because a
+ * JDA gateway thread has three seconds. The one behind the command inbox runs it inline, because the inbox settles a
+ * request row when the command returns.
  */
 public final class BotAccessEffects implements AccessEffects, AccessChanges {
 
@@ -92,14 +89,7 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
 
     @Override
     public Optional<Status> status(final String discordId) {
-        // The name comes from Discord and everything else from the database. A member who has left
-        // the guild is why this can be empty: the link is still a row and the person is gone, which
-        // is a different answer from "not linked" and gets a different sentence.
-        //
-        // Through the guild, not through JDA's global user lookup - see AccessRoles#member. The
-        // global one answers for anybody with a Discord account, so it could not tell a departed
-        // member apart from a present one, and it throws rather than returning null for an id
-        // nobody has.
+        // Read through the guild, not JDA's global lookup, so a departed member reads as empty, not a thrown error.
         final Optional<net.dv8tion.jda.api.entities.Member> member = roles.member(discordId);
         if (member.isEmpty()) {
             return Optional.empty();
@@ -137,11 +127,10 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
     }
 
     /**
-     * The grant itself, for whoever asked (season-2-community/08).
+     * The grant itself, for whoever asked.
      *
-     * <p>Four things, and only this process can do three of them: the row, the role, the direct
-     * message in the recipient's own language, and the line in the admin channel. A surface that
-     * wrote only the first was the defect this seam closes.</p>
+     * Four things, and only this process can do three of them: the row, the role, the direct message in the recipient's
+     * own language, and the line in the admin channel.
      */
     @Override
     public Instant grant(final String discordId, final int days, final Actor by) {
@@ -191,8 +180,7 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
     /** @return whether there was a link to break. */
     @Override
     public boolean unlink(final String discordId, final Actor by) {
-        // Read before the unlink: afterwards there is no row to read it from, and the audit entry is
-        // the only place the UUID survives.
+        // Read before the unlink: afterwards the audit entry is the only place the UUID survives.
         final Optional<UUID> linked = access.linkedMinecraftAccount(discordId);
         if (!access.unlink(discordId)) {
             return false;
@@ -257,24 +245,20 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
     }
 
     /**
-     * Write somebody's total play time (season-2-community/08).
+     * Write somebody's total play time.
      *
-     * <p>New here, and it was nowhere before: steward wrote the column and a journal line, and the
-     * admin channel never heard about it. It joins the other four so that "an access change" means
-     * the same set of consequences whoever asked for it.</p>
+     * It joins the other four so that "an access change" means the same set of consequences whoever asked for it.
      *
-     * <p><b>No direct message.</b> The other four change what somebody may do and they are told;
-     * this corrects a number that is only ever read by admins, and a DM saying "your play time is
-     * now 42 hours" is an interruption about nothing. The tier it derives into is visible in game
-     * the moment it changes, which is the only part a player would notice.</p>
+     * No direct message. The other four change what somebody may do and they are told; this corrects a number that is
+     * only ever read by admins, and a DM saying "your play time is now 42 hours" is an interruption about nothing. The
+     * tier it derives into is visible in game the moment it changes, which is the only part a player would notice.
      *
      * @param seconds the new total, which is what the column holds
      */
     @Override
     public void setPlaytime(final String discordId, final long seconds, final Actor by) {
         access.setPlaytimeSeconds(discordId, seconds);
-        // Days, hours and minutes and not a number of seconds: Steward's dialog asks in those
-        // units and its list answers in them, so the journal and the admin channel do too.
+        // Days, hours and minutes, because that is the unit Steward's dialog and list use.
         admin.record("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(), PlaytimeWording.of(seconds));
         admin.note(by.mention() + " set <@" + discordId + ">'s play time to " + PlaytimeWording.of(seconds) + ".");
     }
@@ -283,9 +267,7 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
     public boolean reloadMessages() {
         try {
             messages.reload();
-            // The command inbox's own view of the shared bundle, in the same breath. Its unknown
-            // keys are deliberately not reported: it holds one root, so a key this module declares
-            // would be named as unknown by it and is not.
+            // The command inbox's own view of the shared bundle, in the same breath.
             shared.reload();
             return true;
         } catch (final RuntimeException failure) {

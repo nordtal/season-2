@@ -9,7 +9,6 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.DockerClientFactory;
@@ -17,12 +16,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * What the bot does at startup now that it does not migrate: check, and refuse if the answer is no.
- * <p>
- * Against a real PostgreSQL, because the thing being tested <em>is</em> the state of a database.
- * Driven by hand from {@link BeforeAll} rather than through {@code @Testcontainers} for the same
- * reason as every other integration test here - that extension is built against JUnit 5 and this
- * repo is on the JUnit 6 BOM - and it skips itself when no Docker daemon is reachable.
- * </p>
+ *
+ * Against a real PostgreSQL, because the thing being tested is the state of a database. Driven by hand from
+ * {@link BeforeAll} rather than through {@code @Testcontainers} for the same reason as every other integration test
+ * here - that extension is built against JUnit 5 and this repo is on the JUnit 6 BOM - and it skips itself when no
+ * Docker daemon is reachable.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @org.junit.jupiter.api.TestMethodOrder(org.junit.jupiter.api.MethodOrderer.OrderAnnotation.class)
@@ -59,12 +57,8 @@ class SchemaCheckTest {
 
     @Test
     @org.junit.jupiter.api.Order(1)
-    @DisplayName("an unmigrated database is refused, and the message names the command that fixes it")
-    void refusesAnEmptyDatabase() {
-        // Deliberately first: this test runs against the container BEFORE anything migrates it,
-        // which is exactly the state a deployment is in when somebody starts the bot before
-        // steward-worker. Without this check the bot would come up and fail on its first query, inside a
-        // Discord interaction, minutes later.
+    void anUnmigratedDatabaseIsRefusedAndTheMessageNamesTheCommandThatFixesIt() {
+        // Deliberately first: runs before anything migrates the container, the state before steward-worker.
         final IllegalStateException refused =
                 assertThrows(IllegalStateException.class, () -> SchemaCheck.validate(database.dataSource()));
 
@@ -74,8 +68,7 @@ class SchemaCheckTest {
 
     @Test
     @org.junit.jupiter.api.Order(2)
-    @DisplayName("a migrated database passes")
-    void acceptsAMigratedDatabase() {
+    void aMigratedDatabasePasses() {
         database.migrate();
 
         assertDoesNotThrow(() -> SchemaCheck.validate(database.dataSource()));

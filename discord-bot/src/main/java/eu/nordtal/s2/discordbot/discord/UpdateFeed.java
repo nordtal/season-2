@@ -24,28 +24,20 @@ import org.jspecify.annotations.Nullable;
 /**
  * Every update run in the admin channel, including the ones nobody in Discord started.
  *
- * <h2>The gap this closes</h2>
- * Until 2026-09-08 a run was only visible to whoever asked for it. A {@code /update now} typed in
- * game, or run from a server console, drew its report into that person's chat window and nowhere
- * else - so the four servers went down and came back with the admin channel saying nothing at all.
- * The one surface every admin reads was the one surface that only saw the runs that already had
- * somebody watching them.
+ * A run started elsewhere - typed in game, or run from a server console - has no embed of its own,
+ * so without this feed the admin channel sees nothing while the four servers go down and come back.
+ * This closes that gap: it remembers the highest id it has drawn and asks
+ * {@link UpdateDirectory#since(long)} for what came after it.
  *
- * <p>The rows have always been there; nothing was reading them. This does: it remembers the highest
- * id it has drawn and asks {@link UpdateDirectory#since(long)} for what came after it.</p>
+ * {@code DISCORD} rows are skipped, deliberately: a run started here already has an embed - the
+ * asker's own, edited in place by {@link UpdateCommand} for as long as it works. Posting a second
+ * copy of the same run into the same guild would put two drawings of one row in front of the same
+ * people, and the moment one of them stops updating (the interaction token expires after fifteen
+ * minutes; a channel message does not) they would disagree.
  *
- * <h2>{@code DISCORD} rows are skipped, deliberately</h2>
- * A run started here already has an embed - the asker's own, edited in place by
- * {@link UpdateCommand} for as long as it works. Posting a second copy of the same run into the same
- * guild would put two drawings of one row in front of the same people, and the moment one of them
- * stops updating (the interaction token expires after fifteen minutes; a channel message does not)
- * they would disagree.
+ * It draws, it does not decide: the embed is {@link UpdateCommand#fields}, the same one the asker
+ * sees, plus three fields naming the run, who asked and from where.
  *
- * <h2>It draws, it does not decide</h2>
- * The embed is {@link UpdateCommand#fields}, the same one the asker sees, plus three fields naming
- * the run, who asked and from where. Nothing here forms an opinion about a run.
- *
- * <h2>English, like everything else in that channel</h2>
  * The admin channel has many readers and one text. Every {@code AdminLog} line in this bot is
  * English for that reason, and a run drawn in whichever language the person who typed it happens to
  * use would be the one exception.
@@ -59,20 +51,19 @@ public final class UpdateFeed {
     /**
      * How far back a start looks for runs that ended while this bot was down.
      *
-     * <p>Twelve minutes, the same patience every other surface gives the worker. Anything older is
+     * Twelve minutes, the same patience every other surface gives the worker. Anything older is
      * history somebody would read the log for rather than news for a channel - and posting it would
-     * mean a bot that crash-loops filling the channel with the same finished run.</p>
+     * mean a bot that crash-loops filling the channel with the same finished run.
      */
     public static final Duration CATCH_UP = Duration.ofMinutes(12);
 
     /**
      * Where a run is drawn.
      *
-     * <h2>Why a seam and not {@link AdminLog} itself</h2>
      * Everything below is a decision - which rows are worth posting, where a restart picks up, when
-     * an edit has something new to say - and every one of them was previously answerable only by
-     * watching a real guild during a real update. That is one place per season. The interface is two
-     * methods wide and {@link #of(AdminLog)} is the only implementation that ships.
+     * an edit has something new to say - and each one is answerable only by watching a real guild
+     * during a real update, which is one place per season. The interface is two methods wide and
+     * {@link #of(AdminLog)} is the only implementation that ships.
      */
     public interface Board {
 
@@ -83,10 +74,10 @@ public final class UpdateFeed {
         /**
          * A line that mentions the admin role.
          *
-         * <p>Separate from {@link #post} because an <em>edit</em> notifies nobody: a run that goes
-         * wrong at five in the morning would otherwise turn a green embed red on a screen nobody is
-         * looking at. Only a failure uses this - a successful run that pings is a ping people learn
-         * to ignore, which is the same as no ping at all.</p>
+         * Separate from {@link #post} because an edit notifies nobody: a run that goes wrong at
+         * five in the morning would otherwise turn a green embed red on a screen nobody is looking
+         * at. Only a failure uses this - a successful run that pings is a ping people learn to
+         * ignore, which is the same as no ping at all.
          */
         void alert(String text);
 
@@ -123,10 +114,10 @@ public final class UpdateFeed {
     /**
      * The runs still moving, by request id.
      *
-     * <p>Concurrent because the message id arrives on a JDA thread, after the tick that posted it
+     * Concurrent because the message id arrives on a JDA thread, after the tick that posted it
      * has returned. A run whose post has not been acknowledged yet sits here with a {@code null}
      * message id and is simply not edited until it has one - which is an ordinary state and not an
-     * error, because the row is the record and the embed is a drawing of it.</p>
+     * error, because the row is the record and the embed is a drawing of it.
      */
     private final ConcurrentHashMap<Long, Drawn> drawing = new ConcurrentHashMap<>();
 
@@ -142,30 +133,23 @@ public final class UpdateFeed {
     /**
      * Picks up where the last instance of this bot left off.
      *
-     * <p>Two halves, and the second is the one that is easy to leave out. Starting from
+     * Two halves, and the second is the one that is easy to leave out. Starting from
      * {@code max(id)} is what stops a restart posting a season of history into the channel - and it
      * is also what would silently drop the run that finished during that restart, whose id is below
-     * the mark. So finished rows inside {@link #CATCH_UP} are posted once, as results.</p>
+     * the mark. So finished rows inside {@link #CATCH_UP} are posted once, as results.
      */
     public void start() {
         try {
             final long mark = updates.latestId();
             for (final UpdateRequest request : updates.finishedWithin(CATCH_UP)) {
-                // `id > mark` is the row that finished BETWEEN the two reads above. It is not part
-                // of the history this back-fill exists for - tick() will find it on its first pass,
-                // because lastSeen ends at the mark - and posting it here as well is the one way
-                // this method can put the same run into the channel twice.
+                // A row with id > mark finished between the two reads above; tick() finds it on its own pass.
                 if (request.source() == UpdateSource.DISCORD || request.id() > mark) {
                     continue;
                 }
                 // Posted and forgotten: it is over, so there is nothing left to edit into it.
                 board.post(embed(request), messageId -> {});
             }
-            // A run that was still going when this bot went down is the third case, and it fell
-            // through both of the others: its id is at or below the mark, so `since(lastSeen)`
-            // will never return it, and it is not finished, so `finishedWithin` did not either.
-            // The run everybody most wants to watch is exactly the one that outlives a bot
-            // restart. Registering it before the mark moves is what makes tick() follow it.
+            // A run still going falls through both loops above; registering it here is what makes tick() follow it.
             for (final UpdateRequest request : updates.since(0L)) {
                 if (request.source() == UpdateSource.DISCORD || request.status().isFinished() || request.id() > mark) {
                     continue;
@@ -175,9 +159,7 @@ public final class UpdateFeed {
             }
             lastSeen = mark;
         } catch (final RuntimeException failure) {
-            // Not fatal. The feed starts from whatever it managed to read - zero, in the worst
-            // case, which posts the history once and then behaves. A bot that refuses to start
-            // because a channel could not be back-filled would be the worse trade.
+            // Not fatal: the feed starts from whatever it managed to read, zero in the worst case.
             log.error("Could not read the update history; the feed starts from {}", lastSeen, failure);
         }
     }
@@ -185,12 +167,12 @@ public final class UpdateFeed {
     /**
      * One pass. Scheduled every {@link #INTERVAL}, and never two at once.
      *
-     * <p>The guard is not about correctness of the drawing - {@code drawing} is concurrent and
+     * The guard is not about correctness of the drawing - {@code drawing} is concurrent and
      * `lastSeen` only grows. It is about the thread. This runs on a worker rather than on the
      * single timer thread, because a slow database call here would otherwise hold up the payment
      * poll, the role reconciliation, the expiry sweep, the status channels and the readiness
      * marker, all of which share that one thread. Handing the work to a pool without this flag
-     * would then let a slow pass be overtaken by the next one and post a row twice.</p>
+     * would then let a slow pass be overtaken by the next one and post a row twice.
      */
     public void tick() {
         if (!ticking.compareAndSet(false, true)) {
@@ -206,17 +188,17 @@ public final class UpdateFeed {
     /**
      * Hands one pass to {@code worker}, and only if no pass is outstanding.
      *
-     * <p><b>The flag has to be taken before the hand-over, not inside it.</b> {@link #tick} takes it
+     * The flag has to be taken before the hand-over, not inside it. {@link #tick} takes it
      * on the worker thread, which is one thread too late: the timer submits every
      * {@link #INTERVAL} regardless, so four workers busy with payments for a minute leave thirty
      * queued passes in an unbounded queue. Each of them then finds the flag free - they run one
      * after another - and makes its own database round trip. Nothing is posted twice, because
      * {@code lastSeen} only grows; the cost is a burst of pointless queries at exactly the moment
-     * the pool is already the thing that is struggling.</p>
+     * the pool is already the thing that is struggling.
      *
-     * <p>A rejected submission releases the flag rather than leaving the feed switched off for the
+     * A rejected submission releases the flag rather than leaving the feed switched off for the
      * rest of the season, which is what a plain {@code compareAndSet} with no {@code catch} would
-     * do the first time the executor is shutting down.</p>
+     * do the first time the executor is shutting down.
      */
     public void submit(final Executor worker) {
         Objects.requireNonNull(worker, "worker");
@@ -261,8 +243,7 @@ public final class UpdateFeed {
                 if (over) {
                     return;
                 }
-                // Only now is there something to edit. Registering before the post is acknowledged
-                // would mean an edit against a message id that does not exist yet.
+                // Only now is there something to edit: before this, an edit would target an unacknowledged message id.
                 drawing.put(request.id(), new Drawn(messageId, request.result()));
             });
         }
@@ -281,16 +262,13 @@ public final class UpdateFeed {
                 continue;
             }
             if (row.isEmpty()) {
-                // Deleted by hand. Nothing to draw and nothing to say about it that the message
-                // already on screen does not.
+                // Deleted by hand: nothing to draw, and nothing to say that the message on screen does not.
                 drawing.remove(id);
                 continue;
             }
             final UpdateRequest request = row.get();
             final Drawn drawn = entry.getValue();
-            // Only when it has something new to say. Discord rate-limits edits and this polls every
-            // two seconds while a run writes a stage at a time; re-sending an identical embed
-            // twenty times between two stages would spend that budget on nothing.
+            // Only when it has something new to say: Discord rate-limits edits, and this polls every two seconds.
             if (!java.util.Objects.equals(drawn.showing(), request.result())) {
                 board.edit(drawn.messageId(), embed(request));
                 drawing.put(id, new Drawn(drawn.messageId(), request.result()));
@@ -305,15 +283,15 @@ public final class UpdateFeed {
     /**
      * Mentions the admin role when a run ended badly, and says nothing at all when it did not.
      *
-     * <p>Called exactly once per run: from {@link #tick()} for a row that was already over when it
+     * Called exactly once per run: from {@link #tick()} for a row that was already over when it
      * was first seen, and from {@link #redraw()} at the moment a run being followed finishes, just
      * before it stops being followed. The two paths are exclusive - a row that arrives finished is
-     * never registered for redrawing.</p>
+     * never registered for redrawing.
      *
-     * <p>A cancellation is not a failure: somebody typed {@code /update cancel} and already knows.
+     * A cancellation is not a failure: somebody typed {@code /update cancel} and already knows.
      * What this is for is the backup that gave up waiting after thirty minutes and the update that
      * could not stop a server - the cases where the network is in a state nobody asked for and the
-     * only other trace is an edit to a message from five minutes ago.</p>
+     * only other trace is an edit to a message from five minutes ago.
      */
     private void alertIfFailed(final UpdateRequest request) {
         if (request.status() != UpdateStatus.FAILED) {
@@ -332,9 +310,9 @@ public final class UpdateFeed {
     /**
      * One run, drawn.
      *
-     * <p>A row with no parsable report is one that has only just been written, or one from before
-     * the report became structured. Either way the stage a reader wants is "somebody has asked for
-     * this", which is what {@code RESOLVING} says.</p>
+     * A row with no parsable report is one that has only just been written, or one whose report is
+     * not structured. Either way the stage a reader wants is "somebody has asked for this", which
+     * is what {@code RESOLVING} says.
      */
     private MessageEmbed embed(final UpdateRequest request) {
         final UpdateReport report =

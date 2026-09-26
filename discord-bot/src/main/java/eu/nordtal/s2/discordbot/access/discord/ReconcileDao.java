@@ -14,20 +14,16 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 /**
  * The sweeps: who should hold the access role, and whose access is about to end or just ended.
  *
- * <h2>Why this is not in {@code :common}</h2>
- * {@code AccessDirectory} answers questions about <b>one</b> account, because that is what the
- * login path and the commands ask. These are set-shaped questions asked by background timers that
- * only the bot runs, and the proxy and the plugins have no use for them. Putting them here keeps
- * {@code :common}'s API the small thing the login path needs. They read tables {@code :common}
- * owns the meaning of, so a change to {@code access_grant} is still a change in two modules -
- * which is the documented cost of the bot owning the schema.
- * </p>
- * <p>
- * Public rather than package-private: {@link #allUsers()} is also what {@code GuildState}'s
- * startup reconcile uses to find accounts that left while the bot was down, and {@code GuildState}
- * lives at the top level, not under {@code access} - membership, locale and the admin flag are
- * bot-wide projections, not an access-only concern.
- * </p>
+ * Why this is not in {@code :common}: {@code AccessDirectory} answers questions about one account, because that is
+ * what the login path and the commands ask. These are set-shaped questions asked by background timers that only the
+ * bot runs, and the proxy and the plugins have no use for them. Putting them here keeps {@code :common} 's API the
+ * small thing the login path needs. They read tables {@code :common} owns the meaning of, so a change to
+ * {@code access_grant} is still a change in two modules - which is the documented cost of the bot owning the schema.
+ *
+ *
+ * Public rather than package-private: {@link #allUsers()} is also what {@code GuildState} 's startup reconcile uses
+ * to find accounts that left while the bot was down, and {@code GuildState} lives at the top level, not under
+ * {@code access} - membership, locale and the admin flag are bot-wide projections, not an access-only concern.
  */
 public interface ReconcileDao {
 
@@ -43,10 +39,9 @@ public interface ReconcileDao {
 
     /**
      * Users whose current run of access ends within the next {@code hours}.
-     * <p>
-     * Grouped by user and filtered on the maximum, so an appended chain produces one deadline and
-     * not one per grant.
-     * </p>
+     *
+     * Grouped by user and filtered on the maximum, so an appended chain produces one deadline and not one per grant.
+     *
      */
     @SqlQuery("""
             SELECT discord_id, max(valid_until) AS valid_until
@@ -60,10 +55,9 @@ public interface ReconcileDao {
 
     /**
      * Users whose access ran out within the last {@code hours} and has not been renewed.
-     * <p>
-     * The lookback exists so that a bot which was down when somebody's access expired still sends
-     * the message when it comes back, rather than the moment being missed for good.
-     * </p>
+     *
+     * The lookback exists so that a bot which was down when somebody's access expired still sends the message when it
+     * comes back, rather than the moment being missed for good.
      */
     @SqlQuery("""
             SELECT discord_id, max(valid_until) AS valid_until
@@ -93,19 +87,18 @@ public interface ReconcileDao {
 
     /**
      * Every Discord account the bot has ever written about.
-     * <p>
-     * The startup reconcile needs it to find the accounts that are <b>not</b> in the guild any
-     * more: a leave the bot missed while it was down produces no event to catch up on, so the only
-     * way to notice is to compare what we know against who is actually there.
-     * </p>
+     *
+     * The startup reconcile needs it to find the accounts that are not in the guild any more: a leave the bot missed
+     * while it was down produces no event to catch up on, so the only way to notice is to compare what we know against
+     * who is actually there.
      */
     @SqlQuery("SELECT discord_id FROM discord_user")
     List<String> allUsers();
 
     /**
-     * The language a Discord account chose, for a message that is not going to a Minecraft
-     * account. {@code AccessDirectory} answers this for a UUID, because that is what the login
-     * path needs; a DM has no UUID.
+     * The language a Discord account chose, for a message that is not going to a Minecraft account.
+     *
+     * {@code AccessDirectory} answers this for a UUID, because that is what the login path needs; a DM has no UUID.
      */
     @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
     java.util.Optional<String> localeOf(@Bind("discordId") String discordId);

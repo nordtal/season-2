@@ -10,17 +10,15 @@ import eu.nordtal.s2.common.network.NetworkSnapshot;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * What the status channel is called, in every phase and at every distance from the opening.
  *
- * <p>Against the real message bundles, not a stub: half of what is asserted here is that the
- * placeholders in {@code en.properties} are the ones the renderer passes, which a stub bundle would
- * hide. The other half is the granularity, which <em>is</em> the Discord rate limit - a name that
- * changed more often than these tests allow would spend a budget of two renames per ten minutes in
- * the first minute of every hour.
+ * Against the real message bundles, not a stub: half of what is asserted here is that the placeholders in
+ * {@code en.properties} are the ones the renderer passes, which a stub bundle would hide. The other half is the
+ * granularity, which is the Discord rate limit - a name that changed more often than these tests allow would spend a
+ * budget of two renames per ten minutes in the first minute of every hour.
  */
 class StatusNameTest {
 
@@ -35,7 +33,7 @@ class StatusNameTest {
                 MESSAGES, Locale.ENGLISH, SeasonPhase.PRE_LAUNCH, NetworkSnapshot.EMPTY, NOW.plus(untilLaunch), NOW);
     }
 
-    // ---------------------------------------------------------------- the countdown
+    // The countdown.
 
     @Test
     void moreThanADayOutShowsDaysAndWholeHours() {
@@ -43,8 +41,7 @@ class StatusNameTest {
     }
 
     @Test
-    @DisplayName("under a day the minutes are dropped, because they would cost sixty renames an hour")
-    void underADayShowsWholeHoursOnly() {
+    void underADayTheMinutesAreDroppedBecauseTheyWouldCostSixtyRenamesAnHour() {
         assertEquals("Opens in 5h", at(Duration.ofHours(5).plusMinutes(59)));
         assertEquals("Opens in 1h", at(Duration.ofHours(1)));
     }
@@ -58,8 +55,7 @@ class StatusNameTest {
     }
 
     @Test
-    @DisplayName("rounding is down, so the countdown never claims more time than there is")
-    void theStepsUnderstateRatherThanOverstate() {
+    void roundingIsDownSoTheCountdownNeverClaimsMoreTimeThanThereIs() {
         // 49 minutes reads as 40, not as 50: somebody who leaves on this number arrives early.
         assertEquals("Opens in 40 min", at(Duration.ofMinutes(49)));
     }
@@ -71,10 +67,8 @@ class StatusNameTest {
     }
 
     @Test
-    @DisplayName("a date that has passed is not a negative number")
-    void aPassedInstantStillReadsAsImminent() {
-        // Nothing switches the phase when the date passes - that stays an admin's decision - so the
-        // gap between the announced instant and the switch is a normal state.
+    void aDateThatHasPassedIsNotANegativeNumber() {
+        // Nothing switches the phase when the date passes - that stays an admin's decision, so the gap is normal.
         assertEquals("Opens any moment", at(Duration.ofHours(-6)));
     }
 
@@ -85,7 +79,7 @@ class StatusNameTest {
                 StatusName.render(MESSAGES, Locale.ENGLISH, SeasonPhase.PRE_LAUNCH, NetworkSnapshot.EMPTY, null, NOW));
     }
 
-    // ---------------------------------------------------------------- the phase table
+    // The phase table.
 
     @Test
     void preEventShowsWhoHasRegistered() {
@@ -99,10 +93,8 @@ class StatusNameTest {
     }
 
     @Test
-    @DisplayName("the SMP shows registered players, deliberately not the milestone")
-    void theSmpShowsPlayers() {
-        // Chosen 2026-09-03 over the active milestone and its percentage: a percentage moves on
-        // every hand-in, and the channel has budget for two renames per ten minutes.
+    void theSmpShowsRegisteredPlayersDeliberatelyNotTheMilestone() {
+        // Chosen over the active milestone: its percentage moves on every hand-in, past the channel's rename budget.
         assertEquals("31 players", render(SeasonPhase.SMP));
     }
 

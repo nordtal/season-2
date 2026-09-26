@@ -14,11 +14,11 @@ import java.util.List;
 /**
  * {@code config/access.yml} - everything about the product, the guild and the poll loop.
  *
- * <p>Nothing here is an enum: prices, day counts, role ids and channel ids all live in this file,
- * and the code only knows that a tier costs money and buys days.</p>
+ * Nothing here is an enum: prices, day counts, role ids and channel ids all live in this file, and the code only
+ * knows that a tier costs money and buys days.
  *
- * <p>Every id defaults to empty and the bot refuses to start while one is - a real id as a default
- * would mean an unreadable config falls back to writing into somebody's production channel.</p>
+ * Every id defaults to empty and the bot refuses to start while one is - a real id as a default would mean an
+ * unreadable config falls back to writing into somebody's production channel.
  *
  * @see Configs#access()
  */
@@ -140,12 +140,7 @@ public interface AccessSpec {
         "    link-channel: '000000000000000000'",
         "    hunger-games-channel: '000000000000000000'"
     })
-    // steward/74: this is the one place the "'en' is mandatory" rule is declared as data rather
-    // than prose or an `if`. Configs#validateLanguages reads this same annotation rather than
-    // holding its own copy of the tag, and steward-worker's schema-reading side (ConfigFiles,
-    // steward-ui) refuses to let an operator remove the entry it names before the file is ever
-    // touched. `value` is Languages.FALLBACK_TAG rather than a second "en" literal - an annotation
-    // value has to be a compile-time constant, and that field already is one.
+    // Configs#validateLanguages and steward-worker's schema-reading side both read this annotation rather than a copy.
     @Protected(field = "tag", value = Languages.FALLBACK_TAG)
     @Explain(
             "Every language the network speaks. The 'en' entry cannot be removed - it is the fallback a missing translation degrades to.")
@@ -160,8 +155,7 @@ public interface AccessSpec {
     @Explain("The life cycle of a payment request, and how often the bot re-reads the payment seam.")
     PaymentSpec payment();
 
-    // There is deliberately no link-code-ttl-minutes here: the proxy issues the codes and is the
-    // only process that can act on a TTL. proxy's gate.yml owns the only one.
+    // No link-code-ttl-minutes here: the proxy issues the codes, so proxy's gate.yml owns the only TTL.
 
     @Order(8)
     @Name("Reminder before expiry (days)")
@@ -215,9 +209,10 @@ public interface AccessSpec {
     void reload();
 
     /**
-     * One purchasable period: a number of days for a price. A list rather than fixed keys, so a
-     * fourth tier is an edit and not a release; {@link DefaultTiers} keeps a fresh
-     * {@code access.yml} shipping a usable price list rather than an empty one.
+     * One purchasable period: a number of days for a price.
+     *
+     * A list rather than fixed keys, so a fourth tier is an edit and not a release; {@link DefaultTiers} keeps a
+     * fresh {@code access.yml} shipping a usable price list rather than an empty one.
      */
     @ConfigSpec
     interface TierSpec {
@@ -242,9 +237,10 @@ public interface AccessSpec {
     }
 
     /**
-     * One language: its tag, the onboarding role that chooses it, and the channels that carry the
-     * managed messages in it. A list rather than fixed per-language keys, so a third language is an
-     * edit and not a code change; {@link DefaultLanguages} ships {@code en} and {@code de}.
+     * One language: its tag, the onboarding role that chooses it, and the channels that carry its managed messages.
+     *
+     * A list rather than fixed per-language keys, so a third language is an edit and not a code change;
+     * {@link DefaultLanguages} ships {@code en} and {@code de}.
      */
     @ConfigSpec
     interface LanguageSpec {
@@ -387,8 +383,7 @@ public interface AccessSpec {
             return "";
         }
 
-        // There are deliberately no language roles here - each language carries its own role on
-        // its `languages` entry, which is what keeps a third language out of the code.
+        // No language roles here: each language carries its own role on its `languages` entry.
 
         @Order(3)
         @Name("Admin role")
@@ -426,9 +421,10 @@ public interface AccessSpec {
     }
 
     /**
-     * Channel ids the bot writes to that are not per-language. The per-language ones live on the
-     * {@link #languages()} entries; the admin channel is here because there is exactly one of it,
-     * whatever languages the guild speaks.
+     * Channel ids the bot writes to that are not per-language.
+     *
+     * The per-language ones live on the {@link #languages()} entries; the admin channel is here because there is
+     * exactly one of it, whatever languages the guild speaks.
      */
     @ConfigSpec
     interface ChannelsSpec {
@@ -450,20 +446,17 @@ public interface AccessSpec {
     /**
      * The life cycle of a payment request, and how often the bot looks at the seam.
      *
-     * <h2>What is no longer here (steward/109)</h2>
-     * {@code watermark} and {@code recent-payment-count} moved to {@code bunq:} in steward-worker's
-     * {@code steward.yml}, because both are questions you can only ask a process that talks to
-     * bunq: which payments are old enough to ignore, and how many of the account's recent payments
-     * to scan. Neither had any meaning in a process with no bank connection.
+     * {@code watermark} and {@code recent-payment-count} live in {@code bunq:} in steward-worker's {@code steward.yml}
+     * instead, because both are questions you can only ask a process that talks to bunq: which payments are old enough
+     * to ignore, and how many of the account's recent payments to scan.
      *
-     * <h2>Why the TTL did not move with them</h2>
-     * {@code request-ttl-hours} is used <b>twice in this process and nowhere else</b>: it is stamped
-     * into {@code payment_request.expires} at the moment the row is written, and it is the number in
-     * "this link is valid for N hours" on the message the buyer is looking at. Those two have to be
-     * the same number, and the row is written here. The worker reads {@code expires}, never the
-     * setting - which is the right split: the bot decides how long it is offering, the worker acts
-     * on what was decided. Moving it would have made the sentence and the column two settings that
-     * agree by convention.
+     * {@code request-ttl-hours} stays here: it is used twice in this process and nowhere else, stamped into
+     * {@code payment_request.expires} at the moment the row is written, and named in "this link is valid for N hours"
+     * on
+     * the message the buyer is looking at. Those two have to be the same number, and the row is written here. The
+     * worker
+     * reads {@code expires}, never the setting - the bot decides how long it is offering, the worker acts on what was
+     * decided.
      */
     @ConfigSpec
     interface PaymentSpec {

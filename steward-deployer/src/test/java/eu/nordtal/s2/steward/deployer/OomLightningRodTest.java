@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Which container the kernel is told to take first when this host runs out of memory.
  *
- * <h2>Why this is a decision and not a tuning number</h2>
  * Docker's own documentation says <em>"The OOM priority on containers isn't adjusted"</em>: the
  * global OOM killer chooses by size across the whole host, and no {@code mem_limit} on one
  * container can influence that choice. The only lever left does not decide <em>whether</em>
@@ -27,31 +26,30 @@ import org.junit.jupiter.api.Test;
  * inference from resource usage: {@code limbo} and {@code proxy}, because they hold almost nothing
  * that cannot be made again in seconds.
  *
- * <h2>What this test is for</h2>
  * The value is four characters in a YAML file with no runtime behaviour attached, in a repository
  * where nothing else reads it. Deleting it is invisible: nothing fails, nothing is logged, and the
  * only way to notice is the next OOM taking the SMP server instead.
  *
- * <p><b>The negative half matters as much as the positive one.</b> Asserting only that the two are
+ * <b>The negative half matters as much as the positive one.</b> Asserting only that the two are
  * set would stay green if somebody helpfully gave every service the same number, which is the same
- * as giving none of them one: the kernel would be back to choosing by size.</p>
+ * as giving none of them one: the kernel would be back to choosing by size.
  */
 class OomLightningRodTest {
 
     /**
      * The order is the content; the exact number is not.
      *
-     * <p>The two standbys are the same answer again, following from the one already taken for the
+     * The two standbys are the same answer again, following from the one already taken for the
      * primaries rather than a separate decision: {@code proxy-standby} and {@code limbo-standby} run
      * the same two images with the same two jobs, and they hold exactly as little - a waiting room
      * with no world worth the name and a proxy that persists nothing. What a kill costs either of
      * them is a disconnect, never data.
      *
-     * <p>And the moment they exist at all is the moment this matters most: a standby is only up
+     * And the moment they exist at all is the moment this matters most: a standby is only up
      * while its model is being replaced, so during a swap this host carries two proxies and two
      * limbos at once. If the kernel has to take something in that window, these four are still the
      * four to take - and leaving the two new ones at 0 would have made the standby pair the
-     * <em>safest</em> processes on the box, quietly ranking them above the SMP world.</p>
+     * <em>safest</em> processes on the box, quietly ranking them above the SMP world.
      */
     private static final Map<String, Boolean> EXPECTED = new LinkedHashMap<>(Map.of(
             "limbo", true,
@@ -93,9 +91,7 @@ class OomLightningRodTest {
 
     @Test
     void theyAllCarryTheSameNumber() {
-        // Not a detail: a difference between them would be a second decision nobody took. Till
-        // named services, not an order among them - and with the standbys that is four, where a
-        // hand-written copy is one typo away from a ranking.
+        // A difference here is a second decision nobody took, and a copied number is one typo from a ranking.
         final Integer first = oomScoreAdj("limbo");
         EXPECTED.forEach((service, isLightningRod) -> {
             if (isLightningRod) {
@@ -112,11 +108,11 @@ class OomLightningRodTest {
     /**
      * The {@code oom_score_adj} of one compose service, or {@code null} when it has none.
      *
-     * <p>Read out of the text rather than by parsing YAML, for the reason every other repository
+     * Read out of the text rather than by parsing YAML, for the reason every other repository
      * check here gives: the assertion is about what the file says, and a parser would also have to
      * resolve the {@code <<: *minecraft} merge keys - which would make a value inherited from the
      * anchor indistinguishable from one written on the service, and inheriting it is exactly the
-     * mistake the negative half above exists to catch.</p>
+     * mistake the negative half above exists to catch.
      */
     private Integer oomScoreAdj(final String service) {
         final Matcher start = Pattern.compile("^  " + Pattern.quote(service) + ":\\s*$", Pattern.MULTILINE)

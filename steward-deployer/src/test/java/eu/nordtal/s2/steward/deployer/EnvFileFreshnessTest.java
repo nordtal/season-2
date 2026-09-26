@@ -10,20 +10,21 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * A FILE bind mount follows the inode, not the path, so a host rotation after the container started
- * leaves this process reading a deleted file forever, silently. The one signal that survives the
- * mount is the orphaned inode's own link count, which drops to zero - this class is what makes
- * {@link Compose#assertEnvFileFresh()} refuse on that signal, and never anything else.
+ * A rotated env file behind a stale FILE bind mount, and the one signal that catches it.
  *
- * <p>These tests need no Docker daemon and no real bind mount, on purpose, the same way
+ * A host rotation after the container started leaves this process reading a deleted file forever,
+ * silently. The one signal that survives the mount is the orphaned inode's own link count, which
+ * drops to zero - this class is what makes {@link Compose#assertEnvFileFresh()} refuse on that
+ * signal, and never anything else.
+ *
+ * These tests need no Docker daemon and no real bind mount, on purpose, the same way
  * {@link ComposeRefusesItselfTest} needs none: a real orphaned inode only exists behind an actual
  * mount, and faking the link count is what lets the refusal itself be exercised in a plain JVM. A
  * real file on disk, with its real (healthy) link count, is used for the "nothing wrong" case so the
- * fake is only ever standing in for the one number this class cannot otherwise get to zero.</p>
+ * fake is only ever standing in for the one number this class cannot otherwise get to zero.
  */
 class EnvFileFreshnessTest {
 
@@ -37,42 +38,38 @@ class EnvFileFreshnessTest {
     }
 
     @Test
-    @DisplayName("a link count of zero is refused, and the message names the deleted inode")
-    void refusesAnOrphanedInode() throws IOException {
+    void aLinkCountOfZeroIsRefusedAndTheMessageNamesTheDeletedInode() throws IOException {
         tempEnvFile = Files.createTempFile("env-file-", ".env");
-        Compose compose = new Compose(
+        final Compose compose = new Compose(
                 Path.of("/app/compose.yml"), tempEnvFile, Path.of("/app"), "nordtal-s2", path -> OptionalLong.of(0L));
 
-        IOException refused = assertThrows(Compose.StaleEnvFileException.class, compose::assertEnvFileFresh);
+        final IOException refused = assertThrows(Compose.StaleEnvFileException.class, compose::assertEnvFileFresh);
 
         assertTrue(refused.getMessage().contains("deleted inode"), refused.getMessage());
     }
 
     @Test
-    @DisplayName("a healthy link count is not refused")
-    void aFreshFileIsFine() throws IOException {
+    void aHealthyLinkCountIsNotRefused() throws IOException {
         tempEnvFile = Files.createTempFile("env-file-", ".env");
-        Compose compose = new Compose(
+        final Compose compose = new Compose(
                 Path.of("/app/compose.yml"), tempEnvFile, Path.of("/app"), "nordtal-s2", path -> OptionalLong.of(1L));
 
         assertDoesNotThrow(compose::assertEnvFileFresh);
     }
 
     @Test
-    @DisplayName("the real, POSIX-backed link count of an ordinary file is not zero")
-    void theRealLinkCounterAgreesOnAnOrdinaryFile() throws IOException {
+    void theRealPosixBackedLinkCountOfAnOrdinaryFileIsNotZero() throws IOException {
         // No fake here: the default LinkCounter this class wires in must read an ordinary file as healthy too.
         tempEnvFile = Files.createTempFile("env-file-", ".env");
         Files.writeString(tempEnvFile, "DEMO_VALUE=before\n");
-        Compose compose = new Compose(Path.of("/app/compose.yml"), tempEnvFile, Path.of("/app"), "nordtal-s2");
+        final Compose compose = new Compose(Path.of("/app/compose.yml"), tempEnvFile, Path.of("/app"), "nordtal-s2");
 
         assertDoesNotThrow(compose::assertEnvFileFresh);
     }
 
     @Test
-    @DisplayName("a missing file is not this check's problem - base() already leaves it out")
-    void aMissingFileIsNotChecked() {
-        Compose compose = new Compose(
+    void aMissingFileIsNotThisChecksProblemBaseAlreadyLeavesItOut() {
+        final Compose compose = new Compose(
                 Path.of("/app/compose.yml"), Path.of("/does/not/exist/.env"), Path.of("/app"), "nordtal-s2", path -> {
                     throw new AssertionError("the link counter must not even be asked about a path"
                             + " that does not exist - there is nothing orphaned to detect");
@@ -82,30 +79,27 @@ class EnvFileFreshnessTest {
     }
 
     @Test
-    @DisplayName("up() refuses before it ever builds a command line, let alone runs one")
-    void upRefusesAnOrphanedInodeBeforeTouchingDocker() throws IOException {
+    void upRefusesBeforeItEverBuildsACommandLineLetAloneRunsOne() throws IOException {
         tempEnvFile = Files.createTempFile("env-file-", ".env");
-        Compose compose = new Compose(
+        final Compose compose = new Compose(
                 Path.of("/app/compose.yml"), tempEnvFile, Path.of("/app"), "nordtal-s2", path -> OptionalLong.of(0L));
 
         assertThrows(Compose.StaleEnvFileException.class, () -> compose.up(List.of("smp"), line -> {}));
     }
 
     @Test
-    @DisplayName("bootstrap() refuses too - it is the path deployer up takes")
-    void bootstrapRefusesAnOrphanedInode() throws IOException {
+    void bootstrapRefusesTooItIsThePathDeployerUpTakes() throws IOException {
         tempEnvFile = Files.createTempFile("env-file-", ".env");
-        Compose compose = new Compose(
+        final Compose compose = new Compose(
                 Path.of("/app/compose.yml"), tempEnvFile, Path.of("/app"), "nordtal-s2", path -> OptionalLong.of(0L));
 
         assertThrows(Compose.StaleEnvFileException.class, () -> compose.bootstrap(List.of("smp"), line -> {}));
     }
 
     @Test
-    @DisplayName("recreate() refuses too - it is what the interface's recreate button calls")
-    void recreateRefusesAnOrphanedInode() throws IOException {
+    void recreateRefusesTooItIsWhatTheInterfacesRecreateButtonCalls() throws IOException {
         tempEnvFile = Files.createTempFile("env-file-", ".env");
-        Compose compose = new Compose(
+        final Compose compose = new Compose(
                 Path.of("/app/compose.yml"), tempEnvFile, Path.of("/app"), "nordtal-s2", path -> OptionalLong.of(0L));
 
         assertThrows(Compose.StaleEnvFileException.class, () -> compose.recreate("steward-ui", line -> {}));

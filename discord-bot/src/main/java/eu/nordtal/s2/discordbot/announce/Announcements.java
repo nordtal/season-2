@@ -13,14 +13,12 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.slf4j.Logger;
 
 /**
- * The bot's end of {@code announce <language> <text>}: post the line into that language's
- * announcement channel.
+ * The bot's end of {@code announce <language> <text>}: post the line into that language's announcement channel.
  *
- * <p>Two callers. The command inbox, for lines a server sent as a {@code command_request} row -
- * a milestone, a phase change - with {@code Runnable::run} as the executor because the inbox
- * settles the row when the command returns. And the bot itself, for a phase change it noticed on
- * its own status tick, through {@link #postAll}. Neither renders anything: the text arrives
- * finished, in the language of the channel it goes into.</p>
+ * Two callers. The command inbox, for lines a server sent as a {@code command_request} row - a milestone, a phase
+ * change - with {@code Runnable::run} as the executor because the inbox settles the row when the command returns.
+ * And the bot itself, for a phase change it noticed on its own status tick, through {@link #postAll}. Neither
+ * renders anything: the text arrives finished, in the language of the channel it goes into.
  */
 public final class Announcements implements AnnounceEffects {
 
@@ -64,13 +62,7 @@ public final class Announcements implements AnnounceEffects {
                     text);
             return false;
         }
-        // Waited for, not queued. The answer this returns is what the asking server writes into its
-        // command_request row and what an admin reads back in Discord or in chat, so "posted" has
-        // to mean Discord took it - queue() returns before the request is even sent, and its
-        // failure callback runs long after the row has been settled as a success (finding 109).
-        // Every caller is a worker: the command inbox runs its effects inline on the request
-        // thread, and postAll comes from the bot's own once-a-minute timer. Neither is a gateway
-        // thread, which is the one place this would be wrong.
+        // Waited for, not queued: "posted" must mean Discord took it, and every caller here is a worker thread.
         try {
             channel.sendMessage(text).submit().get(POST_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
             log.debug("Announced in '{}': {}", languageTag, text);
@@ -80,9 +72,7 @@ public final class Announcements implements AnnounceEffects {
             log.warn("Interrupted while announcing in '{}'", languageTag);
             return false;
         } catch (final ExecutionException | TimeoutException failure) {
-            // A timeout is reported as a failure even though JDA may still deliver the message
-            // afterwards: an announcement that arrives late and was reported as failed is a puzzle,
-            // one that never arrives and was reported as posted is a silence nobody investigates.
+            // A timeout is reported as a failure even though JDA may still deliver the message afterwards.
             log.warn(
                     "Could not announce in '{}': {} - it would have carried \"{}\"",
                     languageTag,

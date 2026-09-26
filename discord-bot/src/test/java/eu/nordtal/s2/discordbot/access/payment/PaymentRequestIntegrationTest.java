@@ -28,7 +28,6 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.DockerClientFactory;
@@ -36,24 +35,18 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * The payment request state machine against a real PostgreSQL, running the real migrations.
- * <p>
- * An in-memory stand-in would prove nothing here: every rule this exercises is a constraint or an
- * index in the schema - one open request per person, one grant per request, one booking per bunq
- * payment - and the reference retry only matters because a unique violation is a real error with a
- * real SQLSTATE.
- * </p>
- * <p>
- * Testcontainers is driven by hand from {@link BeforeAll} rather than through the
- * {@code @Testcontainers} extension: that extension ships in {@code org.testcontainers:junit-jupiter},
- * which is built against JUnit 5, and this repo is on the JUnit 6 BOM. The test skips itself when
- * no Docker daemon is reachable - so a green build on a machine without Docker proves less than it
- * looks.
- * </p>
- * <p>
- * What this <b>cannot</b> prove: anything about bunq or about Discord. Tab creation, tab
- * cancellation and result inquiries need the bunq sandbox; buttons, modals, ephemeral messages and
- * role assignment need a real guild.
- * </p>
+ *
+ * An in-memory stand-in would prove nothing here: every rule this exercises is a constraint or an index in the
+ * schema - one open request per person, one grant per request, one booking per bunq payment - and the reference
+ * retry only matters because a unique violation is a real error with a real SQLSTATE.
+ *
+ * Testcontainers is driven by hand from {@link BeforeAll} rather than through the {@code @Testcontainers} extension:
+ * that extension ships in {@code org.testcontainers:junit-jupiter}, which is built against JUnit 5, and this repo is
+ * on the JUnit 6 BOM. The test skips itself when no Docker daemon is reachable - so a green build on a machine
+ * without Docker proves less than it looks.
+ *
+ * What this cannot prove: anything about bunq or about Discord. Tab creation, tab cancellation and result inquiries
+ * need the bunq sandbox; buttons, modals, ephemeral messages and role assignment need a real guild.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PaymentRequestIntegrationTest {
@@ -101,16 +94,15 @@ class PaymentRequestIntegrationTest {
         database.jdbi()
                 .useHandle(handle ->
                         handle.execute("TRUNCATE access_grant, payment_request, expiry_notice, payment_notice, "
-                                + "account_link, link_code, audit_log, discord_user CASCADE"));
+                                + "account_link, link_code, audit_log, discord_user, bot_setting CASCADE"));
         requests = new PaymentRequests(database.jdbi());
         access = AccessDirectory.using(database.dataSource());
     }
 
-    // ---------------------------------------------------------------- the schema's own rules
+    // The schema's own rules.
 
     @Test
-    @DisplayName("the migration applies and creates the stage B tables too")
-    void migrationCreatesEverything() {
+    void theMigrationAppliesAndCreatesTheStageBTablesToo() {
         final List<String> tables = database.jdbi()
                 .withHandle(handle -> handle.createQuery(
                                 "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename")
@@ -133,8 +125,7 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a second open request for the same person is refused by the database")
-    void onlyOneOpenRequestPerPerson() {
+    void aSecondOpenRequestForTheSamePersonIsRefusedByTheDatabase() {
         requests.open(USER, 30, 300, 0, TTL_HOURS);
 
         // Not a check in Java that two threads could both pass - a partial unique index.
@@ -142,8 +133,7 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("closing the old request is what makes a new one possible")
-    void supersedingFreesTheSlot() {
+    void closingTheOldRequestIsWhatMakesANewOnePossible() {
         final PaymentRequest first = requests.open(USER, 30, 300, 0, TTL_HOURS);
         assertTrue(requests.close(first.id(), PaymentRequestStatus.SUPERSEDED));
 
@@ -157,8 +147,7 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("two people can each have an open request")
-    void oneOpenRequestIsPerPerson() {
+    void twoPeopleCanEachHaveAnOpenRequest() {
         requests.open(USER, 30, 300, 0, TTL_HOURS);
         requests.open(OTHER, 30, 300, 0, TTL_HOURS);
 
@@ -169,18 +158,16 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("the reference matches the pattern the fallback matcher scans for")
-    void referenceMatchesThePattern() {
+    void theReferenceMatchesThePatternTheFallbackMatcherScansFor() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         assertTrue(
                 PaymentRequests.REFERENCE_PATTERN.matcher(request.reference()).matches(), request.reference());
     }
 
-    // ---------------------------------------------------------------- the flow
+    // The flow.
 
     @Test
-    @DisplayName("an unconfirmed request is edited in place rather than replaced")
-    void reselectEditsInPlace() {
+    void anUnconfirmedRequestIsEditedInPlaceRatherThanReplaced() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
 
         assertTrue(requests.reselect(request.id(), 60, 1000, 500));
@@ -197,8 +184,7 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("once a tab exists the request can no longer be edited")
-    void reselectRefusedAfterATabExists() {
+    void onceATabExistsTheRequestCanNoLongerBeEdited() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         assertTrue(requests.attachTab(request.id(), 4242L, "https://bunq.me/x"));
 
@@ -207,8 +193,7 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a request past its TTL turns up in the expiry sweep")
-    void expirySweepFindsOverdueRequests() {
+    void aRequestPastItsTtlTurnsUpInTheExpirySweep() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         assertTrue(requests.dueForExpiry().isEmpty(), "not due yet");
 
@@ -223,26 +208,22 @@ class PaymentRequestIntegrationTest {
                 requests.dueForExpiry().stream().map(PaymentRequest::reference).toList());
     }
 
-    // ---------------------------------------------------------------- booking
+    // Booking.
 
     @Test
-    @DisplayName("one bunq payment can only ever be booked once")
-    void aPaymentCannotBeBookedTwice() {
+    void oneBunqPaymentCanOnlyEverBeBookedOnce() {
         final PaymentRequest first = requests.open(USER, 30, 300, 0, TTL_HOURS);
         assertTrue(requests.settle(first.id(), 777L));
         requests.close(first.id(), PaymentRequestStatus.CANCELLED); // no-op: it is PAID
 
         final PaymentRequest second = requests.open(OTHER, 30, 300, 0, TTL_HOURS);
 
-        // The same payment matched to a second request. The partial unique index on
-        // bunq_payment_id is the only thing that stops this - the poll loop's "have I seen it"
-        // check is read-then-write and two overlapping polls would both pass it.
+        // The partial unique index on bunq_payment_id is the only thing that stops a second match.
         assertFalse(requests.settle(second.id(), 777L));
         assertTrue(requests.alreadyBooked(777L));
     }
 
     @Test
-    @DisplayName("settling twice books once")
     void settlingTwiceBooksOnce() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
 
@@ -252,8 +233,7 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a manual settlement books without a bunq payment id")
-    void manualSettlement() {
+    void aManualSettlementBooksWithoutABunqPaymentId() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
 
         assertTrue(requests.settleManually(request.id()));
@@ -269,23 +249,19 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("one request can only ever produce one grant")
-    void oneGrantPerRequest() {
+    void oneRequestCanOnlyEverProduceOneGrant() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         requests.settle(request.id(), 999L);
 
         access.grantAccess(USER, 30, AccessSource.PURCHASE, request.id());
 
-        // The second half of the double-booking guard: even a request settled twice through two
-        // different code paths cannot hand out two periods.
+        // The second half of the double-booking guard: two code paths settling once each still cannot double-grant.
         assertThrows(RuntimeException.class, () -> access.grantAccess(USER, 30, AccessSource.PURCHASE, request.id()));
     }
 
     @Test
-    @DisplayName("a downgraded payment grants the days it covered, appended to running access")
-    void downgradeAppendsTheDaysActuallyCovered() {
-        // Ordered 90 days; only enough for 30 arrived. The rule lives in Tiers; what this proves
-        // is that the grant that comes out of it is 30 days and is appended, not restarted.
+    void aDowngradedPaymentGrantsTheDaysItCoveredAppendedToRunningAccess() {
+        // Ordered 90 days, only enough for 30 arrived; the grant that comes out is appended, not restarted.
         final AccessGrant first = access.grantAccess(USER, 30, AccessSource.ADMIN, null);
 
         final PaymentRequest request = requests.open(USER, 90, 700, 0, TTL_HOURS);
@@ -300,11 +276,10 @@ class PaymentRequestIntegrationTest {
                         "30 days on top of 30 days"));
     }
 
-    // ---------------------------------------------------------------- the seam (concept §10d)
+    // The seam (concept §10d).
 
     @Test
-    @DisplayName("a request that wants a tab turns up in the worker's queue, and only then")
-    void requestedTabTurnsUpInTheQueue() {
+    void aRequestThatWantsATabTurnsUpInTheWorkersQueueAndOnlyThen() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         assertTrue(requests.tabsToCreate().isEmpty(), "choosing a tier is not asking for a payment link");
 
@@ -317,23 +292,20 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("the queue empties the moment the tab exists")
-    void theQueueEmptiesWhenTheTabArrives() {
+    void theQueueEmptiesTheMomentTheTabExists() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         requests.requestTab(request.id());
         assertEquals(1, requests.tabsToCreate().size(), "queued");
 
         assertTrue(requests.attachTab(request.id(), 4242L, "https://bunq.me/x"));
 
-        // Without this the worker makes a second tab for the same request on its next pass, and
-        // the bot has no way to tell which of the two links the user is looking at.
+        // Without this the worker makes a second tab on its next pass, and neither link is the one shown.
         assertTrue(requests.tabsToCreate().isEmpty(), "a request with a tab is not waiting for one");
         assertFalse(requests.requestTab(request.id()), "and asking again changes nothing");
     }
 
     @Test
-    @DisplayName("a refused tab leaves the queue, says why, and can be asked for again")
-    void aFailedTabHasAnExit() {
+    void aRefusedTabLeavesTheQueueSaysWhyAndCanBeAskedForAgain() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         requests.requestTab(request.id());
 
@@ -346,9 +318,7 @@ class PaymentRequestIntegrationTest {
                         "a failure retried on every pass is a failure repeated forever"),
                 () -> assertNull(failed.tabRequested()),
                 () -> assertEquals(
-                        "bunq: MonetaryAccount not found",
-                        failed.tabFailed(),
-                        "'der Link kommt gleich' needs an exit - steward/07"),
+                        "bunq: MonetaryAccount not found", failed.tabFailed(), "'der Link kommt gleich' needs an exit"),
                 () -> assertTrue(requests.requestTab(request.id())),
                 () -> assertNull(
                         requests.openOf(USER).orElseThrow().tabFailed(),
@@ -356,20 +326,17 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a request already asked to be cancelled is never given a tab")
-    void aCancelledRequestIsNotGivenATab() {
+    void aRequestAlreadyAskedToBeCancelledIsNeverGivenATab() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         requests.requestTab(request.id());
         assertTrue(requests.requestCancel(request.id()));
 
-        // Otherwise the window between "cancel asked for" and the status being written produces a
-        // tab whose only purpose is to be cancelled by the next pass.
+        // Otherwise the window before the status is written produces a tab whose only purpose is to be cancelled.
         assertTrue(requests.tabsToCreate().isEmpty());
     }
 
     @Test
-    @DisplayName("a cancel is queued once and leaves the queue when the tab is gone")
-    void cancellingQueuesUntilTheTabIsGone() {
+    void aCancelIsQueuedOnceAndLeavesTheQueueWhenTheTabIsGone() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
         assertTrue(requests.tabsToCancel().isEmpty());
@@ -390,8 +357,7 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a match is written onto a row that is still open, so the settled-iff-paid check holds")
-    void aMatchDoesNotBookAnything() {
+    void aMatchIsWrittenOntoARowThatIsStillOpenSoTheSettledIffPaidCheckHolds() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
 
@@ -410,16 +376,13 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("one bunq payment cannot be attributed to two requests")
-    void aPaymentCannotBeClaimedTwice() {
+    void oneBunqPaymentCannotBeAttributedToTwoRequests() {
         final PaymentRequest first = requests.open(USER, 30, 300, 0, TTL_HOURS);
         assertTrue(requests.recordMatch(first.id(), 4711L, 300, PaymentMatch.TAB));
 
         final PaymentRequest second = requests.open(OTHER, 30, 300, 0, TTL_HOURS);
 
-        // Not a check in Java the worker could forget: the same partial unique index that already
-        // guards settle(). recordMatch passes it on rather than absorbing it, because attribution
-        // has one writer and a second claim is a bug in it.
+        // The same partial unique index that guards settle(); recordMatch passes the failure on rather than hiding it.
         final UnableToExecuteStatementException failure = assertThrows(
                 UnableToExecuteStatementException.class,
                 () -> requests.recordMatch(second.id(), 4711L, 300, PaymentMatch.REFERENCE));
@@ -432,11 +395,10 @@ class PaymentRequestIntegrationTest {
         return found.stream().map(PaymentRequest::reference).toList();
     }
 
-    // ---------------------------------------------------------------- the watermark
+    // The watermark.
 
     @Test
-    @DisplayName("the first start stamps the watermark, and no later start moves it")
-    void watermarkIsWrittenOnce() throws Exception {
+    void theFirstStartStampsTheWatermarkAndNoLaterStartMovesIt() throws Exception {
         final Instant before = Instant.now();
         final Instant first = Watermark.resolve(database.jdbi(), "");
 
@@ -455,35 +417,29 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("an override wins but does not replace the stored value")
-    void overrideDoesNotReplaceTheStoredValue() {
+    void anOverrideWinsButDoesNotReplaceTheStoredValue() {
         final Instant stored = Watermark.resolve(database.jdbi(), "");
 
         final Instant overridden = Watermark.resolve(database.jdbi(), "2020-01-01T00:00:00Z");
         assertEquals(Instant.parse("2020-01-01T00:00:00Z"), overridden);
 
-        // Emptying the override again has to fall back to the original first-start instant, not
-        // to the moment somebody happened to restart the bot.
+        // Emptying the override again falls back to the original first-start instant, not the restart moment.
         assertEquals(stored, Watermark.resolve(database.jdbi(), ""));
     }
 
     @Test
-    @DisplayName("the watermark exists before the first poll even when an override is set")
-    void overrideStillStampsTheFirstStart() {
-        // Otherwise removing the override on a bot that has run for months would set the cut-off
-        // to that restart and ignore every payment before it.
+    void theWatermarkExistsBeforeTheFirstPollEvenWhenAnOverrideIsSet() {
+        // Otherwise removing the override on a long-running bot would set the cut-off to that restart.
         Watermark.resolve(database.jdbi(), "2020-01-01T00:00:00Z");
 
         assertTrue(Watermark.storedAt(database.jdbi()).isPresent());
     }
 
-    // ---------------------------------------------------------------- admin notices
+    // Admin notices.
 
     @Test
-    @DisplayName("a payment is raised to the admin channel exactly once, however often it is polled")
-    void unmatchablePaymentIsRaisedOnce() {
-        // Without this the poll loop would repeat the same line every interval, forever, because
-        // bunq keeps returning the same payment.
+    void aPaymentIsRaisedToTheAdminChannelExactlyOnceHoweverOftenItIsPolled() {
+        // Without this the poll loop repeats the same line every interval, forever, since bunq keeps returning it.
         assertAll(
                 () -> assertTrue(requests.noticeOnce(555L, "UNMATCHED", "first")),
                 () -> assertFalse(requests.noticeOnce(555L, "UNMATCHED", "second poll")),
@@ -491,13 +447,8 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a notice waits in the table until somebody claims it, and is claimed only once")
-    void aNoticeIsAnOutbox() {
-        // steward/109 split the writer from the speaker: steward-worker finds the money and writes
-        // the row, discord-bot is the only process that can put it in a channel. Before that the
-        // two were one process and the row was written purely so the line was not repeated - a bot
-        // that died between the INSERT and the channel post lost the alert forever, and nothing
-        // recorded that it had. V25's `posted` column is what makes that a queue instead.
+    void aNoticeWaitsInTheTableUntilSomebodyClaimsItAndIsClaimedOnlyOnce() {
+        // The `posted` column makes the row a queue, so a bot that dies between write and post still has it.
         requests.noticeOnce(555L, "UNMATCHED", "56.00 EUR with no reference");
         requests.noticeOnce(556L, "EXPIRED_REFERENCE", "NT-ABCDEF is not open");
 
@@ -526,21 +477,18 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a notice nobody claims stays in the queue across a restart")
-    void anUnclaimedNoticeSurvives() {
+    void aNoticeNobodyClaimsStaysInTheQueueAcrossARestart() {
         requests.noticeOnce(557L, "UNMATCHED", "money nobody heard about");
 
-        // The row is written by one container and read by another, so "the process that would have
-        // said it is gone" is the normal case rather than an accident.
+        // Written by one container, read by another - a gone writer process is the normal case here.
         assertEquals(1, requests.unpostedNotices().size());
         assertEquals(1, requests.unpostedNotices().size(), "reading is not claiming");
     }
 
-    // ---------------------------------------------------------------- the bot's queue
+    // The bot's queue.
 
     @Test
-    @DisplayName("matched money waits in a queue of its own until it is booked")
-    void matchedMoneyWaitsToBeBooked() {
+    void matchedMoneyWaitsInAQueueOfItsOwnUntilItIsBooked() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
         assertTrue(requests.matchedAwaitingBooking().isEmpty(), "an open request with a tab is not money");
@@ -550,9 +498,7 @@ class PaymentRequestIntegrationTest {
         final List<PaymentRequest> queue = requests.matchedAwaitingBooking();
         assertEquals(List.of(request.reference()), references(queue));
         assertAll(
-                // The two the booking needs, and the reason the predicate is matched_cents rather
-                // than bunq_payment_id: what is granted is derived from what ARRIVED, and
-                // settleManually writes a payment id with no amount behind it.
+                // matched_cents, not bunq_payment_id: what is granted comes from what arrived, and this has none.
                 () -> assertEquals(500, queue.getFirst().matchedCents()),
                 () -> assertEquals(4711L, queue.getFirst().bunqPaymentId()),
                 () -> assertEquals(PaymentMatch.REFERENCE, queue.getFirst().matchedBy()));
@@ -564,8 +510,7 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("a manual settlement never enters the booking queue")
-    void aManualSettlementIsNotWaitingToBeBooked() {
+    void aManualSettlementNeverEntersTheBookingQueue() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
 
         assertTrue(requests.settleManually(request.id()));
@@ -586,8 +531,7 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("closing a request and asking for its tab to go away is one transaction")
-    void closingAndCancellingAreOneWrite() {
+    void closingARequestAndAskingForItsTabToGoAwayIsOneTransaction() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
 
@@ -604,12 +548,10 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("closeAndRequestCancel refuses to be used as a settlement")
-    void closingIsNotPaying() {
+    void closeAndRequestCancelRefusesToBeUsedAsASettlement() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
 
-        // PAID means money arrived and something has to be granted for it. Letting it through here
-        // would close the row without a grant, silently.
+        // PAID means money arrived and something has to be granted for it, not a row closed silently with none.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.PAID));
@@ -619,8 +561,7 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    @DisplayName("byId answers the one row the waiting purchase message is about")
-    void byIdFindsTheRow() {
+    void byIdAnswersTheOneRowTheWaitingPurchaseMessageIsAbout() {
         final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
 
         assertEquals(

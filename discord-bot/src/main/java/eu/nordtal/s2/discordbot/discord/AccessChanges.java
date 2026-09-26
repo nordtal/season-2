@@ -4,19 +4,17 @@ import eu.nordtal.s2.commands.access.AccessEffects;
 import java.time.Instant;
 
 /**
- * The five things an access change can be, as the one process that can carry them out does them
- * (season-2-community/08).
+ * The five things an access change can be, as the one process that can carry them out does them.
  *
- * <h2>Why this is not {@code AccessEffects}</h2>
- * {@link AccessEffects} is a command's view: it carries a {@code NordtalUser}, a reply channel and a
- * permission answer, because a command has all three. A row in {@code access_request} has none of
- * them - the asker's HTTP call returned long before the bot read it - and the only thing the two
- * views share is what actually happens. This is that, and nothing else: five verbs, an {@link Actor}
- * and a result.
+ * This is not {@link AccessEffects}: that is a command's view, carrying a {@code NordtalUser}, a
+ * reply channel and a permission answer, because a command has all three. A row in
+ * {@code access_request} has none of them - the asker's HTTP call returned long before the bot
+ * read it - and the only thing the two views share is what actually happens. This is that, and
+ * nothing else: five verbs, an {@link Actor} and a result.
  *
- * <p>It is also what makes {@link AccessInbox} testable at all. The implementation is a JDA session,
- * a database and a guild; the dispatch is five cases and a JSON line, and the second one should not
- * need the first one to be exercised.</p>
+ * It is also what makes {@link AccessInbox} testable at all. The implementation is a JDA session,
+ * a database and a guild; the dispatch is five cases and a JSON line, and the second one should
+ * not need the first one to be exercised.
  */
 public interface AccessChanges {
 
@@ -36,7 +34,7 @@ public interface AccessChanges {
     void setPlaytime(String discordId, long seconds, Actor by);
 
     /**
-     * Re-read the message bundles (season-2-community/09).
+     * Re-read the message bundles.
      *
      * @return {@code true} when the re-read succeeded. A failure leaves the running bundles
      *         unchanged, which is the only safe thing to do with a file that no longer parses

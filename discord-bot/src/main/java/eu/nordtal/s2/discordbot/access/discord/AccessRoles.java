@@ -31,17 +31,14 @@ import org.jdbi.v3.core.Jdbi;
 /**
  * The two roles, and the messages that go with them.
  *
- * <h2>The access role is owned by the bot</h2>
- * It is a projection of the database and nothing else. {@link #reconcile()} adds it to everyone a
- * grant covers and takes it off everyone else who has it, so handing it out by hand holds only
- * until the next pass - {@code /grant-access} is the supported way. The reconcile reads the
- * <b>member cache</b> rather than calling {@code loadMembers()}: JDA chunks the guild once when the
- * session opens and keeps the cache current from gateway events, so this is a set difference in
- * memory and not a request to Discord every few minutes.
+ * The access role is owned by the bot: It is a projection of the database and nothing else. {@link #reconcile()}
+ * adds it to everyone a grant covers and takes it off everyone else who has it, so handing it out by hand holds only
+ * until the next pass - {@code /grant-access} is the supported way. The reconcile reads the member cache rather than
+ * calling {@code loadMembers()}: JDA chunks the guild once when the session opens and keeps the cache current from
+ * gateway events, so this is a set difference in memory and not a request to Discord every few minutes.
  *
- * <h2>The donor role is never taken away</h2>
- * Not by {@link #reconcile()} and not by anything else here. That is deliberate: it means an admin
- * can hand the donor role out through Discord's own role UI without the bot quietly removing it on
+ * The donor role is never taken away: Not by {@link #reconcile()} and not by anything else here. That is deliberate:
+ * it means an admin can hand the donor role out through Discord's own role UI without the bot quietly removing it on
  * the next pass.
  */
 @Slf4j
@@ -49,11 +46,10 @@ public final class AccessRoles {
 
     /**
      * How far back the "your access ran out" sweep looks.
-     * <p>
-     * Longer than any reasonable restart, so a bot that was down at the moment somebody's access
-     * expired still tells them when it comes back. Sending twice is prevented by
-     * {@code expiry_notice}, not by this window being narrow.
-     * </p>
+     *
+     * Longer than any reasonable restart, so a bot that was down at the moment somebody's access expired still tells
+     * them when it comes back. Sending twice is prevented by {@code expiry_notice}, not by this window being narrow.
+     *
      */
     private static final int EXPIRED_LOOKBACK_HOURS = 48;
 
@@ -79,7 +75,7 @@ public final class AccessRoles {
         this.dao = jdbi.onDemand(ReconcileDao.class);
     }
 
-    // ---------------------------------------------------------------- single user
+    // Single user.
 
     /** @return whether a non-revoked grant covers this instant */
     public boolean hasActiveAccess(final String discordId) {
@@ -98,8 +94,7 @@ public final class AccessRoles {
 
     /** Brings one member's access role in line with the database, right now. */
     public void applyAccessRole(final String discordId, final boolean active) {
-        // No access role configured is not a failure: the grant is in the database either way, and
-        // that is what the proxy's login gate reads. Configured names it once at startup.
+        // No access role configured is not a failure: the grant stays in the database, which the proxy reads.
         if (!Configured.isSet(config.roles().access())) {
             return;
         }
@@ -154,16 +149,14 @@ public final class AccessRoles {
                                 "Could not give the donor role to <@" + discordId + ">: " + failure.getMessage()));
     }
 
-    // ---------------------------------------------------------------- the sweeps
+    // The sweeps.
 
     /**
      * One pass over "who holds the role" against "who holds a grant".
-     * <p>
-     * Both sides are bounded by the thing being reconciled: the members who have the role come out
-     * of the member cache, the users who have access come out of one indexed query. Season 1's
-     * equivalent walked every member of every guild every ten seconds and asked the database about
-     * each one.
-     * </p>
+     *
+     * Both sides are bounded by the thing being reconciled: the members who have the role come out of the member cache,
+     * the users who have access come out of one indexed query. Season 1's equivalent walked every member of every guild
+     * every ten seconds and asked the database about each one.
      */
     public void reconcile() {
         if (!Configured.isSet(config.roles().access())) {
@@ -197,8 +190,7 @@ public final class AccessRoles {
         for (final String discordId : shouldHave) {
             final Member member = guild.getMemberById(discordId);
             if (member == null) {
-                // Has paid and is not in the guild. Not an error - the period keeps running down
-                // and the role is waiting for them if they come back.
+                // Has paid and is not in the guild. Not an error - the period runs down and the role awaits a return.
                 continue;
             }
             guild.addRoleToMember(member, role)
@@ -211,11 +203,10 @@ public final class AccessRoles {
 
     /**
      * Sends the "runs out soon" and "has run out" DMs, each exactly once per period.
-     * <p>
-     * The "exactly once" is a row in {@code expiry_notice} keyed by the deadline, inserted before
-     * the message is sent. Sending and then recording would re-send everything after a crash
-     * between the two; recording and then failing to send loses one message and tells an admin.
-     * </p>
+     *
+     * The "exactly once" is a row in {@code expiry_notice} keyed by the deadline, inserted before the message is sent.
+     * Sending and then recording would re-send everything after a crash between the two; recording and then failing to
+     * send loses one message and tells an admin.
      */
     public void sweepExpiryNotices() {
         final int leadHours = config.expiryReminderLeadDays() * 24;
@@ -255,7 +246,7 @@ public final class AccessRoles {
         return dao.noticeOnce(deadline.discordId(), deadline.validUntil().atOffset(ZoneOffset.UTC), kind) == 1;
     }
 
-    // ---------------------------------------------------------------- messages
+    // Messages.
 
     /** The language this Discord account chose, English when it never did. */
     public Locale localeOf(final String discordId) {
@@ -264,11 +255,11 @@ public final class AccessRoles {
 
     /**
      * Sends a direct message, and tells the admin channel when it bounces.
-     * <p>
-     * A blocked DM is the normal case, not an exception: plenty of people have DMs from server
-     * members turned off. It is reported rather than logged and forgotten because the user has
-     * paid for something and has just been told nothing.
-     * </p>
+     *
+     * A blocked DM is the normal case, not an exception: plenty of people have DMs from server members turned off. It
+     * is
+     * reported rather than logged and forgotten because the user has paid for something and has just been told nothing.
+     *
      */
     public void dm(final String discordId, final String text) {
         jda.openPrivateChannelById(discordId)
@@ -290,23 +281,19 @@ public final class AccessRoles {
     /**
      * The guild member behind a Discord id, or empty when there is none to be had.
      *
-     * <h2>A member, not a user, and the difference is the answer</h2>
-     * {@code JDA#retrieveUserById} resolves a <em>global</em> Discord account, so somebody who has
-     * left the guild comes back from it looking exactly like somebody who is still in it - which is
-     * what {@code /access status} answered for a departed member until 2026-09-05. Membership in the
-     * configured guild is what every other thing this class does is about, so it is what this asks.
+     * A member, not a user, and the difference is the answer: {@code JDA#retrieveUserById} resolves a global Discord
+     * account, so somebody who has left the guild comes back from it looking exactly like somebody who is still in
+     * it. Membership in the configured guild is what every other thing this class does is about, so it is what
+     * this asks.
      *
-     * <p>Empty covers three cases that are one from the asker's side: no such member, no such
-     * account, and an id that is not a snowflake at all. Anything else - the gateway being down, a
-     * permission problem - is left to throw, because "there is no such member" would be a lie about
-     * it.</p>
+     * Empty covers three cases that are one from the asker's side: no such member, no such account, and an id that is
+     * not a snowflake at all. Anything else - the gateway being down, a permission problem - is left to throw, because
+     * "there is no such member" would be a lie about it.
      */
     public Optional<Member> member(final String discordId) {
         final Guild guild = guild();
         if (guild == null) {
-            // Thrown and not empty. Empty means "there is no such member", and the caller turns
-            // that into a sentence telling an admin the person has left - which a guild JDA cannot
-            // currently see is no evidence of at all. A failure gets the failure sentence.
+            // Thrown and not empty. Empty means "no such member", and a guild JDA cannot see is no evidence of that.
             throw new IllegalStateException("guild " + config.guildId() + " is not available to the"
                     + " bot, so guild membership cannot be answered either way");
         }

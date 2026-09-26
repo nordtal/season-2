@@ -2,18 +2,15 @@ package eu.nordtal.s2.discordbot;
 
 /**
  * Every component id the bot listens for, in one place.
- * <p>
- * All of them are prefixed {@code access:} so a listener can tell at a glance whether an
- * interaction is its business, and so a second bot in the same guild cannot collide with these.
- * One of them carries a value: {@link #DAYS_SELECT}'s is a number of days rather than the name of a
- * tier - the tiers come from configuration and have no stable identity, but the number of days a
- * user clicked on is exactly what has to be looked up again.
- * </p><p>
- * The ids a <em>command</em> confirmation uses are not here. They are minted by
- * {@code DiscordCommands} from the command's own path and carry the prefix {@code nordtal:cmd:},
- * which is deliberately not {@code access:} - the two sets are read by different listeners, and a
- * shared prefix is how one of them would come to answer for the other.
- * </p>
+ *
+ * All of them are prefixed {@code access:} so a listener can tell at a glance whether an interaction is its
+ * business, and so a second bot in the same guild cannot collide with these. One of them carries a value:
+ * {@link #DAYS_SELECT} 's is a number of days rather than the name of a tier - the tiers come from configuration and
+ * have no stable identity, but the number of days a user clicked on is exactly what has to be looked up again.
+ *  The ids a command confirmation uses are not here. They are minted by {@code DiscordCommands} from the
+ * command's own path and carry the prefix {@code nordtal:cmd:}, which is deliberately not {@code access:} - the two
+ * sets are read by different listeners, and a shared prefix is how one of them would come to answer for the other.
+ *
  */
 public final class Ids {
 
@@ -41,22 +38,13 @@ public final class Ids {
     /** The text input inside {@link #LINK_MODAL} carrying the code itself. */
     public static final String LINK_CODE_INPUT = "access:link-code";
 
-    // The three phase buttons that used to live here - PHASE_CONFIRM, PHASE_DATE_CONFIRM and
-    // PHASE_CANCEL - were deleted on 2026-09-05. Their reasoning was not: the pending decision lives
-    // in the button rather than in a map, so a bot that restarts mid-confirmation has a button that
-    // does nothing instead of one that writes a date somebody has forgotten about. That is now
-    // DiscordCommands' rule for EVERY irreversible command rather than a hand-built pair for one,
-    // and the ids it mints carry their own prefix (nordtal:cmd:) so nothing here can collide with
-    // them.
-
     /**
      * Asks steward-worker to install what {@code /update} just reported.
-     * <p>
-     * Carries no value. Unlike the phase buttons there is nothing to remember between the command
-     * and the click: the request row the worker answers is written when the button is pressed, and
-     * "install whatever is newest right now" is what it means. A plan that has moved on since the
-     * report was rendered is a plan the report will show again - the worker resolves afresh.
-     * </p>
+     *
+     * Carries no value. Unlike the phase buttons there is nothing to remember between the command and the click: the
+     * request row the worker answers is written when the button is pressed, and "install whatever is newest right now"
+     * is what it means. A plan that has moved on since the report was rendered is a plan the report will show again -
+     * the worker resolves afresh.
      */
     public static final String UPDATE_INSTALL = "access:update-install";
 

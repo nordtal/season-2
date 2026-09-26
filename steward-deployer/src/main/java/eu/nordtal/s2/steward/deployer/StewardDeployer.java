@@ -15,20 +15,20 @@ import org.slf4j.LoggerFactory;
 /**
  * The one service allowed to create containers.
  *
- * <p>It carries {@code compose.yml} inside its own image, so a change to the deployment is a new
- * image of this service rather than a file edited on the host.</p>
+ * It carries {@code compose.yml} inside its own image, so a change to the deployment is a new
+ * image of this service rather than a file edited on the host.
  *
- * <p>Two ways in, for two callers who are not alike: {@code deployer up} is the setup script on
+ * Two ways in, for two callers who are not alike: {@code deployer up} is the setup script on
  * the host, which runs before anything else exists and has no interface to click in, and waits for
  * the deployment and exits with its code. {@code deployer serve} is the small HTTP API steward-ui
  * calls; it never waits, because a deployment is a job and the caller reads its output as it
- * appears.</p>
+ * appears.
  *
- * <p><b>The serving process never recreates itself.</b> {@link Compose#SELF} is refused wherever
+ * <b>The serving process never recreates itself.</b> {@link Compose#SELF} is refused wherever
  * the API accepts a service name, and the whole-stack deployment names every service one by one so
  * that it can be left out - an empty list would mean "all of them" to compose and put it back.
  * Renewing this container is the setup script's job, which is why {@code deployer up} - and only
- * it, running as a throwaway container beside the stack - goes through {@link Compose#bootstrap}.</p>
+ * it, running as a throwaway container beside the stack - goes through {@link Compose#bootstrap}.
  */
 public final class StewardDeployer {
 
@@ -38,9 +38,9 @@ public final class StewardDeployer {
 
     private StewardDeployer() {}
 
-    public static void main(String[] args) throws Exception {
-        String mode = args.length == 0 ? "serve" : args[0];
-        Compose compose = new Compose(
+    public static void main(final String[] args) throws Exception {
+        final String mode = args.length == 0 ? "serve" : args[0];
+        final Compose compose = new Compose(
                 path("NORDTAL_STEWARD_COMPOSE_FILE", "/app/compose.yml"),
                 path("NORDTAL_STEWARD_ENV_FILE", "/app/env/.env"),
                 path("NORDTAL_STEWARD_PROJECT_DIRECTORY", "/app"),
@@ -59,12 +59,13 @@ public final class StewardDeployer {
     /**
      * Pull, then up.
      *
-     * <p>The order is the whole point of doing it here rather than leaving it to {@code up}: a pull
+     * The order is the whole point of doing it here rather than leaving it to {@code up}: a pull
      * that fails has to stop the deployment <b>before</b> anything is taken down, not halfway
      * through with the servers already stopped. The one tolerated exception is documented on
-     * {@link Compose#pull}.</p>
+     * {@link Compose#pull}.
      */
-    static int deploy(Compose compose, List<String> requested, java.util.function.Consumer<String> output)
+    static int deploy(
+            final Compose compose, final List<String> requested, final java.util.function.Consumer<String> output)
             throws Exception {
         return deploy(compose, requested, output, false);
     }
@@ -75,12 +76,15 @@ public final class StewardDeployer {
      *                  the compose-managed one. Every other caller is, and must not.
      */
     static int deploy(
-            Compose compose, List<String> requested, java.util.function.Consumer<String> output, boolean bootstrap)
+            final Compose compose,
+            final List<String> requested,
+            final java.util.function.Consumer<String> output,
+            final boolean bootstrap)
             throws Exception {
-        List<String> services = servicesToDeploy(compose.services().keySet(), requested, bootstrap);
+        final List<String> services = servicesToDeploy(compose.services().keySet(), requested, bootstrap);
 
-        for (String service : services) {
-            Compose.PullOutcome outcome = compose.pull(service, output);
+        for (final String service : services) {
+            final Compose.PullOutcome outcome = compose.pull(service, output);
             if (outcome == Compose.PullOutcome.FAILED) {
                 output.accept("no image for " + service + ", from the registry or from this host. "
                         + "Nothing has been stopped.");
@@ -93,12 +97,13 @@ public final class StewardDeployer {
     /**
      * Recreate one container from the image that is already here.
      *
-     * <p><b>No pull.</b> A recreate must not be able to roll a deployment back without saying so by
+     * <b>No pull.</b> A recreate must not be able to roll a deployment back without saying so by
      * silently replacing a locally built image with a published one. Deploy fetches; recreate uses
      * what is here. The cost is that a service with no local image cannot be recreated, which is why
-     * the refusal below names deploy rather than leaving compose to fail in its own words.</p>
+     * the refusal below names deploy rather than leaving compose to fail in its own words.
      */
-    static int recreate(Compose compose, String service, java.util.function.Consumer<String> output) throws Exception {
+    static int recreate(final Compose compose, final String service, final java.util.function.Consumer<String> output)
+            throws Exception {
         if (!compose.hasLocalImage(service)) {
             output.accept("no image for " + service + " on this host, and recreate does not fetch "
                     + "one. Deploy " + service + " instead - that is the button that pulls. "
@@ -111,19 +116,20 @@ public final class StewardDeployer {
     /**
      * Which services one deployment touches, named one by one.
      *
-     * <p><b>Never an empty list, and that is the point.</b> An empty list of service names means
+     * <b>Never an empty list, and that is the point.</b> An empty list of service names means
      * <i>every</i> service to {@code docker compose up}, which would put steward-deployer back into
      * a whole-stack deployment right after it was taken out - the one service that must never
-     * recreate itself, on the most ordinary deployment there is.</p>
+     * recreate itself, on the most ordinary deployment there is.
      *
-     * <p><b>A named request is refused rather than filtered.</b> Silently dropping
+     * <b>A named request is refused rather than filtered.</b> Silently dropping
      * {@code steward-deployer} from a named request would walk past {@link Compose#up}'s own
      * refusal, because by the time it looks the name is no longer there. Asking for something this
      * program will not do is an error with a sentence, not a request silently turned into a
-     * different one.</p>
+     * different one.
      */
-    static List<String> servicesToDeploy(java.util.Collection<String> all, List<String> requested, boolean bootstrap) {
-        List<String> services = requested.isEmpty() ? new ArrayList<>(all) : new ArrayList<>(requested);
+    static List<String> servicesToDeploy(
+            final java.util.Collection<String> all, final List<String> requested, final boolean bootstrap) {
+        final List<String> services = requested.isEmpty() ? new ArrayList<>(all) : new ArrayList<>(requested);
         if (!bootstrap) {
             if (!requested.isEmpty() && services.contains(Compose.SELF)) {
                 throw new IllegalArgumentException(Compose.SELF + " will not recreate itself - the"
@@ -135,90 +141,94 @@ public final class StewardDeployer {
         return List.copyOf(services);
     }
 
-    private static void serve(Compose compose) throws java.io.IOException {
-        String token = System.getenv("NORDTAL_STEWARD_DEPLOYER_TOKEN");
+    private static void serve(final Compose compose) throws java.io.IOException {
+        final String token = requireToken();
+        // A container that starts with a stale env file says so in its own boot log, not on the first deploy.
+        compose.assertEnvFileFresh();
+        final Jobs jobs = new Jobs();
+
+        Javalin.create(config -> configureRoutes(config, compose, jobs, token)).start(port());
+
+        log.info("steward-deployer listening on {}", port());
+    }
+
+    private static String requireToken() {
+        final String token = System.getenv("NORDTAL_STEWARD_DEPLOYER_TOKEN");
         if (token == null || token.isBlank()) {
-            // Refusing to start is the point. This process can recreate every container in the
-            // stack; an unauthenticated one on a shared network is a remote root shell with extra
-            // steps, and a service that merely logs a warning about that gets deployed anyway.
+            // An unauthenticated process that can recreate every container is a remote root shell with extra steps.
             throw new IllegalStateException(
                     "NORDTAL_STEWARD_DEPLOYER_TOKEN is not set. steward-deployer creates containers "
                             + "and will not serve without a shared secret; the setup script writes one.");
         }
-        // A container that starts with a stale env file says so in its own boot log, not on the first deploy.
-        compose.assertEnvFileFresh();
-        Jobs jobs = new Jobs();
+        return token;
+    }
 
-        Javalin.create(config -> {
-                    config.jsonMapper(new JavalinGson(new Gson(), true));
-                    config.startup.showJavalinBanner = false;
+    private static void configureRoutes(
+            final io.javalin.config.JavalinConfig config, final Compose compose, final Jobs jobs, final String token) {
+        config.jsonMapper(new JavalinGson(new Gson(), true));
+        config.startup.showJavalinBanner = false;
 
-                    config.routes.before("/api/*", ctx -> {
-                        if (ctx.path().equals("/api/health")) {
-                            return;
-                        }
-                        if (!token.equals(ctx.header("X-Steward-Token"))) {
-                            throw new io.javalin.http.UnauthorizedResponse("bad or missing X-Steward-Token");
-                        }
-                    });
+        config.routes.before("/api/*", ctx -> {
+            if (ctx.path().equals("/api/health")) {
+                return;
+            }
+            if (!token.equals(ctx.header("X-Steward-Token"))) {
+                throw new io.javalin.http.UnauthorizedResponse("bad or missing X-Steward-Token");
+            }
+        });
 
-                    config.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
+        config.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
 
-                    // What compose thinks is running. steward-ui draws the service list from the worker's
-                    // docker view, not from here - this is the deployer's own answer to "did my deployment
-                    // arrive", which is a different question.
-                    config.routes.get(
-                            "/api/state",
-                            ctx -> ctx.contentType("application/json").result(compose.state()));
+        // The deployer's own answer to "did my deployment arrive", not steward-ui's worker-drawn service list.
+        config.routes.get(
+                "/api/state", ctx -> ctx.contentType("application/json").result(compose.state()));
 
-                    config.routes.get("/api/services", ctx -> ctx.json(compose.services()));
+        config.routes.get("/api/services", ctx -> ctx.json(compose.services()));
 
-                    config.routes.post("/api/deploy", ctx -> {
-                        Request request = ctx.bodyAsClass(Request.class);
-                        List<String> services =
-                                request == null || request.services == null ? List.of() : request.services;
-                        Jobs.Job job = jobs.start("deploy", services, output -> deploy(compose, services, output));
-                        ctx.status(HttpStatus.ACCEPTED).json(job.summary());
-                    });
+        config.routes.post("/api/deploy", ctx -> deployRoute(ctx, compose, jobs));
+        config.routes.post("/api/recreate/{service}", ctx -> recreateRoute(ctx, compose, jobs));
+        config.routes.get(
+                "/api/jobs",
+                ctx -> ctx.json(jobs.all().stream().map(Jobs.Job::summary).toList()));
+        config.routes.get("/api/jobs/{id}", ctx -> jobRoute(ctx, jobs));
 
-                    config.routes.post("/api/recreate/{service}", ctx -> {
-                        String service = ctx.pathParam("service");
-                        Jobs.Job job =
-                                jobs.start("recreate", List.of(service), output -> recreate(compose, service, output));
-                        ctx.status(HttpStatus.ACCEPTED).json(job.summary());
-                    });
+        // SSE rather than a websocket: one direction, and it passes through a reverse proxy without a special rule.
+        config.routes.sse("/api/jobs/{id}/stream", client -> streamRoute(client, jobs));
+    }
 
-                    config.routes.get(
-                            "/api/jobs",
-                            ctx -> ctx.json(
-                                    jobs.all().stream().map(Jobs.Job::summary).toList()));
+    private static void deployRoute(final io.javalin.http.Context ctx, final Compose compose, final Jobs jobs)
+            throws Exception {
+        final Request request = ctx.bodyAsClass(Request.class);
+        final List<String> services = request == null || request.services == null ? List.of() : request.services;
+        final Jobs.Job job = jobs.start("deploy", services, output -> deploy(compose, services, output));
+        ctx.status(HttpStatus.ACCEPTED).json(job.summary());
+    }
 
-                    config.routes.get("/api/jobs/{id}", ctx -> {
-                        Jobs.Job job = jobs.get(ctx.pathParam("id"));
-                        if (job == null) {
-                            throw new io.javalin.http.NotFoundResponse("no such job");
-                        }
-                        Map<String, Object> answer = new java.util.LinkedHashMap<>(job.summary());
-                        answer.put("lines", job.lines());
-                        ctx.json(answer);
-                    });
+    private static void recreateRoute(final io.javalin.http.Context ctx, final Compose compose, final Jobs jobs) {
+        final String service = ctx.pathParam("service");
+        final Jobs.Job job = jobs.start("recreate", List.of(service), output -> recreate(compose, service, output));
+        ctx.status(HttpStatus.ACCEPTED).json(job.summary());
+    }
 
-                    // SSE rather than a websocket: one direction, reconnects by itself, and it passes
-                    // through a reverse proxy without a special rule.
-                    config.routes.sse("/api/jobs/{id}/stream", client -> {
-                        Jobs.Job job = jobs.get(client.ctx().pathParam("id"));
-                        if (job == null) {
-                            client.close();
-                            return;
-                        }
-                        client.keepAlive();
-                        Runnable stop = job.follow(line -> client.sendEvent("line", line));
-                        client.onClose(stop);
-                    });
-                })
-                .start(port());
+    private static void jobRoute(final io.javalin.http.Context ctx, final Jobs jobs) {
+        final Jobs.Job job = jobs.get(ctx.pathParam("id"));
+        if (job == null) {
+            throw new io.javalin.http.NotFoundResponse("no such job");
+        }
+        final Map<String, Object> answer = new java.util.LinkedHashMap<>(job.summary());
+        answer.put("lines", job.lines());
+        ctx.json(answer);
+    }
 
-        log.info("steward-deployer listening on {}", port());
+    private static void streamRoute(final io.javalin.http.sse.SseClient client, final Jobs jobs) {
+        final Jobs.Job job = jobs.get(client.ctx().pathParam("id"));
+        if (job == null) {
+            client.close();
+            return;
+        }
+        client.keepAlive();
+        final Runnable stop = job.follow(line -> client.sendEvent("line", line));
+        client.onClose(stop);
     }
 
     /** The body of {@code POST /api/deploy}: an empty list means the whole project. */
@@ -227,16 +237,16 @@ public final class StewardDeployer {
     }
 
     private static int port() {
-        String value = System.getenv("NORDTAL_STEWARD_DEPLOYER_PORT");
+        final String value = System.getenv("NORDTAL_STEWARD_DEPLOYER_PORT");
         return value == null || value.isBlank() ? DEFAULT_PORT : Integer.parseInt(value.trim());
     }
 
-    private static String env(String name, String fallback) {
-        String value = System.getenv(name);
+    private static String env(final String name, final String fallback) {
+        final String value = System.getenv(name);
         return value == null || value.isBlank() ? fallback : value;
     }
 
-    private static Path path(String name, String fallback) {
+    private static Path path(final String name, final String fallback) {
         return Path.of(env(name, fallback));
     }
 }

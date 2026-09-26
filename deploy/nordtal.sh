@@ -4,12 +4,12 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
 #
-# THAT IS THE INSTALL, AND IT NEEDS NO CHECKOUT. Everything this script needs is either asked for,
-# generated here, or inside an image it pulls. It installs into the DIRECTORY IT IS RUN FROM - the
+# That is the install, and it needs no checkout. Everything this script needs is either asked for,
+# generated here, or inside an image it pulls. It installs into the directory it is run from - the
 # worlds, the databases, the plugin configs and the backups all become directories there - and the
 # first thing it asks is whether that directory is really the right one.
 #
-# IT THEN STAYS THERE as ./nordtal.sh, and that is how a setting is changed afterwards:
+# It then stays there as ./nordtal.sh, and that is how a setting is changed afterwards:
 #
 #   ./nordtal.sh                       the menu: what is set, change one, then deploy
 #   ./nordtal.sh --deploy              no menu; ask only for what is missing, then deploy
@@ -21,7 +21,7 @@
 #   ./nordtal.sh --address IP          this host's public address, for a host behind NAT
 #   ./nordtal.sh --no-self-update      run this file as it is, without asking GitHub for a newer one
 #
-# AND ONE SUBCOMMAND, WHICH IS NOT AN INSTALL AT ALL. It writes a row into
+# And one subcommand, which is not an install at all. It writes a row into
 # `update_request` and waits for the worker to finish it - the same row Steward and Discord write,
 # and the way to start a run when the only other doors are inside the stack being updated:
 #
@@ -37,52 +37,49 @@
 # environment file (the database user and the database name), reaches the database through
 # `docker exec` on the postgres container, and prints the run's own report when it is over.
 #
-# IT RENEWS ITSELF ON EVERY RUN, and the reason is RUN IT AGAIN AFTER EVERY RELEASE below: a new
-# compose.yml reaches this host only inside a new steward-deployer image, and a directory that has
-# stood for half a year would otherwise deploy with a script that knows nothing about it. So the
-# first thing it does is fetch the current version, write it beside the installation and run THAT.
-# Two things follow from doing it at all, and both are deliberate:
+# It renews itself on every run, because a new compose.yml reaches this host only inside a new
+# steward-deployer image, and a directory that has stood for a long time would otherwise deploy
+# with a script that knows nothing about it. So the first thing it does is fetch the current
+# version, write it beside the installation and run that one instead. Two things follow from doing
+# it at all, and both are deliberate:
 #
-#   WITHOUT A NETWORK IT CARRIES ON with the copy that is here rather than failing - an installation
+#   without a network it carries on with the copy that is here rather than failing - an installation
 #   that cannot be operated because GitHub is unreachable would be a worse bargain than a stale one;
-#   IT SAYS WHICH VERSION IT IS RUNNING, every time, with the fingerprint of the file and where that
+#   it says which version it is running, every time, with the fingerprint of the file and where that
 #   file came from. A script that silently swaps itself for other code must not be quiet about it.
 #
-# It is also the one thing in this deployment that lives OUTSIDE the deployment. Everything else is
+# It is also the one thing in this deployment that lives outside the deployment. Everything else is
 # a container that steward-deployer can recreate; steward-deployer itself cannot, because a service
 # that replaces its own container never gets to report how that went. So renewing it is this
 # script's job (§9c) - and since it has to exist and be re-runnable anyway, it is also what puts the
 # environment file in place and what refuses to continue while the certificate cannot be issued.
 #
-# NOBODY EDITS A .env. This script asks for the nine things only a person can know - the name the
+# Nobody edits a .env. This script asks for the nine things only a person can know - the name the
 # interface answers on, the address Let's Encrypt writes to, the EULA, the bot's token, the two
 # halves of the Discord application, the guild, the admin role, and bunq if there is a bunq - and it
 # writes them itself, into a file it creates with mode 600. Everything else is either generated here
 # (the database password, the proxy's forwarding secret, the two Steward tokens) or has a default in
 # the service's own configuration, which the interface can then edit.
 #
-# THE ENVIRONMENT FILE IS NOT IN THE INSTALLATION DIRECTORY, and that is on purpose: it holds every
+# The environment file is not in the installation directory, and that is on purpose: it holds every
 # secret the deployment has, and the installation directory is the one somebody reaches over SFTP.
 # It stays at /etc/nordtal/season-2.env, mode 600, and the installation directory holds only data.
 #
-# RUN IT AGAIN AFTER EVERY RELEASE. That is not a nicety: a new compose.yml reaches this host only
+# Run it again after every release. That is not a nicety: a new compose.yml reaches this host only
 # inside a new steward-deployer image, so "deploy the new version" is this script, and everything
 # else in the stack then follows from the deployer.
 #
-# IT NEVER PRINTS A SECRET AND NEVER PUTS ONE ON A COMMAND LINE. A secret is read with the terminal
+# It never prints a secret and never puts one on a command line. A secret is read with the terminal
 # echo off, handed to `awk` through the environment rather than through `-v` (an argument is visible
 # in `ps` to every user on the host), and written into a file created 600 beside its destination.
 # The menu prints a secret that is set as three dots and never as itself; the report says which
 # variable is missing, never what is in it.
 #
-# Everything here runs in the directory it was started from, which IS the installation.
+# Everything here runs in the directory it was started from, which is the installation.
 set -Eeuo pipefail
 
-# THERE IS NO `ROOT` ANY MORE, and that is the whole shape of this change. It used to be
-# `$(dirname "${BASH_SOURCE[0]}")/..`, the repository this file sat in - which does not exist when
-# the file arrives through a pipe: under `curl ... | bash` there is no BASH_SOURCE[0] at all
-# (measured, bash 5.2: it is unset, so reading it under `set -u` is itself an error). The
-# installation is the CURRENT DIRECTORY instead, and nothing here reads a checkout.
+# There is no `ROOT`. An installation is the current directory: under `curl ... | bash` there is no
+# BASH_SOURCE[0] at all, so a path built from it would fail under `set -u` before anything runs.
 INSTALL_DIR="$PWD"
 SELF_NAME="nordtal.sh"
 INSTALLED="$INSTALL_DIR/$SELF_NAME"
@@ -104,15 +101,14 @@ warn() { printf '\033[33m[nordtal]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[nordtal]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # the one thing this file cannot ask for politely
-# The question table below is four `declare -A`, and associative arrays arrived in bash 4.0 (2009).
-# macOS still ships 3.2.57 as /bin/bash and always will - it is the last GPLv2 release - so
+# The question table below is four `declare -A`, and associative arrays arrived in bash 4.0. macOS
+# ships 3.2.57 as /bin/bash and always will - it is the last GPLv2 release - so
 # `#!/usr/bin/env bash` on a laptop finds a shell that does not have them.
 #
-# WITHOUT THIS LINE THE FAILURE IS UNREADABLE, and that is the whole reason it is here: 3.2 does not
-# know `-A`, so it reads `[STEWARD_HOST]=plain` as a NUMERIC subscript, evaluates STEWARD_HOST as
-# arithmetic, and `set -u` turns that into `STEWARD_HOST: unbound variable` - a sentence about the
-# environment file, pointing at a variable the example file sets, on a run that has not read either
-# one yet. It cost an afternoon once; it is a `brew install bash` away.
+# Without this check the failure is unreadable: 3.2 does not know `-A`, so it reads
+# `[STEWARD_HOST]=plain` as a numeric subscript, evaluates STEWARD_HOST as arithmetic, and `set -u`
+# turns that into `STEWARD_HOST: unbound variable` - a sentence about the environment file, pointing
+# at a variable the example file sets, on a run that has not read either one yet.
 #
 # Checked here rather than in deploy/dev because dev sources this file before its own first line,
 # so this is the earliest point either script can speak at all.
@@ -126,13 +122,12 @@ fi
 #
 # Every one of them is either asked for below or generated here, so this list is a last check rather
 # than a demand on the reader: if it ever fires, something in this script failed to write what it
-# said it wrote. It is checked by NAME - absent, empty or still REPLACE_ME all count as missing, and
+# said it wrote. It is checked by name - absent, empty or still REPLACE_ME all count as missing, and
 # the report names the variable and never the value.
 #
-# WHAT IS DELIBERATELY NOT HERE is as much of the point as what is: the roles the bot hands out, the
+# What is deliberately not here is as much of the point as what is: the roles the bot hands out, the
 # channels it posts in, the languages, the tiers. None of those stops a deployment - a feature whose
-# channel is unset is simply not served, and the interface can set it afterwards. The old list
-# demanded all six, which is how a host ended up needing a hand-written .env before it could start.
+# channel is unset is simply not served, and the interface can set it afterwards.
 REQUIRED=(
     COMPOSE_PROFILES
     POSTGRES_DB
@@ -158,18 +153,18 @@ REQUIRED=(
 # replaced - so `nordtal-s2_mc-smp-20260919T031500Z.tar.zst` in the backups is
 # `mc-smp/` here, without anybody having to work out a mapping.
 #
-# THIS LIST IS A COPY OF WHAT compose.yml SAYS, and the copy is the cheap side of the trade: this
+# This list is a copy of what compose.yml says, and the copy is the cheap side of the trade: this
 # script cannot read compose.yml at all on a fresh host (it is inside steward-deployer's image, and
 # no image has been pulled yet at the point the directories are needed). What a stale list costs is
-# almost nothing - Docker creates a missing bind source itself, as root, mode 755 - EXCEPT for a
+# almost nothing - Docker creates a missing bind source itself, as root, mode 755 - except for a
 # service that does not run as root, which is the whole reason the second column exists.
 #
-# THE SECOND COLUMN IS AN OWNER, and steward-ui is the one that has one. It runs as uid 10001 (see
+# The second column is an owner, and steward-ui is the one that has one. It runs as uid 10001 (see
 # its Dockerfile: "the process that a stranger reaches first runs as UID 0" is not a sentence to
-# leave standing), and a named volume used to hand it the image's ownership for free. A BIND MOUNT
-# DOES NOT: Docker creates the directory root:root and the interface then cannot write its own
-# steward-ui.yml - which does not fail loudly, it fails as a settings page that saves and changes
-# nothing. So this script chowns that one directory and only that one.
+# leave standing). A bind mount does not carry that ownership the way a named volume would: Docker
+# creates the directory root:root and the interface then cannot write its own steward-ui.yml - which
+# does not fail loudly, it fails as a settings page that saves and changes nothing. So this script
+# chowns that one directory and only that one.
 DATA_DIRS=(
     "postgres-data"
     "steward-backups"
@@ -223,17 +218,14 @@ env_value() {
 
 # Writes `name=value` into the file, replacing the assignment that is there or appending one.
 #
-# THE SPELLING OF AN ASSIGNMENT IS NOT ONE THING, and this used to look for it one way and replace
-# it another: the search accepted leading whitespace and the replacement compared the whole first
-# field, so `  NAME=` was found and left alone; and neither of them knew about `export`, so
-# `export NAME=` was not found at all and a SECOND assignment was appended below the first - which
-# `env_value` then never reads, because it takes the first match. Both ways the caller was told a
-# value had been written and compose got an empty one.
+# The spelling of an assignment is not one thing: the search for an existing one accepts leading
+# whitespace and an optional `export`, and the replacement strips both from the compared key too, so
+# `  NAME=` and `export NAME=` are both found and replaced rather than left alone with a second
+# assignment appended below - which `env_value` would never read, since it takes the first match.
 #
-# THE VALUE IS NEVER PRINTED AND NEVER PUT ON A COMMAND LINE. It used to go into awk through `-v`,
-# with a comment here claiming that kept it out of `ps` - it does not: an argument of a running
-# process is in /proc/<pid>/cmdline, which is world-readable, and this function now writes the
-# Discord token and the database password. So the value travels in the ENVIRONMENT of that one awk
+# The value is never printed and never put on a command line: an argument of a running process is
+# in /proc/<pid>/cmdline, which is world-readable, and this function writes the Discord token and
+# the database password. So the value travels in the environment of the one awk process it runs in
 # (readable by root and the caller, not by everybody) and into a file created with mode 600 beside
 # the destination, never through a world-readable place, not even for the moment before the rename.
 set_assignment() {
@@ -349,10 +341,10 @@ answer_is_yes() {
 }
 
 # the questions, as a table rather than as call sites
-# WHY THIS IS A TABLE: the same twelve variables are now walked twice - once by
-# the run that asks for what is MISSING, and once by the menu, which lists what is SET and lets one
-# be picked and typed again. Two lists would drift, and the way they would drift is the quiet one: a
-# variable that can be asked for on a first install and not changed afterwards.
+# The same twelve variables are walked twice - once by the run that asks for what is missing, and
+# once by the menu, which lists what is set and lets one be picked and typed again. Two lists would
+# drift, and the way they would drift is the quiet one: a variable that can be asked for on a first
+# install and not changed afterwards.
 #
 # The order here is the order the menu shows, and it is the order somebody fills them in: the name
 # and the certificate first, then the licence, then Discord, then bunq, then what comes up at all.
@@ -446,7 +438,7 @@ declare -A QUESTION_HINT=(
 
 # The secrets this script generates rather than asks for. They are in no menu - regenerating
 # POSTGRES_PASSWORD against a database that already exists is the one edit that breaks a working
-# deployment in a way nothing reports - but they ARE listed under it, as three dots, so that the
+# deployment in a way nothing reports - but they are listed under it, as three dots, so that the
 # answer to "where is the database password" is on the same screen as everything else.
 GENERATED=(
     POSTGRES_PASSWORD
@@ -457,7 +449,7 @@ GENERATED=(
     STEWARD_UI_WEB_PUSH_PRIVATE_KEY
 )
 
-# What the menu prints for a value, and the rule it keeps is absolute: A SECRET IS NEVER PRINTED.
+# What the menu prints for a value, and the rule it keeps is absolute: a secret is never printed.
 # Not the first characters of it, not its length - the fact that one is set is the whole of what a
 # menu needs to say, and anything more ends up in a screenshot or a terminal recording. The dots
 # are three, always, whatever is behind them.
@@ -480,9 +472,9 @@ shown_value() {
 # What a typed menu answer means: `quit`, `deploy`, `edit <n>`, or nothing at all for an answer
 # that is none of those.
 #
-# A BARE RETURN IS NOT A DEPLOY, and that is the same decision deploy/restore.sh and `deploy/dev
-# reset` make about a confirmation: the one answer somebody gives without reading is the empty one,
-# and here it would stop four Minecraft servers. It redraws the menu instead.
+# A bare return is not a deploy, the same decision deploy/restore.sh and `deploy/dev reset` make
+# about a confirmation: the one answer somebody gives without reading is the empty one, and here it
+# would stop four Minecraft servers. It redraws the menu instead.
 menu_choice() {
     local typed="$1" count="$2"
     case "${typed,,}" in
@@ -494,9 +486,9 @@ menu_choice() {
     fi
 }
 
-# Which of the addresses the name resolves to are NOT this host's.
+# Which of the addresses the name resolves to are not this host's.
 #
-# EVERY resolved address has to be ours, not merely one of them. A name with an A record here and a
+# Every resolved address has to be ours, not merely one of them. A name with an A record here and a
 # stale AAAA record somewhere else resolves "correctly" for anyone on IPv4 and hands Let's Encrypt a
 # host that answers the challenge with somebody else's server - the certificate then fails for a
 # reason that has nothing to do with this host.
@@ -516,15 +508,13 @@ addresses_not_ours() {
 # - either because they carry no RepoDigests at all, or because the registry currently
 # serves a manifest digest that this image's own RepoDigests do not contain.
 #
-# THE FIRST VERSION OF THIS ONLY CHECKED FOR "no RepoDigests at all", and it was wrong on this very
-# host: the classic docker image store never assigns a locally built image a RepoDigest, but the
-# containerd image store DOES - identical to the image ID, not derived from any registry - so a
-# steward-ui rebuilt with `docker compose build` and never pushed anywhere still carried one, and the
-# check was silent for exactly the case it exists for (steward, 2026-09-17, measured against a real
-# rebuild of steward-ui and steward-deployer on this host). Whether a RepoDigest exists is therefore
-# not the question; whether it matches what the registry serves RIGHT NOW is.
+# Checking only for "no RepoDigests at all" is not enough: the classic docker image store never
+# assigns a locally built image a RepoDigest, but the containerd image store does - identical to the
+# image ID, not derived from any registry - so a steward-ui rebuilt with `docker compose build` and
+# never pushed anywhere still carries one. Whether a RepoDigest exists is therefore not the question;
+# whether it matches what the registry serves right now is.
 #
-# PURE ON PURPOSE, the same way addresses_not_ours is: it takes what docker calls already found
+# Pure on purpose, the same way addresses_not_ours is: it takes what docker calls already found
 # rather than making them itself, so deploy/nordtal-test.sh can hand it fixture text and check the
 # decision without a daemon.
 #
@@ -542,7 +532,7 @@ addresses_not_ours() {
 #
 # Output: one "<RISK|UNKNOWN><TAB><image><TAB><services, comma-separated>" line per image that is
 # already on this host and either
-#   RISK     carries no RepoDigests at all, OR the registry's current digest for it is not among its
+#   RISK     carries no RepoDigests at all, or the registry's current digest for it is not among its
 #            own RepoDigests - a pull would change what is running;
 #   UNKNOWN  carries RepoDigests, but the registry could not be asked - folding this into "safe"
 #            would trade one silent failure for another.
@@ -638,18 +628,17 @@ looks_like_this_script() {
     local file="$1"
     [[ -s "$file" ]] || return 1
     # `sed -n 1p` into a comparison rather than `head -1 | grep -q`: that pipe is the shape
-    # deploy/pipe-safety-test.sh exists for, and it caught this line when it was first written.
+    # deploy/pipe-safety-test.sh exists for.
     [[ "$(sed -n '1p' "$file")" == '#!/usr/bin/env bash' ]] || return 1
     grep -q '^SELF_NAME=' "$file" || return 1
     bash -n "$file" 2>/dev/null
 }
 
 # asking, and writing down an answer
-# THESE FOUR ARE ABOVE THE SEAM SO THAT `deploy/dev` CAN USE THEM. Till's cut is
-# that the two scripts share the QUESTIONS and nothing else: a local setup asks a person the same
-# things in the same words, with the same shape checks and the same "a secret is never echoed"
-# rule, and then does none of what the rest of this file does - no images pulled, no /etc/nordtal,
-# no waiting on DNS, no root.
+# These four are above the seam so that `deploy/dev` can use them: the two scripts share the
+# QUESTIONS table and nothing else. A local setup asks a person the same things in the same words,
+# with the same shape checks and the same "a secret is never echoed" rule, and then does none of
+# what the rest of this file does - no images pulled, no /etc/nordtal, no waiting on DNS, no root.
 #
 # They read $ENV_FILE and $CHECK_ONLY, which a caller sets: this file sets them in section 2 below,
 # `deploy/dev` sets them itself. That is the whole of the contract, and it is why they are
@@ -666,12 +655,12 @@ looks_like_this_script() {
 # `force` re-asks a variable that is already set, which is what the menu does with the one a person
 # picked. Without it a set value is left alone and reported, which is what a plain run does.
 #
-# THE LICENCE IS A KIND AND NOT A BLOCK OF ITS OWN any more. It was written out
-# twice as long further down, and the menu would have needed a third copy: a person who mistyped
-# the EULA answer could otherwise never correct it, because every other value is editable and that
-# one was not. What makes it its own kind rather than a plain question is that NOTHING IS WRITTEN
-# FOR A NO - `answer_is_yes` decides, and a no leaves the variable unset so that the run stops at
-# the check below rather than recording a licence nobody accepted.
+# The licence is a kind and not a block of its own: writing it out separately would give the menu a
+# second copy to keep in step, and a person who mistyped the EULA answer could otherwise never
+# correct it, because every other value is editable and that one would not be. What makes it its own
+# kind rather than a plain question is that nothing is written for a no - `answer_is_yes` decides,
+# and a no leaves the variable unset so that the run stops at the check below rather than recording
+# a licence nobody accepted.
 ask_for() {
     local name="$1" kind="$2" check="$3" prompt="$4" hint="${5:-}" force="${6:-}" value existing
 
@@ -800,7 +789,7 @@ update_scope_ok() {
 }
 
 # Who asked, for the `requested_by` column - which is 64 characters and carries no foreign key.
-# EVERYTHING OUTSIDE THE ALLOWED SHAPE BECOMES A DASH, which is what makes the SQL below safe to
+# Everything outside the allowed shape becomes a dash, which is what makes the SQL below safe to
 # assemble by hand: there is no quote left in it to close.
 update_requester() {
     local who host
@@ -828,7 +817,7 @@ parse_update_args() {
                         UPDATE_SCOPE="${2:-}"
                         [[ -n "$UPDATE_SCOPE" ]] || die "update --down needs a service to stop"
                         shift 2 ;;
-            # THE SERVICE IS OPTIONAL HERE AND NOWHERE ELSE: `--start` with nothing after it
+            # The service is optional here and nowhere else: `--start` with nothing after it
             # releases every hold, which is what somebody who has forgotten what they stopped
             # actually wants. A following flag is not a service name.
             --start)    UPDATE_KIND=START;   kinds=$(( kinds + 1 ))
@@ -861,7 +850,7 @@ parse_update_args() {
 # does: the `pg_notify` rides along in the same statement, so there is no window in which a row
 # exists that nobody was told about.
 #
-# ASSEMBLED BY CONCATENATION AND THAT IS SAFE HERE, because every one of the four values has been
+# Assembled by concatenation, and that is safe here because every one of the four values has been
 # through a shape check first: the kind is one of UPDATE_KINDS, the scope matched the database's
 # own regular expression, the delay is digits, and the requester has had every character outside
 # [A-Za-z0-9._@-] replaced. None of them can carry a quote.
@@ -901,25 +890,24 @@ update_is_over() {
 # the filesystem. deploy/nordtal-test.sh sources this file to exercise the decisions above, the same
 # way dev-test.sh sources deploy/dev - see the long comment there.
 #
-# IT IS SPELT OUT RATHER THAN `[[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0`, which is what stood
-# here and which this file can no longer use: under `curl ... | bash` there is no BASH_SOURCE at
-# all, so reading it is an error under `set -u` - and if it were not, the `return` would then run
-# at the top level of a script nobody sourced, which is an error of its own. A pipe therefore has
-# to fall through here, and only a genuine `source` may return.
+# Spelt out rather than `[[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0`: under `curl ... | bash`
+# there is no BASH_SOURCE at all, so reading it is an error under `set -u` - and if it were not, the
+# `return` would then run at the top level of a script nobody sourced, which is an error of its own.
+# A pipe therefore has to fall through here, and only a genuine `source` may return.
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
 fi
 
 # update: the subcommand that is not an install
-# Deliberately FIRST, above the argument parser and above §0's self-update. Starting a run is what
+# Deliberately first, above the argument parser and above §0's self-update. Starting a run is what
 # somebody does when something is wrong, and a command that fetches a new copy of itself from
 # GitHub before doing it would pick exactly that moment to need the network.
 
 # One psql, inside the postgres container, reading its statement from stdin.
 #
-# THROUGH THE CONTAINER AND NOT A CLIENT ON THE HOST, which is the way the rest of this repository
-# already reaches the database: there is no psql to install, no port to publish, and above all no
-# password anywhere in the process tree - the container is already authenticated as its own user.
+# Through the container and not a client on the host, the way the rest of this repository already
+# reaches the database: there is no psql to install, no port to publish, and above all no password
+# anywhere in the process tree - the container is already authenticated as its own user.
 update_psql() {
     local container="$1" user="$2" database="$3"
     docker exec -i "$container" \
@@ -933,8 +921,8 @@ cmd_update() {
         || die "$UPDATE_ENV_FILE is not there, so this host has no deployment to update.
        If the environment file is somewhere else: ./nordtal.sh update --env-file PATH"
 
-    # TWO VARIABLES AND NOT THE FILE. The same file holds the Discord token and the bunq key, and
-    # `env_value` reads one name at a time on purpose - see IT NEVER PRINTS A SECRET at the top.
+    # Two variables and not the file: the same file holds the Discord token and the bunq key, and
+    # `env_value` reads one name at a time on purpose.
     local project user database container
     project="$(env_value "$UPDATE_ENV_FILE" COMPOSE_PROJECT_NAME)"
     project="${project:-$DEFAULT_PROJECT}"
@@ -990,7 +978,7 @@ update_wait() {
             die "request $id is no longer in update_request. Somebody deleted the row."
         fi
         if update_is_over "$status"; then
-            # jq IF IT IS THERE AND THE RAW LINE IF IT IS NOT. The report is one long line of JSON
+            # jq if it is there, the raw line if it is not. The report is one long line of JSON
             # and this is somebody reading it on a console in the middle of something going wrong;
             # requiring jq for that would be a dependency bought at exactly the wrong moment.
             if [[ -n "$report" ]]; then
@@ -1006,7 +994,7 @@ update_wait() {
 
         (( waited += 5 ))
         if (( waited > UPDATE_TIMEOUT )); then
-            # THE RUN IS NOT GIVEN UP ON, only the watching. The row is still there and the worker
+            # The run is not given up on, only the watching. The row is still there and the worker
             # is still on it; what ran out is this command's patience.
             warn "request $id is still $status after ${UPDATE_TIMEOUT}s. The run continues without
        this command watching it; ./nordtal.sh update --no-wait prints ids, and the interface shows
@@ -1033,11 +1021,11 @@ ADDRESSES_GIVEN=""
 CHECK_ONLY=false
 BUILD_DEPLOYER=false
 SELF_UPDATE=true
-# THE MENU IS WHAT A PLAIN RUN IS NOW, and the three flags below are what turn it off: `--deploy`
-# is the behaviour this script had before the menu existed, `--check` changes nothing at all and
-# `--build` is a developer in a hurry. It is deliberately NOT "no arguments at all": §0 re-runs
-# this file with --no-self-update in front of whatever was typed, so counting arguments would mean
-# a renewed run never showing the menu - which is precisely the run that would need it most.
+# The menu is what a plain run shows, and the three flags below are what turn it off: `--deploy`
+# skips straight to deploying, `--check` changes nothing at all and `--build` is a developer in a
+# hurry. It is deliberately not "no arguments at all": §0 re-runs this file with --no-self-update in
+# front of whatever was typed, so counting arguments would mean a renewed run never showing the
+# menu - which is precisely the run that would need it most.
 MENU=true
 
 # The help text is the comment block at the top of this file, read out of whichever copy is at
@@ -1064,16 +1052,16 @@ while (( $# > 0 )); do
     esac
 done
 
-# WITHOUT A TERMINAL THERE IS NO MENU, and this is not a fallback so much as the same rule the
+# Without a terminal there is no menu, and this is not a fallback so much as the same rule the
 # prompts keep: a script that reads answers from a pipe is a script that reads a secret from a CI
 # log. A run with no terminal asks nothing, writes nothing new, and either has everything it needs
 # in the environment file or stops naming what is missing.
 [[ -t 0 ]] || MENU=false
 
 # 0 · which copy of this file is running, and where it came from
-# THE FIRST LINE OF OUTPUT IS WHICH VERSION THIS IS. A script that fetches its own replacement and
+# The first line of output is which version this is. A script that fetches its own replacement and
 # runs it has to say so out loud, every time: the alternative is a host where "I ran nordtal.sh"
-# and "I ran THIS nordtal.sh" are different sentences that look identical afterwards. The five
+# and "I ran this nordtal.sh" are different sentences that look identical afterwards. The five
 # functions this rests on are above the source guard with the other decisions, where
 # deploy/nordtal-test.sh can reach them.
 ORIGIN="${NORDTAL_SH_ORIGIN:-}"
@@ -1093,8 +1081,8 @@ renew_self() {
     candidate="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.XXXXXX")"
     if ! fetch_self "$candidate" || ! looks_like_this_script "$candidate"; then
         rm -f "$candidate"
-        # WITHOUT A NETWORK IT CARRIES ON. The one case it cannot carry on from is a pipe, because
-        # then there is no copy anywhere to carry on WITH: bash has been reading this script off
+        # Without a network it carries on. The one case it cannot carry on from is a pipe, because
+        # then there is no copy anywhere to carry on with: bash has been reading this script off
         # stdin and cannot be asked for it again.
         running_from_a_file || die "this script was piped into bash and $SELF_URL could not be
        fetched, so there is no file to run and nothing has been changed. Download it by hand and
@@ -1112,7 +1100,7 @@ renew_self() {
         return 0
     fi
 
-    # NOT INTO THE INSTALLATION DIRECTORY YET. Nothing is written there before the question below
+    # Not into the installation directory yet. Nothing is written there before the question below
     # has been answered, so the new version runs out of the temporary file and installs itself once
     # it knows it is welcome.
     chmod 755 "$candidate"
@@ -1155,14 +1143,14 @@ install_self() {
     return 0
 }
 
-# 0a · IS THIS THE DIRECTORY? The first question, before anything is looked at
+# 0a · is this the directory? The first question, before anything is looked at
 # `curl ... | bash` runs in whatever directory the shell happened to be in, and that directory is
 # about to become four worlds, a database and every backup this deployment takes. So it is said
 # back before anything else happens - not as a path in a log line afterwards, as a question.
 #
-# It is asked ONCE per installation and not once per run: an environment file whose NORDTAL_DIR is
+# It is asked once per installation and not once per run: an environment file whose NORDTAL_DIR is
 # this directory is this installation, and a person changing a setting should not have to agree to
-# an install they did years ago. An environment file pointing SOMEWHERE ELSE is the interesting
+# an install they already made. An environment file pointing somewhere else is the interesting
 # case and the one that stops the run - two installations sharing one environment file would share
 # a database password, a project name and a certificate, and the first sign of it would be the
 # second stack quietly adopting the first one's volumes.
@@ -1212,7 +1200,7 @@ log "docker $(docker version --format '{{.Server.Version}}'), compose $(docker c
 # One file, one place, owned by this host. It is in no image and in no repository: every secret the
 # deployment has is in it, compose interpolates it, and steward-deployer mounts it read-only.
 is_absolute "$ENV_FILE" || die "--env-file has to be absolute, and '$ENV_FILE' is not. compose
-       resolves a relative path against steward-deployer's project directory, which is INSIDE its
+       resolves a relative path against steward-deployer's project directory, which is inside its
        image - so a relative path here points at a file that does not exist."
 
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -1231,9 +1219,8 @@ if [[ ! -f "$ENV_FILE" ]]; then
             log "environment file copied to $ENV_FILE (mode 600); $FROM_FILE is left alone"
         }
     else
-        # THE FIRST RUN ON A NEW HOST, and this is where it used to stop: "copy .env.example and
-        # fill it in" is a sentence that costs an evening and a private file full of secrets that
-        # nobody can check. An empty file is created instead and the questions below fill it.
+        # The first run on a new host writes no example file to copy and fill in by hand: an empty
+        # file is created instead and the questions below fill it.
         $CHECK_ONLY || {
             install -D -m 600 /dev/null "$ENV_FILE"
             log "no environment file yet - created $ENV_FILE (mode 600)"
@@ -1249,13 +1236,13 @@ fi
        was not going to appear. Run without --check, or put it there yourself."
 
 # 2a · the questions
-# THE POINT OF THIS BLOCK: nobody writes a .env by hand, ever. Everything a person knows and a
+# The point of this block: nobody writes a .env by hand, ever. Everything a person knows and a
 # machine cannot work out is asked for here, once, and written into the file above - which is also
 # why a second run is quiet: a value that is already there is never asked for again.
 #
 # Three rules the prompts keep:
 #   a secret is read with the echo off and never redisplayed, not even to confirm it;
-#   an answer whose SHAPE cannot be right is refused at the prompt, where it can still be corrected;
+#   an answer whose shape cannot be right is refused at the prompt, where it can still be corrected;
 #   without a terminal nothing is asked at all - the run stops and names what is missing, because a
 #   setup script reading a secret from a pipe is a setup script writing one into a CI log.
 #
@@ -1278,7 +1265,7 @@ default_for STEWARD_ENV_FILE     "$ENV_FILE"
 # drifted from what STEWARD_ENV_FILE actually says - the same shape of check as STEWARD_ENV_FILE's
 # own agreement check three lines above.
 # The installation directory, absolute, and the reason it has to be written down at all: compose
-# resolves a relative bind against steward-deployer's project directory, which is INSIDE its image.
+# resolves a relative bind against steward-deployer's project directory, which is inside its image.
 # Every volume in compose.yml hangs off this one value - see the note at proxy's plugins/
 # line - and §0a above has already established that it is this directory or nothing.
 default_for NORDTAL_DIR           "$INSTALL_DIR"
@@ -1287,7 +1274,7 @@ default_for STEWARD_ENV_FILE_NAME "$(basename "$ENV_FILE")"
 
 # Everything in QUESTIONS except the two bunq ones, which are a pair and are asked for below.
 #
-# COMPOSE_PROFILES IS NOT ASKED FOR EITHER: `default_for` above has already written the production
+# COMPOSE_PROFILES is not asked for either: `default_for` above has already written the production
 # selection, so there is nothing missing for this loop to ask about. It is in the table for the
 # menu, which is where somebody who wants a different selection changes it.
 for question in "${QUESTIONS[@]}"; do
@@ -1339,13 +1326,13 @@ for stale in NORDTAL_BOT_BUNQ_API_KEY NORDTAL_BOT_BUNQ_ACCOUNT_ID; do
 done
 
 # 2b · the menu
-# WHAT THIS IS FOR: until now this script could only fill in what was MISSING. A
-# value that was already there was reported and left alone, so changing one - a bot token that was
-# reset, a guild that moved, an admin role that was recreated - meant editing the environment file
-# by hand, which is the one thing this script exists to make unnecessary. The menu is the other
-# half: it shows what is set, lets one be picked and typed again, and deploys at the end.
+# The block above can only fill in what is missing: a value that is already there is reported and
+# left alone. Changing one - a bot token that was reset, a guild that moved, an admin role that was
+# recreated - would otherwise mean editing the environment file by hand, which is the one thing this
+# script exists to make unnecessary. The menu is the other half: it shows what is set, lets one be
+# picked and typed again, and deploys at the end.
 #
-# A SECRET IS THREE DOTS AND NOTHING ELSE. See `shown_value` - the menu is the place a person reads
+# A secret is three dots and nothing else. See `shown_value` - the menu is the place a person reads
 # their configuration back, which makes it the place a token would end up in a screenshot.
 #
 # It is the run with no arguments, on a terminal. `--deploy` is the old behaviour and is what an
@@ -1411,9 +1398,9 @@ fi
 # the first sign of that is a fresh spawn. So a project that already has volumes here has to be the
 # project this run is about to use.
 #
-# This used to sit after the secrets were generated, and that order was wrong in one specific and
-# expensive way: §4 now generates the DATABASE PASSWORD, and whether it may do that depends entirely
-# on whether this host already carries a postgres-data volume.
+# This has to run before the secrets are generated: §4 generates the database password, and
+# whether it may do that depends entirely on whether this host already carries a postgres-data
+# volume.
 STEWARD_NAME="$(env_value "$ENV_FILE" STEWARD_HOST)"
 PROJECT="$(env_value "$ENV_FILE" COMPOSE_PROJECT_NAME)"
 PROJECT="${PROJECT:-$DEFAULT_PROJECT}"
@@ -1448,9 +1435,9 @@ if $ADOPTING && ! $CHECK_ONLY; then
     if docker volume inspect "${PROJECT}_postgres-data" >/dev/null 2>&1 \
         && [[ ! -d "$INSTALL_DIR/postgres-data" ]]; then
         warn "this host carries the volumes of an earlier installation (${PROJECT}_postgres-data
-       among them), and this deployment does not mount them any more: since 2026-09-19 every volume
-       is a directory under $INSTALL_DIR. Nothing here deletes them - they stay on the disk and
-       `docker volume ls` still lists them - but the stack will come up on EMPTY directories: a new
+       among them), and this deployment does not mount them any more: every volume is a directory
+       under $INSTALL_DIR now. Nothing here deletes them - they stay on the disk and
+       `docker volume ls` still lists them - but the stack will come up on empty directories: a new
        database, new worlds, no plugin configuration."
         if [[ -t 0 ]]; then
             printf '\n\033[36m[nordtal]\033[0m %s\n' "Continue, and start this deployment on empty directories?" >&2
@@ -1471,7 +1458,7 @@ fi
 # database password, the proxy's forwarding secret, and the two Steward tokens. Asking for them would
 # only teach somebody to type `hunter2` into a prompt.
 #
-# THE ONE THING THIS MUST NOT DO IS INVENT A PASSWORD FOR A DATABASE THAT ALREADY EXISTS. Postgres
+# The one thing this must not do is invent a password for a database that already exists. Postgres
 # takes POSTGRES_PASSWORD from the environment on the first start of an empty data directory and
 # never again: against an existing `postgres-data` a freshly generated password is not applied, it
 # is simply wrong, and every service then fails to authenticate against a database that is
@@ -1506,28 +1493,28 @@ fi
 
 # 4b · the Web Push keypair, minted rather than asked for
 # The two variables are wired through compose.yml; what needs handling here is that a fresh
-# installation is never asked, and web-push then sits silently unconfigured (a WARN line at
-# startup is the only sign - see StewardUi.main). THE KEYPAIR IS NOT A SECRET SOMEBODY HOLDS
-# ELSEWHERE, unlike the Discord token or a bunq key: nobody has one before this runs, it is minted
+# installation is never asked, and web-push then sits silently unconfigured (a warning line at
+# startup is the only sign - see StewardUi.main). The keypair is not a secret somebody holds
+# elsewhere, unlike the Discord token or a bunq key: nobody has one before this runs, it is minted
 # here, so - like POSTGRES_PASSWORD and the two tokens above - it belongs beside `set_secret`, not
 # in the "questions" block. It needs no terminal.
 #
-# UNLIKE set_secret THIS NEEDS AN IMAGE, not just openssl - StewardUi.java's own comment for
+# Unlike set_secret, this needs an image, not just openssl - StewardUi.java's own comment for
 # `generate-vapid-keys` says why that is still cheap: "No database, no config directory, nothing
 # this deployment already has" - it is one call into com.interaso.webpush and two lines on stdout,
 # so a bare `docker run --rm <image> generate-vapid-keys`, run before steward-ui is ever brought
 # up, is the whole thing - the same shape §6 already pulls the deployer image with.
 #
-# BOTH OR NEITHER: WebPushSpec reads a half-filled pair as broken, not as "not configured" (two
+# Both or neither: WebPushSpec reads a half-filled pair as broken, not as "not configured" (two
 # blanks is what that means). A call here that finds exactly one of the two already set treats the
 # pair as unusable and replaces both, rather than trying to keep half of a mismatched key.
 #
-# THE IMAGE IS PULLED ONLY IF NONE IS ALREADY ON THIS HOST. §5a exists because `up` silently
+# The image is pulled only if none is already on this host. §5a exists because `up` silently
 # replaces a locally built image with whatever the registry currently serves under the same tag -
 # an unconditional pull here, ahead of that check, would do exactly the same thing to steward-ui
 # before anybody had a chance to be warned. A host that already carries an image (built here, or
-# pulled by an earlier run) uses it as it stands; only a host with no steward-ui image at all - the
-# fresh-install case this ticket is about - reaches for the registry.
+# pulled by an earlier run) uses it as it stands; only a host with no steward-ui image at all - a
+# fresh install - reaches for the registry.
 generate_vapid_keys() {
     local image="${STEWARD_UI_IMAGE:-ghcr.io/nordtal/steward-ui:latest}"
     local pub priv output
@@ -1645,9 +1632,9 @@ log "every required value is set; the interface will answer on $STEWARD_NAME"
 # does not fail loudly. It fails as a settings page that saves and changes nothing, which is the
 # same shape of quiet failure the /configs mounts were moved to steward-worker for.
 #
-# A NAMED VOLUME USED TO DO THIS FOR FREE: Docker copies the image's content AND its ownership into
-# an empty volume on first use, and copies nothing into a bind. That is the one thing the move to
-# directories costs, and this is where it is paid.
+# A named volume gets this for free: Docker copies the image's content and its ownership into an
+# empty volume on first use, and copies nothing into a bind. That is the one thing bind-mounted
+# directories cost instead of named volumes, and this is where it is paid.
 #
 # Existing directories are left exactly as they are, ownership included: a second run must not
 # reach into a world.
@@ -1723,29 +1710,29 @@ done
 log "$STEWARD_NAME resolves to this host ($(tr '\n' ' ' <<<"$resolved"))"
 
 # 5a · images this host built itself, about to be silently replaced
-# §7's `up` pulls EVERY image compose.yml names before it stops anything, and that pull is not
+# §7's `up` pulls every image compose.yml names before it stops anything, and that pull is not
 # "whatever is missing": compose.yml has no `pull_policy` anywhere, and the deployer image §7 runs
 # does not lean on one either - steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/
 # Compose.java's `pull()` runs a plain `docker compose pull <service>` for every service in
-# COMPOSE_PROFILES, unconditionally, before `up` ever starts (read 2026-09-17). The ONE tolerance
-# in there is the other direction: a pull that fails outright (denied or not found) keeps the local
-# image, which is what lets steward-ui run before its first release. A pull that SUCCEEDS is never
-# compared to what is already here - so a tag the registry still answers for is replaced by whatever
-# that is, even if this host's copy is newer. That is exactly the shape of the deploy/README.md
-# workaround for shipping without a release (`docker compose build <service>` then
-# `up -d --no-deps <service>`): it survives until the next `nordtal.sh` run undoes it, silently.
+# COMPOSE_PROFILES, unconditionally, before `up` ever starts. The one tolerance in there is the
+# other direction: a pull that fails outright (denied or not found) keeps the local image, which is
+# what lets steward-ui run before its first release. A pull that succeeds is never compared to what
+# is already here - so a tag the registry still answers for is replaced by whatever that is, even if
+# this host's copy is newer. That is exactly the shape of the deploy/README.md workaround for
+# shipping without a release (`docker compose build <service>` then `up -d --no-deps <service>`): it
+# survives until the next `nordtal.sh` run undoes it, silently.
 #
-# WHETHER AN IMAGE HAS A RepoDigest IS NOT THE SIGNAL - see the long comment on at_risk_images. What
+# Whether an image has a RepoDigest is not the signal - see the long comment on at_risk_images. What
 # this section actually asks, per image already on this host, is whether `docker buildx imagetools
-# inspect` currently sees a DIFFERENT manifest digest under the same tag; RepoDigests only tells the
+# inspect` currently sees a different manifest digest under the same tag; RepoDigests only tells the
 # other half, whether that mismatch is the whole story or the registry could not be asked at all.
-# WHERE compose.yml COMES FROM NOW THAT THERE IS NO CHECKOUT. It is inside steward-deployer's
+# Where compose.yml comes from now that there is no checkout: it is inside steward-deployer's
 # image (§8b) and nowhere else on this host, so it is copied out of whatever copy of that image is
 # already here. A host that has none is a host that has never deployed, which is exactly the host
 # this whole section has nothing to warn about - so it skips, the same graceful shape the missing
 # jq and the missing buildx get below.
 #
-# THE IMAGE IS NOT PULLED FOR THIS. §6 pulls it, after the question this section asks; pulling it
+# The image is not pulled for this. §6 pulls it, after the question this section asks; pulling it
 # here would replace a locally built deployer before anybody was warned that it was about to be.
 COMPOSE_CACHE=""
 compose_file() {
@@ -1775,11 +1762,10 @@ compose_config_json() {
 # every distinct image among them that is already on this host, and what the registry currently
 # serves under each of those tags.
 #
-# jq AND buildx ARE NOT PREREQUISITES OF THIS SCRIPT, and deliberately so. An earlier draft made jq
-# one and died in §1 without it - which is the wrong trade: this check protects images this host
-# BUILT ITSELF, and a host fresh enough to be missing either tool has none yet. Refusing to bootstrap
-# a new machine over a warning that has nothing to warn about is worse than not warning; a warning
-# and a graceful skip is the shape both tools get.
+# jq and buildx are not prerequisites of this script, deliberately: requiring jq at §1 would refuse
+# to bootstrap a machine over a warning that has nothing to warn about yet - this check protects
+# images this host built itself, and a host fresh enough to be missing either tool has none yet. A
+# warning and a graceful skip is the shape both tools get instead.
 images_at_risk() {
     local json pairs image
     command -v jq >/dev/null 2>&1 || {
@@ -1883,7 +1869,7 @@ if $BUILD_DEPLOYER; then
     # The alpha's way in, and it needs a JDK and a checkout. It is also the only way while the image
     # is not published - which it is, from the first release that carries it.
     #
-    # THIS IS THE ONE FLAG THAT NEEDS A REPOSITORY, and since the installation is a directory rather
+    # This is the one flag that needs a repository, and since the installation is a directory rather
     # than a checkout it has to be told where one is: `--build` run from inside a checkout uses that
     # one, and anywhere else it says so rather than building nothing.
     checkout=""
@@ -1912,15 +1898,14 @@ fi
 # steward-deployer service is one of the containers it creates - this one is gone by then.
 #
 # COMPOSE_PROFILES is not passed in: compose reads it out of the file given to --env-file, which is
-# the file mounted below (measured on this host 2026-09-13, compose v5.5.1).
+# the file mounted below.
 #
-# THE DIRECTORY IS MOUNTED, NOT THE FILE, same as compose.yml's own steward-deployer
-# service below - this is the other place that used to bind the file itself. A file bind follows the
-# inode, not the path, so a rotation between this container starting and the file being read would
-# have gone unnoticed exactly like it did for the long-running service; here the window is one `up`
-# rather than the container's whole lifetime, but the mechanism is identical. NORDTAL_STEWARD_ENV_FILE
-# tells the image which name to open under the mounted directory - it has no other way to know, since
-# the directory is what it can see, not this variable's value.
+# The directory is mounted, not the file, same as compose.yml's own steward-deployer service below.
+# A file bind follows the inode, not the path, so a rotation between this container starting and the
+# file being read would go unnoticed the same way it would for the long-running service; here the
+# window is one `up` rather than the container's whole lifetime, but the mechanism is identical.
+# NORDTAL_STEWARD_ENV_FILE tells the image which name to open under the mounted directory - it has
+# no other way to know, since the directory is what it can see, not this variable's value.
 log "deploying - this pulls every image before it stops anything"
 docker run --rm \
     --name "${PROJECT}-setup" \

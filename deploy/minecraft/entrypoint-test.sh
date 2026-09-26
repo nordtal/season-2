@@ -2,18 +2,18 @@
 #
 # The seeding half of entrypoint.sh, exercised against fixture directories.
 #
-# WHY THIS EXISTS AT ALL. `seed_level_settings` decides whether a world folder is deleted, and it
+# Why this exists at all: `seed_level_settings` decides whether a world folder is deleted, and it
 # decides it inside a container that starts by itself. There is no second chance to notice it
 # decided wrong: the folder is gone, and on the SMP that folder is the season. Everything else in
 # this deployment is verified by running it and looking - this is the one piece where looking
 # afterwards is too late, so it is the one piece with a test.
 #
 # It runs on `./gradlew check` (wired in the root build.gradle.kts) and needs nothing but bash: no
-# Docker, no network, no server jar. entrypoint.sh is SOURCED, which works because it carries a
+# Docker, no network, no server jar. entrypoint.sh is sourced, which works because it carries a
 # guard at the line where its definitions end and the container's own run begins - see the comment
 # there. `$0` is deliberately not the script's path below, which is what makes that guard fire.
 #
-# WHAT IT CANNOT SAY ANYTHING ABOUT: whether Paper then generates the world these files describe.
+# What it cannot say anything about: whether Paper then generates the world these files describe.
 # That needs a running container and is a checklist item, not a test.
 set -Eeuo pipefail
 
@@ -109,9 +109,8 @@ ensure_transfers() {
     set -e
 }
 
-# A proxy volume as it really was on the dev host on 2026-09-19: a velocity.toml written before the
-# seeding knew about accepts-transfers, normalised once by Velocity itself, and therefore carrying
-# no [advanced] table at all.
+# A proxy volume from before the seeding knew about accepts-transfers: a velocity.toml normalised
+# once by Velocity itself, carrying no [advanced] table at all.
 old_proxy_volume() {
     local dir
     dir=$(volume "$1")
@@ -175,10 +174,8 @@ expect_toml_under_table() {
 
 # fixtures
 
-# A volume as it comes out of the releases before v0.2.3: Paper generated its default world and
-# wrote level-name=world, while LEVEL_NAME already said something else. `datapacks` is in the
-# named world because the entrypoint of that era fetched them there - which is the folder that made
-# the old `-d` seed test lie.
+# A volume where Paper generated its default world and wrote level-name=world, while LEVEL_NAME
+# already says something else. `datapacks` is in the named world folder, not the default one.
 legacy_volume() {
     local dir target
     dir=$(volume "$1")
@@ -201,9 +198,9 @@ expect_property "$data/server.properties" level-name nordtal
 expect_property "$data/server.properties" level-seed 1837371427
 ok "fresh volume"
 
-# The failure this whole change is about: smp and hunger-games refusing to start on every volume
-# the previous release had already run against.
-case_begin "a pre-v0.2.3 volume with nobody in it is adopted, and the default world removed"
+# The failure this test suite guards against: smp and hunger-games refusing to start on a volume
+# Paper has already generated a default world on.
+case_begin "a volume with a default world and nobody in it is adopted, and the default world removed"
 data=$(legacy_volume legacy-clean nordtal)
 seed "$data" nordtal 1837371427
 expect_status 0
@@ -212,8 +209,7 @@ expect_gone "$data/world"
 expect_gone "$data/world_nether"
 expect_gone "$data/world_the_end"
 expect_present "$data/nordtal/datapacks"
-# And the seed reaches the file, which is the half the old `-d` test got wrong: /data/nordtal
-# exists here, carrying nothing but the datapacks the previous release fetched into it.
+# And the seed still reaches the file: /data/nordtal exists here, carrying nothing but datapacks.
 expect_property "$data/server.properties" level-seed 1837371427
 ok "adopted, world removed, seed written"
 
@@ -264,7 +260,7 @@ expect_present "$data/world"
 expect_property "$data/server.properties" level-name world
 ok "limbo untouched"
 
-# The regression the `-d` test caused, isolated: a world DIRECTORY that holds no world.
+# A world directory that holds no world, isolated from the adoption case above.
 case_begin "a level-name folder holding only datapacks is not a world, so the seed is written"
 data=$(volume datapacks-only)
 mkdir -p "$data/nordtal/datapacks"
@@ -343,10 +339,9 @@ expect_status 0
 expect_pick paper-26.2-121.jar
 ok "highest build"
 
-# WHY THIS CASE EXISTS. Until 2026-09-09 the glob carried the version - velocity-4.1.1-*.jar - so a
-# steward-worker run that moved the proxy to 4.2.0 left a cache this script read as EMPTY, and it
-# fetched 4.1.1 back. Every update to the proxy would have been undone by the restart meant to
-# apply it.
+# The glob that lists a cache's jars must not carry the version - velocity-4.1.1-*.jar would read a
+# cache holding only a newer version as empty, and an update to the proxy would then be undone by
+# the restart meant to apply it.
 case_begin "the highest version wins, not the version somebody asked for"
 dir=$(cache versions velocity-4.1.1-24.jar velocity-4.2.0-15.jar)
 pick "$dir" velocity
@@ -396,11 +391,8 @@ expect_status 0
 expect_pick ""
 ok "nothing readable"
 
-# WHY THESE CASES EXIST. The sweep deletes files, and what keeps it from deleting the jar the server
-# is about to run is one string comparison. Until 2026-09-16 it was a loop at the call site, which
-# no test could reach; the live proof that it works at all was run by hand that day (two paper jars
-# in the hunger-games cache, restart, `removed superseded paper-26.2-120.jar` in the log and one jar
-# left). These are the parts of that which should not need a container again.
+# The sweep deletes files, and what keeps it from deleting the jar the server is about to run is one
+# string comparison. These cases pin that comparison so it never needs a container to check again.
 case_begin "the jar this start chose survives, and every other build goes"
 dir=$(cache sweep-builds paper-26.2-119.jar paper-26.2-121.jar paper-26.2-124.jar)
 sweep "$dir" paper "$dir/paper-26.2-124.jar"
@@ -454,9 +446,9 @@ expect_status 0
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
 ok "accepts-transfers = true under [advanced]"
 
-# THIS CASE DOES NOT PROVE limbo-standby IS IN THE DEPLOYMENT - the name is handed in here, and
+# This case does not prove limbo-standby is in the deployment - the name is handed in here, and
 # what actually puts it there is compose.yml's VELOCITY_SERVERS default, which :steward-worker's
-# TopologyTest holds. What it proves is that a HYPHENATED name survives the seeding as a bare TOML
+# TopologyTest holds. What it proves is that a hyphenated name survives the seeding as a bare TOML
 # key under [servers], which is the one thing about `limbo-standby` that is new to this function.
 case_begin "every server it is given is in the file, standby included"
 dir=$(volume velocity-servers)
@@ -476,7 +468,7 @@ ensure_transfers "$dir"
 expect_status 0
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
 expect_output "appended"
-# AND IT IS THE LAST TABLE IN THE FILE. Everything after a table header belongs to that table, so
+# And it is the last table in the file: everything after a table header belongs to that table, so
 # an [advanced] written anywhere but the end would swallow the keys below it.
 [[ "$(awk '/^\[/ { last = $1 } END { print last }' "$dir/velocity.toml")" == "[advanced]" ]] \
     || bad "[advanced] is not the last table in the file: $(grep '^\[' "$dir/velocity.toml" | tr '\n' ' ')"
@@ -490,7 +482,7 @@ printf 'bind = "0.0.0.0:25565"\n\n[advanced]\ncompression-level = 4\n' > "$dir/v
 ensure_transfers "$dir"
 expect_status 0
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
-# A SECOND [advanced] IS NOT A DUPLICATE SETTING, it is a file Velocity refuses to parse - which
+# A second [advanced] is not a duplicate setting, it is a file Velocity refuses to parse - which
 # would take the proxy down entirely rather than leave it unable to accept a transfer.
 [[ "$(grep -c '^\[advanced\]' "$dir/velocity.toml")" == "1" ]] \
     || bad "the file now has $(grep -c '^\[advanced\]' "$dir/velocity.toml") [advanced] tables; TOML allows one"
@@ -512,7 +504,7 @@ printf 'bind = "0.0.0.0:25565"\n\n[advanced]\naccepts-transfers=true\n' > "$dir/
 before=$(cat "$dir/velocity.toml")
 ensure_transfers "$dir"
 expect_status 0
-# WRITTEN WITHOUT SPACES ON PURPOSE: TOML allows `key=true` and Velocity writes `key = true`. A
+# Written without spaces on purpose: TOML allows `key=true` and Velocity writes `key = true`. A
 # check that knew only one spelling would append a second [advanced] to a file that was already
 # right, and that file does not parse.
 [[ "$(cat "$dir/velocity.toml")" == "$before" ]] \

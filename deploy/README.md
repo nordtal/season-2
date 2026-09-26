@@ -8,13 +8,12 @@ copied from there into `steward-deployer`'s image, which is the one service allo
 container — see [`../steward-deployer/README.md`](../steward-deployer/README.md). **Every command in
 this file therefore runs from the repository root**, not from `deploy/`.
 
-**A management panel used to sit in front of all of this and was removed on 2026-09-13.** Its five
-jobs are now steward-worker's (container state, health, stop, start, image drift — over the Docker
-socket) and steward-deployer's (recreate and pull). Anything on a host still carrying `ARCANE_*`
-variables in its `.env` can delete those lines; nothing reads them.
+**No management panel sits in front of any of this.** Container state, health, stop, start and image
+drift are steward-worker's job, over the Docker socket; recreate and pull are steward-deployer's.
+Anything on a host still carrying `ARCANE_*` variables in its `.env` can delete those lines; nothing
+reads them.
 
-**`steward-worker` was called `updater` until 2026-09-12**, and Steward is the name of the whole
-system it belongs to.
+**Steward is the name of the whole system `steward-worker` belongs to.**
 
 ```
 compose.yml            seven services, six profiles: db · bot · mc · backup · devpack · standby
@@ -39,8 +38,8 @@ deploy/
   dev                  the local stack: init · up · deploy · pack · reset - see Locally below
   dev-test.sh          the guard on `dev reset`, without Docker (runs on `check`)
   dev.env.example      every setting the local stack needs; copy to dev.env
-  servers/             NOT IN GIT. Local plugin directories for the dev stack
-  pack/                NOT IN GIT. The locally built resource pack the devpack profile serves
+  servers/             not in git. Local plugin directories for the dev stack
+  pack/                not in git. The locally built resource pack the devpack profile serves
 ```
 
 ## First deployment, in order
@@ -68,20 +67,11 @@ every installation, including one whose `COMPOSE_PROFILES` leaves `steward` out,
    organisation is **private on its first push**, and a private package answers a pull with the same
    `denied` as one that does not exist. The alternative is a registry credential on the host.
 
-   **Three of the five have never been pushed, and one of them is a surprise.** Measured against
-   the registry on 2026-09-13, anonymously: `discord-bot`, `minecraft`, `updater` and
-   `postgres-backup` answer `200`; `steward-worker`, `steward-ui` and `steward-deployer` answer
-   `403`. The first two new ones are expected — they are new modules. `steward-worker` is not: it
-   is the _renamed_ `updater`, and a rename of the image is a **new package** under a new name. The
-   public one is the old name nothing pushes to any more, so the next release creates
-   `steward-worker` from scratch, private, exactly like the other two.
-
-   That matters beyond a failed pull. steward-worker asks the daemon's `/distribution` endpoint for
-   a registry digest, with no credentials, so a private package answers nothing and the image lands
-   in `unverifiable` — `UNKNOWN`, never "up to date". That is the honest answer rather than a wrong
-   one, but three of five services reporting `UNKNOWN` is a drift report that says very little.
-   `updater` and `postgres-backup` stay behind as public packages nothing pushes to any more; they
-   can be deleted once the cutover holds.
+   A package that stays private matters beyond a failed pull: steward-worker asks the daemon's
+   `/distribution` endpoint for a registry digest, with no credentials, so a private package answers
+   nothing and the image lands in `unverifiable` — `UNKNOWN`, never "up to date". That is the honest
+   answer rather than a wrong one, but it is not a useful drift report, so every package a release
+   pushes needs this step.
 
 ### On the host
 
@@ -98,12 +88,6 @@ every installation, including one whose `COMPOSE_PROFILES` leaves `steward` out,
    one per volume and named exactly like the volume it replaced — so reading a plugin's
    `config.yml` over SFTP is opening a file, and deleting the installation is deleting one folder.
    The first thing the script asks is whether this directory is really the right one.
-
-   Until 2026-09-19 all of those were named Docker volumes, and the reason was Arcane: it browsed
-   them through its own API, and it checked this repository out on the host, which is what made a
-   path under the checkout unsafe (finding 151). Arcane was removed on 2026-09-15, SFTP is the way
-   in again, and SFTP cannot see inside a Docker volume — so the rule turned over. A value without
-   a `/` in it is still a volume name to Docker, which is the way back, per volume.
 
    There is no `.env` to write either: the environment file is created by the script, at the
    absolute path `STEWARD_ENV_FILE` names, mode 600, and **not** in the installation directory —
@@ -209,11 +193,10 @@ nordtal-s2-steward-deployer-1` for whether its mount `Source` is this file or it
 6. **Run the login-path rehearsal.** Nothing above proves a client can join, and it is the one step
    no log on this host can answer.
 
-**A release cannot be pinned, and there is no rollback.** `IMAGE_TAG` and `UPDATER_SEASON_RELEASE`
-were removed on 2026-09-09: every image is `latest` and the worker follows the newest published
-release. A bad release is corrected by publishing a better one — the same trade this project already
-took on the Paper build, for the same reason, which is that a pin is a version number kept somewhere
-other than `gradle.properties` and every one of those went stale.
+**A release cannot be pinned, and there is no rollback.** Every image is `latest` and the worker
+follows the newest published release. A bad release is corrected by publishing a better one — the
+same trade this project makes on the Paper build, for the same reason: a pin is a version number
+kept somewhere other than `gradle.properties`, and every one of those goes stale.
 
 ## First-start seeding
 
@@ -254,7 +237,7 @@ define — and then refuses to start with _"Your configuration is invalid"_.
 **`accepts-transfers` is enforced on every start, on a file the entrypoint did not write** — the
 only key in `velocity.toml` treated that way, because it is what a live proxy swap needs from
 Velocity: without it the receiving proxy refuses every player the other one hands
-it, and from the player's seat that is a network that is simply gone. The seeding writes it once,
+it, and from the player's seat that is a network that is gone. The seeding writes it once,
 so a proxy volume older than that line does not have it, and a swap against one fails on exactly
 that. Missing table, table without the key, and an explicit
 `false` are three different edits and it makes all three; a file that already says so is left
@@ -501,7 +484,7 @@ backend takes a connection again.
 Two cases where it does not happen, and both are in the proxy's log rather than silent: an update
 that moves **`limbo` itself** has nowhere to put anybody, and a run whose report the proxy cannot
 read moves nobody. In both, everyone connected is disconnected when the servers stop and the
-countdown is all the warning they get — which is what happened on every update before 2026-09-09.
+countdown is all the warning they get.
 
 **If a service refuses to stop, an update installs nothing.** It migrates nothing, moves no jar,
 starts every service that did stop, and comes back `FAILED` naming the ones that refused.
@@ -510,17 +493,15 @@ starts every service that did stop, and comes back `FAILED` naming the ones that
 
 A jar update hands each container back to Docker with `start`, which recreates nothing — so
 `entrypoint.sh`, the JRE under it and every change to `compose.yml` would stay on whatever image was
-pulled at the last deploy. Since 2026-09-09 a run closes that itself: it reads which services run an
-image the registry has moved past, and **recreates** those instead of starting them, pulling the
-image on the way. The volumes are not touched, so a world is never at risk from it.
+pulled at the last deploy. A run closes that itself: it reads which services run an image the
+registry has moved past, and **recreates** those instead of starting them, pulling the image on the
+way. The volumes are not touched, so a world is never at risk from it.
 
 **The check asks the registry, and that is the fix rather than a detail.** The worker resolves each
 running container's image reference against its registry (`GET /distribution/{ref}/json` over the
 Docker socket, ~250 ms) and compares the answer with the digest the container actually carries.
 Three outcomes, and the third is the point: newer in the registry, the same, or **could not be
-asked** — which is a named note in the report and never counted as current. Until 2026-09-12 this
-went through a panel whose image check never asked a registry at all; it answered from what it had
-already persisted, and four releases ran behind while every report said the network was current.
+asked** — which is a named note in the report and never counted as current.
 
 An image that **cannot** be checked is one built on this host and pushed nowhere, or a registry that
 did not answer. Credentials are not among the reasons: all three `ghcr.io/nordtal` packages are
@@ -549,13 +530,11 @@ up, not enough to move a version.
 
 ### Replacing one service, from this checkout
 
-For iterating on `steward-ui` or `steward-worker` without waiting for a release. **This is no longer
-how the dev host runs them** (2026-09-15): both pull `ghcr.io/nordtal/<service>:latest` like every
-other service, because the release workflow has pushed all five images since 2026-09-02. The host's
-environment file carried `STEWARD_UI_IMAGE` and `STEWARD_WORKER_IMAGE` pointing at locally built
-`:alpha` images until then, and the cost was that no update run could ask a registry about either -
-so every delivery needed the three commands below by hand, and the run said `FAILED` while having
-done everything it was allowed to.
+For iterating on `steward-ui` or `steward-worker` without waiting for a release. The dev host itself
+pulls `ghcr.io/nordtal/<service>:latest` like every other service; pointing `STEWARD_UI_IMAGE` or
+`STEWARD_WORKER_IMAGE` at a locally built image instead means no update run can ask a registry about
+that service, so every delivery needs the three commands below by hand, and the run reports `FAILED`
+while having done everything it was allowed to.
 
 What follows is therefore a **development** loop, not a delivery one. Building locally replaces the
 registry image under that tag until the next `pull`. From the root of this checkout, with `$ENV_FILE`
@@ -572,14 +551,12 @@ docker inspect -f '{{.State.Health.Status}}' "$PROJECT-steward-ui-1"   # wait fo
 `--no-deps` is the word that keeps it to one service: without it Compose recreates everything
 `steward-ui` depends on, which is `postgres` and `steward-worker`, which is the network.
 
-**A new image is not a new process for two of these three, and that has now cost two rollouts.**
-`steward-ui` runs the jar the image carries, at `/app/app.jar`. `steward-worker` and `discord-bot`
-do **not**: they run the jar out of a volume — `nordtal-s2_steward-worker-jar` at
-`/volumes/steward-worker/steward-worker-0.9.1.jar`, and `nordtal-s2_bot-jar` at
-`/app/lib/discord-bot-0.9.1.jar`. Rebuilding and recreating those two containers deploys nothing:
-the new jar sits at `/app/app.jar`, unused, and the volume's older copy keeps running. On
-2026-09-17 that copy was a day and a half old, and the matching file **size** at the image path is
-what made it look deployed.
+**A new image is not a new process for two of these three.** `steward-ui` runs the jar the image
+carries, at `/app/app.jar`. `steward-worker` and `discord-bot` do **not**: they run the jar out of a
+volume — `nordtal-s2_steward-worker-jar` at `/volumes/steward-worker/steward-worker-0.9.1.jar`, and
+`nordtal-s2_bot-jar` at `/app/lib/discord-bot-0.9.1.jar`. Rebuilding and recreating those two
+containers deploys nothing: the new jar sits at `/app/app.jar`, unused, and the volume's older copy
+keeps running, at a file **size** that can make it look deployed at the image path.
 
 > **Ask the process, not the filesystem:**
 >
@@ -600,48 +577,29 @@ what made it look deployed.
 > images](#the-images): a Dockerfile that only copies a jar reports success whether or not
 > `shadowJar` ran.
 
-**`-f` has to be said, and the reason is worth a paragraph.** Counted on the dev host on
-2026-09-14, `com.docker.compose.project.config_files` across the ten running containers said two
-different things, and neither is a path a person can open:
-
-- eight said `/app/compose.yml`, which is inside `steward-deployer` — that is where the deployer
-  runs Compose from, and the file is baked into its image. It survives a reboot; it is simply not
-  on the host.
-- `steward-ui` and `steward-worker` said **`/tmp/live-compose.yml`**, left over from being rebuilt
-  by hand earlier that day, and `/tmp` is emptied by a reboot. That is the one Till found, and it
-  is the one that would really have gone missing.
-
-Naming the checkout's copy on each `up` moves the label onto a path that is on the host and
-survives a restart, one service at a time.
-
-**The checkout's copy is the right one to name.** Compared the same day, `/tmp/live-compose.yml`
-(which is byte-identical to `/app/compose.yml` inside `steward-deployer`, i.e. where it came from)
-differs from `season-2/compose.yml` in exactly one line — a comment in which one German word for
-the traffic light was replaced by the English one. (Not quoted here: the guard that found it in the
-first place, `NothingIsGermanTest`, reads this file too, and it was right to.) Nothing declarative
-differs, so the checkout is not a divergence to reconcile; it is the same file with a German word
-taken out of a comment.
+**`-f` has to be said.** `compose.yml` is baked into `steward-deployer`'s image and run from `/app`
+inside it; a bare `docker compose` on the host has no compose file beside it to find at all, and a
+service last recreated by hand from a temporary file can carry `com.docker.compose.project.config_files`
+pointing at a path that will not survive a reboot. Naming the checkout's copy on each `up` moves the
+label onto a path that is on the host and survives a restart, one service at a time - and it is safe
+to name: this checkout's `compose.yml` is what `steward-deployer`'s image was built from, so there is
+no divergence to reconcile.
 
 **`--env-file` has to be said too.** The stack's `.env` is not beside `compose.yml` in this
 checkout — it is `/etc/nordtal/season-2.env`, mode 600, and it holds the live secrets. Without it
 every `${X:?}` in the compose file fails and the command refuses before it does anything, which is
 the good failure. Do not copy it anywhere.
 
-**After a reboot, the same file brings the whole stack back**, and that is the answer to the
-worry that opened this section — drop `--no-deps` and the service name:
+**After a reboot, the same file brings the whole stack back** — drop `--no-deps` and the service
+name:
 
 ```bash
 docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d
 ```
 
-Nothing is lost with `/tmp`. The volumes are named and the daemon owns them; the file that was in
-`/tmp` is in this checkout and in `steward-deployer`'s image, twice over.
-
-**Run once, 2026-09-14, on `steward-ui` and `steward-worker` together.** `:steward-ui:build` and
-`:steward-worker:build` with their tests: 1m52s. `build` for both images: 17s warm. `up -d
---no-deps`: 14s to both containers recreated and the worker `healthy`, with `steward-ui` following
-20s later - the healthcheck's own interval, not a hang. Afterwards both containers carry
-`com.docker.compose.project.config_files` pointing at this checkout, which is the point.
+Nothing is lost by pointing at a file in `/tmp` instead: the volumes are named and the daemon owns
+them, and the compose file itself lives in this checkout and in `steward-deployer`'s image, not in
+whatever container recreated a service last.
 
 ## Locally
 
@@ -660,9 +618,9 @@ and the SMP's two world-generation datapacks. It does **not** fetch our five jar
 Then join `localhost` with a real client.
 
 **On a Mac, install a current bash first: `brew install bash`.** macOS ships 3.2.57 as `/bin/bash`
-and never will ship anything newer, and both scripts need the associative arrays bash 4 added. They
-say so themselves since 2026-09-20; before that the failure was `STEWARD_HOST: unbound variable`
-from `deploy/dev init`, which reads like a complaint about the env file and is not one.
+and never will ship anything newer, and both scripts need the associative arrays bash 4 added. Both
+say so themselves rather than failing with `STEWARD_HOST: unbound variable` from `deploy/dev init`,
+which reads like a complaint about the env file and is not one.
 
 `deploy/dev` also carries `ui`, `logs`, `console`, `mc`, `psql`, `ps`, `stop`, `down`, `pack` and
 `reset`;
@@ -754,10 +712,9 @@ the client is almost always the hash and not the network — rerun after any cha
 
 `deploy/dev deploy` restarts one container and is what you want ninety-nine times out of a hundred.
 The hundredth is the restart path itself — the button, the countdown, the stop and start of each
-container — and **that needs nothing extra installed any more.** It used to need a management panel
-running beside the stack and four variables pointing at it, which is why it went unrehearsed for so
-long. The worker now uses the Docker socket `compose.yml` already mounts, so `/update restart`
-against a local stack exercises the real sequence.
+container — and **that needs nothing extra installed.** The worker uses the Docker socket
+`compose.yml` already mounts, so `/update restart` against a local stack exercises the real
+sequence.
 
 What a local rehearsal still cannot show you is the Discord half — the countdown message, the
 confirmation button and the report in the admin channel — which needs a real guild.
@@ -825,8 +782,8 @@ entrypoint keep true on every start.
 Access periods, payment records, aura, milestone progress and graves are all in one PostgreSQL, and
 it is the only thing in this stack that cannot be rebuilt from the repository and a world folder.
 
-**steward-worker takes both halves since 2026-09-13** (`konzept-eigenstaendiger-stack.md` §9a). The
-`postgres-backup` sidecar is gone — one clock, one retention, one directory, one report.
+**steward-worker takes both halves** (`konzept-eigenstaendiger-stack.md` §9a): one clock, one
+retention, one directory, one report. There is no separate backup sidecar.
 
 ### The database is dumped, the volumes are tarred
 
@@ -837,9 +794,8 @@ images in step. It takes an MVCC snapshot, so it is consistent as of the moment 
 **nothing is stopped for it**: it runs before the servers go down.
 
 The volumes are `tar` piped through `zstd -1`, read from the read-only mounts under
-`/backup-sources`, written to `/backups`. Measured on this host against the real SMP world: 657 MiB
-in, 512.9 MiB out, **4.0 s**, about 1.6 s of which is reading the archive back to verify it. `-3`
-took 5.3 s for 0.6 % less — region files are already deflated.
+`/backup-sources`, written to `/backups`. A higher compression level buys little here: region files
+are already deflated, so `-1` is the level used.
 
 Both write a `.partial` file and rename only after it has been read back (`tar --zstd -tf`, and
 `pg_restore --list` for the dump). A truncated archive still decompresses perfectly; only walking
@@ -849,15 +805,14 @@ none — it is the one the retention sweep keeps and the one a restore picks.
 ### A backup is a run, not a schedule
 
 `/backup now` on any surface writes a row, and so does the worker's own clock at
-`steward.yml#backup.at` (04:45). **That clock moved out of `smp`**, where it lived because `serve`
-was not allowed to schedule anything — with the consequence that a season with `smp` down had no
-backup and nothing said so. The protection that mattered is kept: the clock writes a request row
-and nothing else, and everything after that row is the path `/backup now` already took.
+`steward.yml#backup.at` (04:45). **The clock lives in steward-worker, not in `smp`**, so a backup
+still runs on schedule when `smp` itself is down. The clock writes a request row and nothing else,
+and everything after that row is the path `/backup now` already took.
 
-What replaced the fifteen-minute coupling between that clock and the farm reset is a query: `smp`
-will not reset the farm world unless a `BACKUP` run finished, succeeded **and saved something**
-inside `config.yml#farm-reset-backup-window-hours` (12). A `DONE` row is not enough — run 23
-once reported success having saved zero volumes, so the check reads the report.
+Whether the farm world may reset is a query, not a fixed delay: `smp` will not reset it unless a
+`BACKUP` run finished, succeeded **and saved something** inside
+`config.yml#farm-reset-backup-window-hours` (12). A `DONE` row is not enough on its own - a run that
+finished without saving anything must not count - so the check reads the report.
 
 The run is a thirty-second countdown every player sees, then `smp`, `proxy` and the bot
 are stopped, then every volume is tarred in order, then retention runs, then everything comes back
@@ -933,9 +888,9 @@ checks the result:
 - **Checking "did it really unpack" by looking for files that should have disappeared does not
   work**, for that same reason — the service recreates its own within the second. What separates an
   unpacked file from one that was merely left alone is **`ctime`**: `tar` restores the mtime and
-  cannot forge the ctime. After the rehearsal the four config files carried yesterday's mtime and a
-  ctime from the minute of the restore, and the service's four carried a ctime one second later.
-  That one second is the whole sequence: tar first, service second.
+  cannot forge the ctime, so a restored config file keeps the archive's old mtime with a ctime from
+  the moment of the restore, while a file the service then rewrites gets a ctime a second later than
+  that: tar first, service second.
 
 **Restoring `steward-ui-config` brings back its VAPID keypair too, and that is not a neutral
 byte.** A browser's push subscription is
@@ -960,9 +915,9 @@ world and uploads it by SFTP — and it is an operator task. Two things worth ha
 
 ### Moving an older deployment off `SERVERS_ROOT`
 
-Each server's `plugins/` used to be a bind mount at
-`${SERVERS_ROOT:-./deploy/servers}/<service>/plugins`; it is a **named volume** now, one per
-service, and Docker copies nothing between the two. Bring the stack up on the new compose file
+Each server's `plugins/` is a **named volume**, one per service. A deployment whose `plugins/` is
+still a bind mount at `${SERVERS_ROOT:-./deploy/servers}/<service>/plugins` needs its data moved
+across, because Docker copies nothing between the two. Bring the stack up on the new compose file
 without moving the data first and every server finds an empty `plugins/`, the entrypoint guard stops
 it, and the bootstrap writes fresh defaults over the deployment's own config. Do this once, with the
 stack **stopped**:
@@ -981,7 +936,7 @@ docker compose up -d
 Check `docker compose logs` for the four servers before deleting anything. **Keep a copy of
 `deploy/servers/` outside the checkout until you have seen a server come up with its own config** —
 that directory is inside the checkout, and a deployment that checks this repository out over itself
-deletes ignored files from it (finding 151).
+deletes ignored files from it.
 
 To roll back, set the four `<SERVICE>_PLUGINS` variables to the old paths in `.env`; the volumes are
 left untouched and can be removed later with `docker volume rm`.
@@ -1012,7 +967,7 @@ It is optional at every level: a player without the client mod notices nothing, 
 | Velocity exits at once with _"Your configuration is invalid"_              | `velocity.toml` names a server in `[forced-hosts]` or `try` that its `[servers]` does not define.                                                                                                                                                                                                                       |
 | A backend logs _"SERVER IS RUNNING IN OFFLINE/INSECURE MODE"_              | Expected, and required. The proxy authenticates; a backend that also does refuses every forwarded login.                                                                                                                                                                                                                |
 | Proxy starts but refuses every login with a "network misconfigured" screen | `proxy` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`/`network.yml`. Intended; the server browser says the same thing. Read the log.                                                                                                                                                                     |
-| Log names `backend-limit` as a setting that no longer exists               | `network.yml` in the volume predates the retirement of that key. Nothing to do: the line is deleted for you and the old file is in `network.yml.bak`. A deployment older than 2026-09-05 refuses to start instead — delete the line by hand there, see [Who limits the players](#who-limits-the-players).               |
+| Log names `backend-limit` as a setting that no longer exists               | `network.yml` in the volume predates the retirement of that key. Nothing to do: the line is deleted for you and the old file is in `network.yml.bak`. See [Who limits the players](#who-limits-the-players).               |
 | A backend answers _"Server full"_                                          | Only an admin should ever see this, and only if the exemption is not firing. Everybody else is refused by the proxy at the login gate. Check the backend's `max-players` really is `NETWORK_MAX_PLAYERS` (the container was restarted after the last change) and see [Who limits the players](#who-limits-the-players). |
 | The browser shows the old MOTD after editing `.env`                        | `network.yml` is read at proxy start. Restart the `proxy` service; there is no reload command.                                                                                                                                                                                                                          |
 | Everybody is refused with a countdown, and nobody asked for that           | The phase is `PRE_LAUNCH`, which is the seeded initial state. `/phase set PRE_EVENT` opens the network.                                                                                                                                                                                                                 |
@@ -1026,9 +981,8 @@ It is optional at every level: a player without the client mod notices nothing, 
   server missing either fails loudly at start instead of quietly rendering plain nametags.
 - **Optional: CoreProtect**, purely as insurance. Nothing in the design depends on it, and it gets
   its own SQLite file rather than a schema in our PostgreSQL so that exactly one process migrates.
-  It had no 26.2 release as of 2026-08-31, only a `master` that builds against it; if it has not
-  shipped when the phase is ready, the phase opens without block logging and Prism 4.4 is the
-  written fallback.
+  It has no 26.2 release yet, only a `master` that builds against it; if it has not shipped when
+  the phase is ready, the phase opens without block logging and Prism 4.4 is the written fallback.
 
 The worker resolves both — DisplayTags from its own repository's releases, PacketEvents from
 Modrinth filtered to this Minecraft version and `paper` — so a version bump is a run of

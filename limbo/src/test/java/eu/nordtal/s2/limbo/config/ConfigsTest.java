@@ -14,12 +14,11 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The fail-fast for {@code limbo}'s two config files.
- * <p>
- * Small, like the module: the only values it has are the world it builds, how often the title is
- * refreshed, and one connection. What is worth pinning is that each of them stops the plugin rather
- * than surfacing later — on a server whose whole interface is one line of text, a value that is
- * quietly wrong shows up as a black screen, which is what a crash looks like.
- * </p>
+ *
+ * Small, like the module: the only values it has are the world it builds, how often the title is refreshed, and one
+ * connection. What is worth pinning is that each of them stops the plugin rather than surfacing later — on a server
+ * whose whole interface is one line of text, a value that is quietly wrong shows up as a black screen, which is what
+ * a crash looks like.
  */
 class ConfigsTest {
 
@@ -41,8 +40,7 @@ class ConfigsTest {
 
     @Test
     void aZeroTitleRefreshIsRejected() throws Exception {
-        // Zero would mean a task that never fires, and a title that expires after a few seconds
-        // leaving a completely blank black screen behind it.
+        // Zero means a task that never fires, and a title that expires into a blank black screen.
         write("config.yml", """
                 world-name: limbo
                 spawn-y: 64
@@ -84,9 +82,7 @@ class ConfigsTest {
 
     @Test
     void theDatabaseDefaultsCarryTheShortTimeoutThisModuleNeeds() throws Exception {
-        // Three seconds, the same value proxy uses on the login path. limbo is on that
-        // path too: it makes one query per join, off the main thread, and a database that has
-        // stopped answering must fail fast onto the English fallback rather than pile joins up.
+        // The same three seconds proxy uses on its own login path, so a stalled database fails fast onto English.
         final DatabaseSpec config = Configs.database(directory, LOGGER).get();
 
         assertEquals(3, config.queryTimeoutSeconds());

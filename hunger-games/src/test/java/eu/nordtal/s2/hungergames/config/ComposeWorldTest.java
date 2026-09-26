@@ -21,11 +21,10 @@ import org.yaml.snakeyaml.Yaml;
 /**
  * That the world {@code compose.yml} tells Paper to generate is the world this plugin runs in.
  *
- * <h2>Why this file exists</h2>
- * This module does <b>not</b> create its world - the event map is hand-built and shipped as a
- * folder, and the plugin disables itself when the world is not loaded. Until 2026-09-02 the
- * {@code hunger-games} service had no {@code LEVEL_NAME} at all, so Paper generated {@code world}
- * while {@code config.yml}'s {@code world-name} said {@code hunger_games} - and
+ * Why this file exists: this module does <b>not</b> create its world - the event map is hand-built
+ * and shipped as a folder, and the plugin disables itself when the world is not loaded. The
+ * {@code hunger-games} service once had no {@code LEVEL_NAME} at all, so Paper generated
+ * {@code world} while {@code config.yml}'s {@code world-name} said {@code hunger_games} - and
  * {@code deploy/README.md} told the operator to {@code docker cp} the map into {@code /data/world/},
  * which produces a world under the one name the plugin will not look for. Following the documented
  * runbook to the letter left this module permanently disabled, and nothing here could see it: the
@@ -55,7 +54,7 @@ class ComposeWorldTest {
                         + " load a world of its own - it disables itself when that one is missing.");
     }
 
-    // ---------------------------------------------------------------- reading the real file
+    // reading the real file
 
     private static Map<String, Object> environmentOf(final String service) {
         final Path compose = repositoryRoot().resolve("compose.yml");

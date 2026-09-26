@@ -10,22 +10,21 @@ import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
 import org.bukkit.plugin.Plugin;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The empty world every player waits in, and the one location in it.
  *
- * <h2>Why a world of its own</h2>
- * A Paper server always has the world named by {@code level-name} in {@code server.properties}, and
- * that world is whatever the server jar generated the first time it started - terrain, a sky, a
+ * A Paper server always has the world named by {@code level-name} in {@code server.properties},
+ * and that world is whatever the server jar generated the first time it started - terrain, a sky, a
  * day/night cycle and mobs. The waiting room needs the opposite of all of it, and the cheapest way
  * to guarantee that is not to configure the server's world but to build one that has never had
  * anything in it. Players are moved here before they are spawned at all
  * ({@code AsyncPlayerSpawnLocationEvent}), so the server's own world is never seen for a frame.
  *
- * <h2>What is switched off, and why each one</h2>
- * The generator produces nothing, so most of these are belt and braces - but a gamerule left at its
- * default is a thing that starts happening the moment somebody changes the generator, and this is a
- * server whose entire purpose is that nothing happens.
+ * What is switched off below is mostly belt and braces, since the generator produces nothing - but
+ * a gamerule left at its default is a thing that starts happening the moment somebody changes the
+ * generator, and this is a server whose entire purpose is that nothing happens.
  */
 public final class WaitingWorld {
 
@@ -46,7 +45,7 @@ public final class WaitingWorld {
      *         the caller must treat as fatal, because a waiting room with nowhere to wait would
      *         drop every login into the server's own world instead
      */
-    public static WaitingWorld loadOrCreate(final Plugin plugin, final LimboSpec config) {
+    public static @Nullable WaitingWorld loadOrCreate(final Plugin plugin, final LimboSpec config) {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(config, "config");
 
@@ -62,25 +61,21 @@ public final class WaitingWorld {
 
         world.setDifficulty(Difficulty.PEACEFUL);
         world.setSpawnLocation(0, config.spawnY(), 0);
-        // Not a night, not a storm, and never a change of either: the screen is black, but a client
-        // still ticks weather and a thunderstorm is audible.
+        // A client still ticks weather and a thunderstorm is audible even on a screen that is entirely black.
         world.setTime(6000L);
         world.setStorm(false);
         world.setThundering(false);
-        // GameRules, not GameRule: the constants on the latter were renamed in 1.21.11 and every
-        // one of them is now @Deprecated(forRemoval). Using the old names still compiles and would
-        // still work; it would also put a wall of removal warnings on every build of this module.
+        // GameRules, not GameRule: the old constants are @Deprecated(forRemoval) since 1.21.11.
         setRule(world, GameRules.ADVANCE_TIME, false);
         setRule(world, GameRules.ADVANCE_WEATHER, false);
         setRule(world, GameRules.SPAWN_MOBS, false);
-        // The rename here is not a rename: the old boolean do-fire-tick became a radius in blocks.
+        // do-fire-tick became a radius in blocks rather than staying a boolean.
         setRule(world, GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER, 0);
         setRule(world, GameRules.RANDOM_TICK_SPEED, 0);
         setRule(world, GameRules.SHOW_ADVANCEMENT_MESSAGES, false);
         setRule(world, GameRules.SHOW_DEATH_MESSAGES, false);
         setRule(world, GameRules.IMMEDIATE_RESPAWN, true);
-        // Nobody should ever take damage here, but if the impossible happens the last thing this
-        // server should do is scatter somebody's inventory into the void.
+        // Nobody should take damage here, but the impossible should not scatter an inventory into the void either.
         setRule(world, GameRules.KEEP_INVENTORY, true);
         setRule(world, GameRules.FALL_DAMAGE, false);
         setRule(world, GameRules.DROWNING_DAMAGE, false);
@@ -88,11 +83,7 @@ public final class WaitingWorld {
         setRule(world, GameRules.FREEZE_DAMAGE, false);
         setRule(world, GameRules.RESPAWN_RADIUS, 0);
 
-        // World#setKeepSpawnInMemory is a no-op since 1.21.9 - the vanilla server has no spawn
-        // chunks any more - so nothing is done to keep this world's spawn loaded. Nothing needs
-        // to be: generating an empty chunk is generating nothing, which is what the generator here
-        // is for.
-
+        // World#setKeepSpawnInMemory is a no-op: generating an empty chunk is generating nothing regardless.
         return new WaitingWorld(world, new Location(world, 0.5, config.spawnY(), 0.5, 0.0f, 0.0f));
     }
 
@@ -113,7 +104,7 @@ public final class WaitingWorld {
      *         player who falls forever is a player whose client is downloading a resource pack
      *         while the server streams empty chunks after them
      */
-    public boolean hasStrayed(final Location location) {
+    public boolean hasStrayed(final @Nullable Location location) {
         if (location == null || !world.equals(location.getWorld())) {
             return true;
         }

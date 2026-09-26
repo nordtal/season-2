@@ -15,29 +15,27 @@ import org.slf4j.Logger;
 /**
  * Lets an admin onto this server when it is already full.
  *
- * <p>{@link FullServerAdmission} carries the whole reasoning: one player limit for the network,
- * written into this server's {@code server.properties} from the same {@code .env} variable the
- * proxy is given, and the proxy's admin exemption rebuilt here so that it survives the change. It
- * also carries the one thing about the ordering of these two events that is assumed rather than
- * proved.</p>
+ * {@link FullServerAdmission} carries the whole reasoning: one player limit for the network, written into this
+ * server's {@code server.properties} from the same {@code .env} variable the proxy is given, and the proxy's admin
+ * exemption rebuilt here so that it survives the change. It also carries the one thing about the ordering of these
+ * two events that is assumed rather than proved.
  *
- * <h2>Why this server, of all three</h2>
- * {@code limbo} is the one every login on the network crosses, so it is both the least likely to be
- * full - players are only here until their resource pack has applied - and the most expensive place
- * to add a query per login.
+ * <b>Why this server, of all three</b>
  *
- * <p>It used to pay nothing for that: {@link FullServerAdmission#worthAsking} kept an ordinary
- * login free of any query at all. <b>That changed on 2026-09-04</b>, when an admin became a server
- * operator for the length of their session
- * ({@link eu.nordtal.s2.common.access.AdminOperators}) - the join handler that grants it runs on
- * the main thread and cannot query, so the flag has to be read here every time. The gain is that
- * the cache is now warm for every player rather than only during a burst, which is also what makes
- * the fullness answer below independent of how busy the server was a tick ago.</p>
+ * {@code limbo} is the one every login on the network crosses, so it is both the least likely to be full - players
+ * are only here until their resource pack has applied - and the most expensive place to add a query per login.
  *
- * <h2>What a failure here does, and does not, do</h2>
- * Nothing. A lookup that throws leaves the player un-warmed and Paper's own answer standing, which
- * for everybody but an admin at a full server is the right answer anyway. Refusing the login from
- * here instead would replace a screen that explains itself with one that does not.
+ * Every login pays for a query now, unconditionally: an admin is a server operator for the length of their session
+ * ({@link eu.nordtal.s2.common.access.AdminOperators}), and the join handler that grants it runs on the main thread
+ * and cannot query, so this is the one place allowed to read the flag. The gain is a cache warm for every player
+ * rather than only during a burst, which is what makes the fullness answer below independent of how busy the server
+ * was a tick ago.
+ *
+ * <b>What a failure here does, and does not, do</b>
+ *
+ * Nothing. A lookup that throws leaves the player un-warmed and Paper's own answer standing, which for everybody but
+ * an admin at a full server is the right answer anyway. Refusing the login from here instead would replace a screen
+ * that explains itself with one that does not.
  */
 public final class FullServerGate implements Listener {
 
@@ -52,35 +50,21 @@ public final class FullServerGate implements Listener {
     }
 
     /**
-     * Reads the admin flag, on the one thread this server is allowed to wait on a database from,
-     * for every allowed login.
+     * Reads the admin flag for every allowed login, on the one thread this server may wait on a database from.
      *
-     * <p>Every login, and not only one close enough to the cap to change the answer, which is what
-     * this said until 2026-09-04. The flag stopped being only about a full server when an admin
-     * became a server operator for the length of their session; the body below and the class
-     * javadoc both say so, and this sentence was the last one left disagreeing - on an
-     * authorisation path.</p>
+     * Every login, not only one close enough to the cap to change the answer: the flag is no longer only about a
+     * full server, since an admin's operator grant for the length of their session depends on it and its own join
+     * handler cannot query from the main thread it runs on.
      *
-     * <p>{@link FullServerAdmission#remember} is called either way, including with {@code false}:
-     * that is what keeps an answer from an earlier connection out of this one.</p>
+     * {@link FullServerAdmission#remember} is called either way, including with {@code false}: that is what keeps an
+     * answer from an earlier connection out of this one.
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPreLogin(final AsyncPlayerPreLoginEvent event) {
         if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
             return;
         }
-        // Unconditionally since 2026-09-04, where this used to ask FullServerAdmission#worthAsking
-        // first. The flag is no longer only about a full server: an admin is a server operator for
-        // the length of their session (AdminOperators), and the join handler that grants it cannot
-        // query anything - it runs on the main thread. So the one place allowed to wait has to read
-        // it every time, which is the trade FullServerAdmission's own javadoc recommends taking in
-        // a module that needs the flag for other reasons.
-        //
-        // This is the server every login on the network crosses, so it is the one where the cost is
-        // real: one indexed query per login on top of the language lookup that already happens
-        // here. If it ever shows up, the fix is one query returning both, not this going back to
-        // being conditional - a conditional operator is one that is missing exactly when the
-        // network is busy.
+        // One indexed query per login, on top of the language lookup that already happens here.
         boolean admin = false;
         try {
             admin = access.accessState(event.getUniqueId()).admin();
@@ -97,10 +81,9 @@ public final class FullServerGate implements Listener {
     /**
      * Overturns the fullness check, and only that one.
      *
-     * <p>{@code PlayerServerFullCheckEvent} rather than {@code PlayerLoginEvent}: Paper 26.2
-     * deprecated the latter and names this one for exactly this purpose, because it decides without
-     * forcing the player entity into existence first. A ban, a whitelist or any other refusal never
-     * reaches this event at all.</p>
+     * {@code PlayerServerFullCheckEvent} rather than {@code PlayerLoginEvent}: Paper 26.2 deprecated the latter and
+     * names this one for exactly this purpose, because it decides without forcing the player entity into existence
+     * first. A ban, a whitelist or any other refusal never reaches this event at all.
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onFullCheck(final PlayerServerFullCheckEvent event) {

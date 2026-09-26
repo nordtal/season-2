@@ -29,19 +29,17 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 /**
- * Everything that has to be true for the waiting room to be a waiting room: players arrive in the
- * empty world, cannot see each other, cannot speak, cannot be hurt, and cannot do anything at all.
+ * Everything that has to be true for the waiting room to be a waiting room.
  *
- * <h2>Why so many handlers for a server with nothing in it</h2>
- * Because each of them is a thing that would otherwise be visible on a black screen. A chat message
- * from somebody else is text over the title; a hunger bar is a HUD element; a death is a respawn
- * screen. The world's gamerules and the player's own flags cover most of this already - these are
- * the cases where a rule exists but an event can still fire.
+ * Players arrive in the empty world, cannot see each other, cannot speak, cannot be hurt, and cannot do anything at
+ * all. Each handler covers a thing that would otherwise be visible on a black screen. A chat message from somebody
+ * else is text over the title; a hunger bar is a HUD element; a death is a respawn screen. The world's gamerules and
+ * the player's own flags cover most of this already - these are the cases where a rule exists but an event can
+ * still fire.
  *
- * <p>There is no chat here, and since season-2-ops/141 there are no commands either: a player who
- * types sees nothing happen, which is intended. Everybody in the waiting room is invisible to
- * everybody else and is about to leave, and nothing said in a room nobody moderates may reach
- * anybody outside it - {@code /msg} included.
+ * There is no chat here and no commands either: a player who types sees nothing happen, which is intended. Everybody
+ * in the waiting room is invisible to everybody else and is about to leave, and nothing said in a room nobody
+ * moderates may reach anybody outside it - {@code /msg} included.
  */
 public final class PresenceListener implements Listener {
 
@@ -54,8 +52,9 @@ public final class PresenceListener implements Listener {
     private final AdminOperators operators;
 
     /**
-     * The admin flag, cached at pre-login by {@link FullServerGate} on the thread that is allowed to
-     * wait. Read here, never queried: this is the main thread.
+     * The admin flag, cached at pre-login by {@link FullServerGate} on the thread that is allowed to wait.
+     *
+     * Read here, never queried: this is the main thread.
      */
     private final FullServerAdmission admission;
 
@@ -81,12 +80,11 @@ public final class PresenceListener implements Listener {
     /**
      * Draws the tab list frame this one player sees.
      *
-     * <p>Only this player, and no count: {@link #hideEverybodyFromEachOther} means the list above
-     * the footer holds exactly one name - their own - so the {@code {online}/{max}} the SMP and the
-     * hunger games put there would sit over a list that contradicts it. limbo's {@code tab.footer}
-     * therefore says something else, and is the one of the three that is allowed to differ; see
-     * {@code TabListTest}. The header is shared, because a player who presses Tab here has just
-     * arrived on the network and the logo is the only thing on the screen that says where.</p>
+     * Only this player, and no count: {@link #hideEverybodyFromEachOther} means the list above the footer holds
+     * exactly one name - their own - so the {@code {online}/{max}} the SMP and the hunger games put there would sit
+     * over a list that contradicts it. limbo's {@code tab.footer} therefore says something else, and is the one of
+     * the three that is allowed to differ; see {@code TabListTest}. The header is shared, because a player who
+     * presses Tab here has just arrived on the network and the logo is the only thing on the screen that says where.
      */
     private void sendTabList(final Player player) {
         final java.util.Locale locale = locales.of(player.getUniqueId());
@@ -97,12 +95,10 @@ public final class PresenceListener implements Listener {
 
     /**
      * Puts the player in the empty world <b>before</b> they are spawned anywhere.
-     * <p>
-     * The alternative - teleporting them in {@link #onJoin} - shows the server's own {@code
-     * level-name} world for a frame or two: terrain, a sky and a sun, on a server whose whole point
-     * is that there is nothing to see. This event fires while the connection is still being
-     * configured, so there is no frame to see.
-     * </p>
+     *
+     * The alternative - teleporting them in {@link #onJoin} - shows the server's own {@code level-name} world for a
+     * frame or two: terrain, a sky and a sun, on a server whose whole point is that there is nothing to see. This event
+     * fires while the connection is still being configured, so there is no frame to see.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onSpawnLocation(final AsyncPlayerSpawnLocationEvent event) {
@@ -123,14 +119,7 @@ public final class PresenceListener implements Listener {
         hideEverybodyFromEachOther(player);
         sendTabList(player);
 
-        // One tick later, and then every second until the proxy has moved them on - which is the
-        // only thing that ends this task, because a player leaving limbo is a player who quit it.
-        // Repeated since 2026-09-05: a single READY is lost whenever Velocity decodes it in the same
-        // read batch as the join (state-of-play finding 38, the second path), which on the local
-        // stack was two logins out of three. The proxy's grace period caught every one of them, at
-        // five seconds of black screen apiece; a READY every second turns that into one. The book
-        // on the proxy is idempotent, so the repeats cost a plugin message and nothing else. See
-        // LimboChannel#sendReady.
+        // Repeated every second until the proxy moves the player on; see LimboChannel#sendReady.
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -147,7 +136,7 @@ public final class PresenceListener implements Listener {
 
     /**
      * Reads the player's language <b>off the main thread</b> and redraws the title once it is known.
-     * <p>
+     *
      * The lookup is one indexed round trip and it is still one too many to run here. This is the
      * server every single login passes through: a database that has stopped answering would freeze
      * it for the pool's connection timeout <em>per join</em>, and a frozen waiting room is the whole
@@ -155,19 +144,17 @@ public final class PresenceListener implements Listener {
      * {@code PlayerLocales#of} returns English - which is the fallback docs/i18n.md builds
      * everything on, so the cost is that a German player may see one English line before the right
      * one replaces it.
-     * </p>
-     * <p>
+     *
      * The redraw is deliberately unconditional rather than "only if the language turned out not to
      * be English": re-showing the same title is free, and a conditional here would be a second place
      * that has to know what {@code of()} would have answered a moment ago.
-     * </p>
      */
     private void loadLanguage(final Player player) {
-        locales.joinAsync(player.getUniqueId(), async())
+        // A failed lookup leaves one English title up rather than being retried, which is not worth chasing.
+        final var _ = locales.joinAsync(player.getUniqueId(), async())
                 .thenRun(() -> plugin.getServer().getScheduler().runTask(plugin, () -> {
                     if (!player.isOnline()) {
-                        // They left while the query was in flight. onQuit has already run, so the
-                        // entry this just wrote would otherwise stay for the life of the process.
+                        // onQuit already ran; the entry this just wrote would otherwise stay for the process's life.
                         locales.quit(player.getUniqueId());
                         return;
                     }
@@ -194,23 +181,17 @@ public final class PresenceListener implements Listener {
     }
 
     /**
-     * And every command with it, because {@code /msg} is chat with a different prefix
-     * (season-2-ops/141).
+     * Cancels every command, because {@code /msg} is chat with a different prefix.
      *
-     * <p>Till, 2026-09-20: the waiting room is a passage, and nothing said in it may reach anybody
-     * - which is not the same promise as "the chat box does nothing". A player who cannot type in
-     * chat can still {@code /msg}, {@code /me} or {@code /tell} from here, and every one of those
-     * is a sentence delivered out of a room nobody moderates and that does not exist a minute
-     * later. Blocked as a class rather than by a list of names: a list is a hole the next
-     * Minecraft version fills in for us.</p>
+     * A player who cannot type in chat can still {@code /msg}, {@code /me} or {@code /tell} from here, and every
+     * one of those is a sentence delivered out of a room nobody moderates. Blocked as a class rather than by a list
+     * of names: a list is a hole the next Minecraft version fills in for us.
      *
-     * <p><b>Silently</b>, exactly like {@link #onChat}. The screen holds one title saying what is
-     * being waited for, and an error over it would be the waiting room talking back for the first
-     * time - about a command nobody here needs.</p>
+     * Silently, exactly like {@link #onChat}. The screen holds one title saying what is being waited for, and an
+     * error over it would be the waiting room talking back for the first time - about a command nobody here needs.
      *
-     * <p>An admin keeps their commands: {@code /limbo} is the only reason anybody with a client
-     * would run one here, and the flag is the same one every other backend uses, read out of the
-     * cache {@link FullServerGate} filled at pre-login.</p>
+     * An admin keeps their commands: {@code /limbo} is the only reason anybody with a client would run one here,
+     * and the flag is the same one every other backend uses.
      */
     @EventHandler(ignoreCancelled = true)
     public void onCommand(final PlayerCommandPreprocessEvent event) {
@@ -223,8 +204,8 @@ public final class PresenceListener implements Listener {
     /**
      * Whether this player's commands are swallowed.
      *
-     * <p>A method rather than a condition inside the handler so that the rule can be held by a test
-     * on a module whose every other line needs a running server.</p>
+     * A method rather than a condition inside the handler so a test can hold the rule on a module whose every
+     * other line needs a running server.
      */
     public static boolean mutes(final boolean admin) {
         return !admin;
@@ -259,11 +240,9 @@ public final class PresenceListener implements Listener {
 
     /**
      * Hides the joining player from everybody already here, and everybody already here from them.
-     * <p>
-     * Both directions, because {@code hidePlayer} is one-way. The proxy can have several people in
-     * the waiting room at once - a restarting backend puts everybody in here at the same moment -
-     * and none of them may see another.
-     * </p>
+     *
+     * Both directions, because {@code hidePlayer} is one-way. The proxy can have several people in the waiting room at
+     * once - a restarting backend puts everybody in here at the same moment - and none of them may see another.
      */
     private void hideEverybodyFromEachOther(final Player joining) {
         for (final Player other : plugin.getServer().getOnlinePlayers()) {

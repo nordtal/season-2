@@ -10,14 +10,17 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.PlayerInventory;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Bodies standing in for absent players: one who was ready in the lobby but disconnected before the
- * countdown finished, and one who disconnects mid-game. Both go through this one class.
+ * Bodies standing in for absent players.
  *
- * <p>An offline player has no entity in vanilla, so a killable {@link ArmorStand} approximates one.
+ * One who was ready in the lobby but disconnected before the countdown finished, and one who
+ * disconnects mid-game. Both go through this one class.
+ *
+ * An offline player has no entity in vanilla, so a killable {@link ArmorStand} approximates one.
  * It is not a player: {@code hg_member}/{@code hg_event} track life and death, driven by the
- * marker's damage and death events mapped back to their owner through this class.</p>
+ * marker's damage and death events mapped back to their owner through this class.
  */
 public final class PlayerBodies {
 
@@ -27,8 +30,9 @@ public final class PlayerBodies {
     private final Map<UUID, UUID> playerByMarker = new ConcurrentHashMap<>();
 
     /**
-     * Spawns a body copying the player's equipment. Call from the quit listener while the
-     * {@code Player} object is still usable.
+     * Spawns a body copying the player's equipment.
+     *
+     * Call from the quit listener while the {@code Player} object is still usable.
      *
      * @param player the player who just disconnected
      * @param at     where to place the body - their last location
@@ -53,8 +57,9 @@ public final class PlayerBodies {
     }
 
     /**
-     * Spawns a body with no equipment, for a participant never seen online this session - their
-     * gear only exists as stored NBT this plugin does not parse.
+     * Spawns a body with no equipment, for a participant never seen online this session.
+     *
+     * Their gear only exists as stored NBT this plugin does not parse.
      *
      * @param at          where to place the body
      * @param displayName shown above the marker
@@ -65,8 +70,10 @@ public final class PlayerBodies {
     }
 
     /**
-     * As {@link #spawnBareArmorStand(Location, String)}, but also registers the marker against a
-     * known Minecraft UUID so {@link #ownerOf(UUID)}/{@link #hasBody(UUID)} work for it.
+     * As {@link #spawnBareArmorStand(Location, String)}.
+     *
+     * Also registers the marker against a known Minecraft UUID so
+     * {@link #ownerOf(UUID)}/{@link #hasBody(UUID)} work for it.
      */
     public UUID spawnBareArmorStand(final Location at, final String displayName, final UUID mcUuid) {
         final ArmorStand marker = baseArmorStand(at, displayName);
@@ -94,7 +101,7 @@ public final class PlayerBodies {
     }
 
     /** @return the Minecraft account a marker entity stands in for, if it is one of ours */
-    public UUID ownerOf(final UUID markerEntityUuid) {
+    public @Nullable UUID ownerOf(final UUID markerEntityUuid) {
         return playerByMarker.get(markerEntityUuid);
     }
 
@@ -103,7 +110,7 @@ public final class PlayerBodies {
         return markerByPlayer.containsKey(mcUuid);
     }
 
-    public UUID markerOf(final UUID mcUuid) {
+    public @Nullable UUID markerOf(final UUID mcUuid) {
         return markerByPlayer.get(mcUuid);
     }
 

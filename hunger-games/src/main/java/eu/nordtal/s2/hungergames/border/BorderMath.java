@@ -1,15 +1,18 @@
 package eu.nordtal.s2.hungergames.border;
 
 /**
- * The border's pure arithmetic: the death step and the target-composition rules. No Bukkit type
- * appears here on purpose, so it is exercised by plain unit tests rather than a running server.
+ * The border's pure arithmetic: the death step and the target-composition rules.
+ *
+ * No Bukkit type appears here on purpose, so it is exercised by plain unit tests rather than a
+ * running server.
  */
 public final class BorderMath {
 
     private BorderMath() {}
 
     /**
-     * The fixed amount of diameter every death removes:
+     * The fixed amount of diameter every death removes.
+     *
      * {@code step = (start - end) / (participants - 1)}. It divides by zero at one participant,
      * which is why a game can never start with fewer than two.
      *
@@ -34,8 +37,10 @@ public final class BorderMath {
     }
 
     /**
-     * Where a death-triggered shrink should target next. A running shrink is extended rather than
-     * restarted; the idle case falls out of the same formula by passing the border's actual size.
+     * Where a death-triggered shrink should target next.
+     *
+     * A running shrink is extended rather than restarted; the idle case falls out of the same
+     * formula by passing the border's actual size.
      *
      * @param currentTarget the border's current target diameter (its actual current size, if idle;
      *                      its in-flight target, if already shrinking)
@@ -48,11 +53,10 @@ public final class BorderMath {
     }
 
     /**
-     * How long, in milliseconds, a death-triggered shrink from {@code fromDiameter} to
-     * {@code toDiameter} takes at the configured wall speed.
+     * How long a death-triggered shrink takes at the configured wall speed, in milliseconds.
      *
-     * <p>The configured wall speed is already a diameter-change rate, so it is applied directly to
-     * the diameter delta with no halving or doubling.</p>
+     * The configured wall speed is already a diameter-change rate, so it is applied directly to
+     * the diameter delta with no halving or doubling.
      *
      * @param fromDiameter               the diameter the shrink starts from
      * @param toDiameter                 the diameter the shrink targets

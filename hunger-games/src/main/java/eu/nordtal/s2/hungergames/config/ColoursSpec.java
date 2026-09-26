@@ -8,16 +8,15 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code colours.yml} - the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is
- * painted with (season-2-ingame/22).
+ * {@code colours.yml} - the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is painted with.
  *
- * <p>Every value below is deliberately the same as {@code smp}'s, so that the network reads as one
+ * Every value below is deliberately the same as {@code smp}'s, so that the network reads as one
  * server rather than three - the same decision {@code hunger-games}' own {@code DefaultSounds}
  * documents for sounds. Divergence is allowed, since it is a config file, but it should be a thing
  * somebody chose after seeing both, not a thing that happened because two files were written a day
  * apart.
  *
- * <p>Loaded once at enable. Unlike {@code smp}, this server's {@code /hg reload} only touches
+ * Loaded once at enable. Unlike {@code smp}, this server's {@code /hg reload} only touches
  * {@code sounds.yml} and the message bundles - {@code HungerGamesEffects} names exactly those two,
  * and widening it is a change to a shared interface in {@code :commands}, out of this ticket's file
  * scope. Editing this file therefore needs a restart, the same as {@code config.yml} here.

@@ -22,16 +22,15 @@ import org.bukkit.plugin.Plugin;
 /**
  * {@link HungerGamesEffects} against this server.
  *
- * <h2>Nothing here hops to the main thread, and that is the interesting part</h2>
- * Everything {@code /hg start} does before the world is touched is database work, and
+ * Nothing here hops to the main thread, and that is the interesting part. Everything
+ * {@code /hg start} does before the world is touched is database work, and
  * {@code HungerGamesManager#start} reads the roster and writes the team colours before it hops to
  * the main thread <em>itself</em>. Hopping here would put all of that on the server thread at the
  * exact moment every participant is about to be teleported onto a tower - the same mistake, in the
  * same shape, as the join-time language lookup that froze this module's login path.
  *
- * <h2>Two instances, as everywhere</h2>
- * The chat one runs its work on the plugin's async scheduler; the inbox's runs it inline, because
- * the inbox settles a request row when the command returns.
+ * Two instances, as everywhere: the chat one runs its work on the plugin's async scheduler; the
+ * inbox's runs it inline, because the inbox settles a request row when the command returns.
  */
 public final class BukkitHungerGamesEffects implements HungerGamesEffects {
 
@@ -91,17 +90,13 @@ public final class BukkitHungerGamesEffects implements HungerGamesEffects {
                 .map(game -> new Registration(
                         gameId,
                         game.state().name(),
-                        // The RESOLVED count: Demotion turns a duo whose partner never showed into the
-                        // full-hearted solo it will actually become, and that is the number the border
-                        // arithmetic will divide by.
+                        // RESOLVED count: a duo whose partner never showed becomes the solo the border divides by.
                         Demotion.resolve(dao.roster(gameId)).size()));
     }
 
     @Override
     public void start(final UUID gameId) {
-        // Straight through on this thread. onStart leads to HungerGamesManager#start, which reads
-        // the roster and writes the team colours before it hops to the main thread itself; a
-        // runTask here would have undone exactly that.
+        // Straight through: onStart hops to the main thread itself, after reading the roster and colours.
         onStart.accept(gameId);
     }
 
@@ -125,8 +120,7 @@ public final class BukkitHungerGamesEffects implements HungerGamesEffects {
 
     @Override
     public List<TeamReady> readyStatus(final UUID gameId) {
-        // A team is ready when every one of its members is - the same merge the lobby already does
-        // for the "{ready}/{total} teams ready" line everybody can see.
+        // A team is ready when every member is - the same merge behind the "{ready}/{total} teams ready" line.
         final Map<String, Boolean> byTeam = new LinkedHashMap<>();
         for (final RosterEntry entry : lobby.readyStatus(gameId)) {
             byTeam.merge(entry.teamName(), entry.ready(), (a, b) -> a && b);

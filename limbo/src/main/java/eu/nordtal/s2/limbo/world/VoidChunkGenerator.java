@@ -8,17 +8,15 @@ import org.bukkit.generator.WorldInfo;
 
 /**
  * A chunk generator that generates nothing at all.
- * <p>
- * Every {@code shouldGenerate*} hook is answered {@code false}, which is what turns off vanilla's
- * own generation rather than generating over the top of it: no noise, no surface, no bedrock, no
- * caves, no decorations, no structures and no mobs. The {@code generate*} methods are left as the
- * base class's empty implementations, because there is nothing to write into the chunk.
- * </p>
- * <p>
- * The result is a world that costs almost nothing to keep loaded - which matters here, because the
- * waiting room is on the path of every login and its chunks are generated for a player who is
- * looking at a black screen and will be gone in a few seconds.
- * </p>
+ *
+ * Every {@code shouldGenerate*} hook is answered {@code false}, which is what turns off vanilla's own generation
+ * rather than generating over the top of it: no noise, no surface, no bedrock, no caves, no decorations, no
+ * structures and no mobs. The {@code generate*} methods are left as the base class's empty implementations, because
+ * there is nothing to write into the chunk.
+ *
+ * The result is a world that costs almost nothing to keep loaded - which matters here, because the waiting room is
+ * on the path of every login and its chunks are generated for a player who is looking at a black screen and will be
+ * gone in a few seconds.
  */
 public final class VoidChunkGenerator extends ChunkGenerator {
 
@@ -59,16 +57,13 @@ public final class VoidChunkGenerator extends ChunkGenerator {
 
     @Override
     public List<org.bukkit.generator.BlockPopulator> getDefaultPopulators(final org.bukkit.World world) {
-        // Populators run after generation and are the one thing the shouldGenerate* switches above
-        // do not cover. An empty list is what keeps a vanilla populator from putting a tree in a
-        // world that has no ground.
+        // The one thing shouldGenerate* does not cover; empty keeps a populator from planting a tree on no ground.
         return Collections.emptyList();
     }
 
     @Override
     public boolean isParallelCapable() {
-        // Nothing is computed and nothing is shared, so there is no reason to make the server
-        // generate these chunks one at a time.
+        // Nothing is computed and nothing is shared, so chunks need not be generated one at a time.
         return true;
     }
 

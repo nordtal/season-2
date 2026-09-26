@@ -1,3 +1,5 @@
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
     id("nordtal.paper-plugin")
     id("nordtal.message-spec")
@@ -8,31 +10,27 @@ repositories {
     maven("https://jitpack.io")
 }
 
+// Names start() and its command-wiring helper as NullAway's initializers, since LimboPlugin's fields are set there.
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        option(
+            "NullAway:KnownInitializers",
+            "eu.nordtal.s2.limbo.LimboPlugin.start,eu.nordtal.s2.limbo.LimboPlugin.wireCommandInbox")
+    }
+}
+
 dependencies {
     implementation(project(":paper-common"))
-    // jcore carries the config system and exports the JDBI 3 / HikariCP / PostgreSQL stack
-    // :common's AccessDirectory needs.
-    //
-    // WHY A WAITING ROOM HAS A DATABASE AT ALL, since it holds nobody's state: its entire interface
-    // is one translated title, and a plugin reads a player's language from the database at join
-    // through :common's PlayerLocales.
-    //
-    // Flyway is excluded because this plugin never migrates anything (the bot owns the schema) and
-    // flyway-core alone drags in ~1200 classes of Jackson databind. Excluding the group removes the
-    // subtree from resolution rather than only from the final jar.
+    // jcore carries the config system and the JDBI/HikariCP/PostgreSQL stack :common's AccessDirectory needs.
+    // Flyway is excluded because this plugin never migrates anything and flyway-core drags in Jackson databind.
     implementation(libs.jcore) {
         exclude(group = "org.flywaydb")
     }
 
-    // LimboPool builds a HikariCP pool directly so the pool name, size and driver class are ours -
-    // AccessDirectory.open(String, String, String) exposes none of that. jcore only puts HikariCP
-    // on the runtime classpath, so this module declares it to compile against it; the catalog pins
-    // it to jcore's version so exactly one copy resolves.
+    // LimboPool builds its own HikariCP pool for the name, size and driver class AccessDirectory.open exposes none of.
     implementation(libs.hikaricp)
 
-    // :common's JdbiAccessDirectory installs JDBI's PostgresPlugin, and jcore declares
-    // jdbi3-postgres at runtime scope only. Declared here so it is visible in this module's own
-    // dependency list rather than arriving through somebody else's POM.
+    // :common's JdbiAccessDirectory installs JDBI's PostgresPlugin; jcore declares jdbi3-postgres at runtime only.
     implementation(libs.jdbi.postgres)
 }
 

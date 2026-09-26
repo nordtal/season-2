@@ -18,21 +18,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Tracks who is still alive and decides the game:
- * <ul>
- *   <li>Last player standing wins.</li>
- *   <li>Two deaths within the same short window ("the same moment") are resolved by
- *       {@link Tiebreak} on total kills; equal kills means no winner.</li>
- *   <li>A same-team final two is announced rather than resolved automatically - friendly fire is
- *       on from the first second, so there is nothing to "unlock".</li>
- * </ul>
+ * Tracks who is still alive and decides the game.
  *
- * <p>"The same moment" is a short wall-clock window ({@link #SIMULTANEOUS_WINDOW}), not literally
- * the same server tick - a strict same-tick check would make the tiebreaker nearly unreachable.</p>
+ * Last player standing wins; two deaths within the same short window ("the same moment") are
+ * resolved by {@link Tiebreak} on total kills, with equal kills meaning no winner; and a same-team
+ * final two is announced rather than resolved automatically - friendly fire is on from the first
+ * second, so there is nothing to "unlock".
+ *
+ * "The same moment" is a short wall-clock window ({@link #SIMULTANEOUS_WINDOW}), not literally
+ * the same server tick - a strict same-tick check would make the tiebreaker nearly unreachable.
  */
 public final class WinTracker {
 
@@ -50,7 +49,7 @@ public final class WinTracker {
     private final java.util.Map<UUID, Instant> aliveSince = new ConcurrentHashMap<>();
 
     private final ConcurrentLinkedQueue<UUID> recentDeaths = new ConcurrentLinkedQueue<>();
-    private volatile Instant lastDeathAt;
+    private volatile @Nullable Instant lastDeathAt;
 
     public WinTracker(
             final HungerGamesDao dao,
@@ -82,15 +81,18 @@ public final class WinTracker {
     }
 
     /**
-     * Records one member's death. Returns the game's outcome once this death leaves at most one
-     * player alive (or resolves a simultaneous-death pair); empty while the game continues.
+     * Records one member's death.
+     *
+     * Returns the game's outcome once this death leaves at most one player alive (or resolves a
+     * simultaneous-death pair); empty while the game continues.
      *
      * @param gameId          the running game
      * @param victimMemberId  who died
      * @param killerMemberId  who killed them, if anyone (border/environment deaths have none)
      * @return the outcome, if the game just ended
      */
-    public Optional<Outcome> recordDeath(final UUID gameId, final UUID victimMemberId, final UUID killerMemberId) {
+    public Optional<Outcome> recordDeath(
+            final UUID gameId, final UUID victimMemberId, final @Nullable UUID killerMemberId) {
         aliveSince.remove(victimMemberId);
         if (killerMemberId != null) {
             dao.recordEvent(gameId, "KILL", killerMemberId, victimMemberId, null);
@@ -108,8 +110,7 @@ public final class WinTracker {
         }
 
         if (aliveSince.isEmpty() && simultaneous) {
-            // The survivor set is now empty, so this is the "last two die at the same moment"
-            // case. recentDeaths holds the last two victim member ids in order.
+            // Last two died at the same moment; recentDeaths holds the two victim member ids in order.
             recentDeaths.add(victimMemberId);
             while (recentDeaths.size() > 2) {
                 recentDeaths.poll();
@@ -122,12 +123,10 @@ public final class WinTracker {
                 final Optional<UUID> winner = Tiebreak.resolve(first, firstKills, second, secondKills);
                 dao.recordEvent(
                         gameId, "TIE", null, null, winner.map(UUID::toString).orElse("no-winner"));
-                // The kill counts travel with the outcome because the ceremony prints them:
-                // "won on the tiebreaker, 3 kills to 2" is a different sentence from "won".
+                // The kill counts travel with the outcome: the ceremony prints "3 kills to 2", not just "won".
                 return Optional.of(winner.map(id -> Outcome.tieBroken(
                                 id, Math.max(firstKills, secondKills), Math.min(firstKills, secondKills)))
-                        // Equal by definition in this branch - Tiebreak returns empty only then -
-                        // so either count is "the" count.
+                        // Equal by definition in this branch - Tiebreak returns empty only then.
                         .orElseGet(() -> Outcome.tieNoWinner(firstKills)));
             }
         } else {
@@ -142,8 +141,7 @@ public final class WinTracker {
                     "hunger-games: all participants dead in game {} with no resolvable tiebreak "
                             + "(deaths not simultaneous) - treating as no winner",
                     gameId);
-            // Not a tie: nothing was compared. The ceremony must say "no winner", not invent a
-            // simultaneous death that did not happen.
+            // Not a tie: nothing was compared, so the ceremony says "no winner", not a fabricated tie.
             return Optional.of(Outcome.noWinner());
         }
 
@@ -151,8 +149,10 @@ public final class WinTracker {
     }
 
     /**
-     * Announces a final two who share a team. Friendly fire is on from the first second, so there
-     * is nothing to unlock - the passive border shrink is what resolves the stalemate.
+     * Announces a final two who share a team.
+     *
+     * Friendly fire is on from the first second, so there is nothing to unlock - the passive border
+     * shrink is what resolves the stalemate.
      */
     public void announceIfSameTeamFinalTwo(final World world, final List<HgMember> activeMembers) {
         if (aliveSince.size() != 2) {
@@ -176,8 +176,7 @@ public final class WinTracker {
                     .format(
                             locales.of(player.getUniqueId()),
                             MESSAGES.hg().win().sameTeamFinalTwo()));
-            // NETWORK_EVENT: addressed to the whole server about two other people, once per game.
-            // The two it is about are the least likely to be reading chat.
+            // NETWORK_EVENT: about two other people, who are the least likely to be reading chat.
             sounds.play(player, Feedback.NETWORK_EVENT);
         }
     }
@@ -185,9 +184,9 @@ public final class WinTracker {
     /**
      * The result of a game ending, in the four shapes the ceremony has to be able to tell apart.
      *
-     * <p>{@code tie} means the last two died within {@link #SIMULTANEOUS_WINDOW} of each other and
-     * the kill counts decided it. It is not a synonym for "nobody won": a tiebreak can produce a
-     * winner, and a game can end without one for a reason that is not a tiebreak at all.</p>
+     * {@code tie} means the last two died within {@link #SIMULTANEOUS_WINDOW} of each other and the
+     * kill counts decided it. It is not a synonym for "nobody won": a tiebreak can produce a winner,
+     * and a game can end without one for a reason that is not a tiebreak at all.
      *
      * @param winnerMemberId the winner, or {@code null} when the game ended without one
      * @param tie            whether the tiebreaker decided this outcome
@@ -195,7 +194,7 @@ public final class WinTracker {
      *                       tiebreak found no winner. Zero on an ordinary win
      * @param loserKills     on a tiebreak, the lower kill count. Zero otherwise
      */
-    public record Outcome(UUID winnerMemberId, boolean tie, int winnerKills, int loserKills) {
+    public record Outcome(@Nullable UUID winnerMemberId, boolean tie, int winnerKills, int loserKills) {
 
         /** The ordinary ending: one player left standing. */
         static Outcome win(final UUID winnerMemberId) {

@@ -7,26 +7,22 @@ import java.util.Map;
 /**
  * The ten sounds a fresh {@code sounds.yml} is written with.
  *
- * <p>Same mechanism and same caveat as {@link DefaultRefillTiers}: a nested spec is served by a
+ * Same mechanism and same caveat as {@link DefaultRefillTiers}: a nested spec is served by a
  * reflective proxy and {@code Specs.createUnsafe} does <b>not</b> apply defaults, so every key of
  * the spec has to appear in the map or it comes out null.
  *
- * <p><b>Every value here is byte-identical to {@code smp}'s {@code DefaultSounds}</b>, and that is
+ * <b>Every value here is byte-identical to {@code smp}'s {@code DefaultSounds}</b>, and that is
  * the decision rather than a copy nobody thought about: the point of one vocabulary is that a player
  * who is refused something on the event server and refused something on the SMP hears the same
  * refusal. Divergence is allowed - it is a config file - but it should be a thing somebody chose
  * after hearing both, not a thing that happened because two files were written a day apart.
  *
- * <p>Nobody has heard any of them next to each other yet. {@code SoundsSpec} carries the reasoning;
+ * Nobody has heard any of them next to each other yet. {@code SoundsSpec} carries the reasoning;
  * this class is only the values.
  */
 final class DefaultSounds {
 
-    // Ten vanilla sounds, one per Feedback category. EVERY KEY BELOW WAS RESOLVED against Bukkit's
-    // own sound list as compiled for paper-api 26.2.build.121-stable on 2026-09-04, by asking that
-    // jar for the constant rather than by trusting smp's file - SoundDefaultsTest re-resolves all
-    // ten on every build, so a Minecraft release that retires one turns the build red rather than
-    // turning a chime silent.
+    // One vanilla sound per Feedback category; SoundDefaultsTest re-resolves each against Bukkit on every build.
 
     /** A pickup, pitched up so it reads as lighter than the level-up. Here: a kill, a ready mark. */
     static final SoundsSpec.SoundSpec SMALL_SUCCESS = sound("minecraft:entity.experience_orb.pickup", 1.4f);
@@ -60,8 +56,8 @@ final class DefaultSounds {
     /**
      * The one category with no sound. See {@code Feedback.STAGING}: the blank is the decision.
      *
-     * <p>Written through the same map as the others so the key still appears in a fresh file with
-     * its comment - an absent key would leave nobody anything to fill in.</p>
+     * Written through the same map as the others so the key still appears in a fresh file with
+     * its comment - an absent key would leave nobody anything to fill in.
      */
     static final SoundsSpec.SoundSpec STAGING = sound("", 1.0f);
 

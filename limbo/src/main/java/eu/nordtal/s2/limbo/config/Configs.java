@@ -11,41 +11,35 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumMap;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 /**
  * Where {@code limbo}'s two config files live, and every rule about what a valid value is.
- * <p>
- * The same shape as {@code hunger-games}' and {@code proxy}'s own {@code Configs}: one
- * environment namespace per file, every check run once at startup rather than discovered mid-login.
- * A failure here disables the plugin and leaves the server running - which for this module means a
- * waiting room that accepts players and shows them nothing, so the log line is written to be found.
- * </p>
+ *
+ * The same shape as {@code hunger-games}' and {@code proxy}'s own {@code Configs}: one environment namespace per
+ * file, every check run once at startup rather than discovered mid-login. A failure here disables the plugin and
+ * leaves the server running - which for this module means a waiting room that accepts players and shows them
+ * nothing, so the log line is written to be found.
  */
 public final class Configs {
 
     private Configs() {}
 
-    public static @NotNull ConfigHandle<LimboSpec> load(final Path dataFolder, final Logger logger)
-            throws ConfigException {
+    public static ConfigHandle<LimboSpec> load(final Path dataFolder, final Logger logger) throws ConfigException {
         return load(dataFolder, logger, "config", LimboSpec.class, "NORDTAL_LIMBO", config -> {
             requireText("world-name", config.worldName());
             requirePositive("title-refresh-seconds", config.titleRefreshSeconds());
-            // Zero or negative here would not disable the watcher - AdminWatch floors the timer
-            // at one second - so it would quietly become a query per second for the life of the
-            // server. Refused by name instead.
+            // AdminWatch floors the timer at one second, so zero or negative would become a query per second.
             requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
             if (config.spawnY() < -60 || config.spawnY() > 300) {
-                // Not a physics constraint - the world is empty - but a value outside the build
-                // limits would put every player somewhere the server refuses to keep them.
+                // The world is empty, but a value outside the build limits still refuses to keep a player there.
                 throw new IllegalArgumentException(
                         "spawn-y must be somewhere inside a world's build limits, was " + config.spawnY());
             }
         });
     }
 
-    public static @NotNull ConfigHandle<DatabaseSpec> database(final Path dataFolder, final Logger logger)
+    public static ConfigHandle<DatabaseSpec> database(final Path dataFolder, final Logger logger)
             throws ConfigException {
         return load(dataFolder, logger, "database", DatabaseSpec.class, "NORDTAL_LIMBO_DATABASE", config -> {
             requireText("jdbc-url", config.jdbcUrl());
@@ -60,20 +54,21 @@ public final class Configs {
     }
 
     /**
-     * Loads the tone colours (season-2-ingame/22). No validator: {@code ToneColours#parse} corrects
-     * a bad hex value where it parses it, so a typo here is never a reason to refuse a login. Read
-     * once at enable - see {@code ColoursSpec}'s own javadoc for why this file has no
-     * {@code /limbo reload} path yet.
+     * Loads the tone colours.
+     *
+     * No validator: {@code ToneColours#parse} corrects a bad hex value where it parses it, so a
+     * typo here is never a reason to refuse a login. Read once at enable - see {@code ColoursSpec}'s
+     * own javadoc for why this file has no {@code /limbo reload} path yet.
      */
-    public static @NotNull ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger)
-            throws ConfigException {
+    public static ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger) throws ConfigException {
         return load(dataFolder, logger, "colours", ColoursSpec.class, "NORDTAL_LIMBO_COLOURS", config -> {});
     }
 
     /**
-     * {@code ColoursSpec}'s five accessors, as the map {@code ToneColours} parses. An exhaustive
-     * {@code switch} with no {@code default}, so a sixth {@link Tone} stops this compiling rather
-     * than silently leaving it unpainted.
+     * {@code ColoursSpec}'s five accessors, as the map {@code ToneColours} parses.
+     *
+     * An exhaustive {@code switch} with no {@code default}, so a sixth {@link Tone} stops this
+     * compiling rather than silently leaving it unpainted.
      */
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
@@ -117,10 +112,11 @@ public final class Configs {
     }
 
     /**
-     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, so
-     * steward-worker can warn that editing an overridden setting there has no effect until the
-     * variable is removed (steward/76). Best-effort: this is a UI nicety, not a reason for a
-     * correctly loaded config to refuse to enable the plugin.
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} marker next to its file.
+     *
+     * That lets steward-worker warn that editing an overridden setting there has no effect until
+     * the variable is removed. Best-effort: this is a UI nicety, not a reason for a correctly
+     * loaded config to refuse to enable the plugin.
      */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {

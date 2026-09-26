@@ -15,13 +15,15 @@ import org.bukkit.map.MapCanvas;
 import org.bukkit.map.MapRenderer;
 import org.bukkit.map.MapView;
 import org.bukkit.plugin.Plugin;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Slices a language-specific lobby image onto a grid of item-frame-mounted maps. The shipped
- * {@code lobby/map-en.png} and {@code lobby/map-de.png} are placeholders; producing the real
- * artwork is design work. A missing file is logged and skipped rather than failing
+ * Slices a language-specific lobby image onto a grid of item-frame-mounted maps.
+ *
+ * The shipped {@code lobby/map-en.png} and {@code lobby/map-de.png} are placeholders; producing
+ * the real artwork is design work. A missing file is logged and skipped rather than failing
  * {@code onEnable}, which is why {@link #render(World)} never throws for a missing resource.
  */
 public final class LobbyMaps {
@@ -37,8 +39,9 @@ public final class LobbyMaps {
     }
 
     /**
-     * Loads {@code lobby/map-<lang>.png} for every language this plugin has a message bundle for,
-     * slices it into a {@code columns x rows} grid and mounts one map per item frame found at the
+     * Loads {@code lobby/map-<lang>.png} for every language this plugin has a message bundle for.
+     *
+     * Slices it into a {@code columns x rows} grid and mounts one map per item frame found at the
      * configured origin. A missing image for a language is logged once and that language's maps
      * are left as-is (typically empty vanilla maps) rather than aborting the whole plugin.
      *
@@ -93,7 +96,7 @@ public final class LobbyMaps {
         }
     }
 
-    private BufferedImage loadImage(final String language) {
+    private @Nullable BufferedImage loadImage(final String language) {
         final String resource = "lobby/map-" + language + ".png";
         try (InputStream stream = plugin.getClass().getClassLoader().getResourceAsStream(resource)) {
             if (stream == null) {
@@ -107,7 +110,7 @@ public final class LobbyMaps {
         }
     }
 
-    private ItemFrame findFrame(final World world, final Location near) {
+    private @Nullable ItemFrame findFrame(final World world, final Location near) {
         return world.getNearbyEntitiesByType(ItemFrame.class, near, 1, 1, 1).stream()
                 .findFirst()
                 .orElse(null);

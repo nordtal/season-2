@@ -8,14 +8,12 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code colours.yml} - the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is
- * painted with (season-2-ingame/22).
+ * {@code colours.yml} - the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is painted with.
  *
- * <p>Every value below is deliberately the same as {@code smp}'s, so the network reads as one server
- * rather than three. Loaded once at enable: {@code /limbo reload} touches only the message bundles -
- * {@code LimboEffects} names exactly that one thing, and widening it is a change to a shared
- * interface in {@code :commands}, out of this ticket's file scope - so a change here needs a
- * restart, the same as {@code config.yml}.
+ * Every value below is deliberately the same as {@code smp}'s, so the network reads as one server rather than
+ * three. Loaded once at enable: {@code /limbo reload} touches only the message bundles - {@code LimboEffects} names
+ * exactly that one thing, and widening it is a change to a shared interface in {@code :commands}, out of this
+ * ticket's file scope - so a change here needs a restart, the same as {@code config.yml}.
  */
 @ConfigSpec(
         header = {

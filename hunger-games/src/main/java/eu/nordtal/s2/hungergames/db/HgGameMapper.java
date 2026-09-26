@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
+import org.jspecify.annotations.Nullable;
 
 /** Maps one row of {@code hg_game}. */
 public final class HgGameMapper implements RowMapper<HgGame> {
@@ -21,7 +22,7 @@ public final class HgGameMapper implements RowMapper<HgGame> {
                 rs.getObject("winner_member_id", UUID.class));
     }
 
-    static Instant instant(final ResultSet rs, final String column) throws SQLException {
+    static @Nullable Instant instant(final ResultSet rs, final String column) throws SQLException {
         final Timestamp timestamp = rs.getTimestamp(column);
         return timestamp == null ? null : timestamp.toInstant();
     }

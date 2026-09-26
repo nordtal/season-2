@@ -10,15 +10,17 @@ import org.jdbi.v3.sqlobject.config.ValueColumn;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The whole SQL surface this plugin needs, as a JDBI SqlObject interface: a read-mostly DAO over
- * tables the bot's migrations own, plus the {@code hg_*} tables the bot writes registrations into
- * and this plugin writes game state into.
+ * The whole SQL surface this plugin needs, as a JDBI SqlObject interface.
+ *
+ * A read-mostly DAO over tables the bot's migrations own, plus the {@code hg_*} tables the bot
+ * writes registrations into and this plugin writes game state into.
  */
 public interface HungerGamesDao {
 
-    // ---------------------------------------------------------------- hg_game
+    // hg_game
 
     @SqlQuery("SELECT id, state, started, ended, winner_member_id FROM hg_game WHERE state <> 'DECIDED'")
     @RegisterRowMapper(HgGameMapper.class)
@@ -39,9 +41,9 @@ public interface HungerGamesDao {
             SET state = 'DECIDED', ended = now(), winner_member_id = :winnerMemberId
             WHERE id = :id
             """)
-    void decideGame(@Bind("id") UUID id, @Bind("winnerMemberId") UUID winnerMemberId);
+    void decideGame(@Bind("id") UUID id, @Bind("winnerMemberId") @Nullable UUID winnerMemberId);
 
-    // ---------------------------------------------------------------- hg_team
+    // hg_team
 
     @SqlQuery("SELECT id, game_id, name, colour_rgb, colour_named FROM hg_team WHERE game_id = :gameId")
     @RegisterRowMapper(HgTeamMapper.class)
@@ -50,7 +52,7 @@ public interface HungerGamesDao {
     @SqlUpdate("UPDATE hg_team SET colour_rgb = :colourRgb, colour_named = :colourNamed WHERE id = :id")
     void setTeamColour(@Bind("id") UUID id, @Bind("colourRgb") int colourRgb, @Bind("colourNamed") String colourNamed);
 
-    // ---------------------------------------------------------------- hg_member
+    // hg_member
 
     @SqlQuery("""
             SELECT id, team_id, game_id, discord_id, state, ready
@@ -64,8 +66,10 @@ public interface HungerGamesDao {
     int setReady(@Bind("gameId") UUID gameId, @Bind("discordId") String discordId, @Bind("ready") boolean ready);
 
     /**
-     * The full roster of one game: every active ({@code OWNER}/{@code ACCEPTED}) membership, joined
-     * through {@code account_link} to the Minecraft account it belongs to.
+     * The full roster of one game.
+     *
+     * Every active ({@code OWNER}/{@code ACCEPTED}) membership, joined through
+     * {@code account_link} to the Minecraft account it belongs to.
      */
     @SqlQuery("""
             SELECT m.id AS member_id, m.team_id, t.name AS team_name, t.colour_rgb, t.colour_named,
@@ -90,7 +94,7 @@ public interface HungerGamesDao {
     @RegisterRowMapper(RosterEntryMapper.class)
     Optional<RosterEntry> rosterEntryByMcUuid(@Bind("gameId") UUID gameId, @Bind("mcUuid") UUID mcUuid);
 
-    // ---------------------------------------------------------------- discord_user / account_link
+    // discord_user / account_link
 
     @SqlQuery("SELECT mc_uuid FROM account_link WHERE discord_id = :discordId")
     Optional<UUID> mcUuidOf(@Bind("discordId") String discordId);
@@ -113,7 +117,7 @@ public interface HungerGamesDao {
             """)
     Optional<Boolean> isAdmin(@Bind("mcUuid") UUID mcUuid);
 
-    // ---------------------------------------------------------------- hg_event
+    // hg_event
 
     @SqlUpdate("""
             INSERT INTO hg_event (game_id, type, actor_id, victim_id, detail)
@@ -122,9 +126,9 @@ public interface HungerGamesDao {
     void recordEvent(
             @Bind("gameId") UUID gameId,
             @Bind("type") String type,
-            @Bind("actorId") UUID actorId,
-            @Bind("victimId") UUID victimId,
-            @Bind("detail") String detail);
+            @Bind("actorId") @Nullable UUID actorId,
+            @Bind("victimId") @Nullable UUID victimId,
+            @Bind("detail") @Nullable String detail);
 
     /** The kill tiebreaker: how many KILL events this member is the actor of, for this game. */
     @SqlQuery("""
@@ -134,9 +138,10 @@ public interface HungerGamesDao {
     int killCount(@Bind("gameId") UUID gameId, @Bind("actorId") UUID actorId);
 
     /**
-     * The same tally for every member of a game in one round trip, for the ceremony - which needs
-     * all of them at the busiest moment of the event and must not query per member per player.
-     * Members with no kills are absent from the map.
+     * The same tally for every member of a game in one round trip.
+     *
+     * For the ceremony, which needs all of them at the busiest moment of the event and must not
+     * query per member per player. Members with no kills are absent from the map.
      */
     @SqlQuery("""
             SELECT actor_id, count(*) AS kills FROM hg_event

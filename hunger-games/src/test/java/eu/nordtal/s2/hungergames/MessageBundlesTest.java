@@ -18,18 +18,18 @@ import org.junit.jupiter.api.Test;
 /**
  * That the two language files stay the same file in two languages.
  *
- * <p>Added 2026-09-01, after a sweep found nine keys in this module that existed in both languages
- * and were referenced by no line of code: a silent countdown, an unannounced demotion, two
- * unreachable tiebreak sentences, a duplicate of the winner line, a command guard Brigadier makes
- * impossible to reach, and a database-error text with no catch block anywhere near it. Three were
- * deleted, three were wired up, and two are annotated in the files as deliberately unsent.
+ * A sweep once found nine keys in this module that existed in both languages and were referenced
+ * by no line of code: a silent countdown, an unannounced demotion, two unreachable tiebreak
+ * sentences, a duplicate of the winner line, a command guard Brigadier makes impossible to reach,
+ * and a database-error text with no catch block anywhere near it. Three were deleted, three were
+ * wired up, and two are annotated in the files as deliberately unsent.
  *
- * <p>The half of that a test can hold onto is <b>symmetry</b>: a key added to one file and not the
+ * The half of that a test can hold onto is <b>symmetry</b>: a key added to one file and not the
  * other is a player seeing the literal string {@code hg.start.countdown} in the middle of a game,
  * because {@code Messages} degrades to the key rather than throwing - which is the right runtime
  * behaviour and exactly why it has to fail here instead. Whether a key is <em>used</em> cannot be
  * asserted from inside the module; that stays a review job, and the two keys that are knowingly
- * unused say so in a comment beside them.</p>
+ * unused say so in a comment beside them.
  */
 class MessageBundlesTest {
 
@@ -86,12 +86,12 @@ class MessageBundlesTest {
     /**
      * The component slots, which are the other half of {@link #thePlaceholdersOfATranslationMatchItsOriginal()}.
      *
-     * <p>A {@code <_name>} tag is where something that is already a component goes - the sender's
+     * A {@code <_name>} tag is where something that is already a component goes - the sender's
      * flag and crest, vanilla's own death message, an advancement's title. It is written with a
      * leading underscore precisely so a test can find it: every other angle bracket in these files
      * is a MiniMessage style tag, which the two languages are entitled to differ on.
      *
-     * <p>The failure it catches is worse than a printed {@code {name}}. A translation that drops
+     * The failure it catches is worse than a printed {@code {name}}. A translation that drops
      * {@code <_death>} does not print the tag - MiniMessage silently renders nothing for an
      * unresolved tag, so German readers would get a death line with no death in it and the server
      * would log nothing at all.

@@ -12,15 +12,15 @@ import org.junit.jupiter.api.Test;
 /**
  * That the four ways a game can end stay four ways.
  *
- * <p>They were three until 2026-09-01, and effectively two: {@code Outcome} carried a {@code tie}
+ * They were once three, and effectively two: {@code Outcome} carried a {@code tie}
  * flag that {@code Outcome::win} always set to {@code false} - including for a win the tiebreaker
  * had just produced - and no caller read it. The ceremony therefore announced a kill-count decision
  * as an ordinary victory, in front of the players who had just watched both of them die together,
  * while {@code hg.win.tie-broken} and {@code hg.win.no-winner} sat written and translated in both
  * language files with nothing able to reach them.
  *
- * <p>{@code Ceremony} itself needs a world and real players, so what can be pinned here is the
- * shape it branches on. That is the part that was wrong.</p>
+ * {@code Ceremony} itself needs a world and real players, so what can be pinned here is the
+ * shape it branches on. That is the part that was wrong.
  */
 class WinOutcomeTest {
 

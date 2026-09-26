@@ -6,10 +6,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The five loot points a fresh {@code config.yml} is written with: placeholders an operator
- * overwrites once the hand-built event world exists. They exist so a fresh install has five
- * well-formed, uniquely labelled entries rather than the empty list jcore would otherwise
- * initialise a {@code List<NestedSpec>} to.
+ * The five loot points a fresh {@code config.yml} is written with.
+ *
+ * Placeholders an operator overwrites once the hand-built event world exists. They exist so a
+ * fresh install has five well-formed, uniquely labelled entries rather than the empty list jcore
+ * would otherwise initialise a {@code List<NestedSpec>} to.
  */
 final class DefaultLootPoints {
 

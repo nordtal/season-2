@@ -9,9 +9,11 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code config/database.yml} - this plugin's own pool on the shared PostgreSQL database, separate
- * from every other process's. This plugin never migrates anything: {@code discord-bot} owns and
- * applies the schema, and this pool only reads and writes rows in tables that already exist.
+ * {@code config/database.yml}.
+ *
+ * This plugin's own pool on the shared PostgreSQL database, separate from every other process's.
+ * This plugin never migrates anything: {@code discord-bot} owns and applies the schema, and this
+ * pool only reads and writes rows in tables that already exist.
  */
 @ConfigSpec(
         header = {

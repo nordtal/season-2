@@ -1,6 +1,24 @@
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
     id("nordtal.paper-plugin")
     id("nordtal.message-spec")
+}
+
+// Names start() and its field-assigning helpers as NullAway's initializers, since HungerGamesPlugin's fields are
+// set there, not in a constructor.
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        option(
+            "NullAway:KnownInitializers",
+            "eu.nordtal.s2.hungergames.HungerGamesPlugin.start,"
+                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.loadConfigAndMessages,"
+                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireGameSystems,"
+                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireAdminWatchAndCommands,"
+                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireCommandFilterAndAdminWatch,"
+                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.refreshCurrentGame,"
+                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.startHeartbeat")
+    }
 }
 
 // Tests here read files that are in no source set, or read source rather than bytecode. Without

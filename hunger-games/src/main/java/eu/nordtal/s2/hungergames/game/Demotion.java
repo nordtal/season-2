@@ -5,16 +5,17 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * Computes the effective, post-demotion participant list at countdown time: a duo whose partner
- * never linked an account becomes a solo team with full hearts, keeping its name and colour.
+ * Computes the effective, post-demotion participant list at countdown time.
  *
- * <p>"Present" means has an {@code mc_uuid}, not "is online right now" - a disconnected but linked
- * player still gets a body on their tower. The count feeds {@code BorderMath#deathStep} and
- * {@code TeamColours#generatePalette}.</p>
+ * A duo whose partner never linked an account becomes a solo team with full hearts, keeping its
+ * name and colour. "Present" means has an {@code mc_uuid}, not "is online right now" - a
+ * disconnected but linked player still gets a body on their tower. The count feeds
+ * {@code BorderMath#deathStep} and {@code TeamColours#generatePalette}.
  */
 public final class Demotion {
 
@@ -46,7 +47,8 @@ public final class Demotion {
                         entry.teamId(),
                         entry.teamName(),
                         entry.discordId(),
-                        entry.mcUuid(),
+                        // linked is filtered to entries with a non-null mcUuid, just above.
+                        Objects.requireNonNull(entry.mcUuid()),
                         true,
                         demoted));
             }

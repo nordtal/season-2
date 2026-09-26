@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Procedural spawn tower positions: {@code count} points arranged in a circle around the centre at
- * equal distance. Pure X/Z math, so the caller builds the Location.
+ * Procedural spawn tower positions.
+ *
+ * {@code count} points arranged in a circle around the centre at equal distance. Pure X/Z math, so
+ * the caller builds the Location.
  */
 public final class SpawnTowers {
 

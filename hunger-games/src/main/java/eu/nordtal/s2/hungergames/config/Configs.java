@@ -13,22 +13,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.bukkit.Material;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 /**
- * Where {@code hunger-games}'s config files live, and every rule about what a valid value is: one
- * environment namespace per file, every check run once at startup.
+ * Where {@code hunger-games}'s config files live, and every rule about what a valid value is.
  *
- * <p>{@code sounds.yml} is a separate file because {@code /hg reload} re-reads it in the middle of
+ * One environment namespace per file, every check run once at startup.
+ *
+ * {@code sounds.yml} is a separate file because {@code /hg reload} re-reads it in the middle of
  * a game and re-reads nothing out of {@code config.yml} - a border parameter must not move while
- * players are running from it.</p>
+ * players are running from it.
  */
 public final class Configs {
 
     private Configs() {}
 
-    public static @NotNull ConfigHandle<HungerGamesSpec> load(final Path dataFolder, final Logger logger)
+    public static ConfigHandle<HungerGamesSpec> load(final Path dataFolder, final Logger logger)
             throws ConfigException {
         final Path file = dataFolder.resolve("config.yml");
         final boolean fresh = !java.nio.file.Files.isRegularFile(file);
@@ -48,7 +48,7 @@ public final class Configs {
         return handle;
     }
 
-    public static @NotNull ConfigHandle<DatabaseSpec> database(final Path dataFolder, final Logger logger)
+    public static ConfigHandle<DatabaseSpec> database(final Path dataFolder, final Logger logger)
             throws ConfigException {
         final Path file = dataFolder.resolve("database.yml");
         final boolean fresh = !java.nio.file.Files.isRegularFile(file);
@@ -77,11 +77,12 @@ public final class Configs {
     }
 
     /**
-     * Loads the sounds. No validator on purpose: {@code FeedbackSounds} corrects or silences a bad
-     * value where it parses it, so a typo in a chime is never the reason the event server is down.
+     * Loads the sounds.
+     *
+     * No validator on purpose: {@code FeedbackSounds} corrects or silences a bad value where it
+     * parses it, so a typo in a chime is never the reason the event server is down.
      */
-    public static @NotNull ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger)
-            throws ConfigException {
+    public static ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger) throws ConfigException {
         final Path file = dataFolder.resolve("sounds.yml");
         final boolean fresh = !java.nio.file.Files.isRegularFile(file);
 
@@ -91,8 +92,7 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            // Not the "almost certainly not what you want" line the other two carry: fresh
-            // defaults here are usable as they stand.
+            // Not the "almost certainly not what you want" line the other two carry: these defaults are usable as-is.
             logger.info("No sounds config existed at {} - the ten defaults were written", file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
@@ -100,13 +100,14 @@ public final class Configs {
     }
 
     /**
-     * Loads the tone colours (season-2-ingame/22). No validator, the same reason {@link #sounds}
-     * has none: {@code ToneColours#parse} corrects a bad hex value where it parses it, so a typo
-     * here is never the reason the event server is down. Read once at enable - see the class's own
-     * javadoc on {@code ColoursSpec} for why this file has no {@code /hg reload} path yet.
+     * Loads the tone colours.
+     *
+     * No validator, the same reason {@link #sounds} has none: {@code ToneColours#parse} corrects a
+     * bad hex value where it parses it, so a typo here is never the reason the event server is
+     * down. Read once at enable - see the class's own javadoc on {@code ColoursSpec} for why this
+     * file has no {@code /hg reload} path yet.
      */
-    public static @NotNull ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger)
-            throws ConfigException {
+    public static ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger) throws ConfigException {
         final Path file = dataFolder.resolve("colours.yml");
         final boolean fresh = !java.nio.file.Files.isRegularFile(file);
 
@@ -123,10 +124,11 @@ public final class Configs {
     }
 
     /**
-     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, so
-     * steward-worker can warn that editing an overridden setting there has no effect until the
-     * variable is removed (steward/76). Best-effort: this is a UI nicety, not a reason for a
-     * correctly loaded config to refuse to enable the plugin.
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file.
+     *
+     * So steward-worker can warn that editing an overridden setting there has no effect until the
+     * variable is removed. Best-effort: this is a UI nicety, not a reason for a correctly loaded
+     * config to refuse to enable the plugin.
      */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {
@@ -137,10 +139,11 @@ public final class Configs {
     }
 
     /**
-     * {@code ColoursSpec}'s five accessors, as the map {@code ToneColours} parses. An exhaustive
-     * {@code switch} with no {@code default} - the same guard {@code HungerGamesSounds}' own
-     * {@code specOf} uses for {@code Feedback} - so a sixth {@link Tone} stops this compiling rather
-     * than silently leaving it unpainted.
+     * {@code ColoursSpec}'s five accessors, as the map {@code ToneColours} parses.
+     *
+     * An exhaustive {@code switch} with no {@code default} - the same guard {@code HungerGamesSounds}'
+     * own {@code specOf} uses for {@code Feedback} - so a sixth {@link Tone} stops this compiling
+     * rather than silently leaving it unpainted.
      */
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
@@ -159,9 +162,14 @@ public final class Configs {
     }
 
     private static void validate(final HungerGamesSpec config) {
+        validateScalars(config);
+        validateLootPoints(config);
+        validateRefillTiers(config);
+    }
+
+    private static void validateScalars(final HungerGamesSpec config) {
         requirePositive("countdown-seconds", config.countdownSeconds());
-        // Zero or negative here would not disable the watcher - AdminWatch floors the timer at
-        // one second - so it would quietly become a query per second for the life of the server.
+        // Zero or negative would not disable the watcher - it would poll once per second for the server's life.
         requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
         if (config.softMinimumParticipants() < HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS) {
             throw new IllegalArgumentException(
@@ -181,7 +189,9 @@ public final class Configs {
         requirePositive("pvp-protection-seconds", config.pvpProtectionSeconds());
         requirePositive("spawn-tower-radius", config.spawnTowerRadius());
         requireText("world-name", config.worldName());
+    }
 
+    private static void validateLootPoints(final HungerGamesSpec config) {
         final List<HungerGamesSpec.LootPointSpec> points = config.lootPoints();
         if (points == null || points.size() != 5) {
             throw new IllegalArgumentException("loot-points must have exactly 5 entries (the spawn plus four staggered "
@@ -197,7 +207,9 @@ public final class Configs {
                 throw new IllegalArgumentException("loot-points: duplicate label '" + point.label() + "'");
             }
         }
+    }
 
+    private static void validateRefillTiers(final HungerGamesSpec config) {
         final List<HungerGamesSpec.RefillTierSpec> tiers = config.refillTiers();
         if (tiers == null || tiers.isEmpty()) {
             throw new IllegalArgumentException("refill-tiers must not be empty");

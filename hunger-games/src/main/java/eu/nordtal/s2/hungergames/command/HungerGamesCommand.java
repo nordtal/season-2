@@ -33,20 +33,21 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 /**
- * The hunger games server's Brigadier trees: three admin commands, one player command, and
- * everything another process runs.
+ * The hunger games server's Brigadier trees.
  *
- * <h2>What is left of this class</h2>
- * {@code /hg ready}, and the wiring. The three admin subcommands are declarations in
- * {@code :commands} now, so what they say and when they refuse is assertable without a server -
- * which for the command that starts the season's flagship event it previously was not.
+ * Three admin commands, one player command, and everything another process runs.
  *
- * <h2>{@code /hg ready} stays here, and stays player-only</h2>
- * It marks the <b>sender</b> ready. The console is registered for no game and neither is a Discord
- * member, so there is nobody for it to mark - and it is the one {@code /hg} subcommand that is not
- * admin-only, which is why it cannot be in the catalogue. It is registered as an extra subtree under
- * the same root, which is also why {@link PaperCommands} puts its admin check on the nodes below a
- * root rather than on the root itself: gating {@code /hg} would have hidden this from every player.
+ * What is left of this class: {@code /hg ready}, and the wiring. The three admin subcommands are
+ * declarations in {@code :commands} now, so what they say and when they refuse is assertable
+ * without a server - which for the command that starts the season's flagship event it previously
+ * was not.
+ *
+ * {@code /hg ready} stays here, and stays player-only. It marks the <b>sender</b> ready. The
+ * console is registered for no game and neither is a Discord member, so there is nobody for it to
+ * mark - and it is the one {@code /hg} subcommand that is not admin-only, which is why it cannot be
+ * in the catalogue. It is registered as an extra subtree under the same root, which is also why
+ * {@link PaperCommands} puts its admin check on the nodes below a root rather than on the root
+ * itself: gating {@code /hg} would have hidden this from every player.
  */
 public final class HungerGamesCommand {
 
@@ -98,11 +99,7 @@ public final class HungerGamesCommand {
         for (final NordtalCommand<HungerGamesEffects> command : HungerGamesCommands.all()) {
             commands.local(command, effects);
         }
-        // /update is declared Target.LOCAL and Surface.GAME, and Surface.GAME is four processes -
-        // so every game server that can serve it, serves it. A command that exists on the SMP and
-        // not here would be exactly the per-adapter drift :commands was built to end. The watcher
-        // is the other half and it is not optional: without it an admin gets the acknowledgement
-        // and never the report, the failure or the health of a single service.
+        // /update is Surface.GAME, so every game server serves it, and its watcher is what delivers the report.
         final eu.nordtal.s2.papercommon.command.UpdateWatcher updates =
                 new eu.nordtal.s2.papercommon.command.UpdateWatcher(
                         plugin, eu.nordtal.s2.common.update.UpdateDirectory.using(pool));
@@ -125,8 +122,8 @@ public final class HungerGamesCommand {
     /**
      * {@code /hg ready} - the player half.
      *
-     * <p>The admin check is deliberately absent and the {@code requires} is a player check instead:
-     * this is the command a participant runs, and the console genuinely cannot.</p>
+     * The admin check is deliberately absent and the {@code requires} is a player check instead:
+     * this is the command a participant runs, and the console genuinely cannot.
      */
     private LiteralArgumentBuilder<CommandSourceStack> ready() {
         return Commands.literal("ready")
@@ -136,8 +133,7 @@ public final class HungerGamesCommand {
 
     private int handleReady(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
-        // Optional::empty rather than null: /hg ready needs no Discord id, it never travels, and a
-        // bare null is ambiguous between PaperUser's two factories.
+        // Optional::empty, not null: no Discord id travels here, and null is ambiguous between PaperUser's factories.
         final NordtalUser user = PaperUser.of(
                 plugin,
                 player,

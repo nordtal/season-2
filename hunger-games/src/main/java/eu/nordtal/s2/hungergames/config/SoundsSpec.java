@@ -9,14 +9,16 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code sounds.yml} - what each feedback category sounds like on the event server. Its own file,
- * not a block in {@code config.yml}, because {@code /hg reload} re-reads it mid-game: sounds are
- * tuned by ear with players online, while a border parameter must not move under them.
+ * {@code sounds.yml}.
  *
- * <p>{@code surface-open}, {@code surface-close} and {@code select} are read and never played -
- * this server has no menus - but stay declared so the adapter's exhaustive {@code switch} keeps
- * every {@link eu.nordtal.s2.common.feedback.Feedback} category answered for. A call site picks a
- * category and never a sound.</p>
+ * What each feedback category sounds like on the event server. Its own file, not a block in
+ * {@code config.yml}, because {@code /hg reload} re-reads it mid-game: sounds are tuned by ear with
+ * players online, while a border parameter must not move under them.
+ *
+ * {@code surface-open}, {@code surface-close} and {@code select} are read and never played - this
+ * server has no menus - but stay declared so the adapter's exhaustive {@code switch} keeps every
+ * {@link eu.nordtal.s2.common.feedback.Feedback} category answered for. A call site picks a category
+ * and never a sound.
  */
 @ConfigSpec(
         header = {
@@ -175,8 +177,7 @@ public interface SoundsSpec {
     @ConfigSpec
     interface SoundSpec {
 
-        // No @Comment: this interface is written out ten times over, and the header above already
-        // says what a key is and what an empty one does.
+        // No @Comment: written out ten times over, and the header above already says what a key is.
         @Order(1)
         @Name("Sound")
         @Key("key")

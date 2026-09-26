@@ -109,21 +109,31 @@ class ReadinessWiringTest {
     void theBotBeatsOnlyAfterDiscordIsReadyAndBothReconcilesAreDone() throws IOException {
         final String text = read(BOT);
 
-        final int reconcile = text.lastIndexOf("roles.reconcile();");
-        final int marker = text.indexOf("Readiness.onDefaultPath(");
+        // The constructor delegates: publishAndReconcile runs the reconciles, finishStartup builds the marker last.
+        final int reconcileCall = text.indexOf("publishAndReconcile(");
+        final int finishCall = text.indexOf("finishStartup(");
         final int up = text.indexOf("started = true;");
+        final String reconcileBody = body(text, "private void publishAndReconcile(");
+        final String finishBody = body(text, "private Listeners finishStartup(");
 
         assertTrue(
-                reconcile >= 0 && marker >= 0 && up >= 0,
+                reconcileCall >= 0 && finishCall >= 0 && up >= 0,
                 BOT + " is missing one of the three landmarks this test reads");
         assertTrue(
-                reconcile < marker,
+                reconcileBody.contains("roles().reconcile();"),
+                BOT + "'s publishAndReconcile no longer runs the startup role reconcile");
+        assertTrue(
+                reconcileCall < finishCall,
                 BOT + " builds its readiness marker before the startup"
                         + " reconcile, so a bot that dies during it would still have reported ready");
         assertTrue(
-                marker < up,
+                finishCall < up,
                 BOT + "'s readiness marker is built after `started = true`, which"
                         + " is the flag that decides whether the constructor cleaned up after itself");
+        final int marker = finishBody.indexOf("Readiness.onDefaultPath(");
+        assertTrue(
+                marker >= 0 && finishBody.indexOf("listenForAccess(") < marker,
+                BOT + "'s finishStartup does not build the readiness marker after everything else it starts");
         assertTrue(
                 text.contains("repeat(guarded(\"readiness marker\""),
                 BOT + " does not schedule its readiness beat the same way as every other duty.");
@@ -133,6 +143,14 @@ class ReadinessWiringTest {
                 text.indexOf("timers.scheduleWithFixedDelay(", repeatDeclaration) >= 0,
                 BOT + "'s repeat(...) does not beat on the existing timer executor. A pool of its own"
                         + " would keep reporting healthy while every scheduled duty this bot has was stuck.");
+    }
+
+    /** The text of a method, from its declaration to the next private member. */
+    private static String body(final String text, final String declaration) {
+        final int from = text.indexOf(declaration);
+        assertTrue(from >= 0, BOT + " has no " + declaration + "...) any more");
+        final int to = text.indexOf("\n    private ", from + declaration.length());
+        return text.substring(from, to < 0 ? text.length() : to);
     }
 
     private static List<String> all() {

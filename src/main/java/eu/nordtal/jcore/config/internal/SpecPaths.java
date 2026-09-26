@@ -8,12 +8,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Addresses the leaves of a spec by their dotted config path ({@code nametag.display.scale}).
- * <p>
+ *
  * A spec instance is a proxy backed by a {@link Map}, and a nested spec is another such proxy
  * stored as a value in it. Reading or writing one value by path therefore means walking those
  * maps, which is what this does.
@@ -23,16 +22,15 @@ public final class SpecPaths {
     private SpecPaths() {}
 
     /** A single settable value in a spec, identified by its dotted path. */
-    public record Leaf(
-            @NotNull String path,
-            @NotNull Class<?> type,
-            @NotNull Type genericType) {}
+    public record Leaf(String path, Class<?> type, Type genericType) {}
 
     /**
-     * Every leaf of {@code specType}, in declaration order. Nested specs are descended into;
-     * they are containers, not values, so they are not leaves themselves.
+     * Every leaf of {@code specType}, in declaration order. Nested specs are descended into, not counted as leaves.
+     *
+     * @param specType the spec interface to walk
+     * @return every leaf, in declaration order
      */
-    public static @NotNull List<Leaf> leaves(final @NotNull Class<?> specType) {
+    public static List<Leaf> leaves(final Class<?> specType) {
         final List<Leaf> leaves = new ArrayList<>();
         collect(specType, "", leaves);
         return leaves;
@@ -40,7 +38,7 @@ public final class SpecPaths {
 
     private static void collect(final Class<?> specType, final String prefix, final List<Leaf> leaves) {
         final SpecClass spec = Specs.from(specType);
-        for (SpecProperty property : spec.properties().values()) {
+        for (final SpecProperty property : spec.properties().values()) {
             if (property.isHandledByProxy()) {
                 continue;
             }
@@ -56,10 +54,13 @@ public final class SpecPaths {
     /**
      * Reads the value at {@code path} from a spec instance.
      *
+     * @param spec the spec instance to read from
+     * @param path the dotted config path
+     * @return the value at that path, or {@code null} if it is itself {@code null}
      * @throws IllegalArgumentException if the path does not exist in the spec
      */
-    public static @Nullable Object get(final @NotNull Object spec, final @NotNull String path) {
-        final String[] segments = path.split("\\.");
+    public static @Nullable Object get(final Object spec, final String path) {
+        final String[] segments = path.split("\\.", 0);
         Map<String, Object> map = Specs.getInternalMap(spec);
         for (int i = 0; i < segments.length - 1; i++) {
             final Object nested = map.get(segments[i]);
@@ -74,10 +75,13 @@ public final class SpecPaths {
     /**
      * Writes {@code value} at {@code path} into a spec instance.
      *
+     * @param spec the spec instance to write into
+     * @param path the dotted config path
+     * @param value the value to store
      * @throws IllegalArgumentException if the path does not exist in the spec
      */
-    public static void set(final @NotNull Object spec, final @NotNull String path, final @Nullable Object value) {
-        final String[] segments = path.split("\\.");
+    public static void set(final Object spec, final String path, final @Nullable Object value) {
+        final String[] segments = path.split("\\.", 0);
         Map<String, Object> map = Specs.getInternalMap(spec);
         for (int i = 0; i < segments.length - 1; i++) {
             final Object nested = map.get(segments[i]);
@@ -89,11 +93,16 @@ public final class SpecPaths {
         map.put(segments[segments.length - 1], value);
     }
 
-    /** A shallow snapshot of the values at the given paths, for restoring them later. */
-    public static @NotNull Map<String, Object> snapshot(
-            final @NotNull Object spec, final @NotNull Iterable<String> paths) {
+    /**
+     * A shallow snapshot of the values at the given paths, for restoring them later.
+     *
+     * @param spec the spec instance to read from
+     * @param paths the dotted config paths to snapshot
+     * @return a map of path to current value
+     */
+    public static Map<String, Object> snapshot(final Object spec, final Iterable<String> paths) {
         final Map<String, Object> snapshot = new LinkedHashMap<>();
-        for (String path : paths) {
+        for (final String path : paths) {
             snapshot.put(path, get(spec, path));
         }
         return snapshot;

@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -30,7 +30,7 @@
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
  *   - reload() no longer calls config.setComments()/setHeaders(): the YAML this writes is
- *     comment-free, in step with ConfigHandle (steward/54). @Comment still exists and SpecClass
+ *     comment-free, in step with ConfigHandle. @Comment still exists and SpecClass
  *     still computes it; nothing here feeds it to a file any more.
  */
 package eu.nordtal.jcore.config.spec;
@@ -40,16 +40,14 @@ import eu.nordtal.jcore.config.spec.annotation.Reload;
 import eu.nordtal.jcore.config.spec.annotation.Save;
 import java.lang.reflect.Proxy;
 import java.util.Objects;
-import org.jetbrains.annotations.NotNull;
 
 /**
- * A utility object wrapper that creates a {@link Proxy} for {@link ConfigSpec}
- * classes and handles the invocation of {@link Save} and {@link Reload} methods.
- * <p>
+ * Creates a {@link Proxy} for {@link ConfigSpec} classes and handles its {@link Save} and {@link Reload} methods.
+ *
  * Using this allows the user to store instances of the {@link ConfigSpec} interfaces
  * while at the same time making sure they always have the latest value
  * if it gets reloaded.
- * <p>
+ *
  * It also allows specs to include methods like {@link Reload} and {@link Save},
  * which we intercept in the proxy.
  *
@@ -60,12 +58,12 @@ public final class SpecReference<T> {
     /**
      * The spec type
      */
-    private final @NotNull Class<T> type;
+    private final Class<T> type;
 
     /**
      * The configuration file containing the data
      */
-    private final @NotNull CommentedConfiguration config;
+    private final CommentedConfiguration config;
 
     /**
      * The underlying value. This can get changed at any time
@@ -73,12 +71,15 @@ public final class SpecReference<T> {
     private T value;
 
     /**
-     * The proxy (reference) that redirects calls to this object or the underlying
-     * value
+     * The proxy (reference) that redirects calls to this object or the underlying value
      */
     private final T proxy;
 
-    public SpecReference(@NotNull Class<T> type, @NotNull CommentedConfiguration config) {
+    /**
+     * @param type   the spec interface
+     * @param config the configuration file backing it
+     */
+    public SpecReference(final Class<T> type, final CommentedConfiguration config) {
         this.type = type;
         this.config = config;
         this.proxy = SpecProxy.proxy(type, this::value, this::reload, this::save);
@@ -86,22 +87,20 @@ public final class SpecReference<T> {
     }
 
     /**
-     * Returns the type of the interface this reference
-     * is pointing to
+     * Returns the type of the interface this reference is pointing to
      *
      * @return the interface type
      */
-    public @NotNull Class<?> type() {
+    public Class<?> type() {
         return type;
     }
 
     /**
-     * Returns the actual value that is being wrapped. This value
-     * cannot be reloaded or saved, as these are handled by {@link #proxy}.
+     * The wrapped value. It cannot be reloaded or saved itself; those are handled by {@link #proxy}.
      *
      * @return The underlying value
      */
-    private @NotNull T value() {
+    private T value() {
         return value;
     }
 
@@ -110,7 +109,7 @@ public final class SpecReference<T> {
      *
      * @return The top-level wrapper proxy.
      */
-    public @NotNull T get() {
+    public T get() {
         return proxy;
     }
 
@@ -119,7 +118,7 @@ public final class SpecReference<T> {
      */
     public void reload() {
         config.load();
-        this.value = config.getAs(type);
+        this.value = Objects.requireNonNull(type.cast(config.getAs(type)), "a loaded config is never JSON null");
     }
 
     /**
@@ -135,7 +134,7 @@ public final class SpecReference<T> {
      *
      * @param value The new value
      */
-    public void set(@NotNull T value) {
+    public void set(final T value) {
         Objects.requireNonNull(value, "value cannot be null!");
         this.value = value;
     }

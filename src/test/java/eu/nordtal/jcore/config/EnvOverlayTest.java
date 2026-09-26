@@ -11,7 +11,6 @@ import eu.nordtal.jcore.config.internal.EnvOverlay;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -26,7 +25,6 @@ class EnvOverlayTest {
     }
 
     @Test
-    @DisplayName("the environment wins over the file")
     void environmentWinsOverFile() throws Exception {
         Files.writeString(file(), "check-interval-seconds: 5\n");
 
@@ -38,7 +36,6 @@ class EnvOverlayTest {
     }
 
     @Test
-    @DisplayName("an overridden value is never written back to the file")
     void overrideIsNotPersisted() throws Exception {
         final ConfigHandle<TestSpecs.Payments> handle = ConfigLoader.builder(file(), TestSpecs.Payments.class)
                 .environment(Map.of("NORDTAL_BALANCE_CHANNEL_ID", "s3cret-channel")::get)
@@ -55,7 +52,6 @@ class EnvOverlayTest {
     }
 
     @Test
-    @DisplayName("an explicit save() also refuses to persist an overridden value")
     void saveDoesNotPersistOverride() throws Exception {
         Files.writeString(file(), """
                 check-interval-seconds: 5
@@ -82,7 +78,6 @@ class EnvOverlayTest {
     }
 
     @Test
-    @DisplayName("which settings were overridden is reported, the values are not")
     void reportsOverriddenPaths() throws Exception {
         final ConfigHandle<TestSpecs.Payments> handle = ConfigLoader.builder(file(), TestSpecs.Payments.class)
                 .environment(Map.of(
@@ -94,7 +89,6 @@ class EnvOverlayTest {
     }
 
     @Test
-    @DisplayName("an empty variable counts as unset")
     void blankVariableIsUnset() throws Exception {
         final ConfigHandle<TestSpecs.Payments> handle = ConfigLoader.builder(file(), TestSpecs.Payments.class)
                 .environment(Map.of("NORDTAL_CHECK_INTERVAL_SECONDS", "  ")::get)
@@ -106,7 +100,6 @@ class EnvOverlayTest {
     }
 
     @Test
-    @DisplayName("a value that cannot be parsed is refused, and the value is not in the message")
     void unparseableValueIsRefused() {
         final ConfigValidationException error = assertThrows(
                 ConfigValidationException.class,
@@ -121,7 +114,6 @@ class EnvOverlayTest {
     }
 
     @Test
-    @DisplayName("the variable name maps '.' and '-' onto '_'")
     void variableNaming() {
         assertAll(
                 () -> assertEquals(
@@ -132,10 +124,8 @@ class EnvOverlayTest {
     }
 
     @Test
-    @DisplayName("two settings whose variable names would collide are a startup error, not a surprise")
     void collidingVariableNamesAreRejected() {
-        // 'a-b' and 'a.b' both become NORDTAL_A_B. Catching it here makes it a code error found
-        // on the first load, instead of an operator wondering which setting they just changed.
+        // 'a-b' and 'a.b' both become NORDTAL_A_B; that has to fail at the first load, not silently.
         final IllegalStateException error = assertThrows(
                 IllegalStateException.class,
                 () -> ConfigLoader.builder(directory.resolve("colliding.yml"), TestSpecs.Colliding.class)

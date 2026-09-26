@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -36,13 +36,13 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Sets the key of the property in the configuration file
- * <p>
+ *
  * Example:
- * <pre>{@code @ConfigSpec
+ * {@snippet lang="java" :
+ * @ConfigSpec
  * public interface GameSettings {
  *
  *     @Comment("The cooldown message. Use %cooldown% as a placeholder.")
@@ -50,7 +50,8 @@ import org.jetbrains.annotations.NotNull;
  *     default String cooldownMessage() {
  *         return "Starting in %cooldown%s";
  *     }
- * }}</pre>
+ * }
+ * }
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -61,6 +62,5 @@ public @interface Key {
      *
      * @return The key
      */
-    @NotNull
     String value();
 }

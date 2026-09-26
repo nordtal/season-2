@@ -1,4 +1,4 @@
-package eu.nordtal.jcore.config.internal;
+package eu.nordtal.jcore.config;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
@@ -12,18 +12,14 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Writes a config file so that a crash, a kill or a full disk can never leave a half-written
- * file behind.
- * <p>
- * The old loader wrote straight into the destination. An interruption mid-write left a
- * truncated file, the next start failed to parse it, and the application carried on with silent
- * defaults. Here the content goes into a temporary file in the <i>same</i> directory (so the
- * move stays within one filesystem), is flushed to disk, and only then replaces the destination
- * with an atomic move. The destination is either the old content or the new content, never a
- * fragment.
+ * Writes a config file so that a crash or a full disk can never leave a half-written file behind.
+ *
+ * The content goes into a temporary file in the same directory (so the move stays within one
+ * filesystem), is flushed to disk, and only then replaces the destination with an atomic move.
+ * The destination is either the old content or the new content, never a fragment.
  */
 public final class AtomicConfigWriter {
 
@@ -36,11 +32,9 @@ public final class AtomicConfigWriter {
      * @param content the complete file content
      * @throws UncheckedIOException if the file cannot be written. The destination is untouched.
      */
-    public static void write(final @NotNull Path file, final @NotNull String content) {
+    public static void write(final Path file, final String content) {
         final Path parent = parentOf(file);
         try {
-            // The old code relied on `configFile.getParentFile()` being non-null, which it is not
-            // for a bare relative name such as new File("config.yml").
             Files.createDirectories(parent);
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot create the directory for config file " + file, e);
@@ -52,9 +46,7 @@ public final class AtomicConfigWriter {
             final byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
             try (FileChannel channel = FileChannel.open(temp, CREATE, TRUNCATE_EXISTING, WRITE)) {
                 channel.write(java.nio.ByteBuffer.wrap(bytes));
-                // Without the force() the bytes may still sit in the page cache when the move
-                // completes, so a power loss right after would leave an empty file at the
-                // destination - exactly the failure the atomic move is meant to prevent.
+                // Without force(), a power loss right after the move could leave an empty destination file.
                 channel.force(true);
             }
             move(temp, file);
@@ -67,13 +59,12 @@ public final class AtomicConfigWriter {
     }
 
     /**
-     * Copies {@code file} to {@code file + ".bak"} before it is modified, so an operator can
-     * always get their previous content back. Does nothing if the file does not exist yet.
+     * Copies {@code file} to {@code file + ".bak"}. Does nothing if the file does not exist yet.
      *
      * @param file the file to back up
      * @return the backup path, or {@code null} if there was nothing to back up
      */
-    public static Path backup(final @NotNull Path file) {
+    public static @Nullable Path backup(final Path file) {
         if (!Files.isRegularFile(file)) {
             return null;
         }
@@ -90,22 +81,20 @@ public final class AtomicConfigWriter {
         try {
             Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (AtomicMoveNotSupportedException e) {
-            // Some network filesystems refuse ATOMIC_MOVE. A plain replace is still far better
-            // than writing into the destination directly, so fall back rather than fail.
+            // Some network filesystems refuse ATOMIC_MOVE; fall back to a plain replace instead of failing.
             Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
     /**
-     * The parent of a bare relative path such as {@code config.yml} is {@code null}, which is
-     * what made the old loader throw a NullPointerException. Resolve it to the working directory.
+     * The directory {@code file} lives in, resolved against the working directory for a bare relative name.
      */
     private static Path parentOf(final Path file) {
         final Path parent = file.toAbsolutePath().getParent();
         return parent == null ? file.toAbsolutePath().getRoot() : parent;
     }
 
-    private static void deleteQuietly(final Path path) {
+    private static void deleteQuietly(final @Nullable Path path) {
         if (path == null) {
             return;
         }

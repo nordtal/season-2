@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.

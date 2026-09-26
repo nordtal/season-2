@@ -1,14 +1,12 @@
 name: build
 
 # Every push to master and every pull request. release.yml only runs on a pushed tag, so without
-# this a broken master - a compile error, a source file Git ignores, a test that fails - stays
-# invisible until somebody tags, exactly the gap papermc-display-tags/.github/workflows/build.yml
-# closed on 2026-09-03. This repository had no CI at all before that.
+# this a broken master stays invisible until somebody tags.
 #
-# `check` here is checkSourcesTracked, compile and the real test suite, including the
-# Testcontainers-backed DatabaseIntegrationTest - unlike JitPack's own build (see ../../jitpack.yml),
-# GitHub's ubuntu-latest runners have a Docker daemon, so this is a strictly stronger check than
-# what JitPack runs when a consumer first requests a tag.
+# `./gradlew build` runs checkSourcesTracked, compile and the real test suite, including the
+# Testcontainers-backed DatabaseIntegrationTest - GitHub's ubuntu-latest runners have a Docker
+# daemon, unlike JitPack's own build (see ../../jitpack.yml), so this is a strictly stronger check
+# than what JitPack runs when a consumer first requests a tag.
 on:
   push:
     branches: [master]

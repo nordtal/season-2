@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -57,74 +57,53 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
+/** Serializes and deserializes {@code @ConfigSpec} interfaces through Gson. */
 @SuppressWarnings({"unchecked"})
 public final class SpecAdapterFactory implements TypeAdapterFactory {
 
+    /** The single shared instance; this factory holds no per-Gson state. */
     public static final SpecAdapterFactory INSTANCE = new SpecAdapterFactory();
 
     @Override
-    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
-        Class<?> rawType = type.getRawType();
+    public <T> @Nullable TypeAdapter<T> create(final Gson gson, final TypeToken<T> type) {
+        final Class<?> rawType = type.getRawType();
         if (!isConfigSpec(rawType)) {
-            // Gson writes a collection element by its runtime type. For a nested spec inside a
-            // List that is the generated Proxy class, not the interface, so without this the
-            // element falls through to Gson's reflective adapter and fails on Proxy.h.
-            Class<?> specInterface = specInterfaceOf(rawType);
+            // Gson writes a list element by its runtime type: the generated Proxy class, not the interface.
+            final Class<?> specInterface = specInterfaceOf(rawType);
             if (specInterface == null) {
                 return null;
             }
             return (TypeAdapter<T>) gson.getAdapter(specInterface);
         }
-        SpecClass impl = Specs.from(rawType);
-        Map<String, BoundField> fieldsMap = new LinkedHashMap<>();
-        for (SpecProperty value : impl.properties().values()) {
-            if (value.isHandledByProxy()) continue;
-            Method getter = value.getter();
-
-            // Upstream Spec honoured @JsonAdapter here by reflecting into Gson's private
-            // 'constructorConstructor' field. That is removed - see the header. Reject the
-            // annotation loudly rather than ignoring it, so nobody assumes it took effect.
-            if (getter.isAnnotationPresent(JsonAdapter.class)) {
-                throw new IllegalArgumentException("@JsonAdapter on " + rawType.getName() + "#" + getter.getName()
-                        + " is not supported by jcore's vendored Spec. Register the "
-                        + "TypeAdapter on the GsonBuilder passed to the config loader instead.");
-            }
-
-            TypeToken<?> fieldType = TypeToken.get(getter.getGenericReturnType());
-            BoundField field = new BoundField(value.key(), gson.getAdapter(fieldType));
-            fieldsMap.put(value.key(), field);
-        }
-
+        final Map<String, BoundField> fieldsMap = fieldsOf(gson, rawType);
         return new TypeAdapter<T>() {
             @Override
-            public void write(JsonWriter out, T value) throws IOException {
+            public void write(final JsonWriter out, final T value) throws IOException {
                 out.beginObject();
-                Map<String, Object> map = MapProxy.getInternalMap(value);
-                for (BoundField boundField : fieldsMap.values()) {
+                final Map<String, Object> map = MapProxy.getInternalMap(value);
+                for (final BoundField boundField : fieldsMap.values()) {
                     out.name(boundField.name);
-                    Object fieldValue = map.get(boundField.name);
+                    final Object fieldValue = map.get(boundField.name);
                     boundField.adapter().write(out, fieldValue);
                 }
                 out.endObject();
             }
 
             @Override
-            public T read(JsonReader in) throws IOException {
+            public T read(final JsonReader in) throws IOException {
                 in.beginObject();
-                T proxy = (T) createDefault(rawType);
-                Map<String, Object> map = MapProxy.getInternalMap(proxy);
+                final T proxy = (T) createDefault(rawType);
+                final Map<String, Object> map = MapProxy.getInternalMap(proxy);
                 while (in.hasNext()) {
-                    String name = in.nextName();
-                    BoundField field = fieldsMap.get(name);
+                    final String name = in.nextName();
+                    final BoundField field = fieldsMap.get(name);
                     if (field == null) {
-                        // Unknown keys are skipped here on purpose. jcore rejects them earlier,
-                        // against the raw YAML tree, where the full key path is still known -
-                        // see UnknownKeyDetector.
+                        // Unknown keys are rejected earlier, against the raw YAML tree; skip them here.
                         in.skipValue();
                     } else {
-                        Object readValue = field.adapter.read(in);
+                        final Object readValue = field.adapter.read(in);
                         map.put(field.name, readValue);
                     }
                 }
@@ -134,16 +113,37 @@ public final class SpecAdapterFactory implements TypeAdapterFactory {
         };
     }
 
+    /** Binds each of {@code rawType}'s own (non-proxy-handled) properties to a Gson adapter for its declared type. */
+    private static Map<String, BoundField> fieldsOf(final Gson gson, final Class<?> rawType) {
+        final SpecClass impl = Specs.from(rawType);
+        final Map<String, BoundField> fieldsMap = new LinkedHashMap<>();
+        for (final SpecProperty value : impl.properties().values()) {
+            if (value.isHandledByProxy()) continue;
+            final Method getter = value.getter();
+
+            // Reject @JsonAdapter loudly here rather than silently ignoring it.
+            if (getter.isAnnotationPresent(JsonAdapter.class)) {
+                throw new IllegalArgumentException("@JsonAdapter on " + rawType.getName() + "#" + getter.getName()
+                        + " is not supported by jcore's vendored Spec. Register the "
+                        + "TypeAdapter on the GsonBuilder passed to the config loader instead.");
+            }
+
+            final TypeToken<?> fieldType = TypeToken.get(getter.getGenericReturnType());
+            final BoundField field = new BoundField(value.key(), gson.getAdapter(fieldType));
+            fieldsMap.put(value.key(), field);
+        }
+        return fieldsMap;
+    }
+
     /**
-     * The single {@code @ConfigSpec} interface a generated proxy class implements, or
-     * {@code null} if this is not such a proxy.
+     * The single {@code @ConfigSpec} interface {@code rawType} implements, or {@code null} if it is not a proxy.
      */
-    private static Class<?> specInterfaceOf(Class<?> rawType) {
+    private static @Nullable Class<?> specInterfaceOf(final Class<?> rawType) {
         if (!Proxy.isProxyClass(rawType)) {
             return null;
         }
-        Class<?> found = null;
-        for (Class<?> candidate : rawType.getInterfaces()) {
+        @Nullable Class<?> found = null;
+        for (final Class<?> candidate : rawType.getInterfaces()) {
             if (isConfigSpec(candidate)) {
                 if (found != null) {
                     // Two spec interfaces on one proxy would make the choice arbitrary.
@@ -157,15 +157,15 @@ public final class SpecAdapterFactory implements TypeAdapterFactory {
     }
 
     private static class BoundField {
-        private final @NotNull String name;
-        private final @NotNull TypeAdapter<?> adapter;
+        private final String name;
+        private final TypeAdapter<?> adapter;
 
-        BoundField(@NotNull String name, @NotNull TypeAdapter<?> adapter) {
+        BoundField(final String name, final TypeAdapter<?> adapter) {
             this.name = name;
             this.adapter = adapter;
         }
 
-        public @NotNull <T> TypeAdapter<T> adapter() {
+        <T> TypeAdapter<T> adapter() {
             return (TypeAdapter<T>) adapter;
         }
     }

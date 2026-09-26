@@ -22,19 +22,22 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
- *   - header() javadoc rewritten: it goes into the schema, not the YAML (steward/67, 2026-09-16)
+ *   - header() javadoc rewritten: it goes into the schema, not the YAML, not the file itself
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
-import java.lang.annotation.*;
-import org.jetbrains.annotations.NotNull;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * Represents a config specification interface
@@ -45,30 +48,16 @@ import org.jetbrains.annotations.NotNull;
 public @interface ConfigSpec {
 
     /**
-     * The prose describing the file as a whole. Each value is a separate line; an entry that
-     * itself contains a newline counts as several.
-     * <p>
-     * <b>This is no longer a YAML comment block.</b> Upstream Spec wrote it at the top of the
-     * file, each line prefixed with {@code '# '} - and entries starting with {@code '#'} without
-     * the space, so a row of hashes could serve as a visual separator. jcore 4.0.0 stopped writing
-     * comments into the YAML entirely, which left this annotation describing a rendering that no
-     * longer happened and writing to no file at all.
-     * <p>
-     * Since 4.1.0 (steward/67, 2026-09-16) it is carried into
-     * {@code <basename>.schema.json} instead, as the {@code explanation} of the root
-     * {@link eu.nordtal.jcore.config.schema.SchemaNode} - the node that stands for the whole file,
-     * the same way this text does. The lines are joined with {@code '\n'} and are otherwise taken
-     * verbatim: no {@code '# '} is added, and a leading {@code '#'} is neither added nor stripped,
-     * because JSON is not YAML and nothing downstream is going to read it as a comment. A row of
-     * hashes written for the old separator effect is therefore now a row of hashes in the text.
-     * <p>
-     * Write it for the person who has to operate the file, because that is who reads it: this is
-     * the only place a file-wide instruction can be said - "supply these through the environment",
-     * "this file is rewritten on every start" - since a per-setting
-     * {@link eu.nordtal.jcore.config.spec.annotation.Explain @Explain} is attached to one key.
+     * The prose describing the file as a whole, one line per value.
+     *
+     * Carried into {@code <basename>.schema.json} as the {@code explanation} of the root
+     * {@link eu.nordtal.jcore.config.schema.SchemaNode}, not into the YAML. Lines are joined with
+     * {@code '\n'} and taken verbatim, with no {@code '#'} added or stripped.
+     *
+     * Write it for the person operating the file - a file-wide instruction such as "supply this
+     * through the environment" - since {@code @Explain} only covers one key.
      *
      * @return The header lines, or an empty array for a file that needs none
      */
-    @NotNull
     String[] header() default {};
 }

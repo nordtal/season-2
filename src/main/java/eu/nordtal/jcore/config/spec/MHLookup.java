@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -39,12 +39,10 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
- * A utility for generating private {@link Lookup}s. These are not supported
- * natively in Java 8, so we have to use reflection hacks to simulate them.
+ * Generates private {@link Lookup}s through reflection, for JVMs where the direct API is unavailable.
  */
 final class MHLookup {
 
@@ -68,13 +66,12 @@ final class MHLookup {
     private MHLookup() {}
 
     /**
-     * Generates a {@link Lookup} that can access private members in the given
-     * class.
+     * Generates a {@link Lookup} that can access private members in the given class.
      *
      * @param cl The class to access
      * @return The created {@link Lookup}
      */
-    public static @NotNull Lookup privateLookupIn(Class<?> cl) {
+    public static Lookup privateLookupIn(final Class<?> cl) {
         try {
             if (privateLookupIn != null) {
                 return (Lookup) privateLookupIn.invoke(null, cl, lookup());

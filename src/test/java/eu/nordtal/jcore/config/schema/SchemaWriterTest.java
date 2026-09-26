@@ -24,24 +24,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * steward/54: jcore writes a {@code config.schema.json} beside the YAML it writes, and the YAML
- * stops carrying comments. Each test here was watched fail before the corresponding piece of
- * {@link SchemaWriter} / {@code ConfigHandle} existed - see the ticket for the recorded output.
+ * jcore writes a {@code config.schema.json} beside the YAML it writes; the YAML carries no comments.
  */
 class SchemaWriterTest {
 
     @TempDir
     Path directory;
 
-    // ---------------------------------------------------------------- the annotation split
+    // the annotation split
 
     @Test
-    @DisplayName("@Explain's short text lands in the schema; @Comment's long text never reaches the YAML")
     void explainTextGoesToSchemaAndNeverToYaml() throws Exception {
         final Path file = directory.resolve("payments.yml");
         ConfigLoader.builder(file, TestSpecs.Payments.class)
@@ -70,23 +66,16 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName(
-            "a property with none of @Explain, @Comment or @NoExplanationNeeded gets an empty explanation, not an error")
     void unmigratedPropertyGetsAnEmptyExplanation() {
-        // Colliding.ab() carries no annotation at all - not even @Comment - which is the one case
-        // left where the schema still has nothing to say.
+        // Colliding.ab() carries no annotation at all - the one case left with no explanation.
         final SchemaNode schema = SchemaWriter.build(TestSpecs.Colliding.class);
         final SchemaNode ab = schema.children().get("a-b");
         assertAll(() -> assertEquals("", ab.explanation()), () -> assertFalse(ab.noExplanationNeeded()));
     }
 
     @Test
-    @DisplayName("a property with only @Comment gets that text as its schema explanation")
     void commentIsUsedAsAFallbackWhenNoExplainIsGiven() {
-        // steward/72: 4.0.0 moved only @Explain's short text into the schema and left @Comment's
-        // long text reaching no file at all - measured on the running SMP as 124 of 125 settings
-        // showing an empty field where a paragraph used to be. Balance.channelId() carries
-        // @Comment and no @Explain, which is the ordinary, unmigrated case, not an edge case.
+        // Balance.channelId() has only @Comment, the ordinary unmigrated case, not an edge case.
         final SchemaNode schema = SchemaWriter.build(TestSpecs.Balance.class);
         final SchemaNode channelId = schema.children().get("channel-id");
         assertEquals(
@@ -96,7 +85,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("a multi-line @Comment is joined with newlines into one explanation string")
     void multiLineCommentIsJoinedWithNewlines() {
         final SchemaNode schema = SchemaWriter.build(MultiLineCommentOnly.class);
         assertEquals(
@@ -107,8 +95,7 @@ class SchemaWriterTest {
                         + "break intact instead of running everything onto one line");
     }
 
-    // The property name is deliberately not "setting" - the vendored Spec reads any method
-    // beginning with "set" as a setter (see the comment on Contradiction below).
+    // Not named `setting()`: the vendored Spec treats any `set*` method as a setter.
     @ConfigSpec
     public interface MultiLineCommentOnly {
         @Order(1)
@@ -120,7 +107,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("@NoExplanationNeeded is recorded, with an empty explanation text")
     void noExplanationNeededIsRecorded() {
         final SchemaNode schema = SchemaWriter.build(TestSpecs.SchemaExample.class);
         final SchemaNode internalId = schema.children().get("internal-id");
@@ -128,19 +114,13 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("@Explain and @NoExplanationNeeded together is refused rather than guessed at")
     void explainAndNoExplanationNeededTogetherIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> SchemaWriter.build(Contradiction.class));
     }
 
     @ConfigSpec
     public interface Contradiction {
-        // NOT called `setting()`, and that is the whole point (found 2026-09-16 while adding the
-        // header tests below). The vendored Spec reads any method whose name begins with `set` as
-        // a setter, so `setting()` is rejected with "Setter for property 'ting' must return void!"
-        // before @Explain and @NoExplanationNeeded are ever looked at - which means this test threw
-        // the right exception type for the wrong reason, and had done since steward/54. It would
-        // have kept passing if the contradiction check were deleted outright.
+        // Not named `setting()`: the vendored Spec would reject a `set*` method before @Explain is checked.
         @Explain("short")
         @NoExplanationNeeded
         default String option() {
@@ -148,38 +128,29 @@ class SchemaWriterTest {
         }
     }
 
-    // ---------------------------------------------------------------- the file-level header
+    // the file-level header
 
     @Test
-    @DisplayName("@ConfigSpec(header) lands on the root node's explanation, one entry per line")
     void headerBecomesTheRootExplanation() {
-        // steward/67: 4.0.0 stopped writing the header into the YAML and put nothing in its place,
-        // so a spec's header was written to no file at all. season-2's BotSpec uses its header for
-        // the only sentence that tells an operator the token comes from NORDTAL_BOT_TOKEN rather
-        // than from the file - text nobody could afford to lose to a refactor.
+        // A spec's header is written into the schema and nowhere else.
         final SchemaNode schema = SchemaWriter.build(TestSpecs.Payments.class);
         assertEquals("Test configuration\nSecond header line", schema.explanation());
     }
 
     @Test
-    @DisplayName("a one-line header is that line, with no trailing newline bolted on")
     void singleLineHeaderIsJustThatLine() {
         assertEquals("Worlds", SchemaWriter.build(TestSpecs.Worlds.class).explanation());
     }
 
     @Test
-    @DisplayName("blank lines inside a header survive - a paragraph break is part of the prose")
     void blankLinesInsideAHeaderSurvive() {
-        // BotSpec's header is a block, a blank line, an indented list, a blank line and a closing
-        // sentence. Dropping the empty entries would run all of it into one paragraph.
+        // Empty header entries are blank lines; dropping them would merge everything into one paragraph.
         assertEquals(
                 "First paragraph.\n\nSecond paragraph.",
                 SchemaWriter.build(HeaderWithBlankLine.class).explanation());
     }
 
-    // The property name here is deliberately not "setting": the vendored Spec reads any method
-    // beginning with "set" as a setter, so `String setting()` is rejected as "setter for property
-    // 'ting' must return void" before the header is ever looked at.
+    // Not named `setting()`: the vendored Spec treats any `set*` method as a setter.
     @ConfigSpec(header = {"First paragraph.", "", "Second paragraph."})
     public interface HeaderWithBlankLine {
         default String option() {
@@ -188,10 +159,8 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("a header entry that itself contains a newline is split, not doubled")
     void embeddedNewlineIsOneLineBreakAndNotTwo() {
-        // headerOf() splits every entry on '\n' before this ever sees it, so joining with '\n'
-        // has to give the text back unchanged rather than turning one break into two.
+        // headerOf() already splits entries on '\n'; joining with '\n' must not double the break.
         assertEquals(
                 "One\nTwo\nThree",
                 SchemaWriter.build(HeaderWithEmbeddedNewline.class).explanation());
@@ -205,19 +174,16 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("no header at all stays the empty string - never a placeholder")
     void absentHeaderStaysEmpty() {
         assertEquals("", SchemaWriter.build(TestSpecs.Balance.class).explanation());
     }
 
     @Test
-    @DisplayName("the root's label stays empty - a header is prose, and a label is a name")
     void theRootKeepsNoLabel() {
         assertEquals("", SchemaWriter.build(TestSpecs.Payments.class).label());
     }
 
     @Test
-    @DisplayName("@Name on a getter is the label, and a section falls back to the @Name on its interface")
     void nameIsTheLabel() {
         final SchemaNode schema = SchemaWriter.build(Named.class);
 
@@ -278,7 +244,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("the header reaches the written schema file, not only the in-memory tree")
     void headerIsInTheWrittenSchemaFile() throws Exception {
         final Path file = directory.resolve("payments.yml");
         ConfigLoader.builder(file, TestSpecs.Payments.class)
@@ -295,10 +260,8 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("a nested spec's own header does not leak onto the parent's child node")
     void aNestedSpecsHeaderIsNotTheChildsExplanation() {
-        // A child node's explanation belongs to the property that declares it (@Explain on the
-        // getter), not to the interface behind it. Balance has no header, so make one that does.
+        // A child's explanation belongs to the declaring property, not the nested interface's own header.
         final SchemaNode outer = SchemaWriter.build(Outer.class);
         assertEquals(
                 "",
@@ -318,10 +281,9 @@ class SchemaWriterTest {
         Inner inner();
     }
 
-    // ---------------------------------------------------------------- secret
+    // secret
 
     @Test
-    @DisplayName("@Secret is recorded on the schema entry")
     void secretIsRecorded() {
         final SchemaNode schema = SchemaWriter.build(TestSpecs.SchemaExample.class);
         assertAll(
@@ -329,10 +291,9 @@ class SchemaWriterTest {
                 () -> assertFalse(schema.children().get("region").secret()));
     }
 
-    // ---------------------------------------------------------------- allowed values
+    // allowed values
 
     @Test
-    @DisplayName("@AllowedValues(strict) is a closed list")
     void strictAllowedValues() {
         final SchemaNode region =
                 SchemaWriter.build(TestSpecs.SchemaExample.class).children().get("region");
@@ -342,7 +303,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("@AllowedValues(strict = false) is a suggestion beside free text")
     void suggestionAllowedValues() {
         final SchemaNode colour =
                 SchemaWriter.build(TestSpecs.SchemaExample.class).children().get("accent-colour");
@@ -353,7 +313,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("a Java enum property gets its allowed values for free, and is always strict")
     void enumPropertyGetsAllowedValuesAutomatically() {
         final SchemaNode mode =
                 SchemaWriter.build(TestSpecs.SchemaExample.class).children().get("mode");
@@ -364,18 +323,15 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("a plain scalar with no @AllowedValues has no choices at all - not an empty list")
     void plainScalarHasNoChoices() {
         final SchemaNode checkInterval =
                 SchemaWriter.build(TestSpecs.Payments.class).children().get("check-interval-seconds");
         assertNull(checkInterval.choices());
     }
 
-    // ---------------------------------------------------------------- kind, type, and the group
+    // kind, type, and the group
 
     @Test
-    @DisplayName(
-            "kind and type mirror what ConfigEntry already knows: a nested spec is a MAP, a list of scalars is a LIST")
     void kindAndTypeMirrorConfigEntry() {
         final SchemaNode payments = SchemaWriter.build(TestSpecs.Payments.class);
         assertAll(
@@ -402,7 +358,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("the group is the schema's own nesting - Balance's settings sit under 'balance', nowhere else")
     void groupIsTheNestingItself() {
         final SchemaNode payments = SchemaWriter.build(TestSpecs.Payments.class);
         final Map<String, SchemaNode> balanceChildren =
@@ -416,7 +371,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("children keep @Order's order - a schema is read by a person, not a HashMap")
     void childrenPreserveDeclarationOrder() {
         final SchemaNode payments = SchemaWriter.build(TestSpecs.Payments.class);
         assertEquals(
@@ -425,17 +379,15 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("@Reload / @Save are proxy-handled and are not settings of their own")
     void proxyHandledMethodsAreNotSettings() {
         final SchemaNode payments = SchemaWriter.build(TestSpecs.Payments.class);
         assertFalse(payments.children().containsKey("reload"));
         assertFalse(payments.children().containsKey("save"));
     }
 
-    // ---------------------------------------------------------------- file and schema come into being together
+    // file and schema come into being together
 
     @Test
-    @DisplayName("a fresh load writes the file and its schema together")
     void fileAndSchemaComeIntoBeingTogether() throws Exception {
         final Path file = directory.resolve("payments.yml");
         final Path schema = SchemaWriter.schemaFileFor(file);
@@ -456,7 +408,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("the schema is refreshed on every load, even when the YAML itself does not change")
     void schemaIsRefreshedEveryLoad() throws Exception {
         final Path file = directory.resolve("payments.yml");
         ConfigLoader.builder(file, TestSpecs.Payments.class)
@@ -476,10 +427,9 @@ class SchemaWriterTest {
                 "the schema write must not be skipped just because the YAML did not change");
     }
 
-    // ---------------------------------------------------------------- a schema without a file, and back
+    // a schema without a file, and back
 
     @Test
-    @DisplayName("a schema with no file behind it is an error")
     void schemaWithoutFileIsAnError() throws Exception {
         final Path file = directory.resolve("payments.yml");
         SchemaWriter.write(file, TestSpecs.Payments.class);
@@ -492,7 +442,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("a file with no schema behind it is an error")
     void fileWithoutSchemaIsAnError() throws Exception {
         final Path file = directory.resolve("payments.yml");
         ConfigLoader.builder(file, TestSpecs.Payments.class)
@@ -508,17 +457,13 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("neither file nor schema existing is not an error - that is the fresh, not-yet-written state")
     void neitherExistingIsNotAnError() {
         assertDoesNotThrow(() -> SchemaWriter.checkPaired(directory.resolve("nothing-here.yml")));
     }
 
     @Test
-    @DisplayName("the schema file keeps an apostrophe as an apostrophe, not as &#39;")
     void theSchemaFileIsNotHtmlEscaped() throws Exception {
-        // steward/67: Gson escapes ' < > & by default, for JSON that is about to be pasted into
-        // HTML. A schema file is read by a JVM and, occasionally, by a person opening it - never by
-        // a browser. bot.schema.json carried &#39; in its file header for exactly that reason.
+        // Gson's default HTML escaping is for a browser; a schema file is read by a JVM or a person, never one.
         final Path yml = directory.resolve("service.yml");
         SchemaWriter.write(yml, EscapingHolder.class);
 
@@ -537,10 +482,9 @@ class SchemaWriterTest {
         }
     }
 
-    // ---------------------------------------------------------------- @Protected (steward/74)
+    // @Protected
 
     @Test
-    @DisplayName("@Protected on a list of nested settings is recorded as the schema's protectedEntry")
     void protectedIsRecordedOnAListOfNestedSettings() {
         final SchemaNode schema = SchemaWriter.build(ProtectedListHolder.class);
         assertEquals(
@@ -549,7 +493,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("a list of nested settings with no @Protected has a null protectedEntry, not a guessed one")
     void protectedIsNullWithoutTheAnnotation() {
         final SchemaNode worldsList =
                 SchemaWriter.build(TestSpecs.Worlds.class).children().get("worlds");
@@ -557,7 +500,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("@Protected naming a field the element type does not have is refused, not silently useless")
     void protectedNamingAMissingFieldIsRejected() {
         final IllegalArgumentException error =
                 assertThrows(IllegalArgumentException.class, () -> SchemaWriter.build(ProtectedWithMissingField.class));
@@ -565,13 +507,11 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("@Protected on a list of plain scalars is refused - there is no field to match against")
     void protectedOnAScalarListIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> SchemaWriter.build(ProtectedOnScalarList.class));
     }
 
     @Test
-    @DisplayName("@Protected on a plain scalar property is refused, the same way")
     void protectedOnAScalarIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> SchemaWriter.build(ProtectedOnScalar.class));
     }

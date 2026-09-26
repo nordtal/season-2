@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -32,92 +32,60 @@
  */
 package eu.nordtal.jcore.config.spec;
 
-import java.lang.reflect.*;
+import java.lang.reflect.Array;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-/**
- * A utility class with small helper functions
- */
+/** Small reflection and iterator helpers used by the spec proxy machinery. */
 final class Util {
 
     private Util() {}
 
     /**
-     * Returns the {@link Class} object representing the class or interface
-     * that declared this type.
+     * Returns the {@link Class} object representing the class or interface that declared this type.
      *
      * @return the {@link Class} object representing the class or interface
      * that declared this type
      */
-    public static Class<?> getRawType(Type type) {
-        if (type instanceof Class<?>) {
-            // type is a normal class.
-            return (Class<?>) type;
+    public static Class<?> getRawType(final Type type) {
+        if (type instanceof Class<?> clazz) {
+            return clazz;
 
-        } else if (type instanceof ParameterizedType) {
-            ParameterizedType parameterizedType = (ParameterizedType) type;
-
-            // I'm not exactly sure why getRawType() returns Type instead of Class.
-            // Neal isn't either but suspects some pathological case related
-            // to nested classes exists.
-            Type rawType = parameterizedType.getRawType();
+        } else if (type instanceof ParameterizedType parameterizedType) {
+            final Type rawType = parameterizedType.getRawType();
             if (!(rawType instanceof Class)) {
                 throw new IllegalStateException("Expected a Class, found a " + rawType);
             }
             return (Class<?>) rawType;
 
-        } else if (type instanceof GenericArrayType) {
-            Type componentType = ((GenericArrayType) type).getGenericComponentType();
+        } else if (type instanceof GenericArrayType genericArrayType) {
+            final Type componentType = genericArrayType.getGenericComponentType();
             return Array.newInstance(getRawType(componentType), 0).getClass();
 
         } else if (type instanceof TypeVariable) {
-            // we could use the variable's bounds, but that won't work if there are multiple.
-            // having a raw type that's more general than necessary is okay
+            // A raw type more general than necessary is harmless; a type variable can have several bounds.
             return Object.class;
 
-        } else if (type instanceof WildcardType) {
-            return getRawType(((WildcardType) type).getUpperBounds()[0]);
+        } else if (type instanceof WildcardType wildcardType) {
+            return getRawType(wildcardType.getUpperBounds()[0]);
 
         } else {
-            String className = type == null ? "null" : type.getClass().getName();
-            throw new IllegalArgumentException("Expected a Class, ParameterizedType, or " + "GenericArrayType, but <"
-                    + type + "> is of type " + className);
+            final String className = type == null ? "null" : type.getClass().getName();
+            throw new IllegalArgumentException("Expected a Class, ParameterizedType or GenericArrayType, but <" + type
+                    + "> is of type " + className);
         }
     }
 
     /**
-     * Returns the first generic type of the given class. Because
-     * classes do not have generics, this function emits a warning
-     * to inform them that they probably passed the wrong {@code type}
-     * argument, and meant to invoke {@link #getFirstGeneric(Type, Type)} instead.
-     *
-     * @param cl       The class. This parameter is ignored
-     * @param fallback The fallback to return
-     * @return The fallback type
-     * @see #getFirstGeneric(Type, Type)
-     * @deprecated Classes do not have generics. You might have passed
-     * the wrong parameters.
+     * The first type argument of {@code genericType}, or {@code fallback} if it is not a parameterized type.
      */
-    @Deprecated
-    @Contract("_,_ -> param2")
-    public static Type getFirstGeneric(@NotNull Class<?> cl, @NotNull Type fallback) {
-        return fallback;
-    }
-
-    /**
-     * Returns the first generic type of the given (possibly parameterized)
-     * type {@code genericType}. If the type is not parameterized,
-     * this will return {@code fallback}.
-     *
-     * @param genericType The generic type
-     * @param fallback    The fallback to return
-     * @return The generic type
-     */
-    public static Type getFirstGeneric(@NotNull Type genericType, @NotNull Type fallback) {
+    public static Type getFirstGeneric(final Type genericType, final Type fallback) {
         try {
             return ((ParameterizedType) genericType).getActualTypeArguments()[0];
         } catch (ClassCastException e) {
@@ -126,82 +94,80 @@ final class Util {
     }
 
     /**
-     * Legally stolen and re-adapted from Guava's PeekingImpl class
-     * <p>
-     * A {@link Iterator} wrapper that allows peeking at the next element
-     * without advancing the iterator.
+     * An iterator wrapper that allows peeking at the next element without advancing it.
      *
-     * @param <E> The element type
+     * @param <E> the element type
      */
     public static final class PeekingIterator<E> implements Iterator<E> {
 
-        private final @NotNull Iterator<? extends E> iterator;
+        private final Iterator<? extends E> iterator;
         private @Nullable E peekedElement;
         private boolean hasPeeked;
 
-        PeekingIterator(@NotNull Iterator<? extends E> iterator) {
+        PeekingIterator(final Iterator<? extends E> iterator) {
             this.iterator = iterator;
         }
 
-        /**
-         * Returns {@code true} if there are more elements in the iteration.
-         *
-         * @return {@code true} if the iteration has more elements.
-         */
+        @Override
         public boolean hasNext() {
             return this.hasPeeked || this.iterator.hasNext();
         }
 
         /**
-         * Returns the next element in the iteration. If peeked, returns the peeked element.
-         *
-         * @return The next element.
-         * @throws NoSuchElementException If no more elements.
+         * The next element, or the one {@link #peek()} returned since the last advance.
          */
+        @Override
         public E next() {
             if (!this.hasPeeked) {
                 return this.iterator.next();
-            } else {
-                E result = this.peekedElement;
-                this.hasPeeked = false;
-                this.peekedElement = null;
-                return result;
             }
+            final E result = this.peekedElement;
+            this.hasPeeked = false;
+            this.peekedElement = null;
+            if (result == null) {
+                throw new NoSuchElementException();
+            }
+            return result;
         }
 
         /**
-         * Removes the last element returned by {@code next()}.
+         * Removes the last element returned by {@link #next()}.
          *
-         * @throws IllegalStateException If {@code peek()} was called after the last {@code next()}.
+         * @throws IllegalStateException if {@link #peek()} was called after the last {@link #next()}
          */
+        @Override
         public void remove() {
-            if (hasPeeked) throw new IllegalStateException("Can't remove after you've peeked at next");
+            if (hasPeeked) {
+                throw new IllegalStateException("Can't remove after you've peeked at next");
+            }
             this.iterator.remove();
         }
 
         /**
          * Peeks at the next element without advancing the iterator.
          *
-         * @return The next element.
-         * @throws NoSuchElementException If no more elements.
+         * @return the next element
+         * @throws NoSuchElementException if there are no more elements
          */
         public E peek() {
             if (!this.hasPeeked) {
                 this.peekedElement = this.iterator.next();
                 this.hasPeeked = true;
             }
-
+            if (this.peekedElement == null) {
+                throw new NoSuchElementException();
+            }
             return this.peekedElement;
         }
 
         /**
-         * Creates a new {@code PeekingIterator} from the given iterator.
+         * Wraps {@code iterator} so its next element can be peeked at without advancing it.
          *
-         * @param <E>      The type of elements.
-         * @param iterator The iterator to wrap.
-         * @return A new {@code PeekingIterator}.
+         * @param <E> the element type
+         * @param iterator the iterator to wrap
+         * @return a peeking view of {@code iterator}
          */
-        public static <E> @NotNull PeekingIterator<E> from(@NotNull Iterator<E> iterator) {
+        public static <E> PeekingIterator<E> from(final Iterator<E> iterator) {
             return new PeekingIterator<>(iterator);
         }
     }

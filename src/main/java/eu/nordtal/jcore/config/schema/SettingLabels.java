@@ -2,11 +2,10 @@ package eu.nordtal.jcore.config.schema;
 
 import java.util.Locale;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Turns a config key into the words a human reads above the input.
- * <p>
+ *
  * Deliberately the same mechanical rule steward-worker's own {@code Labels.of} applies to a raw
  * key it reads out of a file with no schema: split on {@code -}/{@code _} and a change of case,
  * lower-case all but a short list of acronyms, capitalise the first word. Keeping the two
@@ -19,28 +18,22 @@ final class SettingLabels {
 
     private SettingLabels() {}
 
-    /**
-     * The few abbreviations a config key in this stack actually uses, written upper-case in a
-     * label. A short list rather than "every word of two or three letters", which would turn
-     * {@code max} and {@code day} into shouting.
-     */
+    /** The abbreviations a config key uses that stay upper-case in a label. */
     private static final Set<String> ACRONYMS = Set.of(
             "api", "db", "gui", "http", "https", "id", "ip", "json", "jvm", "motd", "mspt", "pvp", "smp", "sql", "tps",
             "ttl", "ui", "url", "uri", "uuid", "xp");
 
     /**
-     * {@code base-url} becomes {@code Base URL}, {@code stop_services} becomes
-     * {@code Stop services}, {@code logFailedRequests} becomes {@code Log failed requests}.
+     * For example {@code base-url} becomes {@code Base URL} and {@code stop_services} becomes {@code Stop services}.
      *
      * @param key the leaf key
      * @return the key split on {@code -}, {@code _} and a change of case, lowercased except for a
      *         known acronym, with the first word capitalised
      */
-    static @NotNull String of(final @NotNull String key) {
+    static String of(final String key) {
         final StringBuilder out = new StringBuilder(key.length() + 4);
-        for (final String part : key.split("[-_]+")) {
-            // "HTTPServer" is HTTP and Server, "serverUuid" is server and Uuid. A key written all
-            // in capitals is one word, not one word per letter.
+        for (final String part : key.split("[-_]+", 0)) {
+            // A key written all in capitals is one word, not one word per letter.
             final boolean allCaps = part.equals(part.toUpperCase(Locale.ROOT));
             final String[] words =
                     allCaps ? new String[] {part} : part.split("(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])");

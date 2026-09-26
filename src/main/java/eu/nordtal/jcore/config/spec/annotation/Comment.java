@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -39,9 +39,10 @@ import java.lang.annotation.Target;
 
 /**
  * Adds a comment to the given property.
- * <p>
+ *
  * Example:
- * <pre>{@code @ConfigSpec
+ * {@snippet lang="java" :
+ * @ConfigSpec
  * public interface GameSettings {
  *
  *     @Comment(
@@ -52,7 +53,8 @@ import java.lang.annotation.Target;
  *     default int cooldown() {
  *         return 20;
  *     }
- * }}</pre>
+ * }
+ * }
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -60,7 +62,7 @@ public @interface Comment {
 
     /**
      * The comments to add. Each value is a separate line.
-     * <p>
+     *
      * Note that every line will be preceded by a '# ' automatically,
      * except entries that start with '#', which will not be preceded by a
      * space (for creating visual separators).

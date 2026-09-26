@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -36,54 +36,60 @@ import static eu.nordtal.jcore.config.spec.SpecProperty.headerOf;
 import static eu.nordtal.jcore.config.spec.SpecProperty.propertiesOf;
 
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
-import java.util.*;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.Unmodifiable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.StringJoiner;
+import org.jspecify.annotations.Nullable;
 
+/** The declared shape of one {@code @ConfigSpec} interface: its properties, headers and comments. */
 public final class SpecClass {
 
+    /** The synthetic key segment used for an element of an array/list in a dotted path. */
     public static final String ARRAY_INDEX = "<arr>";
 
     private final Class<?> type;
-    private final @Unmodifiable Map<String, SpecProperty> properties;
+    private final Map<String, SpecProperty> properties;
     private @Nullable Map<String, String> comments;
-    private final @NotNull List<String> headers;
+    private final List<String> headers;
 
-    SpecClass(@NotNull Class<?> type, @NotNull Map<String, SpecProperty> properties, @NotNull List<String> headers) {
+    SpecClass(final Class<?> type, final Map<String, SpecProperty> properties, final List<String> headers) {
         this.type = type;
         this.properties = properties;
         this.headers = headers;
     }
 
-    private @NotNull Map<String, String> computeComments() {
-        Map<String, String> comments = new HashMap<>();
+    private Map<String, String> computeComments() {
+        final Map<String, String> comments = new HashMap<>();
         computeCommentsRecursively(comments, properties.values(), "", 0);
         return comments;
     }
 
     private static void computeCommentsRecursively(
-            @NotNull Map<String, String> comments,
-            @NotNull Collection<SpecProperty> properties,
-            @NotNull String parentPath,
-            int indent) {
-        for (SpecProperty property : properties) {
-            boolean isSpec = Specs.isConfigSpec(property.type());
+            final Map<String, String> comments,
+            final Collection<SpecProperty> properties,
+            final String parentPath,
+            final int indent) {
+        for (final SpecProperty property : properties) {
+            final boolean isSpec = Specs.isConfigSpec(property.type());
             if (!property.hasComments() && !isSpec) continue;
-            String indentStr = spaces(indent);
-            String commentPath = parentPath.isEmpty() ? property.key() : parentPath + '.' + property.key();
-            StringJoiner commentsString = new StringJoiner(System.lineSeparator(), "\n", "");
-            for (String comment : property.comments()) {
+            final String indentStr = spaces(indent);
+            final String commentPath = parentPath.isEmpty() ? property.key() : parentPath + '.' + property.key();
+            final StringJoiner commentsString = new StringJoiner(System.lineSeparator(), "\n", "");
+            for (final String comment : property.comments()) {
                 commentsString.add(indentStr + "# " + comment);
             }
             comments.put(commentPath, commentsString.toString());
             if (isSpec) {
-                SpecClass bpc = Specs.from(property.type());
+                final SpecClass bpc = Specs.from(property.type());
                 computeCommentsRecursively(comments, bpc.properties().values(), commentPath, indent + 2);
             } else if (isCollection(property.type())) {
-                Class<?> type = getCollectionType(property.getter().getGenericReturnType());
+                final Class<?> type = getCollectionType(property.getter().getGenericReturnType());
                 if (Specs.isConfigSpec(type)) {
-                    SpecClass bpc = Specs.from(type);
+                    final SpecClass bpc = Specs.from(type);
                     computeCommentsRecursively(
                             comments, bpc.properties().values(), commentPath + "." + ARRAY_INDEX, indent + 2);
                 }
@@ -91,8 +97,8 @@ public final class SpecClass {
         }
     }
 
-    private static Class<?> getCollectionType(java.lang.reflect.Type returnType) {
-        Class<?> rawType = Util.getRawType(returnType);
+    private static Class<?> getCollectionType(final java.lang.reflect.Type returnType) {
+        final Class<?> rawType = Util.getRawType(returnType);
         if (Collection.class.isAssignableFrom(rawType)) {
             return Util.getRawType(Util.getFirstGeneric(returnType, Object.class));
         } else {
@@ -100,46 +106,73 @@ public final class SpecClass {
         }
     }
 
-    private static boolean isCollection(Class<?> aClass) {
+    private static boolean isCollection(final Class<?> aClass) {
         return Collection.class.isAssignableFrom(aClass) || aClass.isArray();
     }
 
-    private static String spaces(int times) {
-        char[] c = new char[times];
+    private static String spaces(final int times) {
+        final char[] c = new char[times];
         Arrays.fill(c, ' ');
         return new String(c);
     }
 
-    static @NotNull SpecClass from(@NotNull Class<?> type) {
+    static SpecClass from(final Class<?> type) {
         Objects.requireNonNull(type, "interface cannot be null!");
         if (!type.isInterface()) throw new IllegalArgumentException("Class is not an interface: " + type.getName());
         if (!type.isAnnotationPresent(ConfigSpec.class))
             throw new IllegalArgumentException("Interface does not have @ConfigSpec on it!");
-        List<String> headers = headerOf(type);
-        Map<String, SpecProperty> properties = propertiesOf(type);
+        final List<String> headers = headerOf(type);
+        final Map<String, SpecProperty> properties = propertiesOf(type);
         return new SpecClass(type, properties, headers);
     }
 
-    public @NotNull Map<String, String> comments() {
+    /**
+     * The comments to write beside each key, keyed by dotted path.
+     *
+     * @return the comments, keyed by dotted path
+     */
+    public Map<String, String> comments() {
         if (comments == null) comments = computeComments();
         return comments;
     }
 
-    public @NotNull List<String> headers() {
+    public List<String> headers() {
         return headers;
     }
 
-    public @NotNull @Unmodifiable Map<String, SpecProperty> properties() {
+    /**
+     * The spec interface this describes.
+     *
+     * @return the spec interface
+     */
+    public Class<?> type() {
+        return type;
+    }
+
+    public Map<String, SpecProperty> properties() {
         return properties;
     }
 
-    @SuppressWarnings("unchecked")
-    public @NotNull <T> T createDefault() {
-        return (T) Specs.createDefault(type);
+    /**
+     * Creates a default-valued instance of this spec, typed by the given class token rather than an unchecked cast.
+     *
+     * @param <T> the spec interface type
+     * @param type the spec interface, which must be the one this {@code SpecClass} describes
+     * @return a new instance with every property at its default value
+     */
+    public <T> T createDefault(final Class<T> type) {
+        return type.cast(Specs.createDefault(type));
     }
 
-    @SuppressWarnings("unchecked")
-    public @NotNull <T> T createUnsafe(Map<String, Object> map) {
-        return (T) Specs.createUnsafe(type, map);
+    /**
+     * Creates an instance of this spec backed by {@code map}, typed by the given class token.
+     *
+     * @param <T> the spec interface type
+     * @param type the spec interface, which must be the one this {@code SpecClass} describes
+     * @param map the values to back the instance with
+     * @return a new instance backed by {@code map}
+     */
+    public <T> T createUnsafe(final Class<T> type, final Map<String, Object> map) {
+        return type.cast(Specs.createUnsafe(type, map));
     }
 }

@@ -10,24 +10,20 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Lets every single config value be overridden by an environment variable.
- * <p>
- * This is what joins the two config paths the payments-bot used to have: values from the file,
- * and scattered {@code System.getenv} calls that the file knew nothing about. Now the file
- * declares the setting and the environment can override it, which is what a container deploy
- * needs.
- * <p>
+ *
+ * The file declares every setting and the environment can override any of them, which is what a
+ * container deploy needs.
+ *
  * The environment always wins over the file, and an overridden value is <b>never</b> written
  * back - a secret handed in through the environment must not end up in a mounted volume.
  *
- * <h2>Naming</h2>
- * {@code <PREFIX>_<PATH>}, upper-cased, with both the path separator {@code .} and the hyphen
+ * <b>Naming:</b> {@code <PREFIX>_<PATH>}, upper-cased, with both the path separator {@code .} and the hyphen
  * inside a key turned into {@code _}. So {@code nametag.display.text-shadow} with the prefix
  * {@code NORDTAL} is {@code NORDTAL_NAMETAG_DISPLAY_TEXT_SHADOW}.
- * <p>
+ *
  * Because two different characters collapse onto {@code _}, two distinct paths could in
  * principle produce the same variable name. Rather than resolving that at runtime, where it
  * would be an operator's problem, {@link #forSpec} rejects the spec outright: a collision is a
@@ -55,17 +51,15 @@ public final class EnvOverlay {
      * @param prefix      the variable prefix, e.g. {@code NORDTAL}
      * @param environment where variables are read from; {@link System#getenv(String)} in production
      * @param gson        used to parse values whose type is not a plain scalar
+     * @return the built overlay
      * @throws IllegalStateException if two config paths map to the same variable name
      */
-    public static @NotNull EnvOverlay forSpec(
-            final @NotNull Class<?> specType,
-            final @NotNull String prefix,
-            final @NotNull Function<String, String> environment,
-            final @NotNull Gson gson) {
+    public static EnvOverlay forSpec(
+            final Class<?> specType, final String prefix, final Function<String, String> environment, final Gson gson) {
         final Map<String, SpecPaths.Leaf> byVariable = new LinkedHashMap<>();
         final Map<String, List<String>> collisions = new TreeMap<>();
 
-        for (SpecPaths.Leaf leaf : SpecPaths.leaves(specType)) {
+        for (final SpecPaths.Leaf leaf : SpecPaths.leaves(specType)) {
             final String variable = variableName(prefix, leaf.path());
             collisions.computeIfAbsent(variable, k -> new ArrayList<>()).add(leaf.path());
             byVariable.put(variable, leaf);
@@ -86,8 +80,14 @@ public final class EnvOverlay {
         return new EnvOverlay(byVariable, environment, gson);
     }
 
-    /** {@code nametag.display.text-shadow} + {@code NORDTAL} -> {@code NORDTAL_NAMETAG_DISPLAY_TEXT_SHADOW}. */
-    public static @NotNull String variableName(final @NotNull String prefix, final @NotNull String path) {
+    /**
+     * {@code nametag.display.text-shadow} + {@code NORDTAL} -> {@code NORDTAL_NAMETAG_DISPLAY_TEXT_SHADOW}.
+     *
+     * @param prefix the variable prefix, e.g. {@code NORDTAL}
+     * @param path the dotted config path
+     * @return the environment variable name for that path
+     */
+    public static String variableName(final String prefix, final String path) {
         final StringBuilder name = new StringBuilder(prefix.toUpperCase(Locale.ROOT));
         name.append('_');
         for (int i = 0; i < path.length(); i++) {
@@ -100,10 +100,11 @@ public final class EnvOverlay {
     /**
      * Applies every variable that is set and non-blank to {@code spec}.
      *
+     * @param spec the spec instance to apply overrides to
      * @return the config paths that were overridden, in file order. The <b>values are
      * deliberately not returned or logged</b> - any one of them could be a secret.
      */
-    public @NotNull List<String> applyTo(final @NotNull Object spec) {
+    public List<String> applyTo(final Object spec) {
         final List<String> overridden = new ArrayList<>();
         byVariable.forEach((variable, leaf) -> {
             final String raw = environment.apply(variable);
@@ -116,8 +117,12 @@ public final class EnvOverlay {
         return overridden;
     }
 
-    /** The variable name that overrides a given config path, for error messages and docs. */
-    public @NotNull Map<String, SpecPaths.Leaf> variables() {
+    /**
+     * The variable name that overrides a given config path, for error messages and docs.
+     *
+     * @return every config path, keyed by the environment variable that overrides it
+     */
+    public Map<String, SpecPaths.Leaf> variables() {
         return Map.copyOf(byVariable);
     }
 
@@ -134,8 +139,7 @@ public final class EnvOverlay {
             if (type == double.class || type == Double.class) return Double.parseDouble(raw);
             if (type.isEnum()) return parseEnum(type, raw, variable);
             if (List.class.isAssignableFrom(type) && isStringList(leaf)) {
-                // The overwhelmingly common list is a list of strings, and a comma-separated
-                // value is far friendlier in a docker-compose file than JSON.
+                // A comma-separated value is far friendlier in a docker-compose file than JSON.
                 return Arrays.stream(raw.split(","))
                         .map(String::trim)
                         .filter(s -> !s.isEmpty())
@@ -158,8 +162,7 @@ public final class EnvOverlay {
     }
 
     private static boolean parseBoolean(final String raw, final String variable) {
-        // Boolean.parseBoolean turns every typo into false, which is exactly the kind of silent
-        // misconfiguration this whole change is about.
+        // Boolean.parseBoolean turns any typo into false; reject one instead of parsing silently.
         final String value = raw.toLowerCase(Locale.ROOT);
         if (value.equals("true") || value.equals("yes") || value.equals("1")) return true;
         if (value.equals("false") || value.equals("no") || value.equals("0")) return false;

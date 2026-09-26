@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -39,19 +39,20 @@ import java.lang.annotation.Target;
 
 /**
  * An annotation that allows to compute certain values and cache their result.
- * <p>
+ *
  * This is very useful for heavy, repetitive computations that depend
  * on the configuration values.
- * <p>
+ *
  * Note: {@link Memoize @Memoize} does not (yet) consider arguments
  * when caching values. Therefore, it is best to just use it to compute the
  * parts that depend on the configuration values
- * <p>
+ *
  * Reloading, resetting, or calling a setter will re-compute
  * all memoized values.
- * <p>
+ *
  * Example:
- * <pre>{@code @ConfigSpec
+ * {@snippet lang="java" :
+ * @ConfigSpec
  * public interface SearchArea {
  *
  *     default double radius() {
@@ -71,25 +72,20 @@ import java.lang.annotation.Target;
  *         System.out.println("Computing r^2");
  *         return radius() * radius();
  *     }
- * }}</pre>
+ * }
+ * }
  *
- * <pre>{@code
+ * Calling it:
+ * {@snippet lang="java" :
  * SearchArea area = Specs.createDefault(SearchArea.class);
  * System.out.println(area.radiusCubed());
  * System.out.println(area.radiusCubed());
  * area.setRadius(10);
  * System.out.println(area.radiusCubed());
  * System.out.println(area.radiusCubed());
- * }</pre>
- * Will print:
- * <pre>
- * Computing r^3
- * 125.0
- * 125.0
- * Computing r^3
- * 1000.0
- * 1000.0
- * </pre>
+ * }
+ * prints {@code Computing r^3}, {@code 125.0}, {@code 125.0}, {@code Computing r^3},
+ * {@code 1000.0}, {@code 1000.0} - the setter invalidates the cache, a plain read does not.
  */
 @HandledByProxy
 @Target(ElementType.METHOD)

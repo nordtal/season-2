@@ -2,8 +2,8 @@ package eu.nordtal.jcore.config.schema;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import eu.nordtal.jcore.config.AtomicConfigWriter;
 import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.jcore.config.internal.AtomicConfigWriter;
 import eu.nordtal.jcore.config.spec.SpecProperty;
 import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.annotation.AllowedValues;
@@ -23,26 +23,24 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Writes {@code <name>.schema.json} beside {@code <name>.yml} - the same operation that writes
- * the YAML writes this too, so the two cannot drift apart the way a schema kept somewhere else
- * could (steward/50, steward/54).
- * <p>
+ * Writes {@code <name>.schema.json} beside {@code <name>.yml}, in the same operation that writes the YAML.
+ *
  * Every setting the schema carries: the plain-language name, the allowed values (and whether the
  * list is closed or a suggestion), whether no explanation is needed, whether it is a secret, the
  * short explanation text, and the type and kind - already exactly what
  * {@link SchemaNode} documents. The group is not a separate field; it is the nesting of the
  * schema tree itself, which mirrors the YAML's own nesting.
- * <p>
- * The file-level {@code @ConfigSpec(header = {...})} is the root node's {@code explanation}
- * (steward/67, 2026-09-16) - see {@link #headerOf}. Before that it was written nowhere: 4.0.0 took
- * the header out of the YAML and gave it no new home.
- * <p>
- * A list-of-settings property carrying {@code @Protected} (steward/74) gets a
+ *
+ * The file-level {@code @ConfigSpec(header = {...})} is the root node's {@code explanation} - see
+ * {@link #headerOf}. Nothing else writes the header anywhere; it is otherwise carried in no file
+ * at all.
+ *
+ * A list-of-settings property carrying {@code @Protected} gets a
  * {@link SchemaNode#protectedEntry()} naming the one entry a consumer must never let an operator
- * remove - before this, the shape a list's own entries take was all a schema could describe, never
+ * remove - the shape a list's own entries take is otherwise all a schema can describe, never
  * a rule about one specific value among them.
  */
 public final class SchemaWriter {
@@ -50,12 +48,12 @@ public final class SchemaWriter {
     /**
      * Pretty-printed, and <b>not</b> HTML-escaped.
      *
-     * <p>Gson escapes {@code '}, {@code <}, {@code >} and {@code &} by default, for a JSON document
+     * Gson escapes apostrophes, angle brackets and ampersands by default, for a JSON document
      * that is about to be pasted into HTML. A schema file is not: it is written beside a config
      * file and read by a JVM, and the only other reader is a person opening it to see what the
-     * shape is. Measured 2026-09-16, {@code bot.schema.json} carried {@code &#39;} in two places of
-     * its file header, which is legal JSON, correct on screen, and unreadable in the file. The owner
-     * asked for it to go (steward/67, 2026-09-17).</p>
+     * shape is. Leaving Gson's default escaping on turns every apostrophe in a header or
+     * explanation into its numeric character reference, which is legal JSON, correct on screen,
+     * and unreadable in the file itself.
      */
     private static final Gson GSON =
             new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
@@ -68,19 +66,18 @@ public final class SchemaWriter {
      * @param specType the spec interface
      * @return the root node, always {@link SettingKind#MAP}
      */
-    public static @NotNull SchemaNode build(final @NotNull Class<?> specType) {
+    public static SchemaNode build(final Class<?> specType) {
         return new SchemaNode(
                 SettingKind.MAP, "", headerOf(specType), false, false, null, null, childrenOf(specType), null);
     }
 
     /**
-     * The path {@link #write} uses for a given YAML file: the same directory, {@code .yml} (or
-     * {@code .yaml}) replaced with {@code .schema.json}.
+     * The path {@link #write} uses for a given YAML file: the directory, with {@code .schema.json} for the extension.
      *
      * @param ymlFile the configuration file
      * @return the sibling schema file
      */
-    public static @NotNull Path schemaFileFor(final @NotNull Path ymlFile) {
+    public static Path schemaFileFor(final Path ymlFile) {
         final String name = ymlFile.getFileName().toString();
         final String base;
         if (name.endsWith(".yml")) {
@@ -99,24 +96,24 @@ public final class SchemaWriter {
      * @param ymlFile  the configuration file the schema describes
      * @param specType the spec interface
      */
-    public static void write(final @NotNull Path ymlFile, final @NotNull Class<?> specType) {
+    public static void write(final Path ymlFile, final Class<?> specType) {
         final String json = GSON.toJson(build(specType));
         AtomicConfigWriter.write(schemaFileFor(ymlFile), json);
     }
 
     /**
      * Asserts that {@code ymlFile} and its schema exist together, or that neither does.
-     * <p>
+     *
      * {@link #write} always writes both in the same call, so this can only fail if something
-     * outside this class removed one of the two afterwards - which is exactly the state steward/54
-     * calls an error rather than a state to render around: a schema with no file behind it
+     * outside this class removed one of the two afterwards - which is an error rather than a state
+     * to render around: a schema with no file behind it
      * describes nothing real, and a file with no schema is exactly the staleness the whole
      * arrangement exists to prevent.
      *
      * @param ymlFile the configuration file
      * @throws ConfigException naming whichever of the two is missing
      */
-    public static void checkPaired(final @NotNull Path ymlFile) throws ConfigException {
+    public static void checkPaired(final Path ymlFile) throws ConfigException {
         final Path schemaFile = schemaFileFor(ymlFile);
         final boolean fileExists = Files.isRegularFile(ymlFile);
         final boolean schemaExists = Files.isRegularFile(schemaFile);
@@ -128,35 +125,30 @@ public final class SchemaWriter {
         }
     }
 
-    // ------------------------------------------------------------------------------------
-
     /**
-     * The file-level {@code @ConfigSpec(header = {...})} as one block of text, one array entry per
-     * line, or the empty string when the spec declares none.
-     * <p>
-     * steward/67, 2026-09-16. 4.0.0 stopped writing comments into the YAML, but it only moved the
-     * per-key {@code @Explain} text into this schema - {@code @Comment} reached no file at all
-     * until steward/72 (4.1.1) gave it a home too, as {@link #nodeFor}'s fallback for the (still
-     * common) case where a property has no {@code @Explain} of its own. The file-level header went
-     * nowhere either, exactly like {@code @Comment}, so it was written into no file any more. That
-     * is not a cosmetic loss:
+     * The file-level {@code @ConfigSpec(header = {...})} as one block of text, or empty when the spec declares none.
+     *
+     * The per-key {@code @Explain} text goes into this schema; {@code @Comment} reaches no other
+     * file, so {@link #nodeFor} falls back to it for the (still common) case where a property
+     * has no {@code @Explain} of its own. The file-level header goes nowhere else either, so it
+     * is written into no file but this one. That is not a cosmetic detail:
      * season-2's {@code BotSpec} uses its header for the only sentence anywhere that tells an
      * operator the Discord token and the bunq key come from {@code NORDTAL_BOT_TOKEN} and friends
-     * rather than from the file they are looking at. A season-2 test caught it going red.
-     * <p>
+     * rather than from the file they are looking at.
+     *
      * The root node is where it belongs, because a header describes the whole file exactly as the
      * root node does, and because it needs no new field that every consumer would then have to
      * learn about: anything already rendering {@code explanation} renders this for free.
-     * <p>
+     *
      * It lands on {@code explanation} and deliberately <b>not</b> on {@code label}. A label is a
      * name - {@code SettingLabels.of} turns {@code base-url} into {@code Base url}, two or three
      * words meant for a heading - and a header is prose, up to a dozen lines of it. Putting a
      * paragraph where a consumer expects a heading would break every caller that renders one.
-     * <p>
+     *
      * An absent or empty header stays the empty string, which is what {@code explanation} has
      * always been for a node with nothing to say, so nothing downstream has to change and no
      * placeholder text is invented.
-     * <p>
+     *
      * {@code headerOf} has already split every array entry on {@code '\n'}, so joining the result
      * with {@code '\n'} returns the author's text unchanged rather than doubling a line break.
      * Blank entries are kept: {@code BotSpec}'s header is paragraphs separated by empty lines, and
@@ -169,11 +161,11 @@ public final class SchemaWriter {
      * @param specType the spec interface
      * @return the header text, or {@code ""}
      */
-    private static @NotNull String headerOf(final @NotNull Class<?> specType) {
+    private static String headerOf(final Class<?> specType) {
         return String.join("\n", Specs.from(specType).headers());
     }
 
-    private static @NotNull Map<String, SchemaNode> childrenOf(final @NotNull Class<?> specType) {
+    private static Map<String, SchemaNode> childrenOf(final Class<?> specType) {
         final Map<String, SchemaNode> children = new LinkedHashMap<>();
         for (final SpecProperty property : Specs.from(specType).properties().values()) {
             // @Reload / @Save / @AsMap: proxy-handled accessors, not a YAML key of their own.
@@ -185,7 +177,13 @@ public final class SchemaWriter {
         return children;
     }
 
-    private static @NotNull SchemaNode nodeFor(final @NotNull SpecProperty property) {
+    /**
+     * {@code @Explain} wins when present; otherwise {@code @Comment}'s text is used, so the field is never left empty.
+     *
+     * @param property the property to read {@code @Explain}/{@code @Comment}/{@code @NoExplanationNeeded} off
+     * @return the explanation text and whether a missing one is deliberate
+     */
+    private static ExplanationInfo explanationOf(final SpecProperty property) {
         final Method getter = property.getter();
         final Explain explain = getter.getAnnotation(Explain.class);
         final Comment comment = getter.getAnnotation(Comment.class);
@@ -194,22 +192,23 @@ public final class SchemaWriter {
             throw new IllegalArgumentException("Property '" + property.key() + "' carries both @Explain and"
                     + " @NoExplanationNeeded - decide which one this setting means.");
         }
-        // steward/72: @Explain always wins when it is present - it is the sentence somebody wrote
-        // on purpose for this interface, and @Comment is not a second vote on the same field, it
-        // is the long form for a different reader (see @Explain's own javadoc). When @Explain is
-        // absent, which is still true of most of the codebase, @Comment's text is used instead of
-        // leaving the field empty: a long explanation nobody has shortened yet is still enormously
-        // more useful than none. @Comment is a String[], one array entry per line - joined with
-        // '\n' rather than a space, because a blank entry is a paragraph break the source author
-        // put there on purpose (see Explain's own javadoc example) and the interface already
-        // renders a multi-line explanation. Neither annotation present stays "", exactly as before.
         final String explanation =
                 explain != null ? explain.value() : comment != null ? String.join("\n", comment.value()) : "";
-        final boolean skipExplanation = noExplanationNeeded != null;
+        return new ExplanationInfo(explanation, noExplanationNeeded != null);
+    }
+
+    /** The result of {@link #explanationOf}. */
+    private record ExplanationInfo(String explanation, boolean skipExplanation) {}
+
+    private static SchemaNode nodeFor(final SpecProperty property) {
+        final Method getter = property.getter();
+        final ExplanationInfo explanationInfo = explanationOf(property);
+        final String explanation = explanationInfo.explanation();
+        final boolean skipExplanation = explanationInfo.skipExplanation();
         final boolean secret = getter.isAnnotationPresent(Secret.class);
         final String label = labelOf(property);
         final Class<?> type = property.type();
-        final Protected protectedAnnotation = getter.getAnnotation(Protected.class);
+        final @Nullable Protected protectedAnnotation = getter.getAnnotation(Protected.class);
 
         if (Specs.isConfigSpec(type)) {
             refuseProtectedOutsideAListOfSettings(protectedAnnotation, property.key());
@@ -256,12 +255,11 @@ public final class SchemaWriter {
     }
 
     /**
-     * The name a setting or section is shown under: the getter's {@link Name @Name}, else, for a
-     * section, the {@code @Name} on the nested spec interface, else the name {@link SettingLabels}
-     * derives from the key. A list of sections does not take the interface's name: that names one
-     * entry, not the list.
+     * The name a setting is shown under: the getter's {@code @Name}, the nested interface's {@code @Name}, or the key.
+     *
+     * A list of sections does not take the interface's name: that names one entry, not the list.
      */
-    static @NotNull String labelOf(final @NotNull SpecProperty property) {
+    static String labelOf(final SpecProperty property) {
         final Name own = property.getter().getAnnotation(Name.class);
         if (own != null) {
             return own.value();
@@ -277,14 +275,10 @@ public final class SchemaWriter {
     }
 
     /**
-     * {@code @Protected} only ever makes sense on a property whose element type is itself a
-     * {@code @ConfigSpec} - a plain scalar, a nested map or a list of scalars has no field of its
-     * own to match a protected value against, so a schema built from one would carry a rule nothing
-     * could ever act on. Refusing here is the same choice {@link #nodeFor} already makes for
-     * {@code @Explain} beside {@code @NoExplanationNeeded}: a contradiction the writer will not
-     * guess at.
+     * {@code @Protected} only makes sense on a property whose element type is itself a {@code @ConfigSpec}.
      */
-    private static void refuseProtectedOutsideAListOfSettings(final Protected annotation, final String propertyKey) {
+    private static void refuseProtectedOutsideAListOfSettings(
+            final @Nullable Protected annotation, final String propertyKey) {
         if (annotation != null) {
             throw new IllegalArgumentException("Property '" + propertyKey + "' carries @Protected, but"
                     + " it is not a list of nested settings - @Protected only makes sense there, since"
@@ -293,15 +287,14 @@ public final class SchemaWriter {
     }
 
     /**
-     * Builds the {@link SchemaNode.ProtectedEntry} a list-of-settings property's {@code @Protected}
-     * describes, or {@code null} when it carries none.
+     * Builds the {@link SchemaNode.ProtectedEntry} a list property's {@code @Protected} describes, or {@code null}.
      *
      * @throws IllegalArgumentException if {@link Protected#field()} names a field the element type
      *                                  does not have - a typo here would otherwise silently protect
      *                                  nothing, which is worse than refusing to build the schema
      */
-    private static SchemaNode.ProtectedEntry protectedEntryOf(
-            final Protected annotation, final Class<?> elementType, final String propertyKey) {
+    private static SchemaNode.@Nullable ProtectedEntry protectedEntryOf(
+            final @Nullable Protected annotation, final Class<?> elementType, final String propertyKey) {
         if (annotation == null) {
             return null;
         }
@@ -313,16 +306,14 @@ public final class SchemaWriter {
         return new SchemaNode.ProtectedEntry(annotation.field(), annotation.value());
     }
 
-    private static boolean isCollection(final @NotNull Class<?> type) {
+    private static boolean isCollection(final Class<?> type) {
         return Collection.class.isAssignableFrom(type) || type.isArray();
     }
 
     /**
-     * The element type of a list-shaped property, mirroring
-     * {@code ConfigEntry}'s own rule: the type its entries share, or {@code String} when they are
-     * mixed, generic or there is no declared element type to read.
+     * The element type of a list-shaped property: the type its entries share, or {@code String} when there is none.
      */
-    private static @NotNull Class<?> collectionElementType(final @NotNull Method getter) {
+    private static Class<?> collectionElementType(final Method getter) {
         if (getter.getReturnType().isArray()) {
             return getter.getReturnType().getComponentType();
         }
@@ -336,7 +327,7 @@ public final class SchemaWriter {
         return String.class;
     }
 
-    private static @NotNull SettingType scalarTypeOf(final @NotNull Class<?> type) {
+    private static SettingType scalarTypeOf(final Class<?> type) {
         if (type == boolean.class || type == Boolean.class) {
             return SettingType.BOOLEAN;
         }
@@ -357,7 +348,7 @@ public final class SchemaWriter {
         return SettingType.STRING;
     }
 
-    private static SchemaNode.Choices choicesOf(final @NotNull Method getter, final @NotNull Class<?> type) {
+    private static SchemaNode.@Nullable Choices choicesOf(final Method getter, final Class<?> type) {
         final AllowedValues allowedValues = getter.getAnnotation(AllowedValues.class);
         if (type.isEnum()) {
             final List<String> values = allowedValues != null

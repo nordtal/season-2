@@ -8,8 +8,7 @@ class SettingLabelsTest {
 
     @Test
     void aChangeOfCaseIsAWordBoundary() {
-        // bStats and spark write camelCase keys and ship no schema; without this they read as
-        // "Serveruuid" and "Logfailedrequests".
+        // A change of case is a word boundary even without a separator, e.g. "serverUuid".
         assertEquals("Log failed requests", SettingLabels.of("logFailedRequests"));
         assertEquals("Background profiler", SettingLabels.of("backgroundProfiler"));
     }

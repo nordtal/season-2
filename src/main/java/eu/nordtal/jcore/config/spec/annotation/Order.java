@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -38,14 +38,13 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Sets the index of the spec field according to other fields. This helps
- * ensure values come out in a specific order, as neither Gson nor Java guarantee
- * the field order.
- * <p>
- * Lower values come first.
- * <p>
+ * Sets the index of the spec field relative to other fields; lower values come first.
+ *
+ * Neither Gson nor Java guarantee field order on their own, so this is what fixes it.
+ *
  * Example:
- * <pre>{@code @ConfigSpec
+ * {@snippet lang="java" :
+ * @ConfigSpec
  * public interface GameSettings {
  *
  *     @Order(0)
@@ -55,7 +54,8 @@ import java.lang.annotation.Target;
  *
  *     @Order(1)
  *     String cooldownMessage();
- * }}</pre>
+ * }
+ * }
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

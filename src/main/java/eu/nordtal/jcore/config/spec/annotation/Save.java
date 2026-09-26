@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -39,11 +39,12 @@ import java.lang.annotation.Target;
 
 /**
  * Marks a function as being the reload function for a {@link ConfigSpec}.
- * <p>
+ *
  * Note that only top-level values can be saved!
- * <p>
+ *
  * Example:
- * <pre>{@code @ConfigSpec
+ * {@snippet lang="java" :
+ * @ConfigSpec
  * public interface GameSettings {
  *
  *     @Comment("The cooldown message. Use %cooldown% as a placeholder.")
@@ -53,7 +54,8 @@ import java.lang.annotation.Target;
  *
  *     @Save
  *     void save();
- * }}</pre>
+ * }
+ * }
  */
 @HandledByProxy
 @Target(ElementType.METHOD)

@@ -66,10 +66,7 @@ public final class TestSpecs {
         }
     }
 
-    /**
-     * The shape jcore is weakest on: a list of nested objects. Modelled on nordtal-smp's
-     * WorldsConfig, which is the most demanding real config in the workspace.
-     */
+    /** A list of nested objects - the shape jcore's serialization is weakest on. */
     @ConfigSpec(header = "Worlds")
     public interface Worlds {
 
@@ -139,10 +136,10 @@ public final class TestSpecs {
     }
 
     /**
-     * Covers every schema-only annotation in one place: {@code @Explain} beside a long
-     * {@code @Comment}, {@code @NoExplanationNeeded}, {@code @Secret}, a strict
-     * {@code @AllowedValues}, a suggestion {@code @AllowedValues}, and a plain Java
-     * {@code enum} property, which needs none of them.
+     * Covers every schema-only annotation in one place.
+     *
+     * {@code @Explain} beside a long {@code @Comment}, {@code @NoExplanationNeeded}, {@code @Secret}, a strict
+     * and a suggestion {@code @AllowedValues}, and a plain {@code enum} property that needs none of them.
      */
     @ConfigSpec(header = "Schema example")
     public interface SchemaExample {

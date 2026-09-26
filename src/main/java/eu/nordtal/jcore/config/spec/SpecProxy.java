@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -40,10 +40,12 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 final class SpecProxy<T> implements InvocationHandler {
 
-    public static <T> T proxy(Class<T> type, Supplier<T> supplier, Runnable onReload, Runnable onSave) {
+    public static <T> T proxy(
+            final Class<T> type, final Supplier<T> supplier, final Runnable onReload, final Runnable onSave) {
         //noinspection unchecked
         return (T) Proxy.newProxyInstance(
                 type.getClassLoader(), new Class<?>[] {type}, new SpecProxy<>(type, supplier, onReload, onSave));
@@ -54,17 +56,18 @@ final class SpecProxy<T> implements InvocationHandler {
     private final Runnable onReload;
     private final Runnable onSave;
 
-    SpecProxy(Class<?> type, Supplier<T> supplier, Runnable onReload, Runnable onSave) {
+    SpecProxy(final Class<?> type, final Supplier<T> supplier, final Runnable onReload, final Runnable onSave) {
         this.type = type;
         this.supplier = supplier;
         this.onReload = onReload;
         this.onSave = onSave;
     }
 
-    private MethodHandle reloadDef, saveDef;
+    private @Nullable MethodHandle reloadDef;
+    private @Nullable MethodHandle saveDef;
 
     @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    public @Nullable Object invoke(final Object proxy, final Method method, final Object[] args) throws Throwable {
         if (method.isAnnotationPresent(Reload.class)) {
             onReload.run();
             if (method.isDefault()) {
@@ -85,7 +88,7 @@ final class SpecProxy<T> implements InvocationHandler {
             }
             return null;
         }
-        T instance = supplier.get();
+        final T instance = supplier.get();
         return method.invoke(instance, args);
     }
 }

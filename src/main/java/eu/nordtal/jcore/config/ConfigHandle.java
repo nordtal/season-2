@@ -6,7 +6,6 @@ import eu.nordtal.jcore.config.exception.ConfigReadException;
 import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.exception.ConfigWriteException;
 import eu.nordtal.jcore.config.exception.UnknownConfigKeyException;
-import eu.nordtal.jcore.config.internal.AtomicConfigWriter;
 import eu.nordtal.jcore.config.internal.EnvOverlay;
 import eu.nordtal.jcore.config.internal.SpecPaths;
 import eu.nordtal.jcore.config.internal.UnknownKeyDetector;
@@ -14,7 +13,6 @@ import eu.nordtal.jcore.config.schema.SchemaWriter;
 import eu.nordtal.jcore.config.spec.ArrayCommentStyle;
 import eu.nordtal.jcore.config.spec.CommentedConfiguration;
 import eu.nordtal.jcore.config.spec.ManagedSpecReference;
-import eu.nordtal.jcore.config.spec.Specs;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -23,46 +21,39 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Unmodifiable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * A live handle on one YAML configuration file and its schema.
- * <p>
+ *
  * Obtain one from {@link ConfigLoader}. {@link #get()} returns a stable instance of the spec
  * interface that always reads the current values, so it is safe to store in a field across a
  * reload.
  *
- * <h2>What a load does, in order</h2>
- * <ol>
- *   <li>write a defaults file if none exists;</li>
- *   <li>read the file and reject any key that reads as a <i>mistyped</i> declared setting,
- *       <b>without touching the file</b>. A key that resembles nothing declared is a setting the
- *       spec has since dropped; it is logged and removed by the write in step 4;</li>
- *   <li>deserialize;</li>
- *   <li>if the canonical rendering differs from what is on disk - a new setting or a value
- *       normalised - back the file up to {@code .bak} and rewrite it atomically. The YAML carries
- *       no comments; see {@link eu.nordtal.jcore.config.schema.SchemaWriter} for where the
- *       explanations went;</li>
- *   <li>write this spec's {@code config.schema.json} beside the file, every time, whether or not
- *       step 4 changed anything - a {@code @Explain} or {@code @AllowedValues} edit never changes
- *       the rendered YAML, but it must never leave the schema stale either;</li>
- *   <li>apply the environment overlay <b>after</b> that write, so an overridden value can never
- *       reach the file;</li>
- *   <li>validate;</li>
- *   <li>run the load hook - <b>always</b>, whether or not anything changed.</li>
- * </ol>
+ * <b>What a load does, in order:</b> (1) write a defaults file if none exists; (2) read the file
+ * and reject any key that reads as a <i>mistyped</i> declared setting, <b>without touching the
+ * file</b> - a key that resembles nothing declared is a setting the spec has since dropped, and it
+ * is logged and removed by the write in step 4; (3) deserialize; (4) if the canonical rendering
+ * differs from what is on disk - a new setting or a value normalised - back the file up to
+ * {@code .bak} and rewrite it atomically. The YAML carries no comments; see
+ * {@link eu.nordtal.jcore.config.schema.SchemaWriter} for where the explanations went; (5) write
+ * this spec's {@code config.schema.json} beside the file, every time, whether or not step 4
+ * changed anything - a {@code @Explain} or {@code @AllowedValues} edit never changes the rendered
+ * YAML, but it must never leave the schema stale either; (6) apply the environment overlay
+ * <b>after</b> that write, so an overridden value can never reach the file; (7) validate; (8) run
+ * the load hook - <b>always</b>, whether or not anything changed.
  * The load hook step is where the old loader went wrong: it ran {@code postLoad()} only when the
  * diff was non-empty, so in the normal case of a file that already matched the class the hook
  * never ran at all.
  *
- * <h2>Threading</h2>
- * Reads through {@link #get()} are lock-free. {@link #reload()} and {@link #save()} take a write
+ * <b>Threading:</b> reads through {@link #get()} are lock-free. {@link #reload()} and
+ * {@link #save()} take a write
  * lock that is shared by every handle on the same file, so a reload can never be observed
  * half-applied and two handles cannot write over each other.
  *
@@ -73,8 +64,7 @@ public final class ConfigHandle<T> {
     private static final Logger LOG = LoggerFactory.getLogger(ConfigHandle.class);
 
     /**
-     * One lock per file, not per handle: two handles on the same path must serialise against
-     * each other, which a per-instance lock would not do.
+     * One lock per file, not per handle, so two handles on the same path still serialise against each other.
      */
     private static final Map<Path, ReentrantReadWriteLock> LOCKS = new ConcurrentHashMap<>();
 
@@ -109,21 +99,30 @@ public final class ConfigHandle<T> {
 
     /**
      * The configuration. The returned instance is stable across reloads - keep it in a field.
+     *
+     * @return the stable spec instance
      */
-    public @NotNull T get() {
+    public T get() {
         return reference.get();
     }
 
-    /** The file this handle reads and writes. */
-    public @NotNull Path file() {
+    /**
+     * The file this handle reads and writes.
+     *
+     * @return the config file
+     */
+    public Path file() {
         return file;
     }
 
     /**
-     * The config paths whose value currently comes from an environment variable rather than the
-     * file. The values themselves are not exposed; any of them could be a secret.
+     * The config paths whose value currently comes from an environment variable rather than the file.
+     *
+     * The values themselves are not exposed; any of them could be a secret.
+     *
+     * @return the overridden config paths
      */
-    public @NotNull @Unmodifiable List<String> environmentOverrides() {
+    public List<String> environmentOverrides() {
         return overriddenPaths;
     }
 
@@ -144,8 +143,8 @@ public final class ConfigHandle<T> {
 
     /**
      * Writes the current values back to the file, atomically, and refreshes its schema.
-     * Environment-supplied values are restored to their file values first, so an override is
-     * never persisted.
+     *
+     * Environment-supplied values are restored to their file values first, so an override is never persisted.
      *
      * @throws ConfigException if the file cannot be written
      */
@@ -157,11 +156,9 @@ public final class ConfigHandle<T> {
                 throw new ConfigException("Cannot save " + file + ": it has not been loaded yet.");
             }
             final Map<String, Object> overridden = SpecPaths.snapshot(value, overriddenPaths);
-            final Map<String, Object> fileValues = fileValuesFor(value);
+            final Map<String, Object> fileValues = fileValuesFor();
             try {
-                // Put the file's own values back for every overridden path, write, then restore
-                // the overrides in memory. Otherwise a password handed in through the
-                // environment would be written into a mounted config volume.
+                // Restore file values before writing, or an environment-supplied password reaches the volume.
                 fileValues.forEach((path, fileValue) -> SpecPaths.set(value, path, fileValue));
                 write(configurationFor(value));
             } finally {
@@ -174,8 +171,6 @@ public final class ConfigHandle<T> {
         }
     }
 
-    // ------------------------------------------------------------------------------------
-
     void loadInitially() throws ConfigException {
         lock.writeLock().lock();
         try {
@@ -185,10 +180,39 @@ public final class ConfigHandle<T> {
         }
     }
 
+    /** {@link #doLoad}'s deserialized value together with the settings the spec no longer declares. */
+    private record ParsedValue<V>(V value, List<String> retired) {}
+
     private void doLoad() throws ConfigException {
         final boolean fresh = !Files.isRegularFile(file);
         final CommentedConfiguration configuration = newConfiguration();
 
+        readConfiguration(configuration);
+
+        final ParsedValue<T> parsed = parseValue(configuration);
+        final T value = parsed.value();
+
+        normalizeAndWrite(configuration, value, parsed.retired(), fresh);
+
+        // Unconditional: an @Explain/@AllowedValues/header edit changes the schema without changing the YAML.
+        try {
+            SchemaWriter.write(file, specType);
+        } catch (UncheckedIOException e) {
+            throw new ConfigWriteException(file, specType, e.getCause());
+        }
+        SchemaWriter.checkPaired(file);
+
+        final List<String> overridden = applyOverlay(value);
+        validateValue(value);
+
+        reference.set(value);
+        this.overriddenPaths = List.copyOf(overridden);
+
+        // Unconditional: whether the file changed says nothing about whether post-load wiring is still needed.
+        onLoad.accept(reference.get());
+    }
+
+    private void readConfiguration(final CommentedConfiguration configuration) throws ConfigException {
         try {
             configuration.load();
         } catch (UncheckedIOException e) {
@@ -196,17 +220,16 @@ public final class ConfigHandle<T> {
         } catch (RuntimeException e) {
             throw new ConfigReadException("Cannot parse config file " + file + ": " + e.getMessage(), e);
         }
+    }
 
-        // A key the spec does not declare is one of two things, and they want opposite answers.
-        //
-        // If it resembles a declared key, the operator meant that key and mistyped it. Only they
-        // know what they meant, so the load is refused and the file is left exactly as it is -
-        // deleting the line would cost them the setting and the evidence at once.
-        //
-        // If it resembles nothing declared, the setting has been removed from the software. There
-        // is nothing for the operator to fix and nothing for them to decide; refusing to start
-        // over a line that no longer means anything takes a whole network down for a key that is
-        // already dead. It is dropped by the write below, named in the log, and still in the .bak.
+    /**
+     * A key the spec does not declare is either a typo of a declared key or a retired setting.
+     *
+     * A probable typo refuses the load and leaves the file untouched, since only the operator knows what they
+     * meant. A retired key has nothing to fix, so it is dropped by the write below, named in the log, and kept
+     * in the {@code .bak}.
+     */
+    private ParsedValue<T> parseValue(final CommentedConfiguration configuration) throws ConfigException {
         final List<UnknownKeyDetector.UnknownKey> unknown =
                 UnknownKeyDetector.detect(specType, configuration.getData());
         final List<UnknownKeyDetector.UnknownKey> mistyped = unknown.stream()
@@ -220,15 +243,19 @@ public final class ConfigHandle<T> {
 
         final T value;
         try {
-            value = configuration.getAs(specType);
+            value = Objects.requireNonNull(
+                    specType.cast(configuration.getAs(specType)), "a loaded config is never JSON null");
         } catch (RuntimeException e) {
             throw new ConfigReadException(
                     "Cannot read config file " + file + " as " + specType.getSimpleName() + ": " + e.getMessage(), e);
         }
+        return new ParsedValue<>(value, retired);
+    }
 
-        // Normalise: adds settings that were not in the file yet and fixes ordering. Only writes
-        // when the result actually differs. Comments and the header are not part of "normalise"
-        // any more - the YAML carries neither, and the header is in the schema (steward/67).
+    /** Adds settings missing from the file and fixes ordering. Writes only when the result actually differs. */
+    private void normalizeAndWrite(
+            final CommentedConfiguration configuration, final T value, final List<String> retired, final boolean fresh)
+            throws ConfigException {
         try {
             configuration.setTo(value, specType);
             final String rendered = configuration.render();
@@ -243,8 +270,7 @@ public final class ConfigHandle<T> {
                     LOG.info("Config file {} was brought up to date; the previous content is in {}.bak", file, file);
                 }
                 if (!retired.isEmpty()) {
-                    // The paths, never the values - a setting that has been retired can still
-                    // have been a password. The .bak written just above is where the values are.
+                    // Log the paths, never the values: a retired setting can still have been a password.
                     LOG.warn(
                             "{}: {} setting(s) no longer exist and were removed from the file: {}."
                                     + " They are still in {}.bak if you need what they said.",
@@ -257,24 +283,15 @@ public final class ConfigHandle<T> {
         } catch (UncheckedIOException e) {
             throw new ConfigWriteException(file, specType, e.getCause());
         }
+    }
 
-        // Unconditional, unlike the YAML write just above: an @Explain, @AllowedValues or
-        // @ConfigSpec(header) edit never changes the rendered YAML (it carries no comments any
-        // more), but it does change the schema, and the schema must never lag behind what the
-        // interface currently says.
-        try {
-            SchemaWriter.write(file, specType);
-        } catch (UncheckedIOException e) {
-            throw new ConfigWriteException(file, specType, e.getCause());
-        }
-        SchemaWriter.checkPaired(file);
-
-        // After the write, so overrides never reach the file.
+    /** Applies the environment overlay, after the file write above so overrides never reach the file. */
+    private List<String> applyOverlay(final T value) throws ConfigException {
         final List<String> overridden;
         try {
             overridden = overlay.applyTo(value);
         } catch (IllegalArgumentException e) {
-            throw new ConfigValidationException(file, e.getMessage(), e);
+            throw new ConfigValidationException(file, String.valueOf(e.getMessage()), e);
         }
         if (!overridden.isEmpty()) {
             // The paths, never the values - any one of them could be a secret.
@@ -284,25 +301,20 @@ public final class ConfigHandle<T> {
                     overridden.size(),
                     String.join(", ", overridden));
         }
+        return overridden;
+    }
 
-        // Validate before the new value is published. Otherwise a reload that fails validation
-        // would leave this handle holding values the application never accepted.
+    /** Validates before the new value is published, so a failed reload never leaves values the application rejected. */
+    private void validateValue(final T value) throws ConfigException {
         try {
             validator.validate(value);
         } catch (IllegalArgumentException e) {
-            throw new ConfigValidationException(file, e.getMessage(), e);
+            throw new ConfigValidationException(file, String.valueOf(e.getMessage()), e);
         }
-
-        reference.set(value);
-        this.overriddenPaths = List.copyOf(overridden);
-
-        // Unconditional. Whether the file changed says nothing about whether the application
-        // still needs its post-load wiring done.
-        onLoad.accept(reference.get());
     }
 
     /** The values as they are (or would be) in the file, for the overridden paths only. */
-    private Map<String, Object> fileValuesFor(final T value) throws ConfigException {
+    private Map<String, Object> fileValuesFor() throws ConfigException {
         if (overriddenPaths.isEmpty()) {
             return Map.of();
         }
@@ -313,8 +325,8 @@ public final class ConfigHandle<T> {
             throw new ConfigReadException("Cannot re-read config file " + file, e);
         }
         final Map<String, Object> values = new LinkedHashMap<>();
-        final T stored = onDisk.getData().isEmpty() ? null : onDisk.getAs(specType);
-        for (String path : overriddenPaths) {
+        final @Nullable T stored = onDisk.getData().isEmpty() ? null : specType.cast(onDisk.getAs(specType));
+        for (final String path : overriddenPaths) {
             values.put(path, stored == null ? null : SpecPaths.get(stored, path));
         }
         return values;
@@ -328,14 +340,9 @@ public final class ConfigHandle<T> {
 
     /**
      * A fresh, empty configuration for {@link #file}.
-     * <p>
-     * Carries no comments and no header - see {@link SchemaWriter}, which is where both now go:
-     * {@code @Explain} onto each setting's node and {@code @ConfigSpec(header = {...})} onto the
-     * root's explanation (steward/67). {@code @Comment} on a spec
-     * method still exists and is still read (it is what {@link Specs#from} builds
-     * {@code SpecClass#comments()} from), but nothing here feeds it to the YAML any more; the
-     * short text a {@code @Comment}'s long form used to double as belongs in
-     * {@code @Explain} and the schema instead.
+     *
+     * Carries no comments and no header: {@link SchemaWriter} puts {@code @Explain} onto each setting's
+     * node and {@code @ConfigSpec(header = {...})} onto the root's explanation.
      */
     private CommentedConfiguration newConfiguration() {
         return new CommentedConfiguration(file, gson, ArrayCommentStyle.COMMENT_FIRST_ELEMENT);
@@ -357,9 +364,9 @@ public final class ConfigHandle<T> {
     }
 
     /**
-     * Bridges the spec's {@code @Reload} / {@code @Save} methods, which cannot declare a checked
-     * exception, onto the checked API. A reload triggered from a command is still a failure the
-     * caller has to see.
+     * Bridges the spec's {@code @Reload}/{@code @Save} methods, which cannot declare a checked exception.
+     *
+     * A reload triggered from a command is still a failure the caller has to see.
      */
     private void reloadUnchecked() {
         try {

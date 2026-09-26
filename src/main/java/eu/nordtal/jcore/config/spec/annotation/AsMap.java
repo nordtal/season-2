@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -36,14 +36,13 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.jetbrains.annotations.NotNull;
 
 /**
- * Returns the {@link java.util.Map} representation of a given
- * {@link ConfigSpec} interface.
- * <p>
+ * Returns the {@link java.util.Map} representation of a given {@link ConfigSpec} interface.
+ *
  * Example:
- * <pre>{@code @ConfigSpec
+ * {@snippet lang="java" :
+ * @ConfigSpec
  * public interface GameSettings {
  *
  *     @Comment("The game cooldown")
@@ -59,7 +58,8 @@ import org.jetbrains.annotations.NotNull;
  *     @AsMap(AsMap.Behavior.CLONE)
  *     Map<String, Object> asMap();
  *
- * }}</pre>
+ * }
+ * }
  */
 @HandledByProxy
 @Target(ElementType.METHOD)
@@ -71,9 +71,9 @@ public @interface AsMap {
      *
      * @return The behavior of this {@link AsMap} method
      */
-    @NotNull
     Behavior value() default Behavior.IMMUTABLE_VIEW;
 
+    /** What an {@code @AsMap} method hands back. */
     enum Behavior {
 
         /**
@@ -82,14 +82,12 @@ public @interface AsMap {
         CLONE,
 
         /**
-         * Creates an immutable view of the underlying map. This is the default
-         * behavior
+         * Creates an immutable view of the underlying map. This is the default behavior
          */
         IMMUTABLE_VIEW,
 
         /**
-         * Returns the underlying map as-is. Modifying this map will modify
-         * the actual config spec.
+         * Returns the underlying map as-is. Modifying this map will modify the actual config spec.
          */
         UNDERLYING_MAP
     }

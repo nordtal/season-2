@@ -27,11 +27,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Drives {@link Database} against a real PostgreSQL server started by Testcontainers.
- * <p>
+ *
  * {@code @Testcontainers} disables the whole class when no Docker daemon is reachable, so
  * {@code ./gradlew build} still passes on machines and CI runners without Docker (JitPack, for
  * one) - the class is reported as skipped instead of failing.
- * </p>
  */
 @Testcontainers(disabledWithoutDocker = true)
 public class DatabaseIntegrationTest {

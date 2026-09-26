@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
-import eu.nordtal.jcore.config.internal.AtomicConfigWriter;
 import java.io.UncheckedIOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
@@ -17,7 +16,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -28,7 +26,6 @@ class AtomicConfigWriterTest {
     Path directory;
 
     @Test
-    @DisplayName("finding 3: a reader never observes a partially written file")
     void readerNeverSeesAFragment() throws Exception {
         final Path file = directory.resolve("config.yml");
         final String small = "value: " + "a".repeat(2_000) + "\n";
@@ -44,16 +41,13 @@ class AtomicConfigWriterTest {
             while (!stop.get()) {
                 try {
                     final String content = Files.readString(file);
-                    // Every read must be one of the two complete versions. The old writer could
-                    // be caught mid-write and hand back a truncated file - the probe for this
-                    // produced 70 bytes of invalid JSON.
+                    // Every read must be one of the two complete versions, never a fragment mid-write.
                     if (!content.equals(small) && !content.equals(large)) {
                         fragment.compareAndSet(null, "length " + content.length());
                         return;
                     }
                 } catch (Exception ignored) {
-                    // A momentarily absent file would also be a defect, but on the platforms we
-                    // deploy on the atomic move never exposes that window; keep looping.
+                    // A momentarily absent file is not a defect here; the atomic move never exposes that window.
                 }
             }
         });
@@ -70,18 +64,8 @@ class AtomicConfigWriterTest {
     }
 
     @Test
-    @DisplayName("finding 3: a disk with no room left leaves the previous content intact")
     void failedWriteKeepsPreviousContent() throws Exception {
-        // This used to take the write bit off the destination directory and call that a full disk.
-        // It is not one, and on a machine where the build runs as uid 0 it is not even a failure:
-        // root ignores the permission bits, the write succeeded, and the assertion below failed for
-        // a reason that had nothing to do with jcore. That was every build on the nordtal dev host,
-        // and it cost two agents a round each before anybody read it properly.
-        //
-        // So the failure is produced where it really comes from instead: a filesystem with a
-        // maximum size, in memory. No uid talks its way past a disk that is full, the promise being
-        // tested is exactly the one in the javadoc, and the test says the same thing on every
-        // machine.
+        // A size-limited in-memory filesystem simulates a full disk; permission bits don't fail for uid 0.
         try (FileSystem full = Jimfs.newFileSystem(
                 Configuration.unix().toBuilder().setMaxSize(64 * 1024).build())) {
             final Path file = full.getPath("/config/sub/config.yml");
@@ -98,7 +82,6 @@ class AtomicConfigWriterTest {
 
     /** Nothing is left lying around either - the temp file that did not fit has to go. */
     @Test
-    @DisplayName("a write that runs out of room leaves no temporary file behind")
     void failedWriteLeavesNoTemporaryFile() throws Exception {
         try (FileSystem full = Jimfs.newFileSystem(
                 Configuration.unix().toBuilder().setMaxSize(64 * 1024).build())) {
@@ -116,7 +99,6 @@ class AtomicConfigWriterTest {
     }
 
     @Test
-    @DisplayName("no temporary files are left behind")
     void leavesNoTemporaryFiles() throws Exception {
         final Path file = directory.resolve("config.yml");
         for (int i = 0; i < 5; i++) {
@@ -131,7 +113,6 @@ class AtomicConfigWriterTest {
     }
 
     @Test
-    @DisplayName("finding 4: a path with no parent directory is written to the working directory")
     void bareRelativePathHasNoParent() throws Exception {
         final Path bare = Path.of("jcore-atomic-test-" + System.nanoTime() + ".yml");
         try {
@@ -143,7 +124,6 @@ class AtomicConfigWriterTest {
     }
 
     @Test
-    @DisplayName("backup() copies the previous content and is a no-op for a missing file")
     void backupBehaviour() throws Exception {
         final Path file = directory.resolve("config.yml");
 

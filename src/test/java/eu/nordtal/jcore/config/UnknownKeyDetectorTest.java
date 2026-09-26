@@ -10,7 +10,6 @@ import eu.nordtal.jcore.config.internal.UnknownKeyDetector;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** The suggestion has to be good enough to act on, and quiet when it would be noise. */
@@ -19,7 +18,6 @@ class UnknownKeyDetectorTest {
     private static final List<String> KNOWN = List.of("check-interval-seconds", "confirmation-channel-id", "balance");
 
     @Test
-    @DisplayName("a one-character slip suggests the intended key")
     void suggestsOnTypo() {
         assertAll(
                 () -> assertEquals(
@@ -31,7 +29,6 @@ class UnknownKeyDetectorTest {
     }
 
     @Test
-    @DisplayName("a key that resembles nothing gets no suggestion, so the known list is shown instead")
     void noSuggestionForUnrelatedKey() {
         assertAll(
                 () -> assertNull(UnknownKeyDetector.suggest("completely-different-thing", KNOWN)),
@@ -39,13 +36,11 @@ class UnknownKeyDetectorTest {
     }
 
     @Test
-    @DisplayName("case is ignored when guessing")
     void caseInsensitive() {
         assertEquals("balance", UnknownKeyDetector.suggest("Balance", KNOWN));
     }
 
     @Test
-    @DisplayName("a correct tree produces no findings")
     void noFindingsForCorrectTree() {
         final Map<String, Object> data = new LinkedHashMap<>();
         data.put("check-interval-seconds", 10);
@@ -56,7 +51,6 @@ class UnknownKeyDetectorTest {
     }
 
     @Test
-    @DisplayName("every unknown key is reported, not just the first")
     void reportsAllUnknownKeys() {
         final Map<String, Object> data = new LinkedHashMap<>();
         data.put("check-interval-second", 10);
@@ -73,7 +67,6 @@ class UnknownKeyDetectorTest {
     }
 
     @Test
-    @DisplayName("having something to suggest is what separates a typo from a retired setting")
     void probableTypoTracksTheSuggestion() {
         final Map<String, Object> data = new LinkedHashMap<>();
         data.put("check-interval-second", 10);
@@ -81,15 +74,13 @@ class UnknownKeyDetectorTest {
 
         final List<UnknownKeyDetector.UnknownKey> found = UnknownKeyDetector.detect(TestSpecs.Payments.class, data);
 
-        // This is the whole decision: the first is refused and left in the file, the second is
-        // deleted by the next write.
+        // A typo is refused and kept; a retired key has nothing to suggest and is deleted.
         assertAll(
                 () -> assertTrue(found.get(0).probableTypo(), found.get(0).describe()),
                 () -> assertFalse(found.get(1).probableTypo(), found.get(1).describe()));
     }
 
     @Test
-    @DisplayName("the message names the known settings when there is nothing to suggest")
     void messageListsKnownSettings() {
         final Map<String, Object> data = new LinkedHashMap<>();
         data.put("totally-unrelated-setting", 1);

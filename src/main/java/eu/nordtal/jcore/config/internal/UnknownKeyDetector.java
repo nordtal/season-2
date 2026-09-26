@@ -9,57 +9,55 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Finds keys in a loaded config file that the spec interface does not declare.
- * <p>
- * The old loader deleted them silently: a typo made the value fall back to a default
- * <i>and</i> removed the operator's line from the file, with no warning and no backup. Inside a
- * list element it was worse - the value fell back to the default but the mistyped line stayed
- * visibly in the file, so the operator kept reading a setting that never took effect.
- * <p>
- * This walks the raw YAML tree against the spec's property tree, descends into nested specs
- * <b>and into the elements of lists of specs</b>, and reports every unknown key with its full
- * path and the closest declared key at that level.
- * <p>
- * Whether a finding has such a closest key is what tells the two cases apart. A key that
- * resembles a declared one is almost certainly a slip of the keyboard, and deleting it would
- * cost the operator the setting <i>and</i> the trace of it. A key that resembles nothing is a
- * setting the software used to have and does not any more - the operator cannot fix that by
- * editing, only by deleting the line, so the loader does it for them. See
- * {@link UnknownKey#probableTypo()}.
+ *
+ * A key that resembles a declared one reads as a slip of the keyboard: only the operator knows
+ * what they meant, so it is reported rather than silently discarded. A key that resembles nothing
+ * declared reads as retired: it no longer has a place in the spec. This walks the raw YAML tree
+ * against the spec's property tree, descending into nested specs and into the elements of lists
+ * of specs, and reports every unknown key with its full path and the closest declared key at that
+ * level. See {@link UnknownKey#probableTypo()}.
  */
 public final class UnknownKeyDetector {
 
-    /**
-     * The largest edit distance at which a declared key is still offered as "did you mean".
-     * Two edits catches ordinary typos and transpositions without suggesting an unrelated key.
-     */
+    /** The largest edit distance at which a declared key is still offered as "did you mean". */
     private static final int MAX_SUGGESTION_DISTANCE = 3;
 
     private UnknownKeyDetector() {}
 
-    /** One unknown key, with its full dotted path and the best guess at what was meant. */
-    public record UnknownKey(
-            @NotNull String path,
-            String suggestion,
-            @NotNull List<String> known) {
+    /**
+     * One unknown key.
+     *
+     * @param path       the full dotted path of the key
+     * @param suggestion the declared key it most likely mistypes, or {@code null} if none is close
+     * @param known      the declared keys at this level
+     */
+    public record UnknownKey(String path, @Nullable String suggestion, List<String> known) {
 
         /**
-         * Whether this reads as a mistyped declared key rather than as a setting that has been
-         * removed from the spec.
-         * <p>
+         * Whether this reads as a mistyped declared key rather than as a setting that has been removed from the spec.
+         *
          * A typo is refused, because the operator meant something by that line and only they know
          * what. A key that resembles nothing declared has no such reading: the spec no longer has
          * it, so it is dropped from the file on the next write.
+         *
+         * @return {@code true} if this key reads as a mistyped declared key
          */
         public boolean probableTypo() {
             return suggestion != null;
         }
 
-        public @NotNull String describe() {
+        /**
+         * A human-readable description of this unknown key, suitable for a log line.
+         *
+         * @return the description
+         */
+        public String describe() {
             if (suggestion != null) {
                 return "'" + path + "' is not a known setting - did you mean '" + suggestion + "'?";
             }
@@ -75,8 +73,7 @@ public final class UnknownKeyDetector {
      * @param data     the raw YAML tree as loaded from the file
      * @return the unknown keys, empty if the file matches the spec
      */
-    public static @NotNull List<UnknownKey> detect(
-            final @NotNull Class<?> specType, final @NotNull Map<String, Object> data) {
+    public static List<UnknownKey> detect(final Class<?> specType, final Map<String, Object> data) {
         final List<UnknownKey> found = new ArrayList<>();
         walk(specType, data, "", found);
         return found;
@@ -89,14 +86,14 @@ public final class UnknownKeyDetector {
             final List<UnknownKey> found) {
         final SpecClass spec = Specs.from(specType);
         final Map<String, SpecProperty> properties = new LinkedHashMap<>();
-        for (SpecProperty property : spec.properties().values()) {
+        for (final SpecProperty property : spec.properties().values()) {
             // Save/reload/reset methods are proxy plumbing, not file keys.
             if (!property.isHandledByProxy()) {
                 properties.put(property.key(), property);
             }
         }
 
-        for (Map.Entry<String, Object> entry : data.entrySet()) {
+        for (final Map.Entry<String, Object> entry : data.entrySet()) {
             final String key = entry.getKey();
             final String path = prefix.isEmpty() ? key : prefix + "." + key;
             final SpecProperty property = properties.get(key);
@@ -113,12 +110,10 @@ public final class UnknownKeyDetector {
                 continue;
             }
 
-            // Lists of nested specs. This is the case the old loader's diff was completely blind
-            // to, and the one that produced a wrong value that looked correct in the file.
             final Class<?> element = elementTypeOf(property);
             if (element != null && Specs.isConfigSpec(element) && value instanceof Collection<?> items) {
                 int index = 0;
-                for (Object item : items) {
+                for (final Object item : items) {
                     if (item instanceof Map<?, ?> itemMap) {
                         walk(element, cast(itemMap), path + "[" + index + "]", found);
                     }
@@ -129,10 +124,9 @@ public final class UnknownKeyDetector {
     }
 
     /**
-     * The element type of a list-valued or array-valued property, or {@code null} if the
-     * property is neither.
+     * The element type of a list-valued or array-valued property, or {@code null} if the property is neither.
      */
-    private static Class<?> elementTypeOf(final SpecProperty property) {
+    private static @Nullable Class<?> elementTypeOf(final SpecProperty property) {
         final Class<?> raw = property.type();
         if (raw.isArray()) {
             return raw.getComponentType();
@@ -156,21 +150,24 @@ public final class UnknownKeyDetector {
     }
 
     /**
-     * The declared key closest to {@code key} by edit distance, or {@code null} when nothing is
-     * close enough to be a useful guess.
+     * The declared key closest to {@code key} by edit distance, or {@code null} when nothing is close enough.
+     *
+     * @param key the unknown key read from the file
+     * @param candidates the declared keys at this level
+     * @return the closest declared key, or {@code null}
      */
-    public static String suggest(final @NotNull String key, final @NotNull Collection<String> candidates) {
-        String best = null;
+    public static @Nullable String suggest(final String key, final Collection<String> candidates) {
+        @Nullable String best = null;
         int bestDistance = Integer.MAX_VALUE;
-        for (String candidate : candidates) {
-            final int distance = levenshtein(key.toLowerCase(), candidate.toLowerCase());
+        for (final String candidate : candidates) {
+            final int distance =
+                    levenshtein(key.toLowerCase(Locale.getDefault()), candidate.toLowerCase(Locale.getDefault()));
             if (distance < bestDistance) {
                 bestDistance = distance;
                 best = candidate;
             }
         }
-        // Scale the threshold with the key length so a short key cannot match anything and a
-        // long one tolerates a couple of slips.
+        // Scale the threshold with key length: a short key cannot match anything by accident.
         final int limit = Math.min(MAX_SUGGESTION_DISTANCE, Math.max(1, key.length() / 3));
         return bestDistance <= limit ? best : null;
     }

@@ -6,9 +6,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Written for nordtal.eu - <b>not</b> part of the vendored Spec library, unlike most of this
- * package.
- * <p>
+ * Written for nordtal.eu - <b>not</b> part of the vendored Spec library, unlike most of this package.
+ *
  * Marks a setting as a credential: a password field in the interface, and never printed to a log.
  * This is a deliberate declaration on top of the key-name heuristic
  * ({@code secret}/{@code token}/{@code password}/{@code key} substrings) that a consumer such as

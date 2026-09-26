@@ -1,11 +1,15 @@
 package eu.nordtal.jcore.config.exception;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
+/** Thrown when reading a config file from disk fails. */
 public class ConfigReadException extends ConfigException {
 
-    public ConfigReadException(final @NotNull String message, final @Nullable Throwable cause) {
+    /**
+     * @param message what went wrong
+     * @param cause the underlying failure, if any
+     */
+    public ConfigReadException(final String message, final @Nullable Throwable cause) {
         super(message, cause);
     }
 }

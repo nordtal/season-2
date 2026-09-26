@@ -12,12 +12,11 @@ import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Loads commented YAML configuration files described by an annotated interface.
  *
- * <pre>{@code
+ * {@snippet lang="java" :
  * @ConfigSpec(header = "Payment processing")
  * public interface PaymentProcessingSpec {
  *
@@ -35,7 +34,7 @@ import org.jetbrains.annotations.NotNull;
  *                 throw new IllegalArgumentException("check-interval-seconds must be positive");
  *         })
  *         .load();
- * }</pre>
+ * }
  *
  * The file is created with its defaults and comments if it does not exist and kept in step with
  * the interface on every load. A setting the interface does not declare is refused when it reads
@@ -52,7 +51,7 @@ public final class ConfigLoader {
 
     /**
      * The Gson every config is serialized through.
-     * <p>
+     *
      * {@link ToNumberPolicy#LONG_OR_DOUBLE} is not cosmetic housekeeping. Spec round-trips every
      * value through Gson's generic {@code Object} type, and Gson's default policy reads every
      * JSON number back as a {@code Double}, so {@code update-interval: 1} is written back to the
@@ -71,31 +70,47 @@ public final class ConfigLoader {
      *
      * @return a builder that already has the Spec adapter factory and the number policy set
      */
-    public static @NotNull GsonBuilder gsonBuilder() {
+    public static GsonBuilder gsonBuilder() {
         return new GsonBuilder()
                 .registerTypeAdapterFactory(SpecAdapterFactory.INSTANCE)
                 .setObjectToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE);
     }
 
     /**
-     * Loads a configuration with the defaults: the {@code NORDTAL} environment prefix, no
-     * validation and no load hook.
+     * Loads a configuration with the defaults: the {@code NORDTAL} environment prefix, no validation and no load hook.
      *
+     * @param <T> the spec interface type
+     * @param file the config file to load
+     * @param specType the spec interface describing it
+     * @return a handle on the loaded config
      * @throws ConfigException if the file cannot be read or written, or contains a mistyped
      *                         setting
      */
-    public static @NotNull <T> ConfigHandle<T> load(final @NotNull Path file, final @NotNull Class<T> specType)
-            throws ConfigException {
+    public static <T> ConfigHandle<T> load(final Path file, final Class<T> specType) throws ConfigException {
         return builder(file, specType).load();
     }
 
-    /** Starts building a loader for {@code file}. */
-    public static @NotNull <T> Builder<T> builder(final @NotNull Path file, final @NotNull Class<T> specType) {
+    /**
+     * Starts building a loader for {@code file}.
+     *
+     * @param <T> the spec interface type
+     * @param file the config file to load
+     * @param specType the spec interface describing it
+     * @return a builder for further configuration
+     */
+    public static <T> Builder<T> builder(final Path file, final Class<T> specType) {
         return new Builder<>(file, specType);
     }
 
-    /** Starts building a loader for {@code file}. */
-    public static @NotNull <T> Builder<T> builder(final @NotNull File file, final @NotNull Class<T> specType) {
+    /**
+     * Starts building a loader for {@code file}.
+     *
+     * @param <T> the spec interface type
+     * @param file the config file to load
+     * @param specType the spec interface describing it
+     * @return a builder for further configuration
+     */
+    public static <T> Builder<T> builder(final File file, final Class<T> specType) {
         return new Builder<>(file.toPath(), specType);
     }
 
@@ -115,10 +130,7 @@ public final class ConfigLoader {
                 throw new IllegalArgumentException(
                         specType.getName() + " must be an interface annotated with @ConfigSpec.");
             }
-            // A spec is served by a java.lang.reflect.Proxy, and the proxy reflects on the
-            // interface's own methods. A non-public interface passes construction and then fails
-            // with an UndeclaredThrowableException wrapping IllegalAccessException the first time
-            // a value is read - a long way from the cause. Say so here instead.
+            // A package-private interface fails far later, deep inside the reflective proxy; name it here instead.
             if (!Modifier.isPublic(specType.getModifiers())) {
                 throw new IllegalArgumentException(specType.getName() + " must be public. A config spec is served by a "
                         + "reflective proxy, which cannot read a package-private interface.");
@@ -128,48 +140,66 @@ public final class ConfigLoader {
         }
 
         /**
-         * Uses a custom Gson, for configs with their own value types. Build it from
-         * {@link ConfigLoader#gsonBuilder()} so the Spec adapter and number policy stay in place.
+         * Uses a custom Gson. Build it from {@link ConfigLoader#gsonBuilder()} to keep the Spec adapter in place.
+         *
+         * @param gson the Gson to use
+         * @return this builder
          */
-        public @NotNull Builder<T> gson(final @NotNull Gson gson) {
+        public Builder<T> gson(final Gson gson) {
             this.gson = gson;
             return this;
         }
 
-        /** Changes the environment variable prefix. Defaults to {@code NORDTAL}. */
-        public @NotNull Builder<T> envPrefix(final @NotNull String envPrefix) {
+        /**
+         * Changes the environment variable prefix. Defaults to {@code NORDTAL}.
+         *
+         * @param envPrefix the prefix to use
+         * @return this builder
+         */
+        public Builder<T> envPrefix(final String envPrefix) {
             this.envPrefix = envPrefix;
             return this;
         }
 
-        /** Replaces the source of environment variables. Intended for tests. */
-        public @NotNull Builder<T> environment(final @NotNull Function<String, String> environment) {
+        /**
+         * Replaces the source of environment variables. Intended for tests.
+         *
+         * @param environment the replacement source
+         * @return this builder
+         */
+        public Builder<T> environment(final Function<String, String> environment) {
             this.environment = environment;
             return this;
         }
 
-        /** Turns the environment overlay off entirely. */
-        public @NotNull Builder<T> withoutEnvironmentOverlay() {
+        /**
+         * Turns the environment overlay off entirely.
+         *
+         * @return this builder
+         */
+        public Builder<T> withoutEnvironmentOverlay() {
             this.environment = name -> null;
             return this;
         }
 
         /**
-         * Checks the loaded values. Runs on every load and reload, after the environment overlay
-         * is applied, so it also covers values that came from the environment.
+         * Checks the loaded values, after the environment overlay is applied, so it covers those values too.
+         *
+         * @param validator the check to run
+         * @return this builder
          */
-        public @NotNull Builder<T> validator(final @NotNull ConfigValidator<T> validator) {
+        public Builder<T> validator(final ConfigValidator<T> validator) {
             this.validator = validator;
             return this;
         }
 
         /**
-         * Runs after every successful load and reload - <b>unconditionally</b>, whether or not
-         * the file changed. This is the replacement for {@code JsonConfig#postLoad()}, which only
-         * ran when the loader had found a difference and so, for a file that already matched the
-         * class, never ran at all.
+         * Runs after every successful load and reload, unconditionally, whether or not the file changed.
+         *
+         * @param onLoad the hook to run
+         * @return this builder
          */
-        public @NotNull Builder<T> onLoad(final @NotNull Consumer<T> onLoad) {
+        public Builder<T> onLoad(final Consumer<T> onLoad) {
             this.onLoad = onLoad;
             return this;
         }
@@ -177,10 +207,11 @@ public final class ConfigLoader {
         /**
          * Creates the file if needed, loads it, and returns a handle.
          *
+         * @return a handle on the loaded config
          * @throws ConfigException if the file cannot be read or written, contains a setting that
          *                         reads as a mistyped declared key, or fails validation
          */
-        public @NotNull ConfigHandle<T> load() throws ConfigException {
+        public ConfigHandle<T> load() throws ConfigException {
             final EnvOverlay overlay = EnvOverlay.forSpec(specType, envPrefix, environment, gson);
             final ConfigHandle<T> handle = new ConfigHandle<>(file, specType, gson, overlay, validator, onLoad);
             handle.loadInitially();

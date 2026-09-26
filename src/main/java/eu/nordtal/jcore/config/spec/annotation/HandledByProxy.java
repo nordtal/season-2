@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5 on 2026-08-30
+ * Vendored into jcore from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -36,15 +36,12 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.jetbrains.annotations.ApiStatus;
 
 /**
- * Marks an annotation as handled by the proxy, and not a property. Used
- * on {@link Reload}, {@link Save}, {@link Reset} and {@link AsMap}.
- * <p>
- * Internal use only.
+ * Marks an annotation as handled by the proxy rather than scanned as a property.
+ *
+ * Used on {@link Reload}, {@link Save}, {@link Reset} and {@link AsMap}.
  */
-@ApiStatus.Internal
 @Target(ElementType.ANNOTATION_TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface HandledByProxy {}

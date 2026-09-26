@@ -11,15 +11,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Finding 8: the old loader had no locking at all. A synthetic probe with 8 threads on one file
- * produced 116 read errors. Runtime reload makes that a live concern rather than a theoretical
- * one.
- */
+/** Concurrent reloads and reads on one file must never produce a read error. */
 class ConfigConcurrencyTest {
 
     private static final int THREADS = 8;
@@ -29,7 +24,6 @@ class ConfigConcurrencyTest {
     Path directory;
 
     @Test
-    @DisplayName("finding 8: concurrent reloads on one file produce no read errors")
     void concurrentReloadsAreSafe() throws Exception {
         final Path file = directory.resolve("payments.yml");
         final ConfigHandle<TestSpecs.Payments> handle = ConfigLoader.builder(file, TestSpecs.Payments.class)
@@ -50,8 +44,7 @@ class ConfigConcurrencyTest {
                         if (index % 2 == 0) {
                             handle.reload();
                         } else {
-                            // Reading through the handle must never observe a half-applied
-                            // reload, and must never throw.
+                            // A read must never observe a half-applied reload, and must never throw.
                             assertEquals(10L, handle.get().checkIntervalSeconds());
                             assertEquals("%s EUR", handle.get().balance().format());
                             reads.incrementAndGet();
@@ -75,7 +68,6 @@ class ConfigConcurrencyTest {
     }
 
     @Test
-    @DisplayName("two independent handles on the same file serialise against each other")
     void twoHandlesOnOneFileSerialise() throws Exception {
         final Path file = directory.resolve("shared.yml");
         final ConfigHandle<TestSpecs.Payments> first = ConfigLoader.builder(file, TestSpecs.Payments.class)
@@ -89,7 +81,7 @@ class ConfigConcurrencyTest {
         final CountDownLatch start = new CountDownLatch(1);
         final CountDownLatch done = new CountDownLatch(2);
 
-        for (ConfigHandle<TestSpecs.Payments> handle : List.of(first, second)) {
+        for (final ConfigHandle<TestSpecs.Payments> handle : List.of(first, second)) {
             Thread.ofPlatform().start(() -> {
                 try {
                     start.await();

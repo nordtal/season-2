@@ -19,17 +19,13 @@ repositories {
 }
 
 java {
-    // season-2 runs on Java 25; jcore follows with the 2.0 major.
-    // Verified 2026-08-30: every dependency below targets Java 17 bytecode or lower, so none blocks this.
+    // Every dependency below targets Java 17 bytecode or lower, so none blocks this toolchain.
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))
 }
 
-// All versions below were read from the authoritative maven-metadata.xml on repo1.maven.org on 2026-08-30.
+// Versions below come from the authoritative maven-metadata.xml on repo1.maven.org.
 dependencies {
     // -- api: types that appear in jcore's own public signatures, plus the deliberate org-wide toolbox --
-
-    // https://mvnrepository.com/artifact/org.jetbrains/annotations  (@NotNull / @Nullable on jcore signatures)
-    api("org.jetbrains:annotations:26.0.2")
 
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-api  (facade only - the backend is the consumer's choice)
     api("org.slf4j:slf4j-api:2.0.18")
@@ -43,7 +39,7 @@ dependencies {
     // https://mvnrepository.com/artifact/com.google.code/gson  (config values are serialized through Gson)
     // ConfigLoader#gsonBuilder() returns a GsonBuilder, so this is part of the public contract.
     // 2.14.0 is both the current release and exactly what Paper 26.2 ships in its libraries/
-    // directory, so a Paper plugin can leave it out of its shaded jar - verified 2026-08-30.
+    // directory, so a Paper plugin can leave it out of its shaded jar.
     api("com.google.code.gson:gson:2.14.0")
 
     // https://mvnrepository.com/artifact/org.yaml/snakeyaml  (the YAML reader/writer under CommentedConfiguration)
@@ -91,12 +87,11 @@ dependencies {
     testImplementation("org.testcontainers:postgresql:1.21.4")
     testImplementation("org.testcontainers:junit-jupiter:1.21.4")
 
-    // https://mvnrepository.com/artifact/com.google.jimfs/jimfs  (1.3.2, read from maven-metadata.xml
-    // on 2026-09-16). An in-memory filesystem, used by exactly one test: AtomicConfigWriter promises
-    // that a full disk cannot destroy the previous content, and Jimfs can be given a maximum size,
-    // so the promise is tested against the thing it is about. The stand-in it replaces - a directory
-    // with the write bit taken away - proves nothing when the build runs as uid 0, which it does on
-    // the nordtal dev host, and that made every jcore build there red for a reason that was not jcore.
+    // https://mvnrepository.com/artifact/com.google.jimfs/jimfs  (an in-memory filesystem)
+    // Used by exactly one test: AtomicConfigWriter promises that a full disk cannot destroy the
+    // previous content, and Jimfs can be given a maximum size, so the promise is tested against
+    // the thing it is about. A directory with the write bit removed proves nothing when the build
+    // runs as uid 0, which the nordtal dev host does.
     testImplementation("com.google.jimfs:jimfs:1.3.2")
 
     // A logging backend for jcore's own tests only. Deliberately NOT exported - see README.
@@ -134,10 +129,9 @@ tasks.test {
 }
 
 // A source file Git ignores compiles here and does not exist on a fresh checkout, which makes the
-// local build and CI two different programs. nordtal/season-2 lost a release to exactly that on
-// 2026-09-02: an unanchored `run/` in .gitignore matched the Java package eu.nordtal.s2.updater.run
-// as readily as a server working directory, and an *ignored* file is not an untracked one - so
-// `git status` stayed clean the whole time. .gitignore is anchored here for the same reason; this
+// local build and CI two different programs - an unanchored directory pattern in .gitignore can
+// match a Java package as readily as a build artifact, and an *ignored* file is not an untracked
+// one, so `git status` stays clean regardless. .gitignore is anchored here for that reason; this
 // asks Git the question anyway, on every `./gradlew build`, before the commit that would hide it.
 val repositoryRootDirectory = layout.projectDirectory.asFile
 val sourceDirectoriesOfEverySourceSet = sourceSets.flatMap { it.allSource.srcDirs }

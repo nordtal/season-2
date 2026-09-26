@@ -142,9 +142,16 @@ class CountdownComesAfterResolvingTest {
             throw new IllegalStateException("no settings.gradle.kts above the working directory");
         }
         try {
-            return Files.readString(candidate.resolve(relative), StandardCharsets.UTF_8);
+            return joined(Files.readString(candidate.resolve(relative), StandardCharsets.UTF_8));
         } catch (final IOException failure) {
             throw new UncheckedIOException(failure);
         }
+    }
+
+    // palantir-java-format wraps a long call anywhere; the checks read each call as one line.
+    private static String joined(final String source) {
+        return source.replaceAll("\\(\\s*\\n\\s*", "(")
+                .replaceAll("\\s*\\n\\s*\\.", ".")
+                .replaceAll("(=|,|->)\\s*\\n\\s*", "$1 ");
     }
 }

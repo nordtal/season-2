@@ -66,7 +66,7 @@ class EveryCalledPathIsRoutedTest {
 
     /** {@code cfg.routes.get("/api/...", ...)} and the other five verbs, plus sse. */
     private static final Pattern REGISTERED =
-            Pattern.compile("routes\\.(?:get|post|put|patch|delete|sse)\\(\"(/api/[^\"]*)\"");
+            Pattern.compile("routes\\.(?:get|post|put|patch|delete|sse)\\(\\s*\"(/api/[^\"]*)\"");
 
     /**
      * The catch-all, which is a route and is not an answer.

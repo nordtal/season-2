@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.wheel;
+package eu.nordtal.s2.smp.db;
 
 import java.time.LocalDate;
 import org.jspecify.annotations.Nullable;

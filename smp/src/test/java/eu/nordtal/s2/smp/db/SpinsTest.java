@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.wheel;
+package eu.nordtal.s2.smp.db;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

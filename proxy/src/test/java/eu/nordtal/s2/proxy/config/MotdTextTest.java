@@ -6,16 +6,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.jcore.config.spec.Specs;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * What the five shipped MOTDs may and may not contain.
  *
- * <h2>Why a MOTD needs a test at all</h2>
+ * <b>Why a MOTD needs a test at all.</b>
  * Because it is the one surface with no feedback loop. Nobody on the network sees it - a MOTD is
  * read by people who have not joined yet, in a list, once, and a mistake in it is invisible from
  * inside the server for as long as it lasts. Two of the three rules below have already been broken
@@ -23,27 +23,28 @@ import org.junit.jupiter.api.Test;
  * placeholder that resolves to nothing is left standing on purpose so that it is visible - to
  * whoever is looking at the list, which is nobody we can ask.
  *
- * <h2>The three rules</h2>
- * <ol>
- *   <li><b>No glyph.</b> The server browser draws the MOTD in the client's own font, before any
- *       resource pack has been offered, let alone applied - so a private-use code point renders as
- *       a box. This is the same check {@code TabListTest} makes on the tab list frame and for the
- *       opposite reason: there the glyph has to be a parameter, here it may not exist at all.</li>
- *   <li><b>Every placeholder is one the build resolves.</b> {@code Placeholders} leaves an unknown
- *       name standing rather than blanking it, deliberately, so a typo reaches the server list as
- *       the literal text {@code {smp-milstone}}.</li>
- *   <li><b>Two lines.</b> Every client draws exactly two, and the first is the brand, so a MOTD
- *       with no {@code <newline>} says nothing about the phase at all.</li>
- * </ol>
+ * <b>The three rules.</b>
+ *
+ * <b>No glyph.</b> The server browser draws the MOTD in the client's own font, before any
+ * resource pack has been offered, let alone applied - so a private-use code point renders as
+ * a box. This is the same check {@code TabListTest} makes on the tab list frame and for the
+ * opposite reason: there the glyph has to be a parameter, here it may not exist at all.
+ *
+ * <b>Every placeholder is one the build resolves.</b> {@code Placeholders} leaves an unknown
+ * name standing rather than blanking it, deliberately, so a typo reaches the server list as
+ * the literal text {@code {smp-milstone}}.
+ *
+ * <b>Two lines.</b> Every client draws exactly two, and the first is the brand, so a MOTD
+ * with no {@code <newline>} says nothing about the phase at all.
  */
 class MotdTextTest {
 
     /**
      * The five defaults, built the same way {@code NetworkSpec#motd()} builds them.
      *
-     * <p>Read off a real instance rather than off the source: what a deployment gets is whatever
+     * Read off a real instance rather than off the source: what a deployment gets is whatever
      * {@code Specs.createDefault} returns, and a default body that is never called is a default
-     * that does not exist.</p>
+     * that does not exist.
      */
     private final NetworkSpec.MotdSpec motd = Specs.createDefault(NetworkSpec.MotdSpec.class);
 
@@ -73,14 +74,13 @@ class MotdTextTest {
     }
 
     @Test
-    @DisplayName("no MOTD carries a glyph, because the list is drawn before any pack exists")
     void noMotdCarriesAGlyph() {
         final List<String> offenders = new ArrayList<>();
         for (final String line : all()) {
             line.codePoints()
                     .filter(MotdTextTest::isPrivateUse)
-                    .forEach(codePoint ->
-                            offenders.add("U+" + Integer.toHexString(codePoint).toUpperCase() + " in " + line));
+                    .forEach(codePoint -> offenders.add(
+                            "U+" + Integer.toHexString(codePoint).toUpperCase(Locale.ROOT) + " in " + line));
         }
         assertEquals(
                 List.of(),
@@ -90,7 +90,6 @@ class MotdTextTest {
     }
 
     @Test
-    @DisplayName("every placeholder is one this build actually resolves")
     void everyPlaceholderResolves() {
         final List<String> unknown = new ArrayList<>();
         for (final String line : all()) {
@@ -111,7 +110,6 @@ class MotdTextTest {
     }
 
     @Test
-    @DisplayName("every MOTD has a second line, which is the one that says what phase this is")
     void everyMotdHasTwoLines() {
         for (final String line : all()) {
             assertTrue(

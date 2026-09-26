@@ -18,24 +18,22 @@ import java.util.Locale;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * What happens to an arrival while this proxy is being moved (season-2-ops/151).
+ * What happens to an arrival while this proxy is being moved.
  *
- * <p>The rule first, because it was turned over on 2026-09-20: nobody is refused any more. An
- * arrival is parked on the standby exactly like everybody who was already connected, and the screen
- * below is what is left when the transfer itself cannot be sent. A player with a seat is coming
- * back <em>from</em> the swap and is not touched at all - which is run 76, where this proxy read a
- * seat for hmtill at 18:46:09 and refused him at 18:46:21.</p>
+ * The rule: nobody is refused any more. An arrival is parked on the standby exactly like
+ * everybody who was already connected, and the screen below is what is left when the transfer
+ * itself cannot be sent. A player with a seat is coming back <em>from</em> the swap and is not
+ * touched at all.
  *
- * <p>As with {@link MisconfiguredGateTest}, the {@code PostLoginEvent} half is not exercised:
+ * As with {@link MisconfiguredGateTest}, the {@code PostLoginEvent} half is not exercised:
  * constructing one needs a Velocity {@code Player}, which only exists on a running proxy. What is
  * worth asserting is the decision, what the player reads on the failure path, and that the language
- * comes out of memory - because that path runs on a process that is seconds from stopping.</p>
+ * comes out of memory - because that path runs on a process that is seconds from stopping.
  */
 class RestartGateTest {
 
@@ -47,7 +45,6 @@ class RestartGateTest {
     private final FallbackCache locales = new FallbackCache(Duration.ofMinutes(15));
 
     @Test
-    @DisplayName("the screen exists in both languages, because both are offered everywhere else")
     void bothLanguagesAreThere() {
         assertTrue(messages.hasTranslation(Locale.ENGLISH, "gate.restarting"));
         assertTrue(
@@ -55,37 +52,25 @@ class RestartGateTest {
                 "every other gate screen has a German half and this one is no different");
     }
 
-    // ---------------------------------------------------------------- the rule (season-2-ops/151)
-
     @Test
-    @DisplayName("an arrival while the proxy is being moved goes to the standby, not away")
     void theWindowParksRatherThanRefuses() {
-        // The owner, 2026-09-20: "the proxy should really only be unreachable for its own restart -
-        // before and after it must move players onto the standbys properly and may refuse nobody."
+        // The proxy is only unreachable for its own restart; before and after it moves players onto the standby.
         assertEquals(RestartGate.Handling.PARK, RestartGate.decide(true, false));
     }
 
     @Test
-    @DisplayName("a player with a seat is never sent back, because they are coming home")
     void aSeatIsNeverTouched() {
-        // RUN 76, EXACTLY. The standby handed hmtill back at 18:46:04; this proxy had his seat in
-        // memory at 18:46:09 and turned him away at 18:46:21 and again at 18:46:37 - 47 seconds
-        // between the transfer home and getting in. Parking him instead would be no better: it is
-        // the same loop with a nicer name.
+        // A held seat is somebody coming back from the swap; refusing them would be the same loop with a nicer name.
         assertEquals(RestartGate.Handling.LET_IN, RestartGate.decide(true, true));
     }
 
     @Test
-    @DisplayName("on an ordinary day nothing is in the way")
     void theDoorIsOpenWhenNothingIsMovingThisProxy() {
         assertEquals(RestartGate.Handling.LET_IN, RestartGate.decide(false, false));
         assertEquals(RestartGate.Handling.LET_IN, RestartGate.decide(false, true));
     }
 
-    // ---------------------------------------------------------------- the failure path
-
     @Test
-    @DisplayName("somebody the cache has never seen gets the English screen rather than nothing")
     void anUnknownArrivalStillGetsAScreen() {
         final RestartGate gate =
                 new RestartGate(LOGGER, () -> true, uuid -> false, player -> false, gateMessages, locales);
@@ -96,10 +81,8 @@ class RestartGateTest {
     }
 
     @Test
-    @DisplayName("a player the cache knows gets their own language, and no database is asked")
     void theLanguageComesOutOfMemory() {
-        // THE WHOLE REASON THE CACHE IS THE SOURCE: this runs on a proxy that stops in a moment.
-        // A round trip for a language is a round trip that can outlive the process asking for it.
+        // This runs on a proxy that stops in a moment, so a round trip for a language could outlive it.
         locales.remember(PLAYER, german());
         final RestartGate gate =
                 new RestartGate(LOGGER, () -> true, uuid -> false, player -> false, gateMessages, locales);
@@ -110,7 +93,6 @@ class RestartGateTest {
     }
 
     @Test
-    @DisplayName("every arrival the transfer could not reach is counted, and should be none")
     void refusalsAreCounted() {
         final RestartGate gate =
                 new RestartGate(LOGGER, () -> true, uuid -> false, player -> false, gateMessages, locales);
@@ -128,10 +110,8 @@ class RestartGateTest {
     }
 
     @Test
-    @DisplayName("the screen names no duration, because this proxy cannot know one")
     void itPromisesNoTime() {
-        // It is stopping. What starts it again is the worker, on the other side of a stop that has
-        // not happened yet - so a number here would be a guess printed as a fact.
+        // The worker restarts it on the other side of a stop that has not happened yet; a number would be a guess.
         for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
             final String raw = messages.get(locale, "gate.restarting");
             assertTrue(raw.matches("(?s).*\\S.*"), raw);
@@ -141,7 +121,7 @@ class RestartGateTest {
         }
     }
 
-    // ---------------------------------------------------------------- helpers
+    // helpers
 
     private static AccessState german() {
         return new AccessState(
@@ -158,8 +138,9 @@ class RestartGateTest {
     }
 
     /**
-     * A {@link GateSpec} that answers every method with its declared default, which is all
-     * {@link GateMessages} needs here: the restart screen takes no placeholder and no invite.
+     * A {@link GateSpec} that answers every method with its declared default.
+     *
+     * That is all {@link GateMessages} needs here: the restart screen takes no placeholder and no invite.
      */
     private static GateSpec defaults() {
         return (GateSpec) Proxy.newProxyInstance(

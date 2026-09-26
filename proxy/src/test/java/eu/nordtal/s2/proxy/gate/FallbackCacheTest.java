@@ -17,8 +17,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Exercises {@link FallbackCache} entirely in memory - no database, no Docker. It is a pure
- * function of what it was told and how much time has passed, which is exactly what
+ * Exercises {@link FallbackCache} entirely in memory - no database, no Docker.
+ *
+ * It is a pure function of what it was told and how much time has passed, which is exactly what
  * {@link MutableClock} lets these tests control without a single {@code Thread.sleep}.
  */
 class FallbackCacheTest {
@@ -89,9 +90,7 @@ class FallbackCacheTest {
 
     @Test
     void aLaterUnsuccessfulStateEvictsAnEarlierPositiveOne() {
-        // The database must not be able to hand out a stale "yes" once it has told us "no" more
-        // recently - even though both calls succeeded, so this is not the DB-unreachable path at
-        // all. remember() is what a healthy accessState() call also goes through.
+        // No stale "yes" once the database has told us "no" more recently, even though both calls succeeded.
         cache.remember(PLAYER, activeState());
         assertTrue(cache.mayJoin(PLAYER), "precondition");
 
@@ -107,15 +106,13 @@ class FallbackCacheTest {
         cache.remember(PLAYER, activeState());
         clock.advance(Duration.ofMinutes(10));
 
-        // 20 minutes since the first remember(), but only 10 since the second - still inside the
-        // 15-minute window because the entry was refreshed, not merely re-read.
+        // 20 minutes since the first remember(), only 10 since the second: inside the window since it refreshed.
         assertTrue(cache.mayJoin(PLAYER));
     }
 
     @Test
     void aMemberWithNoAccessAtAllIsCachedWhileThePhaseAsksForNone() {
-        // Before 2026-08-31 this state was phase-blind and never cacheable, so a database outage
-        // during PRE_EVENT would have refused every player the gate had just been letting in.
+        // Without this, a database outage during PRE_EVENT would refuse every player the gate had just been letting in.
         cache.remember(PLAYER, memberInAFreePhase());
 
         assertTrue(cache.mayJoin(PLAYER));
@@ -128,7 +125,7 @@ class FallbackCacheTest {
         assertThrows(IllegalArgumentException.class, () -> new FallbackCache(Duration.ofMinutes(-1)));
     }
 
-    // ---------------------------------------------------------------- helpers
+    // helpers
 
     private AccessState activeState() {
         return activeState(Locale.ENGLISH);
@@ -163,9 +160,10 @@ class FallbackCacheTest {
     }
 
     /**
-     * The same account, in a phase that asks for no access at all. What the cache stores is the
-     * outcome of {@link AccessState#mayJoin()}, so this is a positive entry even though nothing has
-     * been bought - which is the point of the phase model.
+     * The same account, in a phase that asks for no access at all.
+     *
+     * What the cache stores is the outcome of {@link AccessState#mayJoin()}, so this is a positive entry even
+     * though nothing has been bought - which is the point of the phase model.
      */
     private AccessState memberInAFreePhase() {
         return new AccessState(

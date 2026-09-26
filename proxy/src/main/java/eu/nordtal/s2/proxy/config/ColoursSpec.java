@@ -8,14 +8,13 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code colours.yml} - the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is
- * painted with (season-2-ingame/22).
+ * {@code colours.yml} - the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is painted with.
  *
- * <p>Every value below is deliberately the same as {@code smp}'s and {@code limbo}'s, so the
- * network reads as one server rather than several. READ AT PROXY START, the same as
- * {@code network.yml} and {@code gate.yml} - there is no reload command here, and widening
- * {@code /network reload} to touch it is a change to the shared {@code NetworkEffects} interface
- * in {@code :commands}, out of this ticket's file scope. A change here needs a proxy restart.
+ * Every value below is deliberately the same as {@code smp}'s and {@code limbo}'s, so the network
+ * reads as one server rather than several. Read once at proxy start, the same as
+ * {@code network.yml} and {@code gate.yml}: there is no reload command here, and widening
+ * {@code /network reload} to touch it would be a change to the shared {@code NetworkEffects}
+ * interface in {@code :commands}. A change here needs a proxy restart.
  */
 @ConfigSpec(
         header = {

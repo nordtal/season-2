@@ -10,15 +10,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import net.kyori.adventure.sound.Sound;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The mapping table {@link ProxySounds} adds: {@link Feedback#REFUSED} plays a real
- * Adventure {@link Sound} and every other category stays silent, the same shape
- * {@code FeedbackSoundsTest} already holds {@code smp} and {@code hunger-games} to.
+ * The mapping table {@link ProxySounds} adds.
  *
- * <h2>Why a dynamic proxy can observe this without a real client</h2>
+ * {@link Feedback#REFUSED} plays a real Adventure {@link Sound} and every other category stays silent, the same
+ * shape {@code FeedbackSoundsTest} already holds {@code smp} and {@code hunger-games} to.
+ *
+ * <b>Why a dynamic proxy can observe this without a real client.</b>
  * {@code Player#playSound(Sound)} is a default method inherited from Adventure's
  * {@code Audience}, but a {@link java.lang.reflect.Proxy}'s {@link java.lang.reflect.InvocationHandler}
  * is consulted for every interface method Velocity's {@code Player} declares or inherits, default or
@@ -31,7 +31,6 @@ class ProxySoundsTest {
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000005");
 
     @Test
-    @DisplayName("REFUSED plays the shared refusal sound smp and hunger-games also use")
     void refusedPlaysTheSharedSound() {
         final List<Sound> played = new ArrayList<>();
         final List<String> problems = new ArrayList<>();
@@ -47,7 +46,6 @@ class ProxySoundsTest {
     }
 
     @Test
-    @DisplayName("every category this table has not declared plays nothing")
     void everythingElseIsSilent() {
         final List<Sound> played = new ArrayList<>();
         final ProxySounds sounds = ProxySounds.defaults(problem -> {

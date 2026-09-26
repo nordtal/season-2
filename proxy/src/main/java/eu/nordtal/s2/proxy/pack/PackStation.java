@@ -27,48 +27,45 @@ import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
 /**
- * The resource-pack station, and with it the second half of the login path: every player waits in
- * {@code limbo} until the pack is on their machine and the phase's backend will have them, and only
- * then is connected onward.
+ * The resource-pack station, and with it the second half of the login path.
  *
- * <h2>The sequence being described</h2>
- * <ol>
- *   <li>{@code PlayerRouter} sets {@code limbo} as the initial server for every admitted login.</li>
- *   <li>{@link #onServerPostConnect} sees the player arrive on {@code limbo}, sends them the forced
- *       pack offer with its URL and SHA-1, and tells {@code limbo} what title to show.</li>
- *   <li>{@code limbo} answers {@link LimboProtocol.Type#READY} once the player has finished
- *       joining it.</li>
- *   <li>{@link #onPackStatus} sees {@code SUCCESSFUL} - or one of the failures, each with its own
- *       screen.</li>
- *   <li>When nothing is left to wait for ({@link WaitingBook}, which asks {@link LimboHold}) the
- *       player is handed to the release callback, which is {@code PlayerRouter}'s connect.</li>
- * </ol>
+ * Every player waits in {@code limbo} until the pack is on their machine and the phase's backend will have
+ * them, and only then is connected onward.
  *
- * <p><b>Those steps do not happen in that order.</b> Velocity dispatches the arrival, the pack
- * status and {@code limbo}'s answer on different threads with no ordering between them, and step 3
- * routinely beats step 2 - which is what {@link WaitingBook} exists for. Every handler below records
- * a fact and then re-asks the whole question; none may assume what has already happened.</p>
+ * The sequence: {@code PlayerRouter} sets {@code limbo} as the initial server for every admitted
+ * login. {@link #onServerPostConnect} sees the player arrive on {@code limbo}, sends them the forced
+ * pack offer with its URL and SHA-1, and tells {@code limbo} what title to show. {@code limbo}
+ * answers {@link LimboProtocol.Type#READY} once the player has finished joining it.
+ * {@link #onPackStatus} sees {@code SUCCESSFUL} - or one of the failures, each with its own screen.
+ * When nothing is left to wait for ({@link WaitingBook}, which asks {@link LimboHold}) the player is
+ * handed to the release callback, which is {@code PlayerRouter}'s connect.
  *
- * <p><b>The backend never decides where a player goes</b>, or the routing rules would live in two
+ * Those steps do not happen in that order. Velocity dispatches the arrival, the pack
+ * status and {@code limbo}'s answer on different threads with no ordering between them, and the
+ * answer routinely beats the arrival - which is what {@link WaitingBook} exists for. Every handler
+ * below records a fact and then re-asks the whole question; none may assume what has already
+ * happened.
+ *
+ * The backend never decides where a player goes, or the routing rules would live in two
  * processes. {@code limbo}'s message says "this player is ready" and carries no destination; this
- * class asks {@link PhaseRouting} where they belong.</p>
+ * class asks {@link PhaseRouting} where they belong.
  *
- * <p><b>"Available" also asks {@link BackendHealth}</b>, not only {@code ProxyServer#getAllServers()}
+ * "Available" also asks {@link BackendHealth}, not only {@code ProxyServer#getAllServers()}
  * - see that class and {@link eu.nordtal.s2.proxy.gate.BackendKick}. A destination it has
  * suspended is held here exactly like one that is not registered at all, which is what stops a
  * backend that kicks somebody with no reason given from taking them straight back the moment the
- * next sweep runs (season-2-ops/20).</p>
+ * next sweep runs.
  *
- * <p><b>A plugin message is not evidence of who sent it.</b> Registering a channel makes the proxy
+ * A plugin message is not evidence of who sent it. Registering a channel makes the proxy
  * advertise it to the client, and a modded client can write whatever bytes it likes onto it - a
  * forged {@code READY} is a player releasing themselves from the waiting room, which is to say
  * skipping the resource pack. Every message is rejected unless {@link PluginMessageEvent#getSource()}
- * is a {@link ServerConnection}, and consumed either way.</p>
+ * is a {@link ServerConnection}, and consumed either way.
  *
- * <p>The pack is offered here rather than on {@code limbo} so that there is one offer in one place
- * and a player moved between backends is not asked twice.</p>
+ * The pack is offered here rather than on {@code limbo} so that there is one offer in one place
+ * and a player moved between backends is not asked twice.
  *
- * <p>Velocity fires {@code @Subscribe} handlers off the Netty threads, and every piece of per-player
+ * Velocity fires {@code @Subscribe} handlers off the Netty threads, and every piece of per-player
  * state is in {@link WaitingBook}, which makes a release happen exactly once. Nothing here touches
  * the database: the phase comes from {@link PhaseWatch} and the language from {@link LoginRoster}.
  */
@@ -97,20 +94,20 @@ public final class PackStation {
     /**
      * Whether an update run currently has that backend stopped.
      *
-     * <p>A seam and not a lookup, so this class keeps knowing nothing about the update table. It
+     * A seam and not a lookup, so this class keeps knowing nothing about the update table. It
      * answers false until {@link #whenUpdating} is called, which is what an evaluation during
      * startup - or on a proxy with the update watch switched off - gets: the ordinary
-     * {@code BACKEND} title, exactly as before this existed.</p>
+     * {@code BACKEND} title, exactly as before this existed.
      */
     private volatile java.util.function.Predicate<String> updating = server -> false;
 
     /**
-     * Whether somebody is holding that backend down on purpose (season-2-ops/125).
+     * Whether somebody is holding that backend down on purpose.
      *
-     * <p>A second seam beside {@link #updating} rather than a widening of it, because the two
+     * A second seam beside {@link #updating} rather than a widening of it, because the two
      * answer different questions and the screen says different things about them. It defaults to
      * false for the same reason: a proxy with no update watch behaves exactly as it did before any
-     * of this existed.</p>
+     * of this existed.
      */
     private volatile java.util.function.Predicate<String> held = server -> false;
 
@@ -138,8 +135,9 @@ public final class PackStation {
     }
 
     /**
-     * Registers {@code nordtal:limbo} with the proxy. Without this the proxy forwards the channel
-     * blindly and never sees a message on it.
+     * Registers {@code nordtal:limbo} with the proxy.
+     *
+     * Without this the proxy forwards the channel blindly and never sees a message on it.
      */
     public void registerChannel() {
         proxy.getChannelRegistrar().register(channel);
@@ -183,7 +181,7 @@ public final class PackStation {
         return book.isWaiting(uuid);
     }
 
-    // ------------------------------------------------------------------ arriving in the waiting room
+    // arriving in the waiting room
 
     @Subscribe
     public void onServerPostConnect(final ServerPostConnectEvent event) {
@@ -191,8 +189,7 @@ public final class PackStation {
         final UUID uuid = player.getUniqueId();
 
         if (!onLimbo(player)) {
-            // They have left the waiting room - released by us, or moved by a phase change. The
-            // session's facts survive; this visit's do not.
+            // They have left the waiting room - released by us, or moved by a phase change.
             book.left(uuid);
             return;
         }
@@ -213,7 +210,7 @@ public final class PackStation {
         logger.debug("Offered the resource pack to {}", player.getUsername());
     }
 
-    // ------------------------------------------------------------------ the client's answer
+    // the client's answer
 
     @Subscribe
     public void onPackStatus(final PlayerResourcePackStatusEvent event) {
@@ -227,8 +224,7 @@ public final class PackStation {
                 evaluate(player);
             }
             case ACCEPTED, DOWNLOADED -> {
-                // Intermediate. The player is still working on it and the waiting room already says
-                // so; there is nothing to change and nothing to log per player.
+                // Intermediate: the player is still working on it, and there is nothing to change or log.
             }
             case DECLINED -> {
                 logger.info("{} declined the resource pack", player.getUsername());
@@ -247,14 +243,13 @@ public final class PackStation {
                 disconnect(player, messages.invalidUrl(locale));
             }
             case DISCARDED -> {
-                // The pack was removed rather than refused. Nothing removes it in this design, so
-                // this is only reachable if a backend sends its own pack over ours.
+                // The pack was removed rather than refused; only reachable if a backend sends its own pack over ours.
                 logger.warn("The resource pack was discarded for {}", player.getUsername());
             }
         }
     }
 
-    // ------------------------------------------------------------------ limbo's answer
+    // limbo's answer
 
     @Subscribe
     public void onPluginMessage(final PluginMessageEvent event) {
@@ -262,8 +257,7 @@ public final class PackStation {
             return;
         }
 
-        // Consumed whatever it turns out to be: this conversation is between the proxy and limbo,
-        // and nothing downstream of either has any business seeing it.
+        // Consumed either way: this conversation is between the proxy and limbo, nobody downstream needs it.
         event.setResult(PluginMessageEvent.ForwardResult.handled());
 
         if (!(event.getSource() instanceof ServerConnection connection)) {
@@ -291,8 +285,7 @@ public final class PackStation {
 
         final Player player = connection.getPlayer();
         if (book.ready(player.getUniqueId())) {
-            // The arrival event has not reached us yet. Logged at INFO because it is the only
-            // evidence that this race really happens.
+            // The arrival event has not reached us yet; logged at INFO as the only evidence this race happens.
             logger.info(
                     "'{}' reported {} ready before the proxy had finished putting them in the "
                             + "waiting room; remembered rather than dropped",
@@ -303,9 +296,7 @@ public final class PackStation {
     }
 
     private void reportForgery(final PluginMessageEvent event) {
-        // A client writing on this channel is trying to release itself from the waiting room, which
-        // is to say skip the resource pack. Logged once per player so that a loop cannot fill a
-        // disk, and never acted on.
+        // A client writing on this channel is trying to skip the resource pack; logged once per player, never acted on.
         final UUID uuid = event.getSource() instanceof Player player ? player.getUniqueId() : null;
         if (uuid == null || reportedForgery.add(uuid)) {
             logger.warn(
@@ -315,15 +306,14 @@ public final class PackStation {
         }
     }
 
-    // ------------------------------------------------------------------ the decision
+    // the decision
 
     /**
      * Re-asks the question for every player currently in the waiting room.
-     * <p>
+     *
      * Driven by {@code gate.yml#limbo-sweep-interval-seconds}, because one of the three reasons a
      * player waits - the phase's backend not being there - has no event to announce that it is
      * over. It is also what enforces {@code pack.yml#apply-timeout-seconds}.
-     * </p>
      *
      * @return how many players were looked at
      */
@@ -340,11 +330,10 @@ public final class PackStation {
 
     /**
      * Looks at one held player and carries out whatever {@link WaitingBook} says about them.
-     * <p>
+     *
      * Everything that is a rule lives in the book and everything that is a Velocity call lives here,
      * which is what makes the rule assertable at all. The one decision left in this method is
      * whether the player is still on {@code limbo}, because that is a question about a connection.
-     * </p>
      *
      * @param player a connected player; doing nothing for one this station is not holding
      */
@@ -359,14 +348,10 @@ public final class PackStation {
         }
 
         final SeasonPhase phase = phases.lastKnown();
-        // The admin flag decides two things: maintenance does not hold an admin, and an admin
-        // released while the network is closed goes to the SMP rather than back into this room.
+        // The admin flag decides two things: maintenance does not hold an admin, and a released admin goes to the SMP.
         final boolean admin = roster.isAdmin(uuid);
         final String destination = routing.servers().forAdmitted(phase, admin);
-        // Registered is necessary but not sufficient: BackendHealth is what season-2-ops/20 added
-        // for a backend that is registered and has just kicked somebody with no reason given. A
-        // player is held here rather than released into it until the retry window passes - see
-        // BackendKick for what suspends it and PlayerRouter for what clears it again.
+        // Registered is necessary but not sufficient: BackendHealth also holds a backend that just kicked somebody.
         final boolean available = proxy.getServer(destination).isPresent() && !health.isSuspended(destination);
         final WaitingDecision decision = book.decide(
                 uuid, phase, admin, available, destination, updating.test(destination), held.test(destination));
@@ -375,7 +360,10 @@ public final class PackStation {
             case IDLE -> {
                 // Already looking at the right title, or waiting out the grace period.
             }
-            case SHOW -> sendToLimbo(player, LimboProtocol.wait(decision.reason()));
+            case SHOW ->
+                sendToLimbo(
+                        player,
+                        LimboProtocol.wait(Objects.requireNonNull(decision.reason(), "SHOW always carries a reason")));
             case TIMED_OUT -> {
                 logger.warn(
                         "{} never answered the resource pack offer within {}s",
@@ -389,8 +377,7 @@ public final class PackStation {
                 release.accept(player);
             }
             case RELEASE_UNCONFIRMED -> {
-                // The player goes where they were always going; what is wrong is the channel, and
-                // this is the only place that would say so.
+                // The player goes where they were always going; what is wrong is the channel, noted only here.
                 logger.warn(
                         "Releasing {} to '{}' without a READY from '{}': everything else has "
                                 + "been settled for the grace period. The nordtal:limbo channel is "
@@ -406,9 +393,7 @@ public final class PackStation {
     private void sendToLimbo(final Player player, final byte[] data) {
         player.getCurrentServer().ifPresent(connection -> {
             if (!connection.sendPluginMessage(channel, data)) {
-                // The backend has not registered the channel: a limbo that is running without its
-                // plugin, or an older one. The player is not stuck - the release path does not
-                // depend on WAIT - but their screen will say nothing useful.
+                // The backend has not registered the channel; the player is not stuck since release skips WAIT.
                 logger.warn(
                         "'{}' did not accept a {} message; is the limbo plugin running there?",
                         connection.getServerInfo().getName(),
@@ -418,15 +403,16 @@ public final class PackStation {
     }
 
     /**
-     * Called by the router when the connection a release asked for failed: the backend is registered
-     * and not answering. The player is still on limbo, so they go back on the books with the
-     * {@code BACKEND} title and the release is tried again in {@link WaitingBook#RELEASE_RETRY}.
+     * Called by the router when the connection a release asked for failed: the backend is registered and not answering.
      *
-     * <p>Also suspends the destination in {@link BackendHealth} - the same signal
+     * The player is still on limbo, so they go back on the books with the {@code BACKEND} title and the release
+     * is tried again in {@link WaitingBook#RELEASE_RETRY}.
+     *
+     * Also suspends the destination in {@link BackendHealth} - the same signal
      * {@link eu.nordtal.s2.proxy.gate.BackendKick} raises for a reasonless kick, and the
      * same shared per-server breaker: a backend refusing new connections outright is exactly as
-     * unavailable to everyone else waiting for it as one that just kicked somebody, and season-2-ops/20
-     * asks for one lock per server rather than one retry per player.</p>
+     * unavailable to everyone else waiting for it as one that just kicked somebody, and this
+     * asks for one lock per server rather than one retry per player.
      *
      * @param player the player the release could not move
      * @param cause  why, in one line - a backend that is restarting says "Connection refused"
@@ -445,7 +431,7 @@ public final class PackStation {
         evaluate(player);
     }
 
-    // ------------------------------------------------------------------ housekeeping
+    // housekeeping
 
     @Subscribe
     public void onDisconnect(final DisconnectEvent event) {
@@ -455,12 +441,12 @@ public final class PackStation {
     }
 
     /**
-     * Whether this player is standing in a waiting room - <b>either</b> of them.
+     * Whether this player is standing in a waiting room - either of them.
      *
-     * <p>Both, since season-2-ops/120. Against {@code limbo} alone, a player parked on
-     * {@code limbo-standby} during a swap was not "on limbo" to this class: the pack handshake
-     * would not have been driven for them and {@link WaitingBook} would never have released them,
-     * because releasing happens from the waiting room and they would not have been in one.</p>
+     * Against {@code limbo} alone, a player parked on {@code limbo-standby} during a swap would not
+     * be "on limbo" to this class: the pack handshake would not have been driven for them and
+     * {@link WaitingBook} would never have released them, because releasing happens from the
+     * waiting room and they would not have been in one.
      */
     private boolean onLimbo(final Player player) {
         return player.getCurrentServer()
@@ -474,8 +460,7 @@ public final class PackStation {
     }
 
     private void disconnect(final Player player, final Component reason) {
-        // Ending the visit before the disconnect, so a sweep running concurrently on another thread
-        // cannot decide anything else about somebody who is already on their way out.
+        // Ending the visit before the disconnect, so a concurrent sweep cannot decide anything else about them.
         book.left(player.getUniqueId());
         player.disconnect(reason);
     }

@@ -16,10 +16,10 @@ public record Announcement(Kind kind, long seconds) {
         /**
          * A subtitle carrying the number alone, once a second for the last ten.
          *
-         * <p>New 2026-09-08. Chat is where a warning is <em>read</em> and the last ten seconds are
-         * not long enough to read anything - they are long enough to look up. A player mining with
-         * the chat box closed saw the whole countdown and nothing else; the subtitle is the half
-         * that reaches them without asking them to be looking at the right corner.</p>
+         * Chat is where a warning is read and the last ten seconds are not long enough to read
+         * anything - they are long enough to look up. A player mining with the chat box closed saw
+         * the whole countdown and nothing else; the subtitle is the half that reaches them without
+         * asking them to be looking at the right corner.
          */
         TICK,
 
@@ -32,10 +32,9 @@ public record Announcement(Kind kind, long seconds) {
         /**
          * Chat: "It was asked for and it is not happening."
          *
-         * <p>Added 2026-09-03 with finding 39. Before it, a restart that reached zero and then
-         * failed - a container runtime that stopped answering, a stop that was refused - looked to
-         * a player exactly like one somebody had withdrawn, because those were the only two lines
-         * there were.
+         * A restart that reached zero and then failed - a container runtime that stopped
+         * answering, a stop that was refused - would otherwise look to a player exactly like one
+         * somebody had withdrawn, with no way to tell the two apart.
          */
         FAILED
     }

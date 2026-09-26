@@ -8,8 +8,9 @@ import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 /**
- * The per-server breaker on its own, with no {@link BackendKick} or Velocity connection anywhere
- * near it - see {@link BackendHealth} for why a timeout stands in for a real health check.
+ * The per-server breaker on its own, with no {@link BackendKick} or Velocity connection anywhere near it.
+ *
+ * See {@link BackendHealth} for why a timeout stands in for a real health check.
  */
 class BackendHealthTest {
 

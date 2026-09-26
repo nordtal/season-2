@@ -7,34 +7,32 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The one value in {@code compose.yml} that tells the two proxies apart (season-2-ops/121).
+ * The one value in {@code compose.yml} that tells the two proxies apart.
  *
- * <h2>Why a test reads a YAML file</h2>
+ * <b>Why a test reads a YAML file.</b>
  * Everything else about this feature is Java and is held by the compiler. This is not: the two
  * proxies are one image and one environment block, and the entire difference between "the proxy
  * players connect to" and "the proxy that holds them while the first one restarts" is one string in
  * a file nothing compiles.
  *
- * <p><b>Both directions are failures and neither says anything.</b> A standby that was not told it
+ * <b>Both directions are failures and neither says anything.</b> A standby that was not told it
  * is one behaves exactly like the live proxy: it releases parked players onto the backends and
  * never sends anybody home, and the log line it prints is the ordinary one. A live proxy that was
  * told it <em>is</em> the standby watches the public address, finds itself answering, and
- * transfers every player to the address they are already on.</p>
+ * transfers every player to the address they are already on.
  *
- * <p>This does not prove the deployment works - see {@code fits-on-a-phone.test.ts} in the frontend
+ * This does not prove the deployment works - see {@code fits-on-a-phone.test.ts} in the frontend
  * for the same caveat, written for the same reason. It proves that the line was not deleted or
- * copied to the wrong service, which is the way it will actually go wrong.</p>
+ * copied to the wrong service, which is the way it will actually go wrong.
  */
 class ComposeTellsTheStandbyApartTest {
 
     private static final String KEY = "NORDTAL_PROXY_NETWORK_STANDBY";
 
     @Test
-    @DisplayName("compose.yml says false for the live proxy and true for the standby, once each")
     void composeNamesTheStandby() throws IOException {
         final String compose = Files.readString(repositoryRoot().resolve("compose.yml"), StandardCharsets.UTF_8);
 
@@ -67,14 +65,14 @@ class ComposeTellsTheStandbyApartTest {
     /**
      * The lines of one compose service: from its key to the next key at the same indent.
      *
-     * <p>Two spaces and a colon, and the third character not a space - which is exactly how a
-     * compose service is written and nothing else in the file is.</p>
+     * Two spaces and a colon, and the third character not a space - which is exactly how a
+     * compose service is written and nothing else in the file is.
      */
     private static String block(final String compose, final String service) {
         final int start = compose.indexOf(System.lineSeparator() + service);
         assertTrue(start >= 0, "no `" + service.trim() + "` in compose.yml");
         int end = start + System.lineSeparator().length() + service.length();
-        for (final String line : compose.substring(end).split("\\R")) {
+        for (final String line : compose.substring(end).lines().toList()) {
             if (line.startsWith("  ") && !line.startsWith("   ") && line.trim().endsWith(":")) {
                 break;
             }
@@ -84,7 +82,7 @@ class ComposeTellsTheStandbyApartTest {
     }
 
     private static String valueOf(final String block, final String key) {
-        for (final String line : block.split("\\R")) {
+        for (final String line : block.lines().toList()) {
             final String trimmed = line.trim();
             if (trimmed.startsWith(key + ":")) {
                 return trimmed.substring(key.length() + 1).trim();

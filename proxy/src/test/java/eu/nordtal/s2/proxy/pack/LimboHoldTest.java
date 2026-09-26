@@ -6,27 +6,23 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.limbo.WaitReason;
 import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The rule that decides how long a player stares at a black screen, asserted exhaustively.
- * <p>
+ *
  * Every combination of the four inputs is covered below, which is cheap here (24 cases) and
  * impossible anywhere else: the rest of {@link PackStation} is Velocity events, a connection
  * request and a resource-pack offer, none of which this repository can drive. What is worth pinning
  * is not that a title appears but <b>which</b> one, because two of the three reasons look identical
  * from inside the waiting room and only the title tells the player whether to wait or to go and
  * read Discord.
- * </p>
  */
 class LimboHoldTest {
 
     @Test
     void anUnappliedPackOutranksEveryOtherReason() {
-        // Including maintenance, and deliberately. The download is happening on the player's own
-        // machine right now; telling them the network is under maintenance describes the wrong half
-        // of their situation and invites them to quit while a download is in flight.
+        // Including maintenance, deliberately: the download is on the player's own machine, and quitting loses it.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             assertEquals(
                     Optional.of(WaitReason.PACK),
@@ -48,9 +44,7 @@ class LimboHoldTest {
 
     @Test
     void maintenanceOutranksAMissingBackend() {
-        // In MAINTENANCE the phase's own backend IS limbo, so "not available" here means the player
-        // is standing in a waiting room the proxy does not think exists - which cannot happen, but
-        // if it ever did, the honest answer is still the reason they are not going anywhere.
+        // In MAINTENANCE the phase's own backend is limbo, so even "not available" there still means maintenance.
         assertEquals(
                 Optional.of(WaitReason.MAINTENANCE),
                 LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, false, false, false));
@@ -80,9 +74,7 @@ class LimboHoldTest {
 
     @Test
     void maintenanceNeverReleasesAnybodyNoMatterWhatElseIsTrue() {
-        // The one reason that does not end on its own. It ends when an admin switches the phase, at
-        // which point PlayerRouter re-routes everybody - so this method returning empty for
-        // MAINTENANCE would be a player quietly let onto the servers being worked on.
+        // The one reason that does not end on its own; only a phase switch ends it, never this method returning empty.
         assertEquals(
                 Optional.of(WaitReason.MAINTENANCE),
                 LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, true, false, false));
@@ -93,12 +85,7 @@ class LimboHoldTest {
 
     @Test
     void maintenanceDoesNotHoldTheAdminItIsBeingDoneBy() {
-        // The admin is the one player maintenance is FOR. Until 2026-09-05 they were kept out of the
-        // room by routing instead (STAY at login), which velocity.toml quietly turned into "put them
-        // in limbo" - so they were held here under a title that never changed. Now they pass
-        // through like everybody else and this is the rule that lets them out: the pack still comes
-        // first, the server they are released onto (the SMP, PhaseServers#forAdmitted) still has to
-        // be there, and maintenance itself is no reason to wait.
+        // Maintenance alone is no reason to hold the admin it is being done by; pack and destination still count.
         assertEquals(
                 Optional.empty(), LimboHold.reason(true, SeasonPhase.MAINTENANCE, true, false, true, false, false));
         assertEquals(
@@ -111,8 +98,7 @@ class LimboHoldTest {
 
     @Test
     void theAdminFlagChangesNothingOutsideMaintenance() {
-        // PRE_LAUNCH included: forAdmitted names the SMP for an admin there, but whether it is
-        // available is the caller's input, and this rule reads it the same way for everybody.
+        // PRE_LAUNCH included: whether the SMP is available is the caller's input, read the same for everybody.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             if (phase == SeasonPhase.MAINTENANCE) {
                 continue;
@@ -130,8 +116,7 @@ class LimboHoldTest {
 
     @Test
     void aDisabledPackIsNotASpecialCaseButAWaitWithOneFewerThingInIt() {
-        // PackStation passes `offer == null || applied` as packSettled, so a proxy with
-        // pack.yml#enabled false behaves exactly like one whose players have all already applied it.
+        // PackStation passes `offer == null || applied` as packSettled: a disabled pack behaves as already applied.
         assertEquals(Optional.empty(), LimboHold.reason(true, SeasonPhase.SMP, false, false, true, false, false));
         assertEquals(
                 Optional.of(WaitReason.BACKEND),
@@ -140,9 +125,7 @@ class LimboHoldTest {
 
     @Test
     void unknownIsNeverProducedHereBecauseTheProxyAlwaysKnowsWhy() {
-        // WaitReason.UNKNOWN exists for limbo's own first tick, before any WAIT has arrived. If this
-        // method ever returned it, it would mean the proxy had told the waiting room it did not know
-        // why it was holding somebody, which is not a state this rule has.
+        // WaitReason.UNKNOWN exists for limbo's own first tick; this rule always knows why it is holding somebody.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             for (final boolean settled : new boolean[] {false, true}) {
                 for (final boolean admin : new boolean[] {false, true}) {
@@ -157,13 +140,11 @@ class LimboHoldTest {
         }
     }
 
-    // ------------------------------------------------------------------ an update is running
+    // an update is running
 
     @Test
     void anUpdateIsItsOwnReasonAndOutranksAMissingBackend() {
-        // The point of the constant existing at all. From out here the two are the same fact - the
-        // destination will not take a connection - and the difference is the one the person on the
-        // black screen cares about: somebody started this on purpose and it is nearly over.
+        // From out here BACKEND and UPDATE are the same fact, but the difference is what the player cares about.
         for (final SeasonPhase phase :
                 new SeasonPhase[] {SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT, SeasonPhase.SMP}) {
             assertEquals(
@@ -175,10 +156,7 @@ class LimboHoldTest {
 
     @Test
     void anUpdateHoldsEvenWhileTheBackendStillLooksAvailable() {
-        // The window this closes: a server stays registered on the proxy from velocity.toml while
-        // its container is down, so "available" is still true in the moment between the stop and
-        // the socket refusing. Releasing a player into that window is the failed connection the
-        // evacuation exists to avoid, and it would have shown as BACKEND a second later.
+        // The window this closes: a server stays registered while its container is down; releasing here avoids it.
         assertEquals(
                 Optional.of(WaitReason.UPDATE),
                 LimboHold.reason(true, SeasonPhase.SMP, false, false, true, true, false));
@@ -186,10 +164,7 @@ class LimboHoldTest {
 
     @Test
     void maintenanceOutranksAnUpdate() {
-        // Deliberate, and the one ordering worth arguing about. Maintenance is the longer-lived
-        // truth: the update ends and leaves the player exactly where the maintenance title already
-        // said they would be, so saying "update" first would be a sentence that expires into a
-        // worse one.
+        // Deliberate: maintenance is the longer-lived truth, so "update" first expires into a worse sentence.
         assertEquals(
                 Optional.of(WaitReason.MAINTENANCE),
                 LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, false, true, false));
@@ -197,8 +172,7 @@ class LimboHoldTest {
 
     @Test
     void anUnappliedPackStillOutranksAnUpdate() {
-        // Same argument as everywhere else in this class: the download is happening on the player's
-        // own machine right now and is the only thing they can influence.
+        // Same argument as elsewhere: the download is on the player's own machine, the only thing influenced.
         assertEquals(
                 Optional.of(WaitReason.PACK),
                 LimboHold.reason(false, SeasonPhase.SMP, false, false, false, true, false));
@@ -206,37 +180,28 @@ class LimboHoldTest {
 
     @Test
     void anUpdateOfSomebodyElsesBackendHoldsNobody() {
-        // The flag is per destination, not per network. A run that moves only hunger-games must not
-        // hold a player whose phase points at the SMP - they would be sitting in a waiting room for
-        // an outage that was never going to touch them.
+        // The flag is per destination, not per network; moving hunger-games must not hold a player headed for the SMP.
         assertEquals(Optional.empty(), LimboHold.reason(true, SeasonPhase.SMP, false, false, true, false, false));
     }
 
-    // --- a backend somebody is holding down (season-2-ops/125) -----------------------------------
+    // a backend somebody is holding down
 
     @Test
-    @DisplayName("a held backend is its own reason, not 'waiting for the server'")
     void aHeldBackendIsItsOwnReason() {
-        // The failure this prevents: the DOWN run ends after half a minute and the player then sees
-        // the screen that means "something has gone wrong and nobody knows for how long", for a
-        // server that is exactly where somebody put it.
+        // The failure this prevents: an unheld player sees "something has gone wrong" for a server put there on purpose
         assertEquals(
                 Optional.of(WaitReason.HELD),
                 LimboHold.reason(true, SeasonPhase.SMP, false, false, false, false, true));
     }
 
     @Test
-    @DisplayName("a hold outranks the update run that wrote it")
     void theHoldOutranksTheUpdate() {
-        // Both are true during the DOWN run itself. The update screen promises "you will be moved
-        // back automatically", which that run is not going to do - so the longer-lived truth wins,
-        // the same way maintenance wins over both.
+        // Both are true during the hold; the update screen promises a return that will not happen, so the truth wins.
         assertEquals(
                 Optional.of(WaitReason.HELD), LimboHold.reason(true, SeasonPhase.SMP, false, false, false, true, true));
     }
 
     @Test
-    @DisplayName("maintenance still outranks a hold")
     void maintenanceStillWins() {
         assertEquals(
                 Optional.of(WaitReason.MAINTENANCE),
@@ -244,11 +209,8 @@ class LimboHoldTest {
     }
 
     @Test
-    @DisplayName("a held backend holds the player even while the server still answers")
     void aHoldHoldsEvenWhileAvailable() {
-        // Same reason the update question is not guarded by availability: a server stays registered
-        // on the proxy while its container goes down, so there is a window in which "available" is
-        // still true and releasing somebody into it is the failed connection this avoids.
+        // Same reason the update question is not guarded by availability: registered does not mean the container is up.
         assertEquals(
                 Optional.of(WaitReason.HELD), LimboHold.reason(true, SeasonPhase.SMP, false, false, true, false, true));
     }

@@ -25,20 +25,19 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * {@link PlaytimeStore}'s one statement, against a real PostgreSQL running the real {@code V4}.
- * <p>
+ *
  * {@link PlaytimeWriterTest} covers the counting; this covers the writing, and the two are separate
  * because only one of them needs Docker. What cannot be checked in memory is that the row is
  * created on first use, that a second call <b>adds</b> rather than replaces, that the foreign key
  * onto {@code discord_user} holds, and that two flushes racing produce the sum of both slices
  * instead of one of them - which is the property {@code V4}'s comment claims for {@code bigint}
  * seconds over an {@code interval}.
- * </p>
- * <p>
+ *
+ *
  * Testcontainers is driven by hand from {@link BeforeAll} for the reason {@code :common}'s tests
  * give: the {@code org.testcontainers:junit-jupiter} extension is built against JUnit 5 and this
  * repo is on the JUnit 6 BOM. These tests <b>skip themselves</b> when no Docker daemon is
  * reachable, so a green build on a machine without Docker proves nothing about any of this.
- * </p>
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PlaytimeStoreIntegrationTest {
@@ -67,8 +66,7 @@ class PlaytimeStoreIntegrationTest {
         dataSource.setUser(postgres.getUsername());
         dataSource.setPassword(postgres.getPassword());
 
-        // The real migrations, off the classpath - :common is shaded into this module, so
-        // db/migration is exactly where the bot finds it too.
+        // The real migrations, off the classpath: :common is shaded here, so db/migration is where the bot finds it.
         Flyway.configure(PlaytimeStoreIntegrationTest.class.getClassLoader())
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
@@ -126,14 +124,13 @@ class PlaytimeStoreIntegrationTest {
 
     @Test
     void concurrentFlushesAddUpInsteadOfOverwritingEachOther() throws Exception {
-        // Two proxies, or one proxy's periodic sweep racing a disconnect. The statement is an
-        // addition evaluated by PostgreSQL, so the row ends up with both slices in either order.
+        // Two proxies, or a sweep racing a disconnect: PostgreSQL evaluates the addition, both slices land.
         final int writers = 8;
         final ExecutorService pool = Executors.newFixedThreadPool(writers);
         final CountDownLatch go = new CountDownLatch(1);
         try {
             for (int index = 0; index < writers; index++) {
-                pool.submit(() -> {
+                final var _ = pool.submit(() -> {
                     go.await();
                     store.add(DISCORD_ID, 30);
                     return null;
@@ -151,9 +148,7 @@ class PlaytimeStoreIntegrationTest {
 
     @Test
     void aDiscordAccountTheDatabaseHasNeverSeenIsRefusedByTheForeignKey() {
-        // The writer only ever passes an id the login query returned, and this is what makes that
-        // an enforced rule rather than a convention: a play-time row for a user that does not exist
-        // would be a total nobody could ever attribute.
+        // Enforced, not a convention: a play-time row for a user that does not exist is a total nobody could own.
         assertThrows(RuntimeException.class, () -> store.add("999999999999999999", 60));
     }
 
@@ -169,7 +164,7 @@ class PlaytimeStoreIntegrationTest {
                 "ON DELETE CASCADE, so nothing is left keyed by an account that is gone");
     }
 
-    // ---------------------------------------------------------------- helpers
+    // helpers
 
     private static long seconds(final String discordId) {
         return count("SELECT seconds FROM player_playtime WHERE discord_id = '" + discordId + "'");

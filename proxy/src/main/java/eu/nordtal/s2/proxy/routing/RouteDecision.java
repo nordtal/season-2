@@ -1,17 +1,18 @@
 package eu.nordtal.s2.proxy.routing;
 
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
- * What should happen to one player, given the phase the network is in and what the database says
- * about them. Produced by {@link PhaseRouting#decide} and carried out by
- * {@code PlayerRouter}.
+ * What should happen to one player, given the phase the network is in and what the database says about them.
  *
- * <p>It is a value rather than a method call on a Velocity {@code Player} so that the rules can be
+ * Produced by {@link PhaseRouting#decide} and carried out by {@code PlayerRouter}.
+ *
+ * It is a value rather than a method call on a Velocity {@code Player} so that the rules can be
  * asserted in memory. Nothing in this repository's test suite can drive a real proxy, so the part
  * worth testing is separated from the part that cannot be.
  */
-public record RouteDecision(Action action, String server) {
+public record RouteDecision(Action action, @Nullable String server) {
 
     /** Everything that can happen to a player, plus "nothing". */
     public enum Action {
@@ -20,8 +21,10 @@ public record RouteDecision(Action action, String server) {
         CONNECT,
 
         /**
-         * Leave the player exactly where they are - the admin during {@code MAINTENANCE}, who
-         * belongs on the servers being worked on rather than in the waiting room.
+         * Leave the player exactly where they are.
+         *
+         * The admin during {@code MAINTENANCE}, who belongs on the servers being worked on rather than in the
+         * waiting room.
          */
         STAY,
 
@@ -32,33 +35,34 @@ public record RouteDecision(Action action, String server) {
         REFUSE_NOT_MEMBER,
 
         /**
-         * {@code SMP} without an active access period. Disconnect - <b>never</b> a redirect to
-         * {@code limbo}, which is for waiting on something that ends.
+         * {@code SMP} without an active access period.
+         *
+         * Disconnect - <b>never</b> a redirect to {@code limbo}, which is for waiting on something that ends.
          */
         REFUSE_NO_ACCESS,
 
         /**
-         * The network is in {@code MAINTENANCE} and this proxy has no {@code limbo} server to hold
-         * the player in, so the maintenance screen is a disconnect instead.
+         * The network is in {@code MAINTENANCE} and this proxy has no {@code limbo} server to hold the player in.
+         *
+         * So the maintenance screen is a disconnect instead.
          */
         REFUSE_MAINTENANCE_UNAVAILABLE,
 
         /**
-         * The phase's backend is not registered on this proxy and the phase is not
-         * {@code MAINTENANCE}. A configuration error; disconnect rather than leave the player
-         * somewhere the phase says they should not be.
+         * The phase's backend is not registered on this proxy and the phase is not {@code MAINTENANCE}.
+         *
+         * A configuration error; disconnect rather than leave the player somewhere the phase says they should not be.
          */
         REFUSE_NO_SERVER,
 
         /**
-         * The network was switched <b>back</b> to {@code PRE_LAUNCH} while this player was on it,
-         * and they have not bought an access period. Disconnect with the same countdown screen the
-         * login gate shows.
-         * <p>
+         * The network was switched <b>back</b> to {@code PRE_LAUNCH} while this player was on it, unbought.
+         *
+         * Disconnect with the same countdown screen the login gate shows.
+         *
          * Only reachable from {@code PhaseRouting#decide(AccessState, Set)}, the phase-change
          * re-route: the initial and release routes are only ever taken by somebody the gate has
          * already admitted, and in {@code PRE_LAUNCH} that is an admin.
-         * </p>
          */
         REFUSE_PRE_LAUNCH_BUY,
 

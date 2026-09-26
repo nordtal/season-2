@@ -19,8 +19,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The fail-fast for {@code proxy}'s own config files: every value here must stop the gate
- * from starting rather than surface as a confusing failure later.
+ * The fail-fast for {@code proxy}'s own config files.
+ *
+ * Every value here must stop the gate from starting rather than surface as a confusing failure
+ * later.
  */
 class ConfigsTest {
 
@@ -29,7 +31,7 @@ class ConfigsTest {
     @TempDir
     Path directory;
 
-    // ------------------------------------------------------------- database.yml
+    // database.yml
 
     @Test
     void aFreshDirectoryGetsWorkingDefaults() throws Exception {
@@ -73,7 +75,7 @@ class ConfigsTest {
         assertTrue(error.getMessage().contains("query-timeout-seconds"), error.getMessage());
     }
 
-    // ------------------------------------------------------------- gate.yml
+    // gate.yml
 
     @Test
     void aFreshGateConfigGetsTheDocumentedDefaults() throws Exception {
@@ -82,7 +84,7 @@ class ConfigsTest {
         assertEquals(
                 "https://nordtal.eu",
                 config.discordInviteUrl(),
-                "the website, not an invite link, decided 2026-09-03: nordtal.eu forwards to the "
+                "the website, not an invite link: nordtal.eu forwards to the "
                         + "Discord and an address that never changes beats one that can expire");
         assertEquals(10, config.linkCodeTtlMinutes());
         assertEquals(15, config.fallbackCacheWindowMinutes());
@@ -95,7 +97,7 @@ class ConfigsTest {
         assertEquals(
                 300,
                 config.playtimeFlushIntervalSeconds(),
-                "five minutes is the decided flush interval, settled 2026-08-31 - a proxy crash "
+                "five minutes is the decided flush interval - a proxy crash "
                         + "costing up to five minutes of play time is the accepted trade");
         assertEquals("limbo", config.serverLimbo());
         assertEquals("hunger-games", config.serverHungerGames());
@@ -104,8 +106,7 @@ class ConfigsTest {
 
     @Test
     void theServerNamesDefaultToTheModuleDirectoryNames() throws Exception {
-        // The defaults are the module directory names, which are already the runtime identity of
-        // the three Paper plugins; if velocity.toml calls them something else, these keys change.
+        // The defaults are the module directory names, the runtime identity of the three Paper plugins.
         final GateSpec config = Configs.gate(directory, LOGGER).get();
 
         assertEquals("limbo", config.serverLimbo(), "MAINTENANCE routes here");
@@ -115,8 +116,7 @@ class ConfigsTest {
 
     @Test
     void aBlankServerNameIsRejected() throws Exception {
-        // A name that could never resolve to a registered server is certainly a mistake, unlike a
-        // name that simply does not match this proxy's velocity.toml - which is not checkable here.
+        // A name that could never resolve to a registered server is a mistake; a velocity.toml mismatch is not.
         writeGate("server-limbo: ''");
 
         final ConfigValidationException error =
@@ -144,8 +144,7 @@ class ConfigsTest {
 
     @Test
     void aZeroPhasePollIntervalIsRejected() throws Exception {
-        // A poll interval of zero would schedule a task with no repeat and leave the proxy on
-        // whatever phase it read at startup - the one failure mode the poll exists to prevent.
+        // A zero interval would schedule a task with no repeat, the one failure mode the poll exists to prevent.
         writeGate("phase-poll-interval-seconds: 0");
 
         final ConfigValidationException error =
@@ -171,19 +170,13 @@ class ConfigsTest {
                 "the fallback is to drop NOTIFY and keep the poll");
     }
 
-    /**
-     * Writes a complete, valid {@code gate.yml} with one line replaced. A key jcore does not
-     * recognise is refused or deleted, so every test needs the whole file rather than one value.
-     */
-    // ------------------------------------------------------------- pack.yml
+    // pack.yml
 
     private static final String REAL_LOOKING_SHA1 = "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c";
 
     @Test
     void aFreshPackConfigIsEnabledButRefusesToStartUntilItIsFilledIn() throws Exception {
-        // Enabled by default because a production network has a pack, and empty by default because
-        // a default pointing at somebody's release would be worse than none. So a fresh install
-        // fails closed rather than letting everybody in without the pack.
+        // Enabled by default because a production network has a pack, but empty, so a fresh install fails closed.
         assertThrows(ConfigValidationException.class, () -> Configs.pack(directory, LOGGER));
         assertTrue(
                 Files.isRegularFile(directory.resolve("pack.yml")),
@@ -209,8 +202,7 @@ class ConfigsTest {
 
     @Test
     void aDisabledPackIsAllowedToLeaveTheUrlAndHashEmpty() throws Exception {
-        // The escape hatch for a development proxy: refusing to start over values nothing reads
-        // would make it harder to use than the thing it escapes.
+        // The escape hatch for a development proxy: refusing to start over values nothing reads defeats the point.
         writePack("", "", false, true, 180);
 
         final PackSpec config = Configs.pack(directory, LOGGER).get();
@@ -230,8 +222,7 @@ class ConfigsTest {
 
     @Test
     void aUrlTheClientCannotDownloadFromIsRejected() throws Exception {
-        // A path or a file: URL is the mistake somebody makes once, and the client's answer to it is
-        // INVALID_URL for every player at the same moment.
+        // A path or a file: URL is a mistake made once, and the client answers INVALID_URL for every player at once.
         writePack("/var/www/pack.zip", REAL_LOOKING_SHA1, true, true, 180);
 
         final ConfigValidationException error =
@@ -241,9 +232,7 @@ class ConfigsTest {
 
     @Test
     void aHashThatIsNotFortyHexCharactersIsRejected() throws Exception {
-        // Length and alphabet are all that can be checked here. Whether it is the hash of the zip
-        // at `url` only the client answers, with FAILED_DOWNLOAD - which reads as a network problem
-        // and is not one.
+        // Length and alphabet are all that can be checked here; whether it is the real hash only the client answers.
         for (final String wrong : new String[] {
             "deadbeef", REAL_LOOKING_SHA1 + "0", "sha1-" + REAL_LOOKING_SHA1, "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3g"
         }) {
@@ -272,9 +261,7 @@ class ConfigsTest {
 
     @Test
     void aZeroApplyTimeoutIsRejectedEvenWhenThePackIsOff() throws Exception {
-        // Checked before the enabled/disabled branch, because a zero here would disconnect every
-        // player the instant they were offered the pack - and the value is read by the sweep
-        // regardless of which way `enabled` is set.
+        // Checked before the enabled/disabled branch: the sweep reads the value regardless of `enabled`.
         writePack("", "", false, true, 0);
 
         final ConfigValidationException error =
@@ -294,7 +281,7 @@ class ConfigsTest {
                 """.formatted(enabled, url, sha1, force, timeout));
     }
 
-    // ------------------------------------------------------------- network.yml
+    // network.yml
 
     @Test
     void aFreshNetworkConfigLoadsAndCarriesAMotdForEveryPhase() throws Exception {
@@ -306,9 +293,7 @@ class ConfigsTest {
                 "a fresh load must write the defaults out - and this file is also the only place the"
                         + " placeholder list is documented");
 
-        // The nested MotdSpec has to survive the round trip: without its own @ConfigSpec it fails
-        // as a Gson error about java.lang.reflect.Proxy#h, on the first write, which is what a
-        // fresh load does.
+        // The nested MotdSpec has to survive the round trip: without its own @ConfigSpec the first write fails.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             assertFalse(motdFor(config, phase).isBlank(), "no MOTD for " + phase);
         }
@@ -316,8 +301,7 @@ class ConfigsTest {
 
     @Test
     void everyPhaseGetsItsOwnMotdRatherThanOneSharedLine() throws Exception {
-        // Five values, five meanings. If two of them are ever equal by default, the file has stopped
-        // being worth having five keys.
+        // Five values, five meanings; two ever equal by default means the file is not worth five keys.
         final NetworkSpec config = Configs.network(directory, LOGGER).get();
         final Set<String> distinct = new HashSet<>();
         for (final SeasonPhase phase : SeasonPhase.values()) {
@@ -331,9 +315,7 @@ class ConfigsTest {
 
     @Test
     void aNetworkConfigStillCarryingBackendLimitLosesTheLineRatherThanTheProxy() throws Exception {
-        // network.yml lives in a volume, and a deployed one may still carry `backend-limit`. The
-        // loader drops a retired key itself rather than refusing to start: there was never a second
-        // thing an operator could do about it, and a proxy that will not start is how nobody joins.
+        // A deployed network.yml may still carry `backend-limit`; the loader drops it rather than refusing to start.
         Files.writeString(directory.resolve("network.yml"), """
                 max-players: 500
                 backend-limit: 1000
@@ -363,9 +345,7 @@ class ConfigsTest {
 
     @Test
     void aFreshNetworkConfigCarriesTheAllowlistOfOurOwnPlayerCommands() throws Exception {
-        // The default is the assertion: this list is what every player on the network can type, and
-        // a convenient-looking addition is how a vanilla command comes back. Vanilla is absent in
-        // full - /help lists what a player may not run, and /tell is replaced by /msg.
+        // The default is the assertion: this list is what every player on the network can type.
         final NetworkSpec config = Configs.network(directory, LOGGER).get();
 
         assertEquals(
@@ -375,10 +355,7 @@ class ConfigsTest {
 
     @Test
     void aBlankAllowlistEntryIsRejectedBecauseItWouldBeDroppedSilently() throws Exception {
-        // A blank line parses to no segments, and an entry with no segments would match every
-        // command there is - so CommandAllowlist refuses it. Caught here instead, where the file
-        // and the line number are still known: the alternative is a list that looks like it has ten
-        // entries while the network behaves as though it had nine.
+        // A blank line parses to no segments, and an entry with no segments would match every command there is.
         Files.writeString(directory.resolve("network.yml"), """
                 max-players: 500
                 snapshot-refresh-seconds: 10
@@ -400,9 +377,7 @@ class ConfigsTest {
 
     @Test
     void anEmptyAllowlistIsAllowedBecauseLockingTheNetworkDownIsALegitimateThingToWant() throws Exception {
-        // Refused would be the easy rule and the wrong one: an operator who wants players to type
-        // nothing at all has no other way to say so, and the proxy shouts about it at startup
-        // rather than refusing to run.
+        // Refused would be the easy rule and the wrong one: an empty allowlist is a legitimate thing to want.
         Files.writeString(directory.resolve("network.yml"), """
                 max-players: 500
                 snapshot-refresh-seconds: 10
@@ -446,6 +421,12 @@ class ConfigsTest {
         };
     }
 
+    /**
+     * Writes a complete, valid {@code gate.yml} with one line replaced.
+     *
+     * A key jcore does not recognise is refused or deleted, so every test needs the whole file
+     * rather than one value.
+     */
     private void writeGate(final String override) throws Exception {
         final String[] defaults = {
             "discord-invite-url: 'https://nordtal.eu'",

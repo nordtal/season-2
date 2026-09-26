@@ -16,54 +16,45 @@ import java.util.function.BooleanSupplier;
 import org.slf4j.Logger;
 
 /**
- * The live proxy's half of a proxy swap: it parks the whole network on the standby before it stops
- * itself (season-2-ops/121).
+ * The live proxy's half of a proxy swap: it parks the whole network on the standby before it stops itself.
  *
- * <h2>Why this is not {@code Evacuation}</h2>
- * {@code Evacuation} moves players between <em>backends</em>, and it works because the thing doing
- * the moving stays up. A run that stops the proxy has no such luxury: the process that would move
- * anybody is the process being stopped, and the connection it would move them over is the one it
- * holds itself. Velocity has exactly one tool for that - the transfer packet, which hands the
- * <b>client</b> an address and asks it to reconnect there. Everything below follows from that one
- * fact.
+ * This is not {@code Evacuation}: that class moves players between backends, and it works because
+ * the thing doing the moving stays up. A run that stops the proxy has no such luxury: the process
+ * that would move anybody is the process being stopped, and the connection it would move them over
+ * is the one it holds itself. Velocity has exactly one tool for that - the transfer packet, which
+ * hands the client an address and asks it to reconnect there. Everything below follows from that
+ * one fact.
  *
- * <h2>What a player sees</h2>
- * The loading screen, twice: once on the way to the standby and once on the way back. In between
- * they sit in {@code limbo-standby} under the same "Update in progress - you will be moved back
- * automatically" title the backend updates already use. <b>They go over the waiting room and not
- * straight back onto the SMP</b>, which is the owner's decision of 2026-09-19 and is the whole reason
- * this is safe to build without a measurement: a player who never rejoins the backend they just
- * left cannot collide with their own session there, so the open question in the ticket - does Paper
- * refuse the second login of a UUID whose first is still being cleaned up - cannot reach this code.
+ * What a player sees is the loading screen, twice: once on the way to the standby and once on the
+ * way back. In between they sit in {@code limbo-standby} under the same "Update in progress - you
+ * will be moved back automatically" title the backend updates already use. They go over the
+ * waiting room and not straight back onto the SMP, which is the whole reason this is safe to build
+ * without a measurement: a player who never rejoins the backend they just left cannot collide with
+ * their own session there.
  *
- * <h2>What it costs, and what it does not</h2>
- * Ten seconds of dead time on the public port while the proxy itself restarts: somebody trying to
- * join in exactly that window sees an outage. That is the paid price of not putting a doorman in
- * front of 25565 (the owner, 2026-09-19), not a defect.
+ * What it costs is ten seconds of dead time on the public port while the proxy itself restarts:
+ * somebody trying to join in exactly that window sees an outage. That is the paid price of not
+ * putting a doorman in front of 25565, not a defect. What it does not cost is the session: nobody
+ * is disconnected, nobody loses their place in the world, and the Paper servers are not touched at
+ * all by a run that only moves the proxy.
  *
- * <p>What it does not cost is the session. Nobody is disconnected, nobody loses their place in the
- * world, and the Paper servers are not touched at all by a run that only moves the proxy.</p>
- *
- * <h2>The two ways this does nothing, both on purpose</h2>
- * <ul>
- *   <li><b>No {@code network.yml#public-address}</b> - then there is no address to send anybody to.
- *       An update takes the network down the way it always did. That is a deployment that never
- *       asked for this feature, so it is a startup log line and not a refusal to run.</li>
- *   <li><b>This process is the standby</b> - it is the destination, and a standby that parked its
- *       players on itself would be a loop with everybody inside it. {@code StandbyReturn} is the
- *       standby's half.</li>
- * </ul>
+ * Two ways this does nothing, both on purpose: no {@code network.yml#public-address} means there
+ * is no address to send anybody to, so an update takes the network down the way it always did -
+ * that is a deployment that never asked for this feature, so it is a startup log line and not a
+ * refusal to run. And when this process is the standby, it is the destination, and a standby that
+ * parked its players on itself would be a loop with everybody inside it - {@code StandbyReturn} is
+ * the standby's half.
  */
 public final class ProxySwap {
 
     /**
      * The compose service name of the proxy, as {@code steward-worker}'s report spells it.
      *
-     * <p>{@code OnlineCounts.PROXY} rather than a second literal: this module already had to know
+     * {@code OnlineCounts.PROXY} rather than a second literal: this module already had to know
      * the name to write its own row of {@code online_count}, and two copies of a service name is
      * one copy that is silently wrong. The worker's own is {@code Topology.PROXY}, in a module this
      * one cannot see; if that ever changes, the swap stops happening and the log says nothing,
-     * which is why {@code ProxySwapDecisionTest} states the name out loud.</p>
+     * which is why {@code ProxySwapDecisionTest} states the name out loud.
      */
     static final String OWN_SERVICE = OnlineCounts.PROXY;
 
@@ -77,26 +68,27 @@ public final class ProxySwap {
     private final StandbyReturn.Probe probe;
 
     /**
-     * When this process started, which is how it tells a run that is about to stop it from one that
-     * has already <b>been</b> through it (season-2-ops/151).
+     * When this process started.
      *
-     * <p>A run's row stays RUNNING while the worker works, and it goes on naming {@code proxy} as a
-     * moving service long after the proxy has been stopped, started and become this process. Run 76
-     * on this host: the new proxy read that row, decided it was about to stop, shut its door and
-     * refused the player the standby was at that moment handing back. A process that started after
-     * the run's own zero cannot be the process the run is waiting to stop.</p>
+     * How it tells a run that is about to stop it from one that has already been through it.
+     *
+     * A run's row stays RUNNING while the worker works, and it goes on naming {@code proxy} as a
+     * moving service long after the proxy has been stopped, started and become this process. A new
+     * proxy that read that row without this check could decide it was about to stop, shut its door
+     * and refuse a player the standby was at that moment handing back. A process that started after
+     * the run's own zero cannot be the process the run is waiting to stop.
      */
     private final Instant startedAt;
 
     /**
-     * Whether this run has already been acted on, so one run parks the network once - and, read
-     * from outside, whether this proxy is inside a run that stops it.
+     * Whether this run has already been acted on, so one run parks the network once.
      *
-     * <h2>Both readings at once, and that is the point (season-2-ops/151)</h2>
-     * Parking is a <b>moment</b>: it happens when the countdown reaches zero, to whoever is
-     * connected then. Being about to stop is a <b>state</b>, and it lasts the seconds the worker
-     * spends waiting for the backends to empty - sixteen of them in run 59 on 2026-09-20. A player
-     * who connected inside that window was never parked and met "Proxy shutting down" instead.
+     * Read from outside, also whether this proxy is inside a run that stops it.
+     *
+     * Both readings at once, and that is the point: parking is a moment - it happens when the
+     * countdown reaches zero, to whoever is connected then. Being about to stop is a state, and it
+     * lasts the seconds the worker spends waiting for the backends to empty. A player who connected
+     * inside that window was never parked and met "Proxy shutting down" instead.
      * {@link #isStopping()} is that state, and {@code RestartGate} is what it is for.
      */
     private volatile boolean parked;
@@ -156,7 +148,7 @@ public final class ProxySwap {
 
     /**
      * @return whether a run that stops this proxy has already reached zero, so that nobody new
-     *         should be let past the door (season-2-ops/151). False on the standby and false on a
+     *         should be let past the door. False on the standby and false on a
      *         proxy with no {@code public-address}: both leave {@link #check()} before it decides
      *         anything, and a deployment that does not swap proxies takes the network down the way
      *         it always did - the door would only change the screen a few of them see
@@ -168,23 +160,24 @@ public final class ProxySwap {
     /**
      * Whether there is a standby proxy answering right now, for somebody who needs to say so.
      *
-     * <p>Read by {@code RestartWatch} once per countdown (season-2-ops/118), to tell a player
+     * Read by {@code RestartWatch} once per countdown, to tell a player
      * whether they are about to see a loading screen or a disconnect. It is the same question
      * {@link #decide} asks last and for the same reason - it opens a socket, so it is asked once a
-     * run and never on a pass that has nothing to do.</p>
+     * run and never on a pass that has nothing to do.
      *
-     * <p>False on the standby itself and on a proxy with no {@code public-address}: neither parks
-     * anybody, so neither has a standby in the sense this question means.</p>
+     * False on the standby itself and on a proxy with no {@code public-address}: neither parks
+     * anybody, so neither has a standby in the sense this question means.
      */
     public boolean canPark() {
         return isArmed() && probe.answers(standby, STANDBY_ANSWERS_WITHIN);
     }
 
     /**
-     * One pass. Scheduled beside {@code Evacuation}, on the same interval and for the same reason it
-     * has a task of its own: a watch that throws is a watch Velocity stops running, and the failure
-     * mode of that is a season of updates during which the proxy takes the network down with it and
-     * nothing in the log says why.
+     * One pass.
+     *
+     * Scheduled beside {@code Evacuation}, on the same interval and for the same reason it has a task of its own: a
+     * watch that throws is a watch Velocity stops running, and the failure mode of that is a season of updates during
+     * which the proxy takes the network down with it and nothing in the log says why.
      */
     public void check() {
         if (!isArmed()) {
@@ -203,8 +196,7 @@ public final class ProxySwap {
                 .orElse(false);
 
         final Pass pass = decide(next, parked, alreadyMoved, () -> probe.answers(standby, STANDBY_ANSWERS_WITHIN));
-        // THE DOOR FIRST, AND SEPARATELY FROM THE ACTION. `park()` happens once; being shut lasts
-        // as long as the run does (season-2-ops/151).
+        // The door first and separately from the action: park() happens once, being shut lasts as long as the run.
         parked = doorAfter(pass, parked);
         switch (pass) {
             case IDLE, ALREADY_DONE, ALREADY_MOVED -> {}
@@ -223,9 +215,8 @@ public final class ProxySwap {
     /**
      * Whether the door is shut once a pass has returned {@code pass}.
      *
-     * <h2>Why this is not just "PARK happened"</h2>
-     * A pass that parks is followed by pass after pass of {@link Pass#ALREADY_DONE} until the
-     * process actually goes - sixteen seconds of them in run 59. The door has to stay shut across
+     * Not just "PARK happened": a pass that parks is followed by pass after pass of
+     * {@link Pass#ALREADY_DONE} until the process actually goes. The door has to stay shut across
      * all of them, and it has to open again on {@link Pass#IDLE}, because a run can be the last
      * one and the proxy can still be here afterwards (a run that stops nothing, or a second proxy
      * run in the same session). {@link Pass#STANDBY_MISSING} shuts it as firmly as
@@ -234,9 +225,7 @@ public final class ProxySwap {
      */
     static boolean doorAfter(final Pass pass, final boolean wasShut) {
         return switch (pass) {
-            // ALREADY_MOVED is the run that has finished with this proxy while still running. The
-            // door has to be OPEN there, and firmly: the players the standby is handing back are
-            // arriving in exactly those seconds (season-2-ops/151, run 76).
+            // ALREADY_MOVED is the run finished with this proxy while still running; the door has to stay open.
             case IDLE, ALREADY_MOVED -> false;
             case ALREADY_DONE -> wasShut;
             case STANDBY_MISSING, PARK -> true;
@@ -249,7 +238,7 @@ public final class ProxySwap {
      * @param startedAt  when this process started
      * @param notBefore  the run's own zero, from its row
      * @return whether this process began after that instant, which it can only have done by being
-     *         started <em>by</em> the run. A process that was here before zero is the one the run
+     *         started by the run. A process that was here before zero is the one the run
      *         is still waiting to stop
      */
     static boolean hasBeenThroughMe(final Instant startedAt, final Instant notBefore) {
@@ -268,9 +257,9 @@ public final class ProxySwap {
         /**
          * One is, and it has already been through this proxy: this process was started by it.
          *
-         * <p>Told apart from {@link #IDLE} rather than folded into it because they are opposite
+         * Told apart from {@link #IDLE} rather than folded into it because they are opposite
          * situations that happen to want the same inaction - and because the one that would be
-         * wrong in silence is this one.</p>
+         * wrong in silence is this one.
          */
         ALREADY_MOVED,
 
@@ -284,20 +273,19 @@ public final class ProxySwap {
     /**
      * The whole decision, without a proxy, a socket or a clock.
      *
-     * <h2>Being configured is not being there (season-2-ops/139)</h2>
-     * {@link #isArmed()} only says an address was worked out at startup. Whether anything listens
-     * on it is a fact about <em>right now</em>, and for most of the season it is false:
-     * {@code proxy-standby} lives in a compose profile of its own and is stopped until somebody
-     * starts it. Parking onto a dead address does not fail safe - every player is transferred
-     * somewhere nothing answers and is dropped, which is strictly worse than the plain restart the
-     * swap exists to avoid. So the standby is asked, and a silent one means this update behaves
-     * exactly as it did before any of this was built.
+     * Being configured is not being there: {@link #isArmed()} only says an address was worked out
+     * at startup. Whether anything listens on it is a fact about right now, and for most of the
+     * season it is false: {@code proxy-standby} lives in a compose profile of its own and is
+     * stopped until somebody starts it. Parking onto a dead address does not fail safe - every
+     * player is transferred somewhere nothing answers and is dropped, which is strictly worse than
+     * the plain restart the swap exists to avoid. So the standby is asked, and a silent one means
+     * this update behaves exactly as it did before any of this was built.
      *
-     * <p>The choreography that starts the standby before the run reaches the proxy is
-     * season-2-ops/122 and does not exist yet, so {@link Pass#STANDBY_MISSING} is at present the
-     * normal outcome rather than an exceptional one.</p>
+     * The choreography that starts the standby before the run reaches the proxy does not exist
+     * yet, so {@link Pass#STANDBY_MISSING} is at present the normal outcome rather than an
+     * exceptional one.
      *
-     * @param standbyAnswers asked <b>last</b> and never otherwise: it opens a socket, and a pass
+     * @param standbyAnswers asked last and never otherwise: it opens a socket, and a pass
      *                       that has nothing to do must cost nothing
      */
     static Pass decide(
@@ -306,13 +294,11 @@ public final class ProxySwap {
             final boolean alreadyMoved,
             final BooleanSupplier standbyAnswers) {
         if (!imminent.contains(OWN_SERVICE)) {
-            // Including every ordinary backend run. Reported as IDLE rather than handled on a timer
-            // so that a second proxy run in the same session parks again.
+            // Reported as IDLE rather than handled on a timer so a second proxy run in the same session parks again.
             return Pass.IDLE;
         }
         if (alreadyMoved) {
-            // The run stopped this proxy already and this process is what it started. Parking now
-            // would hand the network to the standby a second time, for a stop that is never coming.
+            // This process is what the run already started; parking now would hand the network to the standby twice.
             return Pass.ALREADY_MOVED;
         }
         if (alreadyParked) {
@@ -324,11 +310,11 @@ public final class ProxySwap {
     /**
      * Seats everybody and hands them the standby's address.
      *
-     * <p>The seat is written <b>before</b> the transfer, one player at a time, and a failure to
+     * The seat is written before the transfer, one player at a time, and a failure to
      * write one does not stop the transfer: a player who arrives on the other side without a seat
      * is routed by the phase like any other login, which is the old behaviour and not a loss. A
      * player left on a proxy that is about to stop is a disconnect. Those are the two outcomes, and
-     * they are not close.</p>
+     * they are not close.
      */
     private void park() {
         final var players = proxy.getAllPlayers();
@@ -350,11 +336,11 @@ public final class ProxySwap {
     /**
      * Seats one player and hands them the standby's address.
      *
-     * <p>Public since season-2-ops/151, because the park stopped being only a moment: whoever
-     * arrives between the zero and the actual stop goes the same way as everybody who was already
-     * here, and {@code RestartGate} is what calls this for them. One player at a time is how it was
-     * always written - a failure to seat does not stop the transfer, and a client that cannot be
-     * transferred must not cost everybody else theirs.</p>
+     * Public because the park is not only a moment: whoever arrives between the zero and the
+     * actual stop goes the same way as everybody who was already here, and {@code RestartGate} is
+     * what calls this for them. One player at a time is how it was always written - a failure to
+     * seat does not stop the transfer, and a client that cannot be transferred must not cost
+     * everybody else theirs.
      *
      * @param player who to hand over
      * @return whether the transfer was sent. {@code false} is the one case that still ends in a
@@ -379,9 +365,7 @@ public final class ProxySwap {
             player.transferToHost(standby);
             return true;
         } catch (final RuntimeException failure) {
-            // Velocity refuses the transfer outright for a client older than 1.20.5 - a
-            // checkArgument, not a returned failure. One such player must not cost everybody
-            // else theirs, which is the whole reason this is caught per player.
+            // Velocity refuses the transfer outright for a client older than 1.20.5; caught per player for that reason.
             logger.warn("Could not transfer {} to the standby proxy", player.getUsername(), failure);
             return false;
         }

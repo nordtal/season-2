@@ -12,16 +12,13 @@ import org.slf4j.Logger;
 /**
  * Follows an update request on the proxy and prints its answer to whoever asked.
  *
- * <h2>Why the proxy has to draw the answer</h2>
  * Velocity executes every command it knows itself; the packet never reaches a backend. Since
- * {@code /update} became a root of its own on 2026-09-08 the proxy knows it, so for every player in
- * the network the process serving {@code /update} <b>is</b> the proxy - regardless of which server
- * they are standing on. The same change wired this process with a watcher that drew nothing, on the
- * reasoning that "the proxy's console has the log". The console does; the player does not. Every
- * admin got "asking Steward..." and then silence, on all four commands.
+ * {@code /update} is a root of its own on the proxy, for every player in the network the process
+ * serving {@code /update} is the proxy - regardless of which server they are standing on. A watcher
+ * that draws nothing leaves an admin with "asking Steward..." and then silence.
  *
- * <p>What to say is {@link UpdateFollower}'s, shared with the Paper consoles. This class is the
- * Velocity scheduler around it and nothing more.</p>
+ * What to say is {@link UpdateFollower}'s, shared with the Paper consoles. This class is the
+ * Velocity scheduler around it and nothing more.
  */
 public final class UpdateWatch {
 
@@ -62,12 +59,7 @@ public final class UpdateWatch {
                     if (step.failure() != null) {
                         logger.warn("Could not read update request {}", id, step.failure());
                     }
-                    // The cancel is in a finally because delivery can throw: it ends in
-                    // Player#sendMessage, and a player who left between the poll and the write is the
-                    // ordinary case. Velocity logs the exception and keeps the repeating task, so without
-                    // this a finished run would be re-delivered every two seconds for the rest of the
-                    // proxy's life. A missing message key is not that failure - Messages reports it and
-                    // hands back the key.
+                    // Cancel is in a finally: delivery can throw, and without it a finished run repeats forever.
                     try {
                         step.deliver(user);
                     } finally {

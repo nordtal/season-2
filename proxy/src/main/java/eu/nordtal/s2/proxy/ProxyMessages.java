@@ -117,10 +117,10 @@ public interface ProxyMessages {
         }
 
         @Key("countdown")
-        Countdown countdownSection();
+        GateCountdown countdownSection();
 
         @Name("Countdown")
-        interface Countdown {
+        interface GateCountdown {
 
             @Name("Unknown")
             MessageRef unknown();
@@ -166,10 +166,10 @@ public interface ProxyMessages {
         @Name("Voice")
         MessageRef voice();
 
-        Countdown countdown();
+        RestartCountdown countdown();
 
         @Name("Countdown")
-        interface Countdown {
+        interface RestartCountdown {
 
             @Name("Update")
             MessageRef update(@Arg("what") Object what, @Arg("seconds") Object seconds);
@@ -282,10 +282,10 @@ public interface ProxyMessages {
         MessageRef now();
     }
 
-    Countdown countdown();
+    NetworkCountdown countdown();
 
     @Name("Countdown")
-    interface Countdown {
+    interface NetworkCountdown {
 
         @Name("Days")
         MessageRef days(@Arg("days") Object days, @Arg("hours") Object hours);
@@ -369,10 +369,10 @@ public interface ProxyMessages {
         }
     }
 
-    Info info();
+    InfoCommands info();
 
     @Name("Info commands")
-    interface Info {
+    interface InfoCommands {
 
         @Name("Discord")
         MessageRef discord(@Arg("invite") Object invite);

@@ -13,52 +13,36 @@ import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
 /**
- * The door, for the seconds between "this proxy is being moved" and "this proxy has stopped"
- * (season-2-ops/151). Nobody is turned away at it: an arrival in that window is parked on the
- * standby, exactly like everybody who was already connected when the countdown reached zero.
+ * The door, for the seconds between "this proxy is being moved" and "this proxy has stopped".
+ * Nobody is turned away at it: an arrival in that window is parked on the standby, exactly like
+ * everybody who was already connected when the countdown reached zero.
  *
- * <h2>The window this exists for, measured</h2>
- * {@code ProxySwap} parks <b>once</b>, at the moment the countdown reaches zero. What follows is
- * not instant: the worker then waits for the backends to empty, and in run 59 on this host that
- * took sixteen seconds. Whoever connected inside those sixteen seconds was never parked, because
- * parking had already happened, and met the raw Velocity screen when the process went:
+ * {@code ProxySwap} parks once, at the moment the countdown reaches zero, and what follows is not
+ * instant: the worker then waits for the backends to empty, which can take several seconds. Whoever
+ * connects inside that window was never parked, because parking already happened, and would
+ * otherwise meet the raw Velocity screen when the process stops.
  *
- * <pre>
- * 03:20:26  The update moves this proxy: parking 1 player(s) on dev.nordtal.eu:25566 until it is back
- * 03:20:31  [connected player] hmtill has connected
- * 03:20:42  [connected player] hmtill has disconnected: Proxy shutting down.
- * </pre>
+ * Parking rather than refusing is the design, not a fallback: the aim is that connecting through the
+ * proxy is impossible for as short a time as possible, and waiting inside the game is fine - the
+ * proxy should only be unreachable for its own restart, and before and after that it moves players
+ * onto the standbys properly rather than refusing anyone. Refusal is therefore the failure path: it
+ * is what an arrival gets when the transfer itself could not be sent - a client older than 1.20.5, a
+ * standby that went away between the park and now. The sentence is the same one, which is why
+ * {@code gate.restarting} is still here.
  *
- * <h2>Parked rather than refused, which is the owner's call - and it was the other way round first</h2>
- * The first build of this class refused, with a sentence, and that was written down here as a
- * decision. The owner turned it over on 2026-09-20, in as many words: <i>whoever arrives after the park
- * should be redirected and parked too. The aim of this whole mechanism is that connecting to
- * nordtal through the proxy is impossible for as short a time as possible. Waiting inside the game
- * is fine. So the proxy should really only be unreachable for its own restart - before and after it
- * must move players onto the standbys properly and may refuse nobody.</i>
+ * A player with a seat is never touched: a player {@code ParkedSeats} is holding a seat for is
+ * coming home from this very swap, and sending them back to the standby would be a loop. The seat
+ * and this door are checked together for exactly that reason.
  *
- * <p>So the refusal is now the <b>failure</b> path and not the design: it is what an arrival gets
- * when the transfer itself could not be sent - a client older than 1.20.5, a standby that went away
- * between the park and now. The sentence is the same one, which is why {@code gate.restarting} is
- * still here.</p>
+ * This does nothing on the standby, and on a proxy with no {@code network.yml#public-address}: in
+ * both cases {@code ProxySwap} never enters the state, so this never fires. The second is a
+ * deployment that drops everybody on every update anyway, and a nicer screen for three of them is
+ * not worth a second reader of the update row.
  *
- * <h2>A player with a seat is never touched</h2>
- * Run 76 on this host, 2026-09-20: the standby handed one player back at 18:46:04, this proxy read
- * their seat at 18:46:09 - and refused them twice, at 18:46:21 and 18:46:37. The seat and the door
- * knew nothing about each other, and the result was an eviction at the end of a choreography whose
- * whole purpose was to have none. A player {@code ParkedSeats} is holding a seat for is coming
- * <em>home</em> from this very swap; sending them back to the standby would be a loop.
- *
- * <h2>Where it does nothing</h2>
- * On the standby, and on a proxy with no {@code network.yml#public-address}: in both cases
- * {@code ProxySwap} never enters the state, so this never fires. The second is a deployment that
- * drops everybody on every update anyway, and a nicer screen for three of them is not worth a
- * second reader of the update row.
- *
- * <p>The locale comes from {@link FallbackCache}, which is memory and not a round trip. A proxy
- * that is seconds from stopping must not open a database connection to pick a language, and the
- * cache holds everybody who logged in recently - which, in a window that opens at the end of a
- * countdown, is very nearly everybody who is trying.</p>
+ * The locale comes from {@link FallbackCache}, which is memory and not a round trip. A proxy that
+ * is seconds from stopping must not open a database connection to pick a language, and the cache
+ * holds everybody who logged in recently - which, in a window that opens at the end of a countdown,
+ * is very nearly everybody who is trying.
  */
 public final class RestartGate {
 
@@ -113,7 +97,7 @@ public final class RestartGate {
      *
      * @param stopping whether a run that moves this proxy has reached zero
      * @param hasSeat  whether {@code ParkedSeats} is holding a seat for them, which means they are
-     *                 arriving <em>from</em> the standby and not into a proxy that is going away
+     *                 arriving from the standby and not into a proxy that is going away
      */
     static Handling decide(final boolean stopping, final boolean hasSeat) {
         if (!stopping || hasSeat) {
@@ -123,13 +107,13 @@ public final class RestartGate {
     }
 
     /**
-     * {@code PostLoginEvent} and not {@code LoginEvent}, and the difference is the whole change: a
-     * login can only be answered with a yes or a screen, and this one has to answer with a
-     * <em>transfer</em>. By here the player exists, the profile is settled - which is what the
-     * locale cache is keyed on - and the connection can carry the transfer packet.
+     * {@code PostLoginEvent} and not {@code LoginEvent}: a login answers yes or a screen, this with a transfer.
      *
-     * <p>Nothing here overrides a decision {@link LoginGate} has already made: that one denies the
-     * login itself, so a player refused for a reason of their own never reaches this method.</p>
+     * By here the player exists, the profile is settled - which is what the locale cache is keyed on - and the
+     * connection can carry the transfer packet.
+     *
+     * Nothing here overrides a decision {@link LoginGate} has already made: that one denies the
+     * login itself, so a player refused for a reason of their own never reaches this method.
      */
     @Subscribe
     public void onPostLogin(final PostLoginEvent event) {
@@ -142,9 +126,7 @@ public final class RestartGate {
         try {
             moved = park.test(player);
         } catch (final RuntimeException failure) {
-            // The same catch ProxySwap#park has, and for the same reason: Velocity refuses the
-            // transfer outright for a client older than 1.20.5, with an exception rather than a
-            // returned failure.
+            // The same catch ProxySwap#park has: Velocity refuses the transfer outright for a client older than 1.20.5.
             logger.warn("Could not park {} on arrival", player.getUsername(), failure);
             moved = false;
         }
@@ -161,8 +143,7 @@ public final class RestartGate {
     }
 
     /**
-     * The decision without the Velocity event around it, so a test can hold it without a
-     * {@code Player}.
+     * The decision without the Velocity event around it, so a test can hold it without a {@code Player}.
      *
      * @return the screen they get
      */

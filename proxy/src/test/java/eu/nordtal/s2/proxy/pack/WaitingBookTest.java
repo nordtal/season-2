@@ -15,26 +15,25 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The waiting room's release rule, asserted in every order the three facts can arrive in.
  *
- * <p><b>This test exists because of finding 38</b>, and the first case below is that finding
+ * <b>This test exists because of finding 38</b>, and the first case below is that finding
  * exactly: {@code limbo}'s {@code READY} reaching the proxy before the arrival event did. The old
  * code dropped it, {@code limbo} never sent another, and the player sat on a black screen for the
  * rest of the session with a title that had stopped being true. Nothing logged, nothing timed out,
  * and the sweep re-asked a question whose answer could no longer change.
  *
- * <p>What makes it assertable at all is that none of it is a Velocity type. The ordering is decided
+ * What makes it assertable at all is that none of it is a Velocity type. The ordering is decided
  * by Velocity's event dispatch and cannot be pinned from here - so the rule is written so that
  * <em>every</em> order produces the same answer, and that is what these cases check: not that one
  * sequence works, but that all six do.
  */
 class WaitingBookTest {
 
-    private static final Duration APPLY_TIMEOUT = Duration.ofSeconds(180);
+    private static final Duration APPLY_TIMEOUT = Duration.ofMinutes(3);
     private static final Duration READY_GRACE = Duration.ofSeconds(5);
     private static final SeasonPhase PLAYABLE = SeasonPhase.PRE_EVENT;
     /** The backend the phase points at; a retry window belongs to one of these and not to a player. */
@@ -52,16 +51,13 @@ class WaitingBookTest {
                 .action();
     }
 
-    // ------------------------------------------------------------------ finding 38
+    // finding 38
 
     @Test
-    @DisplayName("a READY that beats the arrival still releases the player")
     void readyBeforeArrivalIsRemembered() {
         final WaitingBook book = book();
 
-        // The order the first deployment actually produced: Velocity resumes reading from the
-        // backend before it dispatches ServerPostConnectEvent, so limbo's answer - sent one tick
-        // after the join and already sitting in the socket buffer - is handled first.
+        // Velocity resumes reading the backend before dispatching ServerPostConnectEvent, so READY arrives first.
         assertTrue(book.ready(player), "a READY before the arrival must report itself as early");
         book.entered(player);
         book.claimOffer(player);
@@ -71,13 +67,8 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("a repeated READY after the release is not reported as early")
     void aLateReadyIsNotEarly() {
-        // limbo repeats READY every second until the proxy moves the player (2026-09-05), because
-        // the first one is lost whenever Velocity decodes it in the same read batch as the join -
-        // seen on two of three logins that day. A repeat that lands after the release must not
-        // print the "reported ready before the proxy had finished" line: that line is the evidence
-        // for a specific race, and a repeat is not that race.
+        // limbo repeats READY every second; a repeat after release must not print the "before the proxy finished" line.
         final WaitingBook book = book();
         book.entered(player);
         book.claimOffer(player);
@@ -89,7 +80,6 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("every order of the three facts releases the player")
     void everyOrderReleases() {
         final Consumer<WaitingBook> arrive = b -> b.entered(player);
         final Consumer<WaitingBook> pack = b -> b.packApplied(player);
@@ -117,17 +107,15 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("a READY after the arrival is not reported as early")
     void readyAfterArrivalIsOrdinary() {
         final WaitingBook book = book();
         book.entered(player);
         assertFalse(book.ready(player), "the ordinary order must not log the warning that names the race");
     }
 
-    // ------------------------------------------------------------------ the grace period
+    // the grace period
 
     @Test
-    @DisplayName("a lost READY delays the release by the grace period and no longer")
     void aLostReadyIsSurvivable() {
         final WaitingBook book = book();
         book.entered(player);
@@ -144,7 +132,6 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("a READY inside the grace window is a confirmed release")
     void aLateReadyStillCounts() {
         final WaitingBook book = book();
         book.entered(player);
@@ -162,7 +149,6 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("the grace clock restarts when something else starts blocking again")
     void aNewReasonRestartsTheGrace() {
         final WaitingBook book = book();
         book.entered(player);
@@ -178,16 +164,14 @@ class WaitingBookTest {
                         .action());
         clock.advance(Duration.ofSeconds(4));
 
-        // Back up. Eight seconds have passed in total, which is more than the grace - but the wait
-        // has only just come down to READY again, and the player has not been waiting on it.
+        // Eight seconds passed total, more than the grace, but the wait just came down to READY again.
         assertEquals(
                 Action.IDLE, decide(book), "a release without READY must measure the wait it is actually excusing");
     }
 
-    // ------------------------------------------------------------------ releasing exactly once
+    // releasing exactly once
 
     @Test
-    @DisplayName("only the first of two concurrent decisions releases")
     void aPlayerIsReleasedOnce() {
         final WaitingBook book = book();
         book.entered(player);
@@ -205,7 +189,6 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("a timed-out player is only disconnected once")
     void aPlayerIsTimedOutOnce() {
         final WaitingBook book = book();
         book.entered(player);
@@ -216,10 +199,9 @@ class WaitingBookTest {
         assertEquals(Action.IDLE, decide(book));
     }
 
-    // ------------------------------------------------------------------ the title
+    // the title
 
     @Test
-    @DisplayName("an unchanged reason is not re-sent")
     void theSameTitleIsSentOnce() {
         final WaitingBook book = book();
         book.entered(player);
@@ -236,7 +218,6 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("a changed reason is sent")
     void aChangedTitleIsSent() {
         final WaitingBook book = book();
         book.entered(player);
@@ -250,7 +231,6 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("leaving the waiting room forgets the title but keeps the session's facts")
     void leavingKeepsWhatIsTrueOfTheSession() {
         final WaitingBook book = book();
         book.entered(player);
@@ -268,10 +248,9 @@ class WaitingBookTest {
                 Action.SHOW, decide(book), "the second visit has to redraw: limbo shows whatever it was last told");
     }
 
-    // ------------------------------------------------------------------ the pack switch
+    // the pack switch
 
     @Test
-    @DisplayName("with no pack to wait for there is nothing to time out")
     void aDisabledPackShortensTheWait() {
         final WaitingBook book = new WaitingBook(false, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, clock);
         book.entered(player);
@@ -286,7 +265,6 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("an unanswered offer disconnects, an answered one never does")
     void theTimeoutOnlyAppliesToAnUnansweredOffer() {
         final WaitingBook timing = book();
         timing.entered(player);
@@ -309,12 +287,8 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("an admin is let out of the waiting room during maintenance, onto a server that exists")
     void anAdminLeavesDuringMaintenance() {
-        // Finding 93: until 2026-09-05 an admin never reached this book during MAINTENANCE or
-        // PRE_LAUNCH on paper (routing said STAY) and always did in practice (STAY meant
-        // velocity.toml, and that says limbo) - held under "maintenance" or, worse, released back
-        // into the room they were standing in. The book now knows the flag.
+        // An admin must not be held under "maintenance" or, worse, released back into the room they were standing in.
         final WaitingBook book = book();
         book.entered(player);
         book.claimOffer(player);
@@ -333,7 +307,6 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("a non-admin in the same room at the same moment is held")
     void aNonAdminStaysDuringMaintenance() {
         final WaitingBook book = book();
         book.entered(player);
@@ -347,12 +320,8 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("a release the backend refused holds the player, says so, and is tried again")
     void aFailedReleaseHoldsAndRetries() {
-        // Seen on the local stack on 2026-09-05: the SMP restarted, Velocity kicked both players
-        // to limbo, the station released them at once (the SMP is registered, and registered is
-        // what it can see) and the failed connection disconnected both with "no server". §1 step 9
-        // of the rehearsal expects the opposite - a backend that is down holds rather than kicks.
+        // A backend that is registered but not answering must hold the player, not release into a failed connection.
         final WaitingBook book = book();
         book.entered(player);
         book.claimOffer(player);
@@ -373,12 +342,8 @@ class WaitingBookTest {
     }
 
     @Test
-    @DisplayName("a phase change inside the retry window releases to the new backend at once")
     void aRetryWindowBelongsToTheBackendThatRefused() {
-        // The window says "this server did not take them", not "this player waits". A phase switch
-        // points at a different backend, and PlayerRouter#rerouteOne re-evaluates every held player
-        // on one - so an unscoped window kept them staring at the BACKEND screen for up to ten
-        // seconds for a server that had never refused anything (finding 107).
+        // The window says "this server did not take them", not "this player waits" (finding 107).
         final WaitingBook book = book();
         book.entered(player);
         book.claimOffer(player);
@@ -398,16 +363,14 @@ class WaitingBookTest {
                 "another backend is not held for a failure that was not its own");
     }
 
-    // ------------------------------------------------------------------ housekeeping
+    // housekeeping
 
     @Test
-    @DisplayName("a player nobody has heard of decides nothing")
     void anUnknownPlayerIsIdle() {
         assertEquals(Action.IDLE, decide(book()));
     }
 
     @Test
-    @DisplayName("forgetting a player empties the book")
     void disconnectingClearsTheSession() {
         final WaitingBook book = book();
         book.entered(player);

@@ -6,11 +6,12 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.network.NetworkSnapshot;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Substitutes the {@code {name}} placeholders in a MOTD, before MiniMessage ever sees the string.
  *
- * <h2>Order matters, and it is this way round on purpose</h2>
+ * <b>Order matters, and it is this way round on purpose.</b>
  * Substitution happens <b>first</b> and parsing second, which is what lets a MOTD write
  * {@code <white>{hg-alive}</white>} and have the number take the colour. The reverse order would
  * mean a value containing an angle bracket could inject tags - not a risk with counts, and a real
@@ -18,12 +19,12 @@ import java.util.Optional;
  * characters in a substituted value are therefore escaped, so a milestone called {@code <red>} shows
  * up as text rather than turning the rest of the line red.
  *
- * <h2>An unknown placeholder is left standing</h2>
+ * <b>An unknown placeholder is left standing.</b>
  * {@code {hg-alve}} renders as {@code {hg-alve}} rather than as nothing. A typo that vanishes is a
  * typo nobody finds; one that shows up in the server browser is fixed the same day. This matches
  * how {@code eu.nordtal.s2.common.message.Messages} treats a parameter it was not given.
  *
- * <p>Nothing here touches the database: every value comes either from the proxy itself (which knows
+ * Nothing here touches the database: every value comes either from the proxy itself (which knows
  * its own player counts) or from the {@link NetworkSnapshot} a timer refreshed.
  */
 final class Placeholders {
@@ -74,7 +75,7 @@ final class Placeholders {
     }
 
     /** @return the value, or {@code null} for a name this build does not know */
-    private static String resolve(
+    private static @Nullable String resolve(
             final String name,
             final ProxyServer proxy,
             final SeasonPhase phase,
@@ -84,9 +85,7 @@ final class Placeholders {
         if (name.startsWith("players:")) {
             final String server = name.substring("players:".length());
             final Optional<RegisteredServer> registered = proxy.getServer(server);
-            // A server velocity.toml does not have reads as 0 rather than as an error: the MOTD is
-            // not the place to discover a routing misconfiguration, and gate.yml's own names are
-            // checked where they are used.
+            // A server velocity.toml lacks reads as 0, not an error: the MOTD is not where to discover misconfig.
             return registered
                     .map(value -> String.valueOf(value.getPlayersConnected().size()))
                     .orElse("0");
@@ -118,11 +117,8 @@ final class Placeholders {
     /**
      * Makes a substituted value inert for MiniMessage.
      *
-     * <p>Delegated to {@link MessageRenderer#escape(String)} since 2026-09-04. The rule - only
-     * {@code <} can begin a tag, and MiniMessage's escape for it is a backslash - is the same one
-     * every message in the network needs, and it was written out twice: here, and in the renderer
-     * every plugin message goes through. Two implementations of one security property is one that
-     * gets fixed and one that does not.</p>
+     * Delegates to {@link MessageRenderer#escape(String)}, the same escape every message in the
+     * network goes through, so the rule that only {@code <} can begin a tag is fixed in one place.
      */
     private static String escape(final String value) {
         return MessageRenderer.escape(value);

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import javax.sql.DataSource;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Who is connected right now, one row per player, written by the proxy in the same tick as the counts.
@@ -43,7 +44,7 @@ public interface OnlineRoster {
      *
      * @param subject the backend they are on, or {@code null} when no server has them yet; never a guess
      */
-    record Presence(UUID uuid, String name, String subject) {
+    record Presence(UUID uuid, String name, @Nullable String subject) {
 
         public Presence {
             Objects.requireNonNull(uuid, "uuid");

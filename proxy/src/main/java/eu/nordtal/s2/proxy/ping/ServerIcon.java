@@ -13,18 +13,18 @@ import org.slf4j.Logger;
 /**
  * The 64 x 64 icon the server browser shows next to the MOTD.
  *
- * <p>The one surface of the first impression that needs no resource pack: a ping carries the icon
+ * The one surface of the first impression that needs no resource pack: a ping carries the icon
  * itself, base64, so it is seen by everybody who has the address and by nobody who has joined.
  * The file is {@code plugins/proxy/icon.png}; a first start copies the built-in one
- * there so that the operator finds a file to replace rather than a setting to discover.</p>
+ * there so that the operator finds a file to replace rather than a setting to discover.
  *
- * <p>The built-in one is {@code resource-pack/src/pack.png}: 128 x 128 pixel art whose every 2 x 2
+ * The built-in one is {@code resource-pack/src/pack.png}: 128 x 128 pixel art whose every 2 x 2
  * block is uniform, so the icon is every second pixel of it. Nearest neighbour at a whole-number
  * ratio restores the original pixels; a smoothing resampler turns 21 colours into hundreds and the
- * mark reads as a low-resolution photograph in a server list.</p>
+ * mark reads as a low-resolution photograph in a server list.
  *
- * <p>Velocity refuses anything but 64 x 64, and a ping without an icon is a perfectly good ping -
- * so every failure here is a warning and an empty answer, never a proxy that does not start.</p>
+ * Velocity refuses anything but 64 x 64, and a ping without an icon is a perfectly good ping -
+ * so every failure here is a warning and an empty answer, never a proxy that does not start.
  */
 public final class ServerIcon {
 

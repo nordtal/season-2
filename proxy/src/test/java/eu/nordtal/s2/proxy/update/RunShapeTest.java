@@ -15,36 +15,35 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rule behind every countdown line, and the lines themselves - season-2-ops/118.
+ * The rule behind every countdown line, and the lines themselves.
  *
- * <p>Two halves, and they fail for different reasons. The first is the table: which of the three
+ * Two halves, and they fail for different reasons. The first is the table: which of the three
  * exits a player takes, given what the run stops and what is left standing. The second is the one
  * that would otherwise be found by a player rather than by a build - {@link RunShape.Occasion} and
  * {@link RunShape.Fate} are turned into message keys by string arithmetic, so a sixth occasion
  * compiles perfectly and prints {@code restart.countdown.rollback} into somebody's chat box. Every
  * key below is derived from the enum for exactly that reason: adding a constant without a line is
- * red here.</p>
+ * red here.
  */
 class RunShapeTest {
 
     private static final String ROOT = "messages/proxy";
 
     /**
-     * The backends this network has. Not derived from anything, because the proxy has no list of
-     * them either - it learns the names from the run's own report. A name with no line still works
-     * ({@code RestartWatch.what} falls back to the compose name), so this is the nudge and not a
-     * guard.
+     * The backends this network has.
+     *
+     * Not derived from anything, because the proxy has no list of them either - it learns the names from the run's
+     * own report. A name with no line still works ({@code RestartWatch.what} falls back to the compose name), so
+     * this is the nudge and not a guard.
      */
     private static final Set<String> SERVICES = Set.of("smp", "limbo", "hunger-games", "proxy");
 
-    // ------------------------------------------------------------------ the table
+    // the table
 
     @Test
-    @DisplayName("a run that stops one server is nothing at all to everybody else")
     void aRunThatDoesNotTouchYou() {
         final RunShape shape = RunShape.of(UpdateKind.RESTART, Set.of("hunger-games"), true, false);
 
@@ -59,25 +58,21 @@ class RunShapeTest {
     }
 
     @Test
-    @DisplayName("the proxy moving under you is a reconnect, but only if the standby answers")
     void theProxySwap() {
         final RunShape caught = RunShape.of(UpdateKind.UPDATE, Set.of("proxy"), true, true);
         assertEquals(RunShape.Fate.RECONNECT, caught.fateFor("smp"));
         assertEquals(RunShape.Fate.RECONNECT, caught.fateFor(null));
         assertTrue(caught.proxyMoves());
 
-        // Same run, nothing to hand the network to. The countdown is then the only warning there
-        // is, and it has to say so rather than promise a loading screen.
+        // Same run, nothing to hand the network to: the countdown is the only warning, and must say so plainly.
         final RunShape alone = RunShape.of(UpdateKind.UPDATE, Set.of("proxy"), true, false);
         assertEquals(RunShape.Fate.DISCONNECT, alone.fateFor("smp"));
         assertEquals(RunShape.Fate.DISCONNECT, alone.fateFor(null));
     }
 
     @Test
-    @DisplayName("your own server decides before the proxy does")
     void theOwnServerComesFirst() {
-        // Both move and both exits are open: the waiting room is the one that is true, because the
-        // player is put there and the proxy swap happens around them.
+        // Both move and both exits are open, so the waiting room wins: the player sits there while the swap happens.
         final RunShape shape = RunShape.of(UpdateKind.UPDATE, Set.of("smp", "proxy"), true, true);
 
         assertEquals(RunShape.Fate.WAITING_ROOM, shape.fateFor("smp"));
@@ -86,10 +81,8 @@ class RunShapeTest {
     }
 
     @Test
-    @DisplayName("with no waiting room left, the occasion is maintenance and the exit is the door")
     void nowhereToPutAnybody() {
-        // Evacuation.roomFor found nothing: the limbo is itself in the run and no standby limbo is
-        // registered. Any kind becomes the same run as far as anybody standing in it is concerned.
+        // With the limbo itself in the run and no standby limbo, every kind is the same run to its players.
         for (final UpdateKind kind : UpdateKind.values()) {
             final RunShape shape = RunShape.of(kind, Set.of("smp", "limbo"), false, false);
             assertEquals(RunShape.Occasion.MAINTENANCE, shape.occasion(), kind.name());
@@ -102,23 +95,19 @@ class RunShapeTest {
     }
 
     @Test
-    @DisplayName("each kind that counts down is called by its own name")
     void everyKindHasItsOwnWord() {
         assertEquals(RunShape.Occasion.DOWN, occasionOf(UpdateKind.DOWN));
         assertEquals(RunShape.Occasion.RECREATE, occasionOf(UpdateKind.RESTART));
         assertEquals(RunShape.Occasion.BACKUP, occasionOf(UpdateKind.BACKUP));
         assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.UPDATE));
 
-        // The three that never reach a player: REPORT and START stop nothing, so no countdown is
-        // ever started for them, and APPLY was retired in 2026. They are named as an update rather
-        // than left to a default, because a default here is a sentence somebody reads.
+        // REPORT, START and APPLY reach no player but are named anyway: a default here is a sentence someone reads.
         assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.REPORT));
         assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.START));
         assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.APPLY));
     }
 
     @Test
-    @DisplayName("a run that moves nothing is one nobody needs to hear about")
     void anEmptyRunTouchesNobody() {
         final RunShape shape = RunShape.of(UpdateKind.REPORT, Set.of(), true, true);
 
@@ -127,46 +116,37 @@ class RunShapeTest {
         assertEquals(RunShape.Fate.NOTHING, shape.fateFor("smp"));
     }
 
-    // ------------------------------------------------------------------ the voice hint
+    // the voice hint
 
     @Test
-    @DisplayName("only somebody playing through the swap is told that voice drops out")
     void theVoiceHintHasTwoConditions() {
-        // The owner, 2026-09-20 (season-2-ops/136, decided into 132): "a hint before the process starts
-        // should really only come in the case where players are on the SMP via proxy-standby. If
-        // the players are waiting in the limbo anyway, no message is needed."
+        // A hint before the process starts is only needed when players are on the SMP via proxy-standby.
         assertTrue(RunShape.losesVoice(RunShape.Fate.RECONNECT, false));
         assertFalse(
                 RunShape.losesVoice(RunShape.Fate.RECONNECT, true),
                 "the waiting room has neither voice nor chat, so this would be noise there");
 
-        // The other three fates are not a swap seen from a player's seat. Being disconnected is
-        // losing voice the way losing everything is: the countdown has already said so.
+        // The other three fates are not a swap seen from a player's seat; a disconnect already said everything.
         assertFalse(RunShape.losesVoice(RunShape.Fate.NOTHING, false));
         assertFalse(RunShape.losesVoice(RunShape.Fate.WAITING_ROOM, false));
         assertFalse(RunShape.losesVoice(RunShape.Fate.DISCONNECT, false));
     }
 
     @Test
-    @DisplayName("the hint is said once per countdown, not once per chat line")
     void theHintIsSaidOnce() throws IOException {
-        // A source rule, for the same reason CountdownTest has one: how often something is said
-        // sits a line above anything a test without a proxy, a roster and a locale can reach. With
-        // sixty seconds of warning there are three chat lines, and a note about a side effect
-        // repeated three times reads as the main event.
+        // A source rule, like CountdownTest's: three repeats of a side-effect note would read as the main event.
         final String source = Files.readString(Path.of("src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
         assertTrue(
                 source.contains("if (!saidVoice) {"),
-                "the hint no longer has a guard, so it is said on every chat line: " + source);
+                "a missing guard would say the hint on every chat line: " + source);
         assertTrue(
                 source.contains("saidVoice = false;"),
                 "nothing resets the guard, so the second run of a session says nothing at all");
     }
 
-    // ------------------------------------------------------------------ the lines
+    // the lines
 
     @Test
-    @DisplayName("every occasion has a countdown, a NOW and a name, in both languages")
     void everyOccasionHasItsThreeLines() throws IOException {
         final Properties english = load("en");
         final Properties german = load("de");
@@ -181,7 +161,6 @@ class RunShapeTest {
     }
 
     @Test
-    @DisplayName("every countdown line says how many seconds, and every NOW line says none")
     void thePlaceholdersAreTheOnesRestartWatchPasses() throws IOException {
         final Properties english = load("en");
 
@@ -190,15 +169,13 @@ class RunShapeTest {
             assertTrue(
                     countdown.contains("{seconds}"),
                     "a countdown that does not name the number is a line that never changes: " + countdown);
-            // {what} is optional on purpose - MAINTENANCE says "nordtal", because there is no one
-            // service a run with no waiting room is about.
+            // {what} is optional: MAINTENANCE says "nordtal", since no one service is what a network-wide run is about.
             final String now = english.getProperty("restart.now." + key(occasion));
             assertFalse(now.contains("{seconds}"), "zero is not a number worth printing: " + now);
         }
     }
 
     @Test
-    @DisplayName("every fate but NOTHING has a line, and NOTHING deliberately has none")
     void everyExitIsSpokenFor() throws IOException {
         final Properties english = load("en");
         final Properties german = load("de");
@@ -206,8 +183,7 @@ class RunShapeTest {
         for (final RunShape.Fate fate : RunShape.Fate.values()) {
             final String key = "restart.fate." + key(fate);
             if (fate == RunShape.Fate.NOTHING) {
-                // RestartWatch appends nothing in this case, and a line here would be dead text
-                // that reads as if it were shown to somebody.
+                // RestartWatch appends nothing in this case, and a line here would be dead text shown to nobody.
                 assertFalse(english.containsKey(key), key + " exists and is never printed");
                 assertFalse(german.containsKey(key), key + " exists and is never printed");
                 continue;
@@ -218,7 +194,6 @@ class RunShapeTest {
     }
 
     @Test
-    @DisplayName("the voice hint exists in both languages and promises no duration")
     void theVoiceLineIsThere() throws IOException {
         final Properties english = load("en");
         final Properties german = load("de");
@@ -231,7 +206,6 @@ class RunShapeTest {
     }
 
     @Test
-    @DisplayName("the services a run can move have a name a player would recognise")
     void theServicesAreNamed() throws IOException {
         final Properties english = load("en");
         final Properties german = load("de");
@@ -244,7 +218,7 @@ class RunShapeTest {
         }
     }
 
-    // ------------------------------------------------------------------ helpers
+    // helpers
 
     /** {@code RestartWatch.key}, and it has to stay the same arithmetic or this test proves nothing. */
     private static String key(final Enum<?> value) {

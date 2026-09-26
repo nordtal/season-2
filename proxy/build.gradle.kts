@@ -1,6 +1,18 @@
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
     id("nordtal.velocity-plugin")
     id("nordtal.message-spec")
+}
+
+// Names start() as NullAway's initializer, since ProxyPlugin's fields are set there, not in the constructor.
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        option(
+            "NullAway:KnownInitializers",
+            "eu.nordtal.s2.proxy.ProxyPlugin.start",
+        )
+    }
 }
 
 // BrandColourTest reads NetworkSpec's own source, so Gradle has to see that file as a test input -
@@ -8,15 +20,15 @@ plugins {
 repositoryRootTestInputs {
     reads("proxy/src/main/java/eu/nordtal/s2/proxy/config/NetworkSpec.java")
 
-    // NobodyComparesAgainstOneLimboTest walks this module's own sources (season-2-ops/120). Without
-    // the directory declared, adding the very line it forbids leaves :proxy:test UP-TO-DATE and the
-    // rule stops running exactly when it would have fired.
+    // NobodyComparesAgainstOneLimboTest walks this module's own sources. Without the directory
+    // declared, adding the very line it forbids leaves :proxy:test UP-TO-DATE and the rule stops
+    // running exactly when it would have fired.
     reads("proxy/src/main")
 
-    // ComposeTellsTheStandbyApartTest reads the deployment file itself (season-2-ops/121): the one
-    // value that tells the live proxy from the standby is a string in a YAML nothing compiles, and
-    // both ways of getting it wrong are silent. Without this line, deleting that string leaves
-    // :proxy:test UP-TO-DATE.
+    // ComposeTellsTheStandbyApartTest reads the deployment file itself: the one value that tells
+    // the live proxy from the standby is a string in a YAML nothing compiles, and both ways of
+    // getting it wrong are silent. Without this line, deleting that string leaves :proxy:test
+    // UP-TO-DATE.
     reads("compose.yml")
 }
 

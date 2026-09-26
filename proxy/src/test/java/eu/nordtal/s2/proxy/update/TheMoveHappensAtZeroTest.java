@@ -8,48 +8,40 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Nobody is moved before the counter reaches zero, and nothing waits for a poll to notice.
  *
- * <p>season-2-ops/118. The evacuation ran off the five-second sweep with an eight-second head
- * start, so that one pass was guaranteed to land inside the window - and the price of that
- * guarantee was that players left their server while the counter still showed eight. The owner,
- * 2026-09-20: <i>thrown out four seconds before the end of the countdown</i>. Measured on this host
- * the same day: the countdown was announced at 03:20:02 as twelve beats over 29.97s, and the move
- * happened at 03:20:26 - six seconds before the zero it had promised.</p>
+ * A five-second sweep with an eight-second head start would guarantee one pass lands inside the window, at the
+ * price of moving players while the counter still shows several seconds remaining, measurably before zero.
  *
- * <p>The fix is two halves and each can be undone on its own, which is why both are asserted here
+ * The fix is two halves and each can be undone on its own, which is why both are asserted here
  * rather than left to the compiler. Taking the head start away without scheduling the sweep on zero
  * makes the move up to five seconds <em>late</em>; scheduling it without taking the head start away
- * changes nothing at all. Neither half fails a test that only knows about the other.</p>
+ * changes nothing at all. Neither half fails a test that only knows about the other.
  *
- * <p>These are source rules because the wiring is Velocity's scheduler and the thing being wired is
+ * These are source rules because the wiring is Velocity's scheduler and the thing being wired is
  * a method reference - there is no seam between them that does not need a running proxy, and a test
- * that needed one would not be run.</p>
+ * that needed one would not be run.
  */
 class TheMoveHappensAtZeroTest {
 
     @Test
-    @DisplayName("the decision reads the running row only - there is no window left to be early in")
     void thereIsNoWindow() {
         final String source = read("proxy/src/main/java/eu/nordtal/s2/proxy/update/Evacuation.java");
 
-        // `countingDown()` is the row whose instant has NOT passed. Reading it here is the head
-        // start, whatever it is called and whatever number it is given.
+        // `countingDown()` is the row whose instant has NOT passed - reading it here is any head start by any name.
         assertEquals(
                 -1,
                 body(source).indexOf("countingDown"),
-                "Evacuation decides off the running row alone (season-2-ops/118): a countdown that"
-                        + " has not run out yet is a countdown that can still be cancelled, and"
-                        + " moving somebody for it is the thing the owner saw");
+                "Evacuation decides off the running row alone: a countdown that has not run out yet"
+                        + " is a countdown that can still be cancelled, and moving somebody for it"
+                        + " is exactly the bug this guards against");
         assertEquals(-1, body(source).indexOf("EVACUATE_BEFORE"), "the head start is gone, not renamed");
     }
 
     @Test
-    @DisplayName("the countdown's zero beat moves them and parks them, in that order")
     void zeroRunsBothHalves() {
         final String plugin = read("proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java");
 
@@ -63,18 +55,14 @@ class TheMoveHappensAtZeroTest {
         final int moved = plugin.indexOf("this.evacuation.check()", wired);
         final int parked = plugin.indexOf("swap.check()", wired);
         assertTrue(moved > 0, "the evacuation is not on the zero beat");
-        assertTrue(
-                parked > 0,
-                "the proxy swap is not on the zero beat - measured 2026-09-20 it was"
-                        + " two seconds late off its own sweep");
+        assertTrue(parked > 0, "the proxy swap is not on the zero beat - it was seen running late off its own sweep");
         assertTrue(
                 moved < parked,
                 "the order is the order a player travels: off the backends into"
                         + " the waiting room first, then the whole network onto the standby proxy."
                         + " Parking first would move everybody twice");
 
-        // Both sweeps stay, behind it. They are the guarantee for scheduled tasks that never fired
-        // - a proxy restarted mid-countdown has no tasks and must still move people.
+        // Both sweeps stay behind it as the guarantee for a proxy restarted mid-countdown, which has no tasks.
         assertTrue(
                 plugin.contains("this.evacuation::check") && plugin.contains("swap::check"),
                 "the repeating sweeps are what catch a countdown whose scheduled beats were lost;"
@@ -82,14 +70,13 @@ class TheMoveHappensAtZeroTest {
     }
 
     @Test
-    @DisplayName("what is scheduled for zero runs on the zero beat, not beside it")
     void theHookRunsOnTheBeat() {
         final String source = read("proxy/src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java");
 
         final int beat = source.indexOf("Announcement.Kind.NOW");
         final int hook = source.indexOf("atZero.run()");
         final int said = source.indexOf("say(beat.announcement())");
-        assertTrue(beat > 0 && hook > 0 && said > 0, "the zero beat no longer looks like this");
+        assertTrue(beat > 0 && hook > 0 && said > 0, "the zero beat must keep this shape");
         assertTrue(
                 beat < hook && hook < said,
                 "atZero belongs inside the NOW beat and before the announcement: the two are one"
@@ -97,14 +84,8 @@ class TheMoveHappensAtZeroTest {
     }
 
     @Test
-    @DisplayName("the counts go fast during the countdown, not only once somebody is being moved")
     void theCountsAreFreshBeforeZero() {
-        // The half of this that is easy to lose. steward-worker asks how many players are on a
-        // service at the instant the counter reaches zero; the writer's ordinary cadence is ten
-        // seconds. Hurrying from the move alone starts the fast cadence in the same instant as the
-        // question, so the first answer is either stale - and the run waits its whole ten-second
-        // cap for nothing - or lucky. Measured on this host 2026-09-20, before the fix: the proxy
-        // was stopped inside the same second as the move, off a count nobody should have trusted.
+        // steward-worker counts players the instant the counter hits zero, but the writer's cadence is ten seconds.
         final String plugin = read("proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java");
 
         final int hurry = plugin.indexOf("whenHurrying(");

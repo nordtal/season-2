@@ -11,20 +11,19 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The resource-pack offer itself: one {@link ResourcePackInfo} per language, built once and handed
- * out.
+ * The resource-pack offer itself: one {@link ResourcePackInfo} per language, built once and handed out.
  *
- * <h2>Why per language</h2>
+ * <b>Why per language.</b>
  * The prompt line inside the client's own pack dialog is a {@code Component}, and every string a
  * player reads comes out of {@code Messages} against their database locale (docs/i18n.md). Nothing
  * else about the offer varies, so the infos are cached by language rather than built per login.
  *
- * <h2>The id</h2>
+ * <b>The id.</b>
  * Derived from the pack's SHA-1 rather than random, so that the same pack is the same pack across
  * proxy restarts and across proxies. The client uses the id to recognise a pack it already has;
  * a fresh random id on every start would ask every player to re-apply what they already applied.
  *
- * <h2>The hash</h2>
+ * <b>The hash.</b>
  * Comes from {@code pack.yml#sha1} and is sent alongside the URL. It is what lets a client skip the
  * download when it has this pack cached, and it is what makes the client refuse a zip that is not
  * the one we meant. It is never hardcoded and never guessed - see {@code PackSpec}.
@@ -77,10 +76,7 @@ public final class PackOffer {
     }
 
     private static byte[] decodeHex(final String hex) {
-        // pack.yml has already been validated as 40 hex characters by Configs#pack, so this cannot
-        // fail on a configured proxy. It is written to fail loudly rather than to produce a wrong
-        // hash if that validation is ever weakened - a silently wrong hash is a pack every player
-        // fails to download, reported as FAILED_DOWNLOAD, which reads as a network problem.
+        // Already validated by Configs#pack; fails loudly rather than risk a silently wrong hash later.
         if (hex == null || hex.length() != 40) {
             throw new IllegalArgumentException("A pack SHA-1 is 40 hex characters, got: " + hex);
         }

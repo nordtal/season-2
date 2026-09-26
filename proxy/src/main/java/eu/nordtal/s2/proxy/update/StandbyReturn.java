@@ -12,45 +12,41 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * The standby proxy's half of a swap: it holds the network, and it sends it home by itself
- * (season-2-ops/121).
+ * The standby proxy's half of a swap: it holds the network, and it sends it home by itself.
  *
- * <h2>By itself, and that is the requirement</h2>
  * The obvious design is for {@code steward-worker} to tell the standby when to release - it is
  * driving the run, it knows when the live proxy is healthy, and it already talks to every service.
- * It is also, in the one case this has to survive, <b>the process that has failed</b>: a run that
+ * It is also, in the one case this has to survive, the process that has failed: a run that
  * dies with players parked here dies holding the only instruction that would ever have moved them.
- * So nothing here waits to be told (the owner, 2026-09-19). It watches the public address and decides.
+ * So nothing here waits to be told. It watches the public address and decides.
  *
- * <h2>Why it will not send anybody back too early, which is the way this breaks</h2>
- * The live proxy parks the network at the instant the counter reaches zero, and is then stopped a
- * few seconds later - steward-worker waits until the backends are empty first. For those seconds
- * <em>both</em> proxies are up and the public address answers perfectly well. A standby that simply
- * asked "is it up" would hand everybody straight back into a proxy that is seconds from stopping -
- * and the live proxy parks once per run, so the second time it would not catch them. Everyone would
- * be disconnected by the mechanism built to stop exactly that.
+ * Why it will not send anybody back too early, which is the way this breaks: the live proxy parks
+ * the network at the instant the counter reaches zero, and is then stopped a few seconds later -
+ * steward-worker waits until the backends are empty first. For those seconds both proxies are up
+ * and the public address answers perfectly well. A standby that simply asked "is it up" would hand
+ * everybody straight back into a proxy that is seconds from stopping - and the live proxy parks
+ * once per run, so the second time it would not catch them. Everyone would be disconnected by the
+ * mechanism built to stop exactly that.
  *
- * <p>So the release needs an <b>outage</b> and not an address: nobody goes home until this process
- * has seen the public address refuse a connection at least once. That is the only evidence that the
- * proxy players are being sent back to is a new one.</p>
+ * So the release needs an outage and not an address: nobody goes home until this process has seen
+ * the public address refuse a connection at least once. That is the only evidence that the proxy
+ * players are being sent back to is a new one.
  *
- * <h2>And why it will not hold anybody for ever, which is the other way</h2>
- * A run cancelled after the park and before the stop leaves players here with an outage that never
- * happens. {@link #RESCUE_AFTER} is the answer: if the public address has answered continuously for
- * that long and this proxy is still holding people, the swap is not coming and they are sent home
- * anyway. A minute of a loading screen too many is the cost; the alternative is a waiting room
- * nothing ever opens.
+ * And why it will not hold anybody for ever, which is the other way: a run cancelled after the park
+ * and before the stop leaves players here with an outage that never happens. {@link #RESCUE_AFTER}
+ * is the answer: if the public address has answered continuously for that long and this proxy is
+ * still holding people, the swap is not coming and they are sent home anyway. A minute of a loading
+ * screen too many is the cost; the alternative is a waiting room nothing ever opens.
  *
- * <h2>The probe is a TCP connect and nothing more</h2>
- * Not a ping, not a login. What it has to answer is "is there a proxy accepting connections on that
- * port", and a completed TCP handshake is exactly that - measured against this host's own
- * {@code velocity-4.2.0-30.jar}, 2026-09-19: {@code VelocityServer} fires
- * {@code ProxyInitializeEvent} <em>before</em> it binds the listener, so a port that answers is a
- * proxy whose plugins are already up. A socket that opens before the plugin is ready would be the
- * one failure a readiness check must not have.
+ * The probe is a TCP connect and nothing more. Not a ping, not a login. What it has to answer is "is
+ * there a proxy accepting connections on that port", and a completed TCP handshake is exactly that -
+ * {@code VelocityServer} fires {@code ProxyInitializeEvent} before it binds the listener, so a port
+ * that answers is a proxy whose plugins are already up. A socket that opens before the plugin is
+ * ready would be the one failure a readiness check must not have.
  */
 public final class StandbyReturn {
 
@@ -61,17 +57,17 @@ public final class StandbyReturn {
     static final Duration PROBE_TIMEOUT = Duration.ofSeconds(1);
 
     /**
-     * How long the public address must have been answering before players are sent home without an
-     * outage having been seen - the self-rescue for a run that was cancelled between the park and
-     * the stop.
+     * How long the public address must have been answering before players are sent home unseen.
+     *
+     * The self-rescue for a run that was cancelled between the park and the stop.
      */
     static final Duration RESCUE_AFTER = Duration.ofMinutes(1);
 
     /**
-     * How long it must have been answering <em>after</em> an outage. Longer than one tick on
-     * purpose, so a release needs two passes: the moment a listener binds is not the moment the
-     * process behind it has finished starting, and the cost of being early is a failed login for
-     * everybody at once.
+     * How long it must have been answering <em>after</em> an outage.
+     *
+     * Longer than one tick on purpose, so a release needs two passes: the moment a listener binds is not the moment the
+     * process behind it has finished starting, and the cost of being early is a failed login for everybody at once.
      */
     static final Duration SETTLE = Duration.ofSeconds(4);
 
@@ -85,9 +81,11 @@ public final class StandbyReturn {
     private final Probe probe;
 
     /**
-     * The voice of the return (season-2-ops/118). Everything this network says is said on the way
-     * out; the way back was silent, and this one lands in the middle of a game rather than at the
-     * end of a wait - the player has been playing on the SMP through the standby the whole time.
+     * The voice of the return.
+     *
+     * Everything this network says is said on the way out; the way back was silent, and this one lands in the middle of
+     * a game rather than at the end of a wait - the player has been playing on the SMP through the standby the whole
+     * time.
      */
     private final Homecoming voice;
 
@@ -100,10 +98,10 @@ public final class StandbyReturn {
     /**
      * Whether the network has been promised a return and is being counted towards one.
      *
-     * <p>Once this is set the decision above is not asked again: the transfer is a scheduled beat
+     * Once this is set the decision above is not asked again: the transfer is a scheduled beat
      * now, and a probe that flickers during those ten seconds must not start a second countdown or
      * take the promise back. If the live proxy really has gone again, the transfer fails, nobody
-     * moves, and the next pass sees the outage from the beginning.</p>
+     * moves, and the next pass sees the outage from the beginning.
      */
     private boolean returning;
 
@@ -111,7 +109,7 @@ public final class StandbyReturn {
     private boolean outageSeen;
 
     /** When it started answering again, or {@code null} while it is not. */
-    private Instant answeringSince;
+    private @Nullable Instant answeringSince;
 
     public StandbyReturn(
             final Object plugin,
@@ -159,9 +157,9 @@ public final class StandbyReturn {
     /**
      * One pass: say how many players are here, and send them home if it is time.
      *
-     * <p>Never throws, for the reason every other watch in this package gives: a task that throws
+     * Never throws, for the reason every other watch in this package gives: a task that throws
      * is a task Velocity stops running, and here that would strand the whole network in a waiting
-     * room with nothing left to open it.</p>
+     * room with nothing left to open it.
      */
     public void check() {
         if (!isArmed()) {
@@ -171,21 +169,18 @@ public final class StandbyReturn {
         final Instant now = clock.instant();
 
         try {
-            // Always, including the zero. The worker is waiting for that zero to stop this
-            // container, and "no row" has to keep meaning "this standby has never spoken".
+            // Always, including the zero: "no row" has to keep meaning "this standby has never spoken".
             seats.reportStandby(players.size(), now);
         } catch (final RuntimeException failure) {
             logger.warn("Could not report how many players the standby is holding", failure);
         }
 
         if (returning) {
-            // Counted down to and scheduled. Nothing this pass observes can improve on a promise
-            // already made to somebody watching a number.
+            // Counted down to and scheduled: nothing this pass observes improves on a promise already made.
             return;
         }
         if (players.isEmpty()) {
-            // Nobody to protect, so nothing observed about the live proxy is worth keeping: the
-            // next group to arrive has to see its own outage.
+            // Nobody to protect: the next group to arrive has to see its own outage.
             outageSeen = false;
             answeringSince = null;
             return;
@@ -221,16 +216,15 @@ public final class StandbyReturn {
     }
 
     /**
-     * Tells the players the network is back, counts the last ten seconds out loud, and transfers
-     * them on zero (season-2-ops/118).
+     * Tells the players the network is back, counts the last ten seconds out loud, and transfers them on zero.
      *
-     * <p>Ten seconds is the promise, not an optimisation: the return interrupts whatever the player
+     * Ten seconds is the promise, not an optimisation: the return interrupts whatever the player
      * is doing exactly as much as the way out did, and that is the reason the way out has a
      * countdown. Somebody sitting in the standby's waiting room gets the chat half only -
-     * {@link Homecoming} draws that line.</p>
+     * {@link Homecoming} draws that line.
      *
-     * <p>Scheduled rather than slept through: this runs on the proxy's own scheduler thread, and a
-     * pass that blocks for ten seconds is ten seconds in which nothing else on this proxy ticks.</p>
+     * Scheduled rather than slept through: this runs on the proxy's own scheduler thread, and a
+     * pass that blocks for ten seconds is ten seconds in which nothing else on this proxy ticks.
      */
     private void announceThenSendHome(final Collection<Player> players) {
         returning = true;
@@ -245,17 +239,13 @@ public final class StandbyReturn {
         for (final Countdown.Beat beat : beats) {
             proxy.getScheduler()
                     .buildTask(plugin, () -> {
-                        // Asked again per beat rather than held: somebody who logged out during the
-                        // countdown is not a player any more, and somebody who logged in is owed the same
-                        // sentence as everybody else.
+                        // Asked again per beat: a player who logged out is gone, one who logged in is owed the same.
                         final Collection<Player> here = proxy.getAllPlayers();
                         voice.say(here, beat.announcement());
                         if (beat.announcement().kind() != Announcement.Kind.NOW) {
                             return;
                         }
-                        // The sentence first and the transfer second, which is the opposite of the way
-                        // out. There the move is what a player can be hurt by; here the move is what ends
-                        // their connection to this proxy, and a message sent after it reaches nobody.
+                        // Sentence before transfer, opposite of the way out: here the message after it reaches nobody.
                         sendHome(here);
                         returning = false;
                         outageSeen = false;
@@ -267,8 +257,9 @@ public final class StandbyReturn {
     }
 
     /**
-     * The decision, without a socket and without Velocity - the split {@code BackendKick#decide} and
-     * {@code Evacuation#roomFor} both have, for the reason they both give.
+     * The decision, without a socket and without Velocity.
+     *
+     * The split {@code BackendKick#decide} and {@code Evacuation#roomFor} both have, for the reason they both give.
      *
      * @param outageSeen whether the public address has refused a connection since these players
      *                   arrived
@@ -279,8 +270,7 @@ public final class StandbyReturn {
         if (outageSeen) {
             return answering.compareTo(SETTLE) >= 0;
         }
-        // No outage, so this is not a swap that happened - it is one that was called off, or
-        // somebody who joined this port by hand. Either way they do not belong here.
+        // No outage means this was called off, or somebody joined this port by hand; they do not belong here.
         return answering.compareTo(RESCUE_AFTER) >= 0;
     }
 
@@ -290,8 +280,7 @@ public final class StandbyReturn {
             try {
                 player.transferToHost(home);
             } catch (final RuntimeException failure) {
-                // One client that cannot be transferred must not cost the rest theirs. They stay
-                // here; the next pass tries again, because nothing has cleared their state.
+                // One client that cannot be transferred must not cost the rest; the next pass tries again.
                 logger.warn("Could not transfer {} back to {}", player.getUsername(), home, failure);
             }
         }
@@ -312,10 +301,10 @@ public final class StandbyReturn {
     /**
      * The real probe.
      *
-     * <p>The address held here is deliberately unresolved - see {@code SwapAddresses} - so this is
+     * The address held here is deliberately unresolved - see {@code SwapAddresses} - so this is
      * also where the name is looked up, once per pass, off the netty threads. A name that does not
      * resolve reads as "not answering", which is the same thing as far as a player parked here is
-     * concerned.</p>
+     * concerned.
      */
     static boolean connects(final InetSocketAddress address, final Duration timeout) {
         try (Socket socket = new Socket()) {

@@ -13,10 +13,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * What the login query is allowed to be remembered for. The one assertion that matters is that an
- * account the roster has never heard of is <b>not</b> an admin: {@code /phase} is authorised off
- * this, and a lookup that defaulted the other way would hand the emergency phase switch to
- * everybody.
+ * What the login query is allowed to be remembered for.
+ *
+ * The one assertion that matters is that an account the roster has never heard of is <b>not</b> an admin:
+ * {@code /phase} is authorised off this, and a lookup that defaulted the other way would hand the emergency phase
+ * switch to everybody.
  */
 class LoginRosterTest {
 
@@ -79,14 +80,11 @@ class LoginRosterTest {
                 PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, admin, locale, SeasonPhase.SMP, null);
     }
 
-    // ---------------------------------------------------------------- M9: revocation reaches a live session
+    // M9: revocation reaches a live session
 
     @Test
-    @org.junit.jupiter.api.DisplayName("M9: losing the role in Discord loses it in game without a reconnect")
     void aRevokedAdminLosesItWhileStillConnected() {
-        // The roster was filled at login and never touched again, so this player kept /phase on the
-        // proxy and /smp on the backend until they disconnected. An emergency revocation is exactly
-        // the case where waiting for a reconnect is the wrong direction.
+        // An emergency revocation is exactly the case where waiting for a reconnect is the wrong direction.
         roster.remember(PLAYER, state(true, Locale.GERMAN));
         assertTrue(roster.isAdmin(PLAYER));
 
@@ -97,7 +95,6 @@ class LoginRosterTest {
     }
 
     @Test
-    @org.junit.jupiter.api.DisplayName("M9: a grant reaches a live session too, and nothing else moves")
     void aGrantedAdminGainsItAndKeepsEverythingElse() {
         roster.remember(PLAYER, state(false, Locale.GERMAN));
 
@@ -113,10 +110,8 @@ class LoginRosterTest {
     }
 
     @Test
-    @org.junit.jupiter.api.DisplayName("M9: a refresh that changes nothing says so, and is safe to run on a timer")
     void anUnchangedRefreshIsANoOp() {
-        // It rides the 30-second poll as well as the notification, so the ordinary case is that it
-        // finds nothing to do - and it has to be cheap and quiet when it does.
+        // It rides the 30-second poll and the notification, so it usually finds nothing to do, cheaply.
         roster.remember(PLAYER, state(true, Locale.ENGLISH));
 
         assertEquals(0, roster.refreshAdmins(java.util.Set.of(DISCORD_ID)));
@@ -126,7 +121,6 @@ class LoginRosterTest {
     }
 
     @Test
-    @org.junit.jupiter.api.DisplayName("M9: a player nobody knows is not created by a refresh")
     void aRefreshNeverInventsASession() {
         assertEquals(0, roster.refreshAdmins(java.util.Set.of(DISCORD_ID, "999")));
         assertEquals(0, roster.size());

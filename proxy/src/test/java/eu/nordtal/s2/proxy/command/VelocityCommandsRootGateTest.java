@@ -25,15 +25,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The same hole as {@code PaperCommandsRootGateTest}, on the adapter that matters more: Velocity
- * runs every command it knows for every player, so an ungated root here ran the report for anybody
- * in the network. A gated root has a second effect on the proxy - Velocity forwards a command the
- * source may not use to the backend, which is where a non-admin's {@code /update} now goes to be
- * refused.
+ * The same hole as {@code PaperCommandsRootGateTest}, on the adapter that matters more.
+ *
+ * Velocity runs every command it knows for every player, so an ungated root here runs the report for anybody in
+ * the network. A gated root has a second effect on the proxy - Velocity forwards a command the source may not use
+ * to the backend, which is where a non-admin's {@code /update} goes to be refused.
  */
 class VelocityCommandsRootGateTest {
 
@@ -42,7 +41,6 @@ class VelocityCommandsRootGateTest {
     private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locale.ENGLISH);
 
     @Test
-    @DisplayName("/update, entirely admin-only, is closed to a player who is not on the roster as one")
     void anAdminOnlyRootIsGated() {
         final VelocityCommands commands = adapter();
         for (final NordtalCommand<UpdateEffects> command : UpdateCommands.all()) {
@@ -57,11 +55,8 @@ class VelocityCommandsRootGateTest {
     }
 
     @Test
-    @DisplayName("a root with an open command under it stays open - the tree shape, tried on /smp")
     void aRootWithSomethingOpenStaysOpen() {
-        // No declaration in the catalogue is a player's any more: the last two, /aura and
-        // /smp status, became native Brigadier in the smp plugin on 2026-09-25. The shape is still
-        // the adapter's to get right, so the open command here is one made up for the case.
+        // No declaration in the catalogue is a player's any more, so the open command here is one made up for the case.
         final VelocityCommands commands = adapter();
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));

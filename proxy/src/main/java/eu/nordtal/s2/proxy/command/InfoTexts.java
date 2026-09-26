@@ -21,24 +21,18 @@ import java.util.function.Function;
 /**
  * {@code /discord} and {@code /rules}: two commands that print one line each.
  *
- * <h2>Native Brigadier, and why the framework left (season-2-ops/155)</h2>
- * A {@code Declaration} earns its cost when the same command appears on several surfaces, when its
- * arguments travel through a database row, and when a confirmation has to be honoured by every
- * adapter. These two have one surface, one target, no arguments and no confirmation - so what the
- * framework bought them was a declaration, an effects interface, an adapter translation and a
- * catalogue test for something that is a dozen lines of Brigadier here. The text they print was
- * already in this module's bundle; now the commands are too.
+ * Plain Brigadier rather than a {@code Declaration}: these two have one surface, one target, no
+ * arguments and no confirmation, so a declaration, an effects interface, an adapter translation and
+ * a catalogue test would buy nothing that a dozen lines of Brigadier does not already do here.
  *
- * <h2>Why the proxy owns them</h2>
- * Because they have to work in the waiting room. A player held there is precisely the player who
- * needs to be told where the Discord is, and a backend command cannot answer somebody who is not on
- * a backend. Being on the proxy also makes them one copy of one text rather than three.
+ * The proxy owns them because they have to work in the waiting room: a player held there is
+ * precisely the player who needs to be told where the Discord is, and a backend command cannot
+ * answer somebody who is not on a backend. Being on the proxy also makes them one copy of one text
+ * rather than three.
  *
- * <h2>The invite is the same string the login screens use</h2>
- * {@code gate.yml#discord-invite-url}, substituted as {@code {invite}}. An invite that has been
- * re-issued is re-issued in exactly one place; a second copy of it in a message bundle is the copy
- * that stays pointing at a dead link, and the people reading it are by definition the people who
- * cannot get in.
+ * The invite is the same string the login screens use, {@code gate.yml#discord-invite-url},
+ * substituted as {@code {invite}}: an invite that has been re-issued is re-issued in exactly one
+ * place, rather than leaving a second copy pointing at a dead link.
  */
 public final class InfoTexts {
 
@@ -71,15 +65,13 @@ public final class InfoTexts {
     /**
      * The line itself.
      *
-     * <p>Rendered against this module's bundle rather than through {@code NordtalUser#reply},
-     * because the value is MiniMessage with a clickable link in it and the shared bundle carries no
-     * markup at all - the same split these two always had, now without an interface in between.</p>
+     * Rendered against this module's bundle rather than through {@code NordtalUser#reply}, because
+     * the value is MiniMessage with a clickable link in it and the shared bundle carries no markup
+     * at all.
      */
     private int print(final CommandContext<CommandSource> context, final Function<Object, MessageRef> text) {
         if (!(context.getSource() instanceof Player player)) {
-            // Unchanged from the declaration these replaced: GAME and not CONSOLE. A line meant for
-            // a chat window, with a link in it, is not what an operator wants back from a console -
-            // and the console has `./nordtal.sh` and the file itself for everything real.
+            // GAME and not CONSOLE: a line with a clickable link is not what an operator wants from a console.
             new ConsoleUser(messages, context.getSource())
                     .reply(MESSAGES.command().notFromConsole(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;

@@ -9,32 +9,34 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Where each player was standing before the proxy swapped out from under them, in memory, for the
- * one minute after a restart when anybody is coming back (season-2-ops/121).
+ * Where each player was standing before the proxy swapped out from under them, in memory.
  *
- * <p>Filled once from {@link SwapStore#takeAllSeats()} while the plugin starts - before Velocity
+ * For the one minute after a restart when anybody is coming back.
+ *
+ * Filled once from {@link SwapStore#takeAllSeats()} while the plugin starts - before Velocity
  * binds its listener, so no login can race the read - and emptied a player at a time as they
- * arrive. Nothing refills it: a seat is a fact about one run, and the run is over.</p>
+ * arrive. Nothing refills it: a seat is a fact about one run, and the run is over.
  *
- * <h2>Whose seat actually changes anything, which is a shorter list than it looks</h2>
- * Routing on this network is a total function of the season phase: {@code PhaseRouting} sends every
- * non-admin to the one backend their phase names, and it does so on every login and on every phase
- * change. So for a player who is not an admin, <b>the seat and the phase's own answer agree by
- * construction</b> - the seat says {@code smp} because the phase said {@code smp} twenty seconds
- * ago and still does. Honouring it would change nothing, and honouring it in the one case where
- * they <em>disagree</em> - the phase moved during the swap - would put somebody on a backend the
- * current phase does not allow, past the check that exists to stop precisely that.
+ * Whose seat actually changes anything is a shorter list than it looks. Routing on this network is
+ * a total function of the season phase: {@code PhaseRouting} sends every non-admin to the one
+ * backend their phase names, on every login and on every phase change. So for a player who is not
+ * an admin, the seat and the phase's own answer agree by construction - the seat says {@code smp}
+ * because the phase said {@code smp} and still does. Honouring it would change nothing, and
+ * honouring it in the one case where they disagree - the phase moved during the swap - would put
+ * somebody on a backend the current phase does not allow, past the check that exists to stop
+ * precisely that.
  *
- * <p>So a seat is honoured for an admin and for nobody else. An admin is the one player routing
+ * So a seat is honoured for an admin and for nobody else. An admin is the one player routing
  * deliberately does not move: they get around with {@code /server}, they are the reason
  * {@code RouteIntents} has an exemption at all, and "I was on hunger-games looking at something and
- * came back on the SMP" is the one way this feature is noticeably wrong for somebody.</p>
+ * came back on the SMP" is the one way this feature is noticeably wrong for somebody.
  *
- * <p>Every seat is still <em>written</em>, admin or not. It costs one statement for a table that is
+ * Every seat is still written, admin or not. It costs one statement for a table that is
  * emptied on the next start, and what it buys is a record of who was actually parked - which is the
- * thing somebody will want the morning after a swap that went badly.</p>
+ * thing somebody will want the morning after a swap that went badly.
  */
 public final class ParkedSeats {
 
@@ -75,9 +77,9 @@ public final class ParkedSeats {
     /**
      * Where the waiting room should let this player out to.
      *
-     * <p>Consuming: a seat is used once. A player who is released, fails to connect and is released
+     * Consuming: a seat is used once. A player who is released, fails to connect and is released
      * again goes by the phase the second time, which is the safe direction - the seat was already
-     * tried and the phase's answer is the one that is true now.</p>
+     * tried and the phase's answer is the one that is true now.
      *
      * @param player           who is being released
      * @param admin            whether they carry {@code discord_user.admin} - see the class comment
@@ -98,17 +100,18 @@ public final class ParkedSeats {
     }
 
     /**
-     * The rule on its own, so the four ways to get it wrong are all assertable: honouring a seat
-     * for somebody routing owns, honouring one naming a backend this proxy does not have,
-     * honouring one naming a waiting room - which would release a player into the room they are
-     * standing in, a black screen with a stale title - and losing one that was fine.
+     * The rule on its own, so the four ways to get it wrong are all assertable.
+     *
+     * Honouring a seat for somebody routing owns, honouring one naming a backend this proxy does not have,
+     * honouring one naming a waiting room - which would release a player into the room they are standing in, a
+     * black screen with a stale title - and losing one that was fine.
      *
      * @param seat where they were, or {@code null} for every login that is not the far end of a
      *             swap
      * @return the seat when it may be honoured, otherwise {@code phaseDestination} unchanged
      */
     static String destination(
-            final String seat,
+            final @Nullable String seat,
             final boolean admin,
             final String phaseDestination,
             final Set<String> available,

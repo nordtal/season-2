@@ -11,21 +11,16 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The short-lived, in-memory last-known-state cache the login gate falls back to while the
- * database is unreachable.
+ * The short-lived, in-memory last-known-state cache the login gate falls back to while the database is unreachable.
  *
- * <ul>
- *   <li>Written only on a successful query, so it never invents an entry.</li>
- *   <li>Only a state that may join right now is stored; anything else is removed, so a lapse
- *       evicts an earlier positive entry rather than leaving a stale "yes" behind.</li>
- *   <li>An entry older than {@code window} is treated as absent and evicted on read, so a long
- *       outage closes the door rather than leaving it open forever.</li>
- *   <li>A plain heap map: it dies with the process.</li>
- * </ul>
- * <p>
+ * Written only on a successful query, so it never invents an entry. Only a state that may join
+ * right now is stored; anything else is removed, so a lapse evicts an earlier positive entry
+ * rather than leaving a stale "yes" behind. An entry older than {@code window} is treated as
+ * absent and evicted on read, so a long outage closes the door rather than leaving it open
+ * forever. It is a plain heap map: it dies with the process.
+ *
  * Consulting this cache only while the database is unreachable is the caller's responsibility;
  * nothing here can know it.
- * </p>
  */
 public final class FallbackCache {
 
@@ -63,8 +58,9 @@ public final class FallbackCache {
     }
 
     /**
-     * Whether this account may be let in from the cache alone, right now. An entry outside the
-     * window is evicted as a side effect of asking.
+     * Whether this account may be let in from the cache alone, right now.
+     *
+     * An entry outside the window is evicted as a side effect of asking.
      *
      * @param mcUuid the account attempting to join
      * @return {@code true} only for an account that was seen with active access within the window

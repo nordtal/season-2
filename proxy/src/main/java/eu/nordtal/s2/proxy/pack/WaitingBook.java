@@ -10,33 +10,35 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
- * What the proxy knows about each player in the waiting room, and the rule that turns it into a
- * {@link WaitingDecision}. No Velocity type is involved, because the ordering this class exists to
- * get right cannot be asserted through a connection.
+ * What the proxy knows about each waiting-room player, and the rule that turns it into a {@link WaitingDecision}.
  *
- * <p><b>State is per session, not per visit.</b> The three facts that end a wait - the arrival, the
+ * No Velocity type is involved, because the ordering this class exists to get right cannot be asserted through
+ * a connection.
+ *
+ * State is per session, not per visit. The three facts that end a wait - the arrival, the
  * pack status, and {@code limbo}'s {@code READY} - arrive on unrelated paths in any order. Velocity
  * makes {@code READY} beat the arrival by construction: {@code TransitionSessionHandler} stops
  * reading from the backend socket on join, and the packets buffered meanwhile are read on the Netty
  * loop before {@code ServerPostConnectEvent} is dispatched. Keeping {@code ready} in an object the
  * arrival creates therefore drops it, and {@code limbo} sends it once per join - which strands the
- * player for ever, since no timeout applies after the pack is applied.</p>
+ * player for ever, since no timeout applies after the pack is applied.
  *
- * <p>The deliberate cost: {@code ready} is <b>not</b> cleared when a player leaves the waiting room
+ * The deliberate cost: {@code ready} is not cleared when a player leaves the waiting room
  * and returns within the same session, so a second visit is released without a second
- * {@code READY}. Clearing it would reintroduce the window this class removes.</p>
+ * {@code READY}. Clearing it would reintroduce the window this class removes.
  *
- * <p><b>The grace period</b> covers a {@code READY} that is genuinely lost: a plugin message decoded
+ * The grace period covers a {@code READY} that is genuinely lost: a plugin message decoded
  * in the same read batch as the join is written straight to the client by
  * {@code TransitionSessionHandler} and never becomes a {@code PluginMessageEvent}. {@link #decide}
  * therefore releases a player once everything else has been settled for
- * {@code gate.yml#limbo-ready-grace-seconds}, and says so. No single message may strand a player.</p>
+ * {@code gate.yml#limbo-ready-grace-seconds}, and says so. No single message may strand a player.
  *
- * <p>Every public method is safe to call from any thread. {@link #decide} synchronises on the
+ * Every public method is safe to call from any thread. {@link #decide} synchronises on the
  * session, which is what makes a release happen once: a sweep and a pack status arriving together
- * would otherwise both pass the same checks and connect the same player twice.</p>
+ * would otherwise both pass the same checks and connect the same player twice.
  */
 public final class WaitingBook {
 
@@ -46,14 +48,14 @@ public final class WaitingBook {
         /** Whether the proxy currently believes they are sitting in the waiting room. */
         private boolean waiting;
         /** Set by {@link #releaseFailed}: the destination is registered but did not take them. */
-        private Instant backendDownUntil;
+        private @Nullable Instant backendDownUntil;
         /** Which destination that was - the window applies to it and to no other. */
-        private String backendDown;
+        private @Nullable String backendDown;
         /** Whether {@link #entered} has ever been called - what makes a READY "early". */
         private boolean visited;
 
         /** When the pack offer went out, or {@code null} if it has not. */
-        private Instant offeredAt;
+        private @Nullable Instant offeredAt;
 
         /** Whether the client reported the pack as applied. */
         private boolean applied;
@@ -62,10 +64,10 @@ public final class WaitingBook {
         private boolean ready;
 
         /** When the wait last came down to {@code READY} alone; {@code null} whenever it has not. */
-        private Instant settledAt;
+        private @Nullable Instant settledAt;
 
         /** The reason currently on this player's screen, so an unchanged one is not re-sent. */
-        private WaitReason shown;
+        private @Nullable WaitReason shown;
     }
 
     private final boolean packOffered;
@@ -86,7 +88,6 @@ public final class WaitingBook {
      *                     to {@link #decide} because it is a fact about the process and not about
      *                     the player: a parameter would be the same value at every call site, and
      *                     the one call site that got it wrong would be the one nobody re-read
-     *                     (season-2-ops/121)
      * @param clock        the clock both periods are measured on
      */
     public WaitingBook(
@@ -102,7 +103,7 @@ public final class WaitingBook {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    // ------------------------------------------------------------------ the three facts
+    // the three facts
 
     /**
      * Records that the player is now in the waiting room.
@@ -118,8 +119,9 @@ public final class WaitingBook {
     }
 
     /**
-     * Records that the player is no longer in the waiting room - released, moved, or on their way
-     * out. The session's facts survive; only this visit's does.
+     * Records that the player is no longer in the waiting room - released, moved, or on their way out.
+     *
+     * The session's facts survive; only this visit's does.
      *
      * @param uuid the player
      */
@@ -170,9 +172,9 @@ public final class WaitingBook {
      * Records {@code limbo}'s {@code READY}, whether or not the arrival event has been seen yet.
      *
      * @param uuid the player
-     * @return {@code true} when this {@code READY} arrived <b>before</b> the proxy had processed the
+     * @return {@code true} when this {@code READY} arrived before the proxy had processed the
      *         arrival - the race described on this class, and worth a log line. A READY after the
-     *         player has already left the room is <em>not</em> early: {@code limbo} repeats it every
+     *         player has already left the room is not early: {@code limbo} repeats it every
      *         second until the player is moved, so one arriving mid-transfer is ordinary
      */
     public boolean ready(final UUID uuid) {
@@ -187,14 +189,12 @@ public final class WaitingBook {
     public static final Duration RELEASE_RETRY = Duration.ofSeconds(10);
 
     /**
-     * Records that the connection a release asked for did not succeed, and puts the player back on
-     * the books.
-     * <p>
-     * The station releases a player once the destination is <em>registered</em>; only the connection
-     * attempt can say whether it is <em>up</em>. A backend that is down must hold rather than kick,
+     * Records that the connection a release asked for did not succeed, and puts the player back on the books.
+     *
+     * The station releases a player once the destination is registered; only the connection
+     * attempt can say whether it is up. A backend that is down must hold rather than kick,
      * so the player is shown the {@code BACKEND} title and the release is tried again after
      * {@link #RELEASE_RETRY}.
-     * </p>
      *
      * @param uuid        the player, still standing on limbo
      * @param destination the backend that did not take them. The window is recorded against it and
@@ -226,8 +226,9 @@ public final class WaitingBook {
     }
 
     /**
-     * Drops everything known about a player. Called on disconnect, or the map grows for the life of
-     * the process.
+     * Drops everything known about a player.
+     *
+     * Called on disconnect, or the map grows for the life of the process.
      *
      * @param uuid the player who has gone
      */
@@ -240,14 +241,13 @@ public final class WaitingBook {
         return sessions.size();
     }
 
-    // ------------------------------------------------------------------ the decision
+    // the decision
 
     /**
      * Looks at one held player and says what should happen to them.
-     * <p>
+     *
      * Called on every pack status, every arrival, every {@code READY} and every sweep, so it must be
      * cheap and idempotent.
-     * </p>
      *
      * @param uuid                 the player
      * @param phase                the phase the network is in
@@ -285,10 +285,7 @@ public final class WaitingBook {
                 return WaitingDecision.timedOut();
             }
 
-            // A destination that refused the last connection counts as unavailable until the retry
-            // window has passed - registered is not the same as up. Scoped to that destination: a
-            // phase change inside the window points somewhere else, and an unscoped window would
-            // hold the player away from a server that never refused them.
+            // A destination that refused the last connection counts as unavailable until the retry window passes.
             final boolean stillDown = session.backendDownUntil != null
                     && java.util.Objects.equals(session.backendDown, destination)
                     && clock.instant().isBefore(session.backendDownUntil);
@@ -312,8 +309,7 @@ public final class WaitingBook {
 
             final Instant now = clock.instant();
             if (session.settledAt == null) {
-                // First moment at which READY is the only thing left. Deliberately silent: a title
-                // sent now would flicker as it is about to disappear.
+                // First moment at which READY is the only thing left; deliberately silent to avoid a flicker.
                 session.settledAt = now;
                 return WaitingDecision.idle();
             }

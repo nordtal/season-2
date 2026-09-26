@@ -31,51 +31,31 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
  * The network's own private messages: {@code /msg}, {@code /whisper} and {@code /r}.
  *
- * <h2>Why the proxy owns them</h2>
- * Because it is the only process that can see both people. Vanilla's {@code /tell} is per-server, so
- * a conversation ends the moment one of the two crosses to another backend - and on this network
- * crossing is normal: every login passes the waiting room, and the hunger games and the SMP are
- * different servers. The proxy also already holds what a line has to be drawn from: the language
- * each side reads and their admin flag, both out of {@link LoginRoster}.
+ * The proxy owns them because it is the only process that can see both people: vanilla's
+ * {@code /tell} is per-server, so a conversation would end the moment one side crosses to another
+ * backend, and on this network crossing is normal. The proxy also already holds what a line has to
+ * be drawn from, the language each side reads and their admin flag, both out of
+ * {@link LoginRoster}.
  *
- * <h2>Native Brigadier, and why the framework left (season-2-ops/155)</h2>
- * One surface, one target, no confirmation, no admin flag, and arguments that never travel through
- * a database row: none of the four things a {@code Declaration} is worth its cost for. The logic
- * did not change - it moved. What is gone is a declaration in {@code :commands}, an effects
- * interface, the adapter's translation of both, and a catalogue entry for a command no other
- * surface can reach.
+ * {@code /whisper} is built from the same method as {@code /msg}, registered a second time rather
+ * than aliased through a Brigadier redirect, so tab completion, the usage line and the command
+ * allowlist see two ordinary commands.
  *
- * <h2>Two names and not an alias</h2>
- * {@code /whisper} is built from the same method as {@code /msg}. It is a second registration
- * rather than a Brigadier redirect so that tab completion, the usage line and the command allowlist
- * see two ordinary commands and neither name is a special case.
+ * The message travels through {@link MessageRenderer}'s component slot rather than a substituted
+ * string, so the player's text never reaches the MiniMessage parser and nobody can colour a line
+ * about themselves. A line carries the flag and the admin tag, both already held from the login
+ * query, but never the SMP's prestige crest or aura, which would mean a database query per message
+ * on the process that must not make one; it also keeps a whisper from looking exactly like
+ * ordinary chat, which somebody could otherwise answer in public by mistake.
  *
- * <h2>The message is a component and never a substituted string</h2>
- * {@link MessageRenderer}'s component slot, the same mechanism {@code smp}'s chat format uses for a
- * death message. As a component the player's text never reaches the MiniMessage parser at all, so
- * somebody called {@code <red>} cannot colour a line about themselves.
- *
- * <h2>What a line carries, and what it deliberately does not</h2>
- * The flag and the admin tag, both of which the proxy already holds from the login query. Not the
- * prestige crest and not the aura: those live in the SMP's tables, and fetching them would be a
- * query per message on the process that must not make one. It also keeps a whisper from looking
- * exactly like ordinary chat - a whisper somebody mistakes for public chat is a whisper they answer
- * in public.
- *
- * <h2>Inline, where the framework hopped onto the scheduler</h2>
- * {@code ChatEffects#async} existed because the contract had to hold for a surface that talks to a
- * database. Nothing here does: the roster is a {@code ConcurrentHashMap}, {@code sendMessage} does
- * not block, and the partner map is one too. A scheduled task for that is a hop that only makes the
- * ordering harder to reason about.
- *
- * <h2>Nothing is written down</h2>
- * No log line carries the text, no admin channel is told, no table is touched (the owner, 2026-09-08).
- * The only state here is who last spoke to whom, in memory, dropped on disconnect.
+ * Nothing is written down: no log line carries the text, no admin channel is told, no table is
+ * touched. The only state here is who last spoke to whom, in memory, dropped on disconnect.
  */
 public final class PrivateMessages {
 
@@ -94,11 +74,11 @@ public final class PrivateMessages {
     /**
      * Who each connected player last exchanged a private message with, for {@code /r}.
      *
-     * <p>Set by <b>both</b> sides of every message, which is what makes an answer possible without
-     * either of them having typed a name. It is held here and dies with the process (the owner,
-     * 2026-09-08): writing it down would mean a table of who talks to whom, which is a record of
-     * exactly the thing this feature is built not to keep. The cost is that a proxy restart makes
-     * everybody's next {@code /r} say there is nobody to reply to.</p>
+     * Set by both sides of every message, which is what makes an answer possible without either of
+     * them having typed a name. It is held here and dies with the process: writing it down would
+     * mean a table of who talks to whom, which is a record of exactly the thing this feature is
+     * built not to keep. The cost is that a proxy restart makes everybody's next {@code /r} say
+     * there is nobody to reply to.
      */
     private final ConcurrentHashMap<UUID, UUID> partners = new ConcurrentHashMap<>();
 
@@ -132,8 +112,7 @@ public final class PrivateMessages {
 
         final RequiredArgumentBuilder<CommandSource, ?> who =
                 BrigadierCommand.requiredArgumentBuilder(PLAYER, StringArgumentType.word());
-        // Offered the same way the adapter offered a PLAYER argument: a map lookup, and never a
-        // query - Brigadier evaluates this while building the tree it sends to a client.
+        // A map lookup and never a query - Brigadier evaluates this while building the client's tree.
         who.suggests((context, builder) -> {
             proxy.getAllPlayers().forEach(online -> builder.suggest(online.getUsername()));
             return builder.buildFuture();
@@ -170,9 +149,7 @@ public final class PrivateMessages {
             user(sender).reply(MESSAGES.command().playerOffline(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
-        // Writing to yourself is refused before anything is delivered (season-2-ingame/24). It also
-        // keeps the reply partner from ever being set to the sender - the thing that would make /r
-        // answer itself.
+        // Refused before anything is delivered: it also keeps /r from ever being set to answer itself.
         if (recipient.get().getUniqueId().equals(sender.getUniqueId())) {
             user(sender).reply(ProxyMessages.MESSAGES.chat().msg().self(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
@@ -189,16 +166,13 @@ public final class PrivateMessages {
         final String text = StringArgumentType.getString(context, MESSAGE);
         final UUID partner = partners.get(sender.getUniqueId());
         if (partner == null) {
-            // Two different sentences, because they are two different situations and the player can
-            // act on the difference: "nobody has written to you" means type their name, "they have
-            // gone" means they were there a moment ago.
+            // Distinct from playerOffline: "nobody has written to you" means type their name instead.
             user(sender).reply(ProxyMessages.MESSAGES.chat().noPartner(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         final Optional<Player> recipient = proxy.getPlayer(partner);
         if (recipient.isEmpty()) {
-            // The partner is left standing rather than removed: they may come back, and telling
-            // somebody "they are not here" twice beats telling them "nobody has written to you".
+            // The partner is left standing rather than removed: they may come back.
             user(sender).reply(MESSAGES.command().playerOffline(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
@@ -210,8 +184,7 @@ public final class PrivateMessages {
         try {
             deliver(from, to, text);
         } catch (final RuntimeException failure) {
-            // NEVER WITH THE TEXT IN IT. A delivery that failed is worth knowing about; what
-            // somebody wrote is not ours to keep, and a log file is the one place it would survive.
+            // Never with the text in it: a delivery failure is worth logging, what somebody wrote is not.
             logger.warn("{} could not be delivered", what, failure);
             user(from).reply(ProxyMessages.MESSAGES.chat().failed(), Feedback.REFUSED, Tone.BAD);
         }
@@ -236,14 +209,13 @@ public final class PrivateMessages {
      * One half of a message, drawn.
      *
      * @param half   which of the two copies
-     * @param reader the language of the side this line is <em>for</em>, which is never necessarily
-     *               the language of the side it is <em>about</em> - the flag is the other one's
+     * @param reader the language of the side this line is for, which is never necessarily the
+     *               language of the side it is about - the flag is the other one's
      * @param about  the other person: their name, their flag and their admin tag
      */
     Component line(final Half half, final Locale reader, final Player about, final String text) {
         final String flag = Glyphs.flagFor(localeOf(about));
-        // A COMPONENT and never a substituted string, so the text never reaches the MiniMessage
-        // parser: somebody called <red> cannot colour a line about themselves.
+        // A component and never a substituted string, so the text never reaches the MiniMessage parser.
         final Component message = Component.text(text);
         final ProxyMessages.Chat.Msg msg = ProxyMessages.MESSAGES.chat().msg();
         return MessageRenderer.of(messages)
@@ -260,8 +232,8 @@ public final class PrivateMessages {
     /**
      * Who these two would answer with {@code /r}, from now on.
      *
-     * <p>Both directions, which is what makes an answer possible without either of them having
-     * typed a name.</p>
+     * Both directions, which is what makes an answer possible without either of them having typed
+     * a name.
      */
     void remember(final UUID one, final UUID other) {
         partners.put(one, other);
@@ -271,9 +243,9 @@ public final class PrivateMessages {
     /**
      * Drops both directions of every conversation this player was in.
      *
-     * <p>Both, and not only their own entry: leaving somebody pointed at a UUID that has gone would
+     * Both, and not only their own entry: leaving somebody pointed at a UUID that has gone would
      * make their next {@code /r} say "they are not here" forever rather than "nobody has written to
-     * you".</p>
+     * you".
      */
     void forget(final UUID gone) {
         partners.remove(gone);
@@ -281,13 +253,13 @@ public final class PrivateMessages {
     }
 
     /**
-     * The console, answered the way the declaration used to answer it: these carry
-     * {@code Surface.GAME} and nothing else, because a line from the console would arrive signed by
-     * nobody and there is no session there to hold a reply partner.
+     * The console is refused: these carry {@code Surface.GAME} and nothing else.
+     *
+     * A line from the console would arrive signed by nobody, with no session there to hold a reply partner.
      *
      * @return the player who typed it, or {@code null} when the source is not one
      */
-    private Player sender(final CommandContext<CommandSource> context) {
+    private @Nullable Player sender(final CommandContext<CommandSource> context) {
         if (context.getSource() instanceof Player player) {
             return player;
         }
@@ -297,12 +269,13 @@ public final class PrivateMessages {
     }
 
     /**
-     * The same two lines {@code VelocityCommands} printed for an incomplete command: what to type,
-     * and what the command is for.
+     * The same two lines {@code VelocityCommands} printed for an incomplete command.
      *
-     * <p>The usage string is written out here rather than derived from a {@code Declaration}, which
-     * is the one thing this move costs. {@code PrivateMessagesTest} parses each tree and asserts the
-     * two agree, so the derivation is replaced by a check rather than by trust.</p>
+     * What to type, and what the command is for.
+     *
+     * The usage string is written out here rather than derived from a {@code Declaration}.
+     * {@code PrivateMessagesTest} parses each tree and asserts the two agree, so the derivation is
+     * replaced by a check rather than by trust.
      */
     private int usage(final CommandContext<CommandSource> context, final String usage, final MessageRef describe) {
         final NordtalUser who = context.getSource() instanceof Player player
@@ -320,9 +293,9 @@ public final class PrivateMessages {
     /**
      * The admin tag with the space in front of it, or nothing at all.
      *
-     * <p>Substituted as a {@code {admin}} parameter rather than composed here, so the bundle decides
+     * Substituted as a {@code {admin}} parameter rather than composed here, so the bundle decides
      * where in the line it sits. It is a private-use code point out of {@code Glyphs} and never
-     * written into a {@code .properties} file - the rule this repository has for every glyph.</p>
+     * written into a {@code .properties} file - the rule this repository has for every glyph.
      */
     private String adminTag(final Player player) {
         return roster.isAdmin(player.getUniqueId()) ? " " + Glyphs.TAG_ADMIN : "";

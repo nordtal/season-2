@@ -7,37 +7,35 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * A wheel still spinning when the server goes down pays out.
  *
- * <h2>The failure it exists for</h2>
- * The spin is spent in SQL <em>before</em> the first frame is drawn - deliberately, so that an
- * animation which could stop somewhere else is never a second answer about one spin. Every ordinary
- * way of ending it therefore hands something over: the animation finishing, the window being closed,
- * and the player disconnecting, which Paper turns into an {@code InventoryCloseEvent}. All three
- * were watched working on 2026-09-06 - a kick one second into the animation paid sixteen oak
- * saplings.
+ * <b>The failure it exists for</b>
  *
- * <p>A <b>server shutdown</b> is the one that did not. Paper disables plugins before it saves and
- * disconnects players, so the close event arrives with no listener registered and the animation's
- * own chain simply stops at its next tick. The spin was gone and the player had nothing
- * (finding 136). At disable the players are still online, which is what makes handing the prize
- * over there both possible and enough - {@code Saving players} follows a few lines later and writes
- * it to disk.
+ * The spin is spent in SQL <em>before</em> the first frame is drawn - deliberately, so that an animation which could
+ * stop somewhere else is never a second answer about one spin. Every ordinary way of ending it therefore hands
+ * something over: the animation finishing, the window being closed, and the player disconnecting, which Paper turns
+ * into an {@code InventoryCloseEvent}. All three were watched working - a kick one second into the
+ * animation paid sixteen oak saplings.
  *
- * <h2>Why a text search</h2>
- * The subject is one call inside {@code onDisable}, and reaching {@code onDisable} needs a server.
- * The same reason every wiring test in this module is one.
+ * A <b>server shutdown</b> is the one that did not. Paper disables plugins before it saves and disconnects players,
+ * so the close event arrives with no listener registered and the animation's own chain simply stops at its next
+ * tick. The spin was gone and the player had nothing. At disable the players are still online, which
+ * is what makes handing the prize over there both possible and enough - {@code Saving players} follows a few lines
+ * later and writes it to disk.
+ *
+ * <b>Why a text search</b>
+ *
+ * The subject is one call inside {@code onDisable}, and reaching {@code onDisable} needs a server. The same reason
+ * every wiring test in this module is one.
  */
 class SpinSurvivesShutdownTest {
 
     private static final String PLUGIN = "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java";
 
     @Test
-    @DisplayName("disable hands over any prize whose animation is still running")
     void anInFlightSpinIsPaidAtDisable() {
         final String source = read();
 

@@ -7,31 +7,22 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The one thing about the portal gate that only a running server could otherwise answer.
  *
- * <p>Cancelling {@code PortalCreateEvent} stops the portal and nothing else: the flint and steel
- * has already placed a fire block, and vanilla leaves it standing. So a refused ignition burns the
- * player who just read the refusal.
+ * Cancelling {@code PortalCreateEvent} stops the portal and nothing else: the flint and steel has already placed a
+ * fire block, and vanilla leaves it standing. So a refused ignition burns the player who just read the refusal.
  *
- * <p>A text search, because raising a real {@code PortalCreateEvent} needs a world, a frame and an
- * ignition. What it protects is one call next to the cancel, which a later edit can drop with no
- * visible symptom.
+ * A text search, because raising a real {@code PortalCreateEvent} needs a world, a frame and an ignition. What it
+ * protects is one call next to the cancel, which a later edit can drop with no visible symptom.
  */
 class PortalGateWiringTest {
 
     private static final String SOURCE = "smp/src/main/java/eu/nordtal/s2/smp/travel/PortalGate.java";
 
-    // theFarmWorldExitExists stood here until 2026-09-20. It held the EntityPortalEnterEvent
-    // handler that carried a player out of the farm world, which vanilla's PlayerPortalEvent
-    // never reaches for a custom dimension. The farm world went with season-2-ingame/30 and the
-    // handler with it.
-
     @Test
-    @DisplayName("cancelling the portal also puts out the fire the ignition left")
     void theRefusalClearsUpAfterItself() {
         final String source = read();
 

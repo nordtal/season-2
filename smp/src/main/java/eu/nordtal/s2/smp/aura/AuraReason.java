@@ -3,16 +3,15 @@ package eu.nordtal.s2.smp.aura;
 /**
  * What went into {@code smp_aura_event.reason}.
  *
- * <p>The column is deliberately <b>not</b> CHECK-constrained in {@code V6__smp.sql} - "a new aura
- * source must not need a migration" - so this enum is the plugin's own closed set over an open
- * column, not a mirror of a database constraint. A future source is a constant here and nothing
- * else; a source that only ever existed in an older version still reads back out of the ledger as
- * its own string.
+ * The column is deliberately <b>not</b> CHECK-constrained in {@code V6__smp.sql} - "a new aura source must not need
+ * a migration" - so this enum is the plugin's own closed set over an open column, not a mirror of a database
+ * constraint. A future source is a constant here and nothing else; a source that only ever existed in an older
+ * version still reads back out of the ledger as its own string.
  *
- * <p>The ledger exists so a leaderboard position can always be explained, and the case it was
- * written for is the one the design deliberately does not protect against: repeatedly killing
- * somebody drains a publicly visible number with no daily cap and no per-killer cooldown, so
- * "why did I lose 40 aura overnight" has to be answerable from the data.
+ * The ledger exists so a leaderboard position can always be explained, and the case it was written for is the one
+ * the design deliberately does not protect against: repeatedly killing somebody drains a publicly visible number
+ * with no daily cap and no per-killer cooldown, so "why did I lose 40 aura overnight" has to be answerable from the
+ * data.
  */
 public enum AuraReason {
 

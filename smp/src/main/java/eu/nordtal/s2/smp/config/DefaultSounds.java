@@ -7,22 +7,16 @@ import java.util.Map;
 /**
  * The ten sounds a fresh {@code sounds.yml} is written with.
  *
- * <p>Same mechanism and same caveat as {@link DefaultSmp}: a nested spec is served by a reflective
- * proxy and {@code Specs.createUnsafe} does <b>not</b> apply defaults, so every key of the spec has
- * to appear in the map or it comes out null.
+ * Same mechanism and same caveat as {@link DefaultSmp}: a nested spec is served by a reflective proxy and
+ * {@code Specs.createUnsafe} does <b>not</b> apply defaults, so every key of the spec has to appear in the map or it
+ * comes out null.
  *
- * <p>Everything here is a proposal that nobody has heard next to anything else. {@code SoundsSpec}
- * carries the reasoning; this class is only the values.
+ * Everything here is a proposal that nobody has heard next to anything else. {@code SoundsSpec} carries the
+ * reasoning; this class is only the values.
  */
 final class DefaultSounds {
 
-    // Ten vanilla sounds, one per Feedback category. EVERY KEY BELOW WAS RESOLVED against Bukkit's
-    // own sound list as compiled for paper-api 26.2.build.121-stable on 2026-09-04, not taken from
-    // memory - SoundDefaultsTest re-resolves all ten on every build, so a Minecraft release that
-    // retires one turns the build red rather than turning a chime silent.
-    //
-    // The pitches are the only part chosen rather than named: they are what separates two categories
-    // that share a family. Retuning any of them is a config edit.
+    // Ten vanilla sounds, one per Feedback category; SoundDefaultsTest re-resolves all ten every build.
 
     /** A pickup, pitched up so it reads as lighter than the level-up. */
     static final SoundsSpec.SoundSpec SMALL_SUCCESS = sound("minecraft:entity.experience_orb.pickup", 1.4f);
@@ -54,17 +48,16 @@ final class DefaultSounds {
     /**
      * The one category with no sound. See {@code Feedback.STAGING}: the blank is the decision.
      *
-     * <p>Written through the same map as the others so the key still appears in a fresh file with
-     * its comment - an absent key would leave nobody anything to fill in.</p>
+     * Written through the same map as the others so the key still appears in a fresh file with its comment - an absent
+     * key would leave nobody anything to fill in.
      */
     static final SoundsSpec.SoundSpec STAGING = sound("", 1.0f);
 
     /**
-     * A monster's death, for a grave settling. season-2-ingame/15, Till 2026-09-15: he asked for "a
-     * fitting sound, maybe the death sound of a monster" and left the exact one open - this is the
-     * proposal, not a decision, and it is one line plus {@code /smp reload} to change. See the
-     * ticket's own fallback if it turns out wrong in the game: {@code entity.zombie.death} or a
-     * dampened {@code entity.wither.spawn}.
+     * A monster's death, for a grave settling.
+     *
+     * Not a fixed choice: one line plus {@code /smp reload} changes it, to {@code entity.zombie.death} or a
+     * dampened {@code entity.wither.spawn} if this one turns out wrong in the game.
      */
     static final SoundsSpec.SoundSpec RECLAIMED = sound("minecraft:entity.skeleton.death", 1.0f);
 

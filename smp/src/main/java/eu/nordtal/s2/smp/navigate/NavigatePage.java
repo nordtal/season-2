@@ -6,25 +6,26 @@ import eu.nordtal.s2.common.message.Messages;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
- * What {@code /navigate}'s window shows on one page - decided here, with no Bukkit in sight.
+ * What {@code /navigate} 's window shows on one page - decided here, with no Bukkit in sight.
  *
- * <h2>Why this is its own class</h2>
- * Everything a page is made of is arithmetic and text: which five of the destinations, how far away
- * each is, what the entry is called and which one is already being pointed at. None of it needs a
- * world, a player or an inventory, and all of it is the part that can be wrong in a way nobody
- * notices - a distance rounded the wrong way, the last page silently empty, the active entry marked
- * on the wrong row after a page turn. {@link NavigateGui} keeps the half that genuinely needs a
- * running server and this keeps the half a test can hold.
+ * <b>Why this is its own class</b>
  *
- * <h2>The strings here are drawn in the five-pixel sheet</h2>
+ * Everything a page is made of is arithmetic and text: which five of the destinations, how far away each is, what
+ * the entry is called and which one is already being pointed at. None of it needs a world, a player or an inventory,
+ * and all of it is the part that can be wrong in a way nobody notices - a distance rounded the wrong way, the last
+ * page silently empty, the active entry marked on the wrong row after a page turn. {@link NavigateGui} keeps the
+ * half that genuinely needs a running server and this keeps the half a test can hold.
+ *
+ * <b>The strings here are drawn in the five-pixel sheet</b>
+ *
  * They are therefore <b>plain, tagless bundle values</b> and not MiniMessage: what
- * {@link eu.nordtal.s2.common.menu.MenuFont} draws is characters, and a {@code <gray>} in one of
- * these keys would be folded to capitals and printed. The tooltips under the slots are ordinary
- * components and do go through {@code MessageRenderer}; the two live side by side in
- * {@link NavigateGui} and it is worth knowing which is which.
+ * {@link eu.nordtal.s2.common.menu.MenuFont} draws is characters, and a {@code <gray>} in one of these keys would be
+ * folded to capitals and printed. The tooltips under the slots are ordinary components and do go through
+ * {@code MessageRenderer}; the two live side by side in {@link NavigateGui} and it is worth knowing which is which.
  */
 public final class NavigatePage {
 
@@ -50,22 +51,26 @@ public final class NavigatePage {
     /**
      * What a destination is called on its row.
      *
-     * <p>A POI's name is the player's own text and is used as typed; the two built-in kinds are
-     * named by their message instead. {@link MenuFont} folds either onto the sheet's alphabet later.</p>
+     * A POI's name is the player's own text and is used as typed; the two built-in kinds are named by their message
+     * instead. {@link MenuFont} folds either onto the sheet's alphabet later.
      */
     public static String label(final NavigationTarget target, final Messages messages, final Locale locale) {
-        return target.kind() == NavigationTarget.Kind.POI ? target.label() : messages.format(locale, target.name());
+        if (target.kind() == NavigationTarget.Kind.POI) {
+            // Non-null exactly when kind() is POI: NavigationTarget.poi() is the only factory that supplies one.
+            return Objects.requireNonNull(target.label());
+        }
+        return messages.format(locale, target.name());
     }
 
     /**
      * What stands at the right edge of a row.
      *
-     * <p>Blocks when the destination is in the world the player is standing in, and the words for
-     * "another world" when it is not - because a number there would be a straight-line distance
-     * through a dimension the player is not in, which is worse than no number at all. The distance
-     * is three-dimensional and rounded, and it is <b>computed when the menu opens</b>: it is a
-     * caption on a list, not a live readout, and the HUD is what tracks the one destination that is
-     * being walked to.</p>
+     * Blocks when the destination is in the world the player is standing in, and the words for "another world" when it
+     * is not - because a number there would be a straight-line distance through a dimension the player is not in, which
+     * is worse than no number at all. The distance is three-dimensional and rounded, and it is <b>computed when the
+     * menu
+     * opens</b>: it is a caption on a list, not a live readout, and the HUD is what tracks the one destination that is
+     * being walked to.
      */
     public static String distance(
             final NavigationTarget target,

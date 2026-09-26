@@ -9,6 +9,7 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.region.Boxes;
+import java.util.Objects;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.Container;
@@ -32,14 +33,14 @@ import org.bukkit.event.player.PlayerInteractEvent;
 /**
  * The four spawns, protected by a handful of event handlers over a list of boxes.
  *
- * <p>Blocked: placing, breaking, explosions, fire, fluid flow, and hanging things. Free: doors,
- * trapdoors, fence gates, buttons, levers and pressure plates.
+ * Blocked: placing, breaking, explosions, fire, fluid flow, and hanging things. Free: doors, trapdoors, fence gates,
+ * buttons, levers and pressure plates.
  *
- * <p>The line is drawn at {@link Container} rather than at a list of materials, so a Minecraft
- * update that adds a storage block cannot quietly turn the spawn into the community warehouse.
+ * The line is drawn at {@link Container} rather than at a list of materials, so a Minecraft update that adds a
+ * storage block cannot quietly turn the spawn into the community warehouse.
  *
- * <p>Admins are exempt, from {@link Identities}' cache rather than from a query: this listener asks
- * on every block interaction, and a round trip per click would be a main-thread query.
+ * Admins are exempt, from {@link Identities} ' cache rather than from a query: this listener asks on every block
+ * interaction, and a round trip per click would be a main-thread query.
  */
 public final class ProtectionListener implements Listener {
 
@@ -61,8 +62,6 @@ public final class ProtectionListener implements Listener {
         this.locales = locales;
         this.sounds = sounds;
     }
-
-    // ------------------------------------------------------------------ players
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     public void onPlace(final BlockPlaceEvent event) {
@@ -112,7 +111,7 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     public void onHangingBreak(final HangingBreakByEntityEvent event) {
-        final Location at = event.getEntity().getLocation();
+        final Location at = Objects.requireNonNull(event.getEntity().getLocation());
         if (!inside(at)) {
             return;
         }
@@ -123,18 +122,16 @@ public final class ProtectionListener implements Listener {
         event.setCancelled(true);
     }
 
-    // ------------------------------------------------------------------ the world itself
-
     @EventHandler(ignoreCancelled = true)
     public void onBurn(final BlockBurnEvent event) {
-        if (inside(event.getBlock().getLocation())) {
+        if (inside(Objects.requireNonNull(event.getBlock().getLocation()))) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onIgnite(final BlockIgniteEvent event) {
-        if (!inside(event.getBlock().getLocation())) {
+        if (!inside(Objects.requireNonNull(event.getBlock().getLocation()))) {
             return;
         }
         final Player player = event.getPlayer();
@@ -146,26 +143,22 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onFlow(final BlockFromToEvent event) {
-        // Only the destination matters: a river outside may not run in, and a source inside a
-        // protected box was placed by an admin who meant it.
-        if (inside(event.getToBlock().getLocation())) {
+        // Only the destination matters: a river outside may not run in; a source inside was placed there by an admin.
+        if (inside(Objects.requireNonNull(event.getToBlock().getLocation()))) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onEntityExplode(final EntityExplodeEvent event) {
-        // Only the blocks inside a box are spared. Cancelling the whole explosion would also stop
-        // it damaging players, and PvP is on everywhere.
-        event.blockList().removeIf(block -> inside(block.getLocation()));
+        // Only the blocks inside a box are spared; cancelling the whole explosion would also stop it hurting players.
+        event.blockList().removeIf(block -> inside(Objects.requireNonNull(block.getLocation())));
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onBlockExplode(final BlockExplodeEvent event) {
-        event.blockList().removeIf(block -> inside(block.getLocation()));
+        event.blockList().removeIf(block -> inside(Objects.requireNonNull(block.getLocation())));
     }
-
-    // ------------------------------------------------------------------ helpers
 
     private boolean inside(final Location location) {
         return regions.contains(
@@ -174,7 +167,8 @@ public final class ProtectionListener implements Listener {
 
     /** Whether this player must be stopped here - and tells them why, once, when they are. */
     private boolean deny(final Player player, final Block block) {
-        if (!inside(block.getLocation()) || identities.of(player.getUniqueId()).admin()) {
+        if (!inside(Objects.requireNonNull(block.getLocation()))
+                || identities.of(player.getUniqueId()).admin()) {
             return false;
         }
         player.sendActionBar(MessageRenderer.of(messages)

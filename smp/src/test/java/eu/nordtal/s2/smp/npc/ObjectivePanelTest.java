@@ -16,18 +16,15 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Walks the spawn NPC's composed window and holds it against the PNGs the pack drew.
  *
- * <p>The cursor walk is {@link PanelWalk}; what is asserted here is what is true of design
- * {@code O3} and of nothing else. The one that carries the most is
- * {@link #theBarIsTheRatioAndTheTrackIsTheCard}: the bar is the only thing in this window whose
- * <em>width</em> is a computed number rather than a fixed one, so it is the only thing that can be
- * wrong by a little rather than by a lot - and a bar that shows a quarter as a third is not a
- * failure anywhere.</p>
+ * The cursor walk is {@link PanelWalk}; what is asserted here is what is true of design {@code O3} and of nothing
+ * else. The one that carries the most is {@link #theBarIsTheRatioAndTheTrackIsTheCard}: the bar is the only thing in
+ * this window whose <em>width</em> is a computed number rather than a fixed one, so it is the only thing that can be
+ * wrong by a little rather than by a lot - and a bar that shows a quarter as a third is not a failure anywhere.
  */
 class ObjectivePanelTest {
 
@@ -38,7 +35,6 @@ class ObjectivePanelTest {
             new ObjectivePanel.Card(Glyphs.GUI_ROW_ICON_ADVANCEMENT, "Iron tools", "4/10", 0.4, false));
 
     @Test
-    @DisplayName("the whole surface returns the cursor to the title anchor")
     void theReadableTitleStillLandsWhereItWould() {
         final List<Run> runs = PanelWalk.runs(surface(FOUR, false, false));
         assertEquals(
@@ -50,14 +46,13 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("each card's plate, icon, name, bar and numbers land where the card is")
     void everyCardIsWhereItSaysItIs() {
         final List<Run> runs = PanelWalk.runs(surface(FOUR, false, false));
 
         for (int index = 0; index < FOUR.size(); index++) {
             final ObjectivePanel.Card card = FOUR.get(index);
-            final int x = ObjectivePanel.CARD_X[index % 2];
-            final int upper = ObjectivePanel.CARD_ROW[index / 2];
+            final int x = ObjectivePanel.CARD_X.get(index % 2);
+            final int upper = ObjectivePanel.CARD_ROW.get(index / 2);
             final String plate = index < 2 ? Glyphs.GUI_CARD_TOP : Glyphs.GUI_CARD_BOTTOM;
 
             final List<Run> plates = runs.stream()
@@ -73,8 +68,7 @@ class ObjectivePanelTest {
                             .x(),
                     "card " + index + "'s type icon sits three pixels inside its own plate");
 
-            // The name is on the card's upper row, the numbers on the row below it. Which is which
-            // is the whole reason a card needs two rows at all.
+            // The name sits on the card's upper row, the numbers below it; that is the whole reason for two rows.
             final List<Run> name = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(upper));
             assertTrue(
                     name.stream()
@@ -90,7 +84,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("a card's name and its numbers stay inside the card")
     void nothingOnACardRunsOffIt() {
         final ObjectivePanel.Card long_ = new ObjectivePanel.Card(
                 Glyphs.GUI_ROW_ICON_HAND_IN,
@@ -99,9 +92,9 @@ class ObjectivePanelTest {
                 0.5,
                 false);
         final List<Run> runs = PanelWalk.runs(surface(List.of(long_), false, false));
-        final int right = ObjectivePanel.CARD_X[0] + ObjectivePanel.CARD_WIDTH;
+        final int right = ObjectivePanel.CARD_X.get(0) + ObjectivePanel.CARD_WIDTH;
 
-        for (final int row : new int[] {ObjectivePanel.CARD_ROW[0], ObjectivePanel.CARD_ROW[0] + 1}) {
+        for (final int row : new int[] {ObjectivePanel.CARD_ROW.get(0), ObjectivePanel.CARD_ROW.get(0) + 1}) {
             for (final Run run : PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(row))) {
                 assertTrue(
                         run.end() <= right,
@@ -113,11 +106,8 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("the painted bar is the ratio, and it never leaves the track the card drew")
     void theBarIsTheRatioAndTheTrackIsTheCard() {
-        // The track's own pixels, read off the card PNG rather than restated: this is the one place
-        // the Java's idea of where the bar goes and the pack's idea of where it drew a groove can
-        // disagree, and a fill outside the groove is a green bar floating on grey.
+        // Read off the card PNG rather than restated, since Java's idea of the bar and the pack's groove can disagree.
         final var card = PanelWalk.image("objective_card.png");
         assertEquals(ObjectivePanel.CARD_WIDTH, card.getWidth());
         assertEquals(ObjectivePanel.CARD_HEIGHT, card.getHeight());
@@ -132,9 +122,7 @@ class ObjectivePanelTest {
                     .filter(run -> Glyphs.GUI_BAR_FILL_TOP.contains(run.content()))
                     .toList();
 
-            // A bitmap glyph ADVANCES its width plus one, so the pixels a slice paints are its
-            // advance less one. Measuring the advance instead is the mistake that makes every
-            // multi-slice bar look right and every single-pixel one twice as long as it is.
+            // A bitmap glyph advances width-plus-one, so measuring the advance doubles a single-pixel slice's length.
             final int expected = expectedFill(ratio);
             final int drawn = fills.stream().mapToInt(run -> run.advance() - 1).sum();
             assertEquals(expected, drawn, "a ratio of " + ratio + " should paint " + expected + " pixels of fill");
@@ -142,15 +130,14 @@ class ObjectivePanelTest {
                 continue;
             }
             assertEquals(
-                    ObjectivePanel.CARD_X[0] + 4,
+                    ObjectivePanel.CARD_X.get(0) + 4,
                     fills.get(0).x(),
                     "the fill starts one pixel inside the track, which starts three inside the card");
             final Run last = fills.get(fills.size() - 1);
             assertTrue(
-                    last.x() + last.advance() - 1 <= ObjectivePanel.CARD_X[0] + 4 + ObjectivePanel.BAR_MAX,
+                    last.x() + last.advance() - 1 <= ObjectivePanel.CARD_X.get(0) + 4 + ObjectivePanel.BAR_MAX,
                     "a fill of " + drawn + " ran past the track's right edge");
-            // Largest slice first, so the run is the number's binary representation and there is
-            // exactly one way to draw any width.
+            // Largest slice first, so the run is the number's binary form and there is exactly one way to draw a width.
             for (int index = 1; index < fills.size(); index++) {
                 assertTrue(
                         fills.get(index).advance() < fills.get(index - 1).advance(),
@@ -165,16 +152,13 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("a started objective always paints something, however little")
     void aStartedBarIsNeverEmpty() {
-        // The same rule ProgressBar floors to one character for: "1 of 3000" must not read as
-        // "not begun", which is the one thing a player would act on.
+        // The same rule ProgressBar floors to one character for: "1 of 3000" must not read as not begun.
         assertEquals(0, expectedFill(0.0));
         assertEquals(1, expectedFill(0.0001));
     }
 
     @Test
-    @DisplayName("a finished card wears the wash, and the wash is drawn over everything on it")
     void theDoneWashIsLast() {
         final List<Run> runs = PanelWalk.runs(surface(FOUR, false, false));
         final List<Run> washes = runs.stream()
@@ -183,13 +167,13 @@ class ObjectivePanelTest {
                 .toList();
 
         assertEquals(1, washes.size(), "exactly one of the four cards is finished");
-        assertEquals(ObjectivePanel.CARD_X[1], washes.get(0).x(), "the second card is the done one");
+        assertEquals(ObjectivePanel.CARD_X.get(1), washes.get(0).x(), "the second card is the done one");
 
         final int washAt = runs.indexOf(washes.get(0));
         final int lastOnThatCard = runs.stream()
-                .filter(run -> run.x() >= ObjectivePanel.CARD_X[1])
-                .filter(run -> run.font().equals(Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.CARD_ROW[0]))
-                        || run.font().equals(Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.CARD_ROW[0] + 1))
+                .filter(run -> run.x() >= ObjectivePanel.CARD_X.get(1))
+                .filter(run -> run.font().equals(Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.CARD_ROW.get(0)))
+                        || run.font().equals(Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.CARD_ROW.get(0) + 1))
                         || run.content().equals(Glyphs.GUI_CARD_TOP))
                 .mapToInt(runs::indexOf)
                 .max()
@@ -201,7 +185,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("the heading names the milestone, its bar and its counter, in that order left to right")
     void theHeadingReadsLeftToRight() {
         final List<Run> runs = PanelWalk.runs(surface(FOUR, false, false));
         assertEquals(
@@ -212,8 +195,7 @@ class ObjectivePanelTest {
 
         final List<Run> text = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.HEADING_ROW));
         assertEquals(3, text.size(), "the heading draws a name, a bar and a counter: " + text);
-        // Draw order is right to left here - the counter is placed first so the bar can be fitted
-        // against it - so the assertion is about x, not about order.
+        // Draw order is right to left: the counter comes first so the bar fits against it; this checks x, not order.
         final List<Run> sorted =
                 text.stream().sorted(java.util.Comparator.comparingInt(Run::x)).toList();
         assertEquals("FOOTHOLD", sorted.get(0).content());
@@ -233,7 +215,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("the page buttons are drawn only when there is a second page, and on their own cells")
     void thePageButtonsAppearWithTheSecondPage() {
         final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
 
@@ -263,7 +244,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("the plate under the share line stops before the page buttons, not behind them")
     void theSharePlateShortensForTheControls() {
         final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
 
@@ -275,8 +255,7 @@ class ObjectivePanelTest {
 
         final Run short_ = PanelWalk.find(PanelWalk.runs(surface(FOUR, false, true)), font, Glyphs.GUI_ROW_PILL_SHORT);
         assertEquals(ObjectivePanel.PILL_X, short_.x(), "the plate still starts where every plate does");
-        // end is x + advance and an advance is the drawn width plus one, so the last grey pixel
-        // is end - 2. Till's complaint (season-2-ingame/17) is that it was right of the arrows.
+        // end is x + advance and advance is drawn width plus one, so the last grey pixel must land before the buttons.
         assertTrue(
                 short_.end() - 2 < SlotGeometry.x(7) + ObjectivePanel.INSET,
                 "the grey island runs under the page buttons: it ends at " + (short_.end() - 2)
@@ -292,7 +271,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("the share line gets out of the page buttons' way rather than running under them")
     void theShareLineShortensForTheControls() {
         final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
         final String share = "Your share 100.0 % - spins: 12 and some more words after it";
@@ -313,7 +291,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("more cards than a page holds is refused rather than drawn over the share line")
     void aPageIsFourCards() {
         final List<ObjectivePanel.Card> five = new ArrayList<>(FOUR);
         five.add(FOUR.get(0));
@@ -323,7 +300,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("the four cards cover four separate blocks of eight slots, and column four is the gap")
     void theSlotMapIsTheDrawing() {
         final List<Integer> all = new ArrayList<>();
         for (int index = 0; index < ObjectivePanel.CARDS_PER_PAGE; index++) {
@@ -346,7 +322,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("every code point the surface uses is declared by the font that run names")
     void nothingIsDrawnOutOfAFontThatLacksIt() {
         final List<String> missing = new ArrayList<>();
         for (final Run run : PanelWalk.runs(surface(FOUR, true, true))) {
@@ -366,7 +341,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("the two strings drawn inside the window carry no MiniMessage in either language")
     void theDrawnKeysAreTagless() {
         final List<String> tagged = new ArrayList<>();
         for (final String language : new String[] {"en", "de"}) {
@@ -389,7 +363,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("the real share bundle keys are short enough that fit never has to cut them," + " paged or not")
     void theRealShareLinesNeverNeedTruncation() {
         final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
         for (final String language : new String[] {"en", "de"}) {
@@ -413,7 +386,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("an icon is the objective's kind, or - when it is finished - the tick")
     void theIconIsTheState() {
         assertEquals(Glyphs.GUI_ROW_ICON_HAND_IN, ObjectivePanel.icon(ObjectiveType.HAND_IN, false));
         assertEquals(Glyphs.GUI_ROW_ICON_STATISTIC, ObjectivePanel.icon(ObjectiveType.STATISTIC, false));
@@ -429,7 +401,6 @@ class ObjectivePanelTest {
     }
 
     @Test
-    @DisplayName("the readable title is a sibling of the paint and names no font")
     void theTwoHalvesAreSeparate() {
         final Component title = ObjectivePanel.title(
                 Component.text("Current objective"),
@@ -444,8 +415,6 @@ class ObjectivePanelTest {
         assertEquals(Glyphs.FONT_GUI, title.children().get(0).style().font().asString());
         assertTrue(title.children().get(1).style().font() == null);
     }
-
-    // --- helpers ---------------------------------------------------------------------------
 
     /** What {@code ObjectivePanel#fill} should paint, computed here rather than read from it. */
     private static int expectedFill(final double ratio) {

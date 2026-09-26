@@ -12,22 +12,20 @@ import net.kyori.adventure.text.Component;
 /**
  * Draws a grave: a slab of recesses holding what somebody left, and a footer that empties it.
  *
- * <p>A stone slab with <b>a recess per slot</b>, as many rows as the grave has stacks; the row
- * under it carries the dead player's own head, the experience waiting to be claimed, and a "take
- * everything" button.
+ * A stone slab with <b>a recess per slot</b>, as many rows as the grave has stacks; the row under it carries the
+ * dead player's own head, the experience waiting to be claimed, and a "take everything" button.
  *
- * <p>The recess per slot is deliberate and differs from the hand-in tray: a grave is an inventory
- * you <em>take out of</em>, and the separate cells say these are distinct stacks any one of which
- * may be taken. The hand-in tray is a thing you throw into, where the cell means nothing.
+ * The recess per slot is deliberate and differs from the hand-in tray: a grave is an inventory you <em>take out
+ * of</em>, and the separate cells say these are distinct stacks any one of which may be taken. The hand-in tray is a
+ * thing you throw into, where the cell means nothing.
  *
- * <p>The footer row is what makes the experience visible - it is otherwise credited silently on the
- * last item leaving - and what "take everything" needs a slot for. It costs one row, so a grave of
- * exactly 45 stacks would not fit; a player carries at most forty-one, which
- * {@link #MAX_CONTENT_ROWS} asserts.
+ * The footer row is what makes the experience visible - it is otherwise credited silently on the last item leaving -
+ * and what "take everything" needs a slot for. It costs one row, so a grave of exactly 45 stacks would not fit; a
+ * player carries at most forty-one, which {@link #MAX_CONTENT_ROWS} asserts.
  *
- * <p><b>Every footer slot must hold something.</b> A shift-click from the player's own inventory
- * goes into the first free slot of the window, so an empty footer cell would swallow the item
- * outside the content slots {@code Graves} writes back - lost on close, with nothing failing.
+ * <b>Every footer slot must hold something.</b> A shift-click from the player's own inventory goes into the first
+ * free slot of the window, so an empty footer cell would swallow the item outside the content slots {@code Graves}
+ * writes back - lost on close, with nothing failing.
  */
 public final class GravePanel {
 
@@ -53,8 +51,8 @@ public final class GravePanel {
     /**
      * How many rows of recesses a grave with {@code stacks} stacks needs.
      *
-     * <p>At least one, so an experience-only grave - a death that dropped nothing but levels - is a
-     * window rather than a footer floating on its own.
+     * At least one, so an experience-only grave - a death that dropped nothing but levels - is a window rather than a
+     * footer floating on its own.
      */
     public static int contentRows(final int stacks) {
         final int rows = (Math.max(0, stacks) + SlotGeometry.COLUMNS - 1) / SlotGeometry.COLUMNS;

@@ -14,36 +14,37 @@ import eu.nordtal.s2.smp.feedback.Surface;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The list {@code /navigate} opens: the current world's spawn, the player's last death, and every
- * public POI.
+ * The list {@code /navigate} opens: the current world's spawn, the player's last death, and every public POI.
  *
- * <p>POIs are public and unlimited - anyone may create one and everyone sees all of them - so this
- * list is the same for every player except for the last-death entry, which is their own. There is
- * deliberately no entry for another player: with PvP on everywhere, an arrow pointing at a person
- * is a hunting tool.
+ * POIs are public and unlimited - anyone may create one and everyone sees all of them - so this list is the same for
+ * every player except for the last-death entry, which is their own. There is deliberately no entry for another
+ * player: with PvP on everywhere, an arrow pointing at a person is a hunting tool.
  *
- * <h2>What it looks like, and what that costs</h2>
- * The window is the {@code N1} design (owner, 2026-09-08): a painted panel with five destinations,
- * each a full-width pill carrying its kind icon, its name and how far away it is, and a control row
- * with a stop button and two page buttons. {@link NavigatePanel} draws it; every slot under the
- * paint holds a {@link BlankItem}, because a painted card with no item in it is a card nobody can
- * hover or click.
+ * <b>What it looks like, and what that costs</b>
  *
- * <p>The price of painting the window is that <b>a page turn is a new inventory</b>. A chest's title
- * is fixed when it is opened, so there is no way to redraw the surface in place - the menu builds
- * its sibling page and the listener opens that. No database work happens on the way: the whole list
- * was read once when the command ran, and {@link #onPage} hands it on.
+ * The window is the {@code N1} design (owner decision): a painted panel with five destinations, each a full-width
+ * pill carrying its kind icon, its name and how far away it is, and a control row with a stop button and two page
+ * buttons. {@link NavigatePanel} draws it; every slot under the paint holds a {@link BlankItem}, because a painted
+ * card with no item in it is a card nobody can hover or click.
  *
- * <p>The first control always turns navigation <em>off</em>. It is off by default, a player switched
- * it on, and the way back has to be as easy as the way in - and as visible, because an arrow nobody
- * asked for any more is the kind of thing that quietly annoys somebody for a week.
+ * The price of painting the window is that <b>a page turn is a new inventory</b>. A chest's title is fixed when it
+ * is opened, so there is no way to redraw the surface in place - the menu builds its sibling page and the listener
+ * opens that. No database work happens on the way: the whole list was read once when the command ran, and
+ * {@link #onPage} hands it on.
+ *
+ * The first control always turns navigation <em>off</em>. It is off by default, a player switched it on, and the way
+ * back has to be as easy as the way in - and as visible, because an arrow nobody asked for any more is the kind of
+ * thing that quietly annoys somebody for a week.
  */
 public final class NavigateGui implements Surface {
 
@@ -80,10 +81,11 @@ public final class NavigateGui implements Surface {
         this.navigation = navigation;
         this.targets = targets;
         this.page = NavigatePage.clamp(page, targets.size());
+        final Location at = Objects.requireNonNull(viewer.getLocation());
         this.world = viewer.getWorld().getName();
-        this.x = viewer.getLocation().getX();
-        this.y = viewer.getLocation().getY();
-        this.z = viewer.getLocation().getZ();
+        this.x = at.getX();
+        this.y = at.getY();
+        this.z = at.getZ();
 
         final Optional<NavigationTarget> active = navigation.of(viewer.getUniqueId());
         final List<NavigatePanel.Entry> entries =
@@ -126,9 +128,9 @@ public final class NavigateGui implements Surface {
     /**
      * The same list, drawn on another page - what a page button opens.
      *
-     * <p>The player is a parameter rather than a field for the reason a menu should never hold one:
-     * this object outlives the window, and a {@code Player} kept in it is a logged-out player kept
-     * alive by a listener. A page turn happens inside a click, where the viewer is at hand.</p>
+     * The player is a parameter rather than a field for the reason a menu should never hold one: this object outlives
+     * the window, and a {@code Player} kept in it is a logged-out player kept alive by a listener. A page turn happens
+     * inside a click, where the viewer is at hand.
      */
     public NavigateGui onPage(final int wanted, final Player viewer) {
         return new NavigateGui(messages, locale, navigation, targets, wanted, viewer);
@@ -165,9 +167,7 @@ public final class NavigateGui implements Surface {
     }
 
     private ItemStack entryItem(final NavigationTarget target) {
-        // A POI name is player-typed: it goes in as a parameter so MessageRenderer escapes it,
-        // which is the one place a `<click:...>` in a POI name could otherwise run in somebody
-        // else's menu (finding 48). The colour is the bundle's.
+        // A POI name is player-typed: it goes in as a parameter so MessageRenderer escapes a `<click:...>`.
         return BlankItem.of(
                 MessageRenderer.of(messages)
                         .format(locale, MESSAGES.smp().navigate().target(NavigatePage.label(target, messages, locale))),
@@ -183,7 +183,10 @@ public final class NavigateGui implements Surface {
     }
 
     /** What a click did: what to play, and whether to close the window or open another. */
-    public record Click(Feedback sound, boolean close, NavigateGui open) {
+    public record Click(
+            @Nullable Feedback sound,
+            boolean close,
+            @Nullable NavigateGui open) {
 
         static Click nothing() {
             return new Click(null, false, null);

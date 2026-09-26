@@ -21,19 +21,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * That {@code smp}'s three config files can be written into an empty directory and read back.
+ * That {@code smp} 's three config files can be written into an empty directory and read back.
  *
- * <h2>Why this file exists at all</h2>
- * It did not until 2026-09-02, and {@code smp} was the only module with configs and no
- * {@code ConfigsTest}. What that cost was the whole plugin: four nested interfaces in
- * {@link SmpSpec} carried no {@code @ConfigSpec}, so writing a fresh {@code config.yml} fell
- * through to Gson's reflective adapter over the interface proxy and died on
- * {@code java.lang.reflect.Proxy#h} - {@code onEnable} threw on the first load, on every start,
- * and Paper disabled the plugin while the server carried on. 135 green tests said nothing about
- * it, because not one of them had ever called {@link Configs#load}.
+ * <b>Why this file exists at all</b>
  *
- * <p>{@link MilestonesTest} covered {@code milestones.yml} alone, which is the one file of the
- * three whose nested interfaces <em>were</em> annotated.
+ * It did not, and {@code smp} was the only module with configs and no {@code ConfigsTest}. What
+ * that cost was the whole plugin: four nested interfaces in {@link SmpSpec} carried no {@code @ConfigSpec}, so
+ * writing a fresh {@code config.yml} fell through to Gson's reflective adapter over the interface proxy and died on
+ * {@code java.lang.reflect.Proxy#h} - {@code onEnable} threw on the first load, on every start, and Paper disabled
+ * the plugin while the server carried on. 135 green tests said nothing about it, because not one of them had ever
+ * called {@link Configs#load}.
+ *
+ * {@link MilestonesTest} covered {@code milestones.yml} alone, which is the one file of the three whose nested
+ * interfaces <em>were</em> annotated.
  */
 class ConfigsTest {
 
@@ -45,9 +45,9 @@ class ConfigsTest {
     /**
      * The failure B1 actually was: every handle, an empty directory, and nothing else.
      *
-     * <p>Loading is what writes the file, and writing is what serialises every nested spec - so a
-     * missing {@code @ConfigSpec} anywhere below these roots stops here rather than in
-     * {@code onEnable}. It was three files until 2026-09-04, when the sounds became the fourth.
+     * Loading is what writes the file, and writing is what serialises every nested spec - so a missing
+     * {@code @ConfigSpec} anywhere below these roots stops here rather than in {@code onEnable}. It was three files
+     * until the sounds became the fourth.
      */
     @Test
     void aFreshDirectoryGetsAllFourFiles() throws Exception {
@@ -67,24 +67,18 @@ class ConfigsTest {
         assertEquals("minecraft:ui.button.click", sounds.select().key());
     }
 
-    // theBackupCheckIsOnAndItsWindowIsUnderADay and aWindowOfADayOrMoreIsRefused stood here
-    // until 2026-09-20. Both guarded farm-reset-backup-window-hours, which said how recent a
-    // backup had to be before the nightly reset was allowed to delete the farm world. The farm
-    // world went with season-2-ingame/30 and took the reset, the gate and the key with it.
-
     /**
-     * {@code config.yml} does not carry the sounds, and a config that still does loses the block
-     * rather than keeping something that looks like a working setting.
+     * {@code config.yml} does not carry the sounds.
      *
-     * <p>They lived under a {@code sounds:} key there for one afternoon on 2026-09-04 before moving
-     * to their own file, for the reason {@link SoundsSpec} gives. This is asserted by name because
-     * the <em>reason</em> it has to stay true is invisible from {@code SmpSpec}: a sounds block back
-     * in {@code config.yml} would be read once at enable and never again, and the escape hatch of
-     * blanking a key would silently need a restart of the season.
+     * A config that still does loses the block rather than keeping something that looks like a working setting.
+     * They used to live under a {@code sounds:} key there before moving to their own file, for
+     * the reason {@link SoundsSpec} gives. This is asserted by name because the <em>reason</em> it has to stay true is
+     * invisible from {@code SmpSpec}: a sounds block back in {@code config.yml} would be read once at enable and never
+     * again, and the escape hatch of blanking a key would silently need a restart of the season.
      *
-     * <p>Until jcore 3.1.0 the block stopped the plugin and this test asserted that. What it pins
-     * now is the half that was always the point: the key does not survive the load, so nobody can
-     * re-declare it in {@code SmpSpec} and quietly get an unreloadable second source of sounds.
+     * Until jcore 3.1.0 the block stopped the plugin and this test asserted that. What it pins now is the half that was
+     * always the point: the key does not survive the load, so nobody can re-declare it in {@code SmpSpec} and quietly
+     * get an unreloadable second source of sounds.
      */
     @Test
     void configYmlDropsASoundsBlock() throws Exception {
@@ -105,16 +99,15 @@ class ConfigsTest {
     }
 
     /**
-     * {@code admin-permissions} is retired, and a deployed {@code config.yml} that still carries it
-     * loses the block instead of keeping one that reads like a working setting.
+     * {@code admin-permissions} is retired.
      *
-     * <p>Retired 2026-09-04, when an admin became a server operator instead
-     * ({@link eu.nordtal.s2.common.access.AdminOperators}). This key is in a file that already
-     * exists in a production volume, and the only thing an operator could ever do about it is
-     * delete the line - so as of jcore 3.1.0 the loader deletes it, names it in a warning and
-     * leaves the old file in {@code config.yml.bak}. This test used to assert the plugin stopped
-     * instead. What it pins either way is that nobody re-declares the key as a deprecated no-op to
-     * make an upgrade quieter.</p>
+     * A deployed {@code config.yml} that still carries it loses the block instead of keeping one that reads like a
+     * working setting. It was retired when an admin became a server operator instead
+     * ({@link eu.nordtal.s2.common.access.AdminOperators}). This key is in a file that already exists in a
+     * production volume, and the only thing an operator could ever do about it is delete the line - so as of jcore
+     * 3.1.0 the loader deletes it, names it in a warning and leaves the old file in {@code config.yml.bak}. This
+     * test used to assert the plugin stopped instead. What it pins either way is that nobody re-declares the key as
+     * a deprecated no-op to make an upgrade quieter.
      */
     @Test
     void configYmlDropsRetiredAdminPermissions() throws Exception {
@@ -154,17 +147,14 @@ class ConfigsTest {
                 written.balloons().getFirst().world(),
                 reread.balloons().getFirst().world());
 
-        // Two levels of nesting, which nothing else in this file has: balloon-spawn-points is a
-        // spec whose three values are themselves specs. A missing key in DefaultSmp comes back
-        // null from createUnsafe, and the first getter to touch it throws - so reading all five
-        // numbers of all three points is the check, not that the object exists.
-        final SmpSpec.BalloonSpawnPointsSpec points = reread.balloonSpawnPoints();
+        // Two levels of nesting: balloon-spawn-points is a spec of specs, so all five numbers of each point check.
+        final BalloonSpawnPointsSpec points = reread.balloonSpawnPoints();
         assertAll(
                 () -> assertPoint(written.balloonSpawnPoints().nordtal(), points.nordtal(), "nordtal"),
                 () -> assertPoint(written.balloonSpawnPoints().nether(), points.nether(), "nether"),
                 () -> assertPoint(written.balloonSpawnPoints().end(), points.end(), "end"));
 
-        final SmpSpec.FirstJoinSpawnSpec spawn = reread.firstJoinSpawn();
+        final FirstJoinSpawnSpec spawn = reread.firstJoinSpawn();
         assertAll(
                 () -> assertEquals(written.firstJoinSpawn().world(), spawn.world()),
                 () -> assertEquals(written.firstJoinSpawn().x(), spawn.x()),
@@ -172,9 +162,7 @@ class ConfigsTest {
                 () -> assertEquals(written.firstJoinSpawn().z(), spawn.z()),
                 () -> assertEquals(written.firstJoinSpawn().yaw(), spawn.yaw()),
                 () -> assertEquals(written.firstJoinSpawn().pitch(), spawn.pitch()),
-                // The world has to resolve to something on a real server, and the only name this
-                // file knows is world-nordtal's. A default that disagreed with it would be a
-                // deployment where no first join is ever moved and nothing but a log line says so.
+                // The world must resolve on a real server; a disagreeing default silently moves no first join anywhere.
                 () -> assertEquals(
                         reread.worldNordtal(),
                         spawn.world(),
@@ -183,8 +171,7 @@ class ConfigsTest {
     }
 
     /** Every number of one landing point, because a null only shows up when it is read. */
-    private static void assertPoint(
-            final SmpSpec.SpawnPointSpec written, final SmpSpec.SpawnPointSpec reread, final String which) {
+    private static void assertPoint(final SpawnPointSpec written, final SpawnPointSpec reread, final String which) {
         assertAll(
                 () -> assertEquals(written.x(), reread.x(), which + ": x"),
                 () -> assertEquals(written.y(), reread.y(), which + ": y"),
@@ -196,10 +183,10 @@ class ConfigsTest {
     /**
      * The same rule stated directly, so that it holds whatever the test JVM has open.
      *
-     * <p>The round trip above only fails because {@code java.lang.reflect} is closed to the test
-     * worker, which is a property of the JVM the build happens to start and not of the code. A
-     * future toolchain that opened it would make the round trip pass on a plugin that still dies
-     * on a real server. This walks the same interfaces and asks the question outright.
+     * The round trip above only fails because {@code java.lang.reflect} is closed to the test worker, which is a
+     * property of the JVM the build happens to start and not of the code. A future toolchain that opened it would make
+     * the round trip pass on a plugin that still dies on a real server. This walks the same interfaces and asks the
+     * question outright.
      */
     @Test
     void everyNestedSpecInterfaceCarriesTheAnnotation() {

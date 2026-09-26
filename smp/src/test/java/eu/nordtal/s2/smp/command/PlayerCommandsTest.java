@@ -15,12 +15,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * What {@code /aura} and {@code /smp status} say, without a server - the decisions that moved here
- * from {@code :commands} when the two became native Brigadier.
+ * What {@code /aura} and {@code /smp status} say, without a server.
+ *
+ * The decisions that moved here from {@code :commands} when the two became native Brigadier.
  */
 class PlayerCommandsTest {
 
@@ -30,13 +30,9 @@ class PlayerCommandsTest {
     private final Recorder user = new Recorder();
     private final PlayerCommands commands = new PlayerCommands(standing, new Inline(), sender -> user);
 
-    // ------------------------------------------------------------------ /aura
-
     @Test
-    @DisplayName("/aura says where you stand and then the board, in that order")
     void auraIsYourOwnLineThenTheBoard() {
-        // Your own line first, deliberately: the question somebody types /aura to answer is "where
-        // am I", and a list of ten with the answer somewhere inside it is not that.
+        // Your own line first: /aura answers "where am I", and a list of ten hiding that answer is not that.
         standing.aura = new Standing.AuraStanding(
                 120,
                 3,
@@ -59,10 +55,8 @@ class PlayerCommandsTest {
     }
 
     @Test
-    @DisplayName("your own line on the board is coloured differently from the rest")
     void yourOwnLineIsMarked() {
-        // One key, two tones. A second key with the same words in another colour is two strings to
-        // translate, and one of them eventually says something else.
+        // One key, two tones. A second key with the same words risks the two eventually saying different things.
         standing.aura = new Standing.AuraStanding(
                 120,
                 2,
@@ -76,7 +70,6 @@ class PlayerCommandsTest {
     }
 
     @Test
-    @DisplayName("an empty board says so instead of printing a heading over nothing")
     void anEmptyBoardIsNamed() {
         standing.aura = new Standing.AuraStanding(0, 1, 0, List.of());
         commands.showAura(user, SELF);
@@ -84,27 +77,21 @@ class PlayerCommandsTest {
     }
 
     @Test
-    @DisplayName("an account with no Discord link is told, not shown a zero")
     void anUnlinkedAccountIsNamed() {
-        // The login gate makes this impossible, and this layer must not assume it: the gate is
-        // another process's rule.
+        // The login gate makes this impossible, and this layer must not assume it: the gate is another process's rule.
         standing.aura = null;
         commands.showAura(user, SELF);
         assertEquals(List.of("smp.aura.unlinked"), user.keys());
     }
 
     @Test
-    @DisplayName("a database that does not answer says so and prints no board")
     void aFailedAuraReadIsNamed() {
         standing.failure = new IllegalStateException("no answer");
         commands.showAura(user, SELF);
         assertEquals(List.of("smp.aura.failed"), user.keys());
     }
 
-    // ------------------------------------------------------------------ /smp status
-
     @Test
-    @DisplayName("/smp status answers the phase, the milestone with its progress, and who is on")
     void statusIsThreeLines() {
         commands.showStatus(user);
         assertEquals(List.of("phase.current", "smp.status.milestone", "smp.status.online"), user.keys());
@@ -115,7 +102,6 @@ class PlayerCommandsTest {
     }
 
     @Test
-    @DisplayName("the third line is a sentence, and it picks a key rather than a bracketed plural")
     void statusCountsPeopleInSentences() {
         for (final int[] counts : new int[][] {{0, 0}, {1, 1}, {2, 2}, {57, 2}}) {
             standing.status = new Standing.Status("SMP", true, Optional.of("Aufbruch"), 42, counts[0]);
@@ -129,7 +115,6 @@ class PlayerCommandsTest {
     }
 
     @Test
-    @DisplayName("a finished season says so instead of naming a milestone")
     void statusAfterTheLastMilestone() {
         standing.status = new Standing.Status("SMP", true, Optional.empty(), 0, 12);
         commands.showStatus(user);
@@ -137,7 +122,6 @@ class PlayerCommandsTest {
     }
 
     @Test
-    @DisplayName("a status asked before the first season refresh does not claim the season is finished")
     void statusBeforeTheFirstRefresh() {
         standing.status = new Standing.Status("SMP", false, Optional.empty(), 0, 0);
         commands.showStatus(user);
@@ -145,20 +129,15 @@ class PlayerCommandsTest {
     }
 
     @Test
-    @DisplayName("a status that cannot be read says so")
     void aFailedStatusReadIsNamed() {
         standing.failure = new IllegalStateException("no answer");
         commands.showStatus(user);
         assertEquals(List.of("smp.status.failed"), user.keys());
     }
 
-    // ------------------------------------------------------------------ the bundle
-
     @Test
-    @DisplayName("every line either command can say resolves, in both languages, in the bundle this plugin loads")
     void everyKeyResolves() {
-        // The keys moved from :commands' bundle to this one. A half-moved key reaches a player as
-        // the literal key string, which is the one failure nothing else here would catch.
+        // The keys moved from :commands' bundle to this one; a half-moved key reaches a player as a raw key string.
         final Messages messages = Messages.load(
                 PlayerCommandsTest.class.getClassLoader(),
                 List.of("messages/paper-common", "messages/commands", "messages/smp"),
@@ -189,8 +168,6 @@ class PlayerCommandsTest {
             }
         }
     }
-
-    // ------------------------------------------------------------------ stand-ins
 
     private static final class FakeStanding implements Standing {
 

@@ -9,16 +9,16 @@ import java.util.Optional;
 /**
  * The whole track, in file order.
  *
- * <p>One linear chain. There is deliberately <b>no ordering column in the database</b> -
- * {@code V6__smp.sql} says so - because the order is the order of the YAML file, and storing it
- * would create a second answer that a file edit could contradict. This class is therefore the only
- * thing that knows what comes after what.
+ * One linear chain. There is deliberately <b>no ordering column in the database</b> - {@code V6__smp.sql} says so -
+ * because the order is the order of the YAML file, and storing it would create a second answer that a file edit
+ * could contradict. This class is therefore the only thing that knows what comes after what.
  *
- * <h2>What "the track has run out" means</h2>
- * After the last milestone there simply are none: the season carries on with building, duels, aura
- * and prestige, and the HUD shows the dimension alone. New milestones can be appended at any time,
- * which is exactly why they are not compiled in - and appending one is the planned response to a
- * track that finishes early, because scaling targets to the live player count was rejected.
+ * <b>What "the track has run out" means</b>
+ *
+ * After the last milestone there simply are none: the season carries on with building, duels, aura and prestige, and
+ * the HUD shows the dimension alone. New milestones can be appended at any time, which is exactly why they are not
+ * compiled in - and appending one is the planned response to a track that finishes early, because scaling targets to
+ * the live player count was rejected.
  */
 public final class MilestoneTrack {
 

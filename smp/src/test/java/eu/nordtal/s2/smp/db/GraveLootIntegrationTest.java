@@ -19,7 +19,6 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -29,26 +28,25 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * Closing a grave, against a real PostgreSQL running the real migrations.
  *
- * <h2>The failure it exists for</h2>
- * {@code smp_grave.looted_by} is {@code varchar(32)}, the same shape as {@code owner_id} beside it,
- * because every person in this schema is a discord id. {@code Graves#onClosed} passed the looter's
- * <em>Minecraft UUID</em>, whose 36 characters do not fit, so {@code markGraveLooted} threw
- * {@code value too long for type character varying(32)} on every single loot - and it threw from
- * inside the async task that erases the grave and refunds the experience, so none of that happened
- * either. No grave was ever marked looted, every grave was restored on every start, and nobody ever
- * got their levels back (finding 132).
+ * <b>The failure it exists for</b>
  *
- * <p><b>Nothing in the game showed it.</b> The window opens, the items come out, the window closes -
- * which is the whole of what a player can check. It was found by reading {@code smp_grave} after a
- * real loot on the local stack.
+ * {@code smp_grave.looted_by} is {@code varchar(32)}, the same shape as {@code owner_id} beside it, because every
+ * person in this schema is a discord id. {@code Graves#onClosed} passed the looter's <em>Minecraft UUID</em>, whose
+ * 36 characters do not fit, so {@code markGraveLooted} threw {@code value too long for type character varying(32)}
+ * on every single loot - and it threw from inside the async task that erases the grave and refunds the experience,
+ * so none of that happened either. No grave was ever marked looted, every grave was restored on every start, and
+ * nobody ever got their levels back (finding 132).
  *
- * <h2>Why a container</h2>
- * The defect <em>is</em> the column width. An in-memory stand-in would accept both strings and stay
- * green through the whole bug. This drives the real statement against the real schema, and the
- * second case pins the width as the reason rather than as an accident - so widening the column
- * later is a decision somebody has to take on purpose.
+ * <b>Nothing in the game showed it.</b> The window opens, the items come out, the window closes - which is the whole
+ * of what a player can check. It was found by reading {@code smp_grave} after a real loot on the local stack.
  *
- * <p>It <b>skips itself</b> when no Docker daemon is reachable.
+ * <b>Why a container</b>
+ *
+ * The defect <em>is</em> the column width. An in-memory stand-in would accept both strings and stay green through
+ * the whole bug. This drives the real statement against the real schema, and the second case pins the width as the
+ * reason rather than as an accident - so widening the column later is a decision somebody has to take on purpose.
+ *
+ * It <b>skips itself</b> when no Docker daemon is reachable.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class GraveLootIntegrationTest {
@@ -110,29 +108,24 @@ class GraveLootIntegrationTest {
     }
 
     @Test
-    @DisplayName("a discord id closes the grave, and a second close does nothing")
     void aDiscordIdMarksItLooted() {
         assertTrue(
                 dao.markGraveLooted(graveId, LOOTER).isPresent(), "a grave closed by a linked looter has to be marked");
         assertEquals(LOOTER, scalar("SELECT looted_by FROM smp_grave WHERE id = '" + graveId + "'"));
 
-        // The guard is WHERE looted IS NULL, and it is what makes the experience refund happen
-        // exactly once however many times the window is reopened.
+        // The guard is WHERE looted IS NULL; it makes the experience refund happen exactly once, however reopened.
         assertTrue(
                 dao.markGraveLooted(graveId, LOOTER).isEmpty(),
                 "a grave already looted must not be marked a second time");
     }
 
     /**
-     * season-2-ingame/21, Till 2026-09-15: a grave is open to anyone, not only whoever died into
-     * it - decided rather than found, and this is the check that decision asked for. "Rot sehen"
-     * for this one means what it says only if a check exists to remove; there is none in
-     * {@code markGraveLooted}'s {@code WHERE} clause today, so this is green from the first run,
-     * and that absence is itself the finding the ticket wanted written down rather than a red run
-     * invented to have one.
+     * A grave is open to anyone, not only whoever died into it - decided rather than found.
+     *
+     * There is no ownership check in {@code markGraveLooted}'s {@code WHERE} clause, so this is green from the
+     * first run; that absence is worth having written down.
      */
     @Test
-    @DisplayName("a looter who never owned the grave empties it all the same")
     void aStrangerMayEmptyAnyonesGrave() {
         assertTrue(
                 dao.markGraveLooted(graveId, LOOTER).isPresent(),
@@ -143,7 +136,6 @@ class GraveLootIntegrationTest {
     }
 
     @Test
-    @DisplayName("an unlinked looter still closes the grave")
     void nullIsALegitimateLooter() {
         assertTrue(
                 dao.markGraveLooted(graveId, null).isPresent(),
@@ -152,11 +144,8 @@ class GraveLootIntegrationTest {
     }
 
     @Test
-    @DisplayName("what is left after a half loot is written back, and not to a finished grave")
     void aPartialLootIsPersisted() {
-        // The plugin's own map is this process's memory; the enable-time restore reads the row. So
-        // a half-emptied grave came back full after any restart while the items already taken sat
-        // in the looter's inventory - the same stack twice (finding 133).
+        // The plugin's map is process memory; the enable-time restore reads the row, so a restart must not double-pay.
         assertEquals(
                 1,
                 dao.updateGraveContents(graveId, new byte[] {1, 2, 3}),
@@ -171,11 +160,8 @@ class GraveLootIntegrationTest {
     }
 
     @Test
-    @DisplayName("a grave older than the limit is deleted, with everything in it")
     void anOldGraveDecays() {
-        // season-2-ingame/20. The time is given rather than waited for, which is the whole reason
-        // this is a database test: `created` is the clock, so backdating the row is backdating the
-        // grave, and no scheduler has to run for the statement to be the thing under test.
+        // The time is given rather than waited for: `created` is the clock, so backdating the row backdates the grave.
         execute("UPDATE smp_grave SET created = now() - interval '25 hours' WHERE id = '" + graveId + "'");
         final UUID fresh = UUID.randomUUID();
         execute("INSERT INTO smp_grave (id, owner_id, world, x, y, z, contents, experience)" + " VALUES ('" + fresh
@@ -200,10 +186,8 @@ class GraveLootIntegrationTest {
     }
 
     @Test
-    @DisplayName("a grave somebody emptied is left alone, however old it is")
     void alreadyLootedStays() {
-        // The record of who took what is not a grave standing in the world, and the sweep has no
-        // business in it. Without the `looted IS NULL` guard this row would vanish the day after.
+        // Who-took-what is not a grave standing in the world; without the `looted IS NULL` guard it vanishes early.
         dao.markGraveLooted(graveId, LOOTER);
         execute("UPDATE smp_grave SET created = now() - interval '400 hours' WHERE id = '" + graveId + "'");
 
@@ -212,11 +196,8 @@ class GraveLootIntegrationTest {
     }
 
     @Test
-    @DisplayName("two graves of the same player have their own clocks")
     void eachGraveExpiresOnItsOwn() {
-        // Till, 2026-09-15, asked directly what happens when somebody dies again while their old
-        // grave still stands: several graves in parallel, each with its own countdown, and no
-        // tidying up of the older one.
+        // Dying again while an old grave stands makes parallel graves, each with its own countdown, none tidied up.
         final UUID second = UUID.randomUUID();
         execute("INSERT INTO smp_grave (id, owner_id, world, x, y, z, contents, experience, created)"
                 + " VALUES ('" + second + "', '" + OWNER + "', 'nordtal', 4, 5, 6, '\\x00', 0,"
@@ -233,12 +214,12 @@ class GraveLootIntegrationTest {
     }
 
     /**
-     * season-2-ingame/19: the hologram over a grave counts down against {@code created} plus the
-     * configured limit, so {@code openGraves} has to hand that column back and {@link GraveRowMapper}
-     * has to read it as the {@code timestamptz} it is, not drop it or silently null it.
+     * The hologram over a grave counts down against {@code created} plus the configured limit.
+     *
+     * So {@code openGraves} has to hand that column back and {@link GraveRowMapper} has to read it as the
+     * {@code timestamptz} it is, not drop it or silently null it.
      */
     @Test
-    @DisplayName("an open grave carries when it was made, for the hologram to count down against")
     void openGravesCarryWhenTheyWereMade() {
         final GraveRow row = dao.openGraves().stream()
                 .filter(candidate -> candidate.id().equals(graveId))
@@ -252,7 +233,6 @@ class GraveLootIntegrationTest {
     }
 
     @Test
-    @DisplayName("a Minecraft UUID does not fit, which is why a discord id is what goes in")
     void aMinecraftUuidIsRefusedByTheColumn() {
         final RuntimeException thrown = assertThrows(
                 RuntimeException.class,

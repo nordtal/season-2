@@ -17,22 +17,19 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Walks the grave's composed window and holds it against the five slabs the pack drew.
  *
- * <p>The two that carry rules rather than measurements are
- * {@link #everyFooterCellIsClaimed} - a free footer cell is where a shift-clicked item lands and is
- * then lost on close, silently - and {@link #theSlabIsExactlyTheContentRows}, because a slab one row
- * out is a row of items sitting on bare panel or a row of empty recesses under the footer, and
- * neither fails anywhere.</p>
+ * The two that carry rules rather than measurements are {@link #everyFooterCellIsClaimed} - a free footer cell is
+ * where a shift-clicked item lands and is then lost on close, silently - and
+ * {@link #theSlabIsExactlyTheContentRows}, because a slab one row out is a row of items sitting on bare panel or a
+ * row of empty recesses under the footer, and neither fails anywhere.
  */
 class GravePanelTest {
 
     @Test
-    @DisplayName("the whole surface returns the cursor to the title anchor, at every size")
     void theReadableTitleStillLandsWhereItWould() {
         for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
             final List<Run> runs = PanelWalk.runs(surface(rows));
@@ -44,7 +41,6 @@ class GravePanelTest {
     }
 
     @Test
-    @DisplayName("the slab is exactly the content rows, and it ends where the footer begins")
     void theSlabIsExactlyTheContentRows() {
         for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
             final Run slab =
@@ -68,12 +64,8 @@ class GravePanelTest {
     }
 
     @Test
-    @DisplayName("a slab draws one recess per slot, not one surface")
     void theSlabIsRecessesAndNotATray() {
-        // The deliberate opposite of the hand-in tray (owner, 2026-09-08): a grave is an inventory
-        // you take out of, so the separate cells are the information - they say these are distinct
-        // stacks and any one of them may be taken. The two must not be made the same, so this reads
-        // the pixels rather than trusting the file name.
+        // The deliberate opposite of the hand-in tray: a grave's cells say these are distinct stacks, any takeable.
         final BufferedImage slab = PanelWalk.image("grave_slab_2.png");
         final Set<Integer> columnColours = new LinkedHashSet<>();
         for (int x = 0; x < slab.getWidth(); x++) {
@@ -96,7 +88,6 @@ class GravePanelTest {
     }
 
     @Test
-    @DisplayName("every footer cell is claimed, because a free one is where a lost item lands")
     void everyFooterCellIsClaimed() {
         for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
             final Set<Integer> claimed = new LinkedHashSet<>();
@@ -120,7 +111,6 @@ class GravePanelTest {
     }
 
     @Test
-    @DisplayName("the content slots are exactly the rows above the footer")
     void theContentIsWhatIsAboveTheFooter() {
         for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
             assertEquals(rows * SlotGeometry.COLUMNS, GravePanel.contentSlots(rows));
@@ -134,10 +124,8 @@ class GravePanelTest {
     }
 
     @Test
-    @DisplayName("how many rows a grave gets, from one stack to a full inventory")
     void theRowCountFollowsWhatWasCarried() {
-        // An experience-only grave is a real case: a death that dropped nothing but levels. One row
-        // rather than none, so the footer is not a window on its own.
+        // An experience-only grave is real: a death dropping nothing but levels. One row, not an empty window.
         assertEquals(1, GravePanel.contentRows(0));
         assertEquals(1, GravePanel.contentRows(1));
         assertEquals(1, GravePanel.contentRows(9));
@@ -163,7 +151,6 @@ class GravePanelTest {
     }
 
     @Test
-    @DisplayName("the take-all button sits on the cells that carry its click")
     void theButtonIsItsSlots() {
         for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
             final String font = Glyphs.FONT_GUI_ROWS.get(GravePanel.footerRow(rows));
@@ -177,7 +164,6 @@ class GravePanelTest {
     }
 
     @Test
-    @DisplayName("the experience line stops before the button rather than running under it")
     void theExperienceStaysOutOfTheButtonsWay() {
         final Component title = GravePanel.title(
                 Component.text("Grave"), 3, "+999999999 XP and a great deal more text than that", "Take all");
@@ -190,7 +176,6 @@ class GravePanelTest {
     }
 
     @Test
-    @DisplayName("a grave with no experience simply draws no line, rather than a zero")
     void anEmptyExperienceLineDrawsNothing() {
         final List<Run> runs =
                 PanelWalk.runs(PanelWalk.surface(GravePanel.title(Component.text("Grave"), 2, "", "Take all")));
@@ -204,7 +189,6 @@ class GravePanelTest {
     }
 
     @Test
-    @DisplayName("every code point the surface uses is declared by the font that run names")
     void nothingIsDrawnOutOfAFontThatLacksIt() {
         final List<String> missing = new ArrayList<>();
         for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
@@ -221,7 +205,6 @@ class GravePanelTest {
     }
 
     @Test
-    @DisplayName("the two strings drawn inside the window carry no MiniMessage in either language")
     void theDrawnKeysAreTagless() {
         final List<String> tagged = new ArrayList<>();
         for (final String language : new String[] {"en", "de"}) {

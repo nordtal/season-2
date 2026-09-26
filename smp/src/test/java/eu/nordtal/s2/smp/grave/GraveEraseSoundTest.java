@@ -7,44 +7,42 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * A grave settling - the moment {@code erase} removes its three entities - has to say so, out loud,
- * to everyone standing nearby (season-2-ingame/15, Till 2026-09-15: the grave used to disappear
- * silently, and should not).
+ * A grave settling has to say so, out loud, to everyone standing nearby.
  *
- * <h2>Why a text search, not a behavioural test</h2>
- * Spawning and removing real display entities and playing a real sound both need a running Paper
- * server, which this module's test suite does not have - {@link OneGraveOneWindowTest} is in the same
- * position for the same reason. This holds the shape the rest of {@code Graves}' tests already hold:
- * the source itself, rather than a mocked server.
+ * A grave settles at the moment {@code erase} removes its three entities.
  *
- * <p>It cannot tell whether {@code entity.skeleton.death} actually sounds right at a grave - that
- * needs a person with headphones on, standing next to one.
+ * <b>Why a text search, not a behavioural test</b>
+ *
+ * Spawning and removing real display entities and playing a real sound both need a running Paper server, which this
+ * module's test suite does not have - {@link OneGraveOneWindowTest} is in the same position for the same reason.
+ * This holds the shape the rest of {@code Graves} ' tests already hold: the source itself, rather than a mocked
+ * server.
+ *
+ * It cannot tell whether {@code entity.skeleton.death} actually sounds right at a grave - that needs a person with
+ * headphones on, standing next to one.
  */
 class GraveEraseSoundTest {
 
     private static final String SOURCE = "smp/src/main/java/eu/nordtal/s2/smp/grave/Graves.java";
 
     @Test
-    @DisplayName("settling a grave plays a WORLD sound, named by its own category")
     void erasingAGravePlaysAWorldSound() {
         final String source = read();
 
         assertTrue(
                 source.contains("sounds.playAt("),
-                "a grave finishing has to sound like something (season-2-ingame/15). play(Player, ...)"
-                        + " only reaches the looter; erase runs for everyone standing at the grave, so"
-                        + " this has to be the WORLD-scoped call, not the player-scoped one");
+                "a grave finishing has to sound like something. play(Player, ...) only reaches the"
+                        + " looter; erase runs for everyone standing at the grave, so this has to be"
+                        + " the WORLD-scoped call, not the player-scoped one");
 
         assertTrue(
                 source.contains("Feedback.RECLAIMED"),
                 "the sound at a grave settling has to name its own category rather than reuse LOSS"
                         + " (\"something was taken from you\") or SMALL_SUCCESS (the pickup itself) -"
-                        + " both already mean something else. season-2-ingame/15 calls for a twelfth"
-                        + " category, RECLAIMED, for exactly this");
+                        + " both already mean something else");
     }
 
     private static String read() {

@@ -5,13 +5,13 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * What the database currently holds about the track: the rows of {@code smp_milestone} and
- * {@code smp_objective}, as values with no JDBI on them.
+ * What the database currently holds about the track: the rows of {@code smp_milestone} and {@code smp_objective}.
  *
- * <p>They exist so {@link TrackValidation} can be a pure function of "the file" and "the rows".
- * The validation is the one piece of the milestone engine that is easy to get subtly wrong and
- * expensive to get wrong in production - it is what stands between a config edit and a finished
- * milestone quietly disappearing - so it is worth being able to assert it without a database.
+ * As values with no JDBI on them. They exist so {@link TrackValidation} can be a pure function of "the file" and
+ * "the rows". The validation is the
+ * one piece of the milestone engine that is easy to get subtly wrong and expensive to get wrong in production - it
+ * is what stands between a config edit and a finished milestone quietly disappearing - so it is worth being able to
+ * assert it without a database.
  */
 public final class StoredProgress {
 

@@ -114,10 +114,10 @@ public interface SmpMessages {
             MessageRef denied();
         }
 
-        Error error();
+        Failure error();
 
         @Name("Error")
-        interface Error {
+        interface Failure {
 
             @Name("Database unreachable")
             MessageRef databaseUnreachable();
@@ -199,7 +199,7 @@ public interface SmpMessages {
             MessageRef page(@Arg("page") Object page, @Arg("pages") Object pages);
         }
 
-        Poi poi();
+        Smp.Poi poi();
 
         @Name("Places")
         interface Poi {
@@ -229,7 +229,7 @@ public interface SmpMessages {
         @Shown(Display.SIDEBAR)
         interface Board {
 
-            Objective objective();
+            Board.Objective objective();
 
             @Name("Objective")
             interface Objective {
@@ -258,7 +258,7 @@ public interface SmpMessages {
                         @Arg("target") Object target);
             }
 
-            Aura aura();
+            Board.Aura aura();
 
             @Name("Aura")
             interface Aura {
@@ -279,7 +279,7 @@ public interface SmpMessages {
             }
         }
 
-        Aura aura();
+        Smp.Aura aura();
 
         @Name("Aura")
         interface Aura {
@@ -355,7 +355,7 @@ public interface SmpMessages {
             MessageRef grantedAuraOnly(@Arg("aura") Object aura);
         }
 
-        Objective objective();
+        Smp.Objective objective();
 
         @Name("Objective")
         interface Objective {
@@ -364,11 +364,12 @@ public interface SmpMessages {
             MessageRef completed(@Arg("icon") Object icon, @Arg("objective") Object objective);
         }
 
-        Milestone milestone();
+        Smp.Milestone milestone();
 
         /**
-         * A milestone's shipped name, or empty for one only {@code milestones.yml} knows - which then
-         * shows under its config key.
+         * A milestone's shipped name, or empty for one only {@code milestones.yml} knows.
+         *
+         * A milestone with no shipped name shows under its config key.
          */
         default Optional<MessageRef> milestoneName(final String key) {
             return Optional.ofNullable(
@@ -427,7 +428,7 @@ public interface SmpMessages {
             MessageRef milestone(@Arg("milestone") MilestoneContext milestone);
 
             @Key("milestone")
-            Milestone milestoneSection();
+            Announce.Milestone milestoneSection();
 
             @Name("Milestone")
             interface Milestone {
@@ -766,7 +767,7 @@ public interface SmpMessages {
         @Name("Command help")
         interface DescribeMessages {
 
-            Poi poi();
+            DescribeMessages.Poi poi();
 
             @Name("Places")
             interface Poi {

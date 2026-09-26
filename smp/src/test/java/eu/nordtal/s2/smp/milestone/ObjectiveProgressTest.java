@@ -9,9 +9,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Advancing an objective, and the one moment that fires everything else.
  *
- * <p>"Did that hand-in complete the objective" is the question behind the payout, the announcement,
- * the milestone unlock and possibly a border move. It has to be true <b>exactly once</b>: an
- * objective that completed twice would pay its pot twice.
+ * "Did that hand-in complete the objective" is the question behind the payout, the announcement, the milestone
+ * unlock and possibly a border move. It has to be true <b>exactly once</b>: an objective that completed twice would
+ * pay its pot twice.
  */
 class ObjectiveProgressTest {
 
@@ -30,8 +30,7 @@ class ObjectiveProgressTest {
         assertTrue(crossing.completes());
         assertEquals(2100, crossing.amount(), "an overshoot is kept, not clipped to the target");
 
-        // The next delivery against an objective that is already finished must not complete it
-        // again. This is the whole reason `completes` is computed from the PREVIOUS amount.
+        // A delivery against a finished objective must not complete it again; `completes` reads the PREVIOUS amount.
         assertFalse(ObjectiveProgress.advance(2100, 2048, 100).completes());
     }
 
@@ -52,8 +51,7 @@ class ObjectiveProgressTest {
 
     @Test
     void anAbsurdDeltaSaturatesRatherThanWrapping() {
-        // Nothing on this server can reach a bigint's limit, and an overflowing counter would read
-        // as an objective going backwards - which is worse than a number nobody will ever see.
+        // Nothing here reaches a bigint's limit; an overflowing counter reading as going backwards is the worse case.
         assertEquals(
                 Long.MAX_VALUE,
                 ObjectiveProgress.advance(Long.MAX_VALUE - 1, 100, 1000).amount());
@@ -61,9 +59,7 @@ class ObjectiveProgressTest {
 
     @Test
     void aLoweredTargetCompletesAnObjectiveOnReload() {
-        // The first escape hatch: "if the progress already collected is at or above the new target,
-        // the objective completes at once and pays normally" - the FULL pot, because nothing was
-        // rescued; the number was simply wrong when it was written.
+        // The first escape hatch: reaching the new target on the spot completes and pays the FULL pot, nothing rescued.
         assertTrue(ObjectiveProgress.completesOnReload(1500, 1000));
         assertTrue(ObjectiveProgress.completesOnReload(1000, 1000));
         assertFalse(ObjectiveProgress.completesOnReload(999, 1000));

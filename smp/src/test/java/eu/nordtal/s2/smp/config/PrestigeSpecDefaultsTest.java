@@ -10,41 +10,37 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The crest ladder this plugin ships - fourteen colours and thirteen hours - is held here, and
- * nowhere else (season-2-ingame/29, widened to the hours by steward/130).
+ * The crest ladder this plugin ships - fourteen colours and thirteen hours - is held here, and nowhere else.
  *
- * <p><b>Why this test exists.</b> season-2-ingame/23's own tests all build a palette by hand and
- * never touch {@link PrestigeSpec}'s defaults, so the shipped values were covered by
- * nothing: {@code tier13()} was set to {@code tier01()}'s colour on 2026-09-16 and the build stayed
- * green. That is the exact bug season-2-ingame/22 existed to fix, where {@code NEUTRAL} and
- * {@code MUTED} were both {@code GRAY} and nobody noticed for a season - only here it is thirteen
- * colours instead of two, which is the harder version of the same problem.
+ * <b>Why this test exists.</b> A test that builds its own palette by hand never touches {@link PrestigeSpec} 's
+ * shipped defaults, so a regression there - {@code tier13()} set to {@code tier01()} 's colour, or {@code NEUTRAL}
+ * and {@code MUTED} both {@code GRAY} - would leave the build green with thirteen colours instead of two, the harder
+ * version of the same problem.
  *
- * <p><b>Why a distance and not an inequality.</b> Two values being different is not the same as two
- * colours being tellable apart, and an inequality would pass happily on {@code #5fbfae} against
- * {@code #5fbfaf}. The floor is deliberately low, because these thirteen are a <i>gradient</i> and
- * neighbouring tiers are supposed to be similar - the measured closest pair today is tier-11 against
- * tier-12 at 38.9, so a floor of 20 leaves nearly double the margin and still catches a colour that
- * was pasted twice.
+ * <b>Why a distance and not an inequality.</b> Two values being different is not the same as two colours being
+ * tellable apart, and an inequality would pass happily on {@code #5fbfae} against {@code #5fbfaf}. The floor is
+ * deliberately low, because these thirteen are a <i>gradient</i> and neighbouring tiers are supposed to be similar -
+ * the measured closest pair today is tier-11 against tier-12 at 38.9, so a floor of 20 leaves nearly double the
+ * margin and still catches a colour that was pasted twice.
  */
 class PrestigeSpecDefaultsTest {
 
     private static final Pattern HEX = Pattern.compile("^#[0-9a-fA-F]{6}$");
 
     /**
-     * The floor, in the units of {@link #distance}. See the class javadoc for where it comes from:
-     * it is half of the closest pair actually shipped, not a number picked to make this pass.
+     * The floor, in the units of {@link #distance}.
+     *
+     * See the class javadoc for where it comes from: it is half of the closest pair actually shipped, not a number
+     * picked to make this pass.
      */
     private static final double MINIMUM_DISTANCE = 20;
 
     private final PrestigeSpec spec = Specs.createDefault(PrestigeSpec.class);
 
     @Test
-    @DisplayName("every shipped default is a hex colour this plugin can actually parse")
     void everyDefaultIsAParseableHexColour() {
         final List<String> wrong = new ArrayList<>();
         for (final String colour : all()) {
@@ -60,11 +56,8 @@ class PrestigeSpecDefaultsTest {
     }
 
     @Test
-    @DisplayName("no two shipped colours are close enough to read as the same colour")
     void noTwoDefaultsAreIndistinguishable() {
-        // Only the values this test can actually measure. A value that is not a hex colour is the
-        // other test's finding, and letting it crash this one too would replace a sentence naming
-        // the offending pair with a NumberFormatException naming nothing.
+        // Only values this test can measure; a non-hex value is the other test's finding, not a raw exception here.
         final List<String> colours =
                 all().stream().filter(c -> HEX.matcher(c).matches()).toList();
         final List<String> tooClose = new ArrayList<>();
@@ -79,20 +72,17 @@ class PrestigeSpecDefaultsTest {
         assertTrue(
                 tooClose.isEmpty(),
                 "two prestige colours that read as the same colour make two tiers indistinguishable"
-                        + " in chat, in the tab list and above a player's head - which is what"
-                        + " season-2-ingame/22 fixed for NEUTRAL and MUTED: " + tooClose);
+                        + " in chat, in the tab list and above a player's head: " + tooClose);
     }
 
     /**
-     * The contract the file's own header states, checked rather than trusted (steward/130).
+     * The contract the file's own header states, checked rather than trusted.
      *
-     * <p>The two blocks are one ladder written twice, and every reader of either walks
-     * {@code tier01..tier13}. A key added to one and not the other is the failure that put these
-     * two lists in one file in the first place - tier 7's colour against tier 8's hour - and it is
-     * invisible in both files and in the interface that draws them.</p>
+     * The two blocks are one ladder written twice, and every reader of either walks {@code tier01..tier13}. A key added
+     * to one and not the other is the failure that put these two lists in one file in the first place - tier 7's colour
+     * against tier 8's hour - and it is invisible in both files and in the interface that draws them.
      */
     @Test
-    @DisplayName("the hours and the colours have exactly the same thirteen keys, in the same order")
     void bothBlocksDeclareTheSameLadder() {
         assertEquals(
                 keysOf(PrestigeSpec.TierHoursSpec.class),
@@ -103,10 +93,8 @@ class PrestigeSpecDefaultsTest {
     }
 
     @Test
-    @DisplayName("the shipped hours are a ladder Prestige will actually accept")
     void theShippedHoursAreAValidLadder() {
-        // The same constructor `Configs.prestige`'s validator runs, so a default that could not
-        // load fails here rather than on a server somebody has just restarted.
+        // The same constructor `Configs.prestige`'s validator runs, so a bad default fails here, not after a restart.
         assertDoesNotThrow(() -> new Prestige(Configs.declaredPrestigeHours(spec)));
     }
 
@@ -129,11 +117,11 @@ class PrestigeSpecDefaultsTest {
     }
 
     /**
-     * The "redmean" approximation - a cheap weighted RGB distance that tracks what an eye does far
-     * better than a plain Euclidean one, and needs no colour-space conversion to compute. Source:
-     * the formula documented at <a href="https://www.compuphase.com/cmetric.htm">compuphase</a>,
-     * checked 2026-09-16. Exact agreement with CIE Lab is not the point here; catching two colours
-     * that are the same is.
+     * The "redmean" approximation - a cheap weighted RGB distance that tracks what an eye does.
+     *
+     * Better than a plain Euclidean one, and needs no colour-space conversion to compute. Source: the formula
+     * documented at <a href="https://www.compuphase.com/cmetric.htm">compuphase</a>. Exact agreement with CIE Lab
+     * is not the point here; catching two colours that are the same is.
      */
     private static double distance(final String first, final String second) {
         final int[] a = rgb(first);

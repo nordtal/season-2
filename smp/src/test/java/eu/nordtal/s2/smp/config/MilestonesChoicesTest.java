@@ -13,9 +13,10 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The two fields of the track that only take a fixed word are offered as a closed list in the
- * config editor, and that list is the enum the plugin reads them into - a constant added to one and
- * not the other would be a value the editor refuses or one the plugin does.
+ * The two fields of the track that only take a fixed word are offered as a closed list in the config editor.
+ *
+ * That list is the enum the plugin reads them into - a constant added to one and not the other would be a value
+ * the editor refuses or one the plugin does.
  */
 class MilestonesChoicesTest {
 

@@ -21,17 +21,17 @@ import org.yaml.snakeyaml.Yaml;
 /**
  * That the world {@code compose.yml} tells Paper to generate is the world this plugin looks for.
  *
- * <h2>Why this file exists</h2>
- * Until 2026-09-02 nothing wrote {@code level-name} into {@code server.properties} at all.
- * {@code deploy/minecraft/entrypoint.sh} fetched Terralith and Dungeons and Taverns into
- * {@code /data/${LEVEL_NAME}/datapacks} - {@code nordtal}, per {@code compose.yml} - while Paper
- * kept its own default and generated {@code world}. The consequences were three, and the middle one
- * is the expensive one: the datapacks were never loaded, so the season world would have been
- * vanilla terrain <em>permanently</em> (terrain is not re-rolled); {@code world-nordtal: nordtal}
- * named a world that did not exist; and the plugin refused to start.
+ * <b>Why this file exists</b>
  *
- * <p>Nothing in this repository could have caught it. The two halves of the fact live in a YAML
- * file the build never read and a Java default nothing compared it against. This is the comparison.
+ * Nothing used to write {@code level-name} into {@code server.properties} at all.
+ * {@code deploy/minecraft/entrypoint.sh} fetched Terralith and Dungeons and Taverns into
+ * {@code /data/${LEVEL_NAME}/datapacks} - {@code nordtal}, per {@code compose.yml} - while Paper kept its own
+ * default and generated {@code world}. The consequences were three, and the middle one is the expensive one: the
+ * datapacks were never loaded, so the season world would have been vanilla terrain <em>permanently</em> (terrain is
+ * not re-rolled); {@code world-nordtal: nordtal} named a world that did not exist; and the plugin refused to start.
+ *
+ * Nothing in this repository could have caught it. The two halves of the fact live in a YAML file the build never
+ * read and a Java default nothing compared it against. This is the comparison.
  */
 class ComposeWorldTest {
 
@@ -57,18 +57,15 @@ class ComposeWorldTest {
     }
 
     /**
-     * Nordtal is generated from it once and then kept for the season - so the seed
-     * is the one value here that cannot be corrected afterwards by editing a file.
+     * Nordtal is generated from it once and then kept for the season.
+     *
+     * So the seed is the one value here that cannot be corrected afterwards by editing a file.
      */
     @Test
     void theSeasonWorldsSeedIsPinned() {
         final String seed = defaultOf(environmentOf("smp").get("LEVEL_SEED"), "smp.LEVEL_SEED");
         assertTrue(seed.matches("-?\\d+"), "LEVEL_SEED should default to a literal seed, not to '" + seed + "'");
     }
-
-    // theBackupWindowIsNotPinnedEither stood here until 2026-09-20. It said the same thing about
-    // NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS, which compose no longer sets: the farm world and
-    // its reset went with season-2-ingame/30.
 
     /** The datapacks have to land in the world Paper actually generates, not beside it. */
     @Test
@@ -85,8 +82,6 @@ class ComposeWorldTest {
                 script.contains("fetch_datapacks \"$DATA/${LEVEL_NAME}/datapacks\""),
                 entrypoint + " no longer fetches the datapacks into the level-name world.");
     }
-
-    // ---------------------------------------------------------------- reading the real file
 
     private static Map<String, Object> environmentOf(final String service) {
         final Path compose = repositoryRoot().resolve("compose.yml");
@@ -120,10 +115,9 @@ class ComposeWorldTest {
 
     /**
      * The directory holding {@code settings.gradle.kts}, not the nearest file by name.
-     * <p>
-     * The anchor is the rule this repository settled on 2026-09-02 after a second
-     * {@code .env.example} in a module directory shadowed the real one for a walk-up by name.
-     * </p>
+     *
+     * The anchor is the rule this repository settled on after a second {@code .env.example} in a module
+     * directory shadowed the real one for a walk-up by name.
      */
     private static Path repositoryRoot() {
         Path directory = Path.of("").toAbsolutePath();

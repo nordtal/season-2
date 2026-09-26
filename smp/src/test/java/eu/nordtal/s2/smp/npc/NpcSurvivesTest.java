@@ -10,41 +10,42 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The figure in the tavern survives being hit, and the guard that makes that true is switched on.
  *
- * <h2>The failure it exists for</h2>
- * {@code SpawnNpc} has set {@code setInvulnerable(true)} since the day it was written, and that flag
- * is not what it reads as: vanilla lets a <b>creative-mode</b> player hit straight through it, and
- * the <b>void</b> ignores it outright. Every admin standing next to the NPC is in creative mode. The
- * spawn protection is a rule about blocks, so it defends nothing here. The figure is the only way a
- * {@code HAND_IN} objective can be fulfilled, so the whole milestone track goes with it and nothing
- * says so - the next player to right-click simply finds nothing to click (finding 150).
+ * <b>The failure it exists for</b>
  *
- * <h2>Why the registration is half the test</h2>
- * A test that read {@code NpcProtection} alone would have been green on the defect this is written
- * for: the handlers can be perfect and never run. The listener is one line in {@code SmpPlugin}, in
- * a method with twenty of them, and it is exactly the line a merge drops. {@code AdminWatchWiringTest}
- * in {@code :common} exists for the same shape of failure - a mechanism that was written, was
- * tested, and had no caller for a day.
+ * {@code SpawnNpc} has set {@code setInvulnerable(true)} since the day it was written, and that flag is not what it
+ * reads as: vanilla lets a <b>creative-mode</b> player hit straight through it, and the <b>void</b> ignores it
+ * outright. Every admin standing next to the NPC is in creative mode. The spawn protection is a rule about blocks,
+ * so it defends nothing here. The figure is the only way a {@code HAND_IN} objective can be fulfilled, so the whole
+ * milestone track goes with it and nothing says so - the next player to right-click simply finds nothing to click
+ * (finding 150).
  *
- * <h2>Why a text search</h2>
+ * <b>Why the registration is half the test</b>
+ *
+ * A test that read {@code NpcProtection} alone would have been green on the defect this is written for: the handlers
+ * can be perfect and never run. The listener is one line in {@code SmpPlugin}, in a method with twenty of them, and
+ * it is exactly the line a merge drops. {@code AdminWatchWiringTest} in {@code :common} exists for the same shape of
+ * failure - a mechanism that was written, was tested, and had no caller for a day.
+ *
+ * <b>Why a text search</b>
+ *
  * Raising an {@code EntityDamageEvent} needs a world, an entity and a damage source, and spawning a
- * {@code Mannequin} needs a server. What is being protected is a registration and three cancels,
- * which is the same reason {@code PortalGateWiringTest} and {@code SpawnNpcLabelTest} are text
- * searches.
+ * {@code Mannequin} needs a server. What is being protected is a registration and three cancels, which is the same
+ * reason {@code PortalGateWiringTest} and {@code SpawnNpcLabelTest} are text searches.
  */
 class NpcSurvivesTest {
 
     private static final String GUARD = "smp/src/main/java/eu/nordtal/s2/smp/npc/NpcProtection.java";
     private static final String FIGURE = "smp/src/main/java/eu/nordtal/s2/smp/npc/SpawnNpc.java";
     private static final String PLUGIN = "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java";
+    // SmpStart holds the start sequence SmpPlugin delegates to, so the wiring is read from both.
+    private static final String START = "smp/src/main/java/eu/nordtal/s2/smp/SmpStart.java";
 
     @Test
-    @DisplayName("a hit, a fire and a shove aimed at the NPC are all refused")
     void theGuardRefusesTheThreeWaysToLoseIt() {
         final String guard = read(GUARD);
 
@@ -64,11 +65,8 @@ class NpcSurvivesTest {
     }
 
     @Test
-    @DisplayName("the guard defends this one figure and not every mannequin on the server")
     void theGuardAsksByIdentity() {
-        // Comments stripped, because this file argues in prose about the check it must NOT make -
-        // and a search that reads the argument as the code is a search that can only ever agree
-        // with whatever is written next to it.
+        // Comments stripped: this file argues in prose about a check it must NOT make, which a search would agree with.
         final String guard = code(read(GUARD));
 
         assertEquals(
@@ -84,9 +82,8 @@ class NpcSurvivesTest {
     }
 
     @Test
-    @DisplayName("the guard is actually registered")
     void theGuardIsWired() {
-        final String plugin = read(PLUGIN);
+        final String plugin = (read(PLUGIN) + "\n" + read(START));
 
         assertTrue(
                 plugin.contains("new NpcProtection(npc)"),
@@ -98,17 +95,8 @@ class NpcSurvivesTest {
     }
 
     @Test
-    @DisplayName("every path that produces the figure produces one carrying the flags")
     void thereIsOnlyOneWayToGetAFigure() {
-        // The guard above is the answer to a creative-mode hit; the flags are still the answer to
-        // everything ordinary, and they are only ever applied inside the pre-spawn function. So the
-        // question this asserts is not "are the flags set" - SpawnNpcLabelTest reads that file too -
-        // but "is there a second way to end up holding a figure that never went through it".
-        //
-        // There is not, and that is what has to stay true: `spawn()` sweeps and then creates, and
-        // the figure is persistent since 2026-09-06, so a path that ADOPTED the surviving entity
-        // instead of replacing it would hold a mannequin from an older start with whatever flags
-        // that start gave it. Findings 100 and 106 are both about this spot.
+        // The flags apply only inside pre-spawn; `spawn()` sweeps then creates, so nothing can adopt an old figure.
         final String figure = read(FIGURE);
 
         assertEquals(
@@ -133,9 +121,10 @@ class NpcSurvivesTest {
     /**
      * The file with its comments taken out.
      *
-     * <p>Crude on purpose - it does not understand a {@code //} inside a string literal, and there
-     * is none in the two files this reads. Anything cleverer would be a Java parser, and the point
-     * of a text search is that it is smaller than the thing it checks.
+     * Crude on purpose - it does not understand a {@code //} inside a string literal, and there is none in the two
+     * files
+     * this reads. Anything cleverer would be a Java parser, and the point of a text search is that it is smaller than
+     * the thing it checks.
      */
     private static String code(final String source) {
         return source.replaceAll("(?s)/\\*.*?\\*/", " ").replaceAll("(?m)//.*$", " ");

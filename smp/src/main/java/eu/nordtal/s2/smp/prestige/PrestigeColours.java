@@ -7,35 +7,35 @@ import java.util.function.Consumer;
 import net.kyori.adventure.text.format.TextColor;
 
 /**
- * The fourteen colours a player's name is drawn in: one per {@link Prestige} tier, plus the one that
- * overrides every tier - the admin colour (season-2-ingame/23).
+ * The fourteen colours a player's name is drawn in.
  *
- * <p>This is {@code smp}'s own half of the same split {@code :common}'s
- * {@link eu.nordtal.s2.common.message.ToneColours} drew for the five tone colours
- * (season-2-ingame/22): the parsed result lives beside the thing it paints - here, because
- * {@link Prestige} itself is {@code smp}-only and nothing outside this module has a prestige tier to
- * colour - and a bad hex value is corrected rather than refused, for the same reason a bad tone is.
+ * One per {@link Prestige} tier, plus the one that overrides every tier - the admin colour. This is {@code smp} 's
+ * own half of the same split {@code :common} 's {@link eu.nordtal.s2.common.message.ToneColours} drew for the five
+ * tone colours: the parsed result lives beside the thing it paints - here, because {@link Prestige} itself is
+ * {@code smp} -only and nothing outside this module has a prestige tier to colour - and a bad hex value is
+ * corrected rather than refused, for the same reason a bad tone is.
  *
- * <h2>Everywhere is one seam</h2>
- * {@code PlayerComposition#name} is the only place a name is painted, and the tab list, the chat
- * prefix and the nametag DisplayTags renders all call through it - so this class has exactly one
- * caller and "everywhere" follows from that, rather than from four places agreeing to do the same
- * thing.
+ * <b>Everywhere is one seam</b>
  *
- * <h2>The admin colour is not a fourteenth tier</h2>
- * An admin at prestige tier 13 still shows the admin colour, never tier 13's - authority is a role, a
- * player can lose in an instant when a Discord role is revoked (see {@code Identity#withAdmin}), and
- * a rank earned over a season is not. Keeping it a sibling setting rather than a fourteenth entry in
- * the tier list is what keeps the two ideas from merging into one config key.
+ * {@code PlayerComposition#name} is the only place a name is painted, and the tab list, the chat prefix and the
+ * nametag DisplayTags renders all call through it - so this class has exactly one caller and "everywhere" follows
+ * from that, rather than from four places agreeing to do the same thing.
  *
- * <h2>The thirteen, and why none of them is a saturated blue or red held down in brightness</h2>
- * Every default here reads at or above roughly 6:1 contrast against pure black - Minecraft's own chat
- * background is {@code rgba(0,0,0,0.5)}, painted over whatever is behind it, so pure black is the
- * worst case worth designing for - which is well past the WCAG AA text threshold of 4.5:1. The
- * fourteen hues sweep 300 degrees from teal through blue, violet, magenta, rose, orange and gold, so
- * that tier 4 and tier 5 differ in hue as well as in brightness and two adjacent tiers are never the
- * same colour with the lightness dialled up one notch. Tier 13 is the brightest and warmest of all
- * fourteen on purpose - a season's most dedicated player gets the one crest that reads as "further
+ * <b>The admin colour is not a fourteenth tier</b>
+ *
+ * An admin at prestige tier 13 still shows the admin colour, never tier 13's - authority is a role, a player can
+ * lose in an instant when a Discord role is revoked (see {@code Identity#withAdmin}), and a rank earned over a
+ * season is not. Keeping it a sibling setting rather than a fourteenth entry in the tier list is what keeps the two
+ * ideas from merging into one config key.
+ *
+ * <b>The thirteen, and why none of them is a saturated blue or red held down in brightness</b>
+ *
+ * Every default here reads at or above roughly 6:1 contrast against pure black - Minecraft's own chat background is
+ * {@code rgba(0,0,0,0.5)}, painted over whatever is behind it, so pure black is the worst case worth designing for -
+ * which is well past the WCAG AA text threshold of 4.5:1. The fourteen hues sweep 300 degrees from teal through
+ * blue, violet, magenta, rose, orange and gold, so that tier 4 and tier 5 differ in hue as well as in brightness and
+ * two adjacent tiers are never the same colour with the lightness dialled up one notch. Tier 13 is the brightest and
+ * warmest of all fourteen on purpose - a season's most dedicated player gets the one crest that reads as "further
  * than everyone else" rather than a fourteenth stop on an otherwise flat ramp.
  */
 public final class PrestigeColours {
@@ -57,10 +57,11 @@ public final class PrestigeColours {
             );
 
     /**
-     * Vanilla's own {@code NamedTextColor.RED} ({@code #ff5555}), spelled out for the same reason
-     * {@link eu.nordtal.s2.common.message.ToneColours}'s own {@code MUTED} default is: a configured
-     * colour has to be a hex string. No prestige tier is within 60 units of it in plain RGB distance,
-     * so an admin's name never reads as "maybe a high tier" by accident.
+     * Vanilla's own {@code NamedTextColor.RED} ({@code #ff5555}), spelled out as a hex string.
+     *
+     * A configured colour has to be a hex string, for the same reason
+     * {@link eu.nordtal.s2.common.message.ToneColours}'s own {@code MUTED} default is. No prestige tier is within 60
+     * units of it in plain RGB distance, so an admin's name never reads as "maybe a high tier" by accident.
      */
     private static final TextColor DEFAULT_ADMIN = required("#ff5555");
 

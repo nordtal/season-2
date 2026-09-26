@@ -8,14 +8,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.format.TextColor;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * season-2-ingame/23: thirteen prestige colours plus the one that overrides them all, a bad hex
- * value has to fall back to the default rather than vanish, and the admin colour must never equal a
- * prestige tier's own default - {@code PlayerCompositionTest} already proves the admin override wins
- * on a real composition, this file is the palette on its own.
+ * Thirteen prestige colours plus the one that overrides them all.
+ *
+ * A bad hex value has to fall back to the default rather than vanish, and the admin colour must never equal a
+ * prestige tier's own default - {@code PlayerCompositionTest} already proves the admin override wins on a real
+ * composition, this file is the palette on its own.
  */
 class PrestigeColoursTest {
 
@@ -28,7 +28,6 @@ class PrestigeColoursTest {
     }
 
     @Test
-    @DisplayName("all thirteen tiers parse to a colour, even from an empty declaration")
     void everyTierHasADefault() {
         final List<String> problems = new ArrayList<>();
         final List<String> blanks = new ArrayList<>();
@@ -50,7 +49,6 @@ class PrestigeColoursTest {
     }
 
     @Test
-    @DisplayName("an invalid hex value falls back to the default and is reported")
     void invalidHexFallsBackAndReports() {
         final List<String> declared = new ArrayList<>(defaultTierHexes());
         declared.set(7, "not-a-colour"); // tier 8
@@ -72,7 +70,6 @@ class PrestigeColoursTest {
     }
 
     @Test
-    @DisplayName("an invalid admin hex value falls back to the default and is reported")
     void invalidAdminHexFallsBackAndReports() {
         final List<String> problems = new ArrayList<>();
         final PrestigeColours colours = PrestigeColours.parse(defaultTierHexes(), "also-not-a-colour", problems::add);
@@ -83,7 +80,6 @@ class PrestigeColoursTest {
     }
 
     @Test
-    @DisplayName("a blank hex value falls back to the default without a complaint")
     void blankHexFallsBackSilently() {
         final List<String> declared = new ArrayList<>(defaultTierHexes());
         declared.set(0, "");
@@ -96,7 +92,6 @@ class PrestigeColoursTest {
     }
 
     @Test
-    @DisplayName("a table that is not exactly thirteen entries is refused")
     void wrongCountIsRefused() {
         assertThrows(
                 IllegalArgumentException.class,
@@ -104,7 +99,6 @@ class PrestigeColoursTest {
     }
 
     @Test
-    @DisplayName("no two default tiers are the same colour")
     void allThirteenDefaultsDiffer() {
         for (int a = 1; a <= Prestige.TIER_COUNT; a++) {
             for (int b = a + 1; b <= Prestige.TIER_COUNT; b++) {
@@ -117,7 +111,6 @@ class PrestigeColoursTest {
     }
 
     @Test
-    @DisplayName("the admin default is not any prestige tier's default")
     void adminDefaultIsNotATierDefault() {
         final TextColor admin = PrestigeColours.DEFAULTS.admin();
         for (int tier = 1; tier <= Prestige.TIER_COUNT; tier++) {
@@ -130,7 +123,6 @@ class PrestigeColoursTest {
     }
 
     @Test
-    @DisplayName("a tier outside 1..13 is refused")
     void outOfRangeTierIsRefused() {
         assertThrows(IllegalArgumentException.class, () -> PrestigeColours.DEFAULTS.tier(0));
         assertThrows(IllegalArgumentException.class, () -> PrestigeColours.DEFAULTS.tier(Prestige.TIER_COUNT + 1));

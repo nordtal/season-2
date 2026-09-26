@@ -23,23 +23,24 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 
 /**
- * {@code /aura} and {@code /smp status} - the two SMP commands a player types, as plain Paper
- * Brigadier.
+ * {@code /aura} and {@code /smp status} - the two SMP commands a player types, as plain Paper Brigadier.
  *
- * <h2>Why they are not declarations</h2>
- * The same reason the proxy's {@code /msg} and {@code /discord} are not: one server, no
- * confirmation, no admin flag, and no argument that ever travels through a request row. What the
- * command framework bought them was an effects interface, an adapter translation and a catalogue
- * entry no other surface could reach.
+ * <b>Why they are not declarations</b>
  *
- * <h2>{@code /aura} exists on the SMP only</h2>
- * As a declaration it was also registered on limbo and the hunger games, where typing it became a
- * request row answered by this server. It is not any more: the numbers are this server's, and a
- * player asking about them is standing on it.
+ * The same reason the proxy's {@code /msg} and {@code /discord} are not: one server, no confirmation, no admin flag,
+ * and no argument that ever travels through a request row. What the command framework bought them was an effects
+ * interface, an adapter translation and a catalogue entry no other surface could reach.
  *
- * <h2>{@code /smp status} still answers the console</h2>
- * The same three lines in English, through the console's own {@link NordtalUser}. There was never a
- * separate console wording, so there is nothing left for the catalogue to carry.
+ * <b> {@code /aura} exists on the SMP only</b>
+ *
+ * As a declaration it was also registered on limbo and the hunger games, where typing it became a request row
+ * answered by this server. It is not any more: the numbers are this server's, and a player asking about them is
+ * standing on it.
+ *
+ * <b> {@code /smp status} still answers the console</b>
+ *
+ * The same three lines in English, through the console's own {@link NordtalUser}. There was never a separate console
+ * wording, so there is nothing left for the catalogue to carry.
  */
 public final class PlayerCommands {
 
@@ -72,8 +73,9 @@ public final class PlayerCommands {
     }
 
     /**
-     * {@code status}, to be hung under {@code /smp} as an open subtree. A player or the console;
-     * never a command block, which is nobody.
+     * {@code status}, to be hung under {@code /smp} as an open subtree.
+     *
+     * A player or the console; never a command block, which is nobody.
      */
     public LiteralArgumentBuilder<CommandSourceStack> status() {
         return Commands.literal("status")
@@ -88,10 +90,9 @@ public final class PlayerCommands {
     /**
      * Where the asker stands, and the ten highest.
      *
-     * <p>Rank, total and the top ten come back in one read so they describe one instant: read
-     * separately, somebody's own line could disagree with the line about them in the list below
-     * it. The asker's own line is told apart by {@link Tone}, not by a second key with the same
-     * words in a different colour.</p>
+     * Rank, total and the top ten come back in one read so they describe one instant: read separately, somebody's own
+     * line could disagree with the line about them in the list below it. The asker's own line is told apart by
+     * {@link Tone}, not by a second key with the same words in a different colour.
      */
     void showAura(final NordtalUser user, final UUID self) {
         effects.async(() -> {

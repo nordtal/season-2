@@ -15,15 +15,14 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Walks {@code /navigate}'s composed window with the pack's own advances.
+ * Walks {@code /navigate} 's composed window with the pack's own advances.
  *
- * <p>The cursor walk itself is {@link PanelWalk}, shared with the other panels' tests since
- * 2026-09-09 - see its own comment for why the walk rather than the intent is what gets asserted.
- * What is here is only what is true of <em>this</em> menu.</p>
+ * The cursor walk itself is {@link PanelWalk}, shared with the other panels' tests - see its own
+ * comment for why the walk rather than the intent is what gets asserted. What is here is only what is true of
+ * <em>this</em> menu.
  */
 class NavigatePanelTest {
 
@@ -33,7 +32,6 @@ class NavigatePanelTest {
             new NavigatePanel.Entry(Glyphs.GUI_ROW_ICON_POI, "Baeckerei am Fluss", "318 m", false));
 
     @Test
-    @DisplayName("the whole surface returns the cursor to the title anchor")
     void theReadableTitleStillLandsWhereItWould() {
         final List<Run> runs = PanelWalk.runs(surface(THREE, true, true));
         final Run last = runs.get(runs.size() - 1);
@@ -46,7 +44,6 @@ class NavigatePanelTest {
     }
 
     @Test
-    @DisplayName("every row's pill, icon and label land on the x the panel says")
     void everyRowIsWhereItSaysItIs() {
         final List<Run> runs = PanelWalk.runs(surface(THREE, true, true));
 
@@ -86,7 +83,6 @@ class NavigatePanelTest {
     }
 
     @Test
-    @DisplayName("only the active entry wears the frame, and it is drawn after everything on its row")
     void theFrameMarksOneRowAndIsDrawnLast() {
         final List<Run> runs = PanelWalk.runs(surface(THREE, true, true));
         final List<Run> frames = runs.stream()
@@ -111,7 +107,6 @@ class NavigatePanelTest {
     }
 
     @Test
-    @DisplayName("a pill covers exactly the nine slot cells of its row, inset two")
     void aPillIsItsRow() {
         assertEquals(SlotGeometry.x(0) + NavigatePanel.INSET, NavigatePanel.PILL_X);
         assertEquals(
@@ -122,7 +117,6 @@ class NavigatePanelTest {
     }
 
     @Test
-    @DisplayName("every control's plate sits inside the slot cell that carries its click")
     void theControlsSitOnTheirSlots() {
         final List<Run> runs = PanelWalk.runs(surface(THREE, true, true));
         final String font = Glyphs.FONT_GUI_ROWS.get(NavigatePanel.CONTROL_ROW);
@@ -151,7 +145,6 @@ class NavigatePanelTest {
     }
 
     @Test
-    @DisplayName("a page button with no page behind it is drawn greyed rather than left off")
     void aDeadPageButtonIsStillDrawn() {
         final List<Run> runs = PanelWalk.runs(surface(THREE, false, false));
         final String font = Glyphs.FONT_GUI_ROWS.get(NavigatePanel.CONTROL_ROW);
@@ -172,7 +165,6 @@ class NavigatePanelTest {
     }
 
     @Test
-    @DisplayName("every code point the surface uses is declared by the font that run names")
     void nothingIsDrawnOutOfAFontThatLacksIt() {
         final List<String> missing = new ArrayList<>();
         for (final Run run : PanelWalk.runs(surface(THREE, true, true))) {
@@ -192,7 +184,6 @@ class NavigatePanelTest {
     }
 
     @Test
-    @DisplayName("more entries than a page holds is refused rather than drawn over the controls")
     void aPageIsFiveEntries() {
         final List<NavigatePanel.Entry> six = new ArrayList<>(THREE);
         six.addAll(THREE);
@@ -202,7 +193,6 @@ class NavigatePanelTest {
     }
 
     @Test
-    @DisplayName("the four strings drawn inside the window carry no MiniMessage in either language")
     void theRowKeysAreTagless() {
         final List<String> tagged = new ArrayList<>();
         for (final String language : new String[] {"en", "de"}) {
@@ -227,7 +217,6 @@ class NavigatePanelTest {
     }
 
     @Test
-    @DisplayName("the readable title is a sibling of the paint and names no font")
     void theTwoHalvesAreSeparate() {
         final Component title = NavigatePanel.title(Component.text("Navigate"), THREE, "Stop", "2/3", true, true);
         assertEquals(2, title.children().size());
@@ -243,7 +232,6 @@ class NavigatePanelTest {
     }
 
     @Test
-    @DisplayName("the pack draws each plate at the width the panel places it at")
     void theArtIsTheWidthTheJavaAssumes() {
         assertEquals(NavigatePanel.PILL_WIDTH, PanelWalk.image("row_pill.png").getWidth());
         assertEquals(NavigatePanel.PILL_WIDTH, PanelWalk.image("row_frame.png").getWidth());

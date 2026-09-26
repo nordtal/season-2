@@ -10,40 +10,34 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code prestige.yml} - the thirteen crest tiers: when each one is reached, and what a name at
- * that tier is drawn in.
+ * {@code prestige.yml} - the thirteen crest tiers.
  *
- * <h2>One file, because a tier is one thing (steward/130)</h2>
- * This was two lists in two files until 2026-09-20: the hours in {@code config.yml} as
- * {@code prestige-threshold-hours}, the colours here as {@code prestige-colours.yml}. Till, on
- * seeing them in steward: <em>the settings should be brought together; one place to set hours and
- * colours for a tier.</em> The defect that closes is not the walking between two pages - it is
- * that <b>two lists which belong together by position are one list with an unwritten contract</b>.
- * Whoever edited the seventh line of one had to find the seventh line of the other and trust that
- * the orders agreed; nothing checked that they did, and the failure - tier 7 turning gold at tier
- * 8's hours - is invisible in both files.
+ * When each one is reached, and what a name at that tier is drawn in.
  *
- * <p>So {@link #hours()} and {@link #colours()} are two sibling blocks with the <b>same thirteen
- * keys</b>, in the same order, in one file. Steward draws them as one row per tier, and the
- * matching key sets are what lets it (see {@code pairedBlocks} in the frontend).</p>
+ * <b>One file, because a tier is one thing</b>
  *
- * <p>A file of its own rather than a block in {@code config.yml}, for the same reason
- * {@code colours.yml} is: {@code /smp reload} re-reads it, and a season that is retuning its
- * crest ladder should not need a restart to see the change. Both halves are live-reloaded since
- * this ticket - the hours were not, because they lived in {@code config.yml}.</p>
+ * {@link #hours()} and {@link #colours()} belong together by position: whoever edits the seventh line of one has to
+ * find the seventh line of the other and trust that the orders agree. Splitting them into two lists would make that
+ * an unwritten contract, and the failure - tier 7 turning gold at tier 8's hours - would be invisible in both files.
  *
- * <p>Every colour is a hex string, for the same reason {@link ColoursSpec}'s are: a configured
- * colour has to be something a colour picker can hand back (steward/63), and
- * {@link eu.nordtal.s2.smp.prestige.PrestigeColours#parse} is where a bad one is caught - it
- * reports the problem and falls back to the default rather than stopping the server. The hours are
- * stricter, and they have to be: {@link eu.nordtal.s2.smp.prestige.Prestige}'s constructor refuses
- * a ladder that is not thirteen values rising strictly from zero, because a crest ladder that
- * skips is not a smaller mistake than a missing one.
+ * So {@link #hours()} and {@link #colours()} are two sibling blocks with the <b>same thirteen keys</b>, in the same
+ * order, in one file. Steward draws them as one row per tier, and the matching key sets are what lets it (see
+ * {@code pairedBlocks} in the frontend).
  *
- * <p>{@link #admin()} sits beside both blocks rather than inside either: it is not a fourteenth
- * prestige tier, it is the one colour that overrides all thirteen (season-2-ingame/23). Keeping it
- * a sibling is what keeps steward's colour picker from ever offering it as part of a tier row, and
- * what keeps the two blocks' key sets identical.
+ * A file of its own rather than a block in {@code config.yml}, for the same reason {@code colours.yml} is:
+ * {@code /smp reload} re-reads it, and a season that is retuning its crest ladder should not need a restart to see
+ * the change.
+ *
+ * Every colour is a hex string, for the same reason {@link ColoursSpec} 's are: a configured colour has to be
+ * something a colour picker can hand back, and {@link eu.nordtal.s2.smp.prestige.PrestigeColours#parse} is where a
+ * bad one is caught - it reports the problem and falls back to the default rather than stopping the server. The
+ * hours are stricter, and they have to be: {@link eu.nordtal.s2.smp.prestige.Prestige} 's constructor refuses a
+ * ladder that is not thirteen values rising strictly from zero, because a crest ladder that skips is not a smaller
+ * mistake than a missing one.
+ *
+ * {@link #admin()} sits beside both blocks rather than inside either: it is not a fourteenth prestige tier, it is
+ * the one colour that overrides all thirteen. Keeping it a sibling is what keeps steward's colour picker from ever
+ * offering it as part of a tier row, and what keeps the two blocks' key sets identical.
  */
 @ConfigSpec(
         header = {
@@ -101,8 +95,7 @@ public interface PrestigeSpec {
     })
     @NoExplanationNeeded
     default TierHoursSpec hours() {
-        // createDefault fills the instance from TierHoursSpec's own default bodies, so the thirteen
-        // numbers exist exactly once - the same reason NetworkSpec.MotdSpec is built this way.
+        // createDefault fills the instance from TierHoursSpec's own defaults.
         return Specs.createDefault(TierHoursSpec.class);
     }
 

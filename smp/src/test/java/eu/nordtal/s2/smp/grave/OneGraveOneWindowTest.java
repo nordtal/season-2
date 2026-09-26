@@ -9,34 +9,32 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * One grave is one window, however many people are standing in it.
  *
- * <h2>The failure it exists for</h2>
- * A grave is open to anybody - that is a decision and it is written into {@code Graves}' class
- * comment - so two people can right-click the same one in the same second. While each viewer got an
- * inventory of their own, both were filled from the same stored contents and each close serialised
- * its <em>own</em> whole snapshot back: both looters took the lot and the grave paid out everything
- * the dead player was carrying, twice. Nothing about that is visible in the game; both windows look
- * exactly like a grave being emptied (CodeRabbit, PR #8).
+ * <b>The failure it exists for</b>
  *
- * <p>One shared inventory needs no rule of its own, because it is what a vanilla chest does: both
- * looters watch the same slots empty, and taking an item is a main-thread click on one object.</p>
+ * A grave is open to anybody - that is a decision and it is written into {@code Graves} ' class comment - so two
+ * people can right-click the same one in the same second. While each viewer got an inventory of their own, both were
+ * filled from the same stored contents and each close serialised its <em>own</em> whole snapshot back: both looters
+ * took the lot and the grave paid out everything the dead player was carrying, twice. Nothing about that is visible
+ * in the game; both windows look exactly like a grave being emptied (CodeRabbit, PR #8).
  *
- * <h2>Why a text search</h2>
- * Two viewers on one inventory is a server, two clients and a corpse. What this protects is the
- * shape - a window looked up by grave id rather than built per viewer, and a write-back that waits
- * until the last person has left it.
+ * One shared inventory needs no rule of its own, because it is what a vanilla chest does: both looters watch the
+ * same slots empty, and taking an item is a main-thread click on one object.
+ *
+ * <b>Why a text search</b>
+ *
+ * Two viewers on one inventory is a server, two clients and a corpse. What this protects is the shape - a window
+ * looked up by grave id rather than built per viewer, and a write-back that waits until the last person has left it.
  */
 class OneGraveOneWindowTest {
 
     private static final String SOURCE = "smp/src/main/java/eu/nordtal/s2/smp/grave/Graves.java";
 
     @Test
-    @DisplayName("the window is looked up by grave, not built for each viewer")
     void theWindowIsShared() {
         final String source = read();
 
@@ -45,12 +43,7 @@ class OneGraveOneWindowTest {
                 "opening a grave builds a fresh inventory from the stored contents, so two people"
                         + " looting one grave each take the whole of it");
 
-        // Counted rather than measured against the lookup's own offset. This was a distance check
-        // until 2026-09-09 - "the createInventory is within 800 characters of the computeIfAbsent" -
-        // and it broke the moment the window's construction moved into a method of its own, which
-        // it had to when the grave gained its painted footer. The distance was never the property;
-        // ONE construction site is, and a second one anywhere in this file is the shape that
-        // duplicated the loot however close it sits.
+        // Counted, not measured by distance: the window's construction moved once already and could move again.
         assertEquals(
                 1,
                 count(source, "Bukkit.createInventory("),
@@ -59,8 +52,7 @@ class OneGraveOneWindowTest {
                         + " contents, which is what paid out everything the dead player carried,"
                         + " twice - and nothing about it is visible in the game");
 
-        // ...and that one place is what the lookup delegates to, so the construction is inside the
-        // reuse rather than beside it.
+        // ...and that one place is what the lookup delegates to, so construction sits inside the reuse, not beside it.
         final int lookup = source.indexOf("shown.computeIfAbsent(graveId");
         final String tail = source.substring(lookup);
         final java.util.regex.Matcher call = java.util.regex.Pattern.compile(
@@ -89,7 +81,6 @@ class OneGraveOneWindowTest {
     }
 
     @Test
-    @DisplayName("the contents are written back only once the last viewer has gone")
     void theWriteBackWaitsForTheLastViewer() {
         final String source = read();
 
@@ -107,7 +98,6 @@ class OneGraveOneWindowTest {
     }
 
     @Test
-    @DisplayName("no second map keyed by inventory survives")
     void thereIsOneMap() {
         final String source = read();
 

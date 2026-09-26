@@ -11,22 +11,22 @@ import net.kyori.adventure.text.Component;
 /**
  * Draws the spawn NPC's surface: the active milestone, four objective cards, and your own share.
  *
- * <p>Six rows: a heading plate naming the milestone with a text bar and an "n of m done" counter;
- * two rows of two cards, each 68 x 32 with a type icon, a name, a painted progress bar and its
- * numbers; and a share line along the bottom.
+ * Six rows: a heading plate naming the milestone with a text bar and an "n of m done" counter; two rows of two
+ * cards, each 68 x 32 with a type icon, a name, a painted progress bar and its numbers; and a share line along the
+ * bottom.
  *
- * <p>A card spans two chest rows, and a row font gives one ascent per layer per row, so the plate
- * needs a code point per card row ({@link Glyphs#GUI_CARD_TOP}, {@code _BOTTOM}). The icon, name and
- * numbers fall inside the rows' own bands and cost nothing extra; the bar lands in the four-pixel
- * gap between two bands, which is why its fill carries an ascent of its own.
+ * A card spans two chest rows, and a row font gives one ascent per layer per row, so the plate needs a code point
+ * per card row ( {@link Glyphs#GUI_CARD_TOP}, {@code _BOTTOM}). The icon, name and numbers fall inside the rows' own
+ * bands and cost nothing extra; the bar lands in the four-pixel gap between two bands, which is why its fill carries
+ * an ascent of its own.
  *
- * <p>The bar's track is baked into the card and the fill is a power-of-two decomposition of its
- * width, so any fill up to {@link #BAR_MAX} is at most four glyphs. The heading uses a text bar
- * instead, where there is no room for a painted one.
+ * The bar's track is baked into the card and the fill is a power-of-two decomposition of its width, so any fill up
+ * to {@link #BAR_MAX} is at most four glyphs. The heading uses a text bar instead, where there is no room for a
+ * painted one.
  *
- * <p><b>{@link #CARDS_PER_PAGE} is a page, not a limit</b>: milestones with five objectives exist,
- * and dropping the fifth is the one outcome this menu must not produce. {@link ObjectiveGui} pages,
- * and the two page buttons are drawn only when there is a second page.
+ * <b> {@link #CARDS_PER_PAGE} is a page, not a limit</b>: milestones with five objectives exist, and dropping the
+ * fifth is the one outcome this menu must not produce. {@link ObjectiveGui} pages, and the two page buttons are
+ * drawn only when there is a second page.
  */
 public final class ObjectivePanel {
 
@@ -45,7 +45,6 @@ public final class ObjectivePanel {
     /** Pixels between a piece of furniture and the slot cells that make it clickable. */
     public static final int INSET = 2;
 
-    // --- the two full-width plates -------------------------------------------------------
     public static final int PILL_X = SlotGeometry.ORIGIN_X + INSET;
     public static final int PILL_WIDTH = SlotGeometry.COLUMNS * SlotGeometry.PITCH - 2 * INSET;
 
@@ -64,7 +63,6 @@ public final class ObjectivePanel {
     private static final int SHARE_ICON_X = PILL_X + 3;
     private static final int SHARE_TEXT_X = SHARE_ICON_X + ICON_SIZE + 5;
 
-    // --- a card --------------------------------------------------------------------------
     /** Four slot columns inset two: the same 68 pixels a balloon card is wide. */
     public static final int CARD_WIDTH = 4 * SlotGeometry.PITCH - 2 * INSET;
 
@@ -72,12 +70,10 @@ public final class ObjectivePanel {
     public static final int CARD_HEIGHT = 2 * SlotGeometry.PITCH - 2 * INSET;
 
     /** The two x positions a card sits at; slot column 4 is the gap, as it is on the balloon. */
-    public static final int[] CARD_X = {
-        SlotGeometry.x(0) + INSET, SlotGeometry.x(5) + INSET,
-    };
+    public static final List<Integer> CARD_X = List.of(SlotGeometry.x(0) + INSET, SlotGeometry.x(5) + INSET);
 
     /** The chest row a card's <em>upper</em> half sits on; its lower half is the row after. */
-    public static final int[] CARD_ROW = {1, 3};
+    public static final List<Integer> CARD_ROW = List.of(1, 3);
 
     private static final int CARD_ICON_DX = 3;
     private static final int CARD_NAME_DX = 15;
@@ -92,7 +88,6 @@ public final class ObjectivePanel {
     /** The widest the fill can be: the 62px track less its own two edge pixels. */
     public static final int BAR_MAX = CARD_WIDTH - 2 * CARD_ICON_DX - 2;
 
-    // --- the page controls, drawn only when there is a second page ------------------------
     private static final int BUTTON_WIDTH = SlotGeometry.PITCH - 2 * INSET;
     private static final int PREV_X = SlotGeometry.x(7) + INSET;
     private static final int NEXT_X = SlotGeometry.x(8) + INSET;
@@ -101,10 +96,10 @@ public final class ObjectivePanel {
     private static final int PAGED_RIGHT = SlotGeometry.x(7) - 2;
 
     /**
-     * The share plate's width on a paged menu: seven slot cells inset two, so the grey ends where
-     * the two cells carrying the page buttons begin. The sentence was already fitted to
-     * {@link #PAGED_RIGHT}, so the last two cells of the full plate were grey with nothing on them
-     * (season-2-ingame/17).
+     * The share plate's width on a paged menu: seven slot cells inset two.
+     *
+     * That way the grey ends where the two cells carrying the page buttons begin. The sentence is fitted to
+     * {@link #PAGED_RIGHT}, so the full plate's last two cells would otherwise be grey with nothing on them.
      */
     public static final int PILL_SHORT_WIDTH = 7 * SlotGeometry.PITCH - 2 * INSET;
 
@@ -189,12 +184,12 @@ public final class ObjectivePanel {
     /**
      * One card: its plate, then everything on it, then the wash if it is finished.
      *
-     * <p>Order is draw order: the plate first, so nothing on it is painted over, and the wash last,
-     * because it has to tint everything under it including the bar.</p>
+     * Order is draw order: the plate first, so nothing on it is painted over, and the wash last, because it has to tint
+     * everything under it including the bar.
      */
     private static void card(final MenuTitle.Canvas canvas, final int index, final Card card) {
-        final int x = CARD_X[index % 2];
-        final int upper = CARD_ROW[index / 2];
+        final int x = CARD_X.get(index % 2);
+        final int upper = CARD_ROW.get(index / 2);
         final int lower = upper + 1;
         final boolean top = index < 2;
 
@@ -212,9 +207,10 @@ public final class ObjectivePanel {
     /**
      * The painted fill, as a run of power-of-two slices starting at {@code x}.
      *
-     * <p>Largest first, so the run is the number's binary representation and there is exactly one
-     * way to write any width. A ratio that has started but rounds to nothing still draws one pixel,
-     * so "1 of 3000" does not look like "not begun".</p>
+     * Largest first, so the run is the number's binary representation and there is exactly one way to write any width.
+     * A
+     * ratio that has started but rounds to nothing still draws one pixel, so "1 of 3000" does not look like "not
+     * begun".
      */
     private static void fill(final MenuTitle.Canvas canvas, final int x, final boolean top, final double ratio) {
         final double clamped = Math.max(0.0, Math.min(1.0, ratio));
@@ -237,8 +233,7 @@ public final class ObjectivePanel {
     private static void share(
             final MenuTitle.Canvas canvas, final String share, final boolean hasPrev, final boolean hasNext) {
         final boolean paged = hasPrev || hasNext;
-        // The plate follows the sentence rather than the row: with the arrows there, both stop at
-        // the seventh cell, so the grey is only under something (season-2-ingame/17).
+        // The plate follows the sentence, not the row: with the arrows there, both stop at the seventh cell.
         canvas.rowArt(paged ? Glyphs.GUI_ROW_PILL_SHORT : Glyphs.GUI_ROW_PILL, SHARE_ROW, PILL_X, null);
         canvas.rowArt(Glyphs.GUI_ROW_ICON_AURA, SHARE_ROW, SHARE_ICON_X, MenuPalette.INK);
 
@@ -257,8 +252,8 @@ public final class ObjectivePanel {
     /**
      * One page button, drawn greyed when there is no page on that side.
      *
-     * <p>Greyed rather than removed, so a control never appears to have moved. A click on a greyed
-     * one is refused with the refusal sound.</p>
+     * Greyed rather than removed, so a control never appears to have moved. A click on a greyed one is refused with the
+     * refusal sound.
      */
     private static void pageButton(
             final MenuTitle.Canvas canvas, final int x, final String arrow, final boolean enabled) {
@@ -270,7 +265,7 @@ public final class ObjectivePanel {
     /** The slots one card covers: four columns on each of its two rows. */
     public static List<Integer> slotsOf(final int index) {
         final int firstColumn = index % 2 == 0 ? 0 : 5;
-        final int upper = CARD_ROW[index / 2];
+        final int upper = CARD_ROW.get(index / 2);
         final List<Integer> slots = new java.util.ArrayList<>(8);
         for (int row = upper; row <= upper + 1; row++) {
             for (int column = firstColumn; column < firstColumn + 4; column++) {

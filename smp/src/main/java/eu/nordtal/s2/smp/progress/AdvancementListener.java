@@ -7,6 +7,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.aura.AuraReason;
+import eu.nordtal.s2.smp.config.AdvancementAwardSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -25,15 +26,14 @@ import org.bukkit.plugin.Plugin;
 /**
  * Advancements, which do two separate things in this design and are easy to confuse.
  *
- * <ul>
- *   <li><b>An {@code ADVANCEMENT} objective</b> counts how many distinct players have earned a given
- *       advancement. Each player contributes 1, once.</li>
- *   <li><b>The advancement awards</b> in {@code config.yml} pay a player 2-10 aura for a curated
- *       list of achievements, and have nothing to do with the track.</li>
- * </ul>
+ * - <b>An {@code ADVANCEMENT} objective</b> counts how many distinct players have earned a given advancement. Each
+ *   player contributes 1, once.
  *
- * <p>One event feeds both, which is why they are in one listener - and why the two are spelled out
- * above, because a reader who conflates them will eventually make one pay twice.
+ * - <b>The advancement awards</b> in {@code config.yml} pay a player 2-10 aura for a curated list of achievements,
+ *   and have nothing to do with the track.
+ *
+ * One event feeds both, which is why they are in one listener - and why the two are spelled out above, because a
+ * reader who conflates them will eventually make one pay twice.
  */
 public final class AdvancementListener implements Listener {
 
@@ -64,7 +64,7 @@ public final class AdvancementListener implements Listener {
         this.messages = messages;
         this.locales = locales;
         this.sounds = sounds;
-        for (final SmpSpec.AdvancementAwardSpec award : config.advancementAwards()) {
+        for (final AdvancementAwardSpec award : config.advancementAwards()) {
             awards.put(award.advancement().toLowerCase(Locale.ROOT), award.aura());
         }
     }
@@ -74,8 +74,7 @@ public final class AdvancementListener implements Listener {
         final Player player = event.getPlayer();
         final String key = event.getAdvancement().getKey().toString().toLowerCase(Locale.ROOT);
 
-        // Recipes are advancements too, and there are hundreds of them. Nobody is being paid for
-        // unlocking the recipe for a wooden pickaxe.
+        // Recipes are advancements too, and there are hundreds; nobody gets paid for unlocking a wooden pickaxe recipe.
         if (key.contains("/recipes/")) {
             return;
         }
@@ -100,8 +99,7 @@ public final class AdvancementListener implements Listener {
                     }
                 });
             }
-            // An ADVANCEMENT objective is keyed by the advancement it wants, so the key is the
-            // lookup. One player, one credit - the objective's target is a headcount.
+            // An ADVANCEMENT objective is keyed by the advancement it wants.
             engine.credit(discordId.get(), objectiveKey, 1L, player.getUniqueId());
         });
     }

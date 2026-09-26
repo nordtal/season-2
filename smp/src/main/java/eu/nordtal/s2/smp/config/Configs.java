@@ -14,30 +14,28 @@ import java.nio.file.Path;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 /**
- * Where {@code smp}'s config files live, and every rule about what a valid value is.
+ * Where {@code smp} 's config files live, and every rule about what a valid value is.
  *
- * <p>Four files, each with its own environment namespace, in the shape every other module in this
- * repository uses: {@code config.yml} for the settings, {@code database.yml} for the connection,
- * {@code milestones.yml} for the track and {@code sounds.yml} for the feedback sounds.
+ * Four files, each with its own environment namespace, in the shape every other module in this repository uses:
+ * {@code config.yml} for the settings, {@code database.yml} for the connection, {@code milestones.yml} for the track
+ * and {@code sounds.yml} for the feedback sounds.
  *
- * <p>The track and the sounds are their own files because both are edited while players are
- * online: {@code /smp reload} re-reads either without touching a duel loadout, a world name or a
- * database password, none of which the plugin would notice changing - it binds them once at enable.
+ * The track and the sounds are their own files because both are edited while players are online: {@code /smp reload}
+ * re-reads either without touching a duel loadout, a world name or a database password, none of which the plugin
+ * would notice changing - it binds them once at enable.
  */
 public final class Configs {
 
     private Configs() {}
 
-    public static @NotNull ConfigHandle<SmpSpec> load(final Path dataFolder, final Logger logger)
-            throws ConfigException {
+    public static ConfigHandle<SmpSpec> load(final Path dataFolder, final Logger logger) throws ConfigException {
         return load(dataFolder, logger, "config", SmpSpec.class, "NORDTAL_SMP", Configs::validate, true);
     }
 
-    public static @NotNull ConfigHandle<DatabaseSpec> database(final Path dataFolder, final Logger logger)
+    public static ConfigHandle<DatabaseSpec> database(final Path dataFolder, final Logger logger)
             throws ConfigException {
         return load(
                 dataFolder,
@@ -61,12 +59,12 @@ public final class Configs {
     /**
      * Loads the track.
      *
-     * <p>Only the <em>structure</em> is validated here, by {@link Milestones#read}. Whether an item
-     * name, a statistic or an advancement exists is not checked: that needs an initialised Bukkit
-     * registry, so the plugin binds them at enable instead. Comparing the track to stored progress
-     * is {@code TrackValidation}'s job and needs a database this method must not open.
+     * Only the <em>structure</em> is validated here, by {@link Milestones#read}. Whether an item name, a
+     * statistic or an advancement exists is not checked: that needs an initialised Bukkit registry, so the
+     * plugin binds them at enable instead. Comparing the track to stored progress is {@code TrackValidation}'s
+     * job and needs a database this method must not open.
      */
-    public static @NotNull ConfigHandle<MilestonesSpec> milestones(final Path dataFolder, final Logger logger)
+    public static ConfigHandle<MilestonesSpec> milestones(final Path dataFolder, final Logger logger)
             throws ConfigException {
         return load(
                 dataFolder,
@@ -86,34 +84,30 @@ public final class Configs {
     /**
      * Loads the sounds.
      *
-     * <p><b>No validator.</b> Every rule about a sound is enforced in {@code FeedbackSounds}, and
-     * each corrects or silences rather than refusing: a typo in a chime must not take a season
-     * offline.
+     * <b>No validator.</b> Every rule about a sound is enforced in {@code FeedbackSounds}, and each corrects or
+     * silences rather than refusing: a typo in a chime must not take a season offline.
      */
-    public static @NotNull ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger)
-            throws ConfigException {
+    public static ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger) throws ConfigException {
         return load(dataFolder, logger, "sounds", SoundsSpec.class, "NORDTAL_SMP_SOUNDS", config -> {}, false);
     }
 
     /**
-     * Loads the tone colours (season-2-ingame/22).
+     * Loads the tone colours.
      *
-     * <p><b>No validator.</b> {@code ToneColours#parse} is where a bad hex value is caught, and it
-     * corrects rather than refuses: a typo in a colour is not worth a season offline, the same rule
-     * {@link #sounds} follows for a bad sound key.
+     * <b>No validator.</b> {@code ToneColours#parse} is where a bad hex value is caught, and it corrects rather than
+     * refuses: a typo in a colour is not worth a season offline, the same rule {@link #sounds} follows for a bad sound
+     * key.
      */
-    public static @NotNull ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger)
-            throws ConfigException {
+    public static ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger) throws ConfigException {
         return load(dataFolder, logger, "colours", ColoursSpec.class, "NORDTAL_SMP_COLOURS", config -> {}, false);
     }
 
     /**
-     * {@code ColoursSpec}'s five accessors, as the map {@link eu.nordtal.s2.common.message.ToneColours}
-     * parses.
+     * {@code ColoursSpec} 's five accessors, as the map {@link eu.nordtal.s2.common.message.ToneColours} parses.
      *
-     * <p>An exhaustive {@code switch} with no {@code default}, the same guard {@code SmpSounds}'
-     * {@code specOf} uses for {@code Feedback}: a sixth {@link Tone} stops this compiling until
-     * somebody says what its colour is called, rather than silently leaving it unpainted.
+     * An exhaustive {@code switch} with no {@code default}, the same guard {@code SmpSounds} ' {@code specOf} uses for
+     * {@code Feedback}: a sixth {@link Tone} stops this compiling until somebody says what its colour is called, rather
+     * than silently leaving it unpainted.
      */
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
@@ -132,15 +126,14 @@ public final class Configs {
     }
 
     /**
-     * Loads the crest ladder - hours and colours in one file (steward/130).
+     * Loads the crest ladder - hours and colours in one file.
      *
-     * <p><b>The validator is only about the hours.</b> {@code PrestigeColours#parse} is where a bad
-     * hex value is caught, and it corrects rather than refuses - the same rule {@link #colours}
-     * follows for the tone palette. A bad hour is not that: {@link Prestige}'s constructor is the
-     * whole rule, and running it here is what makes a ladder that does not rise stop the load
-     * rather than the first render.</p>
+     * <b>The validator is only about the hours.</b> {@code PrestigeColours#parse} is where a bad hex value is caught,
+     * and it corrects rather than refuses - the same rule {@link #colours} follows for the tone palette. A bad hour is
+     * not that: {@link Prestige} 's constructor is the whole rule, and running it here is what makes a ladder that does
+     * not rise stop the load rather than the first render.
      */
-    public static @NotNull ConfigHandle<PrestigeSpec> prestige(final Path dataFolder, final Logger logger)
+    public static ConfigHandle<PrestigeSpec> prestige(final Path dataFolder, final Logger logger)
             throws ConfigException {
         return load(
                 dataFolder,
@@ -153,8 +146,9 @@ public final class Configs {
     }
 
     /**
-     * {@code PrestigeSpec.TierColoursSpec}'s thirteen accessors, in tier order, as
-     * {@link eu.nordtal.s2.smp.prestige.PrestigeColours#parse} takes them.
+     * The thirteen tier colours, in tier order.
+     *
+     * What {@link eu.nordtal.s2.smp.prestige.PrestigeColours#parse} takes.
      */
     public static List<String> declaredPrestigeTiers(final PrestigeSpec spec) {
         final PrestigeSpec.TierColoursSpec tiers = spec.colours();
@@ -177,9 +171,9 @@ public final class Configs {
     /**
      * The same thirteen keys of the other block, in the same order, as {@link Prestige} takes them.
      *
-     * <p>Two methods rather than one pair-returning method because the two halves are consumed by
-     * two different objects at two different moments; what keeps them aligned is that both walk
-     * {@code tier01..tier13}, which is the same contract the file's own header states.</p>
+     * Two methods rather than one pair-returning method because the two halves are consumed by two different
+     * objects at two different moments; what keeps them aligned is that both walk {@code tier01..tier13}, which
+     * is the same contract the file's own header states.
      */
     public static List<Integer> declaredPrestigeHours(final PrestigeSpec spec) {
         final PrestigeSpec.TierHoursSpec tiers = spec.hours();
@@ -200,13 +194,10 @@ public final class Configs {
     }
 
     private static void validate(final SmpSpec config) {
+        // Whether the world exists is checked once at enable instead, after Worlds#bootstrap creates it.
         requireText("world-nordtal", config.worldNordtal());
-        // Only that it names something. Whether that world EXISTS cannot be answered here - the
-        // config is read before Worlds#bootstrap creates the two that are not Nordtal - so
-        // SmpPlugin checks it once at enable and warns, and SeasonWelcome skips the teleport.
         requireText("first-join-spawn: world", config.firstJoinSpawn().world());
-        // Zero or negative here would not disable the watcher - AdminWatch floors the timer at
-        // one second - so it would quietly become a query per second for the life of the season.
+        // AdminWatch floors this at one second, so a non-positive value silently becomes a query per second.
         requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
         requirePositive("nether-border-diameter", config.netherBorderDiameter());
         requirePositive("end-border-diameter", config.endBorderDiameter());
@@ -221,16 +212,21 @@ public final class Configs {
             throw new IllegalArgumentException("duel-stake must not be negative");
         }
         if (config.graveMaxAgeHours() < 0) {
-            // Zero is a real answer here and means "never decays", so it cannot double as the
-            // error case. A negative age is somebody meaning something by it and getting it
-            // wrong, and turning decay off silently is the worst of the three readings.
+            // Zero is a real answer here - it means "never decays" - so it cannot double as the error case.
             throw new IllegalArgumentException(
                     "grave-max-age-hours must not be negative. 0 is how decay is turned off; a "
                             + "negative number is not a shorter way of saying that");
         }
         requirePositive("concurrent-duel-limit", config.concurrentDuelLimit());
 
-        for (final SmpSpec.AdvancementAwardSpec award : config.advancementAwards()) {
+        validateAdvancementAwards(config);
+        validateWheelPrizes(config);
+        validateBoards(config);
+        validateSpawnRegions(config);
+    }
+
+    private static void validateAdvancementAwards(final SmpSpec config) {
+        for (final AdvancementAwardSpec award : config.advancementAwards()) {
             if (award.advancement() == null || award.advancement().isBlank()) {
                 throw new IllegalArgumentException("advancement-awards: every entry needs an advancement");
             }
@@ -241,18 +237,22 @@ public final class Configs {
                                 + "a whole objective");
             }
         }
+    }
 
+    private static void validateWheelPrizes(final SmpSpec config) {
         if (config.wheelPrizes() == null || config.wheelPrizes().isEmpty()) {
             throw new IllegalArgumentException(
                     "wheel-prizes must not be empty; the wheel has to have " + "something to land on");
         }
-        for (final SmpSpec.WheelPrizeSpec prize : config.wheelPrizes()) {
+        for (final WheelPrizeSpec prize : config.wheelPrizes()) {
             requireText("wheel-prizes: item", prize.item());
             requirePositive("wheel-prizes: weight for '" + prize.item() + "'", prize.weight());
             requirePositive("wheel-prizes: amount for '" + prize.item() + "'", prize.amount());
         }
+    }
 
-        for (final SmpSpec.BoardSpec board : config.boards()) {
+    private static void validateBoards(final SmpSpec config) {
+        for (final BoardSpec board : config.boards()) {
             requireText("boards: world", board.world());
             if (board.width() < BoardFrame.MIN_WIDTH || board.width() > BoardFrame.MAX_WIDTH) {
                 throw new IllegalArgumentException(
@@ -262,8 +262,10 @@ public final class Configs {
                                 + "the first render rather than here");
             }
         }
+    }
 
-        for (final SmpSpec.SpawnRegionSpec region : config.spawnRegions()) {
+    private static void validateSpawnRegions(final SmpSpec config) {
+        for (final SpawnRegionSpec region : config.spawnRegions()) {
             requireText("spawn-regions: world", region.world());
             if (region.maxX() < region.minX() || region.maxY() < region.minY() || region.maxZ() < region.minZ()) {
                 throw new IllegalArgumentException("spawn-regions: the box in '" + region.world()
@@ -290,11 +292,7 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            // Only `config.yml` earns the loud line: it is the one that names worlds and
-            // coordinates, and its defaults really are placeholders. `sounds.yml`, `colours.yml`
-            // and `database.yml` ship defaults that are correct as written, and warning about them
-            // trains an operator to read every WARN from this plugin as noise - which is the one
-            // thing the loud line cannot afford, because it is the one that is true.
+            // Only config.yml's defaults are placeholders; warning about the rest trains operators to ignore WARN.
             if (defaultsArePlaceholders) {
                 logger.warn(
                         "No config existed at {} - defaults were written and are almost "
@@ -313,10 +311,11 @@ public final class Configs {
     }
 
     /**
-     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, so
-     * steward-worker can warn that editing an overridden setting there has no effect until the
-     * variable is removed (steward/76). Best-effort: this is a UI nicety, not a reason for a
-     * correctly loaded config to refuse to enable the plugin.
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file.
+     *
+     * Lets steward-worker warn that editing an overridden setting there has no effect until the variable is
+     * removed. Best-effort: this is a UI nicety, not a reason for a correctly loaded config to refuse to enable
+     * the plugin.
      */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {

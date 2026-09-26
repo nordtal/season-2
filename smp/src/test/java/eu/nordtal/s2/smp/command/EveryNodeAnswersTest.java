@@ -9,42 +9,35 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * That every node of this plugin's two hand-built command trees can be typed on its own.
  *
- * <p>A Brigadier node with children and no {@code executes} parses nothing by itself, and Paper
- * answers that with the same line a typo gets - so a bare {@code /poi} told the player a command
- * their own tab completion had just offered them did not exist. These two trees are built by hand,
- * outside the path that supplies that answer automatically, so the check is on the shape of the
- * tree rather than on the wording of a message.
+ * A Brigadier node with children and no {@code executes} parses nothing by itself, and Paper answers that with the
+ * same line a typo gets - so a bare {@code /poi} told the player a command their own tab completion had just offered
+ * them did not exist. These two trees are built by hand, outside the path that supplies that answer automatically,
+ * so the check is on the shape of the tree rather than on the wording of a message.
  *
- * <p>Nothing is executed and no server is involved, which is why the constructor arguments can be
- * null here.
+ * Nothing is executed and no server is involved, which is why the constructor arguments can be null here.
  */
 class EveryNodeAnswersTest {
 
     private final NavigateCommand commands = new NavigateCommand(null, null, null, null, null, null, null, null);
 
     @Test
-    @DisplayName("/poi answers at every depth, bare root and bare subcommand included")
     void poi() {
         assertEveryNodeAnswers(commands.poi());
     }
 
     @Test
-    @DisplayName("/navigate answers")
     void navigate() {
         assertEveryNodeAnswers(commands.navigate());
     }
 
     @Test
-    @DisplayName("the tree still carries the two subcommands the help promises")
     void theHelpAndTheTreeAgree() {
-        // The enum drives both, so this only has to catch a subcommand hung on the tree by hand
-        // next to the pair rather than through it - which would be a branch the help never names.
+        // The enum drives both, so this only catches a subcommand hung on the tree by hand, a branch help never names.
         final List<String> literals = new ArrayList<>();
         commands.poi().getChildren().forEach(child -> literals.add(child.getName()));
         assertTrue(
@@ -54,13 +47,8 @@ class EveryNodeAnswersTest {
     }
 
     @Test
-    @DisplayName("everything /poi's help says is a message key that resolves, in both languages")
     void theHelpSaysWordsAndNotKeys() {
-        // The same three roots in the same order SmpPlugin loads them: the format keys come from
-        // :commands and the two explanations from this module's own bundle, so an answer that is
-        // half raw keys is exactly what a test on one bundle alone would miss. Messages degrades
-        // to the key rather than throwing, which is the right runtime behaviour and the reason
-        // this has to fail here instead.
+        // The same three roots SmpPlugin loads in the same order; Messages degrades to the key rather than throwing.
         final Messages messages = Messages.load(
                 EveryNodeAnswersTest.class.getClassLoader(),
                 List.of("messages/paper-common", "messages/commands", "messages/smp"),

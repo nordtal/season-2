@@ -31,18 +31,16 @@ import org.bukkit.plugin.Plugin;
 /**
  * What happens when somebody dies, and what happens when somebody opens what they left.
  *
- * <p>Two things at once, and they are separate rules that happen to share an event:
+ * Two things at once, and they are separate rules that happen to share an event:
  *
- * <ul>
- *   <li><b>The inventory becomes a grave.</b> Keep-inventory is off and the drops are taken here
- *       instead, so nothing scatters and nothing burns.</li>
- *   <li><b>The death costs aura</b> - five ordinarily, twenty for a listed cause, and <b>nothing at
- *       all in the duel arena</b>, where the ±10 stake is the whole of what was at risk.</li>
- * </ul>
+ * - <b>The inventory becomes a grave.</b> Keep-inventory is off and the drops are taken here instead, so nothing
+ *   scatters and nothing burns.
  *
- * <p>The arena exception is passed in as a predicate rather than looked up, so this listener does
- * not need to know that duels exist - which is also what lets the arena rule be tested by handing it
- * a lambda.
+ * - <b>The death costs aura</b> - five ordinarily, twenty for a listed cause, and <b>nothing at all in the duel
+ *   arena</b>, where the ±10 stake is the whole of what was at risk.
+ *
+ * The arena exception is passed in as a predicate rather than looked up, so this listener does not need to know that
+ * duels exist - which is also what lets the arena rule be tested by handing it a lambda.
  */
 public final class GraveListener implements Listener {
 
@@ -81,13 +79,12 @@ public final class GraveListener implements Listener {
     public void onDeath(final PlayerDeathEvent event) {
         final Player player = event.getEntity();
         if (inArena.test(player)) {
-            // The arena keeps its own inventory and its own consequences. The one place with no
-            // grave, because nothing real was ever at stake.
+            // The arena keeps its own inventory and consequences.
             return;
         }
 
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
-        final Location at = player.getLocation();
+        final Location at = java.util.Objects.requireNonNull(player.getLocation());
         final List<ItemStack> drops = List.copyOf(event.getDrops());
         final int experience = event.getDroppedExp();
 
@@ -95,8 +92,7 @@ public final class GraveListener implements Listener {
         event.setDroppedExp(0);
 
         if (discordId.isEmpty()) {
-            // No account to hang a grave off. Give the items straight back rather than destroying
-            // them - somebody is already in a bad state and this must not make it worse.
+            // No account to hang a grave off; give the items straight back rather than destroy them.
             event.getDrops().addAll(drops);
             event.setDroppedExp(experience);
             return;
@@ -150,13 +146,13 @@ public final class GraveListener implements Listener {
     /**
      * A click inside a grave window.
      *
-     * <p>The content rows are deliberately free - taking things out is the whole point - so this
-     * only stands between a player and the footer, which is furniture and one button. Without it a
-     * shift-click or a pickup on the footer would move a head or a blank into somebody's inventory
-     * and, worse, leave an item in a slot nothing writes back. The head is a real item and it is
-     * still not clickable: since season-2-ingame/14, 2026-09-18, an emptied grave hands it over on
-     * close, so there is no gesture for it at all and its cell stays cancelled like every other
-     * piece of footer furniture.</p>
+     * The content rows are deliberately free - taking things out is the whole point - so this only stands between a
+     * player and the footer, which is furniture and one button. Without it a shift-click or a pickup on the footer
+     * would
+     * move a head or a blank into somebody's inventory and, worse, leave an item in a slot nothing writes back. The
+     * head
+     * is a real item and it is still not clickable: an emptied grave hands it over on close, so there is no gesture for
+     * it at all and its cell stays cancelled like every other piece of footer furniture.
      */
     @EventHandler
     public void onClick(final org.bukkit.event.inventory.InventoryClickEvent event) {

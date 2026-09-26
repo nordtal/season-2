@@ -3,11 +3,11 @@ package eu.nordtal.s2.smp.milestone;
 import java.util.Optional;
 
 /**
- * Where one milestone stands, mirroring {@code smp_milestone.state}'s CHECK constraint.
+ * Where one milestone stands, mirroring {@code smp_milestone.state} 's CHECK constraint.
  *
- * <p>Exactly one milestone is {@link #ACTIVE} at a time. That is a rule of the engine rather than
- * of the schema - {@code V6__smp.sql} says so in its own comment - because a partial unique index
- * would also have to survive the moment between unlocking one milestone and activating the next.
+ * Exactly one milestone is {@link #ACTIVE} at a time. That is a rule of the engine rather than of the schema -
+ * {@code V6__smp.sql} says so in its own comment - because a partial unique index would also have to survive the
+ * moment between unlocking one milestone and activating the next.
  */
 public enum MilestoneState {
 

@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Who is navigating where, and - more importantly - who has stopped.
  *
- * <p>{@code /navigate} is off by default and switched on deliberately, so "nobody is navigating" is
- * the normal state rather than a missing value, and HUD line 2 exists only while it is not.
+ * {@code /navigate} is off by default and switched on deliberately, so "nobody is navigating" is the normal state
+ * rather than a missing value, and HUD line 2 exists only while it is not.
  */
 class NavigationTest {
 
@@ -37,8 +37,9 @@ class NavigationTest {
     }
 
     /**
-     * A POI that is deleted takes every arrow pointing into its world with it. An arrow that
-     * outlived its target would still point confidently at something that no longer exists.
+     * A POI that is deleted takes every arrow pointing into its world with it.
+     *
+     * An arrow that outlived its target would still point confidently at something that no longer exists.
      */
     @Test
     void clearingAWorldDropsOnlyTheTargetsInIt() {

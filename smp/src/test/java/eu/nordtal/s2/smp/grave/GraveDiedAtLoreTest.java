@@ -7,17 +7,15 @@ import eu.nordtal.s2.common.message.Messages;
 import java.util.Locale;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The grave head's lore, since season-2-ingame/14 (2026-09-17 triage round): Till asked for
- * "Died dd/mm/yyyy at x y z" instead of the old "whoever empties this gets the experience" hint.
+ * The grave head's lore prints "Died dd/mm/yyyy at x y z".
  *
- * <p>This holds the rendered text in both languages against the real {@code messages/smp} bundle,
- * the same way {@link eu.nordtal.s2.smp.MessageBundlesTest} holds the wheel's prize line - there is
- * no running Paper server in this module's tests, so {@code Graves#head} itself (which needs a live
- * {@code SkullMeta}) cannot be exercised directly; the bundle key it renders through can be.
+ * This holds the rendered text in both languages against the real {@code messages/smp} bundle, the same way
+ * {@link eu.nordtal.s2.smp.MessageBundlesTest} holds the wheel's prize line - there is no running Paper server in
+ * this module's tests, so {@code Graves#head} itself (which needs a live {@code SkullMeta}) cannot be exercised
+ * directly; the bundle key it renders through can be.
  */
 class GraveDiedAtLoreTest {
 
@@ -26,7 +24,6 @@ class GraveDiedAtLoreTest {
     private static final MessageRenderer RENDERER = MessageRenderer.of(MESSAGES);
 
     @Test
-    @DisplayName("the grave head names the date and the coordinates, in English")
     void english() {
         assertEquals(
                 "Died 17/09/2026 at 100 64 -200",
@@ -35,7 +32,6 @@ class GraveDiedAtLoreTest {
     }
 
     @Test
-    @DisplayName("the grave head names the date and the coordinates, in German")
     void german() {
         assertEquals(
                 "Gestorben am 17/09/2026 bei 100 64 -200",
@@ -43,12 +39,8 @@ class GraveDiedAtLoreTest {
                         Locale.GERMAN, "smp.grave.died-at", "date", "17/09/2026", "x", 100, "y", 64, "z", -200)));
     }
 
-    /**
-     * The old hint is REPLACED, not kept alongside the new line - Till says "nicht ... sondern",
-     * not "zusätzlich" - so the key it lived under must be gone, not merely unused.
-     */
+    /** The old hint key is replaced, not kept alongside the new line: it must be gone, not merely unused. */
     @Test
-    @DisplayName("the old owner-hint key is gone, not just unused")
     void theOldHintKeyIsGone() {
         assertEquals(
                 java.util.Set.of(),

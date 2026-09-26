@@ -16,15 +16,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * One row per language, in the shape the bot's inbox decodes, rendered from the real bundle.
  *
- * <p>What this pins is the seam: the SMP writes {@code announce de <text>} and the bot reads it
- * back through {@code RequestArguments#decode}. A row the decoder refuses is a row that settles as
- * FAILED in a table nobody watches, so the encoding is asserted by decoding it here.</p>
+ * What this pins is the seam: the SMP writes {@code announce de <text>} and the bot reads it back through
+ * {@code RequestArguments#decode}. A row the decoder refuses is a row that settles as FAILED in a table nobody
+ * watches, so the encoding is asserted by decoding it here.
  */
 class AnnouncerTest {
 
@@ -45,10 +44,12 @@ class AnnouncerTest {
         }
 
         /**
-         * Not this surface's. The SMP writes announcements, and an announcement is not an admin
-         * action anybody audits - there is no journal line to write beside it. Refusing loudly
-         * rather than delegating keeps that true: if something here ever starts journalling, this
-         * fake must be told what to do with the line rather than silently dropping it.
+         * Not this surface's.
+         *
+         * The SMP writes announcements, and an announcement is not an admin action anybody audits - there is no
+         * journal line to write beside it. Refusing loudly rather than delegating keeps that true: if something
+         * here ever starts journalling, this fake must be told what to do with the line rather than silently
+         * dropping it.
          */
         @Override
         public long submit(final NewCommandRequest request, final AuditLine journal) {
@@ -84,7 +85,6 @@ class AnnouncerTest {
     }
 
     @Test
-    @DisplayName("a milestone is announced once per language, rendered in that language")
     void oneRowPerLanguage() {
         final Rows rows = new Rows();
         final List<String> warnings = new ArrayList<>();
@@ -117,7 +117,6 @@ class AnnouncerTest {
     }
 
     @Test
-    @DisplayName("a database that refuses the row is a warning, once per language, and nothing else")
     void aRefusedRowIsAWarning() {
         final Rows rows = new Rows();
         rows.refuse = new IllegalStateException("pool exhausted");

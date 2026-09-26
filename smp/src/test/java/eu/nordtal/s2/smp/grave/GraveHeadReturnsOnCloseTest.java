@@ -8,30 +8,28 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The head is not loot any more: an emptied grave hands it over on close, by itself.
+ * The head is not loot: an emptied grave hands it over on close, by itself.
  *
- * <h2>What Till asked for</h2>
- * season-2-ingame/14, 2026-09-18: with every item taken out, closing the window must put the head
- * into the player's inventory - dropped if it does not fit - and the grave must go. The head itself
- * is not something anybody picks up; pressing "take everything" a second time just to collect it is
- * exactly the step that falls away. That reverses the half of season-2-ingame/21 which had made the
- * head a loot item, and the reversal is on request.
+ * <b>What this guarantees</b>
  *
- * <h2>Why a text search, again</h2>
- * The same reason {@link OneGraveOneWindowTest} gives: a grave being emptied is a server, a client
- * and an inventory of slots, and none of the three exists in a unit test here. What can be held is
- * the shape - which method reads the head slot, and what the emptiness decision is made of.
+ * With every item taken out, closing the window puts the head into the player's inventory - dropped if it does not
+ * fit - and the grave goes. The head itself is not something anybody picks up; pressing "take everything" a second
+ * time just to collect it is exactly the step that does not happen.
+ *
+ * <b>Why a text search, again</b>
+ *
+ * The same reason {@link OneGraveOneWindowTest} gives: a grave being emptied is a server, a client and an inventory
+ * of slots, and none of the three exists in a unit test here. What can be held is the shape - which method reads the
+ * head slot, and what the emptiness decision is made of.
  */
 class GraveHeadReturnsOnCloseTest {
 
     private static final String SOURCE = "smp/src/main/java/eu/nordtal/s2/smp/grave/Graves.java";
 
     @Test
-    @DisplayName("the take-everything button no longer hands out the head")
     void takeAllLeavesTheHeadAlone() {
         final String takeAll = body("private void takeAll(");
 
@@ -42,7 +40,6 @@ class GraveHeadReturnsOnCloseTest {
     }
 
     @Test
-    @DisplayName("a grave counts as empty on its content alone, with the head still in the footer")
     void emptinessIsAboutTheContent() {
         final String settle = body("private void settle(");
 
@@ -50,19 +47,20 @@ class GraveHeadReturnsOnCloseTest {
                 settle.contains("headGone"),
                 "a grave whose content slots are empty is finished; requiring the head to be gone"
                         + " too is what made a second press necessary");
-        assertTrue(
-                settle.contains("final boolean empty = contentGone;"),
-                "the emptiness decision is the content and nothing else");
+        assertTrue(settle.contains("if (!contentGone) {"), "the emptiness decision is the content and nothing else");
     }
 
     @Test
-    @DisplayName("finishing a grave puts the head into the closing player's inventory, or on the floor")
     void theHeadComesBackOnClose() {
         final String settle = body("private void settle(");
-        final int reads = settle.indexOf("GravePanel.headSlot(");
+        assertTrue(
+                settle.contains("returnHeadToPlayer(inventory, player);"),
+                "settle no longer hands the head back when an emptied grave is closed");
+        final String returnHead = body("private void returnHeadToPlayer(");
+        final int reads = returnHead.indexOf("GravePanel.headSlot(");
 
-        assertTrue(reads >= 0, "settle is the one place that takes the head out of the window");
-        final String handOut = settle.substring(reads);
+        assertTrue(reads >= 0, "returnHeadToPlayer is the one place that takes the head out of the window");
+        final String handOut = returnHead.substring(reads);
         assertTrue(
                 handOut.contains("player.getInventory().addItem("),
                 "the head goes into the inventory of whoever closed the emptied grave");
@@ -92,8 +90,11 @@ class GraveHeadReturnsOnCloseTest {
         return Math.min(privateAt, publicAt);
     }
 
-    /** The same upward search {@link OneGraveOneWindowTest} uses: the working directory of a test
-     *  is the module, and the path above is written from the repository root. */
+    /**
+     * The same upward search {@link OneGraveOneWindowTest} uses.
+     *
+     * The working directory of a test is the module, and the path above is written from the repository root.
+     */
     private static String read() {
         try {
             Path candidate = Path.of("").toAbsolutePath();

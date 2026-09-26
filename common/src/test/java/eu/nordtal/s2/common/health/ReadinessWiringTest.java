@@ -62,7 +62,9 @@ class ReadinessWiringTest {
     @Test
     void aPaperPluginStartsItsHeartbeatBelowEveryRefusalAndOffTheMainThread() throws IOException {
         for (final String relative : PAPER_PLUGINS) {
-            final String text = read(relative);
+            final String file = read(relative);
+            // Only the method that starts the heartbeat: its refusals, or the calls that can refuse, must come first.
+            final String text = enclosingMethod(file, file.indexOf("startHeartbeat();"));
 
             final int lastRefusal = lastRefusal(text);
             final int heartbeat = text.indexOf("startHeartbeat();");
@@ -79,7 +81,7 @@ class ReadinessWiringTest {
                             + " make visible.");
 
             assertTrue(
-                    text.contains("runTaskTimerAsynchronously(this, readiness::refresh"),
+                    file.contains("runTaskTimerAsynchronously(this, readiness::refresh"),
                     relative + " does not beat on Bukkit's ASYNC scheduler. Two things break at"
                             + " once: a file write moves onto the main thread, and a server frozen"
                             + " mid-tick keeps beating from a thread the freeze does not touch.");
@@ -164,6 +166,21 @@ class ReadinessWiringTest {
         final Path source = repositoryRoot().resolve(relative);
         assertTrue(Files.isRegularFile(source), source + " is not where this test expects it");
         return joined(Files.readString(source, StandardCharsets.UTF_8));
+    }
+
+    /** The method around a position: from the member declaration above it to the next one below it. */
+    private static String enclosingMethod(final String text, final int at) {
+        if (at < 0) {
+            return text;
+        }
+        final int from = Math.max(
+                Math.max(text.lastIndexOf("\n    private ", at), text.lastIndexOf("\n    public ", at)),
+                text.lastIndexOf("\n    @Override", at));
+        final int nextPrivate = text.indexOf("\n    private ", at);
+        final int nextPublic = text.indexOf("\n    public ", at);
+        final int to =
+                Math.min(nextPrivate < 0 ? text.length() : nextPrivate, nextPublic < 0 ? text.length() : nextPublic);
+        return text.substring(Math.max(from, 0), to);
     }
 
     /**

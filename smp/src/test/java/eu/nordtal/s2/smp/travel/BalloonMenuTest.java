@@ -9,19 +9,15 @@ import eu.nordtal.s2.smp.world.WorldRole;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The balloon's grid as a table, which is what it is.
  *
- * <p>Since 2026-09-05 the rule is that every world has the same card at every balloon and the
- * world the player stands in is marked rather than moved. This is the test that says so, and that
- * the twelve slots under a card are the twelve the panel draws it over.
+ * Every world has the same card at every balloon, and the world the player stands in is marked rather than moved.
+ * This is the test that says so, and that the twelve slots under a card are the twelve the panel draws it over.
  *
- * <p>There were four cards until 2026-09-20 and the grid was full; the farm world went with
- * season-2-ingame/30 and the bottom right is a hole now. That is the one thing this file gained
- * rather than lost: a click into the hole has to hit nothing, exactly like a click into the gap
+ * The grid has a hole at the bottom right: a click there has to hit nothing, exactly like a click into the gap
  * column, and nothing else proves it.
  */
 class BalloonMenuTest {
@@ -33,7 +29,6 @@ class BalloonMenuTest {
     private static final List<WorldRole> BALLOONS = List.of(WorldRole.NORDTAL, WorldRole.NETHER);
 
     @Test
-    @DisplayName("the three cards are in the same places at every balloon")
     void theCardsNeverMove() {
         for (final WorldRole here : BALLOONS) {
             final List<BalloonMenu.Entry> entries = BalloonMenu.of(here, BOTH);
@@ -51,7 +46,6 @@ class BalloonMenuTest {
     }
 
     @Test
-    @DisplayName("a card covers three rows of four slots, and column 4 is the gap")
     void aCardCoversTwelveSlots() {
         for (final BalloonMenu.Entry entry : BalloonMenu.of(WorldRole.NORDTAL, BOTH)) {
             assertEquals(
@@ -66,7 +60,6 @@ class BalloonMenuTest {
     }
 
     @Test
-    @DisplayName("the world you are in is shown, marked, and not travellable")
     void theWorldYouAreInIsHere() {
         for (final WorldRole here : BALLOONS) {
             final List<BalloonMenu.Entry> entries = BalloonMenu.of(here, BOTH);
@@ -99,7 +92,6 @@ class BalloonMenuTest {
     }
 
     @Test
-    @DisplayName("Nordtal is never locked, wherever the balloon stands")
     void nordtalIsNeverLocked() {
         for (final WorldRole here : BALLOONS) {
             for (final BalloonMenu.Entry entry : BalloonMenu.of(here, NOTHING)) {
@@ -137,7 +129,6 @@ class BalloonMenuTest {
     }
 
     @Test
-    @DisplayName("the empty bottom right belongs to no card either")
     void aClickInTheHoleHitsNothing() {
         final List<BalloonMenu.Entry> entries = BalloonMenu.of(WorldRole.NORDTAL, BOTH);
 

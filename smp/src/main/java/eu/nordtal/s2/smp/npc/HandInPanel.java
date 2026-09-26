@@ -11,31 +11,31 @@ import net.kyori.adventure.text.Component;
 /**
  * Draws the deposit screen: one tray to put things into, and one button that takes them.
  *
- * <h2>What the picture is</h2>
- * Design {@code H2} (owner, 2026-09-08): <b>one large tray</b>, not a recess per slot. The three
- * chest rows a player fills are covered by a single sunken surface at the slot area's own origin,
- * and the row under it carries a sample of what is wanted, how much is still needed, and the
- * confirm button.
+ * <b>What the picture is</b>
  *
- * <h2>Why this is a tray and the grave is not</h2>
- * <b>This difference is deliberate and it is not a tidying opportunity.</b> A tray is a thing you
- * throw into: what matters is that the whole area accepts items, and drawing nine separate cells
- * would suggest the cell you drop into means something, which it does not. A grave is an
- * <em>inventory you take out of</em>, and there the separate cells are the information - they say
- * these are distinct stacks and any one of them may be taken. So {@code GravePanel} draws a recess
- * per slot and this draws one surface, and making the two the same would lose one of the two
- * meanings whichever way it went (owner, 2026-09-08).
+ * Design {@code H2} (owner decision): <b>one large tray</b>, not a recess per slot. The three chest rows a player
+ * fills are covered by a single sunken surface at the slot area's own origin, and the row under it carries a sample
+ * of what is wanted, how much is still needed, and the confirm button.
  *
- * <p>The cost of the tray is a ghost square: vanilla's 16 x 16 hover highlight still snaps to the
- * 18-pixel grid the surface is hiding, so moving the mouse over an empty part of the tray shows a
- * square that is not drawn anywhere. That was the owner's call with the drawing in front of them.
+ * <b>Why this is a tray and the grave is not</b>
  *
- * <h2>What is not here</h2>
- * The artifact's {@code H2} also draws a second button - "collect", which pulls matching items out
- * of the player's own inventory into the tray. That is question <b>E4</b> in the artifact and it is
- * unanswered: it is a new action rather than a new surface, and this pass repaints windows. The
- * space it would occupy is left empty rather than filled with something else, so adding it later is
- * a plate and a slot map and nothing else.
+ * <b>This difference is deliberate and it is not a tidying opportunity.</b> A tray is a thing you throw into: what
+ * matters is that the whole area accepts items, and drawing nine separate cells would suggest the cell you drop into
+ * means something, which it does not. A grave is an <em>inventory you take out of</em>, and there the separate cells
+ * are the information - they say these are distinct stacks and any one of them may be taken. So {@code GravePanel}
+ * draws a recess per slot and this draws one surface, and making the two the same would lose one of the two meanings
+ * whichever way it went (owner decision).
+ *
+ * The cost of the tray is a ghost square: vanilla's 16 x 16 hover highlight still snaps to the 18-pixel grid the
+ * surface is hiding, so moving the mouse over an empty part of the tray shows a square that is not drawn anywhere.
+ * That was the owner's call with the drawing in front of them.
+ *
+ * <b>What is not here</b>
+ *
+ * The artifact's {@code H2} also draws a second button - "collect", which pulls matching items out of the player's
+ * own inventory into the tray. That is question <b>E4</b> in the artifact and it is unanswered: it is a new action
+ * rather than a new surface, and this pass repaints windows. The space it would occupy is left empty rather than
+ * filled with something else, so adding it later is a plate and a slot map and nothing else.
  */
 public final class HandInPanel {
 
@@ -54,10 +54,10 @@ public final class HandInPanel {
     /** Pixels between a piece of furniture and the slot cells that make it clickable. */
     public static final int INSET = 2;
 
-    // --- the tray -------------------------------------------------------------------------
     /**
-     * The tray is drawn from the slot <em>cell's</em> own corner and not inset, because it is the
-     * cells: a tray inset two would leave a two-pixel margin of panel around an area whose whole
+     * The tray is drawn from the slot <em>cell's</em> own corner and not inset.
+     *
+     * Because it is the cells: a tray inset two would leave a two-pixel margin of panel around an area whose whole
      * claim is that it is one surface.
      */
     public static final int TRAY_X = SlotGeometry.ORIGIN_X;
@@ -65,16 +65,16 @@ public final class HandInPanel {
     public static final int TRAY_WIDTH = SlotGeometry.COLUMNS * SlotGeometry.PITCH;
     public static final int TRAY_HEIGHT = DEPOSIT_ROWS * SlotGeometry.PITCH;
 
-    // --- the footer -----------------------------------------------------------------------
     /** The slot holding a real item of the wanted material - a sample, and never takeable. */
     public static final int SAMPLE_SLOT = SlotGeometry.slot(0, FOOTER_ROW);
 
     /**
      * Where "808 left" starts: two pixels into the cell after the sample's.
      *
-     * <p>The same x the grave's experience line uses, and that is the point - these two windows are
-     * the same footer with a different sentence on it, and a label starting eight pixels further
-     * right in one of them is the kind of difference nobody can name but everybody sees.</p>
+     * The same x the grave's experience line uses, and that is the point - these two windows are the same footer with a
+     * different sentence on it, and a label starting eight pixels further right in one of them is the kind of
+     * difference
+     * nobody can name but everybody sees.
      */
     private static final int NEEDED_X = SlotGeometry.x(1) + INSET;
 
@@ -106,8 +106,7 @@ public final class HandInPanel {
         canvas.rowText(MenuFont.fit(needed, CONFIRM_X - 4 - NEEDED_X), FOOTER_ROW, NEEDED_X, MenuPalette.INK);
 
         canvas.rowArt(Glyphs.GUI_ROW_BUTTON_CONFIRM, FOOTER_ROW, CONFIRM_X, null);
-        // Centred on its own plate rather than left-aligned like a row entry's name: this is a
-        // button and its label is its whole content, so anything else reads as a caption beside it.
+        // Centred on its own plate, not left-aligned like a row's name.
         final String label = MenuFont.fit(button, CONFIRM_WIDTH - 6);
         canvas.rowText(label, FOOTER_ROW, CONFIRM_X + (CONFIRM_WIDTH - MenuFont.width(label)) / 2, MenuPalette.INK);
 

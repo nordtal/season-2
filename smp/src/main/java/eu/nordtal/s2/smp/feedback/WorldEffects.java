@@ -1,6 +1,7 @@
 package eu.nordtal.s2.smp.feedback;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
@@ -20,14 +21,13 @@ import org.bukkit.plugin.Plugin;
 /**
  * The one place in {@code smp} that names a particle or spawns a firework.
  *
- * <p>One place so that a call site cannot name its own particle;
- * {@code WorldEffectVocabularyTest} in {@code :common} enforces it. Effects are code while sounds
- * are config because four effects at four call sites would make a config file ceremony rather than
- * compression.
+ * One place so that a call site cannot name its own particle; {@code WorldEffectVocabularyTest} in {@code :common}
+ * enforces it. Effects are code while sounds are config because four effects at four call sites would make a config
+ * file ceremony rather than compression.
  *
- * <p>A rocket carrying explosion effects deals damage where it bursts, whoever launched it, so
- * every rocket spawned here is stamped in its persistent data and {@link #onDamage} refuses damage
- * from a stamped one. Burst height is not a safety measure - a player under a ceiling defeats it.
+ * A rocket carrying explosion effects deals damage where it bursts, whoever launched it, so every rocket spawned
+ * here is stamped in its persistent data and {@link #onDamage} refuses damage from a stamped one. Burst height is
+ * not a safety measure - a player under a ceiling defeats it.
  */
 public final class WorldEffects implements Listener {
 
@@ -40,8 +40,7 @@ public final class WorldEffects implements Listener {
     /**
      * The palette the rockets burst in - the resource pack's own accent and highlight, plus white.
      *
-     * <p>Not random colours: everything else drawn this season comes out of the same two-colour
-     * palette.
+     * Not random colours: everything else drawn this season comes out of the same two-colour palette.
      */
     private static final List<Color> PALETTE = List.of(
             Color.fromRGB(176, 138, 74), // accent
@@ -57,11 +56,11 @@ public final class WorldEffects implements Listener {
     /**
      * A milestone, around one player. Main thread.
      *
-     * <p>Called once per online player rather than once for the server: the point is that it
-     * happens where <em>you</em> are.
+     * Called once per online player rather than once for the server: the point is that it happens where <em>you</em>
+     * are.
      */
     public void celebrate(final Player player) {
-        final Location at = player.getLocation();
+        final Location at = Objects.requireNonNull(player.getLocation());
         for (int i = 0; i < RING_ROCKETS; i++) {
             final double angle = (2 * Math.PI * i) / RING_ROCKETS
                     + ThreadLocalRandom.current().nextDouble(0.6);
@@ -87,9 +86,10 @@ public final class WorldEffects implements Listener {
     /**
      * Nothing this class launched may damage anything.
      *
-     * <p>{@code LOWEST} so that a protection plugin later in the chain sees an already-cancelled
-     * event rather than a live one, and {@code ignoreCancelled} left off because a damage event
-     * somebody else has already cancelled costs nothing to cancel again.
+     * {@code LOWEST} so that a protection plugin later in the chain sees an already-cancelled event rather than a live
+     * one, and {@code ignoreCancelled} left off because a damage event somebody else has already cancelled costs
+     * nothing
+     * to cancel again.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDamage(final EntityDamageByEntityEvent event) {
@@ -108,8 +108,7 @@ public final class WorldEffects implements Listener {
                     .withFade(Color.WHITE)
                     .flicker(true)
                     .build());
-            // One, so it bursts a second or so up rather than out of sight. onDamage, not the
-            // power, is what makes it safe.
+            // One, so it bursts a second up rather than out of sight.
             meta.setPower(1);
             rocket.setFireworkMeta(meta);
             rocket.getPersistentDataContainer().set(celebration, PersistentDataType.BYTE, (byte) 1);

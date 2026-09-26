@@ -16,7 +16,6 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -26,13 +25,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * The milestone state machine against the real {@code smp_milestone_state_check}.
  *
- * <p>Until 2026-09-05 {@code SmpDao#completeMilestone} wrote {@code 'COMPLETE'} - a value V6's CHECK
- * refuses, so every unlock threw - and {@code completedMilestoneKeys()} read the same value back,
- * so it never returned a row. Escape hatch 2 ({@code /smp milestone unlock}) had never worked, the
- * automatic unlock at the end of an objective set would have failed the same way, and the season's
- * list of unlocked milestones was empty by construction. Found by typing the command on the local
- * stack; nothing in memory could have found it, because the value only meets the constraint in a
- * database.</p>
+ * {@code SmpDao#completeMilestone} used to write {@code 'COMPLETE'} - a value V6's CHECK refuses, so every
+ * unlock threw - and {@code completedMilestoneKeys()} read the same value back, so it never returned a row. Escape
+ * hatch 2 ( {@code /smp milestone unlock}) had never worked, the automatic unlock at the end of an objective set
+ * would have failed the same way, and the season's list of unlocked milestones was empty by construction. Found by
+ * typing the command on the local stack; nothing in memory could have found it, because the value only meets the
+ * constraint in a database.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MilestoneStateIntegrationTest {
@@ -85,7 +83,6 @@ class MilestoneStateIntegrationTest {
     }
 
     @Test
-    @DisplayName("a milestone goes LOCKED -> ACTIVE -> UNLOCKED, and the constraint lets it")
     void theWholeLadderMeetsTheConstraint() {
         assertEquals(1, dao.activateMilestone("waiting"));
         assertEquals(Optional.of("waiting"), dao.activeMilestoneKey());
@@ -103,7 +100,6 @@ class MilestoneStateIntegrationTest {
     }
 
     @Test
-    @DisplayName("completing a milestone twice does nothing the second time")
     void aSecondCompletionIsEmpty() {
         dao.activateMilestone("waiting");
         assertTrue(dao.completeMilestone("waiting").isPresent());
@@ -115,7 +111,6 @@ class MilestoneStateIntegrationTest {
     }
 
     @Test
-    @DisplayName("a locked milestone can be unlocked by hand without ever having been active")
     void escapeHatchTwoSkipsActive() {
         // /smp milestone unlock on a milestone the season has not reached: the blunt escape hatch.
         assertEquals(Optional.of("departure"), dao.completeMilestone("departure"));
@@ -123,11 +118,8 @@ class MilestoneStateIntegrationTest {
     }
 
     @Test
-    @DisplayName("an objective the file declares gets a row, once, with the file's target")
     void objectiveRowsAreEnsured() {
-        // Finding 99: nothing inserted into smp_objective until 2026-09-06, so the whole progress
-        // machinery ran against an empty table. This is the insert, its idempotence, and the one
-        // update it is allowed - the target, which is what the first escape hatch lowers.
+        // smp_objective was once never inserted into, so progress ran against an empty table; this is that insert.
         dao.ensureObjective("departure", "logs", "HAND_IN", 64);
         dao.ensureObjective("departure", "logs", "HAND_IN", 64);
         assertEquals(1, dao.objectivesOf("departure").size(), "one row, however often the file is read");

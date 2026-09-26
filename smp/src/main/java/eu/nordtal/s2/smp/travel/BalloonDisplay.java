@@ -20,18 +20,16 @@ import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
 /**
- * The balloon itself - the thing a player sees standing at the spawn, as opposed to the box they
- * step into.
+ * The balloon itself - the thing a player sees standing at the spawn, as opposed to the box they step into.
  *
- * <p>One {@link ItemDisplay} per configured balloon box, showing the pack's
- * {@code nordtal:balloon} item model, scaled to fill the box. The entity only names the item model,
- * so replacing the art is a pack change and no Java change.
+ * One {@link ItemDisplay} per configured balloon box, showing the pack's {@code nordtal:balloon} item model, scaled
+ * to fill the box. The entity only names the item model, so replacing the art is a pack change and no Java change.
  *
- * <p>An item display rather than blocks: it has no hitbox, no collision, no AI, no drops and no
- * despawn timer, and one transformation scales it.
+ * An item display rather than blocks: it has no hitbox, no collision, no AI, no drops and no despawn timer, and one
+ * transformation scales it.
  *
- * <p>Spawned non-persistent and removed at disable, so a restart never leaves a second balloon
- * behind; any left by a crash are swept from the box at start.
+ * Spawned non-persistent and removed at disable, so a restart never leaves a second balloon behind; any left by a
+ * crash are swept from the box at start.
  */
 public final class BalloonDisplay {
 
@@ -68,8 +66,7 @@ public final class BalloonDisplay {
                 entity.setPersistent(false);
                 entity.setInvulnerable(true);
                 entity.setSilent(true);
-                // The model is authored in a one-block cube centred on the entity; the box is
-                // (max - min + 1) blocks on each axis, so the scale is the box's size.
+                // The model is authored in a one-block cube centred on the entity.
                 entity.setTransformation(new Transformation(
                         new Vector3f(),
                         new AxisAngle4f(),

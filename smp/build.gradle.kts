@@ -1,6 +1,20 @@
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
     id("nordtal.paper-plugin")
     id("nordtal.message-spec")
+}
+
+// SmpPlugin's fields are set from start(), called once from onEnable before any other plugin code
+// runs - not from a constructor, which Paper gives it no server to work with yet. NullAway has no
+// way to see that without being told: this names start() (where the assignments actually are, not
+// onEnable, which only calls it) as the initializer it should check instead of the constructor.
+// start()'s own early-refusal paths throw SmpPlugin.Refusal rather than returning, so NullAway's
+// initializer check can see that a refusal never reaches the fields assigned after it.
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        option("NullAway:KnownInitializers", "eu.nordtal.s2.smp.SmpPlugin.start")
+    }
 }
 
 // Files outside every source set that tests read directly. Without declaring them Gradle cannot

@@ -13,47 +13,40 @@ import net.kyori.adventure.text.format.TextDecoration;
 /**
  * What a player looks like, in the three places they are drawn.
  *
- * <p>One composition, shown in full where there is room and trimmed where there is not:
+ * One composition, shown in full where there is room and trimmed where there is not - the three
+ * surfaces: the tab list shows all six, sorted by online time; the nametag shows the flag, name,
+ * admin/donor and crest, <b>with no aura</b>; chat shows the flag, name and crest.
  *
- * <table>
- *   <caption>the three surfaces</caption>
- *   <tr><th>surface</th><th>shows</th></tr>
- *   <tr><td>tab list</td><td>all six, sorted by online time</td></tr>
- *   <tr><td>nametag</td><td>flag, name, admin/donor, crest - <b>no aura</b></td></tr>
- *   <tr><td>chat</td><td>flag, name, crest</td></tr>
- * </table>
- *
- * <p><b>The nametag omits the aura</b> for performance: aura changes on every death, hand-in and
+ * <b>The nametag omits the aura</b> for performance: aura changes on every death, hand-in and
  * duel, and a nametag that carried it would send a packet to everyone in range each time.
  *
- * <h2>The name carries the prestige colour (season-2-ingame/23)</h2>
- * {@link #name} is the single seam every one of these three surfaces paints a name through - the
- * tab list, the nametag DisplayTags renders and the chat prefix {@code SystemLines} also uses for
- * every join, leave, death and advancement line - so colouring it once here reaches all of them by
- * construction rather than by four call sites agreeing to do the same thing. An admin's colour wins
- * over their prestige tier; see {@link PrestigeColours} for why that is not a fourteenth tier.
+ * <b>The name carries the prestige colour.</b> {@link #name} is the single seam every one of
+ * these three surfaces paints a name through - the tab list, the nametag DisplayTags renders and
+ * the chat prefix {@code SystemLines} also uses for every join, leave, death and advancement line
+ * - so colouring it once here reaches all of them by construction rather than by four call sites
+ * agreeing to do the same thing. An admin's colour wins over their prestige tier; see
+ * {@link PrestigeColours} for why that is not a fourteenth tier.
  */
 public final class PlayerComposition {
 
     /** The join line's colour, reused for aura somebody has. */
-    private static final TextColor AURA_POSITIVE = TextColor.fromHexString("#8ba888");
+    private static final TextColor AURA_POSITIVE = Objects.requireNonNull(TextColor.fromHexString("#8ba888"));
 
     /** ...and the leaving one, for aura somebody has spent or never earned. */
-    private static final TextColor AURA_EMPTY = TextColor.fromHexString("#a8888b");
+    private static final TextColor AURA_EMPTY = Objects.requireNonNull(TextColor.fromHexString("#a8888b"));
 
     private final Supplier<Prestige> prestige;
 
     /**
-     * A supplier, not a captured value, for the same reason {@code SmpPlugin.track} is one: a
-     * reference held here at construction would not notice {@code /smp reload} replacing the field
-     * it was read from.
+     * A supplier, not a captured value, for the same reason {@code SmpPlugin.track} is one.
+     *
+     * A reference held here at construction would not notice {@code /smp reload} replacing the field it was read
+     * from.
      */
     private final Supplier<PrestigeColours> colours;
 
     public PlayerComposition(final Supplier<Prestige> prestige, final Supplier<PrestigeColours> colours) {
-        // A supplier since steward/130: the ladder moved into `prestige.yml` beside the colours,
-        // and that file is re-read by `/smp reload` - so the table this composes from has to be
-        // asked for each time, exactly as the palette beside it already was.
+        // A supplier: prestige.yml is re-read by /smp reload, so this table is asked for fresh each time.
         this.prestige = Objects.requireNonNull(prestige, "prestige");
         this.colours = Objects.requireNonNull(colours, "colours");
     }
@@ -86,25 +79,16 @@ public final class PlayerComposition {
                 .append(crest(identity));
     }
 
-    // ------------------------------------------------------------------ pieces
-
     /**
      * The wearer's language, as a flag glyph.
      *
-     * <p>The language of the person being <em>looked at</em>, not of the person looking.
+     * The language of the person being <em>looked at</em>, not of the person looking.
      */
     private Component flag(final Locale locale) {
         return Component.text(Glyphs.flagFor(locale)).decoration(TextDecoration.ITALIC, false);
     }
 
-    /**
-     * The prestige colour, or the admin colour if it wins (season-2-ingame/23).
-     *
-     * <p>Until this ticket the name was uniform light grey everywhere, on purpose - see the git
-     * history for the comment this replaced. That was the one thing every surface agreed on and the
-     * reason a tier-4 and a tier-13 player were indistinguishable at a glance; the whole point of
-     * this method existing is that they no longer are.
-     */
+    /** The prestige colour, or the admin colour if it wins. */
     private Component name(final String name, final Identity identity) {
         return Component.text(name).color(nameColour(identity)).decoration(TextDecoration.ITALIC, false);
     }
@@ -137,8 +121,8 @@ public final class PlayerComposition {
     /**
      * The crest for however long somebody has been here.
      *
-     * <p>Everybody has one - {@link Prestige#tierOf} floors at tier 1 - so this is never empty.
-     * Thirteen designs, thirteen tiers; a fourteenth would have nothing to render as.
+     * Everybody has one - {@link Prestige#tierOf} floors at tier 1 - so this is never empty. Thirteen designs, thirteen
+     * tiers; a fourteenth would have nothing to render as.
      */
     private Component crest(final Identity identity) {
         final int tier = tierOf(identity);
@@ -148,8 +132,8 @@ public final class PlayerComposition {
     /**
      * Green when positive, red at zero or below.
      *
-     * <p>The two values are the palette's, not {@code NamedTextColor}'s, so that they match the
-     * join and leave lines the tab-list header sits under.
+     * The two values are the palette's, not {@code NamedTextColor} 's, so that they match the join and leave lines the
+     * tab-list header sits under.
      */
     private Component aura(final int amount) {
         return Component.text(String.valueOf(amount))

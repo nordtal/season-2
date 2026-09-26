@@ -7,12 +7,13 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The crest tier, which is a pure function of one number and is rendered thousands of times a
- * session - in the tab list, on every nametag and in every chat line.
+ * The crest tier, which is a pure function of one number.
  *
- * <p>The boundaries are what is worth pinning. A player who has just crossed a threshold and does
- * not see the new crest is a bug report; a player who sees it one second early is not, but the
- * off-by-one that produces the second is the same off-by-one that produces the first.
+ * It is rendered thousands of times a session - in the tab list, on every nametag and in every chat line.
+ *
+ * The boundaries are what is worth pinning. A player who has just crossed a threshold and does not see the new crest
+ * is a bug report; a player who sees it one second early is not, but the off-by-one that produces the second is the
+ * same off-by-one that produces the first.
  */
 class PrestigeTest {
 
@@ -22,8 +23,7 @@ class PrestigeTest {
 
     @Test
     void aBrandNewPlayerIsTierOne() {
-        // Not tier zero, and not "no crest": the first threshold is 0 precisely so that somebody
-        // who has never played has something to draw.
+        // Not tier zero, and not "no crest": the first threshold is 0 so somebody who never played has a crest.
         assertEquals(1, prestige.tierOf(0L));
         assertEquals(1, prestige.tierOf(1L));
         assertEquals(1, prestige.tierOf(-5L), "a negative is impossible by schema CHECK and is not a crash");
@@ -31,8 +31,7 @@ class PrestigeTest {
 
     @Test
     void everyThresholdIsInclusiveOnTheSecondItIsReached() {
-        // The exact second matters: the tier is derived on every render, so a player watching their
-        // own tab list crosses this boundary in front of them.
+        // The exact second matters: the tier is derived on every render, crossed live in front of the player.
         for (int tier = 1; tier <= Prestige.TIER_COUNT; tier++) {
             final long at = prestige.secondsFor(tier);
 
@@ -55,8 +54,7 @@ class PrestigeTest {
 
     @Test
     void thirteenIsTheTopAndStaysTheTop() {
-        // There are thirteen crest designs in the resource pack. A season's most dedicated player
-        // does not get a fourteenth, they get the same one for longer.
+        // Thirteen crest designs exist. The most dedicated player gets the same crest for longer, not a fourteenth.
         assertEquals(13, prestige.tierOf(5000 * HOUR));
         assertEquals(0L, prestige.secondsToNextTier(5000 * HOUR));
     }
@@ -71,8 +69,7 @@ class PrestigeTest {
 
     @Test
     void aTableThatIsNotThirteenEntriesIsRefused() {
-        // Thirteen is a fact about the resource pack, not a preference: a fourteenth tier would
-        // have no code point to render as.
+        // Thirteen is a fact about the pack, not a preference: a fourteenth tier has no code point to render as.
         assertThrows(IllegalArgumentException.class, () -> new Prestige(List.of(0, 2, 5)));
     }
 
@@ -85,8 +82,7 @@ class PrestigeTest {
 
     @Test
     void aTableThatDoesNotRiseIsRefused() {
-        // A flat pair would make two tiers unreachable in a way nothing else would notice: the
-        // derivation would simply never return one of them.
+        // A flat pair leaves two tiers unreachable in a way nothing notices: the derivation just never returns one.
         final List<Integer> flat = List.of(0, 2, 2, 10, 20, 35, 55, 85, 125, 175, 250, 350, 500);
 
         assertThrows(IllegalArgumentException.class, () -> new Prestige(flat));

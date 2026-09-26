@@ -8,17 +8,15 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code colours.yml} - the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is
- * painted with (season-2-ingame/22).
+ * {@code colours.yml} - the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is painted with.
  *
- * <p>A file of its own rather than a block in {@code config.yml}, the same reason {@code sounds.yml}
- * is one: {@code /smp reload} re-reads it, while {@code config.yml} is deliberately not reloadable.
+ * A file of its own rather than a block in {@code config.yml}, the same reason {@code sounds.yml} is one:
+ * {@code /smp reload} re-reads it, while {@code config.yml} is deliberately not reloadable.
  *
- * <p>Every value is a hex string - {@code #8ba888}, never a named constant - because
- * {@code eu.nordtal.s2.common.message.Tones} paints with Adventure's {@code TextColor} and a
- * configured value has to be something a colour picker can hand back (steward/63 is the other half
- * of this ticket). An invalid value is reported in the console and the default takes over; it never
- * stops the server.
+ * Every value is a hex string - {@code #8ba888}, never a named constant - because
+ * {@code eu.nordtal.s2.common.message.Tones} paints with Adventure's {@code TextColor} and a configured value has to
+ * be something a colour picker can hand back. An invalid value is reported in the console and the default takes
+ * over; it never stops the server.
  */
 @ConfigSpec(
         header = {

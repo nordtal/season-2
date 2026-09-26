@@ -11,27 +11,28 @@ import net.kyori.adventure.text.Component;
 /**
  * Draws the wheel: twelve prizes in a ring round a hub, and the controls beside it.
  *
- * <h2>What the picture is</h2>
- * Design {@code W3} - the ring, twelve cells - <b>moved two slot columns to the left</b> (owner,
- * 2026-09-08), so the four columns it frees carry the "again" button and the two things a player
- * needs to know: how many spins they have left, and what earns another one. On a nine-by-five grid
- * a circle is a rounded square: three cells along the top, three down each side, three along the
- * bottom, and the corners stay frame.
+ * <b>What the picture is</b>
  *
- * <h2>The pointer became a frame, and that is a consequence of the move</h2>
- * {@code W3} marks the resting cell with a triangle above it at y 13-16 - which is <em>inside the
- * title bar</em>, and works only because at x 85 it sits to the right of the readable title. At
- * x 49 it does not: the window's own title runs to about x 58 in both languages, so the two would
- * meet on the title's last pixel row and nothing short of a client could say by how much. The pack
- * already has a word for "this one" - the two-pixel white frame {@code travel_here} uses - so the
- * resting cell wears that instead, over the lighter backing {@code W3} gives it anyway. Both cues,
- * no collision, and nothing outside the window. <b>This is a decision that is the owner's to
+ * Design {@code W3} - the ring, twelve cells - <b>moved two slot columns to the left</b> (owner decision), so the
+ * four columns it frees carry the "again" button and the two things a player needs to know: how many spins they have
+ * left, and what earns another one. On a nine-by-five grid a circle is a rounded square: three cells along the top,
+ * three down each side, three along the bottom, and the corners stay frame.
+ *
+ * <b>The pointer became a frame, and that is a consequence of the move</b>
+ *
+ * {@code W3} marks the resting cell with a triangle above it at y 13-16 - which is <em>inside the title bar</em>,
+ * and works only because at x 85 it sits to the right of the readable title. At x 49 it does not: the window's own
+ * title runs to about x 58 in both languages, so the two would meet on the title's last pixel row and nothing short
+ * of a client could say by how much. The pack already has a word for "this one" - the two-pixel white frame
+ * {@code travel_here} uses - so the resting cell wears that instead, over the lighter backing {@code W3} gives it
+ * anyway. Both cues, no collision, and nothing outside the window. <b>This is a decision that is the owner's to
  * confirm</b>; what is not open is that the triangle cannot stay where it was.
  *
- * <h2>Why the ring is a whole panel</h2>
- * Because a circle on this grid is the band <em>between</em> the cells, not something that lands on
- * any one of them - there is no row a ring belongs to. So it is a window of its own like the
- * balloon's, and everything drawn on top of it is a row glyph as usual.
+ * <b>Why the ring is a whole panel</b>
+ *
+ * Because a circle on this grid is the band <em>between</em> the cells, not something that lands on any one of them
+ * - there is no row a ring belongs to. So it is a window of its own like the balloon's, and everything drawn on top
+ * of it is a row glyph as usual.
  */
 public final class WheelPanel {
 
@@ -44,8 +45,8 @@ public final class WheelPanel {
     /**
      * The twelve prize cells, clockwise from the leftmost of the three along the top.
      *
-     * <p>Index 0 is where the winner comes to rest, which is what {@link #shape()} tells
-     * {@link WheelStrip} and what the panel's baked frame marks.
+     * Index 0 is where the winner comes to rest, which is what {@link #shape()} tells {@link WheelStrip} and what the
+     * panel's baked frame marks.
      */
     private static final int[][] CELLS = {
         {2, 0}, {3, 0}, {4, 1}, {4, 2}, {4, 3}, {3, 4}, {2, 4}, {1, 4}, {0, 3}, {0, 2}, {0, 1}, {1, 0},
@@ -62,7 +63,6 @@ public final class WheelPanel {
 
     private static final int HUB_ROW = 2;
 
-    // --- the controls, on the four columns the ring's move freed --------------------------
     private static final int INFO_X = SlotGeometry.x(5) + INSET;
     private static final int INFO_RIGHT = SlotGeometry.x(8) + SlotGeometry.PITCH - INSET;
 
@@ -134,11 +134,11 @@ public final class WheelPanel {
     /**
      * The four cells under the three lines of text.
      *
-     * <p>They hold a {@code BlankItem} rather than nothing for the reason the grave's footer does:
-     * a shift-click from the player's own inventory goes into the first free slot of the window, and
-     * the wheel cancels every click but does not stop the move landing somewhere it is then drawn
-     * over the text. Filling them also gives the two sentences a tooltip, which is where the exact
-     * thresholds can be spelled out.</p>
+     * They hold a {@code BlankItem} rather than nothing for the reason the grave's footer does: a shift-click from the
+     * player's own inventory goes into the first free slot of the window, and the wheel cancels every click but does
+     * not
+     * stop the move landing somewhere it is then drawn over the text. Filling them also gives the two sentences a
+     * tooltip, which is where the exact thresholds can be spelled out.
      */
     private static List<Integer> infoSlots() {
         final java.util.List<Integer> slots = new java.util.ArrayList<>();

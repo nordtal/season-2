@@ -16,13 +16,11 @@ import org.bukkit.plugin.Plugin;
 /**
  * Join and quit: the operator grant, the surfaces, and the language the join line waits for.
  *
- * <p>Chat itself is per Paper server: the SMP is one server holding three worlds, so Nordtal, the
- * Nether and the End share one chat. The composition in front of the message is
- * drawn by {@link SystemLines} in {@code :paper-common}.
+ * Chat itself is per Paper server: the SMP is one server holding three worlds, so Nordtal, the Nether and the End
+ * share one chat. The composition in front of the message is drawn by {@link SystemLines} in {@code :paper-common}.
  *
- * <p>An admin becomes a server <b>operator</b> at join and stops being one at quit, through
- * {@link AdminOperators}. The admin flag is mirrored from Discord into the database by the bot, so
- * there is one truth and nothing to reconcile.
+ * An admin becomes a server <b>operator</b> at join and stops being one at quit, through {@link AdminOperators}. The
+ * admin flag is mirrored from Discord into the database by the bot, so there is one truth and nothing to reconcile.
  */
 public final class PresenceListener implements Listener {
 
@@ -54,8 +52,7 @@ public final class PresenceListener implements Listener {
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
-        // Identities is already filled for this player - JoinGate reads it at pre-login, on the
-        // thread that is allowed to wait - so this is a map read and not a query.
+        // Identities is already filled for this player.
         operators.onJoin(
                 player.getUniqueId(), identities.of(player.getUniqueId()).admin());
         surfaces.refresh(player);
@@ -68,34 +65,27 @@ public final class PresenceListener implements Listener {
     /**
      * Reads the player's language off the main thread and redraws their surfaces once it is known.
      *
-     * <p>Without this call {@code PlayerLocales#of} answers English for every player, so
-     * {@code LocaleJoinWiringTest} in {@code :common} fails the build if a backend omits it. The
-     * HUD and the boards pick the language up on their own timers; the tab-list header does not,
-     * which is why {@code refresh} runs again once the value has landed.</p>
+     * Without this call {@code PlayerLocales#of} answers English for every player, so {@code LocaleJoinWiringTest} in
+     * {@code :common} fails the build if a backend omits it. The HUD and the boards pick the language up on their own
+     * timers; the tab-list header does not, which is why {@code refresh} runs again once the value has landed.
      */
     private void loadLanguage(final Player player) {
-        locales.joinAsync(player.getUniqueId(), task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task))
-                // whenComplete rather than thenRun: a load that fails still has to let the join
-                // line through, in English, rather than swallow it.
+        // Named rather than chained.
+        final var _ = locales.joinAsync(
+                        player.getUniqueId(), task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task))
+                // whenComplete rather than thenRun.
                 .whenComplete((locale, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
                     if (!player.isOnline()) {
-                        // They left while the query was in flight, so the entry this just wrote
-                        // would stay for the life of the process. Unless they are already back:
-                        // the cache is keyed by UUID, and a callback from the previous session
-                        // would drop the language the new one has just loaded.
+                        // Unless already back.
                         if (Bukkit.getPlayer(player.getUniqueId()) == null) {
                             locales.quit(player.getUniqueId());
                         }
                         return;
                     }
                     surfaces.refresh(player);
-                    // Here, and not in a join handler: this is the first moment the line can be
-                    // rendered in the language of the player it is about. See
-                    // SystemLines#announceJoin.
+                    // Here, not in a join handler.
                     lines.announceJoin(player);
-                    // ...and for the same reason, the season's opening moment. Its subtitle would
-                    // be English for every player if it ran from PlayerJoinEvent, and there is no
-                    // second event that fires when the language lands - this callback is it.
+                    // Same reason for the opening moment; PlayerJoinEvent would give every player English.
                     welcome.onLanguageReady(player);
                 }));
     }
@@ -103,10 +93,9 @@ public final class PresenceListener implements Listener {
     /**
      * Fills in a nametag the moment DisplayTags creates one.
      *
-     * <p>The only place the composition reliably reaches the tag: DisplayTags applies its own
-     * configured lines while constructing the tag and fires this event afterwards, so anything
-     * written at join or on a later Bukkit event is overwritten or races the render. This covers
-     * every path that creates a tag: join, a world change, a reload.</p>
+     * The only place the composition reliably reaches the tag: DisplayTags applies its own configured lines while
+     * constructing the tag and fires this event afterwards, so anything written at join or on a later Bukkit event is
+     * overwritten or races the render. This covers every path that creates a tag: join, a world change, a reload.
      */
     @EventHandler
     public void onNameTagCreate(final NameTagCreateEvent event) {

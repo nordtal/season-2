@@ -8,62 +8,66 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * That {@code /smp reload} actually reaches everything that reads the milestone track.
  *
- * <h2>What the reload is for</h2>
- * {@code milestones.yml} is a separate, reloadable file for one stated reason: a milestone is
- * appended and a target lowered <em>mid-season</em>, and re-reading it must not cost a restart of
- * the season. A consumer holding the instance it was given at enable defeats exactly that - it goes
- * on paying against the old targets, and the console says "the milestone track was reloaded"
- * regardless.
+ * <b>What the reload is for</b>
  *
- * <h2>Why a text search, again</h2>
- * The same reason every wiring test here is one: what it protects is which reference a constructor
- * is <em>handed</em> during {@code onEnable}, and reaching {@code onEnable} needs a Paper server.
- * The type of the parameter already stops the plain instance being passed; what this catches is the
- * next step, somebody capturing a local and handing on {@code () -> captured}.
+ * {@code milestones.yml} is a separate, reloadable file for one stated reason: a milestone is appended and a target
+ * lowered <em>mid-season</em>, and re-reading it must not cost a restart of the season. A consumer holding the
+ * instance it was given at enable defeats exactly that - it goes on paying against the old targets, and the console
+ * says "the milestone track was reloaded" regardless.
  *
- * <p>Four consumers held the startup instance until 2026-09-05 - {@code ObjectiveEngine}, which
- * decides what an objective pays; {@code StatisticPoller}, which decides when one is reached;
- * {@code NpcListener}; and {@code BalloonListener}. It was found by review rather than by a test,
- * and the symptom would have been a reload that reports success and changes nothing that matters.
+ * <b>Why a text search, again</b>
+ *
+ * The same reason every wiring test here is one: what it protects is which reference a constructor is
+ * <em>handed</em> during {@code onEnable}, and reaching {@code onEnable} needs a Paper server. The type of the
+ * parameter already stops the plain instance being passed; what this catches is the next step, somebody capturing a
+ * local and handing on {@code () -> captured}.
+ *
+ * Four consumers used to hold the startup instance - {@code ObjectiveEngine}, which decides what an
+ * objective pays; {@code StatisticPoller}, which decides when one is reached; {@code NpcListener}; and
+ * {@code BalloonListener}. It was found by review rather than by a test, and the symptom would have been a reload
+ * that reports success and changes nothing that matters.
  */
 class ReloadReachesTheTrackTest {
 
     private static final String PLUGIN = "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java";
+    // SmpStart holds the start sequence SmpPlugin delegates to, so the wiring is read from both.
+    private static final String START = "smp/src/main/java/eu/nordtal/s2/smp/SmpStart.java";
 
     @Test
-    @DisplayName("every track consumer is handed the live supplier, not a captured instance")
     void everyConsumerReadsThroughTheField() throws IOException {
-        final String source = read(PLUGIN);
+        final String source = (read(PLUGIN) + "\n" + read(START));
 
         for (final String consumer : List.of(
-                "new ObjectiveEngine(this, dao, () -> track,",
-                "new StatisticPoller(this, () -> track,",
-                "new NpcListener(this, dao, npc, () -> track,",
-                "new BalloonListener(balloons, worlds, season, () -> track,")) {
+                "new ObjectiveEngine(plugin, plugin.dao, () -> plugin.track,",
+                "new StatisticPoller(plugin, () -> plugin.track,",
+                "new NpcListener(plugin, plugin.dao, npc, () -> plugin.track,",
+                "new BalloonListener(balloons, plugin.worlds, plugin.season, () -> plugin.track,")) {
             assertTrue(
                     source.contains(consumer),
-                    consumer.split("\\(")[0] + " does not read the current milestone track, so"
+                    consumer.substring(0, consumer.indexOf('(')) + " does not read the current milestone track, so"
                             + " /smp reload would report success and leave it on the definitions the"
                             + " server started with");
         }
     }
 
     @Test
-    @DisplayName("the reload re-reads the message bundles too")
     void theReloadReachesTheMessages() throws IOException {
-        // steward-worker sends `smp reload` after a message bundle is saved and reports it as
-        // applied; without these two lines that report would be true of nothing.
-        final String source = read(PLUGIN);
+        // steward-worker sends `smp reload` and reports it applied; without these two lines that report is empty.
+        final String source = (read(PLUGIN) + "\n" + read(START));
         final int start = source.indexOf("List<String> reloadTrack(");
         final int end = source.indexOf("return trackProblems;", start);
         assertTrue(start > 0 && end > start, "the reload method moved; point this test at it");
-        final String reload = source.substring(start, end);
+        assertTrue(
+                source.substring(start, end).contains("reloadMessages();"),
+                "/smp reload no longer calls reloadMessages()");
+        final int from = source.indexOf("private void reloadMessages(");
+        assertTrue(from > 0, "reloadMessages moved; point this test at it");
+        final String reload = source.substring(from, source.indexOf("\n    }\n", from));
         assertTrue(
                 reload.contains("messages.reload();"),
                 "/smp reload no longer re-reads this plugin's messages, so a saved text stays unused");
@@ -73,12 +77,9 @@ class ReloadReachesTheTrackTest {
     }
 
     @Test
-    @DisplayName("a reload finishes what its new targets already reach, in that order")
     void aLoweredTargetTakesEffectAtOnce() throws IOException {
-        // The whole point of the escape hatch is an objective nobody can add to any more, so
-        // "it completes the next time somebody hands something in" is not a weaker version of the
-        // promise - it is the case the promise exists for, unmet (finding 129).
-        final String source = read(PLUGIN);
+        // An objective nobody can add to still completes on the next hand-in - that is the case the promise is for.
+        final String source = (read(PLUGIN) + "\n" + read(START));
 
         final int applied = source.indexOf("track = candidate;");
         final int swept = source.indexOf("completeWhateverTheNewTargetsAlreadyReach();");
@@ -101,21 +102,16 @@ class ReloadReachesTheTrackTest {
     }
 
     @Test
-    @DisplayName("the field the supplier reads is volatile, because the writer is another thread")
     void theFieldIsPublishedSafely() throws IOException {
-        // reloadTrack runs on Bukkit's async executor behind /smp reload; every consumer above
-        // reads on the server thread. Without volatile the supplier may go on seeing the old
-        // instance for no bounded length of time, which looks identical to the bug it replaced.
-        assertTrue(read(PLUGIN).contains("private volatile MilestoneTrack track;"), "SmpPlugin.track is not volatile");
+        // reloadTrack runs off Bukkit's async executor; every reader is on the server thread and needs volatile.
+        assertTrue(
+                (read(PLUGIN) + "\n" + read(START)).contains("    volatile MilestoneTrack track;"),
+                "SmpPlugin.track is not volatile");
     }
 
     @Test
-    @DisplayName("one unlock reads the track once, so its two halves cannot come from two files")
     void anUnlockUsesOneSnapshot() throws IOException {
-        // Three separate reads of the supplier can answer with three different tracks, because
-        // /smp reload runs on another thread. The successor written into the database would then
-        // come from one file and the SeasonState built beside it from another - the row names a
-        // milestone the running state does not hold as active, and progression stops.
+        // Three reads of the supplier could answer three different tracks, naming a milestone the state doesn't hold.
         final String source = read("smp/src/main/java/eu/nordtal/s2/smp/progress/ObjectiveEngine.java");
         final int inUnlock = source.indexOf("public void unlockMilestone(");
         assertTrue(inUnlock > 0, "unlockMilestone is gone");
@@ -132,12 +128,8 @@ class ReloadReachesTheTrackTest {
     }
 
     @Test
-    @DisplayName("the statistic baselines are dropped when the track changes under them")
     void baselinesBelongToTheDefinitionsTheyWereReadUnder() throws IOException {
-        // A baseline is a raw statistic value paired with an objective KEY, and a reload can change
-        // what that key counts. An objective counting coal that starts counting coal and iron reads
-        // far higher on the next poll, and the whole difference would be credited as progress
-        // somebody just made. Nothing in the stored number says which definition produced it.
+        // A baseline pairs a raw statistic with an objective key; a reload changing what the key counts breaks that.
         final String source = read("smp/src/main/java/eu/nordtal/s2/smp/progress/StatisticPoller.java");
         assertTrue(
                 source.contains("if (now != sampledUnder) {") && source.contains("baselines.clear();"),
@@ -146,14 +138,9 @@ class ReloadReachesTheTrackTest {
     }
 
     @Test
-    @DisplayName("the reload asks TrackValidation, which nothing in production used to ask")
     void theReloadValidatesAgainstTheRows() throws IOException {
-        // TrackValidation answers "may this file replace the running one" - a renamed milestone key,
-        // an objective that changed type with progress against it, a completed objective whose
-        // target moved. It had twelve tests, two javadoc references and NO CALLER, so a reload that
-        // removed the active milestone was applied, reported success and stopped progression with
-        // nothing anywhere saying why.
-        final String source = read(PLUGIN);
+        // TrackValidation answers "may this file replace the running one"; without a caller reload could stop progress.
+        final String source = (read(PLUGIN) + "\n" + read(START));
 
         assertTrue(
                 source.contains("TrackValidation.validate(candidate,"),
@@ -162,11 +149,10 @@ class ReloadReachesTheTrackTest {
                 source.contains("new StoredProgress(dao.storedMilestones(), dao.storedObjectives())"),
                 "the validation is asked without the rows, which is the only place the answer lives");
 
-        // And the refusal keeps the running track. `track = candidate` must sit on the branch the
-        // problems did not take.
+        // The refusal keeps the running track: `track = candidate` must sit on the branch the problems did not take.
         final int validated = source.indexOf("TrackValidation.validate(candidate,");
         final int assigned = source.indexOf("track = candidate;", validated);
-        final int refused = source.indexOf("if (!problems.isEmpty())", validated);
+        final int refused = source.indexOf("if (!problems.isEmpty()", validated);
         assertTrue(
                 refused > 0 && assigned > refused,
                 "the track is assigned before the refusal is decided, so a refused file would be" + " applied anyway");

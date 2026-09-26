@@ -11,13 +11,12 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 /**
  * {@code sounds.yml} - what each feedback category sounds like.
  *
- * <p>A file of its own rather than a block in {@code config.yml} because it is the one config an
- * operator iterates on <b>by ear</b>, with players online: {@code /smp reload} re-reads it, while
- * {@code config.yml} is deliberately not reloadable.
+ * A file of its own rather than a block in {@code config.yml} because it is the one config an operator iterates on
+ * <b>by ear</b>, with players online: {@code /smp reload} re-reads it, while {@code config.yml} is deliberately not
+ * reloadable.
  *
- * <p>Ten categories, eleven entries - open and close are the two halves of one. A call site picks a
- * category and nothing else; {@code SoundVocabularyTest} in {@code :common} fails the build if one
- * ever names a sound directly.
+ * Ten categories, eleven entries - open and close are the two halves of one. A call site picks a category and
+ * nothing else; {@code SoundVocabularyTest} in {@code :common} fails the build if one ever names a sound directly.
  */
 @ConfigSpec(
         header = {
@@ -169,8 +168,7 @@ public interface SoundsSpec {
     @ConfigSpec
     interface SoundSpec {
 
-        // No @Comment: this interface is written out ten times over, and the header above already
-        // says what a key is and what an empty one does.
+        // No @Comment: written out ten times, and the header above says what a key is and does.
         @Order(1)
         @Name("Sound")
         @Key("key")

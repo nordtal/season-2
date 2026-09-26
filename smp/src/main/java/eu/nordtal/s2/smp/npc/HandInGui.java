@@ -22,10 +22,9 @@ import org.bukkit.inventory.ItemStack;
 /**
  * The deposit screen: put items in, press confirm, and only then does anything happen.
  *
- * <p>Items are only consumed on an explicit confirmation, so a misplaced shift-click cannot
- * swallow an inventory. <b>Closing the screen without pressing the button gives everything back</b>,
- * which has to be done deliberately: a plugin inventory that is simply closed drops its contents
- * into nothing.
+ * Items are only consumed on an explicit confirmation, so a misplaced shift-click cannot swallow an inventory.
+ * <b>Closing the screen without pressing the button gives everything back</b>, which has to be done deliberately: a
+ * plugin inventory that is simply closed drops its contents into nothing.
  */
 public final class HandInGui implements Surface {
 
@@ -55,9 +54,7 @@ public final class HandInGui implements Surface {
                         messages.format(locale, MESSAGES.smp().handin().stillNeeded(stillNeeded)),
                         messages.format(locale, MESSAGES.smp().handin().confirmButton())));
 
-        // A sample of the first wanted material, so the window says what it wants without a
-        // sentence. Not takeable - every click outside the tray is cancelled - and it carries the
-        // full list, which a single icon cannot show.
+        // A sample of the first wanted material, so the window says what it wants without a sentence.
         sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT, describe(messages, locale, item)));
 
         final ItemStack confirm = BlankItem.of(
@@ -71,8 +68,8 @@ public final class HandInGui implements Surface {
     /**
      * The first wanted material this server knows, as an item.
      *
-     * <p>A name that reached here unbound is a configuration this server refused, so the sample is
-     * left out rather than throwing inside a menu constructor.</p>
+     * A name that reached here unbound is a configuration this server refused, so the sample is left out rather than
+     * throwing inside a menu constructor.
      */
     private java.util.Optional<Material> sample() {
         return wanted.stream()
@@ -137,10 +134,10 @@ public final class HandInGui implements Surface {
     /**
      * Applies a sorted deposit: takes what was accepted, leaves the rest in place.
      *
-     * <p><b>It hands back what it took.</b> The credit that pays for these items runs
-     * asynchronously and can legitimately credit nothing, and {@link #returnEverything} reads the
-     * very slots this method has just emptied - so without these copies the items are gone and the
-     * player is told the hand-in succeeded.
+     * <b>It hands back what it took.</b> The credit that pays for these items runs asynchronously and can legitimately
+     * credit nothing, and {@link #returnEverything} reads the very slots this method has just emptied - so without
+     * these
+     * copies the items are gone and the player is told the hand-in succeeded.
      *
      * @return the stacks that were removed, as they were before removal
      */
@@ -169,9 +166,9 @@ public final class HandInGui implements Surface {
     /**
      * Gives back stacks {@link #apply} removed, when the credit they paid for did not happen.
      *
-     * <p>Straight into the player's inventory rather than back into the screen: by the time this is
-     * known the screen may be closed, and a slot that is put back after {@link #returnEverything}
-     * has run would be emptied by nothing at all.
+     * Straight into the player's inventory rather than back into the screen: by the time this is known the screen may
+     * be
+     * closed, and a slot that is put back after {@link #returnEverything} has run would be emptied by nothing at all.
      */
     public void giveBack(final Player player, final List<ItemStack> stacks) {
         stacks.forEach(stack -> give(player, stack));
@@ -180,8 +177,7 @@ public final class HandInGui implements Surface {
     /**
      * Gives everything in the deposit slots back to the player.
      *
-     * <p>Called on close, always: a plugin inventory that is simply closed drops its contents into
-     * nothing.
+     * Called on close, always: a plugin inventory that is simply closed drops its contents into nothing.
      */
     public void returnEverything(final Player player) {
         for (int slot = 0; slot < DEPOSIT_SLOTS; slot++) {
@@ -196,9 +192,10 @@ public final class HandInGui implements Surface {
 
     /** Into the inventory, and on the floor at their feet if it does not fit. Never nowhere. */
     private static void give(final Player player, final ItemStack stack) {
+        final org.bukkit.Location dropAt = java.util.Objects.requireNonNull(player.getLocation());
         player.getInventory()
                 .addItem(stack)
                 .values()
-                .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+                .forEach(left -> player.getWorld().dropItemNaturally(dropAt, left));
     }
 }

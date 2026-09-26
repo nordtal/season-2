@@ -3,22 +3,22 @@ package eu.nordtal.s2.smp.aura;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What a death costs.
  *
- * <p><b>−5 ordinarily, −20 for a listed cause, and nothing in the duel arena.</b> Aura is meant to
- * be a number with risk in it rather than a meter that only ever rises.
+ * <b>−5 ordinarily, −20 for a listed cause, and nothing in the duel arena.</b> Aura is meant to be a number with
+ * risk in it rather than a meter that only ever rises.
  *
- * <p>The duel arena is the only exemption: the ±10 stake already settles the fight, so a death
- * penalty on top would make every duel a net loss for both players. Everything else costs,
- * including the world border, the void, and dying in the End during the dragon fight. There is
- * deliberately <b>no protection against a death drain</b> - no daily cap, no per-killer cooldown;
- * the ledger is what exists instead.
+ * The duel arena is the only exemption: the ±10 stake already settles the fight, so a death penalty on top would
+ * make every duel a net loss for both players. Everything else costs, including the world border, the void, and
+ * dying in the End during the dragon fight. There is deliberately <b>no protection against a death drain</b> - no
+ * daily cap, no per-killer cooldown; the ledger is what exists instead.
  *
- * <p>Listed causes are compared as lowercase strings rather than as a Bukkit enum, so that the
- * config can be validated with no registry initialised and a damage type the platform does not have
- * is a startup warning rather than a load failure.
+ * Listed causes are compared as lowercase strings rather than as a Bukkit enum, so that the config can be validated
+ * with no registry initialised and a damage type the platform does not have is a startup warning rather than a load
+ * failure.
  */
 public final class DeathPenalty {
 
@@ -59,7 +59,7 @@ public final class DeathPenalty {
      * @param inArena    whether the death happened inside a duel arena
      * @return the aura delta to book, which is zero or negative
      */
-    public int deltaFor(final String damageType, final boolean inArena) {
+    public int deltaFor(final @Nullable String damageType, final boolean inArena) {
         if (inArena) {
             return 0;
         }
@@ -70,7 +70,7 @@ public final class DeathPenalty {
      * @param damageType the damage type, in any case and with or without a namespace
      * @return which of the two reasons to write into the ledger
      */
-    public AuraReason reasonFor(final String damageType) {
+    public AuraReason reasonFor(final @Nullable String damageType) {
         return isListed(damageType) ? AuraReason.DEATH_LISTED : AuraReason.DEATH;
     }
 
@@ -78,7 +78,7 @@ public final class DeathPenalty {
      * @param damageType the damage type, in any case and with or without a namespace
      * @return whether it is one of the configured embarrassing ones
      */
-    public boolean isListed(final String damageType) {
+    public boolean isListed(final @Nullable String damageType) {
         return damageType != null && listedCauses.contains(normalise(damageType));
     }
 

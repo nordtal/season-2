@@ -45,6 +45,10 @@ import org.junit.jupiter.api.Test;
  */
 class SystemLinesWiringTest {
 
+    // The listener may sit on a holder record, e.g. presence.systemLines().
+    private static final Pattern REGISTERS_SYSTEM_LINES =
+            Pattern.compile("registerEvents\\((?:\\w+\\.)?systemLines\\b");
+
     /**
      * The two servers a player stands on and talks on, and the class each has to build.
      *
@@ -79,7 +83,7 @@ class SystemLinesWiringTest {
                         + " yellow. That is finding 149 exactly.");
                 continue;
             }
-            if (!source.contains("registerEvents(systemLines")) {
+            if (!REGISTERS_SYSTEM_LINES.matcher(source).find()) {
                 missing.add(plugin + " builds SystemLines and never registers it as a listener,"
                         + " which is the same thing as not having it and looks like having it.");
             }
@@ -163,7 +167,13 @@ class SystemLinesWiringTest {
                 Files.isRegularFile(source),
                 source + " is missing, and a missing file is a check that silently stops running");
         try {
-            return Files.readString(source, StandardCharsets.UTF_8);
+            // A plugin may delegate its start to a sibling <Name>Start.java; the wiring is read from both.
+            final Path start =
+                    source.resolveSibling(source.getFileName().toString().replace("Plugin.java", "Start.java"));
+            final String own = Files.readString(source, StandardCharsets.UTF_8);
+            return Files.isRegularFile(start) && !start.equals(source)
+                    ? own + "\n" + Files.readString(start, StandardCharsets.UTF_8)
+                    : own;
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + source, e);
         }

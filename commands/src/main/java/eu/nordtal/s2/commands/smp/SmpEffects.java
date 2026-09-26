@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.access.OpenPayment;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Everything {@code /smp} touches that only the SMP server can reach.
@@ -31,7 +32,10 @@ public interface SmpEffects extends CommandEffects {
      * @param validUntil   when the current or last period ends, or {@code null} if there never was
      *                     one
      */
-    record Access(String discordId, boolean accessActive, Instant validUntil) {}
+    record Access(
+            @Nullable String discordId,
+            boolean accessActive,
+            @Nullable Instant validUntil) {}
 
     /**
      * Re-read the reloadable configs and the message bundles.

@@ -8,7 +8,7 @@ import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.context.MilestoneContext;
 import eu.nordtal.s2.papercommon.menu.BlankItem;
-import eu.nordtal.s2.smp.config.SmpSpec;
+import eu.nordtal.s2.smp.config.SpawnPointSpec;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
@@ -22,6 +22,7 @@ import eu.nordtal.s2.smp.world.Worlds;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -33,19 +34,18 @@ import org.bukkit.inventory.ItemStack;
 /**
  * The travel GUI a balloon opens.
  *
- * <p>The layout is {@link BalloonMenu}'s and is tested there without a server; the surface is
- * {@link TravelPanel}'s and is drawn into the inventory title; this class is the part that needs a
- * server - the tooltips, the click and the teleport.
+ * The layout is {@link BalloonMenu} 's and is tested there without a server; the surface is {@link TravelPanel} 's
+ * and is drawn into the inventory title; this class is the part that needs a server - the tooltips, the click and
+ * the teleport.
  *
- * <p><b>Nothing visible sits in a slot.</b> The four cards are art in the title, and every slot a
- * card covers holds a {@link BlankItem}: an item that draws nothing and carries the card's name and
- * caption as its tooltip, so hovering anywhere on a card explains it and clicking anywhere on it
- * travels. A vanilla item there would draw its icon over the art.
+ * <b>Nothing visible sits in a slot.</b> The four cards are art in the title, and every slot a card covers holds a
+ * {@link BlankItem}: an item that draws nothing and carries the card's name and caption as its tooltip, so hovering
+ * anywhere on a card explains it and clicking anywhere on it travels. A vanilla item there would draw its icon over
+ * the art.
  *
- * <p>A destination that is not unlocked yet <b>keeps its place, shaded</b>, naming the milestone
- * that will open it and pointing at the objective board. Standing at the balloon is exactly when
- * somebody wants to know why the Nether is not available, and an entry that has simply vanished
- * answers nothing.
+ * A destination that is not unlocked yet <b>keeps its place, shaded</b>, naming the milestone that will open it and
+ * pointing at the objective board. Standing at the balloon is exactly when somebody wants to know why the Nether is
+ * not available, and an entry that has simply vanished answers nothing.
  */
 public final class BalloonGui implements Surface {
 
@@ -102,9 +102,7 @@ public final class BalloonGui implements Surface {
 
     /** The invisible item under a card: the world's name, and one or two lines on its state. */
     private ItemStack tooltip(final BalloonMenu.Entry entry, final Locale locale) {
-        // The world's name is a parameter and the colour is the bundle's (finding 48, 2026-09-06);
-        // smp.world.* itself stays tag-free because the HUD draws the same words in a font that has
-        // no `<` in it.
+        // The world's name is a parameter and the colour is the bundle's.
         final MessageRenderer renderer = MessageRenderer.of(messages);
         final boolean locked = entry.state() == BalloonMenu.State.LOCKED;
         final String destination = messages.format(locale, MESSAGES.smp().world(entry.destination()));
@@ -135,8 +133,8 @@ public final class BalloonGui implements Surface {
     /**
      * The name of the milestone that opens a destination, for the shaded card's first lore line.
      *
-     * <p>Falls back to the raw key when the track has no name for it, which is what a milestone
-     * whose translation is missing should look like: unhelpful, but not blank.
+     * Falls back to the raw key when the track has no name for it, which is what a milestone whose translation is
+     * missing should look like: unhelpful, but not blank.
      */
     private String milestoneName(final WorldRole role, final Locale locale) {
         final Unlock needed = role == WorldRole.NETHER ? Unlock.NETHER : Unlock.END;
@@ -184,35 +182,22 @@ public final class BalloonGui implements Surface {
         }
 
         player.closeInventory();
-        // Both ends of the trip, and the departure has to be read off before the teleport: to
-        // anybody left standing at the balloon this is the whole of what they see happen.
-        final org.bukkit.Location from = player.getLocation();
-        // Always the configured balloon landing point for that world - `balloon-spawn-points` in
-        // config.yml, one per role. The balloon never drops anyone anywhere else, which is what
-        // makes an arrival point a landmark everybody knows; portals are the only exception in the
-        // design. It is deliberately NOT the world spawn any more (2026-09-12): a built spawn is
-        // somewhere to arrive, and the world spawn is a separate thing that also decides where a
-        // bed-less death puts you.
-        //
-        // Through LandingSite#safeAt, which takes the configured point itself whenever a player
-        // actually fits there and searches outwards from that column when they do not - so on a
-        // built world this is the point as written and the landmark is untouched. On a GENERATED
-        // one it is the difference between arriving and dying, and making the point configurable
-        // did not change that: the Nether's world spawn is 0/66/0, which on the local server is
-        // solid netherrack, and the balloon killed the first player to take it (`DEATH_LISTED -20`,
-        // `in_wall`, finding 134). A hand-typed Y is the same block of stone. That is the third
-        // place this repository has learned that a coordinate is not a promise - see finding 124.
-        //
-        // The failure branch is unreachable from an open chest screen today - a player clicking one
-        // is by definition alive, awake and connected - but the success path below is six
-        // unconditional statements and one of them is a message saying they arrived. Reusing the
-        // branch six lines up rather than inventing a second way to say the same thing.
-        //
-        // findSafeAt rather than safeAt, for the same reason: safeAt ends with the preferred point
-        // itself when its search finds nothing, and here that would be a message saying somebody
-        // arrived somewhere they cannot survive. The balloon is the one caller that is allowed to
-        // say no, because it already has the sentence for it (CodeRabbit, PR #8).
-        final SmpSpec.SpawnPointSpec point = worlds.balloonSpawnPoint(entry.destination());
+        return teleportToBalloon(player, locale, entry, destination);
+    }
+
+    /**
+     * The actual jump, once every refusal above has passed.
+     *
+     * Through {@code LandingSite#findSafeAt}, which takes the configured point itself whenever a player actually
+     * fits there and searches outwards from that column when they do not - a hand-typed Y is not a promise that the
+     * block there is air. {@code findSafeAt} rather than {@code safeAt}: the latter falls back to the preferred point
+     * itself when its search finds nothing, and here that would announce an arrival nobody survived.
+     */
+    private boolean teleportToBalloon(
+            final Player player, final Locale locale, final BalloonMenu.Entry entry, final World destination) {
+        // Read off before the teleport: to anybody left at the balloon this is the whole of what they see happen.
+        final org.bukkit.Location from = Objects.requireNonNull(player.getLocation());
+        final SpawnPointSpec point = worlds.balloonSpawnPoint(entry.destination());
         final org.bukkit.Location target =
                 new org.bukkit.Location(destination, point.x(), point.y(), point.z(), point.yaw(), point.pitch());
         final org.bukkit.Location landing = eu.nordtal.s2.smp.world.LandingSite.findSafeAt(destination, target)

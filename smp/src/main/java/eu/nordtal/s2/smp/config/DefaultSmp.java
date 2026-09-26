@@ -8,98 +8,103 @@ import java.util.Map;
 /**
  * The lists a fresh {@code config.yml} is written with.
  *
- * <p>Same mechanism and same caveat as {@link DefaultTrack} and {@code discord-bot}'s
- * {@code DefaultTiers}: a default method on a spec interface can only return values, a nested spec
- * is served by a reflective proxy, and {@code Specs.createUnsafe} does <b>not</b> apply defaults -
- * every key of the spec has to appear in the map or it comes out null.
+ * Same mechanism and same caveat as {@link DefaultTrack} and {@code discord-bot} 's {@code DefaultTiers}: a default
+ * method on a spec interface can only return values, a nested spec is served by a reflective proxy, and
+ * {@code Specs.createUnsafe} does <b>not</b> apply defaults - every key of the spec has to appear in the map or it
+ * comes out null.
  *
- * <p>Everything here is a proposal. See {@link SmpSpec}'s comments for the reasoning behind each
- * list; this class is only the values.
+ * Everything here is a proposal. See {@link SmpSpec} 's comments for the reasoning behind each list; this class is
+ * only the values.
  */
 final class DefaultSmp {
 
     /**
-     * Placeholder boxes. The spawn build does not exist yet, so these describe the shape of the
-     * setting rather than the real spawn - one box per world with a balloon, generous enough to
-     * cover a small built area, and meant to be replaced once there is something to measure.
+     * Placeholder boxes.
+     *
+     * The spawn build does not exist yet, so these describe the shape of the setting rather than the real spawn -
+     * one box per world with a balloon, generous enough to cover a small built area, and meant to be replaced once
+     * there is something to measure.
      */
-    static final List<SmpSpec.SpawnRegionSpec> SPAWN_REGIONS = List.of(
+    static final List<SpawnRegionSpec> SPAWN_REGIONS = List.of(
             region("nordtal", 106 - 32, 40, 88 - 32, 106 + 32, 140, 88 + 32),
             region("nordtal_nether", -32, 20, -32, 32, 120, 32));
 
     /**
-     * Placeholder balloon volumes, one per world that has one - Nordtal and the Nether. The End
-     * has none on purpose.
+     * Placeholder balloon volumes, one per world that has one - Nordtal and the Nether. The End has none on purpose.
      *
-     * <p>Nordtal's box sits at radius ~15 of the border centre X 106 / Z 88, which is the only one
-     * of these numbers that is not arbitrary: it has to land between radius 10 and 21.5 so that
-     * border 20 withholds travel and the opening expansion to 43 hands it over. The real box comes
-     * from the built spawn; this one is shaped so the constraint is satisfied by the defaults and
-     * a mistake in the real coordinates is what the enable-time check catches.
+     * Nordtal's box sits at radius ~15 of the border centre X 106 / Z 88, which is the only one of these numbers that
+     * is
+     * not arbitrary: it has to land between radius 10 and 21.5 so that border 20 withholds travel and the opening
+     * expansion to 43 hands it over. The real box comes from the built spawn; this one is shaped so the constraint is
+     * satisfied by the defaults and a mistake in the real coordinates is what the enable-time check catches.
      */
-    static final List<SmpSpec.BalloonSpec> BALLOONS = List.of(
+    static final List<BalloonSpec> BALLOONS = List.of(
             balloon("nordtal", 106 + 13, 64, 88 - 2, 106 + 17, 68, 88 + 2),
             balloon("nordtal_nether", -2, 32, -2, 2, 36, 2));
 
     /**
-     * Placeholder board anchors, both in Nordtal near the border centre. Replaced from the built
-     * spawn; what matters about them is only that there are two and that they are inside radius 10,
-     * with everything else social, so the opening minutes withhold travel and nothing else.
+     * Placeholder board anchors, both in Nordtal near the border centre.
+     *
+     * Replaced from the built spawn; what matters about them is only that there are two and that they are inside
+     * radius 10, with everything else social, so the opening minutes withhold travel and nothing else.
      */
-    static final List<SmpSpec.BoardSpec> BOARDS = List.of(
+    static final List<BoardSpec> BOARDS = List.of(
             board("OBJECTIVE", "nordtal", 106 - 4, 68, 88 + 6, 0f), board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
 
     /**
      * Placeholder duel platforms, both 3 x 3 and both inside radius 10 of the border centre.
      */
-    static final List<SmpSpec.DuelPlatformSpec> DUEL_PLATFORMS = List.of(
+    static final List<DuelPlatformSpec> DUEL_PLATFORMS = List.of(
             platform("SWORD", "nordtal", 106 - 7, 68, 88 - 1, 106 - 5, 69, 88 + 1),
             platform("BOW", "nordtal", 106 + 5, 68, 88 - 1, 106 + 7, 69, 88 + 1));
 
     /** A placeholder wheel, inside radius 10 with everything else social. */
-    static final List<SmpSpec.SpawnRegionSpec> WHEEL_REGIONS =
+    static final List<SpawnRegionSpec> WHEEL_REGIONS =
             List.of(region("nordtal", 106 - 2, 68, 88 + 2, 106 - 1, 70, 88 + 3));
 
     /** A placeholder NPC, inside radius 10 with everything else social. */
-    static final SmpSpec.NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "", "Nordtal");
+    static final NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "", "Nordtal");
 
     /**
      * Placeholder landing points for the balloon, one per world it flies to.
      *
-     * <p>Chosen to agree with the other placeholders in this file rather than to be neutral:
-     * Nordtal's is the border centre X 106 / Z 88 that the NPC, the boards and the duel platforms
-     * are already written around, and the other three are the 0/0 their borders are centred on.
-     * The Nether's Y follows its balloon box at 32 for the same
-     * reason the box is there - 64 in the Nether is as likely to be inside rock as above it.
+     * Chosen to agree with the other placeholders in this file rather than to be neutral: Nordtal's is the border
+     * centre
+     * X 106 / Z 88 that the NPC, the boards and the duel platforms are already written around, and the other three are
+     * the 0/0 their borders are centred on. The Nether's Y follows its balloon box at 32 for the same reason the box is
+     * there - 64 in the Nether is as likely to be inside rock as above it.
      *
-     * <p>None of that makes them right. They are the shape of the setting, and every one of them
-     * is replaced from the built spawn; what keeps a wrong one from killing anybody in the
-     * meantime is {@code LandingSite#findSafeAt}, not the numbers.
+     * None of that makes them right. They are the shape of the setting, and every one of them is replaced from the
+     * built
+     * spawn; what keeps a wrong one from killing anybody in the meantime is {@code LandingSite#findSafeAt}, not the
+     * numbers.
      */
-    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_NORDTAL = spawnPoint(106.5, 68.0, 88.5, 0f, 0f);
+    static final SpawnPointSpec BALLOON_SPAWN_POINT_NORDTAL = spawnPoint(106.5, 68.0, 88.5, 0f, 0f);
 
-    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_NETHER = spawnPoint(0.5, 32.0, 0.5, 0f, 0f);
+    static final SpawnPointSpec BALLOON_SPAWN_POINT_NETHER = spawnPoint(0.5, 32.0, 0.5, 0f, 0f);
 
-    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_END = spawnPoint(0.5, 64.0, 0.5, 0f, 0f);
+    static final SpawnPointSpec BALLOON_SPAWN_POINT_END = spawnPoint(0.5, 64.0, 0.5, 0f, 0f);
 
     /** The three of them together, which is what the top-level key answers with. */
-    static final SmpSpec.BalloonSpawnPointsSpec BALLOON_SPAWN_POINTS =
+    static final BalloonSpawnPointsSpec BALLOON_SPAWN_POINTS =
             balloonSpawnPoints(BALLOON_SPAWN_POINT_NORDTAL, BALLOON_SPAWN_POINT_NETHER, BALLOON_SPAWN_POINT_END);
 
     /**
      * A placeholder first-join point, in Nordtal on the border centre with everything else social.
      *
-     * <p>The world name is written out rather than taken from {@link SmpSpec#worldNordtal()} -
-     * a {@code default} method on a spec interface can only return values, so there is nothing here
-     * to read it from. That duplication is named in the key's own comment.
+     * The world name is written out rather than taken from {@link SmpSpec#worldNordtal()} - a {@code default} method on
+     * a spec interface can only return values, so there is nothing here to read it from. That duplication is named in
+     * the key's own comment.
      */
-    static final SmpSpec.FirstJoinSpawnSpec FIRST_JOIN_SPAWN = firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
+    static final FirstJoinSpawnSpec FIRST_JOIN_SPAWN = firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
 
     /**
-     * The curated advancement list. Twenty-two entries across the four bands described in
-     * {@link SmpSpec#advancementAwards()}, chosen to follow the shape of a playthrough.
+     * The curated advancement list.
+     *
+     * Twenty-two entries across the four bands described in {@link SmpSpec#advancementAwards()}, chosen to follow
+     * the shape of a playthrough.
      */
-    static final List<SmpSpec.AdvancementAwardSpec> ADVANCEMENT_AWARDS = List.of(
+    static final List<AdvancementAwardSpec> ADVANCEMENT_AWARDS = List.of(
             // 2 - the first hours. Everybody gets these and they are worth noticing, not rewarding.
             award("minecraft:story/mine_stone", 2),
             award("minecraft:story/upgrade_tools", 2),
@@ -133,17 +138,20 @@ final class DefaultSmp {
             award("minecraft:nether/netherite_armor", 10));
 
     /**
-     * The winner's head start: the thing everybody wants and nobody has on day one, plus a head
-     * start on gear that is spent the moment it is used.
+     * The winner's head start.
+     *
+     * The thing everybody wants and nobody has on day one, plus a head start on gear that is spent the moment it
+     * is used.
      */
-    static final List<SmpSpec.WheelPrizeSpec> HG_WINNER_ITEMS =
-            List.of(item("ELYTRA", 1, 1), item("NETHERITE_INGOT", 1, 1));
+    static final List<WheelPrizeSpec> HG_WINNER_ITEMS = List.of(item("ELYTRA", 1, 1), item("NETHERITE_INGOT", 1, 1));
 
     /**
-     * The wheel's pool. Weights are relative; as written, the common band is about 70 % of spins,
-     * the uncommon band about 26 %, and the rare band about one spin in twenty-five.
+     * The wheel's pool.
+     *
+     * Weights are relative; as written, the common band is about 70 % of spins, the uncommon band about 26 %, and
+     * the rare band about one spin in twenty-five.
      */
-    static final List<SmpSpec.WheelPrizeSpec> WHEEL_PRIZES = List.of(
+    static final List<WheelPrizeSpec> WHEEL_PRIZES = List.of(
             // common - useful, never decisive. Total weight 700.
             item("COOKED_BEEF", 32, 120),
             item("OAK_LOG", 64, 110),
@@ -162,8 +170,7 @@ final class DefaultSmp {
             item("GOLDEN_APPLE", 4, 30),
             item("EXPERIENCE_BOTTLE", 16, 30),
 
-            // rare - things you occasionally need and hate farming, chosen to encourage trade.
-            // Total weight 40, so roughly one spin in twenty-five.
+            // rare: occasionally needed, hated to farm; weight 40, roughly one spin in twenty-five.
             item("ANCIENT_DEBRIS", 2, 12),
             item("SHULKER_SHELL", 2, 10),
             item("END_CRYSTAL", 2, 8),
@@ -172,7 +179,7 @@ final class DefaultSmp {
             item("TOTEM_OF_UNDYING", 1, 3));
 
     /** Iron and no enchantments: aim and timing over about a minute. */
-    static final List<SmpSpec.WheelPrizeSpec> DUEL_LOADOUT_SWORD = List.of(
+    static final List<WheelPrizeSpec> DUEL_LOADOUT_SWORD = List.of(
             item("IRON_SWORD", 1, 1),
             item("SHIELD", 1, 1),
             item("IRON_HELMET", 1, 1),
@@ -182,7 +189,7 @@ final class DefaultSmp {
             item("COOKED_BEEF", 8, 1));
 
     /** Lighter armour than the sword loadout, so a hit matters and a miss costs. */
-    static final List<SmpSpec.WheelPrizeSpec> DUEL_LOADOUT_BOW = List.of(
+    static final List<WheelPrizeSpec> DUEL_LOADOUT_BOW = List.of(
             item("BOW", 1, 1),
             item("ARROW", 64, 1),
             item("IRON_SWORD", 1, 1),
@@ -192,12 +199,9 @@ final class DefaultSmp {
             item("LEATHER_BOOTS", 1, 1),
             item("COOKED_BEEF", 8, 1));
 
-    // ---------------------------------------------------------------- the sound vocabulary
-    //
-
     private DefaultSmp() {}
 
-    private static SmpSpec.SpawnRegionSpec region(
+    private static SpawnRegionSpec region(
             final String world,
             final int minX,
             final int minY,
@@ -213,10 +217,10 @@ final class DefaultSmp {
         values.put("max-x", maxX);
         values.put("max-y", maxY);
         values.put("max-z", maxZ);
-        return Specs.createUnsafe(SmpSpec.SpawnRegionSpec.class, values);
+        return Specs.createUnsafe(SpawnRegionSpec.class, values);
     }
 
-    private static SmpSpec.BalloonSpec balloon(
+    private static BalloonSpec balloon(
             final String world,
             final int minX,
             final int minY,
@@ -232,20 +236,19 @@ final class DefaultSmp {
         values.put("max-x", maxX);
         values.put("max-y", maxY);
         values.put("max-z", maxZ);
-        return Specs.createUnsafe(SmpSpec.BalloonSpec.class, values);
+        return Specs.createUnsafe(BalloonSpec.class, values);
     }
 
     /**
      * One default board.
      *
-     * <p><b>Every key the spec declares has to appear in this map.</b> {@code createUnsafe} builds
-     * a proxy that answers from it and nothing else - not from the interface's {@code default}
-     * method - so a key left out here comes back as {@code null} and the first thing that reads it
-     * throws. That is not theoretical: {@code width} was added on 2026-09-04 and forgotten here,
-     * and {@code smp}'s own {@code ConfigsTest} is what caught it, at exactly the moment
-     * {@code Configs.validate} first touched the new getter.</p>
+     * <b>Every key the spec declares has to appear in this map.</b> {@code createUnsafe} builds a proxy that answers
+     * from it and nothing else - not from the interface's {@code default} method - so a key left out here comes back as
+     * {@code null} and the first thing that reads it throws. That is not theoretical: {@code width} was added and
+     * forgotten here, and {@code smp} 's own {@code ConfigsTest} is what caught it, at exactly the moment
+     * {@code Configs.validate} first touched the new getter.
      */
-    private static SmpSpec.BoardSpec board(
+    private static BoardSpec board(
             final String kind, final String world, final double x, final double y, final double z, final float yaw) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("kind", kind);
@@ -255,10 +258,10 @@ final class DefaultSmp {
         values.put("z", z);
         values.put("yaw", yaw);
         values.put("width", 180);
-        return Specs.createUnsafe(SmpSpec.BoardSpec.class, values);
+        return Specs.createUnsafe(BoardSpec.class, values);
     }
 
-    private static SmpSpec.DuelPlatformSpec platform(
+    private static DuelPlatformSpec platform(
             final String type,
             final String world,
             final int minX,
@@ -276,10 +279,10 @@ final class DefaultSmp {
         values.put("max-x", maxX);
         values.put("max-y", maxY);
         values.put("max-z", maxZ);
-        return Specs.createUnsafe(SmpSpec.DuelPlatformSpec.class, values);
+        return Specs.createUnsafe(DuelPlatformSpec.class, values);
     }
 
-    private static SmpSpec.NpcSpec npc(
+    private static NpcSpec npc(
             final String world,
             final double x,
             final double y,
@@ -295,10 +298,10 @@ final class DefaultSmp {
         values.put("yaw", yaw);
         values.put("skin-name", skinName);
         values.put("name", name);
-        return Specs.createUnsafe(SmpSpec.NpcSpec.class, values);
+        return Specs.createUnsafe(NpcSpec.class, values);
     }
 
-    private static SmpSpec.SpawnPointSpec spawnPoint(
+    private static SpawnPointSpec spawnPoint(
             final double x, final double y, final double z, final float yaw, final float pitch) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("x", x);
@@ -306,21 +309,19 @@ final class DefaultSmp {
         values.put("z", z);
         values.put("yaw", yaw);
         values.put("pitch", pitch);
-        return Specs.createUnsafe(SmpSpec.SpawnPointSpec.class, values);
+        return Specs.createUnsafe(SpawnPointSpec.class, values);
     }
 
-    private static SmpSpec.BalloonSpawnPointsSpec balloonSpawnPoints(
-            final SmpSpec.SpawnPointSpec nordtal,
-            final SmpSpec.SpawnPointSpec nether,
-            final SmpSpec.SpawnPointSpec end) {
+    private static BalloonSpawnPointsSpec balloonSpawnPoints(
+            final SpawnPointSpec nordtal, final SpawnPointSpec nether, final SpawnPointSpec end) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("nordtal", nordtal);
         values.put("nether", nether);
         values.put("end", end);
-        return Specs.createUnsafe(SmpSpec.BalloonSpawnPointsSpec.class, values);
+        return Specs.createUnsafe(BalloonSpawnPointsSpec.class, values);
     }
 
-    private static SmpSpec.FirstJoinSpawnSpec firstJoinSpawn(
+    private static FirstJoinSpawnSpec firstJoinSpawn(
             final String world, final double x, final double y, final double z, final float yaw, final float pitch) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("world", world);
@@ -329,21 +330,21 @@ final class DefaultSmp {
         values.put("z", z);
         values.put("yaw", yaw);
         values.put("pitch", pitch);
-        return Specs.createUnsafe(SmpSpec.FirstJoinSpawnSpec.class, values);
+        return Specs.createUnsafe(FirstJoinSpawnSpec.class, values);
     }
 
-    private static SmpSpec.AdvancementAwardSpec award(final String advancement, final int aura) {
+    private static AdvancementAwardSpec award(final String advancement, final int aura) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("advancement", advancement);
         values.put("aura", aura);
-        return Specs.createUnsafe(SmpSpec.AdvancementAwardSpec.class, values);
+        return Specs.createUnsafe(AdvancementAwardSpec.class, values);
     }
 
-    private static SmpSpec.WheelPrizeSpec item(final String item, final int amount, final int weight) {
+    private static WheelPrizeSpec item(final String item, final int amount, final int weight) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("item", item);
         values.put("amount", amount);
         values.put("weight", weight);
-        return Specs.createUnsafe(SmpSpec.WheelPrizeSpec.class, values);
+        return Specs.createUnsafe(WheelPrizeSpec.class, values);
     }
 }

@@ -29,12 +29,12 @@ import org.bukkit.plugin.Plugin;
 /**
  * Clicking the NPC, and everything that follows from it.
  *
- * <p>Three things live here because they are one conversation: opening the objective list, opening
- * a deposit screen from it, and the confirmation that is the only moment items change hands.
+ * Three things live here because they are one conversation: opening the objective list, opening a deposit screen
+ * from it, and the confirmation that is the only moment items change hands.
  *
- * <p><b>Closing a deposit screen always gives everything back.</b> A plugin inventory that is simply
- * closed drops its contents into nothing, so the handler below is not a courtesy - it is what stands
- * between somebody backing out of a screen and somebody losing a stack of diamonds.
+ * <b>Closing a deposit screen always gives everything back.</b> A plugin inventory that is simply closed drops its
+ * contents into nothing, so the handler below is not a courtesy - it is what stands between somebody backing out of
+ * a screen and somebody losing a stack of diamonds.
  */
 public final class NpcListener implements Listener {
 
@@ -44,20 +44,21 @@ public final class NpcListener implements Listener {
     /**
      * The milestone track, <b>as a supplier</b>.
      *
-     * <p>{@code /smp reload} replaces the plugin's track with a new instance - that is the whole
-     * reason {@code milestones.yml} is a separate reloadable file, because a milestone is appended
-     * and a target lowered mid-season. A reference captured at enable would go on reading the
-     * definitions the server started with, for the rest of the season, and nothing would say so.</p>
+     * {@code /smp reload} replaces the plugin's track with a new instance - that is the whole reason
+     * {@code milestones.yml} is a separate reloadable file, because a milestone is appended and a target lowered
+     * mid-season. A reference captured at enable would go on reading the definitions the server started with, for the
+     * rest of the season, and nothing would say so.
      */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final ObjectiveEngine engine;
     private final Identities identities;
     /**
-     * {@code config.yml#wheel-extra-spin-percents}, <b>as a supplier</b>, for the same reason the
-     * track is one: the share line projects how many extra spins a contribution is on track for,
-     * and it has to project them against the thresholds {@code ObjectiveEngine} will actually pay
-     * out on rather than the ones the server started with.
+     * {@code config.yml#wheel-extra-spin-percents}, <b>as a supplier</b>, for the same reason the track is one.
+     *
+     * The share line projects how many extra spins a contribution is on track for, and it has to project them
+     * against the thresholds {@code ObjectiveEngine} will actually pay out on rather than the ones the server
+     * started with.
      */
     private final java.util.function.Supplier<List<Integer>> extraSpinPercents;
 
@@ -120,10 +121,7 @@ public final class NpcListener implements Listener {
             }
             final List<ObjectiveRow> rows = dao.objectivesOf(activeKey.get());
 
-            // The player's own share, on the SAME async hop that read the objectives - one round
-            // trip more, none of it on the main thread. A player with no account link (which the
-            // login gate makes impossible, so this is the defensive branch) gets an empty summary
-            // rather than a query with a null id.
+            // The player's own share, on the same async hop that read the objectives.
             final OwnShare.Summary share = identities
                     .discordIdOf(player.getUniqueId())
                     .map(discordId ->
@@ -152,8 +150,7 @@ public final class NpcListener implements Listener {
             if (slot < 0 || slot >= event.getInventory().getSize()) {
                 return;
             }
-            // The page buttons first: they sit on the share plate's own two cells, so a click there
-            // is a page turn and never the share line.
+            // The page buttons first; they sit on the share plate's own two cells, never the share line.
             if (gui.isPrevious(slot) || gui.isNext(slot)) {
                 sounds.play(player, Feedback.SELECT);
                 player.openInventory(
@@ -171,9 +168,7 @@ public final class NpcListener implements Listener {
                                     entry.row().target())
                             .getInventory());
                 } else {
-                    // A statistic counts itself and an advancement is earned elsewhere, which is
-                    // what the item's own lore says. Clicking one is a click the server cannot do
-                    // anything with, and silence there reads as a menu that is broken.
+                    // A statistic counts itself, an advancement is earned elsewhere.
                     sounds.play(player, Feedback.REFUSED);
                 }
             });
@@ -181,8 +176,7 @@ public final class NpcListener implements Listener {
         }
 
         if (holder instanceof HandInGui gui) {
-            // The deposit slots are deliberately free: this is a chest a player fills. Only the
-            // confirm button and the frame around it are locked.
+            // The deposit slots are deliberately free: this is a chest a player fills.
             if (event.getRawSlot() >= 0
                     && event.getRawSlot() < event.getInventory().getSize()
                     && !HandInGui.isDeposit(event.getRawSlot())) {
@@ -197,9 +191,8 @@ public final class NpcListener implements Listener {
     /**
      * The one moment items change hands.
      *
-     * <p>What is taken is decided by {@link HandIn}, which knows nothing about a server and is unit
-     * tested; this only applies the answer and credits it. Everything not taken stays in the screen
-     * and comes back when it closes.
+     * What is taken is decided by {@link HandIn}, which knows nothing about a server and is unit tested; this only
+     * applies the answer and credits it. Everything not taken stays in the screen and comes back when it closes.
      */
     private void confirm(final Player player, final HandInGui gui) {
         final Locale locale = locales.of(player.getUniqueId());
@@ -219,8 +212,7 @@ public final class NpcListener implements Listener {
             return;
         }
 
-        // Taken now, on the click, so the player cannot pull them back out while the credit is in
-        // flight - and held, because the credit can legitimately pay for none of them.
+        // Taken now, on the click, and held back since the credit may pay for none of them.
         final java.util.List<org.bukkit.inventory.ItemStack> taken = gui.apply(result);
         final String objectiveKey = gui.objective().key();
         final long accepted = result.accepted();
@@ -230,8 +222,7 @@ public final class NpcListener implements Listener {
             try {
                 credited = engine.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
             } catch (final RuntimeException failure) {
-                // The database said no. Without this the items are gone and the player is told
-                // nothing at all, because the callback below never runs.
+                // The database said no; without this the items vanish and the player is told nothing.
                 plugin.getLogger()
                         .severe("the hand-in for " + player.getName() + " on "
                                 + objectiveKey + " could not be credited, giving the items back: "
@@ -239,41 +230,43 @@ public final class NpcListener implements Listener {
                 credited = 0;
             }
             final long paid = credited;
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (paid <= 0) {
-                    // Nothing was credited - the objective finished while this screen was open, or
-                    // the write failed. The items were already taken, so they go straight back:
-                    // returnEverything only knows about the slots, and these are no longer in them.
-                    // A "handed in 0, thank you" line with the diamonds gone is the one outcome this
-                    // screen must never produce.
-                    if (!player.isOnline()) {
-                        // The one case nothing here can fix: the items belong to a player who is no
-                        // longer on the server, and this plugin has no mailbox. Named in the log,
-                        // stack by stack, so an admin can hand them back - which is the whole
-                        // difference between an incident and a silent loss. It is on the owner's
-                        // rehearsal list whether this deserves a real store.
-                        plugin.getLogger()
-                                .severe(player.getName() + " left while a hand-in on "
-                                        + objectiveKey + " was in flight, it credited nothing, and these"
-                                        + " items could not be returned: " + describe(taken));
-                        return;
-                    }
-                    gui.giveBack(player, taken);
-                    player.sendMessage(MessageRenderer.of(messages)
-                            .format(locale, MESSAGES.smp().handin().nothingCredited()));
-                    sounds.play(player, Feedback.REFUSED);
-                    player.closeInventory();
-                    return;
-                }
-                if (!player.isOnline()) {
-                    return;
-                }
-                player.sendMessage(MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().handin().accepted(paid)));
-                sounds.play(player, Feedback.SMALL_SUCCESS);
-                player.closeInventory();
-            });
+            Bukkit.getScheduler()
+                    .runTask(plugin, () -> applyCreditResult(player, locale, gui, taken, objectiveKey, paid));
         });
+    }
+
+    /** Main thread: tells the player what the credit above decided, and returns items it could not pay for. */
+    private void applyCreditResult(
+            final Player player,
+            final Locale locale,
+            final HandInGui gui,
+            final java.util.List<org.bukkit.inventory.ItemStack> taken,
+            final String objectiveKey,
+            final long paid) {
+        if (paid <= 0) {
+            // Nothing was credited: the objective finished while open.
+            if (!player.isOnline()) {
+                // The one case nothing here can fix: the player is offline and this plugin has no mailbox.
+                plugin.getLogger()
+                        .severe(player.getName() + " left while a hand-in on "
+                                + objectiveKey + " was in flight, it credited nothing, and these"
+                                + " items could not be returned: " + describe(taken));
+                return;
+            }
+            gui.giveBack(player, taken);
+            player.sendMessage(MessageRenderer.of(messages)
+                    .format(locale, MESSAGES.smp().handin().nothingCredited()));
+            sounds.play(player, Feedback.REFUSED);
+            player.closeInventory();
+            return;
+        }
+        if (!player.isOnline()) {
+            return;
+        }
+        player.sendMessage(MessageRenderer.of(messages)
+                .format(locale, MESSAGES.smp().handin().accepted(paid)));
+        sounds.play(player, Feedback.SMALL_SUCCESS);
+        player.closeInventory();
     }
 
     @EventHandler
@@ -290,16 +283,11 @@ public final class NpcListener implements Listener {
                 .collect(java.util.stream.Collectors.joining(", "));
     }
 
-    /** Sends one already-rendered message on the main thread, from wherever it is called. */
-    private void tell(final Player player, final Component message) {
-        tell(player, message, null);
-    }
-
     /**
-     * The same, plus a sound.
+     * Sends a message and its sound, both in the one hop back to the main thread.
      *
-     * <p>Both in the one hop back to the main thread: a menu that does not open is a refusal the
-     * player asked for, and the line and its sound belong to the same moment.
+     * A menu that does not open is a refusal the player asked for, and the line and its sound belong to the same
+     * moment.
      */
     private void tell(final Player player, final Component message, final Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {

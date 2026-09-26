@@ -26,23 +26,21 @@ import org.bukkit.plugin.Plugin;
 /**
  * The three portal rules, each of them deliberate.
  *
- * <ul>
- *   <li><b>Nether portals are gated by the milestone, not disabled.</b> Until the Nether milestone
- *       is unlocked a portal built in Nordtal does not ignite - without that, one player with
- *       obsidian and a flint and steel walks straight past the milestone that is supposed to open
- *       the Nether. Afterwards they behave exactly like vanilla, in both directions, with the usual
- *       1:8 mapping. Nether highways are therefore possible and that is accepted: a highway is
- *       infrastructure the community digs, not a command it is handed.</li>
- *   <li><b>Every portal in the farm world leads to the Nordtal spawn</b>, wherever it stands. The
- *       farm world is thrown away every day and must not become a permanent address, so it gets no
- *       portal network of its own.</li>
- *   <li><b>A stronghold's End portal never activates.</b> The End is unlocked by a milestone and
- *       entered by balloon, so that the community goes in together - and the way back is the
- *       vanilla exit portal, which does not work until the dragon is dead.</li>
- * </ul>
+ * - <b>Nether portals are gated by the milestone, not disabled.</b> Until the Nether milestone is unlocked a portal
+ *   built in Nordtal does not ignite - without that, one player with obsidian and a flint and steel walks straight
+ *   past the milestone that is supposed to open the Nether. Afterwards they behave exactly like vanilla, in both
+ *   directions, with the usual 1:8 mapping. Nether highways are therefore possible and that is accepted: a highway
+ *   is infrastructure the community digs, not a command it is handed.
  *
- * <p>The vanilla 1:8 linking needs no code: the worlds are named {@code nordtal} and
- * {@code nordtal_nether} precisely so Bukkit's own convention pairs them.
+ * - <b>Every portal in the farm world leads to the Nordtal spawn</b>, wherever it stands. The farm world is thrown
+ *   away every day and must not become a permanent address, so it gets no portal network of its own.
+ *
+ * - <b>A stronghold's End portal never activates.</b> The End is unlocked by a milestone and entered by balloon, so
+ *   that the community goes in together - and the way back is the vanilla exit portal, which does not work until the
+ *   dragon is dead.
+ *
+ * The vanilla 1:8 linking needs no code: the worlds are named {@code nordtal} and {@code nordtal_nether} precisely
+ * so Bukkit's own convention pairs them.
  */
 public final class PortalGate implements Listener {
 
@@ -96,13 +94,13 @@ public final class PortalGate implements Listener {
     /**
      * Clears the fire the refused ignition left standing.
      *
-     * <p>Cancelling {@code PortalCreateEvent} stops the portal and nothing else: the flint and
-     * steel has already placed a fire block, so a refused ignition otherwise burns the player who
-     * just read the refusal.
+     * Cancelling {@code PortalCreateEvent} stops the portal and nothing else: the flint and steel has already placed a
+     * fire block, so a refused ignition otherwise burns the player who just read the refusal.
      *
-     * <p>Next tick, because the block is placed by the same call stack this event is raised from and
-     * setting it to air here is undone. The blocks are the ones that would have become portal, which
-     * is the column the fire is in whichever face was clicked.
+     * Next tick, because the block is placed by the same call stack this event is raised from and setting it to air
+     * here
+     * is undone. The blocks are the ones that would have become portal, which is the column the fire is in whichever
+     * face was clicked.
      */
     private void putOutTheFire(final PortalCreateEvent event) {
         final World world = event.getWorld();
@@ -145,8 +143,7 @@ public final class PortalGate implements Listener {
         }
 
         if (!season.isUnlocked(Unlock.NETHER) && from.hasVanillaPortalLinking()) {
-            // Belt and braces: the frame should never have lit, but a portal that predates the
-            // plugin, or an admin's, must not become a way past the milestone either.
+            // Belt and braces: a pre-existing portal must not become a way past the milestone.
             event.setCancelled(true);
             event.getPlayer()
                     .sendMessage(MessageRenderer.of(messages)

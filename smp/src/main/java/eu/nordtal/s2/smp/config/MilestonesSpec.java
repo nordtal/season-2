@@ -10,35 +10,31 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import java.util.List;
 
 /**
- * {@code plugins/smp/milestones.yml} - the track, and the one file the rest of this module reads
- * the season's shape out of.
+ * {@code plugins/smp/milestones.yml} - the track, and the one file the season's shape is read out of.
  *
- * <p>A file rather than code because the definition is versioned here while the <em>progress</em>
- * lives in the database: adding a milestone is a file edit plus {@code /smp reload}, with no release
- * and no restart. Appending one is the <b>planned response to a track that finishes early</b>,
- * since a target that moves overnight reads as a shifted goalpost.
+ * A file rather than code because the definition is versioned here while the <em>progress</em> lives in the
+ * database: adding a milestone is a file edit plus {@code /smp reload}, with no release and no restart. Appending
+ * one is the <b>planned response to a track that finishes early</b>, since a target that moves overnight reads as a
+ * shifted goalpost.
  *
- * <p>Three things about the format:
+ * Three things about the format:
  *
- * <ul>
- *   <li><b>A list of milestones, each with a list of objectives</b> - two levels of nesting through
- *       jcore, which is the repository's standing config system. The alternative, a flat list of
- *       objectives each naming its milestone, would have been easier for the loader and worse for
- *       every human being who ever edits this file: the thing being edited is a milestone, and its
- *       objectives belong inside it.</li>
- *   <li><b>One record shape for all three objective types</b>, with the fields that do not apply
- *       left empty. A jcore spec is an interface with a fixed set of keys and cannot be
- *       polymorphic; {@code TrackShape} is what makes the legal combinations legal, and it says
- *       plainly when a field belongs to another type, because a leftover {@code items} list is what
- *       a half-finished type change looks like.</li>
- *   <li><b>The pot is per milestone, not per objective.</b> It is derived rather than chosen -
- *       {@code pot = round((budget ÷ objectives) × 5, to 10)} - and a per-objective pot would let
- *       that derivation drift one objective at a time until nobody could say what the ramp was.</li>
- * </ul>
+ * - <b>A list of milestones, each with a list of objectives</b> - two levels of nesting through jcore, which is the
+ *   repository's standing config system. The alternative, a flat list of objectives each naming its milestone, would
+ *   have been easier for the loader and worse for every human being who ever edits this file: the thing being edited
+ *   is a milestone, and its objectives belong inside it.
  *
- * <p>Every number here is a default: the <em>rules</em> that produced the track are the decision.
- * The items and advancements are worked examples and are expected to be corrected; what must
- * survive a correction is the shape.
+ * - <b>One record shape for all three objective types</b>, with the fields that do not apply left empty. A jcore
+ *   spec is an interface with a fixed set of keys and cannot be polymorphic; {@code TrackShape} is what makes the
+ *   legal combinations legal, and it says plainly when a field belongs to another type, because a leftover
+ *   {@code items} list is what a half-finished type change looks like.
+ *
+ * - <b>The pot is per milestone, not per objective.</b> It is derived rather than chosen -
+ *   {@code pot = round((budget ÷ objectives) × 5, to 10)} - and a per-objective pot would let that derivation drift
+ *   one objective at a time until nobody could say what the ramp was.
+ *
+ * Every number here is a default: the <em>rules</em> that produced the track are the decision. The items and
+ * advancements are worked examples and are expected to be corrected; what must survive a correction is the shape.
  */
 @ConfigSpec(
         header = {

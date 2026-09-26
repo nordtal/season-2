@@ -15,29 +15,25 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Walks the deposit screen and holds it against the tray the pack drew.
  *
- * <p>The one that carries a rule rather than a measurement is
- * {@link #theTrayCoversEverySlotAPlayerCanFill}: this window's whole claim is that the area you
- * throw into is <em>one</em> surface, so a tray that stops one pixel short of a slot is a slot a
- * player can drop into that does not look like part of the tray - and neither the drop nor the
- * hand-in fails, so nothing anywhere says so.</p>
+ * The one that carries a rule rather than a measurement is {@link #theTrayCoversEverySlotAPlayerCanFill}: this
+ * window's whole claim is that the area you throw into is <em>one</em> surface, so a tray that stops one pixel short
+ * of a slot is a slot a player can drop into that does not look like part of the tray - and neither the drop nor the
+ * hand-in fails, so nothing anywhere says so.
  */
 class HandInPanelTest {
 
     @Test
-    @DisplayName("the whole surface returns the cursor to the title anchor")
     void theReadableTitleStillLandsWhereItWould() {
         final List<Run> runs = PanelWalk.runs(surface("808 still needed", "Hand in"));
         assertEquals(MenuTitle.ANCHOR_X, runs.get(runs.size() - 1).end());
     }
 
     @Test
-    @DisplayName("the tray covers every slot a player can fill, and no slot they cannot")
     void theTrayCoversEverySlotAPlayerCanFill() {
         final List<Run> runs = PanelWalk.runs(surface("808 still needed", "Hand in"));
         final Run tray = PanelWalk.find(runs, Glyphs.FONT_GUI, Glyphs.GUI_HANDIN_TRAY);
@@ -69,7 +65,6 @@ class HandInPanelTest {
     }
 
     @Test
-    @DisplayName("the confirm button sits on the cells that carry its click, and nowhere else")
     void theConfirmButtonIsItsSlots() {
         final List<Run> runs = PanelWalk.runs(surface("808 still needed", "Hand in"));
         final String font = Glyphs.FONT_GUI_ROWS.get(HandInPanel.FOOTER_ROW);
@@ -87,7 +82,6 @@ class HandInPanelTest {
     }
 
     @Test
-    @DisplayName("the button's label is centred on its own plate")
     void theLabelIsCentred() {
         for (final String label : new String[] {"Hand in", "Abgeben", "OK"}) {
             final List<Run> runs = PanelWalk.runs(surface("1 still needed", label));
@@ -108,7 +102,6 @@ class HandInPanelTest {
     }
 
     @Test
-    @DisplayName("the still-needed line stops before the button rather than running under it")
     void theCountStaysOutOfTheButtonsWay() {
         final List<Run> runs =
                 PanelWalk.runs(surface("999999999 still needed of oak, birch, spruce and every other log", "Hand in"));
@@ -123,11 +116,8 @@ class HandInPanelTest {
     }
 
     @Test
-    @DisplayName("the count starts where the grave's experience line does")
     void thetwoFootersLineUp() {
-        // These two windows are the same footer with a different sentence on it. A label eight
-        // pixels further right in one of them is the kind of difference nobody can name and
-        // everybody sees, and nothing else in either module compares the two.
+        // These two windows are the same footer with a different sentence; nothing else compares the two directly.
         final Run needed = PanelWalk.textRuns(
                         PanelWalk.runs(surface("808 still needed", "Hand in")),
                         Glyphs.FONT_GUI_ROWS.get(HandInPanel.FOOTER_ROW))
@@ -140,7 +130,6 @@ class HandInPanelTest {
     }
 
     @Test
-    @DisplayName("the sample sits in the footer row, apart from every slot that accepts an item")
     void theSampleIsNotADepositSlot() {
         assertEquals(HandInPanel.FOOTER_ROW, SlotGeometry.row(HandInPanel.SAMPLE_SLOT));
         assertEquals(0, SlotGeometry.column(HandInPanel.SAMPLE_SLOT));
@@ -152,7 +141,6 @@ class HandInPanelTest {
     }
 
     @Test
-    @DisplayName("every code point the surface uses is declared by the font that run names")
     void nothingIsDrawnOutOfAFontThatLacksIt() {
         final List<String> missing = new ArrayList<>();
         for (final Run run : PanelWalk.runs(surface("808 still needed", "Hand in"))) {
@@ -167,7 +155,6 @@ class HandInPanelTest {
     }
 
     @Test
-    @DisplayName("the two strings drawn inside the window carry no MiniMessage in either language")
     void theDrawnKeysAreTagless() {
         final List<String> tagged = new ArrayList<>();
         for (final String language : new String[] {"en", "de"}) {
@@ -188,11 +175,8 @@ class HandInPanelTest {
     }
 
     @Test
-    @DisplayName("the confirm plate is not the refusing one, and the two are different pictures")
     void theAffirmingPlateIsItsOwn() {
-        // The one button in these menus that does something that cannot be undone by clicking
-        // again. /navigate's stop plate is the refusing red; this must not be the same picture, or
-        // the only cue a player has for "this one commits" is the word on it.
+        // The one button here that cannot be undone must not share /navigate's stop-plate picture for that reason.
         assertTrue(!Glyphs.GUI_ROW_BUTTON_CONFIRM.equals(Glyphs.GUI_ROW_BUTTON_WIDE));
         final BufferedImage confirm = PanelWalk.image("row_button_confirm.png");
         assertEquals(HandInPanel.CONFIRM_WIDTH, confirm.getWidth());

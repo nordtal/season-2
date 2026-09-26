@@ -1,11 +1,11 @@
 pluginManagement {
-    repositories {
-        gradlePluginPortal()
-    }
+	repositories {
+		gradlePluginPortal()
+	}
 }
 
 plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+	id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
 rootProject.name = 'papermc-display-tags'
@@ -19,12 +19,12 @@ include 'api'
 // JitPack rewrites jcore's group from eu.nordtal to com.github.nordtal, so the coordinate has to
 // be swapped, not just the repository.
 if (providers.gradleProperty("useLocalJcore").present) {
-    gradle.beforeProject { project ->
-        project.repositories.mavenLocal()
-        project.configurations.configureEach {
-            resolutionStrategy.dependencySubstitution {
-                substitute module('com.github.nordtal:jcore') using module('eu.nordtal:jcore:3.0.0')
-            }
-        }
-    }
+	gradle.beforeProject { project ->
+		project.repositories.mavenLocal()
+		project.configurations.configureEach {
+			resolutionStrategy.dependencySubstitution {
+				substitute module('com.github.nordtal:jcore') using module('eu.nordtal:jcore:3.0.0')
+			}
+		}
+	}
 }

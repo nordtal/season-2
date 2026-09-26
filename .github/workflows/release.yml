@@ -42,6 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - uses: actions/setup-java@v6
@@ -95,8 +96,19 @@ jobs:
           fi
           ls -la "$jar"
 
-      # Onto the release that triggered this run. The release notes are left alone - a human
-      # wrote them, and generate_release_notes would replace them on every re-run.
+      - name: Write the release notes
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: ${{ runner.temp }}/notes.md
+
+      - name: Put the release notes on the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ env.TAG }}" --notes-file "$RUNNER_TEMP/notes.md"
+
       - name: Attach the jar to the release
         uses: softprops/action-gh-release@v3
         with:

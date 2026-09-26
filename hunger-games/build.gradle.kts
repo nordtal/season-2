@@ -11,13 +11,14 @@ tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option(
             "NullAway:KnownInitializers",
-            "eu.nordtal.s2.hungergames.HungerGamesPlugin.start,"
-                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.loadConfigAndMessages,"
-                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireGameSystems,"
-                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireAdminWatchAndCommands,"
-                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireCommandFilterAndAdminWatch,"
-                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.refreshCurrentGame,"
-                + "eu.nordtal.s2.hungergames.HungerGamesPlugin.startHeartbeat")
+            "eu.nordtal.s2.hungergames.HungerGamesPlugin.start," +
+                "eu.nordtal.s2.hungergames.HungerGamesPlugin.loadConfigAndMessages," +
+                "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireGameSystems," +
+                "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireAdminWatchAndCommands," +
+                "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireCommandFilterAndAdminWatch," +
+                "eu.nordtal.s2.hungergames.HungerGamesPlugin.refreshCurrentGame," +
+                "eu.nordtal.s2.hungergames.HungerGamesPlugin.startHeartbeat",
+        )
     }
 }
 

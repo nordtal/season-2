@@ -23,13 +23,16 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Schedules the loot refills configured under {@code refill-tiers}: at each tier's delay, every
- * loot point still inside the border is restocked. The chest block itself is part of the hand-built
- * world and is never replaced - only its inventory is cleared and repopulated.
+ * Schedules the loot refills configured under {@code refill-tiers}.
+ *
+ * At each tier's delay, every loot point still inside the border is restocked. The chest block
+ * itself is part of the hand-built world and is never replaced - only its inventory is cleared and
+ * repopulated.
  */
 public final class LootRefill {
 
@@ -46,7 +49,7 @@ public final class LootRefill {
     private final List<BukkitTask> scheduled = new ArrayList<>();
 
     /** Set by {@link #scheduleAll}, cleared by {@link #cancelAll}; null while no game is running. */
-    private volatile Instant releasedAt;
+    private volatile @Nullable Instant releasedAt;
 
     public LootRefill(
             final Plugin plugin,
@@ -69,13 +72,13 @@ public final class LootRefill {
      * When the next refill is due, or {@code null} when none is - read by the HUD's second line.
      * Derived rather than pushed, so it cannot go stale.
      */
-    public Instant nextRefillAt() {
+    public @Nullable Instant nextRefillAt() {
         final Instant released = releasedAt;
         if (released == null) {
             return null;
         }
         final Instant now = Instant.now();
-        Instant soonest = null;
+        @Nullable Instant soonest = null;
         for (final HungerGamesSpec.RefillTierSpec tier : config.refillTiers()) {
             final Instant due = released.plusSeconds(tier.delayMinutes() * 60L);
             if (due.isAfter(now) && (soonest == null || due.isBefore(soonest))) {
@@ -149,8 +152,9 @@ public final class LootRefill {
     }
 
     /**
-     * {@code NETWORK_EVENT}: it happens to the whole world at once, nobody caused it, and it is the
-     * one announcement here a player is expected to act on - so it is not chat alone.
+     * {@code NETWORK_EVENT}: nobody caused it, and it happens to the whole world at once.
+     *
+     * It is the one announcement here a player is expected to act on - so it is not chat alone.
      */
     private void announce() {
         for (final Player player : world.getPlayers()) {

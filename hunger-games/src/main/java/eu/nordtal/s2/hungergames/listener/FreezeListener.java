@@ -8,9 +8,9 @@ import org.bukkit.event.player.PlayerMoveEvent;
 /**
  * Holds players in place during the countdown, so nobody creeps toward the chests early.
  *
- * <p>Position changes are cancelled rather than using spectator mode, which would also hide players
+ * Position changes are cancelled rather than using spectator mode, which would also hide players
  * from each other - everyone should be visible on their tower. Look direction stays free, because a
- * head turn fires no cancellable position change.</p>
+ * head turn fires no cancellable position change.
  */
 public final class FreezeListener implements Listener {
 

@@ -19,19 +19,16 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The lobby's periodic ready-check broadcast, carrying a clickable "I am ready". Ready state is
- * visible to everyone and starts nothing by itself - it informs the admin's decision.
+ * The lobby's periodic ready-check broadcast, carrying a clickable "I am ready".
  *
- * <p>The broadcast carries a live ready/total team count; {@code /hg ready-status} lists the teams
- * by name on demand, rather than flooding chat with them on every broadcast.</p>
+ * Ready state is visible to everyone and starts nothing by itself - it informs the admin's
+ * decision. The broadcast carries a live ready/total team count; {@code /hg ready-status} lists
+ * the teams by name on demand, rather than flooding chat with them on every broadcast.
  */
 public final class Lobby {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(Lobby.class);
 
     private final Plugin plugin;
     private final HungerGamesDao dao;
@@ -39,7 +36,7 @@ public final class Lobby {
     private final Messages messages;
     private final PlayerLocales locales;
 
-    private BukkitTask broadcastTask;
+    private @Nullable BukkitTask broadcastTask;
 
     public Lobby(
             final Plugin plugin,
@@ -79,8 +76,10 @@ public final class Lobby {
     }
 
     /**
-     * Deliberately silent: a standing reminder on a timer, not an event. A chime on a repeating
-     * message makes people turn the sound off, taking the countdown and the border with it.
+     * Deliberately silent: a standing reminder on a timer, not an event.
+     *
+     * A chime on a repeating message makes people turn the sound off, taking the countdown and the
+     * border with it.
      */
     private void broadcast(final World world, final UUID gameId) {
         final List<RosterEntry> roster = dao.roster(gameId);
@@ -92,13 +91,11 @@ public final class Lobby {
 
         for (final Player player : world.getPlayers()) {
             final Locale locale = locales.of(player.getUniqueId());
-            // No .color() here: the colour is in the bundle, and one set on the rendered component
-            // would win over it, so editing hg.lobby.ready-link would change nothing.
+            // No .color(): the colour is in the bundle, and a set one would win over it and never change.
             final Component link = MessageRenderer.of(messages)
                     .format(locale, MESSAGES.hg().lobby().readyLink())
                     .clickEvent(ClickEvent.runCommand("/hg ready"));
-            // A component slot rather than an append: hg.lobby.broadcast ends in "{link}", and
-            // Messages leaves an unfilled placeholder standing, so an append prints it literally.
+            // A slot, not an append: hg.lobby.broadcast ends in "{link}", and an append would print it literally.
             final Component message = MessageRenderer.of(messages)
                     .format(locale, MESSAGES.hg().lobby().broadcast(readyTeams, totalTeams, link));
             player.sendMessage(message);
@@ -106,8 +103,9 @@ public final class Lobby {
     }
 
     /**
-     * Marks the calling player's active membership as ready. See {@code /hg ready} in
-     * {@code eu.nordtal.s2.hungergames.command.HungerGamesCommand}.
+     * Marks the calling player's active membership as ready.
+     *
+     * See {@code /hg ready} in {@code eu.nordtal.s2.hungergames.command.HungerGamesCommand}.
      *
      * @return whether a membership was found and updated
      */

@@ -11,16 +11,17 @@ import eu.nordtal.jcore.config.spec.annotation.Reload;
 import java.util.List;
 
 /**
- * {@code config/config.yml} - everything the hunger games start event needs that is not a database
- * credential.
+ * {@code config/config.yml}.
  *
- * <p>The hard minimum of two participants is {@link #HARD_MINIMUM_PARTICIPANTS}, a constant rather
+ * Everything the hunger games start event needs that is not a database credential.
+ *
+ * The hard minimum of two participants is {@link #HARD_MINIMUM_PARTICIPANTS}, a constant rather
  * than a setting, because it is arithmetic: the border step divides by
  * {@code participants - 1}. {@link #softMinimumParticipants()} is the configurable one, below which
- * a start needs a confirmation.</p>
+ * a start needs a confirmation.
  *
- * <p>Coordinates get real placeholder defaults an operator fills in once the hand-built world
- * exists; they are world data, not secrets, unlike anything Discord-shaped.</p>
+ * Coordinates get real placeholder defaults an operator fills in once the hand-built world exists;
+ * they are world data, not secrets, unlike anything Discord-shaped.
  */
 @ConfigSpec(
         header = {
@@ -46,10 +47,11 @@ import java.util.List;
 public interface HungerGamesSpec {
 
     /**
-     * The hard floor below which {@code /hg start} refuses outright: the border step divides by
-     * {@code participants - 1}, so a lower value is not strict, it is broken. An alias for the
-     * constant in {@code :commands}, which cannot see this interface - one number, not two that
-     * have to agree.
+     * The hard floor below which {@code /hg start} refuses outright.
+     *
+     * The border step divides by {@code participants - 1}, so a lower value is not strict, it is
+     * broken. An alias for the constant in {@code :commands}, which cannot see this interface - one
+     * number, not two that have to agree.
      */
     int HARD_MINIMUM_PARTICIPANTS = eu.nordtal.s2.commands.hungergames.HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS;
 
@@ -232,7 +234,7 @@ public interface HungerGamesSpec {
         return DefaultRefillTiers.LIST;
     }
 
-    // ---------------------------------------------------------------- admin propagation
+    // admin propagation
 
     @Order(15)
     @Name("Admin poll interval (seconds)")

@@ -9,10 +9,9 @@ import org.bukkit.plugin.Plugin;
 /**
  * {@link LimboEffects} against this server.
  *
- * <p>Off the main thread for the chat path, because this reads files and this server's whole job is
- * to be responsive to players who are already staring at a black screen. Inline for the inbox, for
- * the reason every effects implementation here is: the inbox settles a request row when the command
- * returns.</p>
+ * Off the main thread for the chat path, because this reads files and this server's whole job is to be responsive to
+ * players who are already staring at a black screen. Inline for the inbox, for the reason every effects
+ * implementation here is: the inbox settles a request row when the command returns.
  */
 public final class BukkitLimboEffects implements LimboEffects {
 
@@ -54,9 +53,7 @@ public final class BukkitLimboEffects implements LimboEffects {
     public boolean reloadMessages() {
         try {
             messages.reload();
-            // The inbox's own view of the shared bundle, in the same breath. Its unknown keys are
-            // deliberately not reported: this bundle holds one root, so a key the module declares
-            // would be named as unknown by it and is not.
+            // Unknown keys in the shared bundle go unreported: it holds one root, not this module's own keys.
             shared.reload();
             messages.unknownOverrideKeys()
                     .forEach(unknown -> plugin.getLogger()

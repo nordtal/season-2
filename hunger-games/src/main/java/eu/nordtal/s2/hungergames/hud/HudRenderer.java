@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
@@ -27,15 +28,17 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The three-line HUD: players (alive/dead plus an arrow to the nearest living player), loot
- * (countdown plus a direction), border (shrink status). Three {@link BossBar} instances per player,
- * redrawn a few times a second.
+ * The three-line HUD: players, loot, border.
  *
- * <p>The resource pack makes the vanilla bar itself invisible, so this class only decides what each
- * line says. Each line is one {@link BossBarLine} pill: icon, text, and the bearing arrow riding at
- * the end of the same pill.</p>
+ * Three {@link BossBar} instances per player, redrawn a few times a second.
+ *
+ * Players shows alive/dead plus an arrow to the nearest living player, loot a countdown plus a
+ * direction, border its shrink status. The resource pack makes the vanilla bar itself invisible, so
+ * this class only decides what each line says. Each line is one {@link BossBarLine} pill: icon,
+ * text, and the bearing arrow riding at the end of the same pill.
  */
 public final class HudRenderer {
 
@@ -53,11 +56,13 @@ public final class HudRenderer {
     private final Map<UUID, BossBar> lootBars = new HashMap<>();
     private final Map<UUID, BossBar> borderBars = new HashMap<>();
 
-    private BukkitTask task;
+    private @Nullable BukkitTask task;
 
     /**
-     * The living count is read at render time, never pushed in: a push depends on somebody
-     * remembering to call it, while reading the tracker four times a second cannot go stale.
+     * The living count is read at render time, never pushed in.
+     *
+     * A push depends on somebody remembering to call it, while reading the tracker four times a
+     * second cannot go stale.
      */
     private final WinTracker wins;
 
@@ -185,13 +190,15 @@ public final class HudRenderer {
     }
 
     private String nearestPlayerArrow(final Player player) {
+        final Location playerLocation = Objects.requireNonNull(player.getLocation());
         Player nearest = null;
         double nearestDistanceSquared = Double.MAX_VALUE;
         for (final Player other : world.getPlayers()) {
             if (other.getUniqueId().equals(player.getUniqueId())) {
                 continue;
             }
-            final double distanceSquared = other.getLocation().distanceSquared(player.getLocation());
+            final double distanceSquared =
+                    Objects.requireNonNull(other.getLocation()).distanceSquared(playerLocation);
             if (distanceSquared < nearestDistanceSquared) {
                 nearestDistanceSquared = distanceSquared;
                 nearest = other;
@@ -200,16 +207,18 @@ public final class HudRenderer {
         if (nearest == null) {
             return "";
         }
+        final Location nearestLocation = Objects.requireNonNull(nearest.getLocation());
         final int index = Bearing.arrowIndex(
-                player.getLocation().getX(),
-                player.getLocation().getZ(),
-                player.getLocation().getYaw(),
-                nearest.getLocation().getX(),
-                nearest.getLocation().getZ());
+                playerLocation.getX(),
+                playerLocation.getZ(),
+                playerLocation.getYaw(),
+                nearestLocation.getX(),
+                nearestLocation.getZ());
         return Glyphs.BOSSBAR_ARROWS.get(index);
     }
 
     private String nearestLootArrow(final Player player) {
+        final Location playerLocation = Objects.requireNonNull(player.getLocation());
         HungerGamesSpec.LootPointSpec nearest = null;
         double nearestDistanceSquared = Double.MAX_VALUE;
         for (final HungerGamesSpec.LootPointSpec point : config.lootPoints()) {
@@ -217,8 +226,8 @@ public final class HudRenderer {
             if (!border.isInside(location)) {
                 continue;
             }
-            final double dx = point.x() - player.getLocation().getX();
-            final double dz = point.z() - player.getLocation().getZ();
+            final double dx = point.x() - playerLocation.getX();
+            final double dz = point.z() - playerLocation.getZ();
             final double distanceSquared = dx * dx + dz * dz;
             if (distanceSquared < nearestDistanceSquared) {
                 nearestDistanceSquared = distanceSquared;
@@ -229,11 +238,7 @@ public final class HudRenderer {
             return "";
         }
         final int index = Bearing.arrowIndex(
-                player.getLocation().getX(),
-                player.getLocation().getZ(),
-                player.getLocation().getYaw(),
-                nearest.x(),
-                nearest.z());
+                playerLocation.getX(), playerLocation.getZ(), playerLocation.getYaw(), nearest.x(), nearest.z());
         return Glyphs.BOSSBAR_ARROWS.get(index);
     }
 

@@ -8,20 +8,15 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code plugins/limbo/config.yml} - the whole of the waiting room's settings, which is small on
- * purpose.
- * <p>
- * This module shows nothing: black, no visible world, no other players and no chat, with one title
- * in the player's language as the entire interface. So there is little to configure - the world it
- * builds, how often the title is refreshed, and one switch for making the screen visible while
- * somebody is working on it.
- * </p>
- * <p>
+ * {@code plugins/limbo/config.yml} - the whole of the waiting room's settings, which is small on purpose.
+ *
+ * This module shows nothing: black, no visible world, no other players and no chat, with one title in the player's
+ * language as the entire interface. So there is little to configure - the world it builds, how often the title is
+ * refreshed, and one switch for making the screen visible while somebody is working on it.
+ *
  * <b>What is deliberately not here: the waiting reason.</b> The proxy decides that and sends it on
- * {@code nordtal:limbo} ({@code eu.nordtal.s2.common.limbo.WaitReason}). Two of the three reasons
- * are facts only the proxy has, and a waiting room whose title had two sources would show the wrong
- * one on the seam.
- * </p>
+ * {@code nordtal:limbo} ({@code eu.nordtal.s2.common.limbo.WaitReason}). Two of the three reasons are facts only
+ * the proxy has, and a waiting room whose title had two sources would show the wrong one on the seam.
  */
 @ConfigSpec(
         header = {
@@ -115,8 +110,6 @@ public interface LimboSpec {
     default boolean blindness() {
         return true;
     }
-
-    // ---------------------------------------------------------------- admin propagation
 
     @Order(5)
     @Name("Admin poll interval (seconds)")

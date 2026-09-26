@@ -11,8 +11,10 @@ import eu.nordtal.s2.common.message.spec.Name;
 import eu.nordtal.s2.common.message.spec.Shown;
 
 /**
- * Every message of the limbo bundle, one method per key. The bundle is the whole interface of the
- * waiting room: one title and one subtitle per reason to wait, and the tab list.
+ * Every message of the limbo bundle, one method per key.
+ *
+ * The bundle is the whole interface of the waiting room: one title and one subtitle per reason to
+ * wait, and the tab list.
  */
 @MessageSpec("limbo")
 public interface LimboMessages {

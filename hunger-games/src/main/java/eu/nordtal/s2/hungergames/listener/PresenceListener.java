@@ -11,6 +11,7 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
+import java.util.Objects;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
@@ -27,8 +28,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Wires {@link PlayerLocales} and the disconnected-body mechanism: on quit mid-game a body takes
- * the player's place; on reconnect the body is removed and whatever gear it still has is returned.
+ * Wires {@link PlayerLocales} and the disconnected-body mechanism.
+ *
+ * On quit mid-game a body takes the player's place; on reconnect the body is removed and whatever
+ * gear it still has is returned.
  */
 public final class PresenceListener implements Listener {
 
@@ -42,8 +45,9 @@ public final class PresenceListener implements Listener {
     private final AdminOperators operators;
 
     /**
-     * The admin flag, cached at pre-login by {@link FullServerGate} on the thread that is allowed to
-     * wait. Read here, never queried: this is the main thread.
+     * The admin flag, cached at pre-login by {@link FullServerGate}, on the thread allowed to wait.
+     *
+     * Read here, never queried: this is the main thread.
      */
     private final FullServerAdmission admission;
 
@@ -70,8 +74,9 @@ public final class PresenceListener implements Listener {
     }
 
     /**
-     * Rewrites the tab list header and footer for everybody online, not just the player who moved:
-     * the footer carries the player count.
+     * Rewrites the tab list header and footer for everybody online, not just the player who moved.
+     *
+     * The footer carries the player count.
      */
     private void refreshTabList() {
         for (final Player online : Bukkit.getOnlinePlayers()) {
@@ -89,10 +94,8 @@ public final class PresenceListener implements Listener {
         final Player player = event.getPlayer();
         operators.onJoin(player.getUniqueId(), admission.admits(player.getUniqueId()));
 
-        // Off the main thread: a blocking lookup here costs the pool's whole connection timeout,
-        // per join, against a database that has stopped answering. Nothing renders from it
-        // synchronously - PlayerLocales#of answers English until the real value lands.
-        locales.joinAsync(
+        // Async and fire-and-forget: PlayerLocales#of answers English until the lookup lands, or if it fails.
+        final var _ = locales.joinAsync(
                         player.getUniqueId(),
                         task -> plugin.getServer().getScheduler().runTaskAsynchronously(plugin, task))
                 .thenRun(() -> {
@@ -100,18 +103,14 @@ public final class PresenceListener implements Listener {
                         locales.quit(player.getUniqueId());
                         return;
                     }
-                    // Only now: until the language lands, of() answers English, and a tab list
-                    // drawn earlier would stay English for a German player until they relog.
+                    // Only now: a tab list drawn earlier would stay English until the player relogs.
                     Bukkit.getScheduler().runTask(plugin, () -> {
                         refreshTabList();
-                        // Asked again: a player who joined and left inside one database round trip
-                        // would otherwise be announced as arriving after they had gone. The tab
-                        // list is refreshed either way - it is a fact about everybody else.
+                        // Asked again: a quick join-then-leave must not be announced as arriving after leaving.
                         if (!player.isOnline()) {
                             return;
                         }
-                        // The join line lands here rather than in the join handler: it is said
-                        // once, so rendering it before the language arrives says it in English.
+                        // Said once, here rather than in the join handler, so it never renders in English.
                         lines.announceJoin(player);
                     });
                 });
@@ -122,7 +121,8 @@ public final class PresenceListener implements Listener {
                 final Location at = armorStand.getLocation();
                 returnEquipment(player, armorStand);
                 armorStand.remove();
-                player.teleportAsync(at);
+                // Fire-and-forget: nothing here depends on the teleport landing before the handler returns.
+                final var _ = player.teleportAsync(at);
             }
             bodies.remove(player.getUniqueId());
         }
@@ -134,22 +134,21 @@ public final class PresenceListener implements Listener {
         operators.onQuit(player.getUniqueId());
         locales.quit(player.getUniqueId());
 
-        // A tick later: during PlayerQuitEvent the leaver is still in getOnlinePlayers(), so
-        // counting here would tell everyone the number that was true a moment ago.
+        // A tick later: during PlayerQuitEvent the leaver is still counted in getOnlinePlayers().
         Bukkit.getScheduler().runTask(plugin, this::refreshTabList);
 
-        // Only a disconnect once the game is RUNNING gets a body here. During the countdown
-        // HungerGamesManager#start already places a bare body for anyone offline, and a second one
-        // from here would double them up.
+        // Only a RUNNING-game disconnect gets a body here; the countdown already placed one for offline players.
         if (state.isRunning()) {
             LOGGER.info("Player {} disconnected mid-game - spawning a body to take their place", player.getName());
-            bodies.spawn(player, player.getLocation());
+            bodies.spawn(player, Objects.requireNonNull(player.getLocation()));
         }
     }
 
     /**
-     * Copies whatever gear the marker still has (it may have lost pieces to death, looting is not
-     * modelled) back onto the reconnecting player - the inverse of {@code PlayerBodies#spawn}.
+     * Copies whatever gear the marker still has back onto the reconnecting player.
+     *
+     * It may have lost pieces to death - looting is not modelled - and this is the inverse of
+     * {@code PlayerBodies#spawn}.
      */
     private void returnEquipment(final Player player, final ArmorStand marker) {
         final EntityEquipment equipment = marker.getEquipment();

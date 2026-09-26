@@ -26,8 +26,7 @@ class BorderMathTest {
 
     @Test
     void nextShrinkTargetExtendsRatherThanRestarts() {
-        // "A death during a shrink extends it rather than restarting it: the target moves further
-        // in and the wall keeps its speed."
+        // A death during a shrink extends it rather than restarting it: the target moves further in.
         final double target = BorderMath.nextShrinkTarget(200.0, 13.0, 1.0);
         assertEquals(187.0, target, 1e-9);
     }
@@ -41,7 +40,7 @@ class BorderMathTest {
     @Test
     void shrinkDurationIsDeltaOverSpeed() {
         final long millis = BorderMath.shrinkDurationMillis(250.0, 200.0, 6.0);
-        assertEquals(50.0 / 6.0 * 1000.0, millis, 1.0);
+        assertEquals(50.0 / 6.0 * 1000.0, (double) millis, 1.0);
     }
 
     @Test
@@ -53,6 +52,6 @@ class BorderMathTest {
     void passiveShrinkDurationIsDeltaOverHourlyRate() {
         final long millis = BorderMath.passiveShrinkDurationMillis(250.0, 1.0, 15.0);
         // 249 blocks at 15 blocks/hour = 16.6 hours
-        assertEquals(249.0 / 15.0 * 3_600_000.0, millis, 1.0);
+        assertEquals(249.0 / 15.0 * 3_600_000.0, (double) millis, 1.0);
     }
 }

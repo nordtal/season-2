@@ -4,15 +4,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * When the lobby countdown says something: sparse far out, dense at the end, with the full duration
- * announced first so a frozen player can tell a countdown from a hung server. Sixty chat lines
- * would be noise. Pure arithmetic over one integer, so it is tested rather than watched.
+ * When the lobby countdown says something.
+ *
+ * Sparse far out, dense at the end, with the full duration announced first so a frozen player can
+ * tell a countdown from a hung server. Sixty chat lines would be noise. Pure arithmetic over one
+ * integer, so it is tested rather than watched.
  */
 public final class Countdown {
 
     /**
-     * Seconds-remaining at which the countdown speaks, densest at the end. Only the ones that fit
-     * inside the configured duration are used.
+     * Seconds-remaining at which the countdown speaks, densest at the end.
+     *
+     * Only the ones that fit inside the configured duration are used.
      */
     private static final int[] MARKS = {60, 30, 20, 10, 5, 4, 3, 2, 1};
 

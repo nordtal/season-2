@@ -17,14 +17,17 @@ import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Drives {@code World#getWorldBorder()}: centred on spawn, shrinking by a fixed step on every death
- * (extending an in-flight shrink rather than restarting it), plus a slow passive shrink after a
+ * Drives {@code World#getWorldBorder()}: centred on spawn, shrinking by a fixed step on every death.
+ *
+ * Extending an in-flight shrink rather than restarting it, plus a slow passive shrink after a
  * quiet period with no death.
  *
- * <p>{@code WorldBorder} exposes no "am I mid-transition", target or time-remaining getter, so
- * {@link GameState} is the source of truth for whether a shrink is in flight and what it targets.</p>
+ * {@code WorldBorder} exposes no "am I mid-transition", target or time-remaining getter, so
+ * {@link GameState} is the source of truth for whether a shrink is in flight and what it targets.
  */
 public final class BorderController {
 
@@ -35,7 +38,7 @@ public final class BorderController {
     private final PlayerLocales locales;
     private final HungerGamesSounds sounds;
 
-    private org.bukkit.scheduler.BukkitTask quietPeriodChecker;
+    private @Nullable BukkitTask quietPeriodChecker;
 
     public BorderController(
             final Plugin plugin,
@@ -70,8 +73,10 @@ public final class BorderController {
     }
 
     /**
-     * Called whenever a player dies or an unattended body is eliminated. Extends an in-flight
-     * shrink by one step, or starts a fresh death-triggered shrink from the border's current size.
+     * Called whenever a player dies or an unattended body is eliminated.
+     *
+     * Extends an in-flight shrink by one step, or starts a fresh death-triggered shrink from the
+     * border's current size.
      */
     public void onDeath(final GameState state) {
         state.markDeath(Instant.now());
@@ -96,8 +101,7 @@ public final class BorderController {
 
     private void checkQuietPeriod(final GameState state) {
         if (state.isShrinking()) {
-            // A shrink already running (death-triggered or passive) - and if it has actually
-            // finished, clear the flag so the next check can start a fresh passive shrink.
+            // Already running (death-triggered or passive); if it has finished, clear the flag for the next check.
             if (state.shrinkEndsAt() != null && Instant.now().isAfter(state.shrinkEndsAt())) {
                 state.endShrink();
             }
@@ -130,8 +134,10 @@ public final class BorderController {
     }
 
     /**
-     * {@code COUNTDOWN_TICK}, not {@code NETWORK_EVENT}: a shrink is a clock running out on where
-     * the listener may stand, not something that happened to somebody else.
+     * {@code COUNTDOWN_TICK}, not {@code NETWORK_EVENT}.
+     *
+     * A shrink is a clock running out on where the listener may stand, not something that happened
+     * to somebody else.
      */
     private void announce(final double target, final long seconds) {
         for (final Player player : world.getPlayers()) {

@@ -20,34 +20,26 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The waiting room's entire interface: one title per player, in that player's language, saying what
- * they are waiting for.
+ * The waiting room's entire interface: one title per player, in that player's own language, saying what they wait for.
  *
- * <p>Limbo shows nothing: black, no visible world, no other players and no chat. A title in the
- * player's language says what they are waiting for, and that is the entire interface.
+ * Limbo shows nothing: black, no visible world, no other players and no chat. A title in the
+ * player's language says what they are waiting for, and that is the entire interface. Three things
+ * together make that black screen: an empty world (which is {@link WaitingWorld}'s job, since an
+ * empty world alone is a sky, not black), infinite blindness with no particles or icon, and hidden
+ * players, done by the listener rather than here, since two people waiting must not see each other.
  *
- * <h2>The three things that make a black screen</h2>
- * <ol>
- *   <li><b>An empty world</b>, which is {@link WaitingWorld}'s job - but an empty world is a sky,
- *       not a black screen.</li>
- *   <li><b>Blindness</b>, which is what makes it actually black. Infinite, with no particles and no
- *       icon, so the effect itself is invisible.</li>
- *   <li><b>Hidden players</b>, done by the listener rather than here: two people waiting must not
- *       see each other, and the proxy may have several in here at once.</li>
- * </ol>
- *
- * <h2>Why the title is re-sent</h2>
  * A Minecraft title expires. On a server whose only content is that title, an expired one is a
  * completely black screen with nothing on it - indistinguishable, to the person looking at it, from
- * a client that has hung. So it is refreshed on a timer, with <b>no fade</b>, which replaces the
- * text in place instead of re-animating it. A <em>change</em> of reason does fade in, because that
- * is a real event and the player should notice it.
+ * a client that has hung. So it is refreshed on a timer, with no fade, which replaces the text in
+ * place instead of re-animating it. A change of reason does fade in, because that is a real event
+ * and the player should notice it.
  *
- * <h2>What it does not decide</h2>
- * Which reason to show. The proxy sends that ({@code eu.nordtal.s2.common.limbo.LimboProtocol}), and
- * until it does, {@link WaitReason#UNKNOWN} says so rather than leaving the screen empty.
+ * It does not decide which reason to show. The proxy sends that
+ * ({@code eu.nordtal.s2.common.limbo.LimboProtocol}), and until it does, {@link WaitReason#UNKNOWN}
+ * says so rather than leaving the screen empty.
  */
 public final class WaitingRoom {
 
@@ -59,7 +51,7 @@ public final class WaitingRoom {
 
     private final Map<UUID, WaitReason> shown = new ConcurrentHashMap<>();
 
-    private BukkitTask refresh;
+    private @Nullable BukkitTask refresh;
 
     public WaitingRoom(
             final Plugin plugin,
@@ -75,8 +67,7 @@ public final class WaitingRoom {
     }
 
     /**
-     * Puts a player into the state the waiting room keeps everybody in: adventure mode, flying,
-     * invulnerable, fed, blind, and holding nothing.
+     * Puts a player into the waiting room's held state: adventure, flying, invulnerable, fed, blind, holding nothing.
      *
      * @param player the player who has just joined
      */
@@ -100,8 +91,7 @@ public final class WaitingRoom {
                     PotionEffectType.BLINDNESS, PotionEffect.INFINITE_DURATION, 0, false, false, false));
         }
 
-        // No reason yet - the proxy's WAIT arrives moments from now. Something has to be on screen
-        // in the meantime, because a black screen with no text is what a crash looks like.
+        // Something has to be on screen before the proxy's WAIT arrives: a blank one looks like a crash.
         show(player, WaitReason.UNKNOWN, true);
     }
 
@@ -133,9 +123,11 @@ public final class WaitingRoom {
     }
 
     /**
-     * Starts the refresh loop. One task for the whole server rather than one per player: the set is
-     * usually empty and never large, and a per-player task on a login path is a task created and
-     * cancelled thousands of times a day for no reason.
+     * Starts the refresh loop.
+     *
+     * One task for the whole server rather than one per player: the set is usually empty and never
+     * large, and a per-player task on a login path is a task created and cancelled thousands of
+     * times a day for no reason.
      */
     public void start() {
         final long ticks = config.titleRefreshSeconds() * 20L;
@@ -153,11 +145,10 @@ public final class WaitingRoom {
 
     /**
      * Re-sends whatever this player already has on screen, without a fade.
-     * <p>
+     *
      * Used when the player's language arrives after the title has already been drawn - the join
      * path reads it off the main thread, so the first title of every session may be English. There
      * is nothing to decide here: the reason has not changed, only the words it renders into.
-     * </p>
      *
      * @param player the player
      */
@@ -181,8 +172,7 @@ public final class WaitingRoom {
             show(player, reason, false);
 
             if (world.hasStrayed(player.getLocation())) {
-                // Flying costs nothing in an empty world, but falling out of one streams chunks
-                // after somebody who is looking at a black screen. Put them back without comment.
+                // Falling out of an empty world streams chunks after a player looking at a black screen.
                 player.teleport(world.spawn());
                 player.setFlying(true);
             }

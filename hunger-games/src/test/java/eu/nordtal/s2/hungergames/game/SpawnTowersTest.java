@@ -18,7 +18,7 @@ class SpawnTowersTest {
         final List<double[]> positions = SpawnTowers.positions(7, 10, -20, 50);
         for (final double[] position : positions) {
             final double dx = position[0] - 10;
-            final double dz = position[1] - (-20);
+            final double dz = position[1] - -20;
             final double distance = Math.sqrt(dx * dx + dz * dz);
             assertEquals(50.0, distance, 1e-9);
         }

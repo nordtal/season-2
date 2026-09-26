@@ -22,19 +22,10 @@ public final class HungerGamesPool {
         hikari.setPoolName("hunger-games");
         hikari.setMaximumPoolSize(config.maximumPoolSize());
         hikari.setConnectionTimeout(config.queryTimeoutSeconds() * 1000L);
-        // Without this, HikariCP asks java.sql.DriverManager for a driver instead of loading the
-        // class itself - and DriverManager's automatic ServiceLoader discovery only sees drivers
-        // visible to whichever classloader happened to trigger its static init first, which on a
-        // Paper server is not this plugin's own isolated PluginClassLoader. The driver is shaded
-        // in correctly (META-INF/services/java.sql.Driver lists org.postgresql.Driver, verified by
-        // hand in the built jar) but is never found without this - confirmed 2026-08-31 with
-        // runServer against no running PostgreSQL at all: "No suitable driver" is thrown before any
-        // connection attempt, which is the classloader problem, not a connectivity one.
+        // DriverManager cannot see a driver in this plugin's classloader, so "No suitable driver" without it.
         hikari.setDriverClassName("org.postgresql.Driver");
 
-        // Bounds a query that is already running, not just connection acquisition. Without it a
-        // database that accepts a connection and then hangs is not caught by connectionTimeout at
-        // all - the same pairing proxy's AccessPool uses on the login path.
+        // Bounds a query already running, not just connection acquisition - the pairing proxy's AccessPool uses.
         hikari.addDataSourceProperty("socketTimeout", String.valueOf(config.queryTimeoutSeconds()));
 
         return new HikariDataSource(hikari);

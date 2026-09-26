@@ -32,9 +32,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The start sequence, in one place: teleport to towers, freeze, countdown, release with PvP
- * protection. Also owns the effective-participant, colour and demotion work that must happen
- * exactly once, at countdown time, before the border step is computed.
+ * The start sequence, in one place.
+ *
+ * Teleport to towers, freeze, countdown, release with PvP protection. Also owns the
+ * effective-participant, colour and demotion work that must happen exactly once, at countdown
+ * time, before the border step is computed.
  */
 public final class HungerGamesManager {
 
@@ -83,12 +85,13 @@ public final class HungerGamesManager {
     }
 
     /**
-     * Runs the whole start sequence: resolve the roster, demote incomplete duos, generate and
-     * write colours, teleport everyone (or their body) onto a spawn tower, freeze, count down,
-     * release with PvP protection.
+     * Runs the whole start sequence.
      *
-     * <p>Callers must already be off the main thread: the teleports and the release callback are
-     * scheduled back onto the main thread internally.</p>
+     * Resolve the roster, demote incomplete duos, generate and write colours, teleport everyone (or
+     * their body) onto a spawn tower, freeze, count down, release with PvP protection.
+     *
+     * Callers must already be off the main thread: the teleports and the release callback are
+     * scheduled back onto the main thread internally.
      *
      * @param gameId     the game being started
      * @param world      the event world
@@ -106,8 +109,7 @@ public final class HungerGamesManager {
             return;
         }
 
-        // Colours are written before the world is touched, so a restart between this point and
-        // release still repaints identically.
+        // Colours are written before the world is touched, so a restart before release still repaints identically.
         assignColours(participants);
 
         final double step =
@@ -145,8 +147,9 @@ public final class HungerGamesManager {
     }
 
     /**
-     * Tells every solo-by-demotion participant why they are standing on their tower alone. Sent at
-     * the start of the countdown, when they are asking, rather than at release. Only online
+     * Tells every solo-by-demotion participant why they are standing on their tower alone.
+     *
+     * Sent at the start of the countdown, when they are asking, rather than at release. Only online
      * participants are told; a body waiting for its owner has nobody to tell.
      */
     private void announceDemotions(final List<Participant> participants) {
@@ -156,8 +159,7 @@ public final class HungerGamesManager {
             }
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
-                // Deliberately silent: the tower teleport in the same tick already played TRAVEL,
-                // and two sounds a tick apart are one noise.
+                // Deliberately silent: the tower teleport in the same tick already played TRAVEL.
                 online.sendMessage(MessageRenderer.of(messages)
                         .format(
                                 locales.of(participant.mcUuid()),
@@ -167,10 +169,11 @@ public final class HungerGamesManager {
     }
 
     /**
-     * Schedules the countdown announcements at {@link Countdown#marks(int)}. One task per mark
-     * rather than one repeating task: the marks are not evenly spaced, and a task that survives a
-     * cancelled game is worse than eight that expire on their own. Bukkit cancels all of them when
-     * the plugin disables.
+     * Schedules the countdown announcements at {@link Countdown#marks(int)}.
+     *
+     * One task per mark rather than one repeating task: the marks are not evenly spaced, and a task
+     * that survives a cancelled game is worse than eight that expire on their own. Bukkit cancels
+     * all of them when the plugin disables.
      */
     private void scheduleCountdown(final List<Participant> participants) {
         final int total = config.countdownSeconds();
@@ -192,8 +195,7 @@ public final class HungerGamesManager {
                                                 .format(
                                                         locales.of(participant.mcUuid()),
                                                         MESSAGES.hg().start().countdown(remaining)));
-                                        // Not a metronome - the marks are uneven. It is what tells a frozen player
-                                        // the server is still running, which chat scrolled past does not.
+                                        // Not a metronome - the marks are uneven, unlike chat which scrolls past.
                                         sounds.play(online, Feedback.COUNTDOWN_TICK);
                                     }
                                 }
@@ -210,8 +212,7 @@ public final class HungerGamesManager {
         final int teamCount = Demotion.effectiveTeamCount(participants);
         final List<Integer> palette = TeamColours.generatePalette(teamCount);
 
-        // Deterministic walk over the stable-ordered participant list, so re-running this against
-        // the same roster always produces the same assignment.
+        // Deterministic walk over the stable-ordered list: re-running against the same roster repeats it.
         final Map<UUID, Integer> assigned = new LinkedHashMap<>();
         int paletteIndex = 0;
         for (final Participant participant : participants) {
@@ -231,11 +232,8 @@ public final class HungerGamesManager {
     private void placeOnTower(final Participant participant, final Location tower) {
         final Player online = plugin.getServer().getPlayer(participant.mcUuid());
         if (online != null) {
-            // setInvulnerable deliberately does NOT wait on the teleport's answer: moving it into
-            // the callback would push it a tick later and reorder the one sequence here that
-            // cannot be rehearsed without twenty people. A failed teleport is logged instead, and
-            // the release runs either way.
-            online.teleportAsync(tower).thenAccept(moved -> {
+            // Not in the teleport callback, which would reorder an unrehearsable sequence; a failed teleport is logged.
+            final var _ = online.teleportAsync(tower).thenAccept(moved -> {
                 if (!moved) {
                     plugin.getLogger()
                             .severe(online.getName() + " could not be placed on their "
@@ -244,19 +242,14 @@ public final class HungerGamesManager {
                 }
             });
             online.setInvulnerable(true);
-            // Flight is granted for the freeze only, and not as a gameplay decision: FreezeListener
-            // cancels every position change, so a participant above air hovers, and vanilla's
-            // "kicked for floating too long" check then kicks them in a rejoin loop the proxy keeps
-            // feeding. mayfly is what that check reads. Movement stays impossible, so this grants
-            // no actual flight; release() takes it away again.
+            // mayfly only stops vanilla's floating kick while FreezeListener pins everyone; release() takes it away.
             online.setAllowFlight(true);
             // TRAVEL: this is the module's real "the game has started" moment for a participant.
             sounds.play(online, Feedback.TRAVEL);
             return;
         }
 
-        // A player who was ready and then disconnected is not dropped: their body waits on its
-        // tower. There is no live Player to copy equipment from here, so it starts bare.
+        // Not dropped: a body with no live Player to copy equipment from waits bare on its tower.
         LOGGER.info(
                 "Placing an unequipped body for offline participant on discord id {} on its "
                         + "spawn tower - see PlayerBodies for what this approximates",
@@ -282,16 +275,14 @@ public final class HungerGamesManager {
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
                 online.setInvulnerable(false);
-                // setFlying(false) first: setAllowFlight(false) on a player who is actually flying
-                // drops them, and by this point the freeze is off.
+                // setFlying(false) first: setAllowFlight(false) on someone actually flying drops them.
                 online.setFlying(false);
                 online.setAllowFlight(false);
                 online.sendMessage(MessageRenderer.of(messages)
                         .format(
                                 locales.of(participant.mcUuid()),
                                 MESSAGES.hg().start().released(config.pvpProtectionSeconds())));
-                // The last beat of the countdown, on the same category as the marks before it: a
-                // distinct accent would need a category of its own.
+                // The last beat of the countdown, on the same category as the marks before it.
                 sounds.play(online, Feedback.COUNTDOWN_TICK);
             }
         }

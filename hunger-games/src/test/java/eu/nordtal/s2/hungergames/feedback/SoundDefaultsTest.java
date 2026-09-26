@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.kyori.adventure.key.Key;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
@@ -23,22 +22,21 @@ import org.slf4j.LoggerFactory;
 /**
  * That the ten sounds a fresh {@code sounds.yml} ships actually exist, on this module's copy.
  *
- * <h2>Why the same test twice, in two modules</h2>
- * Because the two files are two files. {@code smp}'s copy proves {@code smp}'s defaults resolve, and
- * a key mistyped here would be silent on the event server with nothing in any log to say so - which
- * is the single hardest kind of regression to notice, because there is nothing to see. The values
- * are deliberately identical to {@code smp}'s today; nothing enforces that and nothing should, since
- * a config file that cannot diverge is not a config file.
+ * Why the same test twice, in two modules: because the two files are two files. {@code smp}'s copy
+ * proves {@code smp}'s defaults resolve, and a key mistyped here would be silent on the event server
+ * with nothing in any log to say so - which is the single hardest kind of regression to notice,
+ * because there is nothing to see. The values are deliberately identical to {@code smp}'s today;
+ * nothing enforces that and nothing should, since a config file that cannot diverge is not a config
+ * file.
  *
- * <h2>How it resolves a key without a server</h2>
- * {@code org.bukkit.Sound} is an interface of constants generated from the registry, each named
- * after its key with every {@code .} replaced by {@code _} and upper-cased -
- * {@code entity.experience_orb.pickup} is {@code ENTITY_EXPERIENCE_ORB_PICKUP}. Asking for the field
- * is enough, and it is deliberately {@code getField} rather than reading the value: reading one
- * initialises the class, which does a registry lookup, which needs the running server this test does
- * not have.
+ * How it resolves a key without a server: {@code org.bukkit.Sound} is an interface of constants
+ * generated from the registry, each named after its key with every {@code .} replaced by
+ * {@code _} and upper-cased - {@code entity.experience_orb.pickup} is
+ * {@code ENTITY_EXPERIENCE_ORB_PICKUP}. Asking for the field is enough, and it is deliberately
+ * {@code getField} rather than reading the value: reading one initialises the class, which does a
+ * registry lookup, which needs the running server this test does not have.
  *
- * <p>Only {@code minecraft:} keys are checked. A key in our own namespace is a resource pack sound
+ * Only {@code minecraft:} keys are checked. A key in our own namespace is a resource pack sound
  * the server has never heard of and never will, which is the whole reason the config carries keys
  * rather than constants.
  */
@@ -50,19 +48,14 @@ class SoundDefaultsTest {
     Path directory;
 
     @Test
-    @DisplayName("every category has a default, and every default is a real vanilla sound")
-    void everyDefaultKeyResolvesAgainstBukkitsSoundList() throws Exception {
+    void everyCategoryHasADefaultAndEveryDefaultIsARealVanillaSound() throws Exception {
         final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
         final List<String> problems = new ArrayList<>();
 
         for (final Feedback category : Feedback.values()) {
             final SoundsSpec.SoundSpec sound = entryOf(category, spec);
             if (category == Feedback.STAGING) {
-                // The one category that ships blank, and the exception is named rather than
-                // implied (owner, 2026-09-09). A staged moment's sound comes into the resource pack
-                // with its artwork and does not exist yet; borrowing another category's would give
-                // the season's opening somebody else's chime. Asserted rather than skipped, so that
-                // filling it in becomes a visible decision here instead of a quiet one.
+                // Ships blank until its sound arrives with the artwork; filling it in has to be a visible decision.
                 assertTrue(
                         sound.key() == null || sound.key().isBlank(),
                         "STAGING ships a sound. It is meant to ship blank until the pack has one -"
@@ -86,7 +79,8 @@ class SoundDefaultsTest {
             }
             final String field = key.value().replace('.', '_').toUpperCase(Locale.ROOT);
             try {
-                org.bukkit.Sound.class.getField(field);
+                // The field itself is unused - reaching here without a NoSuchFieldException is the check.
+                final var _ = org.bukkit.Sound.class.getField(field);
             } catch (final NoSuchFieldException missing) {
                 problems.add(category + " ships '" + sound.key() + "', which this Paper API has no"
                         + " sound for (looked for the constant " + field + "). Either Minecraft"
@@ -100,8 +94,7 @@ class SoundDefaultsTest {
 
     /** The values survive being written to a file and read back, nesting and floats included. */
     @Test
-    @DisplayName("the sounds round-trip through sounds.yml")
-    void theSoundsSurviveTheRoundTrip() throws Exception {
+    void theSoundsRoundTripThroughSoundsYml() throws Exception {
         final SoundsSpec written = Configs.sounds(directory, LOGGER).get();
         final SoundsSpec reread = Configs.sounds(directory, LOGGER).get();
 
@@ -116,8 +109,7 @@ class SoundDefaultsTest {
 
     /** And the parsed form the plugin actually uses answers for all ten. */
     @Test
-    @DisplayName("the parsed vocabulary has no silent category by default")
-    void nothingIsSilentByDefault() throws Exception {
+    void theParsedVocabularyHasNoSilentCategoryByDefault() throws Exception {
         final List<String> problems = new ArrayList<>();
         final HungerGamesSounds sounds =
                 HungerGamesSounds.of(Configs.sounds(directory, LOGGER).get(), problems::add);
@@ -141,19 +133,18 @@ class SoundDefaultsTest {
     /**
      * The escape hatch, driven through the real file rather than through the parser alone.
      *
-     * <p>{@code FeedbackSoundsTest} proves that a blank key silences a category. What it cannot
+     * {@code FeedbackSoundsTest} proves that a blank key silences a category. What it cannot
      * prove is that a blank key <em>survives the config system</em>: jcore's loader is strict, and
      * "the operator blanked a value" has to come back as an empty string rather than as a refused
      * load or a default quietly written back over the top. That is the difference between an escape
      * hatch and a promise.
      *
-     * <p>{@code LOSS} is the one blanked here rather than an arbitrary category, because it is the
+     * {@code LOSS} is the one blanked here rather than an arbitrary category, because it is the
      * sound this module plays most and therefore the first one anybody would reach for the hatch
      * over - on a server where twenty people are eliminated inside an hour.
      */
     @Test
-    @DisplayName("blanking a key in the file really does silence that category")
-    void blankingAKeyInTheFileSilencesTheCategory() throws Exception {
+    void blankingAKeyInTheFileReallyDoesSilenceThatCategory() throws Exception {
         Configs.sounds(directory, LOGGER);
         final Path file = directory.resolve("sounds.yml");
         Files.writeString(file, Files.readString(file).replace("key: minecraft:entity.villager.no", "key: ''"));
@@ -172,19 +163,18 @@ class SoundDefaultsTest {
     /**
      * And a reload picks the blanking up, on the instance every listener is already holding.
      *
-     * <p>This is the whole reason {@code sounds.yml} is a file of its own rather than a block in
+     * This is the whole reason {@code sounds.yml} is a file of its own rather than a block in
      * {@code config.yml}, and the reason is sharper here than on the SMP: {@code /hg reload}
      * re-reads no game parameter at all, because a border schedule must not move while players are
      * running from it. Without a separate file there would be no way at all to silence a chime
      * during the one hour a year this server is used.
      *
-     * <p>The assertion that matters is the last one: the plugin hands <em>one</em>
+     * The assertion that matters is the last one: the plugin hands <em>one</em>
      * {@code HungerGamesSounds} to every listener at enable and never hands out another, so a reload
      * that returned a new object would change nothing a player can hear.
      */
     @Test
-    @DisplayName("a reload silences a category on the instance the listeners already hold")
-    void aReloadIsPickedUpByTheRunningInstance() throws Exception {
+    void aReloadSilencesACategoryOnTheInstanceTheListenersAlreadyHold() throws Exception {
         final ConfigHandle<SoundsSpec> handle = Configs.sounds(directory, LOGGER);
         final HungerGamesSounds running = HungerGamesSounds.of(handle.get(), problem -> {});
         assertFalse(running.isSilent(Feedback.LOSS), "it has to start audible for this to prove" + " anything");
@@ -205,14 +195,13 @@ class SoundDefaultsTest {
     /**
      * The two categories this module plays closest together have to be tellable apart.
      *
-     * <p>An elimination books {@code LOSS} for the victim and, in the same tick, a border shrink
+     * An elimination books {@code LOSS} for the victim and, in the same tick, a border shrink
      * announces {@code COUNTDOWN_TICK} to everybody standing in the world - the victim included.
      * Identical key and pitch would make "you are out" and "the wall is moving" one noise, in the
      * one moment of the game where a player most needs to know which of the two just happened.
      */
     @Test
-    @DisplayName("the two categories a death plays at once do not ship as the same noise")
-    void aDeathAndTheShrinkItTriggersDoNotSoundAlike() throws Exception {
+    void theTwoCategoriesADeathPlaysAtOnceDoNotShipAsTheSameNoise() throws Exception {
         final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
         assertTrue(
                 !spec.loss().key().equals(spec.countdownTick().key())
@@ -221,8 +210,10 @@ class SoundDefaultsTest {
     }
 
     /**
-     * Same exhaustive switch as the adapter's, and here for the same reason: a category added to
-     * {@link Feedback} has to stop this test compiling until somebody has given it a default.
+     * Same exhaustive switch as the adapter's, and here for the same reason.
+     *
+     * A category added to {@link Feedback} has to stop this test compiling until somebody has
+     * given it a default.
      */
     private static SoundsSpec.SoundSpec entryOf(final Feedback category, final SoundsSpec spec) {
         return switch (category) {

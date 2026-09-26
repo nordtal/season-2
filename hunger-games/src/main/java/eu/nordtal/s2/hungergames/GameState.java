@@ -4,21 +4,22 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Everything about the currently running game that lives only in memory, and is not one of the
- * {@code hg_*} rows themselves.
- * <p>
+ * Everything about the currently running game that lives only in memory.
+ *
+ * It is not one of the {@code hg_*} rows themselves.
+ *
  * {@code org.bukkit.WorldBorder} does not expose "am I mid-transition" (verified against Paper
  * 26.2's actual interface: {@code getSize()}, {@code setSize(double, long)} and
  * {@code changeSize(double, long)} are the whole surface - there is no "current target" or
  * "time remaining" getter), so the plugin has to track shrink state itself. This is that state,
  * held once per running game and reset when a new one starts.
- * </p>
  */
 public final class GameState {
 
-    private volatile UUID gameId;
+    private volatile @Nullable UUID gameId;
     /** {@code true} only from release (end of countdown) onward - see {@link #release()}. */
     private volatile boolean running;
 
@@ -30,17 +31,17 @@ public final class GameState {
     /** The diameter the current shrink is heading toward. Meaningless while {@link #shrinking} is false. */
     private volatile double shrinkTarget;
     /** When the current shrink is expected to finish - used to decide whether a new death extends it. */
-    private volatile Instant shrinkEndsAt;
+    private volatile @Nullable Instant shrinkEndsAt;
     /** {@code true} when the in-flight shrink is the slow passive one rather than a death-triggered one. */
     private volatile boolean passiveShrink;
 
     /** The last time any player died or was eliminated - drives the quiet-period timer. */
-    private volatile Instant lastDeathAt;
+    private volatile @Nullable Instant lastDeathAt;
 
     /** Minecraft UUID -> the instant PvP protection ends for that player. */
     private final Map<UUID, Instant> protectedUntil = new ConcurrentHashMap<>();
 
-    public UUID gameId() {
+    public @Nullable UUID gameId() {
         return gameId;
     }
 
@@ -89,7 +90,7 @@ public final class GameState {
         return shrinkTarget;
     }
 
-    public Instant shrinkEndsAt() {
+    public @Nullable Instant shrinkEndsAt() {
         return shrinkEndsAt;
     }
 
@@ -109,7 +110,7 @@ public final class GameState {
         this.shrinkEndsAt = null;
     }
 
-    public Instant lastDeathAt() {
+    public @Nullable Instant lastDeathAt() {
         return lastDeathAt;
     }
 

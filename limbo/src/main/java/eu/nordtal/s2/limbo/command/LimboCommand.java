@@ -22,21 +22,20 @@ import org.bukkit.plugin.Plugin;
 /**
  * The waiting room's Brigadier trees: its one command, and everything another process runs.
  *
- * <h2>Two things this fold fixed rather than moved</h2>
- * <ul>
- *   <li>The reply was rendered against <b>the Minecraft client's own language</b>
- *       ({@code player.locale()}), which docs/i18n.md forbids in as many words: a player's language
- *       is {@code discord_user.locale}, mirrored from their Discord onboarding role, and the
- *       client's setting is consulted nowhere in this repository. It now goes through
- *       {@link PlayerLocales} like every other reply.</li>
- *   <li>The gate was the {@code limbo.admin} permission node - the only one this repository owned.
- *       It is now the same admin flag as everywhere else; see
- *       {@link LimboCommands} for why that loses nothing.</li>
- * </ul>
+ * <b>Two things this fold fixed rather than moved</b>
  *
- * <h2>Why this server registers other processes' commands too</h2>
- * It is the one place an admin can be while a backend is unreachable: every login on the network
- * crosses limbo. So {@code /smp reload} and {@code /hg start} are reachable from here, as rows.
+ * - The reply was rendered against <b>the Minecraft client's own language</b> ( {@code player.locale()}), which
+ *   docs/i18n.md forbids in as many words: a player's language is {@code discord_user.locale}, mirrored from their
+ *   Discord onboarding role, and the client's setting is consulted nowhere in this repository. It now goes through
+ *   {@link PlayerLocales} like every other reply.
+ *
+ * - The gate was the {@code limbo.admin} permission node - the only one this repository owned. It is now the same
+ *   admin flag as everywhere else; see {@link LimboCommands} for why that loses nothing.
+ *
+ * <b>Why this server registers other processes' commands too</b>
+ *
+ * It is the one place an admin can be while a backend is unreachable: every login on the network crosses limbo. So
+ * {@code /smp reload} and {@code /hg start} are reachable from here, as rows.
  */
 public final class LimboCommand {
 
@@ -60,11 +59,7 @@ public final class LimboCommand {
                 outbox,
                 locales::of,
                 isAdmin,
-                // A real source, and it has to be one: /access <sub> <member> is registered here
-                // (it targets the bot) and its argument is resolved through account_link, so an
-                // always-empty answer refused all four of them permanently. PaperUser reads this
-                // lazily and Outbox#send is the only caller, so the query never lands on the login
-                // path's own main thread - which is what the empty version was protecting.
+                // Real, not empty: PaperUser reads it lazily, so the query never lands on the login path's main thread.
                 discordIdOf,
                 PaperUser.Chime.silent(),
                 colours);
@@ -72,11 +67,7 @@ public final class LimboCommand {
         for (final NordtalCommand<LimboEffects> command : LimboCommands.all()) {
             commands.local(command, effects);
         }
-        // /update, on the waiting room too. Almost nothing lives here by design - but Surface.GAME
-        // is four processes, and an admin held in limbo during MAINTENANCE is exactly somebody who
-        // may want to update the network they cannot get onto - which is also why the watcher is
-        // wired here rather than left as a no-op: the acknowledgement without the answer is worse
-        // than no command.
+        // An admin held in limbo during MAINTENANCE is exactly somebody who may want to update the network.
         final eu.nordtal.s2.papercommon.command.UpdateWatcher updates =
                 new eu.nordtal.s2.papercommon.command.UpdateWatcher(
                         plugin, eu.nordtal.s2.common.update.UpdateDirectory.using(pool));

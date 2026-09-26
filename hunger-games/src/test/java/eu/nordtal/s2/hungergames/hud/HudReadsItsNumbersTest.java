@@ -13,29 +13,26 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The HUD reads its numbers; nothing has to remember to tell it.
  *
- * <h2>What this is guarding</h2>
- * Two of the three HUD lines were fed by setters - {@code setCounts(alive, dead)} and
- * {@code setNextRefillAt(instant)} - and <b>neither had a single caller anywhere in the
- * repository</b>. So for the whole of every game the first line read "Alive 0, Dead 0" and the
- * second read "no further refills planned", on the one screen every participant of the season's
- * flagship event is looking at. Seen on the local stack 2026-09-07 (finding 139), on a real client,
- * with two live participants standing in the world.
+ * What this is guarding: two of the three HUD lines were fed by setters -
+ * {@code setCounts(alive, dead)} and {@code setNextRefillAt(instant)} - and <b>neither had a single
+ * caller anywhere in the repository</b>. So for the whole of every game the first line read "Alive
+ * 0, Dead 0" and the second read "no further refills planned", on the one screen every participant
+ * of the season's flagship event is looking at. Seen on the local stack, on a real client, with two
+ * live participants standing in the world.
  *
- * <p>Both halves of each wire existed and nothing joined them: {@code WinTracker#aliveCount()} and
+ * Both halves of each wire existed and nothing joined them: {@code WinTracker#aliveCount()} and
  * {@code #deadCount(int)} had no caller either. That is what makes this a shape rather than two
  * slips - "remember to call this whenever something changes" is a rule with no enforcement, and a
  * HUD that redraws four times a second can simply ask instead.
  *
- * <h2>The rule</h2>
- * This renderer has no {@code setX} method. Whatever it shows, it pulls from the object that owns
- * the fact, on the redraw. A setter here would compile, pass every other test, and print a zero to
- * everybody.
+ * The rule: this renderer has no {@code setX} method. Whatever it shows, it pulls from the object
+ * that owns the fact, on the redraw. A setter here would compile, pass every other test, and print
+ * a zero to everybody.
  */
 class HudReadsItsNumbersTest {
 
@@ -44,8 +41,7 @@ class HudReadsItsNumbersTest {
     private static final Pattern SETTER = Pattern.compile("\\bpublic\\s+void\\s+(set[A-Z]\\w*)\\s*\\(");
 
     @Test
-    @DisplayName("the renderer has no setter for anybody to forget")
-    void noSetters() {
+    void theRendererHasNoSetterForAnybodyToForget() {
         final List<String> found = new ArrayList<>();
         final Matcher matcher = SETTER.matcher(read(RENDERER));
         while (matcher.find()) {
@@ -61,8 +57,7 @@ class HudReadsItsNumbersTest {
     }
 
     @Test
-    @DisplayName("the living count comes from the tracker that records the deaths")
-    void theCountsComeFromTheTracker() {
+    void theLivingCountComesFromTheTrackerThatRecordsTheDeaths() {
         final String source = read(RENDERER);
         assertTrue(
                 source.contains("wins.aliveCount()") && source.contains("wins.deadCount("),
@@ -71,22 +66,19 @@ class HudReadsItsNumbersTest {
     }
 
     @Test
-    @DisplayName("the refill time comes from the schedule that owns it")
-    void theRefillComesFromTheSchedule() {
+    void theRefillTimeComesFromTheScheduleThatOwnsIt() {
         assertTrue(
                 read(RENDERER).contains("loot.nextRefillAt()"),
                 "the loot line has to read LootRefill rather than a copy somebody pushed in");
     }
 
     @Test
-    @DisplayName("nothing else in the module kept a private copy of the counts")
-    void nobodyElsePushes() {
+    void nothingElseInTheModuleKeptAPrivateCopyOfTheCounts() {
         final List<String> offenders = new ArrayList<>();
         for (final Path source : sources()) {
             final String relative =
                     repositoryRoot().relativize(source).toString().replace('\\', '/');
-            // The renderer's own javadoc names both retired setters on purpose - that is where the
-            // reason lives. The first test above is what keeps them from coming back as code here.
+            // The renderer's own javadoc names both retired setters; the first test above keeps them from returning.
             if (relative.equals(RENDERER)) {
                 continue;
             }

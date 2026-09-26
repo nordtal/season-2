@@ -17,7 +17,6 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -27,25 +26,23 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * {@link HungerGamesDao#killCounts} against a real PostgreSQL running the real migrations.
  *
- * <h2>Why this needs a container</h2>
- * The whole of what {@code killCounts} does is SQL and JDBI column mapping, and no in-memory test
- * can say anything about either - the same argument {@code PlaytimeStoreIntegrationTest} makes for
- * its upsert. Two specific things here compile, pass every unit test in this module, and would
- * throw on the busiest tick of the event: PostgreSQL's {@code count(*)} is {@code bigint} while the
- * method answers {@code Map<UUID, Integer>}, and {@code @KeyColumn} / {@code @ValueColumn} name
- * columns as strings that nothing checks.
+ * Why this needs a container: the whole of what {@code killCounts} does is SQL and JDBI column
+ * mapping, and no in-memory test can say anything about either - the same argument
+ * {@code PlaytimeStoreIntegrationTest} makes for its upsert. Two specific things here compile, pass
+ * every unit test in this module, and would throw on the busiest tick of the event: PostgreSQL's
+ * {@code count(*)} is {@code bigint} while the method answers {@code Map<UUID, Integer>}, and
+ * {@code @KeyColumn} / {@code @ValueColumn} name columns as strings that nothing checks.
  *
- * <h2>Why the method exists at all</h2>
- * The ceremony used to ask {@link HungerGamesDao#killCount} once per member, inside a loop over
- * every player, <b>on the main thread</b> - forty participants in front of forty players is 1 600
- * blocking queries at the moment the whole event ends, and every one of them returns the same
- * answer, because the tally does not depend on who is being told. Found 2026-09-04.
+ * Why the method exists at all: the ceremony used to ask {@link HungerGamesDao#killCount} once per
+ * member, inside a loop over every player, <b>on the main thread</b> - forty participants in front
+ * of forty players is 1 600 blocking queries at the moment the whole event ends, and every one of
+ * them returns the same answer, because the tally does not depend on who is being told.
  *
- * <p>It is also the standing proof that the tally and the tiebreak agree: {@code killCount} decides
+ * It is also the standing proof that the tally and the tiebreak agree: {@code killCount} decides
  * who wins a tie and {@code killCounts} is what players are shown, so two different answers would
  * be a scoreboard that contradicts the result announced above it.
  *
- * <p>This test <b>skips itself</b> when no Docker daemon is reachable, so a green build on a
+ * This test <b>skips itself</b> when no Docker daemon is reachable, so a green build on a
  * machine without Docker proves nothing about any of it.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -77,8 +74,7 @@ class KillCountsIntegrationTest {
         dataSource.setUser(postgres.getUsername());
         dataSource.setPassword(postgres.getPassword());
 
-        // The real migrations off the classpath - :common is shaded into this module, so
-        // db/migration is exactly where the plugin finds them on a server too.
+        // The real migrations off the classpath - :common is shaded in, so this is where a server finds them too.
         Flyway.configure(KillCountsIntegrationTest.class.getClassLoader())
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
@@ -112,8 +108,7 @@ class KillCountsIntegrationTest {
     }
 
     @Test
-    @DisplayName("one grouped query answers what one query per member used to")
-    void theTallyIsOneRoundTrip() {
+    void oneGroupedQueryAnswersWhatOneQueryPerMemberUsedTo() {
         kill(alice, bob);
         kill(alice, carol);
         kill(bob, carol);
@@ -130,8 +125,7 @@ class KillCountsIntegrationTest {
     }
 
     @Test
-    @DisplayName("the tally and the tiebreak never disagree")
-    void theTallyAgreesWithTheTiebreak() {
+    void theTallyAndTheTiebreakNeverDisagree() {
         kill(alice, carol);
         kill(alice, bob);
         kill(bob, carol);
@@ -147,8 +141,7 @@ class KillCountsIntegrationTest {
     }
 
     @Test
-    @DisplayName("only this game's KILL events count")
-    void nothingElseIsCounted() {
+    void onlyThisGamesKillEventsCount() {
         kill(alice, bob);
         execute("INSERT INTO hg_event (game_id, type, actor_id) VALUES ('" + gameId + "', 'BORDER_SHRINK', NULL)");
         execute("INSERT INTO hg_event (game_id, type, actor_id, victim_id) VALUES ('" + gameId + "', 'DEATH', '" + alice
@@ -169,8 +162,7 @@ class KillCountsIntegrationTest {
     }
 
     @Test
-    @DisplayName("a game nobody killed in answers an empty map, not null")
-    void anEmptyGameIsAnEmptyMap() {
+    void aGameNobodyKilledInAnswersAnEmptyMapNotNull() {
         final Map<UUID, Integer> tally = dao.killCounts(gameId);
         assertTrue(
                 tally.isEmpty(),
@@ -178,7 +170,7 @@ class KillCountsIntegrationTest {
                         + " of everybody at the end of the event");
     }
 
-    // --- helpers ---------------------------------------------------------------------------
+    // helpers
 
     private UUID member(final UUID teamId, final String discordId) {
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')");

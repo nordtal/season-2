@@ -190,7 +190,7 @@ DATA_DIRS=(
 # returns a string, and a caller that has to split the answer again is a caller that can get the
 # splitting wrong.
 dir_name()  { printf '%s' "${1%%:*}"; }
-dir_owner() { [[ "$1" == *:* ]] && printf '%s' "${1#*:}"; }
+dir_owner() { if [[ "$1" == *:* ]]; then printf '%s' "${1#*:}"; fi; }
 
 # decisions, kept apart so they can be tested
 # Everything in this block is a question with an answer and no side effect, which is what lets

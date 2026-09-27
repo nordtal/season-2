@@ -418,6 +418,8 @@ done
 [[ "$(dir_owner "steward-ui-config:10001:10001")" == "10001:10001" ]]       || bad "dir_owner"
 [[ "$(dir_name  "mc-smp")"  == "mc-smp" ]] || bad "a directory with no owner"
 [[ -z "$(dir_owner "mc-smp")" ]]           || bad "mc-smp has an owner and should not"
+# nordtal.sh assigns the answer under set -e, so a directory with no owner has to be a success too.
+( owner="$(dir_owner "mc-smp")" ) || bad "dir_owner fails for a directory with no owner"
 ok "steward-ui-config is chowned to 10001:10001 and nothing else is"
 
 case_begin "a downloaded file has to be this script before it replaces this script"

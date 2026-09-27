@@ -62,7 +62,7 @@ class UpdateIsServedEverywhereTest {
     }
 
     @Test
-    void everyUpdateCommandIsLocalAdminOnlyAndConsoleOnlyOps18() {
+    void everyUpdateCommandIsLocalAdminOnlyAndConsoleOnly() {
         // Every admin command loses GAME and DISCORD, /update included: being able to update alone from one of those.
         for (final Declaration declaration : UpdateCommands.declarations()) {
             assertEquals(

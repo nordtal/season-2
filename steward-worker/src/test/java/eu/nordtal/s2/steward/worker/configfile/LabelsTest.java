@@ -8,8 +8,7 @@ class LabelsTest {
 
     @Test
     void aChangeOfCaseIsAWordBoundary() {
-        // bStats and spark write camelCase keys and ship no schema; without this they read as
-        // "Serveruuid" and "Logfailedrequests".
+        // bStats and spark write camelCase keys with no schema; without this they read as "Serveruuid".
         assertEquals("Log failed requests", Labels.of("logFailedRequests"));
         assertEquals("Background profiler", Labels.of("backgroundProfiler"));
     }

@@ -27,45 +27,34 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * §9a's half of the saving: one volume, {@code tar} + {@code zstd}, into a file on this host.
+ * One volume, saved as {@code tar} + {@code zstd} into a file on this host.
  *
- * <h2>Why this exists at all</h2>
- * It replaces asking a management panel to snapshot a volume over its REST API. On 2026-09-12 run 23 stopped
- * {@code smp}, {@code proxy} and {@code discord-bot}, lost <em>every</em> volume snapshot
- * to {@code HTTP 403}, started them again and reported success - 66 seconds of network down and
- * zero backups. Nothing in that report made the zero visible, because nothing
- * in it was a size. So the shape here is the opposite one: a size and a duration come back from
- * every call, {@link SnapshotResult#saved} is only reachable with a file on disk behind it, and
- * "ok with 0 bytes" is not a state this class can produce.
+ * A size and a duration come back from every call, {@link SnapshotResult#saved} is only reachable with a file on
+ * disk behind it, and "ok with 0 bytes" is not a state this class can produce: an empty or missing source directory
+ * is a failure that names the path, never a small archive reported as a backup.
  *
- * <h2>The binaries, and what that costs the image</h2>
- * {@code tar} and {@code zstd} are shelled out to rather than reimplemented: Java has no zstd in the
- * JDK, a tar writer in-process would be a second implementation of a format with a restore path
- * nobody has exercised, and {@code tar -xf} on the far side is what an operator will actually type
- * at 04:45 when it matters.
+ * {@code tar} and {@code zstd} are shelled out to rather than reimplemented: Java has no zstd in the JDK, a tar
+ * writer in-process would be a second implementation of a format with a restore path nobody has exercised, and
+ * {@code tar -xf} on the far side is what an operator will actually type when it matters. steward-worker's image is
+ * a plain JRE, so both binaries have to be installed in it; without them every save here fails at {@code start()}
+ * with "No such file or directory", which is at least loud.
  *
- * <p><b>steward-worker's image is a plain JRE, so both binaries have to be installed in it.</b>
- * {@code steward-worker/Dockerfile} needs {@code tar} and {@code zstd} - without them every save
- * here fails at {@code start()} with "No such file or directory", which is at least loud, but it is
- * loud at 04:45 on a night nobody is watching. That is a deployment step as much as this is a
- * commit.</p>
- *
- * <h2>Two processes, not one string</h2>
- * Creation is an explicit pipeline - {@code tar -cf - -C <source> .} into {@code zstd - -o <file>} -
- * built with {@link ProcessBuilder#startPipeline}, never through a shell and never through tar's
- * {@code --use-compress-program}, which takes <em>one string</em> and splits it on spaces itself.
- * That is the same quoting ambiguity {@code Console} refuses for a console line, and it is the only
- * way to hand {@code zstd} its {@code -T0} without guessing how tar will cut the string up.
+ * Creation is an explicit pipeline - {@code tar -cf - -C <source> .} into {@code zstd - -o <file>} - built with
+ * {@link ProcessBuilder#startPipeline}, never through a shell and never through tar's
+ * {@code --use-compress-program}, which takes one string and splits it on spaces itself. That is the same quoting
+ * ambiguity {@code Console} refuses for a console line, and it is the only way to hand {@code zstd} its {@code -T0}
+ * without guessing how tar will cut the string up.
  */
 public final class TarSnapshots implements Snapshots {
 
     private static final Logger log = LoggerFactory.getLogger(TarSnapshots.class);
 
     /**
-     * The same stamp {@code deploy/postgres-backup/backup.sh} writes on a dump: UTC, no separators
-     * that a filesystem or a shell glob would mind, and fixed width - so sorting the names as text
-     * sorts them by time, which is what {@link #prune} relies on instead of an mtime that a copy,
-     * a restore or an {@code rsync} would have rewritten.
+     * The same stamp {@code deploy/postgres-backup/backup.sh} writes on a dump.
+     *
+     * UTC, no separators that a filesystem or a shell glob would mind, and fixed width, so sorting the names as
+     * text sorts them by time - which is what {@link #prune} relies on instead of an mtime that a copy, a restore
+     * or an {@code rsync} would have rewritten.
      */
     static final DateTimeFormatter STAMP =
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
@@ -78,17 +67,18 @@ public final class TarSnapshots implements Snapshots {
     /**
      * What is appended to an archive's name to mark the stop behind it as unverified.
      *
-     * <p>Beside the archive and not in it: the archive is a tar of a world directory and a restore
-     * unpacks it, so anything added inside would land in somebody's world. Beside it, the mark is
-     * the first thing {@code deploy/restore.sh --list} prints and the last thing a restore asks
-     * about, and the archive itself is byte for byte an ordinary one.</p>
+     * Beside the archive and not in it: the archive is a tar of a world directory and a restore unpacks it, so
+     * anything added inside would land in somebody's world. Beside it, the mark is the first thing
+     * {@code deploy/restore.sh --list} prints and the last thing a restore asks about, and the archive itself is
+     * byte for byte an ordinary one.
      */
     static final String MARK = ".unverified";
 
     /**
-     * {@code <volume>-<stamp>.tar.zst}. The stamp's shape is fixed and a volume name cannot contain
-     * one, so the last dash before it is the split and a volume called {@code nordtal-s2_mc-smp}
-     * comes back whole.
+     * {@code <volume>-<stamp>.tar.zst}.
+     *
+     * The stamp's shape is fixed and a volume name cannot contain one, so the last dash before it is the split and
+     * a volume called {@code nordtal-s2_mc-smp} comes back whole.
      */
     private static final Pattern ARCHIVE =
             Pattern.compile("^(?<volume>.+)-(?<stamp>\\d{8}T\\d{6}Z)\\Q" + SUFFIX + "\\E$");
@@ -99,12 +89,11 @@ public final class TarSnapshots implements Snapshots {
     /**
      * {@code nordtal-<stamp>.dump}, written by {@link DatabaseDump} and swept here.
      *
-     * <p><b>Why the dump is pruned by the class that tars volumes.</b> There is one retention
-     * setting and one directory, and a second sweep somewhere else would be a second number to keep
-     * in step. What it must not be is the same <i>series</i>: counted together, fourteen files would
-     * be fourteen dumps and no world, or the reverse, depending on which was written last. So the
-     * dump gets a key of its own below - one that no volume can collide with, because
-     * {@link #VOLUME_NAME} forbids the space in it.</p>
+     * Why the dump is pruned by the class that tars volumes. There is one retention setting and one directory, and a
+     * second sweep somewhere else would be a second number to keep in step. What it must not be is the same series:
+     * counted together, fourteen files would be fourteen dumps and no world, or the reverse, depending on which was
+     * written last. So the dump gets a key of its own below - one that no volume can collide with, because
+     * {@link #VOLUME_NAME} forbids the space in it.
      */
     private static final Pattern DUMP = Pattern.compile(
             "^\\Q" + DatabaseDump.PREFIX + "\\E(?<stamp>\\d{8}T\\d{6}Z)\\Q" + DatabaseDump.SUFFIX + "\\E$");
@@ -116,51 +105,42 @@ public final class TarSnapshots implements Snapshots {
     private static final String DUMP_SERIES = "the database dump";
 
     /**
-     * Docker's own rule for a volume name, and this class's rule too. The name becomes a path
-     * segment and an argv entry, so a {@code ..} or a slash in it is refused rather than resolved.
+     * Docker's own rule for a volume name, and this class's rule too.
+     *
+     * The name becomes a path segment and an argv entry, so a {@code ..} or a slash in it is refused rather than
+     * resolved.
      */
     private static final Pattern VOLUME_NAME = Pattern.compile("[a-zA-Z0-9][a-zA-Z0-9_.-]*");
 
     /**
-     * Whether {@code name} is a finished archive or dump - never a {@code .partial} or
-     * {@code .unverified} one - by the same two patterns {@link #prune} groups files with.
+     * Whether {@code name} is a finished archive or dump, never a {@code .partial} or {@code .unverified} one.
      *
-     * <p>Written for steward/95's download route, which has to refuse everything this class would
-     * not itself call a backup before it ever touches a {@link Path}. This alone is not the whole
-     * defence: the pattern's {@code .} matches a {@code /} exactly as readily as any other
-     * character, so a name that also contains a path separator can still match here. The caller
-     * that resolves a path from this name must additionally check the resolved path stays inside
-     * the directory it was resolved against - see {@code WorkerApi#downloadBackup} for the second
-     * half of the check.</p>
+     * By the same two patterns {@link #prune} groups files with. This alone is not the whole defence for a
+     * download route: the pattern's {@code .} matches a {@code /} exactly
+     * as readily as any other character, so a name that also contains a path separator can still match here. The
+     * caller that resolves a path from this name must additionally check the resolved path stays inside the
+     * directory it was resolved against - see {@code WorkerApi#downloadBackup} for the second half of the check.
      */
     public static boolean isFinishedArchive(final String name) {
         return ARCHIVE.matcher(name).matches() || DUMP.matcher(name).matches();
     }
 
     /**
-     * <b>Level 1, and that is measured, not assumed.</b> On the real {@code nordtal-s2_mc-smp} of
-     * this host - 655 MiB - on 2026-09-13:
+     * Level 1.
      *
-     * <pre>
-     *   -1   2.4 s   512.9 MiB
-     *   -3   5.3 s   509.8 MiB
-     *   -9   7.7 s   507.2 MiB
-     * </pre>
-     *
-     * <p>A world is mostly {@code .mca} region files, which are already deflate-compressed inside,
-     * so there is very little left for zstd to find: three seconds of extra downtime buy 0.6 % of
-     * the size. The thing being minimised here is how long the four servers are stopped, not the
-     * disk the archive lands on, so the cheapest level wins. {@code -T0} uses every core for
-     * exactly the same reason. If the target ever becomes bandwidth-bound rather than
-     * downtime-bound - the Storage Box upload of §9a - re-measure before changing this.</p>
+     * A world is mostly {@code .mca} region files, which are already deflate-compressed inside, so there is very
+     * little left for zstd to find at a higher level for a real cost in extra downtime. The thing being minimised
+     * here is how long the four servers are stopped, not the disk the archive lands on, so the cheapest level wins.
+     * {@code -T0} uses every core for the same reason. Re-measure before changing this if the target ever becomes
+     * bandwidth-bound rather than downtime-bound.
      */
     private static final String LEVEL = "-1";
 
     /**
-     * A hung {@code tar} is a network that never comes back up, because the caller starts the
-     * servers again after this returns. So there is a wall: generous enough that no honest world is
-     * near it (657 MiB takes seconds on dev), short enough that a night lost to a stuck process is
-     * a night, not a week.
+     * The deadline against which a save waits, because the caller starts the servers again once this returns.
+     *
+     * A hung {@code tar} would otherwise be a network that never comes back up. Generous enough that no honest
+     * world is near it, and short enough that a night lost to a stuck process is a night, not a week.
      */
     private static final Duration DEFAULT_WALL = Duration.ofMinutes(30);
 
@@ -170,13 +150,11 @@ public final class TarSnapshots implements Snapshots {
     private final Duration wall;
 
     /**
-     * @param sourcesRoot where the volumes are mounted <b>read-only</b>, one directory per volume
-     *                    name - {@code /backup-sources/nordtal-s2_mc-smp} and so on. Read-only is
-     *                    the whole reason §9a could argue the added rights are smaller than they
-     *                    sound, and nothing in this class ever writes below it.
-     * @param outputRoot  where the archives are written, {@code /backups}
-     * @param clock       injected so the stamp in a file name is a value a test can pin, not
-     *                    whatever second the test happened to run in
+     * @param sourcesRoot where the volumes are mounted read-only, one directory per volume name -
+     *     {@code /backup-sources/nordtal-s2_mc-smp} and so on. Nothing in this class ever writes below it.
+     * @param outputRoot where the archives are written, {@code /backups}
+     * @param clock injected so the stamp in a file name is a value a test can pin, not whatever second the test
+     *     happened to run in
      */
     public TarSnapshots(final Path sourcesRoot, final Path outputRoot, final Clock clock) {
         this(sourcesRoot, outputRoot, clock, DEFAULT_WALL);
@@ -185,10 +163,7 @@ public final class TarSnapshots implements Snapshots {
     /**
      * The same, with the wall set from {@code steward.yml#backup.patience-minutes}.
      *
-     * <p>That key is older than this class - it used to be how long the run waited for a snapshot
-     * it had asked somebody else to take. The waiting is local now, but the question the
-     * number answers is the same one and there is no reason to ask it twice: how long may a
-     * backup hold the network down before it is given up on.</p>
+     * How long a backup may hold the network down before it is given up on.
      */
     public TarSnapshots(final Path sourcesRoot, final Path outputRoot, final Clock clock, final Duration wall) {
         this.wall = wall;
@@ -208,10 +183,71 @@ public final class TarSnapshots implements Snapshots {
         }
 
         final Path source = sourcesRoot.resolve(volume);
-        // A23, restated as code: a directory that is not there, and a directory with nothing in it,
-        // are FAILURES that name the path - not a 45-byte archive of nothing reported as a backup.
-        // An empty world directory means the mount is missing or the volume is the wrong one, and
-        // both of those are exactly the silence that let run 23 pass.
+        final SnapshotResult problem = validateSource(volume, source, startedAt);
+        if (problem != null) {
+            return problem;
+        }
+
+        final String name = volume + "-" + STAMP.format(clock.instant()) + SUFFIX;
+        final Path finished = outputRoot.resolve(name);
+        // The same move backup.sh makes for a pg_dump: a half-written archive keeps the partial name until read back.
+        final Path partial = outputRoot.resolve(name + PARTIAL);
+
+        try {
+            Files.createDirectories(outputRoot);
+            Files.deleteIfExists(partial);
+            log.info("saving {} to {}", source, finished.getFileName());
+            return writeArchive(volume, source, name, partial, finished, startedAt);
+        } catch (final IOException failure) {
+            quietlyDelete(partial);
+            return SnapshotResult.failed(volume, since(startedAt), "saving " + source + " failed: " + failure);
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            quietlyDelete(partial);
+            return SnapshotResult.failed(
+                    volume, since(startedAt), "saving " + source + " was interrupted - no archive was written");
+        }
+    }
+
+    private SnapshotResult writeArchive(
+            final String volume,
+            final Path source,
+            final String name,
+            final Path partial,
+            final Path finished,
+            final long startedAt)
+            throws IOException, InterruptedException {
+        final Shell created = pipeline(
+                null,
+                List.of(
+                        // `.` and -C rather than the path, so the archive holds relative names, not absolute ones.
+                        List.of("tar", "-cf", "-", "-C", source.toString(), "."),
+                        List.of("zstd", LEVEL, "-T0", "-q", "-", "-o", partial.toString())));
+        if (created.failed()) {
+            Files.deleteIfExists(partial);
+            return SnapshotResult.failed(
+                    volume, since(startedAt), "tar of " + source + " failed: " + created.describe());
+        }
+
+        final String problem = unreadable(partial);
+        if (problem != null) {
+            Files.deleteIfExists(partial);
+            return SnapshotResult.failed(
+                    volume,
+                    since(startedAt),
+                    "the archive of " + source + " could not be read back and was discarded: " + problem);
+        }
+
+        Files.move(partial, finished);
+        // The real file, asked of the filesystem: a backup that saved nothing could still report the input size.
+        final long bytes = Files.size(finished);
+        final Duration took = since(startedAt);
+        log.info("saved {} ({}) in {}s", name, SnapshotResult.human(bytes), took.toSeconds());
+        return SnapshotResult.saved(volume, bytes, took, finished.toString());
+    }
+
+    // A missing or empty source directory is a failure that names the path, never a small archive as a backup.
+    private @Nullable SnapshotResult validateSource(final String volume, final Path source, final long startedAt) {
         if (!Files.isDirectory(source)) {
             return SnapshotResult.failed(
                     volume,
@@ -229,58 +265,7 @@ public final class TarSnapshots implements Snapshots {
             return SnapshotResult.failed(
                     volume, since(startedAt), "cannot read " + source + ": " + unreadable.getMessage());
         }
-
-        final String name = volume + "-" + STAMP.format(clock.instant()) + SUFFIX;
-        final Path finished = outputRoot.resolve(name);
-        // The same move backup.sh makes for a pg_dump, for the same reason it gives: a half-written
-        // archive that is named like every other archive in the directory is worse than no archive,
-        // because it is the one the retention sweep keeps and the one a restore picks. It carries
-        // the partial name until it has been read back, and only then takes the real one.
-        final Path partial = outputRoot.resolve(name + PARTIAL);
-
-        try {
-            Files.createDirectories(outputRoot);
-            Files.deleteIfExists(partial);
-
-            log.info("saving {} to {}", source, finished.getFileName());
-            final Shell created = pipeline(
-                    null,
-                    List.of(
-                            // `.` and -C rather than the path, so the archive holds relative names and
-                            // cannot be extracted over an absolute path somewhere else on the host.
-                            List.of("tar", "-cf", "-", "-C", source.toString(), "."),
-                            List.of("zstd", LEVEL, "-T0", "-q", "-", "-o", partial.toString())));
-            if (created.failed()) {
-                Files.deleteIfExists(partial);
-                return SnapshotResult.failed(
-                        volume, since(startedAt), "tar of " + source + " failed: " + created.describe());
-            }
-
-            final String problem = unreadable(partial);
-            if (problem != null) {
-                Files.deleteIfExists(partial);
-                return SnapshotResult.failed(
-                        volume,
-                        since(startedAt),
-                        "the archive of " + source + " could not be read back and was discarded: " + problem);
-            }
-
-            Files.move(partial, finished);
-            // The real file, asked of the filesystem - not the sum of what was fed to tar, which is
-            // what a backup that saved nothing would happily report.
-            final long bytes = Files.size(finished);
-            final Duration took = since(startedAt);
-            log.info("saved {} ({}) in {}s", name, SnapshotResult.human(bytes), took.toSeconds());
-            return SnapshotResult.saved(volume, bytes, took, finished.toString());
-        } catch (final IOException failure) {
-            quietlyDelete(partial);
-            return SnapshotResult.failed(volume, since(startedAt), "saving " + source + " failed: " + failure);
-        } catch (final InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            quietlyDelete(partial);
-            return SnapshotResult.failed(
-                    volume, since(startedAt), "saving " + source + " was interrupted - no archive was written");
-        }
+        return null;
     }
 
     @Override
@@ -295,9 +280,7 @@ public final class TarSnapshots implements Snapshots {
         try {
             Files.writeString(mark, why + System.lineSeparator(), StandardCharsets.UTF_8);
         } catch (final IOException unwritable) {
-            // Not a reason to discard a backup that succeeded. It is a reason to say so loudly in
-            // the log, because the one thing worse than an unverified archive is an unverified
-            // archive nobody can tell apart from a good one.
+            // Not a reason to discard a backup that succeeded, but a reason to say so loudly in the log.
             log.warn("could not mark {} as unverified: {}", archive, unwritable.toString());
             return null;
         }
@@ -306,31 +289,26 @@ public final class TarSnapshots implements Snapshots {
     }
 
     /**
-     * Applies the retention policy <b>to each series separately</b> - each volume, and the database
-     * dump.
+     * Applies the retention policy to each series separately - each volume, and the database dump.
      *
-     * <p>Per volume, never across: four volumes and fourteen daily copies is 56 files, not 14. A
-     * sweep that counted them together would keep fourteen of whichever volume happened to be saved
-     * last and silently hold none of the other three - and it would look exactly like a working
-     * retention. The age of a file is the stamp in its name, not its mtime, because a file that was
-     * copied off this host and back has a new mtime and the same age.</p>
+     * Per volume, never across: four volumes and fourteen daily copies is 56 files, not 14. A sweep that counted them
+     * together would keep fourteen of whichever volume happened to be saved last and silently hold none of the other
+     * three - and it would look exactly like a working retention. The age of a file is the stamp in its name, not its
+     * mtime, because a file that was copied off this host and back has a new mtime and the same age.
      *
-     * <p>The database dump is one series more, counted apart from the volumes - see {@link #DUMP}
-     * for why it is swept here at all and why it must not share a count with them.</p>
+     * The database dump is one series more, counted apart from the volumes - see {@link #DUMP} for why it is swept
+     * here at all and why it must not share a count with them.
      *
-     * <p><b>What to keep is {@link Retention}'s decision and not this method's</b> (steward/95,
-     * 2026-09-18). This one owns the directory, the naming scheme and the deleting; the arithmetic -
-     * the staggered daily/weekly/monthly schedule and the one-per-day collapse Till asked for - is a
-     * pure function next door, where it can be checked against dates written out by hand.</p>
+     * What to keep is {@link Retention}'s decision and not this method's: this one owns the directory, the naming
+     * scheme and the deleting; the arithmetic, the staggered daily/weekly/monthly schedule and the one-per-day
+     * collapse, is a pure function next door, where it can be checked against dates written out by hand.
      *
-     * <p>A {@code .partial} older than a day is swept too, and is the one thing here that no policy
-     * governs: it is debris from a run that was killed mid-{@code tar}, it is never a backup
-     * ({@link #save} renames only after reading back), and a day of grace means a save running right
-     * now is never mistaken for debris.</p>
+     * A {@code .partial} older than a day is swept too, and is the one thing here that no policy governs: it is
+     * debris from a run that was killed mid-{@code tar}, it is never a backup ({@link #save} renames only after
+     * reading back), and a day of grace means a save running right now is never mistaken for debris.
      */
     @Override
     public List<String> prune(final Retention policy) {
-        final List<String> removed = new ArrayList<>();
         final List<Path> files;
         try (Stream<Path> listing = Files.list(outputRoot)) {
             files = listing.filter(Files::isRegularFile).toList();
@@ -339,11 +317,32 @@ public final class TarSnapshots implements Snapshots {
             return List.of();
         }
 
-        // Grouped by the volume in the name, so only files this class itself named are ever
-        // considered - the same guarantee backup.sh gives by globbing its own prefix. Anything an
-        // operator dropped in the directory by hand matches neither pattern and is left alone.
-        final Map<String, List<Retention.Dated>> byVolume = new LinkedHashMap<>();
         final Instant now = clock.instant();
+        final List<String> removed = new ArrayList<>();
+        final Map<String, List<Retention.Dated>> byVolume = classify(files, now, removed);
+
+        for (final Map.Entry<String, List<Retention.Dated>> series : byVolume.entrySet()) {
+            for (final Retention.Dated old : policy.expired(series.getValue(), now)) {
+                final Path file = outputRoot.resolve(old.name());
+                if (delete(file)) {
+                    log.info(
+                            "pruning {} ({} of {} remain)",
+                            old.name(),
+                            series.getValue().size() - 1,
+                            series.getKey());
+                    removed.add(old.name());
+                    // The mark goes with the archive it belongs to, or it becomes a note about a file no longer there.
+                    delete(file.resolveSibling(old.name() + MARK));
+                }
+            }
+        }
+        return List.copyOf(removed);
+    }
+
+    // Grouped by the volume in the name; sweeps day-old partials into `removed` as debris along the way.
+    private Map<String, List<Retention.Dated>> classify(
+            final List<Path> files, final Instant now, final List<String> removed) {
+        final Map<String, List<Retention.Dated>> byVolume = new LinkedHashMap<>();
         final Instant debrisBefore = now.minus(Duration.ofDays(1));
         for (final Path file : files) {
             final String name = file.getFileName().toString();
@@ -378,35 +377,16 @@ public final class TarSnapshots implements Snapshots {
                 }
             }
         }
-
-        for (final Map.Entry<String, List<Retention.Dated>> series : byVolume.entrySet()) {
-            for (final Retention.Dated old : policy.expired(series.getValue(), now)) {
-                final Path file = outputRoot.resolve(old.name());
-                if (delete(file)) {
-                    log.info(
-                            "pruning {} ({} of {} remain)",
-                            old.name(),
-                            series.getValue().size() - 1,
-                            series.getKey());
-                    removed.add(old.name());
-                    // The mark goes with the archive it belongs to. Left behind it would be a
-                    // warning about a file that is no longer there, which is how a directory fills
-                    // up with notes nobody can act on.
-                    delete(file.resolveSibling(old.name() + MARK));
-                }
-            }
-        }
-        return List.copyOf(removed);
+        return byVolume;
     }
 
     /**
-     * One archive, with the moment its name says it was taken - or nothing, if the name looked like
-     * a stamp and is not one.
+     * One archive, dated - or nothing, if the name looked like a stamp and is not one.
      *
-     * <p>Nothing means <em>left alone</em>, never deleted: a file this class cannot date is a file
-     * it cannot judge the age of, and the only safe thing to do with a backup you cannot judge is
-     * to keep it and say so. {@code 20261301T000000Z} is the shape of it - the pattern accepts the
-     * digits and {@code LocalDateTime} refuses the thirteenth month.</p>
+     * Nothing means left alone, never deleted: a file this class cannot date is a file it cannot judge the age of,
+     * and the only safe thing to do with a backup you cannot judge is to keep it and say so. {@code
+     * 20261301T000000Z} is the shape of it - the pattern accepts the digits and {@code LocalDateTime} refuses the
+     * thirteenth month.
      */
     private static java.util.Optional<Retention.Dated> dated(final String name, final String stamp) {
         try {
@@ -420,16 +400,16 @@ public final class TarSnapshots implements Snapshots {
     /**
      * Reads a finished archive back, and answers what is wrong with it or {@code null}.
      *
-     * <p><b>{@code zstd -t} is the cheaper check and the wrong one.</b> It proves the frame
-     * decompresses, and a tar truncated anywhere - including before its two end-of-archive blocks -
-     * decompresses perfectly. {@code tar -tf} walks the member headers to the end of the stream, so
-     * it catches the truncation zstd's checksum cannot see. It is the same argument
-     * {@code backup.sh} makes when it lists a dump's table of contents rather than checking its
-     * size, and it costs one more read of a file that is still in the page cache.</p>
+     * {@code zstd -t} is the cheaper check and the wrong one. It proves the frame decompresses, and a tar truncated
+     * anywhere - including before its two end-of-archive blocks - decompresses perfectly. {@code tar -tf} walks the
+     * member headers to the end of the stream, so it catches the truncation zstd's checksum cannot see. It is the same
+     * argument {@code backup.sh} makes when it lists a dump's table of contents rather than checking its size, and it
+     * costs one more read of a file that is still in the page cache.
      *
-     * <p>Package-private because it is the gate the rename in {@link #save} stands behind, and a
-     * gate nobody has watched refuse anything is not a gate. Its only caller is that rename.</p>
+     * Package-private because it is the gate the rename in {@link #save} stands behind, and a gate nobody has watched
+     * refuse anything is not a gate. Its only caller is that rename.
      */
+    @Nullable
     String unreadable(final Path archive) throws IOException, InterruptedException {
         final Path listing = Files.createTempFile("snapshot-listing-", ".txt");
         try {
@@ -437,8 +417,7 @@ public final class TarSnapshots implements Snapshots {
             if (read.failed()) {
                 return read.describe();
             }
-            // An archive of nothing reads back perfectly. That is precisely the 45-byte file A23
-            // would have called a backup, so an empty listing is a problem and not a curiosity.
+            // An archive of nothing reads back perfectly, the same shape a truncated tar of real content can have.
             final long members = countLines(listing);
             if (members == 0) {
                 return "it holds no files at all";
@@ -451,18 +430,15 @@ public final class TarSnapshots implements Snapshots {
     }
 
     /**
-     * Waits for every stage against <b>one</b> deadline, or kills the whole pipeline.
+     * Waits for every stage against one deadline, or kills the whole pipeline.
      *
-     * <h2>The wall is the pipeline's, not each process's</h2>
-     * {@code wall} is the length of time the caller may keep the Minecraft servers stopped. Given
-     * to {@code waitFor} once per stage, a three-stage {@code tar | zstd | tee} could take three
-     * walls to finish and still be called on time - and it is the <i>later</i> stages that are slow,
-     * because tar is finished long before zstd has compressed what it produced. A config saying
-     * twenty minutes could stop the network for an hour, and every report would say it kept to the
-     * limit.
+     * The wall is the pipeline's, not each process's: {@code wall} is the length of time the caller may keep the
+     * Minecraft servers stopped. Given to {@code waitFor} once per stage, a three-stage {@code tar | zstd | tee}
+     * could take three walls to finish and still be called on time, because the later stages are slower: tar is
+     * finished long before zstd has compressed what it produced.
      *
-     * <p>Everything goes when the deadline passes, not just the stage that was still running: a
-     * half-killed pipeline leaves tar writing into a backup volume with nobody waiting on it.</p>
+     * Everything goes when the deadline passes, not just the stage that was still running: a half-killed pipeline
+     * leaves tar writing into a backup volume with nobody waiting on it.
      *
      * @return the exit codes in stage order, or empty if the wall was reached
      */
@@ -486,15 +462,11 @@ public final class TarSnapshots implements Snapshots {
     }
 
     /**
-     * Whether a partial's stamp is older than {@code cut} - and {@code false} for one that is not a
-     * date at all.
+     * Whether a partial's stamp is older than {@code cut} - and {@code false} for one that is not a date at all.
      *
-     * <p><b>Matching the pattern is not the same as being a date.</b> {@code \d{8}T\d{6}Z} accepts
-     * {@code 99999999T999999Z}, which {@code LocalDateTime.parse} then refuses. Thrown out of the
-     * loop, that one file ended the whole retention sweep: every volume after it kept every archive
-     * it had, the backup volume filled up over weeks, and the only sign was one stack trace in a log
-     * on a run that otherwise said it had succeeded. So the file is left where it is and named in
-     * the log - it is one unexplained file, and the sweep is the thing that has to keep going.</p>
+     * Matching the pattern is not the same as being a date: {@code \d{8}T\d{6}Z} accepts {@code 99999999T999999Z},
+     * which {@code LocalDateTime.parse} then refuses. Thrown out of the loop, that one file would end the whole
+     * retention sweep, so an unparseable stamp is left where it is and named in the log instead.
      */
     private static boolean isOlderThan(final String stamp, final Instant cut, final String name) {
         try {
@@ -509,9 +481,7 @@ public final class TarSnapshots implements Snapshots {
         try {
             return Files.deleteIfExists(file);
         } catch (final IOException undeletable) {
-            // Reported, not thrown: one undeletable file must not stop the sweep from freeing the
-            // disk of the others, and a retention that fails silently is the failure mode Snapshots
-            // asks this method to return a list against.
+            // Reported, not thrown: one undeletable file must not stop the sweep from freeing the disk of the others.
             log.warn("cannot delete {}: {}", file, undeletable.toString());
             return false;
         }
@@ -529,8 +499,7 @@ public final class TarSnapshots implements Snapshots {
         try (Stream<String> lines = Files.lines(listing, StandardCharsets.UTF_8)) {
             return lines.count();
         } catch (final UncheckedIOException undecodable) {
-            // A file name on a world volume need not be valid UTF-8. That says nothing about the
-            // archive, so it must not fail the verification - tar's exit status already has.
+            // A file name on a world volume need not be valid UTF-8, which must not fail this verification.
             return 1;
         }
     }
@@ -549,14 +518,14 @@ public final class TarSnapshots implements Snapshots {
     }
 
     /**
-     * Runs the stages as one pipeline, with the last one's output going to {@code stdout} - a file
-     * when one is named, discarded otherwise.
+     * Runs the stages as one pipeline.
      *
-     * <p>stderr is collected per stage into a temporary file rather than merged into the data
-     * stream: {@code redirectErrorStream} on a {@code tar -cf -} would splice tar's warnings into
-     * the archive itself, producing a file that is corrupt precisely when something went wrong.</p>
+     * The last one's output goes to {@code stdout} - a file when one is named, discarded otherwise. stderr is
+     * collected per stage into a temporary file rather than merged into the data stream:
+     * {@code redirectErrorStream} on a {@code tar -cf -} would splice tar's warnings into the archive itself,
+     * producing a file that is corrupt precisely when something went wrong.
      */
-    private Shell pipeline(final Path stdout, final List<List<String>> stages)
+    private Shell pipeline(final @Nullable Path stdout, final List<List<String>> stages)
             throws IOException, InterruptedException {
         final List<ProcessBuilder> builders = new ArrayList<>();
         final List<Path> errors = new ArrayList<>();
@@ -589,8 +558,7 @@ public final class TarSnapshots implements Snapshots {
             }
             return new Shell(codes.get(), said.toString());
         } catch (final InterruptedException interrupted) {
-            // A shutdown while tar is running must not leave tar and zstd behind writing into the
-            // backup volume with nobody waiting on them. They go first, then the interrupt travels.
+            // A shutdown must not leave tar and zstd running into the backup volume with nobody waiting on them.
             running.forEach(Process::destroyForcibly);
             throw interrupted;
         } finally {
@@ -601,9 +569,7 @@ public final class TarSnapshots implements Snapshots {
     }
 
     private static Duration since(final long startedAtNanos) {
-        // Measured on the monotonic clock, never on the injected one: the injected Clock is fixed
-        // in tests and would report every run as instant, and a wall clock that steps backwards
-        // over an NTP correction would report a backup as having taken negative time.
+        // Measured on the monotonic clock, never the injected one: the injected Clock is fixed in tests.
         return Duration.ofNanos(System.nanoTime() - startedAtNanos);
     }
 }

@@ -23,6 +23,9 @@ repositoryRootTestInputs {
     // one of those tests is ever deleted, leave this line: the other one still needs it, and a
     // declaration that quietly goes with the wrong test is exactly the failure they guard against.
     reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/Runner.java")
+    reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/BackupSequence.java")
+    reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/RestartSequence.java")
+    reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/UpdateSequence.java")
 
     // And WorkerApi as text, for the same reason: HeartbeatLeavesTheTimerTest asserts which
     // executor the heartbeat comment is written on, and folding that back into the timer's own
@@ -37,7 +40,7 @@ repositoryRootTestInputs {
     // the socket: the compose project name.
     reads("steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/StewardDeployer.java")
 
-    // TopologyTest holds deploy/dev.env.example against every required variable in compose.yml:
+    // TopologyDeploymentTest holds deploy/dev.env.example against every required variable in compose.yml:
     // compose interpolates the whole file before filtering by profile, so one unset `${X:?}` stops
     // the local stack even for a service it never starts.
     reads("deploy/dev.env.example")
@@ -72,13 +75,10 @@ dependencies {
     // the backend is what the assertion is made of.
     testImplementation(libs.logback.classic)
 
-    // The bank (steward/109). This is the ONLY process in the network that holds a bunq credential
-    // and the only one that makes an HTTP call to bunq: the bot writes a row asking for a tab and
-    // reads back what happened, and has neither the key nor the SDK on its classpath any more.
-    //
-    // It brings OkHttp with it. `com/bunq/sdk/http/BunqRequestBuilder.java` in this module is a
-    // patched copy of one of the SDK's own classes, sitting in the SDK's package so it wins on the
-    // classpath - read that file before touching this line or the OkHttp version.
+    // The only process holding a bunq credential and calling bunq's API directly; the bot writes a
+    // row asking for a tab and reads back the result.
+    // `com/bunq/sdk/http/BunqRequestBuilder.java` patches the SDK's own class in its own package to
+    // win on the classpath; read that file before touching this line or the OkHttp version.
     implementation(libs.bunq.sdk)
 
     // Compiled against, not merely shipped: the patched BunqRequestBuilder above extends
@@ -103,10 +103,8 @@ dependencies {
     // session, with no in-JVM stand-in. It skips itself when no Docker daemon is reachable.
     testImplementation(libs.testcontainers.postgresql)
 
-    // ConfigFilesOwnershipTest (steward/104) needs a file owned by somebody other than the test
-    // process to prove the atomic write carries that ownership across - see the version comment
-    // in libs.versions.toml for why an in-memory filesystem is the only place that scenario is
-    // actually testable, on this host or in CI.
+    // ConfigFilesOwnershipTest needs a file owned by somebody other than the test process; an
+    // in-memory filesystem is the only place that is testable, on this host or in CI.
     testImplementation(libs.jimfs)
 
     compileOnly(libs.lombok)

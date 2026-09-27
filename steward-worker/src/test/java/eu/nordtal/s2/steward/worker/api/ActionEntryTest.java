@@ -12,12 +12,12 @@ import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
 import java.time.Instant;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The mapping from a raw row of either table to one {@link ActionEntry} - the extent computed from
- * an {@code UpdateReport}, and who gets credited with a run or a journal line.
+ * The mapping from a raw row of either table to one {@link ActionEntry}.
+ *
+ * The extent computed from an {@code UpdateReport}, and who gets credited with a run or a journal line.
  */
 class ActionEntryTest {
 
@@ -39,12 +39,9 @@ class ActionEntryTest {
                 result);
     }
 
-    // ---------------------------------------------------------------- extent, from a real report
-
     @Test
     void countsHealthyAndSavedLinesAgainstEverythingTouched() {
-        // One HEALTHY, one SAVED, one FAILED, one UNCHANGED (not touched) and one PLANNED (not
-        // touched either) - so total is 3 and successful is 2.
+        // One HEALTHY, one SAVED, one FAILED, one UNCHANGED and one PLANNED not touched - so total is 3, successful 2.
         final String report = "{\"stage\":\"DONE\",\"services\":["
                 + "{\"service\":\"a\",\"state\":\"HEALTHY\",\"changes\":[]},"
                 + "{\"service\":\"b\",\"state\":\"SAVED\",\"changes\":[]},"
@@ -67,7 +64,7 @@ class ActionEntryTest {
 
     @Test
     void unparseableResultFallsBackToTheStatusWord() {
-        // A worker older than 2026-09-07 wrote plain text, or the row has none yet.
+        // An older worker wrote plain text, or the row has none yet.
         final ActionEntry done = ActionEntry.of(
                 run(UpdateKind.UPDATE, UpdateStatus.DONE, null, "some plain text a very old worker wrote"));
         assertEquals("done", done.extent());
@@ -108,8 +105,6 @@ class ActionEntryTest {
                         .extent());
     }
 
-    // ---------------------------------------------------------------- who gets credited, for a run
-
     @Test
     void aNullRequesterIsTheSystem() {
         final ActionEntry entry = ActionEntry.of(run(UpdateKind.BACKUP, UpdateStatus.DONE, null, null));
@@ -127,9 +122,7 @@ class ActionEntryTest {
 
     @Test
     void aTrailingSnowflakeIsExtractedRatherThanShownAsText() {
-        // "hm.till (594510749410525200)" is this deployment's own shape for "a name with the id
-        // that goes with it" - identifiers-stay-in-the-popover.test.ts is what the extraction is
-        // for: the frontend must never be handed a string with a raw snowflake sitting in it.
+        // "hm.till (594510749410525200)" is a name with its id; the frontend must never be handed a raw snowflake.
         final ActionEntry entry =
                 ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, "hm.till (594510749410525200)", null));
         assertFalse(entry.system());
@@ -145,8 +138,6 @@ class ActionEntryTest {
         assertEquals("", entry.actorDiscordId());
         assertEquals("token-rotation-check", entry.actorLabel());
     }
-
-    // ---------------------------------------------------------------- from audit_log
 
     @Test
     void anAuditLineWithNoActorIsTheSystem() {
@@ -179,8 +170,7 @@ class ActionEntryTest {
     }
 
     @Test
-    @DisplayName("the moment leaves as text, not as the seconds and nanos an Instant is made of")
-    void occurredIsSentAsATextTimestamp() {
+    void theMomentLeavesAsTextNotAsTheSecondsAndNanosAnInstantIsMadeOf() {
         final ActionEntry entry =
                 new ActionEntry("UPDATE", Instant.parse("2026-09-17T00:55:04.879Z"), "1/1 successful", "", "", true);
         final Object occurred = entry.json().get("occurred");

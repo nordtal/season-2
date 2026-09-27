@@ -15,19 +15,17 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The loop, without a network, a database or four volumes.
  *
- * <p>Two things here are worth a test and the rest is plumbing. The first is <b>the arithmetic that
- * decides when to wake up</b>: a restart sits in the table for a minute while the proxy counts
- * players down towards it, and a loop that sleeps for its poll interval regardless would fire the
- * restart after the counter had already reached zero. The second is that <b>a drain empties the
- * queue</b> rather than taking one row per wake-up - the case that matters is a request written
- * while the worker was busy with the previous one, whose notification arrived during the run and
- * was never waited for.</p>
+ * Two things here are worth a test and the rest is plumbing. The first is the arithmetic that decides when to wake
+ * up: a restart sits in the table for a minute while the proxy counts players down towards it, and a loop that
+ * sleeps for its poll interval regardless would fire the restart after the counter had already reached zero. The
+ * second is that a drain empties the queue rather than taking one row per wake-up - the case that matters is a
+ * request written while the worker was busy with the previous one, whose notification arrived during the run and was
+ * never waited for.
  */
 class UpdateServerTest {
 
@@ -36,8 +34,6 @@ class UpdateServerTest {
 
     private final FakeDirectory directory = new FakeDirectory();
 
-    // ---------------------------------------------------------------- when to wake up
-
     @Test
     void anEmptyInboxWaitsThePollInterval() {
         assertEquals(POLL, server((request, progress) -> Outcome.done("x")).waitFor());
@@ -45,18 +41,15 @@ class UpdateServerTest {
 
     @Test
     void workFurtherAwayThanThePollIntervalStillWaitsThePollInterval() {
-        directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofMinutes(10));
+        directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "ally", Duration.ofMinutes(10));
 
         assertEquals(POLL, server((request, progress) -> Outcome.done("x")).waitFor());
     }
 
     @Test
-    @DisplayName("a countdown ending sooner than the poll shortens the wait to exactly that")
-    void aCountdownEndingSoonerThanThePollShortensTheWait() {
-        // This is the bug the method exists to avoid: sixty seconds of countdown, a fifteen-second
-        // poll, and a restart that fires up to fifteen seconds after the counter hit zero in front
-        // of everybody watching it.
-        directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(4));
+    void aCountdownEndingSoonerThanThePollShortensTheWaitToExactlyThat() {
+        // The bug this exists to avoid: a slow poll firing a restart seconds after the counter hit zero on camera.
+        directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "ally", Duration.ofSeconds(4));
 
         assertEquals(
                 Duration.ofSeconds(4),
@@ -65,8 +58,7 @@ class UpdateServerTest {
 
     @Test
     void workThatIsAlreadyOverdueStillWaitsASecond() {
-        // A row that is due but cannot be claimed - another worker has it for the moment - would
-        // otherwise spin this loop as fast as the database can answer.
+        // A row that is due but cannot be claimed would otherwise spin this loop as fast as the database can answer.
         directory.at(NOW.minusSeconds(30));
         directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
         directory.at(NOW);
@@ -75,8 +67,6 @@ class UpdateServerTest {
                 Duration.ofSeconds(1),
                 server((request, progress) -> Outcome.done("x")).waitFor());
     }
-
-    // ---------------------------------------------------------------- draining
 
     @Test
     void everythingDueIsRunInOneDrain() {
@@ -97,7 +87,7 @@ class UpdateServerTest {
 
     @Test
     void aRequestThatIsNotDueIsLeftAlone() {
-        directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
+        directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "ally", Duration.ofSeconds(60));
 
         final AtomicInteger ran = new AtomicInteger();
         server((request, progress) -> {
@@ -111,8 +101,7 @@ class UpdateServerTest {
     }
 
     @Test
-    @DisplayName("the runner's own verdict is what lands in the row")
-    void aFailedRunIsWrittenBackAsFailed() {
+    void theRunnersOwnVerdictIsWhatLandsInTheRow() {
         final UpdateRequest submitted = directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
 
         server((request, progress) -> Outcome.failed("the download timed out")).drain();
@@ -122,14 +111,9 @@ class UpdateServerTest {
         assertEquals("the download timed out", row.result());
     }
 
-    // ---------------------------------------------------------------- the reconnect loop
-
     @Test
-    @DisplayName("a listener that dies is replaced, and the table is drained on every reconnect")
-    void everyReconnectDrainsBeforeItWaitsForAnything() throws Exception {
-        // THE rule, the same one the phase listener states: a request written while this process
-        // was disconnected produced a notification nobody received, and no later notification will
-        // repeat it. So a reconnect that waited first would sit on work that is already there.
+    void aListenerThatDiesIsReplacedAndTheTableIsDrainedOnEveryReconnect() throws Exception {
+        // THE rule: a request written while disconnected produced a notification nobody received and none repeats it.
         directory.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
 
         final AtomicInteger connects = new AtomicInteger();
@@ -149,8 +133,7 @@ class UpdateServerTest {
         final Thread thread = new Thread(server::serve, "test-update-server");
         thread.start();
         try {
-            // The connector fails on every await, so the loop reconnects as fast as the backoff
-            // allows. Two connects is enough to prove it comes back.
+            // The connector fails on every await, so the loop reconnects as fast as the backoff allows.
             final long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
             while (connects.get() < 2 && System.nanoTime() < deadline) {
                 Thread.onSpinWait();
@@ -162,8 +145,6 @@ class UpdateServerTest {
             thread.join(Duration.ofSeconds(5).toMillis());
         }
     }
-
-    // ---------------------------------------------------------------- helpers
 
     private UpdateServer server(final RequestRunner runner) {
         return new UpdateServer(directory, runner, never(), POLL, fixedClock(), Duration.ofMillis(1));

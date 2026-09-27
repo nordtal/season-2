@@ -11,28 +11,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * That every {@code docker compose run --rm steward-worker} written down anywhere names what it does.
  *
- * <h2>The bug this exists for</h2>
- * {@code compose.yml}, {@code steward-worker/Dockerfile}, {@code steward-worker/README.md}
- * and {@code deploy/README.md} all documented the bare command as the harmless read-only report -
- * <em>"prints what is installed and changes nothing"</em>. It is not. Compose hands a {@code run}
- * that names no command the service's own {@code command}, which is {@code serve}: the operator got
- * a second long-running daemon that migrated, ran the bootstrap, started listening on
- * {@code nordtal_update} and never returned the terminal. Removing {@code command} from the service
- * does not fix it either - a {@code run} then inherits the image's {@code CMD}. Both measured
- * 2026-09-02.
+ * Guards the documented command against reading as a harmless, no-op report when it is not.
  *
- * <h2>Why the test is on the documents</h2>
- * Because the defect was in the documents. The dispatch in {@link StewardWorker} was correct the whole
- * time - {@code report} is what an argument-less run does - and no test of that dispatch would have
- * noticed, because nothing that ran it ever went through Compose. What was wrong was five files
- * telling a person to type something that did the opposite of what they said, and the only way to
- * catch that again is to read them.
+ * {@code compose.yml}, {@code steward-worker/Dockerfile}, {@code steward-worker/README.md} and
+ * {@code deploy/README.md} must never document the bare command as printing a report and changing nothing. Compose
+ * hands a {@code run} that names no command the service's own {@code command}, {@code serve}: a second
+ * long-running daemon that migrates, bootstraps, listens on {@code nordtal_update} and never returns the terminal.
+ * Removing {@code command} does not help either, since a bare {@code run} then inherits the image's {@code CMD}.
+ *
+ * The test reads the documents rather than the dispatch: {@link StewardWorker}'s own dispatch is correct -
+ * {@code report} is what an argument-less run does - and a test of that dispatch alone cannot see five files
+ * telling a person to type something that does the opposite of what they say.
  */
 class DocumentedCommandsTest {
 
@@ -41,18 +35,16 @@ class DocumentedCommandsTest {
             "compose.yml", ".env.example", "steward-worker/Dockerfile", "steward-worker/README.md", "deploy/README.md");
 
     /** What {@link StewardWorker} actually dispatches on. Anything else reads as the default. */
-    // "apply" is deliberately NOT here any more. It was retired on 2026-09-07 with the button
-    // that did the same thing (finding 147, and V12 carries the reasoning); a document still
-    // telling somebody to type it is a document telling them to swap jars under a running
-    // server, and this test is exactly the thing that should refuse it.
+    // "apply" is deliberately absent, with the button that did the same: it would tell somebody to swap jars live.
     private static final List<String> SUBCOMMANDS = List.of("report", "migrate", "bootstrap", "serve");
 
     private static final Pattern INVOCATION =
             Pattern.compile("docker compose run (?:--rm )?steward-worker(?<rest>[^\\n`]*)");
 
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+
     @Test
-    @DisplayName("no document tells anybody to run the worker without naming a subcommand")
-    void everyDocumentedRunNamesItsSubcommand() throws IOException {
+    void noDocumentTellsAnybodyToRunTheWorkerWithoutNamingASubcommand() throws IOException {
         final List<String> bare = new ArrayList<>();
 
         for (final String relative : DOCUMENTS) {
@@ -63,7 +55,9 @@ class DocumentedCommandsTest {
             final Matcher matcher = INVOCATION.matcher(text);
             while (matcher.find()) {
                 final String rest = matcher.group("rest").strip();
-                final String first = rest.isEmpty() ? "" : rest.split("\\s+")[0];
+                final String first = rest.isEmpty()
+                        ? ""
+                        : WHITESPACE.splitAsStream(rest).findFirst().orElse("");
                 if (!SUBCOMMANDS.contains(first)) {
                     bare.add(relative + ": \"" + matcher.group().strip() + "\"");
                 }
@@ -78,8 +72,7 @@ class DocumentedCommandsTest {
     }
 
     @Test
-    @DisplayName("the worker service still runs serve, which is the whole reason a run inherits it")
-    void theServiceItselfStillServes() throws IOException {
+    void theWorkerServiceStillRunsServeWhichIsTheWholeReasonARunInheritsIt() throws IOException {
         final String compose = Files.readString(repositoryRoot().resolve("compose.yml"), StandardCharsets.UTF_8);
         assertTrue(
                 compose.contains("command: [\"serve\"]"),

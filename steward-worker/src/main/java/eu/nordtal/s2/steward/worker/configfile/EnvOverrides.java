@@ -9,16 +9,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Reads the {@code <name>.env-overrides.txt} a service writes beside its own config file
- * (steward/76), the same way {@link Schemas} reads that service's {@code <name>.schema.json} -
- * {@link eu.nordtal.s2.common.config.EnvOverrideFile} owns the naming rule and the format; this
- * class only adapts its {@code List} into the {@code Set} {@link ConfigFiles#collect} tests
- * membership against, and turns a read failure into "nothing to report" instead of a broken page.
+ * Reads the {@code <name>.env-overrides.txt} a service writes beside its own config file.
  *
- * <p><b>Absent is not the same as empty</b> (see {@code EnvOverrideFile}'s own doc): a missing file
- * means the service behind {@code ymlFile} predates steward/76 or has not reloaded since, and
- * {@link ConfigEntry#environmentOverridden()} has to stay {@code null} for it rather than
- * {@code false} - the silent wrong answer this mechanism exists to prevent.</p>
+ * {@link eu.nordtal.s2.common.config.EnvOverrideFile} owns the naming rule and the format; this class only adapts
+ * its {@code List} into the {@code Set} membership is tested against, and turns a read failure into "nothing to
+ * report" instead of a broken page.
+ *
+ * Absent is not the same as empty: a missing file means the service behind {@code ymlFile} has never reported which
+ * paths the environment overlays, and {@link ConfigEntry#environmentOverridden()} has to stay {@code null} for it
+ * rather than {@code false} - the silent wrong answer this mechanism exists to prevent.
  */
 final class EnvOverrides {
 

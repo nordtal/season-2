@@ -12,23 +12,20 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * What the reader does at the boundaries nobody chooses: the end of a frame, the end of a read, and
- * the end of the stream.
+ * What the reader does at the boundaries nobody chooses.
  *
- * <p>None of it needs a daemon. A docker log stream is bytes in an order, and the two shapes are
- * described exactly enough in {@link LogFrames} to be written out here.</p>
+ * The end of a frame, the end of a read, and the end of the stream. None of it needs a daemon: a docker log stream
+ * is bytes in an order, and the two shapes are described exactly enough in {@link LogFrames} to be written out here.
  */
 class LogFramesTest {
 
     private static final String LINE = "[04:45:12 INFO]: Zoë fell into lava – hard luck\n";
 
     @Test
-    @DisplayName("a character split across two reads is one character, not two question marks")
-    void aCharacterSurvivesTheChunkBoundary() throws IOException {
+    void aCharacterSplitAcrossTwoReadsIsOneCharacterNotTwoQuestionMarks() throws IOException {
         final byte[] all = LINE.getBytes(StandardCharsets.UTF_8);
         // Straight through the ë: the first chunk ends on the lead byte of a two-byte character.
         final int cut = indexOfLeadByte(all) + 1;
@@ -39,8 +36,7 @@ class LogFramesTest {
     }
 
     @Test
-    @DisplayName("and the same across two docker frames, which is where it actually happened")
-    void aCharacterSurvivesTheFrameBoundary() throws IOException {
+    void andTheSameAcrossTwoDockerFramesWhichIsWhereItActuallyHappened() throws IOException {
         final byte[] all = LINE.getBytes(StandardCharsets.UTF_8);
         final int cut = indexOfLeadByte(all) + 1;
 
@@ -50,8 +46,7 @@ class LogFramesTest {
     }
 
     @Test
-    @DisplayName("a character the stream ends halfway through is one replacement, not a lost line")
-    void anUnfinishableCharacterIsStillALine() throws IOException {
+    void aCharacterTheStreamEndsHalfwayThroughIsOneReplacementNotALostLine() throws IOException {
         final byte[] all = "done ë".getBytes(StandardCharsets.UTF_8);
 
         final List<String> lines = linesOf(false, Arrays.copyOfRange(all, 0, all.length - 1));
@@ -64,11 +59,8 @@ class LogFramesTest {
     }
 
     @Test
-    @DisplayName("a frame header whose payload never arrives is refused, not read as zeroes")
-    void aPayloadThatNeverArrivesIsAnError() {
-        // The header promises five bytes and the connection closes. Ignored, the reader handed the
-        // interface five NUL characters as a log line - and then took the next bytes of a dead
-        // stream for the following header.
+    void aFrameHeaderWhosePayloadNeverArrivesIsRefusedNotReadAsZeroes() {
+        // The header promises five bytes and the connection closes; ignored, that reads as five NUL characters.
         final byte[] header = {1, 0, 0, 0, 0, 0, 0, 5};
 
         final EOFException ended = assertThrows(EOFException.class, () -> linesOf(true, header));
@@ -76,8 +68,7 @@ class LogFramesTest {
     }
 
     @Test
-    @DisplayName("a frame cut in half is refused too, and says how far it got")
-    void aHalfPayloadIsAnError() {
+    void aFrameCutInHalfIsRefusedTooAndSaysHowFarItGot() {
         final byte[] header = {1, 0, 0, 0, 0, 0, 0, 5};
 
         final EOFException ended = assertThrows(EOFException.class, () -> linesOf(true, header, new byte[] {'a', 'b'}));
@@ -85,8 +76,7 @@ class LogFramesTest {
     }
 
     @Test
-    @DisplayName("one frame holding three lines is three lines, and half a line waits for its rest")
-    void framesAreNotLines() throws IOException {
+    void oneFrameHoldingThreeLinesIsThreeLinesAndHalfALineWaitsForItsRest() throws IOException {
         assertEquals(
                 List.of("one", "two", "three"),
                 linesOf(
@@ -94,8 +84,6 @@ class LogFramesTest {
                         frame("one\ntwo\nthr".getBytes(StandardCharsets.UTF_8)),
                         frame("ee\n".getBytes(StandardCharsets.UTF_8))));
     }
-
-    // -----------------------------------------------------------------------------------------
 
     private static int indexOfLeadByte(final byte[] bytes) {
         for (int i = 0; i < bytes.length; i++) {
@@ -127,8 +115,8 @@ class LogFramesTest {
     /**
      * A stream that hands over exactly these chunks, one per read.
      *
-     * <p>That is the whole point: {@code InputStream.read(byte[])} is allowed to return any number
-     * of bytes, and everything here is about what happens at the seam between two of them.</p>
+     * That is the whole point: {@code InputStream.read(byte[])} may return any number of bytes, and everything here
+     * is about what happens at the seam between two of them.
      */
     private static InputStream delivering(final byte[]... chunks) {
         final Deque<byte[]> queue = new ArrayDeque<>(List.of(chunks));

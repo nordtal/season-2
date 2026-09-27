@@ -11,6 +11,7 @@ import eu.nordtal.s2.steward.worker.ops.RedeployResult;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -21,26 +22,20 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 /**
  * {@link DeployerRecreate} against a hand-written stand-in for steward-deployer's HTTP API.
  *
- * <h2>What this replaces</h2>
- * Before season-2-ops/22, {@code DockerOps#recreate} refused unconditionally - "recreating smp is
- * steward-deployer's ... Not wired from here yet". Every test below constructs the object this
- * ticket adds and checks it against the same three answers {@link RedeployResult} always
- * distinguished: {@link RedeployResult#triggered}, {@link RedeployResult#refused} and
+ * Recreating {@code smp} and the other Docker-Compose services is steward-deployer's job, not this process's own
+ * socket: every test below constructs the client and checks it against the same three answers
+ * {@link RedeployResult} always distinguishes: {@link RedeployResult#triggered}, {@link RedeployResult#refused} and
  * {@link RedeployResult#unverified}.
  *
- * <h2>Why every test is bounded</h2>
- * A fake clock that never reaches the deadline it is asked about turns
- * {@code DeployerRecreate#poll} into a busy loop with no network wait left in it at all - measured
- * on this host on 2026-09-15, ten minutes and rising before the {@code timeout} wrapped around the
- * build command killed it. {@link Timeout} here fails the same mistake in seconds instead of
- * hanging the build.
+ * Why every test is bounded: a fake clock that never reaches the deadline it is asked about turns
+ * {@code DeployerRecreate#poll} into a busy loop with no network wait left in it at all. {@link Timeout} here fails
+ * the same mistake in seconds instead of hanging the build.
  */
 @Timeout(10)
 class DeployerRecreateTest {
@@ -65,15 +60,12 @@ class DeployerRecreateTest {
                 DeployerRecreate.Waiting.real());
     }
 
-    // -------------------------------------------------------------------------------------------
     // The happy path: accepted, then DONE
-    // -------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("a job that settles DONE is a triggered recreate")
-    void settlesDone() throws IOException {
+    void aJobThatSettlesDoneIsATriggeredRecreate() throws IOException {
         final Queue<String> jobStates = new ConcurrentLinkedQueue<>(List.of("RUNNING", "DONE"));
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/api/deploy", exchange -> {
             assertEquals("POST", exchange.getRequestMethod());
             assertEquals("a-secret", exchange.getRequestHeaders().getFirst("X-Steward-Token"));
@@ -98,22 +90,14 @@ class DeployerRecreateTest {
         assertTrue(result.message().contains("smp"), result.message());
     }
 
-    // -------------------------------------------------------------------------------------------
-    // The route, which is the whole of season-2-ops/140
-    // -------------------------------------------------------------------------------------------
+    // The route an update run asks, naming the one service
 
     @Test
-    @DisplayName("an update run asks the route that pulls, naming the one service")
-    void asksTheFetchingRoute() throws IOException {
-        // Both routes exist on the real deployer and only one of them fetches. season-2-ops/134
-        // made /api/recreate use the image already on this host, which is right for the button an
-        // admin presses and wrong for a run whose only reason to touch the container is that the
-        // registry has moved past it. Asking the wrong one is silent: the job answers 202, the
-        // container comes back healthy, and the image is the stale one. So the stand-in below
-        // answers on both and the test says which was used.
+    void anUpdateRunAsksTheRouteThatPullsNamingTheOneService() throws IOException {
+        // /api/recreate uses the image already on this host; the stand-in below answers on both routes to prove which.
         final Queue<String> bodies = new ConcurrentLinkedQueue<>();
         final AtomicInteger recreateCalls = new AtomicInteger();
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/api/deploy", exchange -> {
             bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             respond(exchange, 202, "{\"id\":\"job-4\"}");
@@ -141,16 +125,11 @@ class DeployerRecreateTest {
     }
 
     @Test
-    @DisplayName("starting a standby asks the route that does NOT pull")
-    void standbyTakesTheLocalRoute() throws IOException {
-        // The mirror image of the test above, and the reason both exist: the two callers want
-        // opposite things from the same class. A standby has to come up on the image its live
-        // service is running, which on this deployment is very often one built on the host - so a
-        // pull here would put the published image under the standby while the live proxy runs the
-        // local one, and nothing about the job would say so.
+    void startingAStandbyAsksTheRouteThatDoesNotPull() throws IOException {
+        // A standby must come up on the image its live service runs, often a local build, so a pull here would diverge.
         final Queue<String> bodies = new ConcurrentLinkedQueue<>();
         final AtomicInteger recreateCalls = new AtomicInteger();
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/api/deploy", exchange -> {
             bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             respond(exchange, 202, "{\"id\":\"job-5\"}");
@@ -174,22 +153,18 @@ class DeployerRecreateTest {
     }
 
     @Test
-    @DisplayName("the deploy body names one service, never the empty list compose reads as all")
-    void bodyNamesOneService() {
+    void theDeployBodyNamesOneServiceNeverTheEmptyListComposeReadsAsAll() {
         assertEquals("{\"services\":[\"smp\"]}", DeployerRecreate.deployBody("smp"));
         assertTrue(
                 DeployerRecreate.deployBody("a\"b").contains("a\\\"b"),
                 "a service name is escaped, not concatenated into the JSON");
     }
 
-    // -------------------------------------------------------------------------------------------
     // The deployer refuses outright
-    // -------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("a non-202 from POST /api/deploy is refused, named")
-    void postRefused() throws IOException {
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    void aNon202FromPostApiDeployIsRefusedNamed() throws IOException {
+        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/api/deploy", exchange -> respond(exchange, 400, "\"smp\" is not a compose service"));
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.start();
@@ -202,14 +177,11 @@ class DeployerRecreateTest {
         assertTrue(result.message().contains("400"), result.message());
     }
 
-    // -------------------------------------------------------------------------------------------
     // The job itself fails
-    // -------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("a job that settles FAILED is a refused recreate, carrying its last line")
-    void jobFails() throws IOException {
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    void aJobThatSettlesFailedIsARefusedRecreateCarryingItsLastLine() throws IOException {
+        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/api/deploy", exchange -> respond(exchange, 202, "{\"id\":\"job-2\"}"));
         server.createContext(
                 "/api/jobs/job-2",
@@ -227,15 +199,11 @@ class DeployerRecreateTest {
         assertTrue(result.message().contains("no such image"), result.message());
     }
 
-    // -------------------------------------------------------------------------------------------
     // The deployer is not there at all
-    // -------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("no server listening is refused, not an exception reaching the caller")
-    void unreachable() {
-        // No HttpServer created or started at all: nothing is listening on this port, which is
-        // the "deployer is down" case.
+    void noServerListeningIsRefusedNotAnExceptionReachingTheCaller() {
+        // No HttpServer created or started at all: nothing is listening on this port, the "deployer is down" case.
         final DeployerRecreate client = new DeployerRecreate(
                 new NoopDelegate(),
                 "http://127.0.0.1:1",
@@ -250,15 +218,12 @@ class DeployerRecreateTest {
         assertTrue(result.message().contains("smp"), result.message());
     }
 
-    // -------------------------------------------------------------------------------------------
     // A job that never settles within this call's patience
-    // -------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("a job still RUNNING when patience runs out is unverified, not refused")
-    void neverSettles() throws IOException {
+    void aJobStillRunningWhenPatienceRunsOutIsUnverifiedNotRefused() throws IOException {
         final AtomicInteger polls = new AtomicInteger();
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/api/deploy", exchange -> respond(exchange, 202, "{\"id\":\"job-3\"}"));
         server.createContext("/api/jobs/job-3", exchange -> {
             polls.incrementAndGet();
@@ -267,14 +232,7 @@ class DeployerRecreateTest {
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.start();
 
-        // A clock whose SECOND answer is already past the deadline the FIRST answer set - so the
-        // loop polls exactly once and then gives up, without three seconds of a build actually
-        // sleeping through POLL_INTERVAL. It has to advance between calls rather than simply
-        // starting "in the future": recreate() computes the deadline from one call to now() and
-        // poll() compares a LATER call to the same clock against it, so a clock stuck on one
-        // instant places every future call before its own deadline forever - which is the bug
-        // this comment used to hide, and which hung the real build for ten minutes before it was
-        // caught here rather than on the dev host.
+        // The clock must advance between calls, not start ahead: a clock stuck on one instant never meets its deadline.
         final Instant t0 = Instant.now();
         final AtomicInteger calls = new AtomicInteger();
         final DeployerRecreate client = new DeployerRecreate(
@@ -286,9 +244,7 @@ class DeployerRecreateTest {
                 new DeployerRecreate.Waiting() {
                     @Override
                     public Instant now() {
-                        // First call (recreate(), setting the deadline): t0. Every call after
-                        // that (poll()'s own check): ten seconds past the five-second patience
-                        // that first call bought.
+                        // First call (recreate()) sets t0; every poll() after is ten seconds past its patience.
                         return calls.getAndIncrement() == 0 ? t0 : t0.plus(Duration.ofSeconds(10));
                     }
 

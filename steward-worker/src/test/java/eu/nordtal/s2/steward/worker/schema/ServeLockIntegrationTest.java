@@ -10,7 +10,6 @@ import java.util.Optional;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -20,20 +19,19 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * That exactly one {@code serve} can run against one database.
  *
- * <h2>What breaks without it</h2>
- * {@code UpdateServer.settleOrphans()} closes every row left {@code RUNNING} because "nothing is
- * running those rows: the only process that claims one is an updater, and this one has just
- * started". With two serve loops that reasoning is simply false - the second one marks the first
- * one's in-flight {@code APPLY} as {@code FAILED}, the real one's {@code finish(...)} then matches
- * no {@code RUNNING} row, and the report of the run that was actually installing jars is thrown
- * away and replaced by "steward-worker stopped while this request was running".
+ * What breaks without it: {@code UpdateServer.settleOrphans()} closes every row left {@code RUNNING} because
+ * "nothing is running those rows: the only process that claims one is an updater, and this one has just started".
+ * With two serve loops that reasoning is simply false - the second one marks the first one's in-flight {@code APPLY}
+ * as {@code FAILED}, the real one's {@code finish(...)} then matches no {@code RUNNING} row, and the report of the
+ * run that was actually installing jars is thrown away and replaced by "steward-worker stopped while this request
+ * was running".
  *
- * <p>Two of them was not a hypothetical: {@code docker compose run} inherited the service's
- * {@code command} and started a second daemon every time somebody asked for the read-only report.</p>
+ * Two of them was not a hypothetical: {@code docker compose run} inherited the service's {@code command} and started
+ * a second daemon every time somebody asked for the read-only report.
  *
- * <p>A real PostgreSQL, because an advisory lock is a property of a database session and "a second
- * connection is refused" has no in-JVM stand-in. <b>Skips itself when no Docker daemon is
- * reachable</b> - a green build on a machine without Docker proves nothing here.</p>
+ * A real PostgreSQL, because an advisory lock is a property of a database session and "a second connection is
+ * refused" has no in-JVM stand-in. Skips itself when no Docker daemon is reachable - a green build on a machine
+ * without Docker proves nothing here.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ServeLockIntegrationTest {
@@ -67,8 +65,7 @@ class ServeLockIntegrationTest {
     }
 
     @Test
-    @DisplayName("a second serve is refused while the first one holds the lock")
-    void onlyOneServeAtATime() throws SQLException {
+    void aSecondServeIsRefusedWhileTheFirstOneHoldsTheLock() throws SQLException {
         try (ServeLock first = ServeLock.acquire(dataSource, IMPATIENT).orElseThrow()) {
             final Optional<ServeLock> second = ServeLock.acquire(dataSource, IMPATIENT);
             assertFalse(
@@ -80,8 +77,7 @@ class ServeLockIntegrationTest {
     }
 
     @Test
-    @DisplayName("the lock is free again once the first one lets go - a redeploy has to hand over")
-    void aHandoverSucceeds() throws SQLException {
+    void theLockIsFreeAgainOnceTheFirstOneLetsGoARedeployHasToHandOver() throws SQLException {
         final ServeLock first = ServeLock.acquire(dataSource, IMPATIENT).orElseThrow();
         first.close();
 
@@ -91,11 +87,9 @@ class ServeLockIntegrationTest {
     }
 
     @Test
-    @DisplayName("it waits for a predecessor rather than failing the instant one is still shutting down")
-    void itWaitsOutAShutdownInProgress() throws Exception {
+    void itWaitsForAPredecessorRatherThanFailingTheInstantOneIsStillShuttingDown() throws Exception {
         final ServeLock leaving = ServeLock.acquire(dataSource, IMPATIENT).orElseThrow();
-        // The redeploy case: the replacement starts while the old container is still inside its
-        // graceful shutdown. Failing immediately would make every redeploy cost a crash-restart.
+        // The redeploy case: the replacement starts while the old container is still shutting down gracefully.
         final Thread shutdown = new Thread(() -> {
             try {
                 Thread.sleep(300);
@@ -113,10 +107,8 @@ class ServeLockIntegrationTest {
     }
 
     @Test
-    @DisplayName("the serve lock and the run lock are different locks, so serve can still bootstrap")
-    void theTwoLocksDoNotCollide() throws SQLException {
-        // serve takes this lock for its whole life and then runs its own bootstrap, which takes
-        // RunLock. One shared key would deadlock the container against itself on every start.
+    void theServeLockAndTheRunLockAreDifferentLocksSoServeCanStillBootstrap() throws SQLException {
+        // serve holds this lock for its whole life, then bootstraps under RunLock; one key would self-deadlock.
         try (ServeLock serving = ServeLock.acquire(dataSource, IMPATIENT).orElseThrow();
                 RunLock installing = RunLock.tryAcquire(dataSource).orElseThrow()) {
             assertTrue(serving != null && installing != null, "both held at once");

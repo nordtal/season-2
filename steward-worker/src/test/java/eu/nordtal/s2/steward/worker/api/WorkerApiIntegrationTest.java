@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -23,15 +24,14 @@ import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The API steward-ui will call, answered by the daemon that is actually running here.
  *
- * <p>It is served on a port of its own for the length of the test and asked over real HTTP, because
- * what is being checked is the contract - status codes, the token, the shape of the JSON - and none
- * of that is exercised by calling the methods behind it.</p>
+ * It is served on a port of its own for the length of the test and asked over real HTTP, because what is being
+ * checked is the contract - status codes, the token, the shape of the JSON - and none of that is exercised by
+ * calling the methods behind it.
  */
 class WorkerApiIntegrationTest {
 
@@ -75,8 +75,7 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("without the token nothing but health answers")
-    void theTokenIsTheDoor() throws Exception {
+    void withoutTheTokenNothingButHealthAnswers() throws Exception {
         assertEquals(401, raw("/api/services", false).statusCode());
         assertEquals(
                 200,
@@ -85,8 +84,7 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("the service list carries what the start page's table needs")
-    void theTableHasItsColumns() throws Exception {
+    void theServiceListCarriesWhatTheStartPagesTableNeeds() throws Exception {
         final JsonArray services = serviceRows();
         assumeTrue(!services.isEmpty(), "nothing of the stack is running - skipping");
 
@@ -95,11 +93,10 @@ class WorkerApiIntegrationTest {
             assertTrue(first.has(column), column + " is missing from " + first);
         }
 
-        // The four Minecraft services have a console and the others do not - and the interface
-        // draws no console field at all for those, rather than a disabled one (§10c).
+        // The four Minecraft services have a console and the others do not, so those draw no console field at all.
         boolean sawConsole = false;
         boolean sawNone = false;
-        for (var element : services) {
+        for (final var element : services) {
             final JsonObject row = element.getAsJsonObject();
             if (row.get("hasConsole").getAsBoolean()) {
                 sawConsole = true;
@@ -111,8 +108,7 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("the table comes with the age of the image comparison beside it")
-    void theDriftAnswerCarriesItsAge() throws Exception {
+    void theTableComesWithTheAgeOfTheImageComparisonBesideIt() throws Exception {
         final JsonObject table = GSON.fromJson(get("/api/services"), JsonObject.class);
 
         assertTrue(table.has("services"), "the rows are under `services`: " + table);
@@ -120,10 +116,7 @@ class WorkerApiIntegrationTest {
         assertTrue(drift.has("checkedAt"), "no age means the interface cannot say how old it is");
         assertTrue(drift.has("reached"), "whether a registry answered at all is not optional");
 
-        // The envelope exists for exactly this: the answer is cached for a minute, so a page that
-        // did not know its age would put a tick next to a comparison of unknown vintage - which is
-        // the failure this column was added for (A24). A second call inside the TTL must therefore
-        // report the SAME instant, not a fresh one.
+        // Cached for a minute: a second call inside the TTL must report the SAME instant, not a fresh one.
         final JsonObject again = GSON.fromJson(get("/api/services"), JsonObject.class);
         assertEquals(
                 drift.get("checkedAt"),
@@ -132,8 +125,7 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("a follow says something of its own, or an idle connection is dropped at thirty seconds")
-    void aFollowKeepsItsConnectionAlive() throws Exception {
+    void aFollowSaysSomethingOfItsOwnOrAnIdleConnectionIsDroppedAtThirtySeconds() throws Exception {
         final String name = aRunningService();
 
         final HttpResponse<java.io.InputStream> follow = http.send(
@@ -146,18 +138,10 @@ class WorkerApiIntegrationTest {
                 HttpResponse.BodyHandlers.ofInputStream());
         assertEquals(200, follow.statusCode());
 
-        // Jetty drops a connection nothing has been written on for thirty seconds - measured on
-        // this host, 2026-09-13 - and Javalin's keepAlive() writes nothing; it only holds the
-        // request open. A Minecraft server that is having a quiet minute therefore had its log
-        // view closed under whoever was watching it, which looks exactly like a server that has
-        // stopped. The same comment is what lets steward-ui's end notice a browser that left:
-        // the JDK's client only tears down a cancelled stream when something next arrives on it.
+        // Jetty drops a connection with nothing written on it after a while, and keepAlive() writes nothing itself.
         try (var lines = new java.io.BufferedReader(
                 new java.io.InputStreamReader(follow.body(), java.nio.charset.StandardCharsets.UTF_8))) {
-            // A DAEMON thread, and that is not a detail: closing the response body does not
-            // unblock a read already sitting in it - the very JDK behaviour this heartbeat exists
-            // to work around - so a plain executor thread would still be parked in readLine() when
-            // the suite ended and would hold the test JVM open for ever.
+            // A DAEMON thread: closing the response body does not unblock a read already parked in it.
             final var one = java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
                 final Thread thread = new Thread(runnable, "heartbeat-test-reader");
                 thread.setDaemon(true);
@@ -185,18 +169,15 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("the nightly clock is readable, so \"tonight\" can mean a moment on this host")
-    void theScheduleIsThisHosts() throws Exception {
+    void theNightlyClockIsReadableSoTonightCanMeanAMomentOnThisHost() throws Exception {
         final JsonObject schedule = GSON.fromJson(get("/api/schedule"), JsonObject.class);
 
         assertEquals("04:45", schedule.get("backupAt").getAsString());
         assertEquals("Europe/Berlin", schedule.get("zone").getAsString());
-        // An offset, not a local time: the browser has to be able to turn it into an instant, and
-        // "04:45" on its own is a number that means something different in every time zone - which
-        // is the defect this endpoint exists to end.
+        // An offset, not a local time: the browser must be able to turn it into an instant across every time zone.
         final java.time.ZonedDateTime next =
                 java.time.ZonedDateTime.parse(schedule.get("nextBackupAt").getAsString());
-        assertTrue(next.isAfter(java.time.ZonedDateTime.now()), "it has already been: " + next);
+        assertTrue(next.toInstant().isAfter(java.time.Instant.now()), "it has already been: " + next);
         assertEquals(45, next.getMinute());
         assertEquals(4, next.getHour(), "read in the zone the worker was given, not this JVM's");
     }
@@ -204,12 +185,11 @@ class WorkerApiIntegrationTest {
     /**
      * A service with a container actually running, or a skipped test.
      *
-     * <h2>Why not the first row</h2>
-     * The table lists every service of the project, stopped ones included, so on a host where
-     * half the stack is down the first row is a service whose log has no container behind it. The
-     * follow then answers 200 and ends at once - which from this side is indistinguishable from
-     * the dropped connection the heartbeat exists to prevent. The test failed for a reason that
-     * had nothing to do with what it holds, which is the worst kind of red.
+     * Why not the first row: The table lists every service of the project, stopped ones included, so on a host where
+     * half the stack is down the first row is a service whose log has no container behind it. The follow then answers
+     * 200 and ends at once - which from this side is indistinguishable from the dropped connection the heartbeat exists
+     * to prevent. The test failed for a reason that had nothing to do with what it holds, which is the worst kind of
+     * red.
      */
     private static String aRunningService() throws Exception {
         for (final var row : serviceRows()) {
@@ -228,8 +208,7 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("a running service can be asked about on its own, with its digests")
-    void oneServiceInFull() throws Exception {
+    void aRunningServiceCanBeAskedAboutOnItsOwnWithItsDigests() throws Exception {
         final JsonArray services = serviceRows();
         assumeTrue(!services.isEmpty(), "nothing running - skipping");
         final String name = services.get(0).getAsJsonObject().get("service").getAsString();
@@ -243,14 +222,12 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("a service nobody deploys is a 404, not an empty object")
-    void unknownIsNotEmpty() throws Exception {
+    void aServiceNobodyDeploysIsA404NotAnEmptyObject() throws Exception {
         assertEquals(404, raw("/api/services/not-a-service", true).statusCode());
     }
 
     @Test
-    @DisplayName("the console refuses a service that has none, with the reason")
-    void theConsoleKeepsItsBoundary() throws Exception {
+    void theConsoleRefusesAServiceThatHasNoneWithTheReason() throws Exception {
         final HttpResponse<String> refused = post("/api/services/postgres/console", "{\"command\":\"list\"}");
 
         assertEquals(400, refused.statusCode());
@@ -258,15 +235,13 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("an empty console line is refused before it reaches a container")
-    void nothingIsNotACommand() throws Exception {
+    void anEmptyConsoleLineIsRefusedBeforeItReachesAContainer() throws Exception {
         assertEquals(
                 400, post("/api/services/smp/console", "{\"command\":\"  \"}").statusCode());
     }
 
     @Test
-    @DisplayName("the host's numbers come back, and say that no container has a limit")
-    void theHostAnswers() throws Exception {
+    void theHostsNumbersComeBackAndSayThatNoContainerHasALimit() throws Exception {
         final JsonObject host = GSON.fromJson(get("/api/host"), JsonObject.class);
 
         assertTrue(host.get("memoryTotalBytes").getAsLong() > 0);
@@ -277,11 +252,10 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("steward/95: a finished archive streams back byte for byte, with the download headers")
-    void downloadsAFinishedArchive() throws Exception {
+    void aFinishedArchiveStreamsBackByteForByteWithTheDownloadHeaders() throws Exception {
         final String name = "downloadsAFinishedArchive-20260913T044507Z.tar.zst";
         final Path file = Path.of("/tmp", name);
-        final byte[] body = "not a real archive, just some bytes to compare".getBytes();
+        final byte[] body = "not a real archive, just some bytes to compare".getBytes(UTF_8);
         java.nio.file.Files.write(file, body);
         try {
             final HttpResponse<byte[]> response = http.send(
@@ -311,8 +285,7 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("steward/95: a name that is not a finished backup is refused before any path is resolved")
-    void downloadRefusesAnyNameThatIsNotAFinishedBackup() throws Exception {
+    void aNameThatIsNotAFinishedBackupIsRefusedBeforeAnyPathIsResolved() throws Exception {
         assertEquals(400, raw("/api/backups/not-a-backup.txt/download", true).statusCode());
         assertEquals(
                 400,
@@ -321,8 +294,7 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("steward/95: a well-formed name that is not actually on disk is a 404, not a 400")
-    void downloadOfAMissingArchiveIs404() throws Exception {
+    void aWellFormedNameThatIsNotActuallyOnDiskIsA404NotA400() throws Exception {
         assertEquals(
                 404,
                 raw("/api/backups/never-written-20260913T044507Z.tar.zst/download", true)
@@ -330,27 +302,15 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("steward/95: an encoded traversal never reaches a file outside the output root")
-    void downloadRefusesAnEncodedTraversal() throws Exception {
-        // `{name}` is a single path segment and cannot carry a literal `/`, but a client can still
-        // send `%2F` - and the archive pattern matches this name (TarSnapshotsTest proves it), so
-        // if the encoded form arrived decoded in the path parameter the naming check alone would
-        // wave it through.
-        //
-        // MEASURED, because the answer decides what is actually protecting this route: it comes
-        // back 400, and it still comes back 400 with downloadBackup's resolved-path check disabled
-        // (probed 2026-09-19 by replacing that condition with `false`). The 400 is Jetty's own URI
-        // compliance refusing an encoded path separator before any handler runs. The resolved-path
-        // check is therefore a second line that nothing today can reach - which is the reason to
-        // keep it and the reason this test asserts the OUTCOME rather than which check produced it.
+    void anEncodedTraversalNeverReachesAFileOutsideTheOutputRoot() throws Exception {
+        // A client can send %2F for a path separator; the resolved-path check must still refuse it if decoded early.
         final String encoded = "..%2F..%2F..%2Fetc%2Fpasswd-20260913T044507Z.tar.zst";
         final int status = raw("/api/backups/" + encoded + "/download", true).statusCode();
         assertNotEquals(200, status, "an encoded traversal was answered with a body");
     }
 
     @Test
-    @DisplayName("steward/95: the download needs the worker token, same as every other route here")
-    void downloadNeedsTheToken() throws Exception {
+    void theDownloadNeedsTheWorkerTokenSameAsEveryOtherRouteHere() throws Exception {
         assertEquals(
                 401,
                 raw("/api/backups/never-written-20260913T044507Z.tar.zst/download", false)

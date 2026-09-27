@@ -19,20 +19,18 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Real directories, a real {@code tar}, a real {@code zstd} - and an extraction.
  *
- * <p><b>Nothing here is a stub.</b> An archive that no test ever unpacks is an archive nobody has
- * proved is an archive, which is one step short of run 23: a green suite, a file on disk, and no
- * evidence that anything could ever be restored from it. So the first test writes bytes, saves them
- * and reads the same bytes back out of a second directory.</p>
+ * Nothing here is a stub. An archive that no test ever unpacks is an archive nobody has proved is an archive, which
+ * is one step short of run 23: a green suite, a file on disk, and no evidence that anything could ever be restored
+ * from it. So the first test writes bytes, saves them and reads the same bytes back out of a second directory.
  *
- * <p>The clock is fixed in every test that looks at a file name, because the name is a promise
- * ({@code prune} sorts by it) and a promise measured against {@code Instant.now()} tests nothing.</p>
+ * The clock is fixed in every test that looks at a file name, because the name is a promise ( {@code prune} sorts by
+ * it) and a promise measured against {@code Instant.now()} tests nothing.
  */
 class TarSnapshotsTest {
 
@@ -45,11 +43,9 @@ class TarSnapshotsTest {
     Path root;
 
     @Test
-    @DisplayName("a saved volume comes back out byte for byte")
-    void restores() throws IOException {
+    void aSavedVolumeComesBackOutByteForByte() throws IOException {
         final Path source = sourceDir(VOLUME);
-        // Two files that a world actually has: incompressible binary (region data) and text
-        // (server.properties), one of them nested, so the archive has to carry a directory too.
+        // Two files a world has: incompressible binary data and text, one nested, so a directory is needed too.
         final byte[] region = new byte[512 * 1024];
         new Random(23).nextBytes(region);
         Files.createDirectories(source.resolve("region"));
@@ -80,8 +76,7 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("the name is the volume and a sortable UTC stamp")
-    void names() throws IOException {
+    void theNameIsTheVolumeAndASortableUtcStamp() throws IOException {
         Files.writeString(sourceDir(VOLUME).resolve("a.txt"), "a");
 
         final SnapshotResult earlier = snapshots(NIGHT).save(VOLUME);
@@ -93,8 +88,7 @@ class TarSnapshotsTest {
         assertEquals(
                 "nordtal-s2_mc-smp-20260914T044507Z.tar.zst",
                 Path.of(later.file()).getFileName().toString());
-        // Fixed width and UTC, so sorting the text sorts the nights - which is what prune leans on
-        // instead of an mtime that a copy off this host and back would have rewritten.
+        // Fixed width and UTC, so sorting the text sorts the nights, which is what prune leans on instead of mtime.
         assertTrue(
                 Path.of(earlier.file())
                                 .getFileName()
@@ -105,8 +99,7 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("isFinishedArchive accepts only a finished archive or dump, steward/95's download route")
-    void isFinishedArchiveAcceptsOnlyFinishedNames() {
+    void isFinishedArchiveAcceptsOnlyAFinishedArchiveOrDump() {
         assertTrue(TarSnapshots.isFinishedArchive("nordtal-s2_mc-smp-20260913T044507Z.tar.zst"));
         assertTrue(TarSnapshots.isFinishedArchive("nordtal-20260913T044507Z.dump"));
         assertFalse(
@@ -116,19 +109,14 @@ class TarSnapshotsTest {
                 TarSnapshots.isFinishedArchive("nordtal-20260913T044507Z.dump.partial"),
                 "a partial dump is not a backup yet");
         assertFalse(TarSnapshots.isFinishedArchive("not-a-backup.txt"));
-        // The pattern's `.` matches a `/` exactly as readily as any other character, so a name
-        // built to look like an archive while also carrying a traversal segment still matches here
-        // - this method alone is not the whole defence, and the caller must additionally confirm
-        // the resolved path stays inside the output root. Proven rather than assumed: this name
-        // DOES match, which is exactly why WorkerApi needs the second, path-based check too.
+        // A dot matches a slash too, so a traversal segment matches here; the caller must confirm the resolved path.
         assertTrue(
                 TarSnapshots.isFinishedArchive("../../etc/passwd-20260913T044507Z.tar.zst"),
                 "the naming pattern alone cannot see a traversal segment - a resolved-path check is required as well");
     }
 
     @Test
-    @DisplayName("an empty source directory fails and names the path - the A23 lesson")
-    void emptyIsAFailure() throws IOException {
+    void anEmptySourceDirectoryFailsAndNamesThePath() throws IOException {
         final Path source = sourceDir(VOLUME);
 
         final SnapshotResult result = snapshots(NIGHT).save(VOLUME);
@@ -144,8 +132,7 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("a source directory that is not there fails and names the path")
-    void missingIsAFailure() {
+    void aSourceDirectoryThatIsNotThereFailsAndNamesThePath() {
         final Path source = sourcesRoot().resolve(VOLUME);
 
         final SnapshotResult result = snapshots(NIGHT).save(VOLUME);
@@ -159,8 +146,7 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("garbage and a truncated archive are refused by the readback")
-    void corruptionNeverBecomesAFinalFile() throws Exception {
+    void garbageAndATruncatedArchiveAreRefusedByTheReadback() throws Exception {
         Files.writeString(sourceDir(VOLUME).resolve("a.txt"), "a".repeat(4096));
         final TarSnapshots snapshots = snapshots(NIGHT);
         final SnapshotResult good = snapshots.save(VOLUME);
@@ -172,8 +158,7 @@ class TarSnapshotsTest {
         Files.writeString(garbage, "this is not a zstd frame and never was");
         assertNotNull(snapshots.unreadable(garbage), "garbage must not pass as an archive");
 
-        // Truncated: a real archive cut in half. This is the one `zstd -t` alone would wave
-        // through often enough to matter, and it is what a killed tar leaves on disk.
+        // A real archive cut in half: what zstd -t alone would often wave through, and what a killed tar leaves.
         final Path truncated = outputRoot().resolve("half.tar.zst.partial");
         final byte[] whole = Files.readAllBytes(Path.of(good.file()));
         Files.write(
@@ -203,10 +188,8 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("prune keeps the newest per volume and never mixes them")
-    void prunesPerVolume() throws IOException {
-        // Four nights of smp, three of limbo, two of hunger-games. Written oldest first so that a
-        // sweep that fell back on mtime would delete exactly the wrong ones.
+    void pruneKeepsTheNewestPerVolumeAndNeverMixesThem() throws IOException {
+        // Four nights of smp, three of limbo, two of hunger-games, oldest first so mtime fallback picks the wrong ones.
         archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
         archive("nordtal-s2_mc-limbo", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
         archive("nordtal-s2_mc-hunger-games", "20260912T044500Z", "20260913T044500Z");
@@ -238,11 +221,8 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("a day that has settled keeps its last run, on the disk and not only on paper")
-    void collapsesASettledDayToItsLastRun() throws IOException {
-        // Till's own rule (steward/95, 2026-09-18), here with real files: three runs on the 10th -
-        // somebody took one by hand before touching something and the nightly one arrived anyway -
-        // and two on the 12th, which is inside a two-day grace measured from the 13th.
+    void aDayThatHasSettledKeepsItsLastRunOnTheDiskAndNotOnlyOnPaper() throws IOException {
+        // Three runs on one day and two on the next, all inside the grace window measured from the newest one.
         archive(
                 "nordtal-s2_mc-smp",
                 "20260910T044500Z",
@@ -267,12 +247,8 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("a mark lands beside the archive with the reason in it, and leaves the archive alone")
-    void marksBesideTheArchive() throws IOException {
-        // Beside it rather than in it: the archive is a tar of a world directory and a restore
-        // unpacks it, so a note added inside would end up in somebody's world. Beside it, the
-        // warning is one line of an `ls` and the archive is byte for byte an ordinary one - which
-        // matters, because an archive taken after an unverified stop is still very probably good.
+    void aMarkLandsBesideTheArchiveWithTheReasonInItAndLeavesTheArchiveAlone() throws IOException {
+        // Beside it, not inside it: a tar of a world directory unpacks whole, so a note inside would land in the world.
         Files.writeString(sourceDir(VOLUME).resolve("a.txt"), "a".repeat(4096));
         final TarSnapshots snapshots = snapshots(NIGHT);
         final SnapshotResult result = snapshots.save(VOLUME);
@@ -301,19 +277,15 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("a mark that cannot be written costs a log line, not the backup")
-    void anUnwritableMarkIsNotAFailedBackup() {
-        // The one thing worse than an unverified archive is no archive. UpdateRun reads this null
-        // and says so in the report line instead of discarding a snapshot that succeeded.
+    void aMarkThatCannotBeWrittenCostsALogLineNotTheBackup() {
+        // No archive is worse than an unverified one; UpdateRun reads null, rather than discarding a good snapshot.
         assertNull(snapshots(NIGHT)
                 .markUnverified(root.resolve("no/such/directory/x.tar.zst").toString(), "smp"));
     }
 
     @Test
-    @DisplayName("a mark is swept with the archive it belongs to and never without it")
-    void marksGoWithTheirArchive() throws IOException {
-        // An orphaned warning is worse than none: it names a file that is no longer there, and a
-        // directory of those is one nobody reads the next time it matters.
+    void aMarkIsSweptWithTheArchiveItBelongsToAndNeverWithoutIt() throws IOException {
+        // An orphaned warning names a file that is no longer there, and a directory full of those goes unread.
         archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z");
         mark("nordtal-s2_mc-smp-20260910T044500Z.tar.zst");
         mark("nordtal-s2_mc-smp-20260912T044500Z.tar.zst");
@@ -339,12 +311,8 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("prune keeps the newest database dumps too, and counts them apart from the volumes")
-    void prunesTheDumpsAsTheirOwnSeries() throws IOException {
-        // Until 2026-09-15 there was never a dump to sweep, so nothing missed this: `pg_dump` could
-        // not write at all (steward/39). It can now, one per night, onto the same disk that holds
-        // the only copy of the world - and neither ARCHIVE nor PARTIAL_ARCHIVE matches `.dump`, so
-        // the sweep walked past every one of them.
+    void pruneKeepsTheNewestDatabaseDumpsTooAndCountsThemApartFromTheVolumes() throws IOException {
+        // Neither ARCHIVE nor PARTIAL_ARCHIVE matches .dump, so the sweep must walk past every database dump.
         archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z");
         dump("20260910T044500Z", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
 
@@ -364,12 +332,8 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("prune sweeps a day-old partial dump and leaves a fresh one alone")
-    void prunesStalePartialDumps() throws IOException {
-        // DatabaseDump removes its own .partial when pg_dump reports a failure. What it cannot
-        // remove is the one left by a process that was killed mid-dump, which is the same debris
-        // the tar side already sweeps and the same day of grace applies: a dump running right now
-        // must never be mistaken for it.
+    void pruneSweepsADayOldPartialDumpAndLeavesAFreshOneAlone() throws IOException {
+        // A dump killed mid-write leaves the debris the tar side sweeps, under the same grace a live dump must survive.
         Files.createDirectories(outputRoot());
         Files.writeString(outputRoot().resolve("nordtal-20260912T044500Z.dump.partial"), "old");
         Files.writeString(outputRoot().resolve("nordtal-20260913T044500Z.dump.partial"), "running");
@@ -383,8 +347,7 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("prune sweeps a day-old partial but leaves a fresh one alone")
-    void prunesStalePartials() throws IOException {
+    void pruneSweepsADayOldPartialButLeavesAFreshOneAlone() throws IOException {
         Files.createDirectories(outputRoot());
         final Path stale = outputRoot().resolve(VOLUME + "-20260911T044500Z.tar.zst.partial");
         final Path fresh = outputRoot().resolve(VOLUME + "-20260913T044000Z.tar.zst.partial");
@@ -399,11 +362,8 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("a stamp that is not a date stops that one file, not the whole sweep")
-    void animpossibleStampIsLeftAlone() throws IOException {
-        // \d{8}T\d{6}Z accepts this and LocalDateTime.parse refuses it. Thrown, it ended prune
-        // before a single archive was deleted: the backup volume then fills up over weeks with one
-        // stack trace to show for it, on runs that otherwise report success.
+    void aStampThatIsNotADateStopsThatOneFileNotTheWholeSweep() throws IOException {
+        // A pattern accepting a timestamp LocalDateTime.parse refuses must not end prune before an archive is deleted.
         archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260913T044500Z");
         final Path impossible = outputRoot().resolve(VOLUME + "-99999999T999999Z.tar.zst.partial");
         Files.writeString(impossible, "whatever this is");
@@ -418,20 +378,14 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("the wall belongs to the pipeline, not to each stage of it")
-    void oneWallForTheWholePipeline() throws Exception {
-        // Three stages ending 0.8 s, 1.6 s and 2.4 s from now, against a wall of one second. Each of
-        // them fits in a fresh second measured from the end of the one before, so a per-stage wall
-        // waits the whole 2.4 s and reports a pipeline that kept to its one-second limit. That is
-        // 2.4 s of Minecraft servers held down by a config that said one, and it grows with the
-        // number of stages.
+    void theWallBelongsToThePipelineNotToEachStageOfIt() throws Exception {
+        // Each stage fits in a fresh second measured from the one before it, so a per-stage wall keeps its own limit.
         final List<Process> sleeping = sleepers(0.8, 1.6, 2.4);
         try {
             assertTrue(
                     TarSnapshots.awaitAll(sleeping, Duration.ofSeconds(1)).isEmpty(),
                     "one second is the pipeline's whole allowance, not each stage's");
-            // destroyForcibly is a signal, not a funeral, so this waits for the process to be gone
-            // rather than asking a microsecond after asking for it.
+            // destroyForcibly is a signal, not a funeral; this waits for the process to actually be gone.
             assertTrue(
                     sleeping.getLast().waitFor(10, java.util.concurrent.TimeUnit.SECONDS),
                     "everything goes, not just the stage that was still running");
@@ -441,8 +395,7 @@ class TarSnapshotsTest {
     }
 
     @Test
-    @DisplayName("and a pipeline that finishes inside it comes back with every exit code")
-    void insideTheWallEveryStageIsReported() throws Exception {
+    void andAPipelineThatFinishesInsideItComesBackWithEveryExitCode() throws Exception {
         final List<Process> sleeping = sleepers(0.2, 0.4, 0.6);
         try {
             assertEquals(
@@ -463,19 +416,15 @@ class TarSnapshotsTest {
         return ProcessBuilder.startPipeline(builders);
     }
 
-    // -----------------------------------------------------------------------------------------
-
     /**
-     * The flat retention these tests were written against: N days, nothing weekly, nothing monthly,
-     * and no grace.
+     * The flat retention these tests were written against: N days, nothing weekly, nothing monthly, and no grace.
      *
-     * <p>They predate the staggered schedule (steward/95, 2026-09-18) and they are about the files
-     * rather than about the arithmetic - which volume a name belongs to, that a mark goes with its
-     * archive, that a stamp nobody can parse stops one file and not the sweep. With one archive per
-     * day in every fixture, "keep N days" is exactly the "keep N files" they asked for, so the
-     * expectations are unchanged rather than adjusted. The schedule itself is checked in
-     * {@link RetentionTest}, without a disk, and the refusal of an all-zero policy moved there with
-     * it - it is the record's own constructor now, not this method's first line.</p>
+     * They are about the files rather than about the schedule's own
+     * arithmetic - which volume a name belongs to, that a mark goes with its archive, that a stamp nobody can parse
+     * stops one file and not the sweep. With one archive per day in every fixture, "keep N days" is exactly the "keep N
+     * files" they asked for, so the expectations are unchanged rather than adjusted. The schedule itself is checked in
+     * {@link RetentionTest}, without a disk, and the refusal of an all-zero policy moved there with it - it is the
+     * record's own constructor now, not this method's first line.
      */
     private static Retention days(final int daily) {
         return new Retention(daily, 0, 0, 0);

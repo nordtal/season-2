@@ -6,16 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * {@link UpdatePlan#onlyMissing()} - the filter a bootstrap runs through.
  *
- * <p>This is not a convenience method being covered for the sake of it. It is where "a container
- * that comes back up comes back on exactly the jars it was running" stops being a promise in a
- * comment and becomes something the type system enforces: {@code serve} installs a plan, and the
- * only plan it can build is one with no upgrades in it.</p>
+ * This is not a convenience method being covered for the sake of it. It is where "a container that comes back up
+ * comes back on exactly the jars it was running" stops being a promise in a comment and becomes something the type
+ * system enforces: {@code serve} installs a plan, and the only plan it can build is one with no upgrades in it.
  */
 class UpdatePlanTest {
 
@@ -34,8 +32,7 @@ class UpdatePlanTest {
     }
 
     @Test
-    @DisplayName("an outdated jar is not something a bootstrap may touch")
-    void anUpgradeIsNeverPartOfABootstrap() {
+    void anOutdatedJarIsNotSomethingABootstrapMayTouch() {
         final UpdatePlan plan =
                 planOf(change("smp", Change.Status.OUTDATED), change("DisplayTags", Change.Status.MISSING));
 
@@ -50,8 +47,7 @@ class UpdatePlanTest {
     }
 
     @Test
-    @DisplayName("a volume that has everything gives a bootstrap nothing to do")
-    void afullVolumeIsLeftAlone() {
+    void aVolumeThatHasEverythingGivesABootstrapNothingToDo() {
         final UpdatePlan plan =
                 planOf(change("smp", Change.Status.UP_TO_DATE), change("DisplayTags", Change.Status.OUTDATED));
 
@@ -59,15 +55,8 @@ class UpdatePlanTest {
     }
 
     @Test
-    @DisplayName("a source that could not be reached is not mistaken for a missing file")
-    void anUnreachableSourceIsNotMissing() {
-        // The distinction matters at exactly one moment: GitHub is down while a container restarts.
-        // UNRESOLVED means "we do not know", and installing on a guess would be the wrong half of
-        // that.
-        //
-        // THIS CASE USED TO ASSERT THAT THE ROWS WERE DROPPED, and that assertion was the bug: a
-        // dropped row is one the report cannot mention. What must be true is that a bootstrap has
-        // no WORK in it, which is hasMissing(), not that the plan is empty.
+    void aSourceThatCouldNotBeReachedIsNotMistakenForAMissingFile() {
+        // GitHub being down means UNRESOLVED, not missing; onlyMissing() must count that as work, not an empty volume.
         final UpdatePlan plan = planOf(
                 Change.unresolved("smp", "PacketEvents", "Modrinth answered 503"),
                 change("VoiceChat", Change.Status.MOUNT_MISSING));
@@ -84,12 +73,8 @@ class UpdatePlanTest {
     }
 
     @Test
-    @DisplayName("B4: the unresolved rows survive, so the report cannot claim unbroken success")
-    void anOutageIsVisibleInTheBootstrapPlan() {
-        // The first real deployment, exactly: GitHub answered 403 for the season release while
-        // Modrinth answered fine for the two third-party plugins. Dropping the unresolved row left
-        // a plan of two installable jars and a report that said everything asked for was done -
-        // and smp came up with its third-party plugins and no season on it.
+    void b4TheUnresolvedRowsSurviveSoTheReportCannotClaimUnbrokenSuccess() {
+        // A resolved plugin next to an unresolved season jar must not report success while a jar goes uninstalled.
         final UpdatePlan plan = planOf(
                 Change.unresolved("smp", "season", "could not read nordtal/season-2@latest: HTTP 403"),
                 change("PacketEvents", Change.Status.MISSING),
@@ -111,8 +96,7 @@ class UpdatePlanTest {
     }
 
     @Test
-    @DisplayName("the rest of the plan is carried over, so both reports describe the same volumes")
-    void everythingElseAboutThePlanSurvives() {
+    void theRestOfThePlanIsCarriedOverSoBothReportsDescribeTheSameVolumes() {
         final UpdatePlan plan = planOf(change("DisplayTags", Change.Status.MISSING));
         final UpdatePlan bootstrap = plan.onlyMissing();
 

@@ -9,33 +9,30 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The database dump, absorbed from the {@code postgres-backup} sidecar (§9a).
+ * The database dump.
  *
- * <h2>Why pg_dump and not a snapshot of the data directory</h2>
- * Taken from the sidecar's own reasoning, which is sound and is not re-derived here: tarring a live
- * {@code PGDATA} produces a torn copy that raises no error at backup time and is a broken cluster at
- * restore time - months later, on the day it is needed. Stopping PostgreSQL for the length of a tar
- * instead is a nightly outage of every process in the stack. {@code pg_dump} has neither problem: it
- * takes an MVCC snapshot, so the dump is consistent as of the moment it started, and nothing stops.
+ * Why pg_dump and not a snapshot of the data directory: Taken from the sidecar's own reasoning, which is sound and
+ * is not re-derived here: tarring a live {@code PGDATA} produces a torn copy that raises no error at backup time and
+ * is a broken cluster at restore time - months later, on the day it is needed. Stopping PostgreSQL for the length of
+ * a tar instead is a nightly outage of every process in the stack. {@code pg_dump} has neither problem: it takes an
+ * MVCC snapshot, so the dump is consistent as of the moment it started, and nothing stops.
  *
- * <h2>Why it runs inside the postgres container</h2>
- * <b>A pg_dump older than the server it dumps is refused outright.</b> The sidecar solved that by
- * being built FROM the same postgres image; this solves it by running the binary that is already
- * in that image, which cannot be the wrong version by construction. It also keeps a postgres client
- * - and a version to keep in step - out of steward-worker's own image.
+ * Why it runs inside the postgres container: A pg_dump older than the server it dumps is refused outright. The
+ * sidecar solved that by being built FROM the same postgres image; this solves it by running the binary that is
+ * already in that image, which cannot be the wrong version by construction. It also keeps a postgres client - and a
+ * version to keep in step - out of steward-worker's own image.
  *
- * <p>The file is therefore written on the postgres container's side, into a directory both
- * containers mount. Nothing large travels through the socket: the exec carries the command and the
- * exit code, not the dump.</p>
+ * The file is therefore written on the postgres container's side, into a directory both containers mount. Nothing
+ * large travels through the socket: the exec carries the command and the exit code, not the dump.
  *
- * <h2>Partial, then verified, then named</h2>
- * The same three steps the sidecar used, for the same reason. A half-written file that looks like
- * every other dump in the directory is worse than no file at all: it is the one the retention sweep
- * keeps and the one a restore picks.
+ * Partial, then verified, then named: The same three steps the sidecar used, for the same reason. A half-written
+ * file that looks like every other dump in the directory is worse than no file at all: it is the one the retention
+ * sweep keeps and the one a restore picks.
  */
 public final class DatabaseDump {
 
@@ -48,12 +45,10 @@ public final class DatabaseDump {
     public static final String NAME = "database";
 
     /**
-     * {@code nordtal-<stamp>.dump}, in two halves so that the sweep can build a pattern from the
-     * same strings this class writes.
+     * {@code nordtal-<stamp>.dump}, in two halves.
      *
-     * <p>{@link TarSnapshots#prune} matched neither of these until 2026-09-15, and nothing noticed
-     * because no dump had ever been written. One per night on the disk that holds the only copy of
-     * the world is not a file to leave uncounted.</p>
+     * So that {@link TarSnapshots#prune} can build a pattern from the same strings this class writes: one per night
+     * on the disk that holds the only copy of the world is not a file to leave uncounted.
      */
     static final String PREFIX = "nordtal-";
 
@@ -106,14 +101,15 @@ public final class DatabaseDump {
         final String finalPath = directory + "/" + base;
         final String partialPath = finalPath + ".partial";
 
-        // THE DIRECTORY, AS ROOT, BEFORE THE DUMP.
-        //
-        // pg_dump runs as `postgres` (see `run` below) while the backup volume's root belongs to
-        // root:root 0755 - so the dump could not be written at all. Measured on the dev stack
-        // 2026-09-14: eight volume archives beside one database line reading "Permission denied",
-        // and not a single .dump in the directory since this replaced the sidecar. Handing the
-        // directory to `postgres` here is idempotent, survives a recreated volume, and leaves root
-        // writing into it as before - the volume archives and the retention sweep are unaffected.
+        final SnapshotResult failure = prepareDirectory(containerId, started);
+        if (failure != null) {
+            return failure;
+        }
+        return dumpAndVerify(containerId, finalPath, partialPath, started);
+    }
+
+    // The directory, as root, before the dump: pg_dump runs as `postgres` while the volume's root belongs to root:root.
+    private @Nullable SnapshotResult prepareDirectory(final String containerId, final Instant started) {
         final Docker.ExecResult prepared = docker.exec(
                 containerId,
                 List.of("sh", "-c", "mkdir -p " + quote(directory) + " && chown postgres " + quote(directory)),
@@ -125,10 +121,12 @@ public final class DatabaseDump {
                     "could not hand " + directory + " to the postgres user, so pg_dump would not"
                             + " have been able to write there: " + firstLine(prepared.output()));
         }
+        return null;
+    }
 
-        // One `sh -c` per step rather than one long chain, so a failure names the step it failed
-        // at. The values come out of the container's own environment: they are already there, and
-        // repeating them here would be a second copy of a password.
+    private SnapshotResult dumpAndVerify(
+            final String containerId, final String finalPath, final String partialPath, final Instant started) {
+        // One `sh -c` per step, so a failure names the step; the values come from the container's own environment.
         final Docker.ExecResult dumped = run(
                 containerId,
                 "pg_dump --format=custom --compress=9 --file=" + quote(partialPath)
@@ -139,9 +137,7 @@ public final class DatabaseDump {
                     NAME, took(started), "pg_dump exited " + dumped.exitCode() + ": " + firstLine(dumped.output()));
         }
 
-        // Cheap integrity check, and the sidecar's: read the archive's own table of contents back.
-        // It does not prove the dump restores - only a real restore drill can - but it catches a
-        // truncated file while there is still something to be done about it.
+        // Cheap integrity check: reading the archive's own table of contents back catches a truncated file early.
         final Docker.ExecResult listed = run(containerId, "pg_restore --list " + quote(partialPath) + " > /dev/null");
         if (!listed.ok()) {
             remove(containerId, partialPath);
@@ -178,10 +174,8 @@ public final class DatabaseDump {
                 .findFirst();
     }
 
+    // As `postgres`: the official image trusts the local socket only for that user, and root cannot overwrite it later.
     private Docker.ExecResult run(final String containerId, final String script) {
-        // As `postgres`, because the official image trusts the local socket for that user and for
-        // nobody else - and because a dump written as root is a dump the database user cannot
-        // overwrite next time.
         return docker.exec(containerId, List.of("sh", "-c", script), "postgres");
     }
 

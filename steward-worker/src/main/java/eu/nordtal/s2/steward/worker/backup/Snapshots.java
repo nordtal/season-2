@@ -6,14 +6,13 @@ import org.jspecify.annotations.Nullable;
 /**
  * Saving one volume, as a seam.
  *
- * <h2>Synchronous, unlike what it replaces</h2>
- * The panel's backup was two calls and a poll: ask for a snapshot, then ask again until it settled.
- * That shape went with it. A local {@code tar} either finishes or fails, in this thread, and the
- * caller knows which before the next line runs - so the servers are started again because the
- * saving is over, not because a status endpoint said something hopeful.
+ * Synchronous, unlike what it replaces: The panel's backup was two calls and a poll: ask for a snapshot, then ask
+ * again until it settled. That shape went with it. A local {@code tar} either finishes or fails, in this thread, and
+ * the caller knows which before the next line runs - so the servers are started again because the saving is over,
+ * not because a status endpoint said something hopeful.
  *
- * <p>The cost is honest and belongs here: this blocks, and the four servers are down for as long as
- * it does. That is why {@link #save} answers with a duration, and why the report prints it.</p>
+ * The cost is honest and belongs here: this blocks, and the four servers are down for as long as it does. That is
+ * why {@link #save} answers with a duration, and why the report prints it.
  */
 public interface Snapshots {
 
@@ -27,16 +26,16 @@ public interface Snapshots {
     /**
      * Writes the mark that says the servers behind this archive were stopped unverified.
      *
-     * <p>A sidecar file rather than a different archive name, and that is the whole design
-     * decision: {@code deploy/restore.sh} matches archives by name, the retention sweep groups
-     * them by name, and a second naming scheme would have both of them silently skipping the file
-     * that most needs looking at. A sidecar is visible to {@code --list}, invisible to everything
-     * that only knows about {@code .tar.zst}, and swept away with the archive it belongs to.</p>
+     * A sidecar file rather than a different archive name, and that is the whole design decision:
+     * {@code deploy/restore.sh} matches archives by name, the retention sweep groups them by name, and a second
+     * naming scheme would have both of them silently skipping the file that most needs looking at. A sidecar is
+     * visible to {@code --list}, invisible to everything that only knows about {@code .tar.zst}, and swept away with
+     * the archive it belongs to.
      *
      * @param archive the path {@link SnapshotResult#file()} came back with
-     * @param why     what could not be confirmed, in a sentence somebody reads before restoring
-     * @return the name of the mark that was written, or {@code null} if it could not be - which is
-     *         logged and is not a reason to discard a backup that otherwise succeeded
+     * @param why what could not be confirmed, in a sentence somebody reads before restoring
+     * @return the name of the mark that was written, or {@code null} if it could not be - which is logged and is not a
+     *     reason to discard a backup that otherwise succeeded
      */
     @Nullable
     String markUnverified(String archive, String why);

@@ -19,27 +19,26 @@ import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
 
 /**
- * The raw editor's save-time syntax check (steward/60): a best-effort look at whether the text an
- * operator just typed still parses as the format its file name says it is, named by the line it
- * went wrong on when one can be found at all.
+ * The raw editor's save-time syntax check.
  *
- * <p><b>Never authoritative.</b> {@link ConfigFiles#writeRaw} writes exactly what it is given
- * whether or not this finds anything - Till's decision for this editor is that an editor which
- * refuses to save a file is one an operator has to work around. This class only ever produces a
- * sentence for the interface to show beside a save that already happened.</p>
+ * A best-effort look at whether the text an operator just typed still parses as the format its file name says it
+ * is, named by the line it went wrong on when one can be found at all.
  *
- * <p><b>TOML gets no check, on purpose.</b> Nothing else in this module or its dependencies parses
- * TOML - jcore, this worker and Paper all read YAML - and adding a parsing library for one warning
- * message is exactly the "too expensive" case the ticket names: no check at all is the honest
- * answer, because a hand-rolled one that disagrees with the real reason a TOML file fails would be
- * worse than none - the ticket's own preference is no warning at all over a wrong one.</p>
+ * Never authoritative. {@link ConfigFiles#writeRaw} writes exactly what it is given whether or not this finds
+ * anything: an editor which refuses to save a file is one an operator has
+ * to work around. This class only ever produces a sentence for the interface to show beside a save that already
+ * happened.
  *
- * <p><b>Properties gets one check, not a parser.</b> {@link Properties#load} is forgiving almost to
- * a fault - most text is a legal {@code .properties} file - so the one thing it can actually still
- * reject, a malformed unicode escape (a backslash-u not followed by four hex digits), is the one
- * thing checked here. The JDK does not say
- * which line it was on, so this class finds it again by hand once {@code load} has already thrown,
- * purely to be able to name one.</p>
+ * TOML gets no check, on purpose. Nothing else in this module or its dependencies parses TOML - jcore, this worker
+ * and Paper all read YAML - and adding a parsing library for one warning message is exactly the "too expensive" case
+ * the ticket names: no check at all is the honest answer, because a hand-rolled one that disagrees with the real
+ * reason a TOML file fails would be worse than none - the ticket's own preference is no warning at all over a wrong
+ * one.
+ *
+ * Properties gets one check, not a parser. {@link Properties#load} is forgiving almost to a fault - most text is a
+ * legal {@code .properties} file - so the one thing it can actually still reject, a malformed unicode escape (a
+ * backslash-u not followed by four hex digits), is the one thing checked here. The JDK does not say which line it
+ * was on, so this class finds it again by hand once {@code load} has already thrown, purely to be able to name one.
  */
 public final class RawSyntax {
 
@@ -67,8 +66,9 @@ public final class RawSyntax {
     private static final Pattern LINE_FROM_GSON = Pattern.compile("line (\\d+)");
 
     /**
-     * The format a raw editor draws for a file, decided the same way everywhere it is asked:
-     * by the last extension on the file's own name, never by sniffing its content.
+     * The format a raw editor draws for a file, decided the same way everywhere it is asked.
+     *
+     * By the last extension on the file's own name, never by sniffing its content.
      *
      * @param fileName the file's name or path, as {@link ConfigLocation#name()} carries it
      */
@@ -107,9 +107,10 @@ public final class RawSyntax {
     }
 
     /**
-     * The same two failure shapes {@link ConfigFiles#read} itself reports: text SnakeYAML refuses
-     * to compose at all, and a document that composes but is not a mapping at its root - the two
-     * ways a {@code .yml} most often lands an operator in the raw editor to begin with.
+     * The same two failure shapes {@link ConfigFiles#read} itself reports.
+     *
+     * Text SnakeYAML refuses to compose at all, and a document that composes but is not a mapping at its root - the
+     * two ways a {@code .yml} most often lands an operator in the raw editor to begin with.
      */
     private static Optional<Warning> checkYaml(final String content) {
         final Node root;
@@ -137,12 +138,11 @@ public final class RawSyntax {
 
     private static Optional<Warning> checkJson(final String content) {
         if (content.isBlank()) {
-            // Nothing typed is not a syntax error - the same call ConfigFiles.parse makes for an
-            // empty YAML file.
+            // Nothing typed is not a syntax error - the same call ConfigFiles.parse makes for an empty YAML file.
             return Optional.empty();
         }
         try {
-            JsonParser.parseString(content);
+            final var _ = JsonParser.parseString(content);
             return Optional.empty();
         } catch (final JsonSyntaxException | IllegalStateException e) {
             final String message = e.getMessage() == null ? e.toString() : e.getMessage();
@@ -153,8 +153,9 @@ public final class RawSyntax {
     }
 
     /**
-     * Gson's own message carries a troubleshooting URL after a line break; that is not something to
-     * hand an operator as if this class wrote it.
+     * Gson's own message, with a troubleshooting URL after a line break trimmed off.
+     *
+     * That URL is not something to hand an operator as if this class wrote it.
      */
     private static String firstLineOf(final String message) {
         final int newline = message.indexOf('\n');
@@ -172,8 +173,7 @@ public final class RawSyntax {
                     return Optional.of(new Warning(i + 1, "not valid properties: malformed \\uXXXX encoding"));
                 }
             }
-            // Properties.load threw for a reason this loop did not find a line for - keep the
-            // sentence honest rather than pointing at a line that may not be the right one.
+            // Properties.load threw for a reason this loop found no line for - name none rather than guess wrong.
             final String message = e.getMessage() == null ? e.toString() : e.getMessage();
             return Optional.of(new Warning(0, "not valid properties: " + message));
         }

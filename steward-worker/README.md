@@ -10,9 +10,9 @@ docker compose run --rm steward-worker migrate    # apply the schema, nothing el
 docker compose run --rm steward-worker bootstrap  # migrate, then fetch and place the files
 ```
 
-It was called `updater` until 2026-09-12: the three-part system it belongs to is **Steward**, and a
-service name is runtime identity — the compose service, the two volumes, the image and the
-`NORDTAL_STEWARD_*` environment prefix all carry it.
+It belongs to the three-part system **Steward**, and a service name is runtime identity — the
+compose service, the two volumes, the image and the `NORDTAL_STEWARD_*` environment prefix all
+carry it.
 
 It has **no compose profile** — it is in every selection, and every other service waits for it to
 become healthy, which happens once the schema is current.
@@ -74,8 +74,8 @@ and is never written back. Its defaults are the real values — the repositories
 platform versions are facts about this project, not about a deployment.
 
 **Which release it follows is not a setting.** There is no `season-release` key and no environment
-variable for it — both were removed on 2026-09-09 — and there is no way to pin a tag. Every repository
-is read through GitHub's `/releases/latest`, and the resolved tag is printed on every run.
+variable for it, and no way to pin a tag. Every repository is read through GitHub's
+`/releases/latest`, and the resolved tag is printed on every run.
 
 That endpoint **skips drafts and pre-releases** by GitHub's own definition. It is what we want and it
 is the one trap left: a release sitting as a draft is invisible here, so an update that "did not
@@ -101,10 +101,10 @@ It does not own worlds or anything a player built.
 
 ## The bank
 
-Since steward/109 this is the **only container in the network that holds a bunq credential**, and the
-only one that makes an HTTP call to bunq. It was `discord-bot` until then, which meant the key sat in
-a process with a gateway connection to a third party and a permanent invitation for strangers to
-press its buttons.
+This is the **only container in the network that holds a bunq credential**, and the only one that
+makes an HTTP call to bunq: `discord-bot` is a process with a gateway connection to a third party and
+a permanent invitation for strangers to press its buttons, which is not where a bank credential
+belongs.
 
 Two variables, `NORDTAL_STEWARD_BUNQ_API_KEY` and `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`, and they are
 **optional together**: a season without a bank account is a season where everything works except
@@ -137,7 +137,7 @@ processes listen on it, and **the poll is still the guarantee** — the notifica
 **`bunq-context` is regenerated, never copied.** bunq binds an installed key to a device and an IP,
 so a context file created by another container — or on a laptop — is refused by the API, and the
 refusal appears inside a poll rather than at startup. The volume moved here from `discord-bot`; its
-contents did not. See `steward/101`.
+contents did not.
 
 ## The two surfaces
 
@@ -155,28 +155,23 @@ that does both in a single request and would take this container down with every
 nothing to report whether the network came back.
 
 It goes over the Docker socket: one `GET /containers/json` filtered to the compose project, one
-inspect per container for its state and health, then `POST /containers/{id}/stop` and `/start`. It
-used to go over the REST API of a management panel and needed a URL, a token and two IDs to do it;
-that panel was removed on 2026-09-13 and the `arcane:` config block with it. A run that **cannot
-read the container runtime** refuses **before** a version is resolved or a file is touched, and says
-so by name.
+inspect per container for its state and health, then `POST /containers/{id}/stop` and `/start`. A run
+that **cannot read the container runtime** refuses **before** a version is resolved or a file is
+touched, and says so by name.
 
 ## The docker socket
 
-**It is mounted here since 2026-09-12, and it was not before.** The sentence this file used to carry
-— _not the Docker socket, which is mounted nowhere in this deployment_ — was true of the arrangement
-where a management panel did the container work. The concept's §3 draws the line in a different
-place: the part
-that must not hold the socket is the **web interface**, because that is what an attacker reaches
-first. This container already downloads files from the internet and puts them where servers execute
-them; the socket does not widen that, and it removes a whole service from the path.
+**It is mounted here, and nowhere else in this deployment.** The part that must not hold the socket
+is the **web interface**, because that is what an attacker reaches first. This container already
+downloads files from the internet and puts them where servers execute them; the socket does not
+widen that.
 
 What it does with it:
 
 |                 |                                                                                                                                                        |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | reads           | state, health, image, uptime, CPU and memory per container, the log stream, `/system/df`                                                               |
-| asks a registry | `GET /distribution/{ref}/json` against the image's own digests — the drift check the old panel never performed                                         |
+| asks a registry | `GET /distribution/{ref}/json` against the image's own digests, to check for drift                                                                    |
 | writes          | one stop, one start, and `mc <command>` into the four Minecraft consoles                                                                               |
 | **refuses**     | creating a container. That needs the compose file, which `steward-deployer` owns, and a container rebuilt from an inspect would drift from it silently |
 
@@ -207,28 +202,26 @@ client can never be older than the server it dumps, which is a refusal rather th
 takes an MVCC snapshot, so it is consistent as of the moment it starts and **nothing has to be
 stopped for it**: it runs before the servers go down, which is minutes off the outage for free.
 
-**The volumes are tarred** from read-only mounts, piped through `zstd`, into `/backups`. Measured
-on this host on 2026-09-13 against the real SMP world: 657 MiB in, 512.9 MiB out, **4.0 seconds**,
-of which about 1.6 s is reading the archive back to check it. `-1` and not `-3`: the extra three
-seconds of downtime bought 0.6 % — region files are already deflated.
+**The volumes are tarred** from read-only mounts, piped through `zstd`, into `/backups`, and read back
+once to check the archive. `-1` and not `-3`: region files are already deflated, so a higher
+compression level buys little size for real downtime.
 
 Both write `<name>.partial` and rename only after the archive has been read back. A half-written
 file that looks like every other one is worse than none: it is the one the retention sweep keeps
 and the one a restore picks.
 
 **Saved means a file exists.** Every line in the report carries the size and the duration, and a
-volume that produced nothing is FAILED even if every call succeeded — run 23 once reported a
-successful backup having saved zero volumes, and nothing made it visible.
+volume that produced nothing is FAILED even if every call succeeded, so a successful-looking run that
+saved zero volumes is still visible as a failure.
 
-**The clock is here since 2026-09-13** (§9a). It used to be `smp`'s, because `serve` was not
-allowed to schedule anything — and a season with `smp` down therefore had no backup and nothing
-said so. The protection that mattered is kept: this clock writes a request row and nothing else,
-and everything after that row is the path `/backup now` already took. The farm world reset no
-longer trusts a clock either; it asks the database whether a backup actually succeeded.
+**The nightly clock lives here.** It writes a request row and nothing else; everything after that row
+is the path `/backup now` already took. A season with `smp` down still gets a backup, because nothing
+about scheduling it depends on `smp` running. The farm world reset does not trust a clock either; it
+asks the database whether a backup actually succeeded.
 
-**What is not built: the offsite copy.** §9a's Storage Box does not exist yet, so every archive is
-on the same disk as the thing it is a copy of. Fourteen of them protect against a mistake and
-against nothing else. There is deliberately no untested S3 path in this code.
+**What is not built: the offsite copy.** Every archive is on the same disk as the thing it is a copy
+of. Fourteen of them protect against a mistake and against nothing else. There is deliberately no
+untested S3 path in this code.
 
 ## The images
 
@@ -244,11 +237,11 @@ then **recreated** instead of started, one service at a time, and the report say
 not touched on that path.
 
 - **Three answers, never two.** Newer in the registry, the same, or _could not be asked_ — the last
-  is a named note and never a quiet "up to date". Arcane, the management panel this replaced,
-  answered from checks it had persisted itself and never queried a registry at all, so four releases
-  ran behind while every report said the network was current. An image that cannot be checked now is one
-  built on this host and pushed nowhere, or a registry that did not answer; credentials are not
-  among the reasons, because all three `ghcr.io/nordtal` packages are public (measured 2026-09-13).
+  is a named note and never a quiet "up to date", because a check that silently reports "current"
+  when it could not actually look is how a network runs releases behind without anyone noticing. An
+  image that cannot be checked is one built on this host and pushed nowhere, or a registry that did
+  not answer; credentials are not among the reasons, because all three `ghcr.io/nordtal` packages are
+  public.
 - **The worker never recreates itself**, for the reason it never stops itself: the call would end
   the run from inside. Its own stale image is a note saying the project has to be redeployed from
   the host.
@@ -256,7 +249,7 @@ not touched on that path.
   alone — a sequence that recreates a container it never stopped is one nobody can predict from the
   report they confirmed.
 - **The recreate is not this container's to perform.** `DockerOps.recreate` refuses: creating a
-  container needs the compose file, which `steward-deployer` owns (§8b). It is also why each
+  container needs the compose file, which `steward-deployer` owns. It is also why each
   recreate is reported _before_ it is asked for — a `compose up` that considers this container a
   diverged dependency can end the run from the outside, and the last line written is then the whole
   diagnosis.
@@ -270,8 +263,7 @@ other side by `:discord-bot`'s `SchemaCheckTest` against a real PostgreSQL.
 
 `ImageResultTest` holds the two sentences a person reads when an image could not be compared. They
 are not log lines — they go into a Discord embed and into `/smp update`'s output, and they are the
-only thing between _"nobody could look at this"_ and _"this is current"_, which is A24 in one
-sentence.
+only thing between _"nobody could look at this"_ and _"this is current"_.
 
 ## Output
 

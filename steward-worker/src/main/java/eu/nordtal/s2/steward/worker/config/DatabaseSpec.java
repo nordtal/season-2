@@ -11,28 +11,24 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 /**
  * {@code config/database.yml} - the connection steward-worker applies the schema through.
  *
- * <h2>This is the process that migrates, and it is the only one</h2>
- * From 2026-09-01 the Flyway call lives here rather than in {@code discord-bot}. The SQL itself did
- * not move: it stays in {@code common/src/main/resources/db/migration/}, next to the API that reads
- * it, and arrives on this module's classpath because {@code :common} is shaded into its jar - the
- * same way it arrived on the bot's.
+ * This is the process that migrates, and it is the only one: the Flyway call lives here, not in {@code discord-bot}.
+ * The SQL itself did not move: it stays in {@code common/src/main/resources/db/migration/},
+ * next to the API that reads it, and arrives on this module's classpath because {@code :common} is shaded into its
+ * jar - the same way it arrived on the bot's.
  *
- * <p>Why it moved: a release that adds a table is a release that adds a migration, so the schema
- * and the versions are one thing and belong to one owner. Until then the coupling was held by an
- * operator rule written in prose - "bring the bot up first, it is the only process that migrates" -
- * which is a rule that works right up to the deployment where somebody does it in the other order.
- * </p>
+ * Why it moved: a release that adds a table is a release that adds a migration, so the schema and the versions are
+ * one thing and belong to one owner. Until then the coupling was held by an operator rule written in prose - "bring
+ * the bot up first, it is the only process that migrates" - which is a rule that works right up to the deployment
+ * where somebody does it in the other order.
  *
- * <p><b>The consequence is deliberate: without this container there is no schema.</b> A first
- * deployment runs the worker before the bot and before any server.</p>
+ * The consequence is deliberate: without this container there is no schema. A first deployment runs the worker
+ * before the bot and before any server.
  *
- * <h2>A small pool with a long patience</h2>
- * The one-shot commands open a connection, do one thing and exit; {@code steward-worker serve}
- * holds the pool for as long as it runs, and takes one connection out of it for the whole of an
- * apply to hold the advisory lock. Either way there is very little concurrency to size for, which
- * is why the pool is small - and why the timeout is much larger than anywhere else: a migration
- * on a table with a season's worth of playtime rows in it is allowed to take minutes, and a login
- * is not.
+ * A small pool with a long patience: The one-shot commands open a connection, do one thing and exit;
+ * {@code steward-worker serve} holds the pool for as long as it runs, and takes one connection out of it for the
+ * whole of an apply to hold the advisory lock. Either way there is very little concurrency to size for, which is why
+ * the pool is small - and why the timeout is much larger than anywhere else: a migration on a table with a season's
+ * worth of playtime rows in it is allowed to take minutes, and a login is not.
  */
 @ConfigSpec(
         header = {

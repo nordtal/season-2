@@ -19,22 +19,21 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Which Modrinth project a jar on the disk came from, told by its hash.
  *
- * <p>The plugins the network gives carry no row, so their name, picture and link have to come from
- * somewhere else, and the file name is not it: {@code voicechat-bukkit-2.6.24.jar} does not say
- * "Simple Voice Chat". Modrinth answers a file's SHA-512 with the version it belongs to, so a jar Modrinth
- * published is recognised whoever put it there, and one it never published - the Nordtal jars,
- * display-tags from GitHub - is recognised as not being one.
+ * The plugins the network gives carry no row, so their name, picture and link have to come from somewhere else, and
+ * the file name is not it: {@code voicechat-bukkit-2.6.24.jar} does not say "Simple Voice Chat". Modrinth answers a
+ * file's SHA-512 with the version it belongs to, so a jar Modrinth published is recognised whoever put it there, and
+ * one it never published - the Nordtal jars, display-tags from GitHub - is recognised as not being one.
  *
- * <p><b>Nothing here may slow the list down or break it.</b> A hash is computed once per file and
- * size, a hash's project is asked once and kept (a published file never changes owner), and a
- * project's name and icon are kept for a day. When Modrinth cannot be reached, the jar is simply not
- * identified this time and is asked about again on the next call.
+ * Nothing here may slow the list down or break it. A hash is computed once per file and size, a hash's project is
+ * asked once and kept (a published file never changes owner), and a project's name and icon are kept for a day. When
+ * Modrinth cannot be reached, the jar is simply not identified this time and is asked about again on the next call.
  */
 final class JarIdentity {
 
@@ -126,7 +125,7 @@ final class JarIdentity {
         return answer;
     }
 
-    private String hash(final Installation.Jar jar) {
+    private @Nullable String hash(final Installation.Jar jar) {
         final FileKey key;
         try {
             key = new FileKey(
@@ -139,7 +138,7 @@ final class JarIdentity {
         return hashes.computeIfAbsent(key, ignored -> sha512(jar));
     }
 
-    private static String sha512(final Installation.Jar jar) {
+    private static @Nullable String sha512(final Installation.Jar jar) {
         try (DigestInputStream in =
                 new DigestInputStream(Files.newInputStream(jar.path()), MessageDigest.getInstance("SHA-512"))) {
             in.transferTo(OutputStream.nullOutputStream());

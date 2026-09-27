@@ -9,7 +9,6 @@ import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
@@ -17,13 +16,12 @@ import org.slf4j.LoggerFactory;
 
 /**
  * What {@code steward.yml} refuses, and what it drops.
- * <p>
- * Most of this spec is a value whose default is the real one, so a fresh file is correct and there
- * is nothing to catch. What is worth a test is the two places where a wrong value does its damage
- * somewhere else entirely: {@code backup.volumes} pointing at a live PGDATA, which fails at
- * {@code pg_restore} months later rather than here, and a deployed file still carrying keys that no
- * longer exist - which has to cost a WARN and a {@code .bak}, never a refusal to start.
- * </p>
+ *
+ * Most of this spec is a value whose default is the real one, so a fresh file is correct and there is nothing to
+ * catch. What is worth a test is the two places where a wrong value does its damage somewhere else entirely:
+ * {@code backup.volumes} pointing at a live PGDATA, which fails at {@code pg_restore} months later rather than here,
+ * and a deployed file still carrying keys that no longer exist - which has to cost a WARN and a {@code .bak}, never
+ * a refusal to start.
  */
 class ConfigsTest {
 
@@ -33,36 +31,23 @@ class ConfigsTest {
     Path directory;
 
     @Test
-    @DisplayName("a fresh file backs up the four volumes that cannot be rebuilt, and never PGDATA")
-    void whatANightlyBackupSaves() throws Exception {
+    void aFreshFileBacksUpTheFourVolumesThatCannotBeRebuiltAndNeverPgdata() throws Exception {
         final StewardSpec config = Configs.steward(directory, LOGGER).get();
         final java.util.List<String> volumes = config.backup().volumes();
 
-        // Nordtal is a hand-built world in no repository and in no release; the plugins volumes
-        // hold every hand-edited config in the deployment, which is exactly what a deployment that
-        // checks the project out over itself used to be able to delete (finding 151).
+        // Nordtal is a hand-built world in no repository or release; plugins volumes hold every hand-edited config.
         assertTrue(volumes.contains("nordtal-s2_mc-smp"), volumes.toString());
         assertTrue(volumes.contains("nordtal-s2_mc-smp-plugins"), volumes.toString());
         assertTrue(
                 volumes.stream().noneMatch(volume -> volume.endsWith("postgres-data")),
                 "a snapshot of a live PGDATA fails at RESTORE and nowhere else: " + volumes);
 
-        // The database is DUMPED rather than snapshotted, straight into backup.output-root, so it
-        // needs no volume here at all - and the postgres-dumps volume that used to be in this list
-        // went with the sidecar that wrote it (§9a). Nor is the output directory itself ever here:
-        // a backup of the backups doubles every night until the disk is gone.
+        // The database is DUMPED, not snapshotted, straight into backup.output-root, so it needs no volume here.
         assertTrue(
                 volumes.stream().noneMatch(volume -> volume.contains("dumps") || volume.contains("backups")),
                 "the backups are not a thing to back up: " + volumes);
 
-        // The stop list and the volume list are not the same list, deliberately: hunger-games
-        // holds no world worth saving, so stopping it would be an outage with nothing to show for
-        // it, while its plugins/ volume is still worth a snapshot.
-        //
-        // AND THE PROXY IS IN NEITHER LIST SINCE 2026-09-20 (season-2-ops/137). Nothing it holds
-        // is saved any more, so stopping it would buy a proxy swap and a dead port for nothing -
-        // which is the point of that ticket, not a side effect of it. A backup moves players to
-        // the waiting room and back, and no further.
+        // hunger-games has no world worth saving but a plugins/ volume worth snapshotting; the proxy needs neither.
         assertEquals(
                 java.util.List.of(
                         eu.nordtal.s2.steward.worker.plan.Topology.SMP,
@@ -74,18 +59,12 @@ class ConfigsTest {
                 "proxy and limbo left the backup on 2026-09-20 and a restart writes everything" + " they hold: "
                         + config.backup().volumes());
 
-        // Thirty rather than sixty (owner, 2026-09-09), and the two halves of that decision are
-        // one decision: the wait was shortened because giving up stopped being silent. A run that
-        // ends FAILED mentions the admin role through UpdateFeed, so the network coming back after
-        // half an hour with one volume unsaved is something a person is told about rather than
-        // something they find. Raising this back without that mention would put the network's
-        // longest unattended outage behind an embed nobody reads at five in the morning.
+        // A run ending FAILED mentions the admin role through UpdateFeed, so a half-hour outage is not silent.
         assertEquals(30, config.backup().patienceMinutes());
     }
 
     @Test
-    @DisplayName("listing postgres-data is refused by name, not warned about")
-    void theDataDirectoryIsRefused() throws Exception {
+    void listingPostgresDataIsRefusedByNameNotWarnedAbout() throws Exception {
         java.nio.file.Files.writeString(directory.resolve("steward.yml"), """
                 backup:
                   volumes:
@@ -102,12 +81,8 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("a volume list without the world is refused, because the world cannot be rebuilt")
-    void theWorldCannotBeDroppedFromTheList() throws Exception {
-        // The hole this closes: a run reports DONE for saving what this list names, and the list
-        // is the only thing that says what that was. Keep one volume, drop mc-smp, and every night
-        // reports DONE while Nordtal - the one thing in no repository and no release - is in no
-        // archive at all.
+    void aVolumeListWithoutTheWorldIsRefusedBecauseTheWorldCannotBeRebuilt() throws Exception {
+        // A run reports DONE for saving what this list names; dropping mc-smp would still report DONE without it.
         java.nio.file.Files.writeString(directory.resolve("steward.yml"), """
                 backup:
                   volumes:
@@ -124,19 +99,8 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("a deployed steward.yml still carrying retired keys loses them and starts")
-    void theRetiredKeysAreDroppedRatherThanFatal() throws Exception {
-        // The four keys that were retired on 2026-09-09: two versions that became constants in
-        // :common and two build pins that became nothing at all. Every deployed volume in existence
-        // carries all four, and the only move an operator has when a load refuses is to delete four
-        // lines that mean nothing any more - which is why jcore 3.1.0 answers a RETIRED key
-        // differently from a MISSPELLED one: the line goes, with a WARN and a .bak, and the process
-        // starts. Named here rather than merely tolerated, because the half that is the actual
-        // point is that nobody re-declares one as a quiet no-op to make an upgrade smoother.
-        //
-        // The same now goes for the whole `arcane:` block, retired on 2026-09-13 with the panel it
-        // configured. Every steward.yml in every deployed volume has one, and a worker that refused
-        // to start over it would take the four servers waiting on it down with it.
+    void aDeployedStewardYmlStillCarryingRetiredKeysLosesThemAndStarts() throws Exception {
+        // A RETIRED key gets a WARN and a .bak, then the process starts; nobody must re-declare one as a no-op.
         Configs.steward(directory, LOGGER);
 
         final Path file = directory.resolve("steward.yml");
@@ -169,18 +133,12 @@ class ConfigsTest {
                         + " nowhere to read them from");
     }
 
-    // ---------------------------------------------------------------- bunq (steward/109)
-
     @Test
-    @DisplayName("a fresh file has no bunq credentials, and that is a valid deployment")
-    void aFreshFileHasNoBankAccount() throws Exception {
+    void aFreshFileHasNoBunqCredentialsAndThatIsAValidDeployment() throws Exception {
         final StewardSpec.BunqSpec bunq =
                 Configs.steward(directory, LOGGER).get().bunq();
 
-        // Empty is the default and the load succeeded, which is the whole assertion: a season
-        // without a bank account is a season where everything works except buying access, and it
-        // must be able to start. The account is the one thing in this file that cannot be created
-        // from a terminal.
+        // Empty is the default and the load succeeds: a season with no bank account must still be able to start.
         assertEquals("", bunq.apiKey());
         assertEquals("", bunq.accountId());
         assertEquals(30, bunq.pollIntervalSeconds());
@@ -189,12 +147,8 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("half a bunq credential is refused, and the message names the old variables")
-    void halfABunqCredentialIsRefused() throws Exception {
-        // This is the failure the rename actually produces: somebody sets NORDTAL_STEWARD_BUNQ_API_KEY
-        // in the environment file and leaves NORDTAL_BOT_BUNQ_ACCOUNT_ID where it was. Refusing to
-        // start is right - a key with no account is always a setup that stopped in the middle - and
-        // the message has to say what happened, because the variable that IS set looks correct.
+    void halfABunqCredentialIsRefusedAndTheMessageNamesTheOldVariables() throws Exception {
+        // A key with no matching account is always a setup stopped midway, and the message has to say what happened.
         Files.writeString(directory.resolve("steward.yml"), """
                 bunq:
                   api-key: 'a-key'
@@ -212,8 +166,7 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("a non-numeric bunq account id is caught at startup, not inside a poll")
-    void aNonNumericAccountIdIsRefused() throws Exception {
+    void aNonNumericBunqAccountIdIsCaughtAtStartupNotInsideAPoll() throws Exception {
         Files.writeString(directory.resolve("steward.yml"), """
                 bunq:
                   api-key: 'a-key'
@@ -223,19 +176,14 @@ class ConfigsTest {
         final ConfigValidationException error =
                 assertThrows(ConfigValidationException.class, () -> Configs.steward(directory, LOGGER));
 
-        // An IBAN is the wrong answer somebody will actually give, and BunqGateway parses the id
-        // with Long.parseLong in its constructor - so without this the failure is a
-        // NumberFormatException at startup with no sentence attached to it.
+        // A bad IBAN parses as a long id and must not surface as a bare NumberFormatException at startup.
         final String message = String.valueOf(error.getMessage()) + error.getCause();
         assertTrue(message.contains("must be a number"), message);
     }
 
     @Test
-    @DisplayName("a watermark override that is not an instant is refused")
-    void anUnreadableWatermarkIsRefused() throws Exception {
-        // Moved here from discord-bot's ConfigsTest with the setting itself. An unreadable
-        // watermark would otherwise surface as a poll that books nothing, which is indistinguishable
-        // from a quiet bank.
+    void aWatermarkOverrideThatIsNotAnInstantIsRefused() throws Exception {
+        // An unreadable watermark must not surface as a poll that books nothing, indistinguishable from a quiet bank.
         Files.writeString(directory.resolve("steward.yml"), """
                 bunq:
                   watermark: '1 September 2026'
@@ -249,8 +197,7 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("a complete bunq block loads, and the id keeps its own text")
-    void aCompleteBunqBlockLoads() throws Exception {
+    void aCompleteBunqBlockLoadsAndTheIdKeepsItsOwnText() throws Exception {
         Files.writeString(directory.resolve("steward.yml"), """
                 bunq:
                   api-key: 'a-key'

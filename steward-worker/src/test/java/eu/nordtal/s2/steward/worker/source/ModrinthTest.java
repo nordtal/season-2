@@ -8,22 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.steward.worker.http.FakeHttp;
 import java.io.IOException;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * The two Modrinth traps, against the payloads the live API returned on 2026-09-01.
- */
+/** The two Modrinth traps, against the payloads the live API returns. */
 class ModrinthTest {
 
     private static final String MC = "26.2";
 
     @Test
-    @DisplayName("PacketEvents: the primary file is taken and the -sources.jar in the same version is not")
-    void skipsTheSourcesJar() throws IOException {
-        // The single most valuable assertion in this module. PacketEvents publishes two files under
-        // one version; matching on '.jar' alone puts source code in a plugins folder, where it
-        // loads as a plugin with no code in it and DisplayTags fails to find its packet library.
+    void packeteventsThePrimaryFileIsTakenAndTheSourcesJarInTheSameVersionIsNot() throws IOException {
+        // Matching on '.jar' alone would let source code load as a plugin, one with no code DisplayTags can find.
         final Modrinth modrinth =
                 new Modrinth(new FakeHttp().serving("/project/HYKaKraK/version", "modrinth-packetevents.json"));
 
@@ -36,8 +30,7 @@ class ModrinthTest {
     }
 
     @Test
-    @DisplayName("Simple Voice Chat: filename and version differ, and the filename is what is used")
-    void usesThePublishedFilename() throws IOException {
+    void simpleVoiceChatFilenameAndVersionDifferAndTheFilenameIsWhatIsUsed() throws IOException {
         final Modrinth modrinth =
                 new Modrinth(new FakeHttp().serving("/project/9eGKb6K1/version", "modrinth-voicechat.json"));
 
@@ -48,22 +41,18 @@ class ModrinthTest {
     }
 
     @Test
-    @DisplayName("the game_versions and loaders filters are sent as Modrinth's bracketed JSON")
-    void sendsTheDocumentedFilters() throws IOException {
+    void theGameVersionsAndLoadersFiltersAreSentAsModrinthsBracketedJson() throws IOException {
         final FakeHttp http = new FakeHttp().serving("/project/9eGKb6K1/version", "modrinth-voicechat.json");
         new Modrinth(http).newest("voicechat", "9eGKb6K1", MC, "paper");
 
-        // Percent-encoded, because the brackets and quotes are data inside a query parameter. If
-        // they are ever sent raw the API answers with every version of the project for every
-        // Minecraft version, and the newest of those is not one that runs here.
+        // Percent-encoded: raw brackets and quotes in a query parameter return every version for every MC version.
         final String url = http.requested().getFirst().toString();
         assertTrue(url.contains("game_versions=%5B%2226.2%22%5D"), url);
         assertTrue(url.contains("loaders=%5B%22paper%22%5D"), url);
     }
 
     @Test
-    @DisplayName("an empty result is refused, not worked around")
-    void refusesWhenNothingMatchesThePlatform() {
+    void anEmptyResultIsRefusedNotWorkedAround() {
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", "[]"));
 
         final IOException failure =
@@ -74,8 +63,7 @@ class ModrinthTest {
     }
 
     @Test
-    @DisplayName("betas and alphas are not releases")
-    void ignoresPreReleases() {
+    void betasAndAlphasAreNotReleases() {
         final String body = """
                 [{"version_number":"1.6.0","version_type":"beta","date_published":"2026-08-01T00:00:00Z",
                   "files":[{"filename":"voicechat-bukkit-1.6.0.jar","primary":true,
@@ -87,8 +75,9 @@ class ModrinthTest {
     }
 
     /**
-     * Three velocity builds, all pre-releases, which is the shape the real project has: 13
-     * versions since 2022 and not one of them {@code release} (queried 2026-09-09).
+     * Three velocity builds, all pre-releases, which is the shape the real project has.
+     *
+     * Many versions published and not one of them {@code release}.
      */
     private static final String VELOCITY_PRE_RELEASES = """
             [{"version_number":"velocity-2.6.4","version_type":"alpha","date_published":"2025-09-19T11:08:43Z",
@@ -103,40 +92,28 @@ class ModrinthTest {
             """;
 
     @Test
-    @DisplayName("voice chat's proxy plugin is resolved from a pre-release, newest first")
-    void takesAPreReleaseForTheNamedException() throws IOException {
-        // The exception exists because this project has NEVER published a Velocity release. Waiting
-        // for one is not a slower path to the same place - it is never installing the plugin, and
-        // therefore one public UDP port per backend for the rest of the season.
+    void voiceChatsProxyPluginIsResolvedFromAPreReleaseNewestFirst() throws IOException {
+        // This project has never published a Velocity release; waiting for one means never installing the plugin.
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", VELOCITY_PRE_RELEASES));
 
         final RemoteFile file = modrinth.newest("voicechat-velocity", "9eGKb6K1", MC, "velocity");
 
         assertEquals("voicechat-velocity-2.6.18.jar", file.fileName());
-        // Newest by date, not first in the list and not the highest version_type - the same
-        // ordering rule every other artefact gets, applied to a wider set.
+        // Newest by date, not first in the list and not the highest version_type - the same rule every artefact gets.
         assertEquals("velocity-2.6.18", file.version());
     }
 
     @Test
-    @DisplayName("the exception is one artefact id and nothing else leans on it")
-    void thePreReleaseExceptionIsNamedAndSingular() {
-        // This is the assertion the exception is worth having instead of a config switch. A setting
-        // would be widened at three in the morning to make one run succeed and nothing afterwards
-        // would record that it was ever narrow; a named constant makes the second artefact a red
-        // build. If this list ever grows, the case for the new entry has to be the same one:
-        // not "a pre-release is available" but "a stable one has never existed".
+    void theExceptionIsOneArtefactIdAndNothingElseLeansOnIt() {
+        // A named constant makes the case for a new entry 'a stable release has never existed', not 'one is available'.
         assertEquals(List.of("voicechat-velocity"), Modrinth.PRE_RELEASE_EXCEPTIONS);
-        // The id is written out here rather than imported, so that `source` keeps depending on
-        // nothing but `http`. This is what stops the two spellings drifting apart - and a drift
-        // would be silent: an id nothing resolves under simply never gets the exception.
+        // The id lives here, not imported, so source keeps depending on nothing but http; a drift here is silent.
         assertEquals(
                 List.of(eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT_PROXY),
                 Modrinth.PRE_RELEASE_EXCEPTIONS,
                 "the exception names an artefact the topology does not");
 
-        // And every other artefact the resolver asks Modrinth for still refuses the same payload.
-        // Same body, same loader, same everything but the id.
+        // Every other artefact the resolver asks Modrinth for still refuses the same payload, id aside.
         for (final String artifact : List.of("packetevents", "voicechat", "coreprotect")) {
             final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", VELOCITY_PRE_RELEASES));
 
@@ -150,10 +127,8 @@ class ModrinthTest {
     }
 
     @Test
-    @DisplayName("even the named exception refuses an empty result rather than reaching further back")
-    void theExceptionIsNotAFallback() {
-        // The exception widens which version_types count. It does not widen which Minecraft version
-        // counts, and it must not become a way to install a 26.1 build on a 26.2 proxy.
+    void evenTheNamedExceptionRefusesAnEmptyResultRatherThanReachingFurtherBack() {
+        // The exception widens which version_types count, never which Minecraft version counts.
         final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", "[]"));
 
         final IOException refused = assertThrows(
@@ -162,10 +137,8 @@ class ModrinthTest {
     }
 
     @Test
-    @DisplayName("the newest release wins even when the API returns them oldest-first")
-    void sortsByPublicationDate() throws IOException {
-        // The list comes back newest-first in practice and that is not documented anywhere. The
-        // cost of relying on it would be installing a two-year-old build without a word.
+    void theNewestReleaseWinsEvenWhenTheApiReturnsThemOldestFirst() throws IOException {
+        // The list comes back newest-first in practice, undocumented; relying on it risks a silent two-year-old build.
         final String body = """
                 [{"version_number":"1.5.0","version_type":"release","date_published":"2024-01-01T00:00:00Z",
                   "files":[{"filename":"voicechat-bukkit-1.5.0.jar","primary":true,
@@ -182,8 +155,7 @@ class ModrinthTest {
     }
 
     @Test
-    @DisplayName("a version with no primary file is refused rather than guessed at")
-    void refusesAVersionWithNoPrimaryFile() {
+    void aVersionWithNoPrimaryFileIsRefusedRatherThanGuessedAt() {
         final String body = """
                 [{"version_number":"9.9.9","version_type":"release","date_published":"2026-09-01T00:00:00Z",
                   "files":[{"filename":"thing-9.9.9-sources.jar","primary":false,

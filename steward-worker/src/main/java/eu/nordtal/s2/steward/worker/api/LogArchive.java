@@ -29,21 +29,20 @@ import org.slf4j.LoggerFactory;
 /**
  * The lines of earlier runs, out of the server's own rotated logs.
  *
- * <p>A Minecraft server writes {@code logs/latest.log} into its data volume and rotates it to
- * {@code 2026-09-23-2.log.gz} when it starts again. The volume survives every recreate and the
- * container's Docker log does not, so this is where the console finds what came before.
+ * A Minecraft server writes {@code logs/latest.log} into its data volume and rotates it to a dated
+ * {@code .log.gz} file when it starts again. The volume survives every recreate and the container's Docker log
+ * does not, so this is where the console finds what came before.
  *
- * <p><b>Which archives: the ones older than what Docker still holds.</b> A rotation happens when
- * the NEXT run starts, so an archive's mtime is the start of the run after the one inside it.
- * Anything rotated after the oldest line Docker has is a run Docker has too - measured 2026-09-23 on
- * smp, whose container held two runs, 22 Sep 19:44 and a restart on the 23rd, and whose
- * {@code 2026-09-23-2.log.gz} held the first of them again. The {@link #SLACK} covers the few
- * seconds between the container's first line and Paper getting round to its rotation.
- * {@code latest.log} is never read: it is the run Docker is showing.
+ * Which archives: the ones older than what Docker still holds. A rotation happens when the NEXT run starts, so an
+ * archive's mtime is the start of the run after the one inside it. Anything rotated after the oldest line Docker has
+ * is a run Docker has too - measured on smp, whose container held two runs, one and a restart later, and whose
+ * newest archive held the first of them again. The {@link #SLACK} covers the few seconds between the container's
+ * first line and Paper getting round to its rotation. {@code latest.log} is never read: it is the run Docker is
+ * showing.
  *
- * <p><b>Fast enough to read in full, measured 2026-09-23</b>: all 94 of smp's archives, 68 000
- * lines, decompress in 0.07 s. The ticket's fallback - only the newest archive - is still here, as
- * a {@link #BUDGET} on the walk, because a grown world is another matter.
+ * Fast enough to read in full, measured on smp: all its archives, tens of thousands of lines, decompress in well
+ * under a second. The ticket's fallback - only the newest archive - is still here, as a {@link #BUDGET} on the walk,
+ * because a grown world is another matter.
  */
 final class LogArchive {
 
@@ -52,7 +51,7 @@ final class LogArchive {
     static final Duration SLACK = Duration.ofMinutes(5);
     static final Duration BUDGET = Duration.ofSeconds(1);
 
-    /** {@code 2026-09-23-2.log.gz}: log4j's rotated name, the date the file was started on. */
+    /** log4j's rotated name, {@code YYYY-MM-DD-N.log.gz}: the date the file was started on. */
     private static final Pattern NAME = Pattern.compile("(\\d{4}-\\d{2}-\\d{2})-(\\d+)\\.log\\.gz");
 
     private static final Pattern CLOCK = Pattern.compile("^\\[(\\d{2}):(\\d{2}):\\d{2}]");
@@ -81,8 +80,9 @@ final class LogArchive {
     }
 
     /**
-     * Up to {@code wanted} lines from the runs before {@code oldest}, newest run first while
-     * reading and oldest first in the answer.
+     * Up to {@code wanted} lines from the runs before {@code oldest}.
+     *
+     * Newest run first while reading and oldest first in the answer.
      */
     Backlog before(final String service, final Instant oldest, final int wanted) {
         final List<Path> archives = archives(service, oldest);

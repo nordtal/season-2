@@ -9,25 +9,20 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The version jump in a report (season-2-ops/142).
+ * The version jump in a report.
  *
- * <p>The table below is the same table {@code version-jump.test.ts} holds for the Available card,
- * case for case, because the two implementations are one rule - that is what makes them copies
- * rather than two opinions. The second half of this file is the part only this side has: that
- * {@link PlanReport} actually puts the pair into the report, so that Discord, the chat follower and
- * the run's own page all stop printing a filename against a version.</p>
+ * The table below is the same table {@code version-jump.test.ts} holds for the Available card, case for case,
+ * because the two implementations are one rule - that is what makes them copies rather than two opinions. The second
+ * half of this file is the part only this side has: that {@link PlanReport} actually puts the pair into the report,
+ * so that Discord, the chat follower and the run's own page all stop printing a filename against a version.
  */
 class VersionPairTest {
 
-    // ---------------------------------------------------------------- the rule
-
     @Test
-    @DisplayName("two builds of one artefact come apart into the part that differs")
-    void theVersionIsWhatDiffers() {
+    void twoBuildsOfOneArtefactComeApartIntoThePartThatDiffers() {
         assertEquals(
                 new VersionPair("2.6.18", "2.7.0"),
                 VersionPair.of("voicechat-bukkit-2.6.18.jar", "voicechat-bukkit-2.7.0.jar")
@@ -35,10 +30,8 @@ class VersionPairTest {
     }
 
     @Test
-    @DisplayName("the boundary is never left inside a number")
-    void itDoesNotStopInTheMiddleOfANumber() {
-        // The naive common prefix ends inside `13` and would answer `3.0 -> 4.0`: a jump that never
-        // happened, printed with total confidence. PacketEvents is the artefact that proves it.
+    void theBoundaryIsNeverLeftInsideANumber() {
+        // The naive common prefix ends inside `13`, answering `3.0 -> 4.0`: a jump that never happened.
         assertEquals(
                 new VersionPair("2.13.0", "2.14.0"),
                 VersionPair.of("packetevents-spigot-2.13.0.jar", "packetevents-spigot-2.14.0.jar")
@@ -46,36 +39,28 @@ class VersionPairTest {
     }
 
     @Test
-    @DisplayName("only the half that moved is named")
-    void itNamesWhatChanged() {
-        // 26.2 is on both sides, so it is not the jump - and spending the width on the half that is
-        // the same in order to say the half that is not is exactly what this ticket was about.
+    void onlyTheHalfThatMovedIsNamed() {
+        // 26.2 is on both sides, so it is not the jump; only the half that moved is worth the width to name.
         assertEquals(
                 new VersionPair("118", "131"),
                 VersionPair.of("paper-26.2-118.jar", "paper-26.2-131.jar").orElseThrow());
     }
 
     @Test
-    @DisplayName("a hash against a filename is not a version jump")
-    void theResourcePackIsRefused() {
-        // THE CASE THAT MADE THE PREFIX RULE. The pack's installed side is its SHA-1 and its wanted
-        // side is a zip's name. Without the rule these two come apart into "the whole hash" and
-        // "the whole filename", both of which contain a digit, and the report prints the pair as if
-        // it were a version jump.
+    void aHashAgainstAFilenameIsNotAVersionJump() {
+        // Installed side is a SHA-1, wanted side is a zip name; without the prefix rule both look like version jumps.
         assertEquals(
                 Optional.empty(),
                 VersionPair.of("c0bac3a03dad681347cbe4a3bc932aff8ffd8203", "nordtal-resource-pack-0.9.4.zip"));
     }
 
     @Test
-    @DisplayName("a renamed jar keeps its filename rather than being given a version")
-    void aRenamedJarIsRefused() {
+    void aRenamedJarKeepsItsFilenameRatherThanBeingGivenAVersion() {
         assertEquals(Optional.empty(), VersionPair.of("CoreProtect.jar", "coreprotect-22.4.jar"));
     }
 
     @Test
-    @DisplayName("nothing on either side is nothing to compare")
-    void oneSidedComparisonsAreRefused() {
+    void nothingOnEitherSideIsNothingToCompare() {
         assertEquals(Optional.empty(), VersionPair.of(null, "proxy-0.9.4.jar"));
         assertEquals(Optional.empty(), VersionPair.of("proxy-0.9.3.jar", null));
         assertEquals(Optional.empty(), VersionPair.of("", "proxy-0.9.4.jar"));
@@ -86,16 +71,12 @@ class VersionPairTest {
     }
 
     @Test
-    @DisplayName("a pair with no digit in it is a word, not a version")
-    void aPairWithoutDigitsIsRefused() {
+    void aPairWithNoDigitInItIsAWordNotAVersion() {
         assertEquals(Optional.empty(), VersionPair.of("plugin-alpha.jar", "plugin-beta.jar"));
     }
 
-    // ---------------------------------------------------------------- and it reaches the report
-
     @Test
-    @DisplayName("the report carries the jump, not the installed filename")
-    void thePlanReportPrintsTheJump() {
+    void theReportCarriesTheJumpNotTheInstalledFilename() {
         final UpdateReport report = PlanReport.of(plan(new Change(
                 "smp", "smp", Change.Status.OUTDATED, "smp-0.9.3.jar", file("smp", "0.9.4", "smp-0.9.4.jar"), null)));
 
@@ -107,10 +88,8 @@ class VersionPairTest {
     }
 
     @Test
-    @DisplayName("the published version is used when the two names do not come apart")
-    void theFallbackIsTheFilenameAndTheVersion() {
-        // The pack again, this time through the report: the hash stays, because an invented version
-        // would be worse than an ugly string, and the version is what the source published.
+    void thePublishedVersionIsUsedWhenTheTwoNamesDoNotComeApart() {
+        // The hash stays: an invented version is worse than an ugly string, and the source published this one.
         final UpdateReport report = PlanReport.of(plan(new Change(
                 "proxy",
                 "resource-pack",
@@ -124,8 +103,6 @@ class VersionPairTest {
         assertEquals("c0bac3a03dad681347cbe4a3bc932aff8ffd8203", change.from());
         assertEquals("0.9.4", change.to());
     }
-
-    // ---------------------------------------------------------------- helpers
 
     private static UpdatePlan plan(final Change... changes) {
         return new UpdatePlan(

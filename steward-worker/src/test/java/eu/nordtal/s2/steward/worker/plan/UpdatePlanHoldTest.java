@@ -7,17 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link UpdatePlan#withoutServices} - what a run must not touch because somebody is holding it
- * down (season-2-ops/125).
+ * {@link UpdatePlan#withoutServices} - what a run must not touch because somebody is holding it down.
  *
- * <p>It is the mirror of {@link UpdatePlan#onlyServices} and the two empties mean opposite things,
- * which is exactly the mistake this file is here to catch: an empty scope is the whole network, an
- * empty hold list is nothing at all. One line copied from the other would give a run that either
- * installs into a service somebody stopped on purpose, or installs into nothing whatsoever.</p>
+ * It is the mirror of {@link UpdatePlan#onlyServices} and the two empties mean opposite things, which is exactly the
+ * mistake this file is here to catch: an empty scope is the whole network, an empty hold list is nothing at all. One
+ * line copied from the other would give a run that either installs into a service somebody stopped on purpose, or
+ * installs into nothing whatsoever.
  */
 class UpdatePlanHoldTest {
 
@@ -30,8 +28,7 @@ class UpdatePlanHoldTest {
     }
 
     @Test
-    @DisplayName("a held service is taken out of the plan, jars and unclaimed alike")
-    void aHeldServiceFallsOut() {
+    void aHeldServiceIsTakenOutOfThePlanJarsAndUnclaimedAlike() {
         final UpdatePlan plan = planOf(
                 List.of(on("smp", "smp"), on("smp", "packetevents"), on("limbo", "limbo")),
                 List.of(
@@ -53,11 +50,8 @@ class UpdatePlanHoldTest {
     }
 
     @Test
-    @DisplayName("the resource pack survives a hold: no hold is ever about it")
-    void theResourcePackStays() {
-        // The opposite of onlyServices, and deliberately so. The pack has no service, so no row in
-        // `service_hold` can name it - dropping it here would mean "put limbo down" also stopped
-        // the pack from being updated.
+    void theResourcePackSurvivesAHoldNoHoldIsEverAboutIt() {
+        // Opposite of onlyServices: the pack has no service, no hold row names it - a hold must not stop it too.
         final Change pack = new Change(null, "pack", Change.Status.OUTDATED, "abc1234", null, null);
         final UpdatePlan plan = planOf(List.of(on("limbo", "limbo"), pack), List.of());
 
@@ -72,8 +66,7 @@ class UpdatePlanHoldTest {
     }
 
     @Test
-    @DisplayName("nothing held is nothing taken out - the empty list is not the empty scope")
-    void emptyTakesNothing() {
+    void nothingHeldIsNothingTakenOutTheEmptyListIsNotTheEmptyScope() {
         final UpdatePlan plan = planOf(List.of(on("smp", "smp"), on("limbo", "limbo")), List.of());
 
         assertSame(

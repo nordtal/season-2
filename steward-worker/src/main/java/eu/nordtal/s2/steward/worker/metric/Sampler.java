@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,23 +26,20 @@ import org.slf4j.LoggerFactory;
 /**
  * The clock behind the curves on the start page.
  *
- * <h2>What it writes and why that much</h2>
- * Every 30 seconds, for the host and for each container of the project. Counted for this host in
- * §10c: eleven series, 2 880 points per series per day, some 32 000 rows a day, about a million and
- * 60 MB after 30 days - after which raw samples become hourly means, which is the same month at a
- * thirtieth of the size and still a year of history.
+ * What it writes and why that much: Every 30 seconds, for the host and for each container of the project. Counted
+ * for this host in §10c: eleven series, 2 880 points per series per day, some 32 000 rows a day, about a million and
+ * 60 MB after 30 days - after which raw samples become hourly means, which is the same month at a thirtieth of the
+ * size and still a year of history.
  *
- * <p><b>That table is inside the backup.</b> Retention here is therefore also a decision about how
- * big every night's snapshot is, which is why the compaction runs on this clock rather than being
- * left to somebody to remember.</p>
+ * That table is inside the backup. Retention here is therefore also a decision about how big every night's snapshot
+ * is, which is why the compaction runs on this clock rather than being left to somebody to remember.
  *
- * <h2>Why it is not on the request loop</h2>
- * One stats sample costs about a second of wall clock, because the daemon takes two readings to
- * give a real CPU delta (see {@link Docker#stats}). Ten of those in sequence would be ten seconds
- * of a thirty-second period spent waiting, so the containers are read in parallel on virtual
- * threads, and the whole thing runs on its own schedule. <b>A sampling failure never touches an
- * update run</b>: it is logged and the next tick tries again. Missing points in a chart are a
- * nuisance; a backup that did not happen because a chart failed is a disaster.
+ * Why it is not on the request loop: One stats sample costs about a second of wall clock, because the daemon takes
+ * two readings to give a real CPU delta (see {@link Docker#stats}). Ten of those in sequence would be ten seconds of
+ * a thirty-second period spent waiting, so the containers are read in parallel on virtual threads, and the whole
+ * thing runs on its own schedule. A sampling failure never touches an update run: it is logged and the next tick
+ * tries again. Missing points in a chart are a nuisance; a backup that did not happen because a chart failed is a
+ * disaster.
  */
 public final class Sampler implements AutoCloseable {
 
@@ -77,11 +75,10 @@ public final class Sampler implements AutoCloseable {
 
     /** Starts the clock. Sampling begins one period from now, not immediately. */
     public void start() {
-        // One period of delay on purpose: the first CPU reading of the host has no previous one to
-        // subtract from, so it would be an empty value anyway, and a stack that has just come up is
-        // busy with things that are not representative of anything.
-        clock.scheduleAtFixedRate(this::tickQuietly, PERIOD.toSeconds(), PERIOD.toSeconds(), TimeUnit.SECONDS);
-        clock.scheduleAtFixedRate(this::compactQuietly, 1, 1, TimeUnit.HOURS);
+        // One period of delay: the first CPU reading has nothing to subtract from yet.
+        final var _ =
+                clock.scheduleAtFixedRate(this::tickQuietly, PERIOD.toSeconds(), PERIOD.toSeconds(), TimeUnit.SECONDS);
+        final var _ = clock.scheduleAtFixedRate(this::compactQuietly, 1, 1, TimeUnit.HOURS);
         log.info("sampling host and container metrics every {}s", PERIOD.toSeconds());
     }
 
@@ -137,7 +134,9 @@ public final class Sampler implements AutoCloseable {
         final List<Callable<Reading>> reads = containers.stream()
                 .map(container -> (Callable<Reading>) () -> {
                     final Docker.Stats stats = docker.stats(container.id());
-                    return new Reading(container.service(), stats.memoryBytes(), stats.cpuPercent());
+                    final String service =
+                            Objects.requireNonNull(container.service(), "containers is filtered to service() != null");
+                    return new Reading(service, stats.memoryBytes(), stats.cpuPercent());
                 })
                 .toList();
 
@@ -164,23 +163,21 @@ public final class Sampler implements AutoCloseable {
     /**
      * One sample per service and metric, however many containers that service is running.
      *
-     * <h2>Two containers, one key</h2>
-     * A metric row is keyed by {@code (subject, metric, resolution, at)} and written with
-     * {@code ON CONFLICT DO NOTHING}, and the subject here is the <b>compose service</b>. Two
-     * containers of one service in the same round therefore produce two rows with the same key, of
-     * which the database silently keeps whichever arrived first: the chart would show one replica's
-     * memory and call it the service's, and nothing anywhere would say a number had been dropped.
+     * Two containers, one key: A metric row is keyed by {@code (subject, metric, resolution, at)} and written with
+     * {@code ON CONFLICT DO NOTHING}, and the subject here is the compose service. Two containers of one service in the
+     * same round therefore produce two rows with the same key, of which the database silently keeps whichever arrived
+     * first: the chart would show one replica's memory and call it the service's, and nothing anywhere would say a
+     * number had been dropped.
      *
-     * <p>This stack runs one container per service and the deployer never scales anything, so today
-     * that is a fold over lists of one. It is here because the failure it prevents is invisible:
-     * somebody trying {@code --scale smp=2} for an afternoon would get a graph that is quietly
-     * wrong rather than one that is obviously broken.</p>
+     * This stack runs one container per service and the deployer never scales anything, so today that is a fold over
+     * lists of one. It is here because the failure it prevents is invisible: somebody trying {@code --scale smp=2} for
+     * an afternoon would get a graph that is quietly wrong rather than one that is obviously broken.
      *
-     * <p>Memory adds up and so does CPU - both are "what this service is using on this host", and a
-     * percentage that is already relative to the whole host stays meaningful when summed. A service
-     * whose containers gave no CPU reading at all gets no CPU sample rather than a zero, for the
-     * reason {@link HostSnapshot#cpuPercent()} gives: a chart that opens at zero because nothing was
-     * measured is a lie the page then inherits.</p>
+     * Memory adds up and so does CPU - both are "what this service is using on this host", and a percentage that is
+     * already relative to the whole host stays meaningful when summed. A service whose containers gave no CPU
+     * reading at all gets no CPU sample rather than a zero, for the reason {@link HostSnapshot#cpuPercent()} gives:
+     * a chart that
+     * opens at zero because nothing was measured is a lie the page then inherits.
      */
     static List<MetricSample> byService(final List<Reading> readings, final Instant at) {
         final Map<String, Double> memory = new LinkedHashMap<>();

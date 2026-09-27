@@ -44,8 +44,7 @@ public final class Configs {
                 })
                 .load();
 
-        // This config has no usable default: localhost:5432 is not where the database is from
-        // inside a container, and the alternative to saying so is a connection refused.
+        // This config has no usable default: localhost:5432 is not the database from inside a container.
         if (fresh) {
             logger.warn(
                     "No config existed at {} - defaults were written and are almost certainly" + " not what you want",
@@ -84,10 +83,11 @@ public final class Configs {
     }
 
     /**
-     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, so this
-     * same process's {@code configfile.EnvOverrides} can warn that editing an overridden setting
-     * through Steward has no effect until the variable is removed (steward/76). Best-effort: this
-     * is a UI nicety, not a reason for a correctly loaded config to refuse to start the worker.
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file.
+     *
+     * So this same process's {@code configfile.EnvOverrides} can warn that editing an overridden setting through
+     * Steward has no effect until the variable is removed. Best-effort: this is a UI nicety, not a reason for a
+     * correctly loaded config to refuse to start the worker.
      */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {
@@ -98,18 +98,15 @@ public final class Configs {
     }
 
     /**
-     * What bunq has to get right before this container is allowed to touch a bank account
-     * (steward/109; the same three rules {@code discord-bot}'s {@code Configs.bot()} used to hold).
+     * What bunq has to get right before this container is allowed to touch a bank account.
      *
-     * <h2>Empty is allowed, half is not</h2>
-     * A season with no bank account is a season whose network does everything except take money, and
-     * it has to be able to start - the account is the one thing here that cannot be created from a
-     * terminal. Half of it is always a setup that stopped in the middle, or an environment file that
-     * was renamed in one place and not the other, so it is refused by name rather than run.
+     * Empty is allowed, half is not: a season with no bank account is a season whose network does everything except
+     * take money, and it has to be able to start - the account is the one thing here that cannot be created from a
+     * terminal. Half of it is always a setup that stopped in the middle, or an environment file that was renamed in
+     * one place and not the other, so it is refused by name rather than run.
      *
-     * <h2>The account id is parsed here</h2>
-     * Not in the poll loop minutes later, and not inside a Discord interaction: a non-numeric id is
-     * a value somebody typed, and the place to say so is the start.
+     * The account id is parsed here: Not in the poll loop minutes later, and not inside a Discord interaction: a
+     * non-numeric id is a value somebody typed, and the place to say so is the start.
      */
     private static void requireBunq(final StewardSpec.BunqSpec bunq) {
         final boolean key = isSet(bunq.apiKey());
@@ -132,9 +129,7 @@ public final class Configs {
         requirePositive("bunq.poll-interval-seconds", bunq.pollIntervalSeconds());
         requirePositive("bunq.recent-payment-count", bunq.recentPaymentCount());
 
-        // Blank is the normal case: the first start stamps its own instant into bot_setting and
-        // every later start reads it back. A value here is an explicit override and has to be
-        // readable, because an unreadable one would surface as a poll that books nothing.
+        // Blank is normal: the first start stamps its own instant and every later start reads it back.
         final String watermark = bunq.watermark();
         if (watermark != null && !watermark.isBlank()) {
             try {
@@ -146,22 +141,20 @@ public final class Configs {
         }
     }
 
-    // ------------------------------------------------------------------ validation helpers
-
     private static boolean isSet(final String value) {
         return value != null && !value.isBlank();
     }
 
     /**
-     * What a backup may be pointed at. {@code postgres-data} is refused by name: a snapshot of a
-     * live PGDATA is torn, and that surfaces as a {@code pg_restore} failing months later rather
-     * than as an error here. The pg_dump sidecar writes {@code postgres-dumps} instead.
+     * What a backup may be pointed at.
+     *
+     * {@code postgres-data} is refused by name: a snapshot of a live PGDATA is torn, and that surfaces as a
+     * {@code pg_restore} failing months later rather than as an error here. The pg_dump sidecar writes
+     * {@code postgres-dumps} instead.
      */
-    private static void requireBackup(final StewardSpec.BackupSpec backup) {
+    private static void requireBackup(final BackupSpec backup) {
         requirePositive("backup.patience-minutes", backup.patienceMinutes());
-        // The forbidden entry is reported before the missing one: a list naming postgres-data is
-        // an operator who wrote something wrong, and telling them about a different volume first
-        // would send them off fixing the wrong line.
+        // The forbidden entry is reported before the missing one, so a wrong line is fixed before a missing one.
         for (final String volume : backup.volumes()) {
             if (volume != null && volume.endsWith("postgres-data")) {
                 throw new IllegalArgumentException("backup.volumes lists '" + volume + "'. A"
@@ -177,17 +170,12 @@ public final class Configs {
     /**
      * The world is the one volume that cannot be rebuilt, so it has to be in this list.
      *
-     * <h2>What a successful backup is taken to prove</h2>
-     * Until 2026-09-20 this rule had a second, sharper reason: {@code smp} refused to reset the
-     * farm world unless a successful backup sat behind it, and "successful" meant this service
-     * reported {@code DONE} - which said nothing about <em>what</em> was saved. A list that kept
-     * {@code bot-config} and dropped {@code mc-smp} produced a perfectly successful backup every
-     * night while the one volume the guarantee was about was in no archive anywhere. The farm
-     * world and its reset went with season-2-ingame/30, and the hole they exposed did not.
+     * What a successful backup is taken to prove: a list that kept {@code bot-config} and dropped {@code mc-smp}
+     * would produce a perfectly successful backup every night while the one volume the guarantee was about was in
+     * no archive anywhere.
      *
-     * <p>Refused at load, therefore, and not warned about: the cost of being wrong here is Nordtal,
-     * which is in no repository and in no release, and the operator who edits this list is not the
-     * one who finds out.</p>
+     * Refused at load, therefore, and not warned about: the cost of being wrong here is Nordtal, which is in no
+     * repository and in no release, and the operator who edits this list is not the one who finds out.
      */
     private static void requireTheWorld(final List<String> volumes) {
         if (volumes.stream().noneMatch(volume -> volume != null && volume.endsWith("mc-smp"))) {
@@ -222,8 +210,7 @@ public final class Configs {
     private static void requireModrinthId(final String key, final String value) {
         requireText(key, value);
         if (!MODRINTH_ID.matcher(value).matches()) {
-            // A slug passes as text and only fails as an id when the author renames it - months
-            // later, looking like an outage. Caught here instead.
+            // A slug passes as text and only fails as an id when the author renames it - caught here instead.
             throw new IllegalArgumentException(key + " must be a Modrinth project id: eight"
                     + " alphanumeric characters, not the slug. Read it from the 'project_id' field"
                     + " of any version, or from a cdn.modrinth.com/data/<id>/ URL. Was '"

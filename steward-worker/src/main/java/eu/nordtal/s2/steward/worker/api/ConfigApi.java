@@ -35,32 +35,28 @@ import org.slf4j.LoggerFactory;
 /**
  * The three routes over {@code eu.nordtal.s2.steward.worker.configfile}.
  *
- * <p><b>A file is found by matching, never by joining.</b> What the browser sends is compared with
- * the list of files actually discovered under the mount; nothing builds a path out of it. That is
- * what makes {@code ../../etc/shadow} a 404 rather than a question about how many times the string
- * was decoded on the way here - and it stays true however clever the encoding gets, because the
- * string is never used as a path at all.</p>
+ * A file is found by matching, never by joining. What the browser sends is compared with the list of files actually
+ * discovered under the mount; nothing builds a path out of it. That is what makes {@code ../../etc/shadow} a 404
+ * rather than a question about how many times the string was decoded on the way here, because the string is never
+ * used as a path at all.
  *
- * <p><b>A secret never leaves this process.</b> Till's decision, 2026-09-13: a key whose name says
- * credential - the bot token, the bunq key, the worker secret - is sent as {@code filled: true}
- * and no value. It can still be overwritten, because typing a new one does not require having seen
- * the old one. What is given up is comparing two services' tokens by eye; what is bought is that
- * the Discord bot token is not in a browser cache, a screen recording or the next XSS.</p>
+ * A secret never leaves this process: a key whose name says credential (the bot token, the bunq key, the worker
+ * secret) is sent as {@code filled: true} and no value. It can still be overwritten, because typing a new one does
+ * not require having seen the old one.
  *
- * <p><b>A save also asks the affected service to pick the change up (steward/59).</b> Till's
- * complaint that started that ticket: a change that needs a second click on a second button is a
- * change that is not applied yet, and the interface used to leave it there. See {@link #reload}
- * for what "ask" means and {@link #RELOAD_COMMAND} for which files it actually reaches - never a
- * restart, which stays a deliberate click of Till's own.</p>
+ * A save also asks the affected service to pick the change up. A change that needs a second click on a second
+ * button is a change that is not applied yet. See {@link #reload} for what "ask" means and {@link #RELOAD_COMMAND}
+ * for which files it actually reaches; never a restart, which stays a deliberate click.
  */
 public final class ConfigApi {
 
     private static final Logger log = LoggerFactory.getLogger(ConfigApi.class);
 
     /**
-     * One line into a running server's console, with nothing read back - exactly
-     * {@link eu.nordtal.s2.steward.worker.docker.Console#send}, narrowed to the one method this
-     * class needs so a test can hand it a lambda instead of a real {@code Docker} socket.
+     * One line into a running server's console, with nothing read back.
+     *
+     * Exactly {@link eu.nordtal.s2.steward.worker.docker.Console#send}, narrowed to the one method this class
+     * needs so a test can hand it a lambda instead of a real {@code Docker} socket.
      */
     @FunctionalInterface
     public interface ConsoleLine {
@@ -68,29 +64,23 @@ public final class ConfigApi {
     }
 
     /**
-     * Which running service to poke, and with what line, once a save actually changes a file on
-     * disk - keyed by the same identity {@link #locate} matches against, because reloadability is
-     * a property of one file, not of a whole service. {@code smp/smp/config.yml} binds worlds and
-     * borders once at enable and {@code /smp reload} deliberately never re-reads it (see
-     * {@code ReloadSmp}, {@code SmpPlugin} in {@code :smp}); {@code smp/smp/milestones.yml},
-     * {@code smp/smp/sounds.yml}, {@code smp/smp/colours.yml} and
-     * {@code smp/smp/prestige.yml} sit right beside it in the same service and are the files
-     * that command actually re-reads. The same reading gives {@code hunger-games/hunger-games/sounds.yml}
-     * (see {@code ReloadHungerGames}) - {@code config.yml} there is excluded on purpose too, because
-     * a game already running must not have its border schedule move under it.
+     * Which running service to poke, and with what line, once a save actually changes a file on disk.
      *
-     * <h2>Why a map here and not on the jcore schema</h2>
-     * A {@code @ConfigSpec} already carries a key's type and comment (steward/54, steward/55); it
-     * carries nothing about whether a change to it needs a restart, and jcore has no annotation for
-     * that today. Adding one is a jcore change with a release of its own, and out of reach here
-     * tonight regardless: {@code ConfigFiles.java}, which reads that schema, belongs to another
-     * agent this same evening. This map is the honest stand-in - short on purpose, because being
-     * wrong in either direction is a real failure: too eager sends a command nobody asked for into
-     * a live server's console, too conservative tells an operator a restart is needed when a reload
-     * would already have done it. It grows by hand exactly when a plugin gains or loses a reload
-     * command, the same trade {@code Topology} already makes against {@code compose.yml} for the
-     * same reason - the alternative is inferring live behaviour from a file nobody parses at
-     * runtime.
+     * Keyed by the same identity {@link #locate} matches against, because reloadability is a property of one file,
+     * not of a whole service. {@code smp/smp/config.yml} binds worlds and borders once at enable and
+     * {@code /smp reload} deliberately never re-reads it; {@code smp/smp/milestones.yml}, {@code smp/smp/sounds.yml},
+     * {@code smp/smp/colours.yml} and {@code smp/smp/prestige.yml} sit right beside it in the same service and are
+     * the files that command actually re-reads. {@code hunger-games/hunger-games/sounds.yml} reads the same way;
+     * {@code config.yml} there is excluded too, because a game already running must not have its border schedule
+     * move under it.
+     *
+     * A {@code @ConfigSpec} carries a key's type and comment but nothing about whether a change to it needs a
+     * restart, and jcore has no annotation for that. This map is the stand-in, kept short because being wrong in
+     * either direction is a real failure: too eager sends a command nobody asked for into a live server's console,
+     * too conservative tells an operator a restart is needed when a reload would already have done it. It grows by
+     * hand exactly when a plugin gains or loses a reload command, the same trade {@code Topology} makes against
+     * {@code compose.yml} for the same reason - the alternative is inferring live behaviour from a file nobody
+     * parses at runtime.
      */
     private static final Map<String, String> RELOAD_COMMAND = Map.of(
             "smp/smp/milestones.yml", "smp reload",
@@ -98,8 +88,7 @@ public final class ConfigApi {
             "smp/smp/colours.yml", "smp reload",
             "smp/smp/prestige.yml", "smp reload",
             "hunger-games/hunger-games/sounds.yml", "hg reload",
-            // Message bundles, by MessagesApi's identity. Each of these commands re-reads the
-            // plugin's own bundle and the shared one, and touches nothing else a player would feel.
+            // Message bundles, by MessagesApi's identity: reloads the plugin's own bundle and the shared one.
             "smp/smp", "smp reload",
             "hunger-games/hunger-games", "hg reload",
             "limbo/limbo", "limbo reload",
@@ -111,9 +100,10 @@ public final class ConfigApi {
     private final Path root;
     private final ConsoleLine console;
     /**
-     * Files this process reads itself, by identity, with what re-reads them. There is no console
-     * to send a reload line to for these - the reader is this process - so a save runs the hook
-     * directly. Today that is only {@link #OWN_CONFIG}, whose schedules re-arm on it.
+     * Files this process reads itself, by identity, with what re-reads them.
+     *
+     * There is no console to send a reload line to for these - the reader is this process - so a save runs the
+     * hook directly. Today that is only {@link #OWN_CONFIG}, whose schedules re-arm on it.
      */
     private final Map<String, Runnable> ownReloads;
 
@@ -133,14 +123,13 @@ public final class ConfigApi {
     }
 
     /**
-     * {@code GET /api/config/<file>} - one file, as a form, or as raw text (steward/56).
+     * {@code GET /api/config/<file>} - one file, as a form, or as raw text.
      *
-     * <p>{@code discover()} (steward/55) no longer looks at the extension, so this route is now
-     * asked about files that were never YAML to begin with - a plugin's {@code README.txt}, a
-     * {@code voicechat-server.properties}. Whatever will not parse as a config file - one of those,
-     * or an ordinary {@code .yml} with a mistake in it - answers with 200 and the file's own bytes
-     * under {@code raw: true} rather than a 400: this route's job is to show what is on disk, and a
-     * file that cannot be split into keys can still be shown, just not as a form.</p>
+     * {@code discover()} does not look at the extension, so this route is asked about files that were never YAML to
+     * begin with - a plugin's {@code README.txt}, a {@code voicechat-server.properties}. Whatever will not parse as
+     * a config file, one of those or an ordinary {@code .yml} with a mistake in it, answers with 200 and the file's
+     * own bytes under {@code raw: true} rather than a 400: a file that cannot be split into keys can still be shown,
+     * just not as a form.
      */
     public void one(final Context ctx) {
         final ConfigLocation location = locate(ctx);
@@ -150,17 +139,13 @@ public final class ConfigApi {
     /**
      * {@code PUT /api/config/<file>} - apply changes and answer with the file as it now reads.
      *
-     * <p>The body is {@code {"revision": "…", "changes": {"path": "value", "other.path": ["a"]}}}.
-     * A string is a scalar and an array is a list, and the two are not interchangeable:
-     * {@link ConfigFiles} refuses a shape that does not match the key, which is what stops a list
-     * of three services being replaced by the word "smp".</p>
+     * The body is {@code {"revision": "…", "changes": {"path": "value", "other.path": ["a"]}}}. A string is a scalar
+     * and an array is a list, and the two are not interchangeable: {@link ConfigFiles} refuses a shape that does not
+     * match the key, which is what stops a list of three services being replaced by the word "smp".
      *
-     * <p><b>{@code revision} is what the GET above handed out</b>, and it is required. A form is
-     * open for as long as somebody is reading the comments in the file, and two admins on one file
-     * is an ordinary evening rather than a rare race. Without it the later save would apply its
-     * changes to whatever it found and write the result - the earlier admin's change would not
-     * conflict, it would simply be gone, with nothing anywhere saying so. A stale one is a 409 and
-     * the page shows the file as it now stands.</p>
+     * {@code revision} is what the GET above handed out, and it is required: without it a later save would apply
+     * its changes to whatever it found and write the result, and an earlier change would simply be gone with
+     * nothing anywhere saying so. A stale one is a 409 and the page shows the file as it now stands.
      */
     public void save(final Context ctx) {
         final ConfigLocation location = locate(ctx);
@@ -174,59 +159,46 @@ public final class ConfigApi {
         try {
             final Map<String, Object> answer =
                     document(location, ConfigFiles.write(location.file(), changes, revision));
-            // The write above is what makes the change real; this is what makes it reach anything.
-            // One request, one click - never a second button for "now actually use it" (steward/59).
+            // One request, one click: never a second button for "now actually use it".
             answer.put("reload", reload(location));
             ctx.json(answer);
         } catch (final StaleConfigException e) {
-            // Nobody made a mistake and the change needs no correcting: somebody was faster. The
-            // page redraws from the file as it now stands and the operator decides again.
             log.info(
                     "{} was not saved: it was written since it was read ({} -> {})",
                     location.file(),
                     e.expected(),
                     e.actual());
-            // The sentence says what this answer is, and not what it carries: a ConflictResponse is
-            // a message, not a document. The page re-reads the file when it sees the 409 (queries
-            // .ts invalidates on that status alone); promising the current file in the body of the
-            // refusal would be a promise a client could believe and then draw a stale form from.
+            // The page re-reads the file when it sees the 409, so the refusal carries no stale file to draw from.
             throw new ConflictResponse(location.name() + " was changed by somebody else while this"
                     + " form was open, so nothing was saved. Read it again and make the change"
                     + " once more if it is still the one you want.");
         } catch (final IllegalArgumentException e) {
-            // The operator asked for something the file cannot be given: a key that is not there, a
-            // value of the wrong type, a list sent to a single value. Their mistake, their sentence.
             throw new BadRequestResponse(e.getMessage());
         } catch (final IOException e) {
-            // Javalin does not log a handled HttpResponseException, so without this line the only
-            // trace of a full disk or a read-only mount is one sentence in somebody's browser.
+            // Javalin does not log a handled HttpResponseException on its own.
             log.error("{} could not be written", location.file(), e);
             throw new InternalServerErrorResponse(location.name() + " could not be written: " + e.getMessage());
         } catch (final IllegalStateException e) {
-            // ConfigFiles refused to write what it had rendered, because it would not read back as
-            // what was asked for. That is this program's bug and not the operator's, so it stays a
-            // 500 - but it is the one failure that most needs a stack trace on this side.
+            // The rendered file would not read back as what was asked for: this program's bug, not the operator's.
             log.error("{} was not written: the rendered file would not read back", location.file(), e);
             throw new InternalServerErrorResponse(location.name() + " could not be written: " + e.getMessage());
         }
     }
 
     /**
-     * {@code PUT /api/config-raw/<file>} - saves exactly the text typed into the raw editor
-     * (steward/60).
+     * {@code PUT /api/config-raw/<file>} - saves exactly the text typed into the raw editor.
      *
-     * <p>The body is {@code {"revision": "…", "content": "…"}} - no {@code changes} map, because
-     * there is no shape here to check a change against: the raw editor exists for a file this class
-     * could not split into keys at all, or one an operator wants to hand-edit byte for byte anyway.
-     * {@link ConfigFiles#writeRaw} writes exactly what it is given.</p>
+     * The body is {@code {"revision": "…", "content": "…"}} - no {@code changes} map, because there is no shape here
+     * to check a change against: the raw editor exists for a file this class could not split into keys at all, or
+     * one an operator wants to hand-edit byte for byte anyway. {@link ConfigFiles#writeRaw} writes exactly what it
+     * is given.
      *
-     * <p><b>Nothing here is ever refused for what the text says.</b> {@link RawSyntax#check} looks
-     * at the content against the format its file name implies and, when it finds something, that
-     * becomes a warning in the response - never a {@code 400}, and never something that stops the
-     * write below from happening. Till's decision for this editor is that one which refuses to save
-     * a file is one an operator has to work around. The only refusals left are the ones
-     * {@link #save} already has for reasons that have nothing to do with syntax: the mount is
-     * read-only, or somebody else wrote the file since this editor read it.</p>
+     * Nothing here is ever refused for what the text says. {@link RawSyntax#check} looks at the content against the
+     * format its file name implies and, when it finds something, that becomes a warning in the response, never a
+     * {@code 400} and never something that stops the write below from happening: a file that refuses to save is one
+     * an operator has to work around. The only refusals left are the ones {@link #save} already has for reasons
+     * that have nothing to do with syntax: the mount is read-only, or somebody else wrote the file since this editor
+     * read it.
      */
     public void saveRaw(final Context ctx) {
         final ConfigLocation location = locate(ctx);
@@ -269,9 +241,7 @@ public final class ConfigApi {
         }
     }
 
-    // ---------------------------------------------------------------------------------------
     // Finding the file
-    // ---------------------------------------------------------------------------------------
 
     private List<ConfigLocation> locations() {
         try {
@@ -285,10 +255,9 @@ public final class ConfigApi {
     /**
      * The file the request is about, or a 404.
      *
-     * <p>{@code <file>} is the path under the mount as the listing reported it - so
-     * {@code steward-worker/steward.yml}, and {@code steward.yml} for a file lying directly in the
-     * root with no service directory above it. Javalin has already decoded it once; it is compared,
-     * not resolved, so once more would make no difference either.</p>
+     * {@code <file>} is the path under the mount as the listing reported it - so {@code steward-worker/steward.yml},
+     * and {@code steward.yml} for a file lying directly in the root with no service directory above it. Javalin has
+     * already decoded it once; it is compared, not resolved, so once more would make no difference either.
      */
     private ConfigLocation locate(final Context ctx) {
         final String asked = ctx.pathParam("file");
@@ -304,24 +273,17 @@ public final class ConfigApi {
         return location.service().isEmpty() ? location.name() : location.service() + "/" + location.name();
     }
 
-    // ---------------------------------------------------------------------------------------
     // What goes over the wire
-    // ---------------------------------------------------------------------------------------
 
     static Map<String, Object> describe(final ConfigLocation location) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("service", location.service());
         row.put("name", location.name());
         row.put("path", identityOf(location));
-        // BOTH, and in that order, because they fail differently. A file that cannot be read has
-        // nothing to show; one that can be read but not written has a form to look at and no save
-        // button. The listing used to send only `writable`, so an unreadable file was drawn as an
-        // ordinary greyed-out row and said what was wrong only when somebody tapped it.
+        // Both, and in that order: a readable-but-not-writable file gets a form to look at and no save button.
         row.put("readable", location.readable());
         row.put("writable", location.writable());
-        // Who wrote the file, by the same Nordtal set the plugins tab uses. A file straight in the
-        // service's volume is the service's own; one in a plugin's data folder belongs to that
-        // plugin, and only Nordtal's plugins have a name worth replacing the folder with.
+        // Who wrote the file: only Nordtal's plugins have a name worth replacing the data folder with.
         final int slash = location.name().indexOf('/');
         final String folder = slash < 0 ? null : location.name().substring(0, slash);
         final String nordtal = folder == null ? null : Topology.NORDTAL_DATA_FOLDERS.get(folder);
@@ -331,12 +293,7 @@ public final class ConfigApi {
     }
 
     private Map<String, Object> read(final ConfigLocation location) {
-        // NOT PERMITTED IS NOT A BAD REQUEST, and it used to be: every IOException became a 400,
-        // so a file this process may not open answered the browser with its own path and the words
-        // "Permission denied" under a red alert about the request. The request was fine. The
-        // deployment was not, and that is a different sentence with a different thing to do about
-        // it - which is why it is asked BEFORE the open rather than sorted out of the exception
-        // afterwards by reading its message.
+        // Asked before the open: a permission problem is not a bad request, and IOException cannot say which.
         if (!location.readable()) {
             log.warn("{} cannot be read by this process", location.file());
             throw new InternalServerErrorResponse(location.name() + " is on this host but this"
@@ -347,30 +304,24 @@ public final class ConfigApi {
         try {
             return document(location, ConfigFiles.read(location.file()));
         } catch (final AccessDeniedException denied) {
-            // The same thing again, caught rather than asked - because a permission can change
-            // between the two lines, and because a directory somewhere above this file can refuse
-            // the open without `isReadable` on the file itself saying so.
+            // Caught rather than asked: a directory above this file can refuse the open without `isReadable` saying so.
             log.warn("{} cannot be read by this process", location.file(), denied);
             throw new InternalServerErrorResponse(
                     location.name() + " is on this host but this" + " service may not open it.");
         } catch (final IOException e) {
-            // Not a config file this class can split into keys - a foreign file steward/55's
-            // broadened discover() now surfaces (a plugin's README, a .properties file), or a .yml
-            // with a mistake in it. Either way there is still something to show: the bytes on disk,
-            // read-only, rather than a 400 with a path and a line number in it (steward/56).
-            log.info("{} does not read as a config file; showing it as raw text: {}", location.file(), e.getMessage());
-            return rawDocument(location, e.getMessage());
+            // Not a config file this class can split into keys: there is still something to show, the bytes on disk.
+            final String reason = e.getMessage() == null ? e.toString() : e.getMessage();
+            log.info("{} does not read as a config file; showing it as raw text: {}", location.file(), reason);
+            return rawDocument(location, reason);
         }
     }
 
-    // Package-private: ConfigApiReloadTest constructs a ConfigDocument directly, without a
-    // Javalin context or a file on disk, to check what restartRequired says.
+    // Package-private: ConfigApiReloadTest constructs a ConfigDocument directly to check what restartRequired says.
     static Map<String, Object> document(final ConfigLocation location, final ConfigDocument read) {
         final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
         answer.put("revision", read.revision());
         answer.put("header", read.header());
-        // Shown at the file, not only after a save (steward/59's third case): a setting nothing
-        // reloads says so the moment the form is open, not only in the toast the save produces.
+        // Shown at the file, not only after a save: a setting nothing reloads says so the moment the form is open.
         answer.put("restartRequired", !RELOAD_COMMAND.containsKey(identityOf(location)));
         final List<Map<String, Object>> entries = new ArrayList<>(read.entries().size());
         for (final ConfigEntry entry : read.entries()) {
@@ -381,21 +332,19 @@ public final class ConfigApi {
     }
 
     /**
-     * Asks the affected service to pick a just-written change up, and says in one word plus one
-     * sentence what happened - the three outcomes steward/59 asks not to look alike.
+     * Asks the affected service to pick a just-written change up.
      *
-     * <p>{@code RESTART_REQUIRED} when nothing in {@link #RELOAD_COMMAND} names this file: no
-     * command is sent, because there is nothing this process could send that this file's own
-     * reload command would read. {@code APPLIED} when the line was handed to a running container's
-     * console - {@link ConsoleLine#send} throwing nothing back only means the exec succeeded, not
-     * that the plugin liked what it read; a malformed file the plugin refuses is reported on that
-     * service's own console, which is the log every admin here is already watching, the same way a
-     * console command's own reply always has been. {@code NO_ANSWER} when the container that would
-     * have run it is not there to ask - a service that is down, mid-restart, or never started.
-     * Neither branch restarts anything: that stays Till's own click, on purpose.</p>
+     * Says in one word plus one sentence what happened.
+     *
+     * {@code RESTART_REQUIRED} when nothing in {@link #RELOAD_COMMAND} names this file: no command is sent, because
+     * there is nothing this process could send that this file's own reload command would read. {@code APPLIED} when
+     * the line was handed to a running container's console - {@link ConsoleLine#send} throwing nothing back only
+     * means the exec succeeded, not that the plugin liked what it read; a malformed file the plugin refuses is
+     * reported on that service's own console. {@code NO_ANSWER} when the container that would have run it is not
+     * there to ask - a service that is down, mid-restart, or never started. Neither branch restarts anything: that
+     * stays a deliberate click.
      */
-    // Package-private for the same reason: ConfigApiReloadTest drives the three outcomes with a
-    // fake ConsoleLine, never a real Docker socket.
+    // Package-private for the same reason: ConfigApiReloadTest drives the three outcomes with a fake ConsoleLine.
     Map<String, Object> reload(final ConfigLocation location) {
         final Runnable own = ownReloads.get(identityOf(location));
         if (own != null) {
@@ -410,9 +359,10 @@ public final class ConfigApi {
     }
 
     /**
-     * A file this process reads itself, read again. The save has already happened by the time
-     * this runs, so a failure here is reported rather than thrown: the change is on disk and a
-     * restart will pick it up.
+     * A file this process reads itself, read again.
+     *
+     * The save has already happened by the time this runs, so a failure here is reported rather than thrown: the
+     * change is on disk and a restart will pick it up.
      */
     private static Map<String, Object> reReadOwn(final Runnable own, final ConfigLocation location) {
         final Map<String, Object> answer = new LinkedHashMap<>();
@@ -436,8 +386,9 @@ public final class ConfigApi {
     }
 
     /**
-     * The same three outcomes for anything {@link #RELOAD_COMMAND} names by {@code identity} - a
-     * config file here, a message bundle in {@link MessagesApi}.
+     * The same three outcomes for anything {@link #RELOAD_COMMAND} names by {@code identity}.
+     *
+     * A config file here, a message bundle in {@link MessagesApi}.
      */
     static Map<String, Object> reload(
             final ConsoleLine console,
@@ -473,10 +424,7 @@ public final class ConfigApi {
                             + e.getMessage() + ". The change is on disk and takes effect once that service"
                             + " is running again.");
         } catch (final IllegalArgumentException e) {
-            // Cannot happen for anything RELOAD_COMMAND names today - every key in it belongs to
-            // one of the four services with a console - but a service losing its console without
-            // this map being updated to match should read as "needs a restart", not crash the save
-            // that already succeeded.
+            // A service losing its console without RELOAD_COMMAND being updated should read as "needs a restart".
             log.warn("{} names a reload command for {}, which refused it: {}", file, service, e.getMessage());
             answer.put("status", "RESTART_REQUIRED");
             answer.put("message", "Saved. " + e.getMessage());
@@ -485,14 +433,11 @@ public final class ConfigApi {
     }
 
     /**
-     * A file that could not be read as YAML, shown as itself instead of as a 400 (steward/56) - and,
-     * since steward/60, editable as itself too.
+     * A file that could not be read as YAML, shown and editable as itself instead of as a 400.
      *
-     * <p>{@code raw: true} is still the marker that says "nothing here was parsed into keys", but
-     * {@code revision} is no longer absent the way steward/56 originally left it: {@link #saveRaw}
-     * needs the same stale-write guard {@link #save} already has, and {@link ConfigFiles#revisionOf}
-     * is computed the same way for any text regardless of whether this class could split it into
-     * keys - so a raw document now carries one too, of the content string read below.</p>
+     * {@code raw: true} marks "nothing here was parsed into keys", and {@code revision} is still present: {@link
+     * #saveRaw} needs the same stale-write guard {@link #save} has, and {@link ConfigFiles#revisionOf} is computed
+     * the same way for any text regardless of whether this class could split it into keys.
      */
     private static Map<String, Object> rawDocument(final ConfigLocation location, final String reason) {
         final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
@@ -516,13 +461,10 @@ public final class ConfigApi {
         row.put("key", entry.key());
         row.put("label", entry.label());
         row.put("comments", entry.comments());
-        // The schema's own text (steward/55, steward/56): `explanation` is empty and
-        // `noExplanationNeeded` is false for a key no schema covers, which the interface then draws
-        // exactly as it always drew a key with no comment.
+        // The schema's own text: both are empty/false for a key no schema covers, drawn like a key with no comment.
         row.put("explanation", entry.explanation());
         row.put("noExplanationNeeded", entry.noExplanationNeeded());
-        // `filled` is what a secret is allowed to say about itself. It is sent for every key, not
-        // only the secret ones, so the page has one rule to draw rather than two.
+        // `filled` is what a secret is allowed to say about itself, sent for every key so the page has one rule.
         row.put(
                 "filled",
                 !entry.value().isEmpty()
@@ -538,10 +480,15 @@ public final class ConfigApi {
         row.put("editable", entry.editable());
         row.put("secret", entry.secret());
         row.put("inSchema", entry.inSchema());
-        // Left out, not sent as false, when the service behind this file never reported which
-        // paths the environment overlays (steward/76) - api.ts's ConfigEntry declares this optional
-        // for exactly that reason, and sending false here would be the silent wrong answer the
-        // whole field exists to prevent.
+        describeOptionalFields(entry, row);
+        if (entry.kind() == ConfigEntry.Kind.SECTIONS) {
+            describeSections(entry, row);
+        }
+        return row;
+    }
+
+    // Left out, not sent as false or null, whenever the underlying value does not apply to this entry.
+    private static void describeOptionalFields(final ConfigEntry entry, final Map<String, Object> row) {
         if (entry.environmentOverridden() != null) {
             row.put("environmentOverridden", entry.environmentOverridden());
         }
@@ -551,40 +498,31 @@ public final class ConfigApi {
             choices.put("strict", entry.choices().strict());
             row.put("choices", choices);
         }
-        // steward/74: which of this list's sections may not be removed. Only a SECTIONS entry can
-        // have one, and most do not, so the key is left out rather than sent as null - the same
-        // rule `choices` above follows. Left out of the first version of that ticket, which is the
-        // kind of gap only a live read finds: the worker refused the removal correctly and the
-        // browser never learned to grey the button, because this map is written key by key and
-        // nothing fails when a key is missing from it.
+        // Which of this list's sections may not be removed. Only a SECTIONS entry can have one, and most do not.
         if (entry.protectedEntry() != null) {
             final Map<String, Object> protectedEntry = new LinkedHashMap<>();
             protectedEntry.put("field", entry.protectedEntry().field());
             protectedEntry.put("value", entry.protectedEntry().value());
             row.put("protectedEntry", protectedEntry);
         }
-        // template and sections exist only for a SECTIONS entry (steward/68) - api.ts's ConfigEntry
-        // declares both undefined for every other kind, which is what leaving the key out of the
-        // map achieves, rather than sending an empty array a scalar or a section itself never has.
-        if (entry.kind() == ConfigEntry.Kind.SECTIONS) {
-            if (!entry.template().isEmpty()) {
-                row.put(
-                        "template",
-                        entry.template().stream().map(ConfigApi::describe).toList());
-            }
-            row.put(
-                    "sections",
-                    entry.sections().stream()
-                            .map(section ->
-                                    section.stream().map(ConfigApi::describe).toList())
-                            .toList());
-        }
-        return row;
     }
 
-    // ---------------------------------------------------------------------------------------
+    // template and sections exist only for a SECTIONS entry; the key is left out for every other kind.
+    private static void describeSections(final ConfigEntry entry, final Map<String, Object> row) {
+        if (!entry.template().isEmpty()) {
+            row.put(
+                    "template",
+                    entry.template().stream().map(ConfigApi::describe).toList());
+        }
+        row.put(
+                "sections",
+                entry.sections().stream()
+                        .map(section ->
+                                section.stream().map(ConfigApi::describe).toList())
+                        .toList());
+    }
+
     // What comes in
-    // ---------------------------------------------------------------------------------------
 
     private static JsonObject bodyOf(final String body) {
         try {
@@ -597,10 +535,9 @@ public final class ConfigApi {
     /**
      * The revision the browser was last shown.
      *
-     * <p>Required, and deliberately not optional-with-a-default: a save that may omit it is a save
-     * every client can accidentally make unconditional, and the one that forgets is the one that
-     * quietly overwrites somebody. A caller that genuinely wants to write over whatever is there
-     * reads the file first - which takes one request and means they have seen it.</p>
+     * Required, and deliberately not optional-with-a-default: a save that may omit it is a save every client can
+     * accidentally make unconditional, and the one that forgets is the one that quietly overwrites somebody. A
+     * caller that genuinely wants to write over whatever is there reads the file first, which takes one request.
      */
     private static String revisionOf(final JsonObject body) {
         final JsonElement revision = body.get("revision");
@@ -615,9 +552,9 @@ public final class ConfigApi {
     }
 
     /**
-     * The raw text a {@link #saveRaw} body carries under {@code content} - required, but an empty
-     * string is a perfectly good value: an operator emptying a file on purpose is not a malformed
-     * request.
+     * The raw text a {@link #saveRaw} body carries under {@code content} - required.
+     *
+     * An empty string is a perfectly good value: an operator emptying a file on purpose is not a malformed request.
      */
     private static String contentOf(final JsonObject body) {
         final JsonElement content = body.get("content");
@@ -660,10 +597,11 @@ public final class ConfigApi {
     }
 
     /**
-     * The entries of a {@link ConfigEntry.Kind#SECTIONS} change - an array whose first element is a
-     * JSON object rather than a scalar (steward/68). Every element has to follow the same shape;
-     * a mix is reported rather than silently coerced, since {@link ConfigFiles} has no way to tell
-     * whether a stray scalar there was meant as a whole new entry or a mistake.
+     * The entries of a {@link ConfigEntry.Kind#SECTIONS} change - an array whose first element is a JSON object.
+     *
+     * Every element has to follow the same shape; a mix is reported rather than silently coerced, since
+     * {@link ConfigFiles} has no way to tell whether a stray scalar there was meant as a whole new entry or a
+     * mistake.
      */
     private static List<Map<String, Object>> sectionsOf(final String path, final JsonArray array) {
         final List<Map<String, Object>> sections = new ArrayList<>(array.size());
@@ -683,9 +621,10 @@ public final class ConfigApi {
     }
 
     /**
-     * One field of a section: text, a list of values, or - one level further down, the objectives
-     * of a milestone - a list of sections again. An empty array is left to {@link ConfigFiles},
-     * which knows from the file which of the two lists it is.
+     * One field of a section: text, a list of values, or a list of sections again.
+     *
+     * One level further down, the objectives of a milestone, for example. An empty array is left to
+     * {@link ConfigFiles}, which knows from the file which of the two lists it is.
      */
     private static Object fieldOf(final String path, final JsonElement value) {
         if (!value.isJsonArray()) {
@@ -705,9 +644,9 @@ public final class ConfigApi {
     /**
      * A value as text.
      *
-     * <p>A number and a boolean are accepted and turned into their own characters, because a form
-     * that sends {@code 8080} rather than {@code "8080"} is a form doing something reasonable.
-     * {@link ConfigFiles} then decides whether the key can hold it.</p>
+     * A number and a boolean are accepted and turned into their own characters, because a form that sends
+     * {@code 8080} rather than {@code "8080"} is a form doing something reasonable. {@link ConfigFiles} then
+     * decides whether the key can hold it.
      */
     private static String textOf(final String path, final JsonElement value) {
         if (value.isJsonPrimitive()) {

@@ -18,19 +18,17 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
  * How a stop ended, which the stop call itself does not say.
  *
- * <h2>Why a hand-written daemon</h2>
- * The case is a container that ignores SIGTERM until Docker kills it, and a real daemon will only
- * perform that after the full grace period - thirty seconds of test, every build, to observe one
- * integer. The integer is all that is being read here, so the daemon is a unix socket answering two
- * requests by hand. What the real one puts in that field is checked by {@code DockerIntegrationTest}
- * against a container that really did exit.
+ * Why a hand-written daemon: The case is a container that ignores SIGTERM until Docker kills it, and a real daemon
+ * will only perform that after the full grace period - thirty seconds of test, every build, to observe one integer.
+ * The integer is all that is being read here, so the daemon is a unix socket answering two requests by hand. What
+ * the real one puts in that field is checked by {@code DockerIntegrationTest} against a container that really did
+ * exit.
  */
 class DockerOpsStopTest {
 
@@ -53,11 +51,8 @@ class DockerOpsStopTest {
     }
 
     @Test
-    @DisplayName("a container docker had to kill is a refused stop, not a successful one")
-    void aKilledContainerIsNotAStop() throws IOException {
-        // 137 is SIGKILL, and after a `docker stop` it means one thing: the grace period ran out
-        // while the process was still working. For a Minecraft server that is a world half saved -
-        // and the next thing the sequence does is tar that volume and call the result a backup.
+    void aContainerDockerHadToKillIsARefusedStopNotASuccessfulOne() throws IOException {
+        // 137 is SIGKILL after the grace period ran out mid-write - a world half saved, then tarred as a backup.
         final RedeployResult result = ops(137).stop("smp-container");
 
         assertFalse(result.triggered(), result.message());
@@ -68,8 +63,7 @@ class DockerOpsStopTest {
     }
 
     @Test
-    @DisplayName("an ordinary shutdown is an ordinary stop")
-    void anOrdinaryExitIsAStop() throws IOException {
+    void anOrdinaryShutdownIsAnOrdinaryStop() throws IOException {
         final RedeployResult result = ops(0).stop("smp-container");
 
         assertTrue(result.triggered());
@@ -80,10 +74,8 @@ class DockerOpsStopTest {
     }
 
     @Test
-    @DisplayName("a container that has not exited at all is not read as killed")
-    void aMissingExitCodeIsNotAKill() throws IOException {
-        // -1 is this client's "the daemon said nothing about it". Refusing on that would take a
-        // network down over a field an older daemon does not send.
+    void aContainerThatHasNotExitedAtAllIsNotReadAsKilled() throws IOException {
+        // -1 is "the daemon said nothing about it"; refusing on that would fail an older daemon lacking the field.
         final RedeployResult result = ops(null).stop("smp-container");
 
         assertTrue(result.triggered());
@@ -94,12 +86,8 @@ class DockerOpsStopTest {
     }
 
     @Test
-    @DisplayName("a stop whose ending could not be read is neither a failure nor an ordinary stop")
-    void anUnreadableInspectIsAnUnverifiedStop() throws IOException {
-        // The daemon accepts the stop and then stops answering, which is run 23's shape: the
-        // container is down, and whether the world had finished writing is a question nobody can
-        // answer any more. Refusing would take the network down over an unreadable inspect; calling
-        // it a success is what let the archive taken afterwards look like every other archive.
+    void aStopWhoseEndingCouldNotBeReadIsNeitherAFailureNorAnOrdinaryStop() throws IOException {
+        // The daemon accepts the stop, then stops answering: refusing here is worse than marking the result unverified.
         final RedeployResult result = deafAfterTheStop().stop("smp-container");
 
         assertTrue(result.triggered(), "the stop itself worked, and the container really is down: " + result.message());
@@ -148,20 +136,16 @@ class DockerOpsStopTest {
         final ServerSocketChannel socket = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
         socket.bind(UnixDomainSocketAddress.of(path));
         open.add(socket);
-        server.submit(() -> {
+        final var _ = server.submit(() -> {
             while (!Thread.currentThread().isInterrupted()) {
                 try (SocketChannel client = socket.accept()) {
-                    // Read the request before answering: a channel closed with unread inbound bytes
-                    // sends RST, and the RST throws away the answer just written.
+                    // Read the request first: a channel closed with unread bytes sends RST, losing the reply.
                     final ByteBuffer buffer = ByteBuffer.allocate(8192);
                     client.read(buffer);
                     final String request = new String(buffer.flip().array(), 0, buffer.limit(), StandardCharsets.UTF_8);
                     final String body = answer.to(request);
                     if (body == null) {
-                        // A daemon that took the connection and then said nothing: the client reads
-                        // end-of-stream where a status line should be. That is what a dockerd which
-                        // died between two calls looks like from this side, and it is the only way
-                        // to reach the unverified branch without a sleep.
+                        // A daemon that died between two calls looks like this: connection taken, then end-of-stream.
                         continue;
                     }
                     final String head = body.isEmpty()

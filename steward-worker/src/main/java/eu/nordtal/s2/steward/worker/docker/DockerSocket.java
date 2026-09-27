@@ -26,30 +26,26 @@ import org.slf4j.LoggerFactory;
 /**
  * HTTP/1.1 over the Docker socket, written out by hand.
  *
- * <h2>Why by hand and not with a library</h2>
- * The JDK's {@link java.net.http.HttpClient} cannot dial a unix socket, and every Java Docker client
- * on Maven Central arrives with Jackson - the databind this repository deliberately removed with
- * jcore 3.0.0, and which a second copy of on one classpath is how you get two Gson types that are
- * not each other. What is actually needed here is small and unchanging: five verbs, no redirects, no
- * cookies, no authentication (the socket IS the authentication), and two response shapes. Java 25
- * speaks unix sockets natively, so the whole of it is this file.
+ * Why by hand and not with a library: The JDK's {@link java.net.http.HttpClient} cannot dial a unix socket, and
+ * every Java Docker client on Maven Central arrives with Jackson - the databind this repository deliberately removed
+ * with jcore 3.0.0, and which a second copy of on one classpath is how you get two Gson types that are not each
+ * other. What is actually needed here is small and unchanging: five verbs, no redirects, no cookies, no
+ * authentication (the socket IS the authentication), and two response shapes. Java 25 speaks unix sockets natively,
+ * so the whole of it is this file.
  *
- * <h2>One connection per request</h2>
- * No pooling, no keep-alive: every request says {@code Connection: close} and the channel is closed
- * after it. The cost is a socket connect per call, which against a local unix socket is
- * microseconds; what it buys is that a half-read response can never poison the next caller, which
- * is the failure mode a hand-written client would otherwise be prone to and slow to find.
+ * One connection per request: No pooling, no keep-alive: every request says {@code Connection: close} and the
+ * channel is closed after it. The cost is a socket connect per call, which against a local unix socket is
+ * microseconds; what it buys is that a half-read response can never poison the next caller, which is the failure
+ * mode a hand-written client would otherwise be prone to and slow to find.
  *
- * <h2>Timeouts</h2>
- * A blocking {@link SocketChannel} has no read timeout, so one is imposed by closing the channel
- * from a watchdog - the read then fails with a closed-channel exception, which this turns into a
- * {@link DockerException} that says it timed out.
+ * Timeouts: A blocking {@link SocketChannel} has no read timeout, so one is imposed by closing the channel from a
+ * watchdog - the read then fails with a closed-channel exception, which this turns into a {@link DockerException}
+ * that says it timed out.
  *
- * <p><b>Every call is watched while the connection is being made</b>, streams included. Connecting,
- * writing the request and reading the status line and headers are all steps a daemon that has
- * stopped answering can leave hanging forever, and "forever" here is an HTTP request from the
- * interface with a person behind it. What a follow must not have is a watchdog on its <i>body</i>:
- * a log follow is supposed to sit there saying nothing for hours. So the alarm covers the
+ * Every call is watched while the connection is being made, streams included. Connecting, writing the request and
+ * reading the status line and headers are all steps a daemon that has stopped answering can leave hanging forever,
+ * and "forever" here is an HTTP request from the interface with a person behind it. What a follow must not have is a
+ * watchdog on its body: a log follow is supposed to sit there saying nothing for hours. So the alarm covers the
  * establishment and is cancelled the moment the headers are in.
  */
 public final class DockerSocket {
@@ -62,11 +58,9 @@ public final class DockerSocket {
     /**
      * No API version in the path, on purpose.
      *
-     * <p>Docker answers an unversioned path with the newest version the daemon supports, which is
-     * the right default for a client that ships alongside the daemon it talks to. A pinned
-     * {@code /v1.44} would be a version number written down a second time - exactly what
-     * {@code CLAUDE.md} warns about - and its failure mode is a daemon upgrade quietly serving an
-     * old shape.</p>
+     * Docker answers an unversioned path with the newest version the daemon supports, which is the right default
+     * for a client that ships alongside the daemon it talks to. A pinned {@code /v1.44} would be a version
+     * number written down a second time, and its failure mode is a daemon upgrade quietly serving an old shape.
      */
     private static final String HOST_HEADER = "docker";
 
@@ -101,8 +95,8 @@ public final class DockerSocket {
     /**
      * A request whose whole body is wanted at once.
      *
-     * <p>Everything that is not a stream: the container list, an inspect, one stats sample, a
-     * registry digest. The connection is closed before this returns.</p>
+     * Everything that is not a stream: the container list, an inspect, one stats sample, a registry digest. The
+     * connection is closed before this returns.
      */
     public String send(final String method, final String path, final @Nullable String jsonBody) {
         try (Stream stream = open(method, path, jsonBody, timeout)) {
@@ -120,20 +114,19 @@ public final class DockerSocket {
     /**
      * A request whose body is read as it arrives, and is not expected to end.
      *
-     * <p>The caller closes the returned stream, and closing it is what ends a log follow. No
-     * watchdog: see the class comment.</p>
+     * The caller closes the returned stream, and closing it is what ends a log follow. No watchdog: see the class
+     * comment.
      */
     public Stream stream(final String method, final String path, final @Nullable String jsonBody) {
         return stream(method, path, jsonBody, null);
     }
 
     /**
-     * A stream that is <b>not</b> supposed to sit there silently.
+     * A stream that is not supposed to sit there silently.
      *
-     * <p>A log follow has no deadline by nature. An exec does: {@code mc} hands its line to tmux and
-     * exits, so an exec that is still open seconds later is one that will not finish - a missing
-     * tmux socket, a container in the middle of stopping - and without a deadline that hangs
-     * whoever asked, which after §10a.2 is somebody waiting in a browser.</p>
+     * A log follow has no deadline by nature. An exec does: {@code mc} hands its line to tmux and exits, so an
+     * exec still open seconds later is one that will not finish - a missing tmux socket, a container mid-stop -
+     * and without a deadline that hangs whoever asked, usually somebody waiting in a browser.
      */
     public Stream stream(
             final String method,
@@ -162,15 +155,9 @@ public final class DockerSocket {
         SocketChannel channel = null;
         ScheduledFuture<?> alarm = null;
         try {
-            // THE WATCHDOG IS SET BEFORE THE CONNECT, not after it. `channel.connect` on a unix
-            // socket blocks when the daemon's listen backlog is full and nothing is accepting -
-            // a wedged dockerd looks exactly like that from here - and an alarm scheduled after it
-            // returns is an alarm that is never scheduled. Closing the channel from the watchdog
-            // thread makes the blocked connect throw AsynchronousCloseException, which is an
-            // IOException and lands in the catch below like any other failure to reach the socket.
+            // THE WATCHDOG IS SET BEFORE THE CONNECT: connect() itself blocks on a wedged daemon.
             channel = SocketChannel.open(StandardProtocolFamily.UNIX);
-            // A call with a deadline is watched to the end of it; one without - a log follow - is
-            // watched only until the headers are in, and the cancellation is below.
+            // A call with a deadline is watched to its end; a log follow is watched only until the headers are in.
             final Duration untilItAnswers = deadline == null ? timeout : deadline;
             final SocketChannel toClose = channel;
             alarm = watchdog.schedule(
@@ -263,12 +250,11 @@ public final class DockerSocket {
     /**
      * Reads one CRLF-terminated line, one byte at a time.
      *
-     * <p>Byte at a time is deliberate rather than lazy: the header block has to be consumed to
-     * exactly its last byte, because whatever follows is the body and a buffered reader that looked
-     * ahead would have eaten the first of it. The stream underneath is buffered, so this is not the
-     * syscall per byte it looks like.</p>
+     * Byte at a time is deliberate rather than lazy: the header block has to be consumed to exactly its last
+     * byte, because whatever follows is the body and a buffered reader that looked ahead would have eaten the
+     * first of it. The stream underneath is buffered, so this is not the syscall per byte it looks like.
      */
-    private static String readLine(final InputStream in) throws IOException {
+    private static @Nullable String readLine(final InputStream in) throws IOException {
         final ByteArrayOutputStream line = new ByteArrayOutputStream(128);
         int previous = -1;
         int current;
@@ -296,8 +282,7 @@ public final class DockerSocket {
                 throw new DockerException("unreadable Content-Length: " + length, e);
             }
         }
-        // Neither header: the daemon closes the connection to mark the end, which is what a
-        // hijacked exec stream does. Reading to EOF is then correct and is all there is.
+        // Neither header: the daemon closes the connection to mark the end, as a hijacked exec stream does.
         return in;
     }
 
@@ -390,8 +375,7 @@ public final class DockerSocket {
             }
             remaining -= read;
             if (remaining == 0) {
-                // The CRLF that closes the chunk. Not data, and leaving it would shift every
-                // following chunk header by two bytes.
+                // The CRLF that closes the chunk - not data, and leaving it would shift every following header.
                 readLine(in);
             }
             return read;

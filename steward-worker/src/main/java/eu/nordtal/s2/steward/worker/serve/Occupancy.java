@@ -8,33 +8,31 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.OptionalInt;
 import javax.sql.DataSource;
+import org.jspecify.annotations.Nullable;
 
 /**
- * How many players are on a service <em>right now</em>, as a seam (season-2-ops/122).
+ * How many players are on a service right now, as a seam.
  *
- * <h2>Why "nobody said" is a third answer and not a zero</h2>
- * The run waits for a service to be free of players before it stops it, and then stops it anyway
- * after ten seconds. Both halves of that need to tell "there is nobody on it" apart from "nothing
- * has told me for a while": the first is the outcome the wait exists for, the second is a proxy
- * that has stopped writing, and folding the two together would end the wait early on the exact run
- * where waiting mattered. So every answer here is an {@link OptionalInt}, empty means nobody said
- * recently, and the caller has to write down which of the two it acted on.
+ * Why "nobody said" is a third answer and not a zero: The run waits for a service to be free of players before it
+ * stops it, and then stops it anyway after ten seconds. Both halves of that need to tell "there is nobody on it"
+ * apart from "nothing has told me for a while": the first is the outcome the wait exists for, the second is a proxy
+ * that has stopped writing, and folding the two together would end the wait early on the exact run where waiting
+ * mattered. So every answer here is an {@link OptionalInt}, empty means nobody said recently, and the caller has to
+ * write down which of the two it acted on.
  *
- * <h2>Freshness is decided here, once</h2>
- * {@code OnlineDirectory} and {@code StandbyDirectory} both hand back a number with the instant it
- * was written and deliberately no opinion about it. This is where the opinion lives, and the two
- * cutoffs differ because the two cadences do: the proxy writes {@code online_count} every second
- * while a run has something moving (see {@code OnlineWriter}) and the standby writes its own row
- * every two.
+ * Freshness is decided here, once: {@code OnlineDirectory} and {@code StandbyDirectory} both hand back a number with
+ * the instant it was written and deliberately no opinion about it. This is where the opinion lives, and the two
+ * cutoffs differ because the two cadences do: the proxy writes {@code online_count} every second while a run has
+ * something moving (see {@code OnlineWriter}) and the standby writes its own row every two.
  */
 interface Occupancy {
 
     /**
      * How stale an {@code online_count} row may be and still be acted on.
      *
-     * <p>Four seconds: three missed ticks of the one-second cadence the proxy switches to while a
-     * run is moving something. Wider than that and a ten-second wait would be deciding on a number
-     * from before the players were moved, which is the failure this whole seam exists to avoid.</p>
+     * Four seconds: three missed ticks of the one-second cadence the proxy switches to while a run is moving something.
+     * Wider than that and a ten-second wait would be deciding on a number from before the players were moved, which is
+     * the failure this whole seam exists to avoid.
      */
     Duration COUNT_FRESH_WITHIN = Duration.ofSeconds(4);
 
@@ -71,15 +69,15 @@ interface Occupancy {
     /**
      * The production reader, over the pool this process already owns.
      *
-     * <p>The two directories are built on first use rather than in this method, because a run that
-     * never opens a standby window never asks either of them, and a constructor that opened a
-     * connection would make every unit-level construction of {@code Runner} need a database.</p>
+     * The two directories are built on first use rather than in this method, because a run that never opens a standby
+     * window never asks either of them, and a constructor that opened a connection would make every unit-level
+     * construction of {@code Runner} need a database.
      */
     static Occupancy over(final DataSource dataSource) {
         return new Occupancy() {
 
-            private volatile OnlineDirectory counts;
-            private volatile StandbyDirectory standby;
+            private volatile @Nullable OnlineDirectory counts;
+            private volatile @Nullable StandbyDirectory standby;
 
             @Override
             public OptionalInt on(final String service, final Instant now) {
@@ -90,8 +88,7 @@ interface Occupancy {
                 try {
                     current = counts.current();
                 } catch (final RuntimeException failure) {
-                    // A database this run cannot read is a "nobody said", not a zero. The run has
-                    // its own cap and its own report line for that, and both of them are honest.
+                    // A database this run cannot read is a "nobody said", not a zero.
                     return OptionalInt.empty();
                 }
                 final OnlineCount count = current.get(service);

@@ -10,57 +10,51 @@ import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * "Exactly one steward-worker is <em>serving</em>", held by PostgreSQL for the life of the process.
+ * "Exactly one steward-worker is serving", held by PostgreSQL for the life of the process.
  *
- * <h2>What it is protecting</h2>
- * {@code UpdateServer.settleOrphans()} takes every row left {@code RUNNING} and closes it, and its
- * justification is a claim about the world: <em>"Nothing is running those rows: the only process
- * that claims one is a worker, and this one has just started."</em> That is true of one serve and
- * false of two. With two, a second one starting marks the first one's in-flight {@code APPLY} as
- * {@code FAILED}; the real worker then calls {@code finish(...)}, whose {@code WHERE status =
- * 'RUNNING'} no longer matches, and the actual report is lost. What the operator reads is
- * "steward-worker stopped while this request was running" about a run that was at that moment
+ * What it is protecting: {@code UpdateServer.settleOrphans()} takes every row left {@code RUNNING} and closes it,
+ * and its justification is a claim about the world: "Nothing is running those rows: the only process that claims one
+ * is a worker, and this one has just started." That is true of one serve and false of two. With two, a second one
+ * starting marks the first one's in-flight {@code APPLY} as {@code FAILED}; the real worker then calls
+ * {@code finish(...)}, whose {@code WHERE status = 'RUNNING'} no longer matches, and the actual report is lost. What
+ * the operator reads is "steward-worker stopped while this request was running" about a run that was at that moment
  * installing jars.
  *
- * <p>A second serve was not hypothetical: {@code docker compose run --rm steward-worker} inherited the
- * service's {@code command} and started one every time somebody asked for the read-only report.
- * That is fixed on its own, by giving the report a name. This is the other half - the premise
- * settleOrphans reasons from, made true by force instead of by assumption.</p>
+ * A second serve was not hypothetical: {@code docker compose run --rm steward-worker} inherited the service's
+ * {@code command} and started one every time somebody asked for the read-only report. That is fixed on its own, by
+ * giving the report a name. This is the other half - the premise settleOrphans reasons from, made true by force
+ * instead of by assumption.
  *
- * <h2>Why this rather than a column or a timeout</h2>
- * A {@code claimed_by} column plus a liveness check against {@code pg_stat_activity} would be more
- * precise and costs a migration, a column and a privilege. A timeout replaces a wrong assumption
- * with a guessed number - too short and a long {@code apply} is torn away from itself, too long and
- * a real orphan sits {@code RUNNING} for hours. Only {@code serve} ever writes a {@code RUNNING}
- * row ({@code claimNext} is called from nowhere else; {@code apply} deliberately writes no request
- * at all), so one serve is exactly the invariant that makes settleOrphans correct.
+ * Why this rather than a column or a timeout: A {@code claimed_by} column plus a liveness check against
+ * {@code pg_stat_activity} would be more precise and costs a migration, a column and a privilege. A timeout replaces
+ * a wrong assumption with a guessed number - too short and a long {@code apply} is torn away from itself, too long
+ * and a real orphan sits {@code RUNNING} for hours. Only {@code serve} ever writes a {@code RUNNING} row (
+ * {@code claimNext} is called from nowhere else; {@code apply} deliberately writes no request at all), so one serve
+ * is exactly the invariant that makes settleOrphans correct.
  *
- * <p>Session-scoped like {@link RunLock}, and for the same reason: PostgreSQL drops it when the
- * connection goes, whether that was a clean shutdown, a killed container or a redeploy. There is no
- * state to clean up after a crash - which matters most here, because the thing that would be stuck
- * is the container that fixes things.</p>
+ * Session-scoped like {@link RunLock}, and for the same reason: PostgreSQL drops it when the connection goes,
+ * whether that was a clean shutdown, a killed container or a redeploy. There is no state to clean up after a crash -
+ * which matters most here, because the thing that would be stuck is the container that fixes things.
  */
 @Slf4j
 public final class ServeLock implements AutoCloseable {
 
     /**
      * The ASCII bytes of {@code nordtalS}, as a signed 64-bit integer.
-     * <p>
-     * Deliberately not {@link RunLock}'s key. They mean different things and are held for different
-     * lengths of time: this one for the whole life of the daemon, that one for the minutes an
-     * install takes. Sharing a key would make {@code serve} unable to run its own bootstrap.
-     * </p>
+     *
+     * Deliberately not {@link RunLock} 's key. They mean different things and are held for different lengths of time:
+     * this one for the whole life of the daemon, that one for the minutes an install takes. Sharing a key would make
+     * {@code serve} unable to run its own bootstrap.
      */
     private static final long KEY = 0x6E6F726474616C53L;
 
     /**
      * How long to keep asking before giving up.
-     * <p>
-     * Not zero, and the reason is the ordinary case rather than an exotic one: on a redeploy the
-     * replacement container starts while the old one is still inside its graceful shutdown, so the
-     * lock is legitimately held for a moment by a process that is on its way out. Failing straight
-     * away would turn every redeploy into at least one crash-restart cycle.
-     * </p>
+     *
+     * Not zero, and the reason is the ordinary case rather than an exotic one: on a redeploy the replacement
+     * container starts while the old one is still inside its graceful shutdown, so the lock is legitimately held for
+     * a moment by a process that is on its way out. Failing straight away would turn every redeploy into at least
+     * one crash-restart cycle.
      */
     private static final Duration PATIENCE = Duration.ofSeconds(30);
 

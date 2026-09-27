@@ -12,14 +12,17 @@ public record ApplyResult(List<Outcome> outcomes) {
         /** Already what it should be; nothing was fetched and nothing was written. */
         UNCHANGED,
         /**
-         * Deliberately not attempted. A whole server is skipped when any one of its artefacts could
-         * not be resolved: its plugins move together or not at all.
+         * Deliberately not attempted.
+         *
+         * A whole server is skipped when any one of its artefacts could not be resolved: its plugins move together
+         * or not at all.
          */
         SKIPPED,
         /**
-         * There is no file for this artefact on this Minecraft version, so there was nothing to
-         * attempt. Its own word because {@link #UNCHANGED} claims something is installed and
-         * {@link #SKIPPED} is the whole-service refusal.
+         * There is no file for this artefact on this Minecraft version, so there was nothing to attempt.
+         *
+         * Its own word because {@link #UNCHANGED} claims something is installed and {@link #SKIPPED} is the
+         * whole-service refusal.
          */
         UNSUPPORTED,
         /** Attempted and failed. Nothing of that server was moved - see {@link Applier}. */
@@ -41,16 +44,20 @@ public record ApplyResult(List<Outcome> outcomes) {
     }
 
     /**
-     * Whether anything was deliberately not attempted. Reported separately from a failure and from
-     * "nothing to do": a run that skipped every server has neither, and must not read as current.
+     * Whether anything was deliberately not attempted.
+     *
+     * Reported separately from a failure and from "nothing to do": a run that skipped every server has neither,
+     * and must not read as current.
      */
     public boolean skippedAnything() {
         return outcomes.stream().anyMatch(outcome -> outcome.status() == Status.SKIPPED);
     }
 
     /**
-     * Whether a restart would be safe to offer. Not if anything failed: reporting happens before
-     * restarting so that a person sees a half-done run before the network goes down on it.
+     * Whether a restart would be safe to offer.
+     *
+     * Not if anything failed: reporting happens before restarting so that a person sees a half-done run before the
+     * network goes down on it.
      */
     public boolean restartWorthOffering() {
         return changedAnything() && !hasFailures();

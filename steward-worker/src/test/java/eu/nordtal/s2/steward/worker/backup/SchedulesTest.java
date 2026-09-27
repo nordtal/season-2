@@ -3,20 +3,19 @@ package eu.nordtal.s2.steward.worker.backup;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.steward.worker.config.BackupSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.time.ZoneId;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * A schedule saved in Steward has to reach the clocks without a restart.
  *
- * <p>The config here is a live object whose values change between two {@link Schedules#arm()}
- * calls, which is exactly what a {@code ConfigHandle} reload does to the instance the worker
- * holds.</p>
+ * The config here is a live object whose values change between two {@link Schedules#arm()} calls, which is exactly
+ * what a {@code ConfigHandle} reload does to the instance the worker holds.
  */
 class SchedulesTest {
 
@@ -26,8 +25,7 @@ class SchedulesTest {
     private String updateAt = "";
 
     @Test
-    @DisplayName("arming again picks up a schedule that changed since the last arm")
-    void armingAgainReadsTheConfigAgain() {
+    void armingAgainPicksUpAScheduleThatChangedSinceTheLastArm() {
         try (Schedules schedules = new Schedules(noDirectory(), config(), ZoneId.of("Europe/Berlin"))) {
             schedules.arm();
             assertArrayEquals(
@@ -45,8 +43,8 @@ class SchedulesTest {
 
     /** A StewardSpec whose two schedule sections read the fields above; everything else defaults. */
     private StewardSpec config() {
-        final StewardSpec.BackupSpec backup = section(
-                StewardSpec.BackupSpec.class,
+        final BackupSpec backup = section(
+                BackupSpec.class,
                 (proxy, method, args) -> method.getName().equals("at")
                         ? backupAt
                         : InvocationHandler.invokeDefault(proxy, method, args));

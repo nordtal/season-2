@@ -6,12 +6,11 @@ import java.net.URI;
 /**
  * Fetches a small document over HTTPS.
  *
- * <p>An interface so that every parser above it can be tested against recorded responses: a
- * resolver that picks a {@code -sources.jar} or a pre-release is worse than no steward-worker at
- * all, and those cases never appear when a test talks to the live API on a good day.</p>
+ * An interface so that every parser above it can be tested against recorded responses: a resolver that picks a
+ * {@code -sources.jar} or a pre-release is worse than no steward-worker at all, and those cases never appear when a
+ * test talks to the live API on a good day.
  *
- * <p>Only GET, only text. Jars are downloaded straight to a file and verified against a checksum,
- * never through here.</p>
+ * Only GET, only text. Jars are downloaded straight to a file and verified against a checksum, never through here.
  */
 public interface Http {
 

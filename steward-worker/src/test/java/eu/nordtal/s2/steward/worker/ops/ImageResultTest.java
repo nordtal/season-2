@@ -7,25 +7,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The two sentences a person actually reads, and the rule that decides which one they get.
  *
- * <h2>Why a string is worth a test</h2>
- * Neither of these is a log line: they are notes in the update report that goes into a Discord
- * embed and into {@code /smp update}'s output, and they are the <em>only</em> thing standing
- * between "nobody could look at this image" and "this image is current". Both sentences described
- * the management panel this project removed on 2026-09-13 - one of them told the reader to go and
- * turn on a setting in it, which is advice about a program that is no longer installed. A wrong
- * sentence here is not cosmetic; it is finding A24 wearing different words.
+ * Why a string is worth a test: neither of these is a log line - they are notes in the update report that goes into a
+ * Discord embed and into {@code /smp update} 's output, and they are the only thing standing between "nobody could
+ * look at this image" and "this image is current". Neither sentence may point at a management panel that does not
+ * exist, or ask for credentials the reader cannot supply. A wrong sentence here is not cosmetic; it is finding A24
+ * wearing different words.
  */
 class ImageResultTest {
 
     @Test
-    @DisplayName("an unverifiable image is named, and the note says why it could not be compared")
-    void anUnverifiableImageIsNamed() {
+    void anUnverifiableImageIsNamedAndTheNoteSaysWhyItCouldNotBeCompared() {
         final ImageResult result = ImageResult.of(
                 Map.of("smp", ImageResult.State.UP_TO_DATE, "steward-ui", ImageResult.State.UNKNOWN),
                 Set.of("steward-ui"));
@@ -43,9 +39,7 @@ class ImageResultTest {
                         + " had checked and found nothing to do.",
                 note);
 
-        // The sentence must not send anybody to the panel that used to hold this answer, nor blame
-        // a `build:` directive, nor ask for credentials. Every image this stack runs is a public
-        // ghcr.io/nordtal package that answers /distribution unauthenticated (measured 2026-09-13).
+        // Must not send anybody to a removed panel, nor blame a build: directive, nor ask for credentials.
         for (final String dead : new String[] {"Arcane", "build:", "credential", "Redeploy"}) {
             assertFalse(
                     note.contains(dead),
@@ -55,8 +49,7 @@ class ImageResultTest {
     }
 
     @Test
-    @DisplayName("one checked service silences nothingChecked, which is why notCheckable is separate")
-    void oneCheckedServiceDoesNotSilenceTheOther() {
+    void oneCheckedServiceSilencesNothingcheckedWhichIsWhyNotcheckableIsSeparate() {
         final ImageResult result = ImageResult.of(
                 Map.of("smp", ImageResult.State.UP_TO_DATE, "steward-ui", ImageResult.State.UNKNOWN),
                 Set.of("steward-ui"));
@@ -72,8 +65,7 @@ class ImageResultTest {
     }
 
     @Test
-    @DisplayName("never both notes: one thing that went wrong is one sentence about it")
-    void theTwoNotesAreNeverBothPresent() {
+    void neverBothNotesOneThingThatWentWrongIsOneSentenceAboutIt() {
         final ImageResult result =
                 ImageResult.of(Map.of("steward-ui", ImageResult.State.UNKNOWN), Set.of("steward-ui"));
 
@@ -85,8 +77,7 @@ class ImageResultTest {
     }
 
     @Test
-    @DisplayName("a run that could read no image at all says so rather than saying nothing")
-    void anUnreadableRuntimeSaysSo() {
+    void aRunThatCouldReadNoImageAtAllSaysSoRatherThanSayingNothing() {
         final ImageResult result = ImageResult.unreachable("no docker socket at /var/run/docker.sock");
 
         assertEquals(
@@ -100,8 +91,7 @@ class ImageResultTest {
     }
 
     @Test
-    @DisplayName("an empty project is 'nobody looked', never 'everything is current'")
-    void anEmptyResultIsNotSilence() {
+    void anEmptyProjectIsNobodyLookedNeverEverythingIsCurrent() {
         assertEquals(
                 "No service's image was compared against a registry, so this run cannot tell a"
                         + " current image from a stale one. Either the daemon listed no running container"
@@ -110,8 +100,7 @@ class ImageResultTest {
     }
 
     @Test
-    @DisplayName("a checked, current project produces no note at all")
-    void aCleanResultIsSilent() {
+    void aCheckedCurrentProjectProducesNoNoteAtAll() {
         final ImageResult result = ImageResult.of(Map.of("smp", ImageResult.State.UP_TO_DATE));
 
         assertEquals(Optional.empty(), result.nothingChecked());
@@ -124,10 +113,8 @@ class ImageResultTest {
     }
 
     @Test
-    @DisplayName("a local build is named, but is not the unverifiable note's business")
-    void aLocalBuildIsItsOwnNoteNotAnUnverifiableOne() {
-        // steward/75: steward-ui and steward-worker on this host on 2026-09-16, both rebuilt with a
-        // local `docker build` and never pushed. Neither is a question nobody could answer.
+    void aLocalBuildIsNamedButIsNotTheUnverifiableNotesBusiness() {
+        // A local build (rebuilt with docker build and never pushed) is not a question nobody could answer.
         final ImageResult result = ImageResult.of(Map.of(
                 "steward-ui",
                 ImageResult.State.LOCAL,
@@ -154,8 +141,7 @@ class ImageResultTest {
     }
 
     @Test
-    @DisplayName("no local build means no note about one")
-    void noLocalBuildMeansNoNote() {
+    void noLocalBuildMeansNoNoteAboutOne() {
         final ImageResult result = ImageResult.of(Map.of("smp", ImageResult.State.UP_TO_DATE));
 
         assertEquals(Optional.empty(), result.localImages());

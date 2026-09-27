@@ -13,11 +13,10 @@ import java.util.Map;
 /**
  * A {@link ContainerOps} that answers from a map instead of from a Docker daemon.
  *
- * <p>Everything the update sequence does is an ordering decision, and the only way to see one is to
- * record the calls. {@link #calls} is that record, in order: {@code stop:smp}, {@code backup:mc-smp},
- * {@code start:smp}. A backup run's whole correctness is that middle entry sitting between the
- * other two - a snapshot taken of a server that is still running fails at RESTORE and nowhere
- * else.</p>
+ * Everything the update sequence does is an ordering decision, and the only way to see one is to record the calls.
+ * {@link #calls} is that record, in order: {@code stop:smp}, {@code backup:mc-smp}, {@code start:smp}. A backup
+ * run's whole correctness is that middle entry sitting between the other two - a snapshot taken of a server that is
+ * still running fails at RESTORE and nowhere else.
  */
 final class FakeContainers implements ContainerOps {
 
@@ -39,16 +38,11 @@ final class FakeContainers implements ContainerOps {
     /** Services whose deploy or recreate is refused - a 404 on the project id, a pull that failed. */
     private final java.util.Set<String> recreateRefused = new java.util.LinkedHashSet<>();
 
-    /** volume -> how many polls it stays running before it settles. */
-    private final Map<String, Integer> backupDelay = new LinkedHashMap<>();
-
     /** volume -> what it settles as. Absent means "succeeds". */
     private final Map<String, Boolean> backupSucceeds = new LinkedHashMap<>();
 
     /** Volumes whose snapshot is refused outright before anything is written. */
     private final java.util.Set<String> backupRefused = new java.util.LinkedHashSet<>();
-
-    private final Map<String, Integer> polls = new LinkedHashMap<>();
 
     FakeContainers running(final String... names) {
         for (final String name : names) {
@@ -85,9 +79,8 @@ final class FakeContainers implements ContainerOps {
     /**
      * These come back {@code running} and {@code unhealthy}, for ever.
      *
-     * <p>The interesting failure of a standby: the container exists, compose is happy, and the
-     * plugin inside it threw in {@code onEnable}. A run that reads "it started" rather than "it is
-     * back" would park every player on it.</p>
+     * The interesting failure of a standby: the container exists, compose is happy, and the plugin inside it threw in
+     * {@code onEnable}. A run that reads "it started" rather than "it is back" would park every player on it.
      */
     FakeContainers neverHealthy(final String... names) {
         neverHealthy.addAll(List.of(names));
@@ -104,9 +97,7 @@ final class FakeContainers implements ContainerOps {
 
     @Override
     public RedeployResult deploy(final String service) {
-        // "recreate:" and not "deploy:", so that every existing assertion about the order of a run
-        // keeps meaning what it meant. What the two routes differ in is whether an image is
-        // fetched, and this fake has no images to fetch.
+        // "recreate:" not "deploy:", so every existing order assertion keeps meaning what it meant.
         return made("recreate:" + service, service);
     }
 
@@ -123,9 +114,7 @@ final class FakeContainers implements ContainerOps {
         if (recreateRefused.contains(service)) {
             return RedeployResult.refused("refused");
         }
-        // A recreate is a new container, and the run has to keep working against the service name
-        // rather than the id it remembered. Handing back a different id is what makes a test that
-        // relies on the old one fail here rather than on the deployment.
+        // A recreate is a new container; a different id here fails a test that relies on the old one.
         services.put(
                 service,
                 new ServiceRuntime(
@@ -151,10 +140,9 @@ final class FakeContainers implements ContainerOps {
     /**
      * These stops are accepted and nothing can say how they ended - the run 23 shape.
      *
-     * <p>Docker's stop call succeeds whether the server shut down or was killed at the end of the
-     * grace period, so the real client inspects the container afterwards; this is the case where
-     * that inspect itself fails. The container is stopped, and whether the world had finished
-     * writing is a question nobody can answer any more.</p>
+     * Docker's stop call succeeds whether the server shut down or was killed at the end of the grace period, so the
+     * real client inspects the container afterwards; this is the case where that inspect itself fails. The
+     * container is stopped, and whether the world had finished writing is a question nobody can answer any more.
      */
     FakeContainers stopUnverified(final String... names) {
         stopUnverified.addAll(List.of(names));

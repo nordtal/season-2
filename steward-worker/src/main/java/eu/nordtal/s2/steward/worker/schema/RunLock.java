@@ -11,34 +11,30 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * "Exactly one steward-worker is moving jars right now", held by PostgreSQL.
  *
- * <h2>Why this exists at all</h2>
- * Two workers can be alive at once, and the arrangement invites it: the daemon runs all the time,
- * and the documented bootstrap is a one-shot {@code docker compose run --rm steward-worker bootstrap} that an
- * operator starts by hand - most likely on exactly the day when they are also clicking the button
- * in Discord. Two processes staging into the same {@code .nordtal-staging} directories and then
- * renaming over each other is a server that ends up with half of one version and half of another.
+ * Why this exists at all: Two workers can be alive at once, and the arrangement invites it: the daemon runs all the
+ * time, and the documented bootstrap is a one-shot {@code docker compose run --rm steward-worker bootstrap} that an
+ * operator starts by hand - most likely on exactly the day when they are also clicking the button in Discord. Two
+ * processes staging into the same {@code .nordtal-staging} directories and then renaming over each other is a server
+ * that ends up with half of one version and half of another.
  *
- * <h2>Why an advisory lock and not a row</h2>
- * A lock table needs releasing, and the failure mode of "releasing" is a crashed process leaving a
- * lock nobody can clear - which is precisely the situation an update is being run to get out of.
- * A session-scoped advisory lock is released by PostgreSQL when the connection goes away, whether
- * that was a clean close, a killed container or a redeploy. Nothing to clean up, ever.
+ * Why an advisory lock and not a row: A lock table needs releasing, and the failure mode of "releasing" is a crashed
+ * process leaving a lock nobody can clear - which is precisely the situation an update is being run to get out of. A
+ * session-scoped advisory lock is released by PostgreSQL when the connection goes away, whether that was a clean
+ * close, a killed container or a redeploy. Nothing to clean up, ever.
  *
- * <h2>Which is why it holds its own connection</h2>
- * The lock lives on a session, so the session has to stay put. A pooled connection returned to the
- * pool mid-run would take the lock back out into general use and leak it into whatever query
- * borrowed it next. So this takes one connection out of the pool and gives it back at
- * {@link #close()}, and the pool is sized with that in mind.
+ * Which is why it holds its own connection: The lock lives on a session, so the session has to stay put. A pooled
+ * connection returned to the pool mid-run would take the lock back out into general use and leak it into whatever
+ * query borrowed it next. So this takes one connection out of the pool and gives it back at {@link #close()}, and
+ * the pool is sized with that in mind.
  */
 @Slf4j
 public final class RunLock implements AutoCloseable {
 
     /**
      * The lock key: the ASCII bytes of {@code nordtal1}, as a signed 64-bit integer.
-     * <p>
-     * Advisory locks share one namespace across the whole database, so the number has to be
-     * unlikely rather than convenient. Nothing else in this project takes one.
-     * </p>
+     *
+     * Advisory locks share one namespace across the whole database, so the number has to be unlikely rather than
+     * convenient. Nothing else in this project takes one.
      */
     private static final long KEY = 0x6E6F726474616C31L;
 
@@ -77,8 +73,7 @@ public final class RunLock implements AutoCloseable {
     /** Releases the lock by giving the session back. */
     @Override
     public void close() {
-        // Unlocking explicitly rather than relying on the close: the connection goes back to a
-        // pool, and a pool that reuses the session would otherwise carry the lock with it.
+        // Unlocking explicitly: the connection goes back to a pool that could reuse the session with the lock held.
         try (PreparedStatement statement = connection.prepareStatement("SELECT pg_advisory_unlock(?)")) {
             statement.setLong(1, KEY);
             statement.execute();

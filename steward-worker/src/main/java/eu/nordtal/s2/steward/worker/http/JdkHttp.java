@@ -12,26 +12,23 @@ import java.util.Map;
 /**
  * The real {@link Http}: {@code java.net.http}, no dependency, redirects followed.
  *
- * <h2>The User-Agent is not decoration</h2>
- * The PaperMC Fill API <em>requires</em> a User-Agent that identifies the project and gives a
- * contact, and refuses requests without one; Modrinth asks for the same in its documentation and
- * throttles anonymous traffic harder. {@code deploy/minecraft/entrypoint.sh} already sends exactly
- * this string, so the two halves of this deployment identify themselves as one thing.
+ * The User-Agent is not decoration: The PaperMC Fill API requires a User-Agent that identifies the project and gives
+ * a contact, and refuses requests without one; Modrinth asks for the same in its documentation and throttles
+ * anonymous traffic harder. {@code deploy/minecraft/entrypoint.sh} already sends exactly this string, so the two
+ * halves of this deployment identify themselves as one thing.
  *
- * <h2>Redirects</h2>
- * {@link HttpClient.Redirect#NORMAL} follows them, and it has to: a GitHub release asset - which is
- * how the pack's {@code .sha1} is read - answers with a 302 to a signed
- * {@code release-assets.githubusercontent.com} URL. {@code NORMAL} does not follow HTTPS to HTTP,
- * which is the one redirect we would want to refuse anyway.
+ * Redirects: {@link HttpClient.Redirect#NORMAL} follows them, and it has to: a GitHub release asset - which is how
+ * the pack's {@code .sha1} is read - answers with a 302 to a signed {@code release-assets.githubusercontent.com}
+ * URL. {@code NORMAL} does not follow HTTPS to HTTP, which is the one redirect we would want to refuse anyway.
  */
 public final class JdkHttp implements Http {
 
     /**
      * How this process identifies itself to GitHub, Modrinth and the Fill API.
      *
-     * <p>Same shape as the one {@code deploy/minecraft/entrypoint.sh} sends, not the same
-     * string: that one says {@code nordtal-season-2/deploy}, because a request from a server
-     * container and a request from the worker are worth telling apart in somebody else's log.
+     * Same shape as the one {@code deploy/minecraft/entrypoint.sh} sends, not the same string: that one says
+     * {@code nordtal-season-2/deploy}, because a server container's request and the worker's are worth telling
+     * apart in somebody else's log.
      */
     public static final String USER_AGENT = "nordtal-season-2/steward-worker (+https://github.com/nordtal/season-2)";
 

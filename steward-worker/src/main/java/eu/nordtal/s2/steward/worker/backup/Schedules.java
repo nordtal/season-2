@@ -4,18 +4,18 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.time.ZoneId;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The two clocks - the nightly backup and the optional scheduled update - kept in step with
- * {@code steward.yml}.
+ * The two clocks - the nightly backup and the optional scheduled update - kept in step with {@code steward.yml}.
  *
- * <p>Both used to be read once, at start, so a schedule saved in Steward only took effect after the
- * container restarted, while the page already showed the new one. {@link #arm()} is called at start
- * and again after every save of this worker's own config: it closes whatever is running and builds
- * both clocks again from the values as they now stand. {@code config} is the live instance of a
- * {@code ConfigHandle}, so a reload of that handle is all it takes for the values to be new.</p>
+ * Both used to be read once, at start, so a schedule saved in Steward only took effect after the container
+ * restarted, while the page already showed the new one. {@link #arm()} is called at start and again after every save
+ * of this worker's own config: it closes whatever is running and builds both clocks again from the values as they
+ * now stand. {@code config} is the live instance of a {@code ConfigHandle}, so a reload of that handle is all it
+ * takes for the values to be new.
  */
 public final class Schedules implements AutoCloseable {
 
@@ -24,13 +24,15 @@ public final class Schedules implements AutoCloseable {
     private final UpdateDirectory directory;
     private final StewardSpec config;
     private final ZoneId zone;
-    private NightlyClock backup;
-    private NightlyClock update;
+    private @Nullable NightlyClock backup;
+    private @Nullable NightlyClock update;
 
     public Schedules(final UpdateDirectory directory, final StewardSpec config, final ZoneId zone) {
         this.directory = directory;
         this.config = config;
         this.zone = zone;
+        this.backup = null;
+        this.update = null;
     }
 
     /** Closes both clocks and starts them again from what the config now says. */
@@ -62,7 +64,7 @@ public final class Schedules implements AutoCloseable {
         return new boolean[] {backup != null, update != null};
     }
 
-    private static NightlyClock start(final Optional<NightlyClock> clock) {
+    private static @Nullable NightlyClock start(final Optional<NightlyClock> clock) {
         clock.ifPresent(NightlyClock::start);
         return clock.orElse(null);
     }

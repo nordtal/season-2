@@ -13,20 +13,18 @@ import java.util.regex.Pattern;
 /**
  * The PaperMC Fill v3 API: the newest {@code STABLE} build of a Paper or Velocity version.
  *
- * <p>For Paper this follows <em>builds</em> within a version that never moves from here, because a
- * new Minecraft version is a season decision. For Velocity it also follows the <em>version</em>
- * inside one of Fill's families ({@link #newestStableVersion}), since Velocity's minors do not move
- * the Minecraft protocol - only the API {@code proxy} was compiled against, which the
- * resolver reports.</p>
+ * For Paper this follows builds within a version that never moves from here, because a new Minecraft version is a
+ * season decision. For Velocity it also follows the version inside one of Fill's families (
+ * {@link #newestStableVersion}), since Velocity's minors do not move the Minecraft protocol - only the API
+ * {@code proxy} was compiled against, which the resolver reports.
  *
- * <p>Following builds automatically has the widest blast radius of anything here: one build changes
- * the platform under all four servers at once and nothing in this repository tests against it. The
- * report puts the build number in front of a person before anything restarts.</p>
+ * Following builds automatically has the widest blast radius of anything here: one build changes the platform under
+ * all four servers at once and nothing in this repository tests against it. The report puts the build number in
+ * front of a person before anything restarts.
  *
- * <p>The filename comes from {@code downloads."server:default".name} and is never built by hand:
- * {@code deploy/minecraft/entrypoint.sh} reads the same field, and two programs constructing the
- * name separately is how a server comes to run one jar while something believes it installed
- * another.</p>
+ * The filename comes from {@code downloads."server:default".name} and is never built by hand:
+ * {@code deploy/minecraft/entrypoint.sh} reads the same field, and two programs constructing the name separately is
+ * how a server comes to run one jar while something believes it installed another.
  */
 public final class PaperFill {
 
@@ -36,8 +34,9 @@ public final class PaperFill {
     private static final String STABLE = "STABLE";
 
     /**
-     * A version this module is willing to install: digits and dots, nothing else - so no
-     * {@code 4.1.2-SNAPSHOT}, {@code 26.2-rc-2} or {@code 1.21.11-pre5} ever reaches a server.
+     * A version this module is willing to install: digits and dots, nothing else.
+     *
+     * So no {@code 4.1.2-SNAPSHOT}, {@code 26.2-rc-2} or {@code 1.21.11-pre5} ever reaches a server.
      */
     private static final Pattern RELEASE_VERSION = Pattern.compile("[0-9]+(\\.[0-9]+)*");
 
@@ -61,8 +60,7 @@ public final class PaperFill {
         final String what = "PaperMC Fill " + project + " " + version;
         final JsonArray builds = Json.array(http.get(uri), what);
 
-        // The channel filter decides, not the position: the newest build of a version can be
-        // EXPERIMENTAL, and taking builds[0] blindly is how a proxy ends up on one.
+        // The channel filter decides, not the position: the newest build can be EXPERIMENTAL, unlike builds[0].
         for (final JsonElement element : builds) {
             final JsonObject build = element.getAsJsonObject();
             if (!STABLE.equals(Json.optionalString(build, "channel"))) {
@@ -72,8 +70,7 @@ public final class PaperFill {
             final JsonObject downloads = Json.child(build, "downloads");
             final JsonObject download = downloads == null ? null : Json.child(downloads, SERVER_DEFAULT);
             if (download == null) {
-                // A STABLE build with no server jar has not been seen; if it happens, the next
-                // stable build behind it is the right answer.
+                // A STABLE build with no server jar has not been seen; the next stable build behind it is the answer.
                 continue;
             }
 
@@ -97,17 +94,14 @@ public final class PaperFill {
     /**
      * The newest release version inside one of Fill's version families.
      *
-     * <p>Fill's own grouping, read off {@code GET /v3/projects/<project>}. A family name is not a
-     * version anybody runs - Velocity's whole 4.x line is called {@code 4.0.0} - so it is looked up
-     * rather than installed.</p>
+     * Fill's own grouping, read off {@code GET /v3/projects/<project>}. A family name is not a version anybody runs -
+     * Velocity's whole 4.x line is called {@code 4.0.0} - so it is looked up rather than installed.
      *
-     * <p><b>Compared as numbers, never as text</b>, and never by position in the response:
-     * {@code 4.10.0} is newer than {@code 4.9.0} and sorts below it lexicographically, and being
-     * wrong here quietly installs an older proxy.</p>
+     * Compared as numbers, never as text, and never by position in the response: {@code 4.10.0} is newer than
+     * {@code 4.9.0} and sorts below it lexicographically, and being wrong here quietly installs an older proxy.
      *
-     * @throws IOException when the family is unknown or carries no release version at all - never a
-     *                     fallback onto another family, which would move the network to a different
-     *                     Velocity major without anybody asking for it
+     * @throws IOException when the family is unknown or carries no release version at all - never a fallback onto
+     *     another family, which would move the network to a different Velocity major without anybody asking for it
      */
     public String newestStableVersion(final String project, final String family) throws IOException {
 
@@ -151,10 +145,12 @@ public final class PaperFill {
         return newest;
     }
 
+    private static final Pattern DOT = Pattern.compile("\\.");
+
     /** Component by component, as numbers, with a missing component reading as zero. */
     private static int compare(final String left, final String right) {
-        final String[] mine = left.split("\\.");
-        final String[] theirs = right.split("\\.");
+        final String[] mine = DOT.splitAsStream(left).toArray(String[]::new);
+        final String[] theirs = DOT.splitAsStream(right).toArray(String[]::new);
         for (int i = 0; i < Math.max(mine.length, theirs.length); i++) {
             final int a = i < mine.length ? Integer.parseInt(mine[i]) : 0;
             final int b = i < theirs.length ? Integer.parseInt(theirs[i]) : 0;

@@ -4,6 +4,7 @@ import com.bunq.sdk.exception.BunqException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import lombok.Getter;
 import lombok.Setter;
 import okhttp3.CacheControl;
@@ -12,47 +13,41 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 
 /**
- * A patched copy of {@code com.bunq.sdk.http.BunqRequestBuilder} from
- * {@code com.github.bunq:sdk_java}, sitting in the library's own package so it wins on the
- * classpath.
+ * A patched copy of {@code com.bunq.sdk.http.BunqRequestBuilder}, from {@code com.github.bunq:sdk_java}.
  *
- * <h2>Why it exists</h2>
- * <b>JDA pulls OkHttp 5 and the bunq SDK is written against OkHttp 3.</b> Two things broke, and
- * both are in this one class upstream:
- * <ul>
- *   <li>{@code Request.Builder.delete()} - the no-argument overload - is {@code final} in OkHttp
- *       5, and the SDK's original class overrides exactly that method. That is a
- *       {@code VerifyError} at class load, not a compile error you would notice.</li>
- *   <li>{@code okhttp3.internal.Util} no longer exists, and the original used it.</li>
- * </ul>
- * This version does not override {@code delete()} - it delegates to the superclass - and does not
- * touch OkHttp internals.
+ * It sits in the library's own package so it wins on the classpath.
  *
- * <h2>Where it lives now, and what that changed (steward/109)</h2>
- * It was in {@code discord-bot} until 2026-09-18, where JDA and the SDK genuinely shared a
- * classpath. bunq moved to {@code steward-worker}, and <b>there is no JDA here</b>: measured on
- * 2026-09-18, {@code :steward-worker:dependencies --configuration runtimeClasspath} resolves
- * {@code com.squareup.okhttp3:okhttp:3.14.9}, brought by the SDK itself and by nothing else. So the
- * conflict this class was written for does not exist in this module today.
+ * Why it exists: JDA pulls OkHttp 5 and the bunq SDK is written against OkHttp 3. Two things broke, and both are in
+ * this one class upstream:
  *
- * <p><b>It is kept anyway, deliberately.</b> It is compatible with both majors - every method it
- * overrides is non-final and identically shaped in 3.14.9 - so what it costs is a file and what it
- * buys is that the module does not depend on nothing ever putting OkHttp 5 on this classpath. A
- * shim that only matters under a condition that is currently false is still cheaper than the
- * {@code VerifyError} at class load that its absence produced once.</p>
+ * - {@code Request.Builder.delete()} - the no-argument overload - is {@code final} in OkHttp 5, and the SDK's
+ * original class overrides exactly that method. That is a {@code VerifyError} at class load, not a compile error you
+ * would notice.
  *
- * <p><b>The one behavioural consequence, written down rather than discovered:</b> on OkHttp 3 the
- * inherited no-argument {@code delete()} calls {@code delete(Util.EMPTY_REQUEST)}, whose body is not
- * a {@link BunqRequestBody}, so {@link #method(String, RequestBody)} below throws
- * {@code BunqException}. Nothing in this repository reaches it - {@code BunqGateway} makes exactly
- * four kinds of call (create, get, list, update: POST, GET, PUT) and never a DELETE - but a fifth
- * one that did would fail here rather than at bunq.</p>
+ * - {@code okhttp3.internal.Util} no longer exists, and the original used it.
  *
- * <h2>Rules</h2>
- * <b>Do not delete this file.</b> <b>Re-check it against the SDK's own sources on any bunq SDK or
- * OkHttp bump</b>: it is a copy, so a fix upstream does not reach us, and a change upstream that we
- * do not mirror silently reverts to old behaviour. Diffed against the 1.28.0.6 sources on
- * 2026-08-30.
+ * This version does not override {@code delete()} - it delegates to the superclass - and does not touch OkHttp
+ * internals.
+ *
+ * Where it lives now, and what that changed: bunq lives in {@code steward-worker}, and there is no JDA here:
+ * {@code :steward-worker:dependencies --configuration runtimeClasspath} resolves
+ * {@code com.squareup.okhttp3:okhttp:3.14.9}, brought by the SDK itself and by nothing else. So the conflict this
+ * class was written for does not exist in this module today.
+ *
+ * It is kept anyway, deliberately. It is compatible with both majors - every method it overrides is non-final and
+ * identically shaped in 3.14.9 - so what it costs is a file and what it buys is that the module does not depend on
+ * nothing ever putting OkHttp 5 on this classpath. A shim that only matters under a condition that is currently
+ * false is still cheaper than the {@code VerifyError} at class load that its absence produced once.
+ *
+ * The one behavioural consequence, written down rather than discovered: on OkHttp 3 the inherited no-argument
+ * {@code delete()} calls {@code delete(Util.EMPTY_REQUEST)}, whose body is not a {@link BunqRequestBody}, so
+ * {@link #method(String, RequestBody)} below throws {@code BunqException}. Nothing in this repository reaches it -
+ * {@code BunqGateway} makes exactly four kinds of call (create, get, list, update: POST, GET, PUT) and never a
+ * DELETE - but a fifth one that did would fail here rather than at bunq.
+ *
+ * Rules: Do not delete this file. Re-check it against the SDK's own sources on any bunq SDK or OkHttp bump: it is a
+ * copy, so a fix upstream does not reach us, and a change upstream that we do not mirror silently reverts to old
+ * behaviour.
  */
 @Getter
 @Setter
@@ -70,59 +65,59 @@ public class BunqRequestBuilder extends Request.Builder {
     }
 
     @Override
-    public BunqRequestBuilder url(HttpUrl url) {
+    public BunqRequestBuilder url(final HttpUrl url) {
         this.url = url;
         return (BunqRequestBuilder) super.url(url);
     }
 
     @Override
-    public BunqRequestBuilder method(String method, RequestBody body) {
-        RequestBody bodyToPassToSuper;
-        if (body instanceof BunqRequestBody) {
-            bodyToPassToSuper = ((BunqRequestBody) body).getRequestBody();
+    public BunqRequestBuilder method(final String method, final RequestBody body) {
+        final RequestBody bodyToPassToSuper;
+        if (body instanceof BunqRequestBody bunqRequestBody) {
+            bodyToPassToSuper = bunqRequestBody.getRequestBody();
         } else if (body == null) {
             bodyToPassToSuper = null;
         } else {
             throw new BunqException(ERROR_BODY_IS_OF_UNEXPECTED_INSTANCE);
         }
-        this.method = HttpMethod.createFromMethodString(method.toUpperCase());
+        this.method = HttpMethod.createFromMethodString(method.toUpperCase(Locale.ROOT));
         this.body = (BunqRequestBody) body;
         return (BunqRequestBuilder) super.method(method, bodyToPassToSuper);
     }
 
     @Override
-    public BunqRequestBuilder url(String url) {
+    public BunqRequestBuilder url(final String url) {
         return (BunqRequestBuilder) super.url(url);
     }
 
     @Override
-    public BunqRequestBuilder url(URL url) {
+    public BunqRequestBuilder url(final URL url) {
         return (BunqRequestBuilder) super.url(url);
     }
 
-    private void addToAllHeader(String name, String value) {
-        BunqHeader header = BunqHeader.parseHeaderOrNull(name);
+    private void addToAllHeader(final String name, final String value) {
+        final BunqHeader header = BunqHeader.parseHeaderOrNull(name);
         if (header != null) {
             this.allHeader.add(new BunqBasicHeader(header, value));
         }
     }
 
     @Override
-    public BunqRequestBuilder header(String name, String value) {
+    public BunqRequestBuilder header(final String name, final String value) {
         addToAllHeader(name, value);
         return (BunqRequestBuilder) super.header(name, value);
     }
 
     @Override
-    public BunqRequestBuilder addHeader(String name, String value) {
+    public BunqRequestBuilder addHeader(final String name, final String value) {
         addToAllHeader(name, value);
         return (BunqRequestBuilder) super.addHeader(name, value);
     }
 
     @Override
-    public BunqRequestBuilder removeHeader(String name) {
-        List<BunqBasicHeader> allHeaderToRemove = new ArrayList<>();
-        for (BunqBasicHeader basicHeader : this.allHeader) {
+    public BunqRequestBuilder removeHeader(final String name) {
+        final List<BunqBasicHeader> allHeaderToRemove = new ArrayList<>();
+        for (final BunqBasicHeader basicHeader : this.allHeader) {
             if (basicHeader.getName().equals(name)) {
                 allHeaderToRemove.add(basicHeader);
             }
@@ -132,7 +127,7 @@ public class BunqRequestBuilder extends Request.Builder {
     }
 
     @Override
-    public BunqRequestBuilder cacheControl(CacheControl cacheControl) {
+    public BunqRequestBuilder cacheControl(final CacheControl cacheControl) {
         return (BunqRequestBuilder) super.cacheControl(cacheControl);
     }
 
@@ -147,32 +142,29 @@ public class BunqRequestBuilder extends Request.Builder {
     }
 
     @Override
-    public BunqRequestBuilder post(RequestBody body) {
+    public BunqRequestBuilder post(final RequestBody body) {
         return (BunqRequestBuilder) super.post(body);
     }
 
     @Override
-    public BunqRequestBuilder delete(RequestBody body) {
+    public BunqRequestBuilder delete(final RequestBody body) {
         return (BunqRequestBuilder) super.delete(body);
     }
 
-    // Note: we intentionally do NOT override delete() without parameters because
-    // the method is final in OkHttp5. Callers will use the superclass implementation
-    // which internally delegates to delete(RequestBody) with a null body. If an
-    // empty body is required, use delete(BunqRequestBody.create(...)).
+    // delete() with no parameters is final in OkHttp 5; callers fall back to super, which passes a null body.
 
     @Override
-    public BunqRequestBuilder put(RequestBody body) {
+    public BunqRequestBuilder put(final RequestBody body) {
         return (BunqRequestBuilder) super.put(body);
     }
 
     @Override
-    public BunqRequestBuilder patch(RequestBody body) {
+    public BunqRequestBuilder patch(final RequestBody body) {
         return (BunqRequestBuilder) super.patch(body);
     }
 
     @Override
-    public BunqRequestBuilder tag(Object tag) {
+    public BunqRequestBuilder tag(final Object tag) {
         return (BunqRequestBuilder) super.tag(tag);
     }
 }

@@ -9,19 +9,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * steward/76: {@link ConfigEntry#environmentOverridden()} comes from the
- * {@code <name>.env-overrides.txt} a service writes beside its own config file with
- * {@link EnvOverrideFile#write} - never from re-deriving the {@code NORDTAL_<PREFIX>_<PATH>} naming
- * rule here, which is exactly the second opinion the ticket rejected.
+ * {@link ConfigEntry#environmentOverridden()} comes from the {@code <name>.env-overrides.txt} a service writes.
  *
- * <p>Three states, not two, and this file exists to keep them apart:
- * {@code null} (no service ever reported), {@code true} (this exact path is overridden right now)
- * and {@code false} (a service reported, and this path was not among the overridden ones).</p>
+ * It writes that file beside its own config file with {@link EnvOverrideFile#write} - never from re-deriving the
+ * {@code NORDTAL_<PREFIX>_<PATH>} naming rule here, which this class exists to reject as a second opinion.
+ *
+ * Three states, not two, and this file exists to keep them apart: {@code null} (no service ever reported),
+ * {@code true} (this exact path is overridden right now) and {@code false} (a service reported, and this path was
+ * not among the overridden ones).
  */
 class ConfigFilesEnvOverrideTest {
 
@@ -29,8 +28,7 @@ class ConfigFilesEnvOverrideTest {
     Path directory;
 
     @Test
-    @DisplayName("absent when no service ever wrote a neighbour file - not the same as \"not overridden\"")
-    void absentWhenNoServiceEverReported() throws IOException {
+    void absentWhenNoServiceEverWroteANeighbourFileNotTheSameAsNotOverridden() throws IOException {
         Files.writeString(directory.resolve("access.yml"), "languages: []\n");
 
         final ConfigDocument document = ConfigFiles.read(directory.resolve("access.yml"));
@@ -39,8 +37,7 @@ class ConfigFilesEnvOverrideTest {
     }
 
     @Test
-    @DisplayName("true for exactly the path the neighbour file names")
-    void trueForTheOverriddenPath() throws IOException {
+    void trueForExactlyThePathTheNeighbourFileNames() throws IOException {
         Files.writeString(directory.resolve("access.yml"), "guild-id: '1'\nlanguages:\n- tag: en\n");
         EnvOverrideFile.write(directory.resolve("access.yml"), List.of("languages"));
 
@@ -50,8 +47,7 @@ class ConfigFilesEnvOverrideTest {
     }
 
     @Test
-    @DisplayName("false, not absent, for a path the neighbour file does not name")
-    void falseForAPathTheNeighbourFileDoesNotName() throws IOException {
+    void falseNotAbsentForAPathTheNeighbourFileDoesNotName() throws IOException {
         Files.writeString(directory.resolve("access.yml"), "guild-id: '1'\nlanguages:\n- tag: en\n");
         EnvOverrideFile.write(directory.resolve("access.yml"), List.of("languages"));
 
@@ -61,8 +57,7 @@ class ConfigFilesEnvOverrideTest {
     }
 
     @Test
-    @DisplayName("every entry is false, not absent, when the service reported no overrides at all")
-    void falseForEveryEntryWhenTheReportIsEmpty() throws IOException {
+    void everyEntryIsFalseNotAbsentWhenTheServiceReportedNoOverridesAtAll() throws IOException {
         Files.writeString(directory.resolve("access.yml"), "guild-id: '1'\n");
         EnvOverrideFile.write(directory.resolve("access.yml"), List.of());
 
@@ -72,8 +67,7 @@ class ConfigFilesEnvOverrideTest {
     }
 
     @Test
-    @DisplayName("a dotted path nested under a heading is matched by its full path, not by its leaf key")
-    void nestedPathIsMatchedInFull() throws IOException {
+    void aDottedPathNestedUnderAHeadingIsMatchedByItsFullPathNotByItsLeafKey() throws IOException {
         Files.writeString(directory.resolve("service.yml"), "worker:\n  base-url: http://x\n");
         EnvOverrideFile.write(directory.resolve("service.yml"), List.of("worker.base-url"));
 

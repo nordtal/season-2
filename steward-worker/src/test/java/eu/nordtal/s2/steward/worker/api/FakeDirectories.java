@@ -15,18 +15,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * {@link UpdateDirectory} and {@link AuditDirectory} in a list, for the tests in this package that
- * build a real {@link WorkerApi} without a real PostgreSQL behind it.
+ * {@link UpdateDirectory} and {@link AuditDirectory} in a list.
  *
- * <p>Everything past {@link #recent}/{@link #search} throws: {@link WorkerApiIntegrationTest} and
- * {@link FollowEndsTest} exercise containers, logs and the console, never a write to either table,
- * and a fake that quietly accepted one would be a test that could not tell the difference.
+ * For the tests in this package that build a real {@link WorkerApi} without a real PostgreSQL behind it.
  *
- * <p>{@code eu.nordtal.s2.steward.worker.serve.FakeDirectory} already plays this role for the run
- * loop, but it is package-private there and shaped around claiming and settling rows rather than
- * listing them - reusing it would mean widening its visibility for a listing method it does not
- * have, for two tests in a different package that only need to hand {@link WorkerApi} something
- * that type-checks.</p>
+ * Everything past {@link UpdateDirectory#recent(int)} / {@link AuditDirectory#recent(int)} /
+ * {@link AuditDirectory#search(String, String, int)} throws: {@link WorkerApiIntegrationTest} and
+ * {@link FollowEndsTest} exercise containers, logs and the console, never a write to either table, and a fake that
+ * quietly accepted one would be a test that could not tell the difference.
+ *
+ * {@code eu.nordtal.s2.steward.worker.serve.FakeDirectory} already plays this role for the run loop, but it is
+ * package-private there and shaped around claiming and settling rows rather than listing them - reusing it would
+ * mean widening its visibility for a listing method it does not have, for two tests in a different package that only
+ * need to hand {@link WorkerApi} something that type-checks.
  */
 final class FakeDirectories {
 
@@ -39,101 +40,112 @@ final class FakeDirectories {
                                 (UpdateRequest run) -> run.finished() != null ? run.finished() : run.requested())
                         .reversed())
                 .toList();
-        return new UpdateDirectory() {
-            @Override
-            public UpdateRequest submit(
-                    final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        return new ThrowingUpdateDirectory(sorted);
+    }
 
-            @Override
-            public Optional<UpdateRequest> find(final long id) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+    /** {@link UpdateDirectory#recent(int)} answers a fixed, pre-sorted list; every other method throws. */
+    private static final class ThrowingUpdateDirectory implements UpdateDirectory {
 
-            @Override
-            public List<UpdateRequest> recent(final int limit) {
-                final int clamped = Math.max(1, limit);
-                return sorted.size() > clamped ? sorted.subList(0, clamped) : sorted;
-            }
+        private final List<UpdateRequest> sorted;
 
-            @Override
-            public List<UpdateRequest> since(final long id) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        ThrowingUpdateDirectory(final List<UpdateRequest> sorted) {
+            this.sorted = sorted;
+        }
 
-            @Override
-            public long latestId() {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public UpdateRequest submit(
+                final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public List<UpdateRequest> finishedWithin(final Duration window) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public Optional<UpdateRequest> find(final long id) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public Optional<UpdateRequest> lastSuccessfulBackup(final Duration within) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public List<UpdateRequest> recent(final int limit) {
+            final int clamped = Math.max(1, limit);
+            return sorted.size() > clamped ? sorted.subList(0, clamped) : sorted;
+        }
 
-            @Override
-            public Optional<UpdateRequest> claimNext() {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public List<UpdateRequest> since(final long id) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public Optional<UpdateRequest> finish(final long id, final UpdateStatus status, final String result) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public long latestId() {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public boolean progress(final long id, final String result) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public List<UpdateRequest> finishedWithin(final Duration window) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public Optional<UpdateRequest> startCountdown(final long id, final Duration length) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public Optional<UpdateRequest> lastSuccessfulBackup(final Duration within) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public boolean commitCountdown(final long id) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public Optional<UpdateRequest> claimNext() {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public Optional<UpdateRequest> countingDown() {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public Optional<UpdateRequest> finish(final long id, final UpdateStatus status, final String result) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public Optional<UpdateRequest> running() {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public boolean progress(final long id, final String result) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public Optional<UpdateRequest> cancelCountdown(final String reason) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public Optional<UpdateRequest> startCountdown(final long id, final Duration length) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public Optional<Instant> nextDue() {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
+        @Override
+        public boolean commitCountdown(final long id) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
 
-            @Override
-            public int settleOrphans(final String failed) {
-                throw new UnsupportedOperationException("not exercised by this fake");
-            }
-        };
+        @Override
+        public Optional<UpdateRequest> countingDown() {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
+
+        @Override
+        public Optional<UpdateRequest> running() {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
+
+        @Override
+        public Optional<UpdateRequest> cancelCountdown(final String reason) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
+
+        @Override
+        public Optional<Instant> nextDue() {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
+
+        @Override
+        public int settleOrphans(final String failed) {
+            throw new UnsupportedOperationException("not exercised by this fake");
+        }
     }
 
     /**
-     * Every method throws except {@link AuditDirectory#recent(int)} and {@link
-     * AuditDirectory#search(String, String, int)}, which read {@code rows} - {@code search} filters
-     * by {@code action} exactly the way {@code JdbiAuditDirectory} does, which is the behaviour
-     * {@link ActionsApi} actually relies on.
+     * Every method throws except {@code recent} and {@code search}, which read {@code rows}.
+     *
+     * {@link AuditDirectory#recent(int)} and {@link AuditDirectory#search(String, String, int)} are the two
+     * exceptions. {@code search} filters by {@code action} exactly the way {@code JdbiAuditDirectory} does, which is
+     * the behaviour {@link ActionsApi} actually relies on.
      */
     static AuditDirectory audit(final AuditEntry... rows) {
         final List<AuditEntry> sorted = List.of(rows).stream()

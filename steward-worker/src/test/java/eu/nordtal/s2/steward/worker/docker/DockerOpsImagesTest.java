@@ -18,25 +18,23 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Image drift against a hand-written daemon, for the one case a real daemon on this host cannot be
- * asked to hold still for: a locally built image that never went near a registry (steward/75).
+ * Image drift against a hand-written daemon.
  *
- * <h2>Why this needs a fake daemon and not {@code DockerIntegrationTest}</h2>
- * The bug this file is red against is not "what does dockerd send back" - {@code DockerIntegrationTest}
- * already covers that ground and does it against the real socket. It is "what does {@code DockerOps}
- * do with a shape dockerd sends back on THIS host that the check never expected": Docker Engine
- * 29.8.0 here uses the containerd-backed image store ({@code driver-type: io.containerd.snapshotter.v1},
- * measured 2026-09-16 with {@code docker info}), and under it a locally built, never-pushed image
- * still carries a {@code RepoDigests} entry - one equal to the image's own content id, never
- * confirmed by any registry round trip. {@code steward-ui} and {@code steward-worker} were rebuilt
- * exactly that way on 2026-09-16 and both came back {@code OUTDATED}, the opposite of the truth: they
- * are ahead of the registry, not behind it. A real daemon on this host cannot be asked to hold that
- * shape still across a build; a hand-written one can.
+ * This covers the one case a real daemon on this host cannot be asked to hold still for: a locally built image
+ * that never went near a registry.
+ *
+ * Why this needs a fake daemon and not {@code DockerIntegrationTest}: the bug this file is red against is not "what
+ * does dockerd send back" - {@code DockerIntegrationTest} already covers that ground and does it against the real
+ * socket. It is "what does {@code DockerOps} do with a shape dockerd sends back on THIS host that the check never
+ * expected": Docker Engine's containerd-backed image store ({@code driver-type: io.containerd.snapshotter.v1}) puts
+ * a {@code RepoDigests} entry on a locally built, never-pushed image too - one equal to the image's own content id,
+ * never confirmed by any registry round trip. {@code steward-ui} and {@code steward-worker} rebuilt that way come
+ * back {@code OUTDATED}, the opposite of the truth: they are ahead of the registry, not behind it. A real daemon on
+ * this host cannot be asked to hold that shape still across a build; a hand-written one can.
  */
 class DockerOpsImagesTest {
 
@@ -59,12 +57,8 @@ class DockerOpsImagesTest {
     }
 
     @Test
-    @DisplayName("an image built here and never pushed is not called outdated")
-    void aLocallyBuiltImageIsNotCalledOutdated() throws IOException {
-        // The exact shape measured on this host on 2026-09-16 for ghcr.io/nordtal/steward-ui:latest
-        // after `docker build -t ... .` and `up -d --force-recreate`: RepoDigests carries one entry,
-        // and its digest is the image's own id - not the registry's - because the containerd image
-        // store writes that entry for a build exactly as it does for a pull.
+    void anImageBuiltHereAndNeverPushedIsNotCalledOutdated() throws IOException {
+        // A local build's RepoDigests carries one entry: the image's own id, not the registry's, same field as a pull.
         final String digest = "fe57c8bcb24535442a8abfc1eb070455ddb0918ccc94eeacd1be960a1ac5ea9b";
         final DockerOps ops = ops(request -> {
             if (request.contains("/images/")) {
@@ -72,8 +66,7 @@ class DockerOpsImagesTest {
                         + "\"Identity\":{\"Build\":[{\"Ref\":\"it94gbngf02twhtf4mnkyk7ft\"}]}}";
             }
             if (request.contains("/distribution/")) {
-                // What the registry actually last published - a different digest, because nothing
-                // built on this host was ever pushed to it.
+                // What the registry last published: a different digest, since nothing built locally was pushed.
                 return "{\"Descriptor\":{\"digest\":\"sha256:"
                         + "0000000000000000000000000000000000000000000000000000000000000000\"}}";
             }
@@ -91,8 +84,7 @@ class DockerOpsImagesTest {
     }
 
     @Test
-    @DisplayName("a locally built image is reported LOCAL, not UNKNOWN")
-    void aLocallyBuiltImageIsLocal() throws IOException {
+    void aLocallyBuiltImageIsReportedLocalNotUnknown() throws IOException {
         final String digest = "fe57c8bcb24535442a8abfc1eb070455ddb0918ccc94eeacd1be960a1ac5ea9b";
         final DockerOps ops = ops(request -> {
             if (request.contains("/images/")) {
@@ -112,10 +104,8 @@ class DockerOpsImagesTest {
     }
 
     @Test
-    @DisplayName("a genuinely pulled, current image still comes back UP_TO_DATE")
-    void aPulledCurrentImageIsStillUpToDate() throws IOException {
-        // The fix must not blunt the check that already works: an image with Identity.Pull (never
-        // Identity.Build) and a matching digest is still current.
+    void aGenuinelyPulledCurrentImageStillComesBackUpToDate() throws IOException {
+        // The fix must not blunt the check that already works: a Pull image with a matching digest is still current.
         final String digest = "c36a132e4bfe218c139d1459b70049fe3e4dabf2c28bec2b725da73ce97c2cb4";
         final DockerOps ops = ops(request -> {
             if (request.contains("/images/")) {
@@ -134,10 +124,8 @@ class DockerOpsImagesTest {
     }
 
     @Test
-    @DisplayName("an image whose exact content no longer exists locally is UNKNOWN, not LOCAL")
-    void aVanishedImageIsUnknown() throws IOException {
-        // discord-bot's neighbouring case: the tag was rebuilt locally while the container was only
-        // restarted, so the container's own image id has been garbage-collected and 404s.
+    void anImageWhoseExactContentNoLongerExistsLocallyIsUnknownNotLocal() throws IOException {
+        // The tag rebuilt locally while the container only restarted: the old image id 404s, garbage-collected.
         final DockerOps ops = ops(request -> request.contains("/images/") ? null : "{}");
 
         final DockerOps.ImageCheck check = ops.check("46fa95315f39", "sha256:" + "4".repeat(64));
@@ -163,11 +151,10 @@ class DockerOpsImagesTest {
         final ServerSocketChannel socket = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
         socket.bind(UnixDomainSocketAddress.of(path));
         open.add(socket);
-        server.submit(() -> {
+        final var _ = server.submit(() -> {
             while (!Thread.currentThread().isInterrupted()) {
                 try (SocketChannel client = socket.accept()) {
-                    // Read the request before answering: a channel closed with unread inbound bytes
-                    // sends RST, and the RST throws away the answer just written.
+                    // Read the request first: a channel closed with unread bytes sends RST, which loses the reply.
                     final ByteBuffer buffer = ByteBuffer.allocate(8192);
                     client.read(buffer);
                     final String request = new String(buffer.flip().array(), 0, buffer.limit(), StandardCharsets.UTF_8);

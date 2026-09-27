@@ -7,7 +7,6 @@ import eu.nordtal.s2.common.metric.MetricSample;
 import java.time.Instant;
 import java.util.List;
 import java.util.OptionalDouble;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** The step between "what each container answered" and "what the chart is keyed by". */
@@ -16,8 +15,7 @@ class SamplerFoldTest {
     private static final Instant AT = Instant.parse("2026-09-13T04:45:00Z");
 
     @Test
-    @DisplayName("one container per service is one sample per metric, unchanged")
-    void theOrdinaryCase() {
+    void oneContainerPerServiceIsOneSamplePerMetricUnchanged() {
         final List<MetricSample> samples = Sampler.byService(
                 List.of(
                         new Sampler.Reading("smp", 2_000_000_000L, OptionalDouble.of(42.5)),
@@ -31,11 +29,8 @@ class SamplerFoldTest {
     }
 
     @Test
-    @DisplayName("two containers of one service are one sample, not one of them silently kept")
-    void replicasAreAddedUpRatherThanDropped() {
-        // (subject, metric, resolution, at) is the primary key and record() is ON CONFLICT DO
-        // NOTHING: two rows with the same key mean one of the two numbers vanishes into the
-        // database without a word, and the chart then shows one replica and calls it the service.
+    void twoContainersOfOneServiceAreOneSampleNotOneOfThemSilentlyKept() {
+        // record() is ON CONFLICT DO NOTHING on the primary key, so a duplicate row's number vanishes without a word.
         final List<MetricSample> samples = Sampler.byService(
                 List.of(
                         new Sampler.Reading("smp", 2_000_000_000L, OptionalDouble.of(40.0)),
@@ -48,8 +43,7 @@ class SamplerFoldTest {
     }
 
     @Test
-    @DisplayName("a container with no CPU reading yet gets no CPU sample, rather than a zero")
-    void nothingMeasuredIsNotZero() {
+    void aContainerWithNoCpuReadingYetGetsNoCpuSampleRatherThanAZero() {
         final List<MetricSample> samples =
                 Sampler.byService(List.of(new Sampler.Reading("limbo", 500_000_000L, OptionalDouble.empty())), AT);
 

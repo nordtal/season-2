@@ -11,25 +11,22 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The retention decision, without a disk under it (steward/95, Till's review of 2026-09-18).
+ * The retention decision, without a disk under it.
  *
- * <h2>What Till asked for, in two parts</h2>
- * The first is the grandfather-father-son schedule every backup tool has: keep N daily, M weekly and
- * K monthly copies. The second is his own and is in no standard tool - <i>"in the end one backup a
- * day is left, at most the last of them"</i>, translated: several runs on one day are normal (a
- * manual one beside the nightly), and a few days later only the <b>last</b> of that day survives. The two rules compose in one direction only, which is what most of this file is about:
- * the day is collapsed to its last run <i>first</i>, and the schedule then counts days rather than
- * files. Counting files first would let three runs of one Tuesday eat the whole daily window.
+ * Two parts: the first is the grandfather-father-son schedule every backup tool has: keep N
+ * daily, M weekly and K monthly copies. The second is in no standard tool - "in the end one backup a
+ * day is left, at most the last of them", translated: several runs on one day are normal (a manual one beside the
+ * nightly), and a few days later only the last of that day survives. The two rules compose in one direction only,
+ * which is what most of this file is about: the day is collapsed to its last run first, and the schedule then counts
+ * days rather than files. Counting files first would let three runs of one Tuesday eat the whole daily window.
  *
- * <h2>Why the decision is a pure function and the deleting is not</h2>
- * {@link TarSnapshots#prune} owns a directory, a clock and a list of names that may or may not be
- * archives. What it should delete is arithmetic on timestamps, and arithmetic is where the mistakes
- * are: a sweep that is wrong by one week deletes six months of history on its next run and nobody
- * finds out until a restore. So the arithmetic is here, it is checked against dates written out by
+ * Why the decision is a pure function and the deleting is not: {@link TarSnapshots#prune} owns a directory, a clock
+ * and a list of names that may or may not be archives. What it should delete is arithmetic on timestamps, and
+ * arithmetic is where the mistakes are: a sweep that is wrong by one week deletes six months of history on its next
+ * run and nobody finds out until a restore. So the arithmetic is here, it is checked against dates written out by
  * hand, and {@code TarSnapshots} is left with the files.
  */
 class RetentionTest {
@@ -60,8 +57,7 @@ class RetentionTest {
     }
 
     @Test
-    @DisplayName("a day older than the grace period keeps its last run and loses the others")
-    void oneBackupSurvivesEachSettledDay() {
+    void aDayOlderThanTheGracePeriodKeepsItsLastRunAndLosesTheOthers() {
         final Retention policy = new Retention(30, 0, 0, 3);
         final List<Retention.Dated> threeOnOneDay =
                 List.of(stamp("2026-09-10", "03:00"), stamp("2026-09-10", "11:30"), stamp("2026-09-10", "21:15"));
@@ -69,13 +65,12 @@ class RetentionTest {
         assertEquals(
                 List.of("20260910T030000Z", "20260910T113000Z"),
                 deleted(policy, threeOnOneDay),
-                "the last run of the day is the one that survives - Till's own words, and the one"
+                "the last run of the day is the one that survives, and the one"
                         + " that is likeliest to hold what the earlier ones were taken before");
     }
 
     @Test
-    @DisplayName("today's extra runs are left alone until the grace period is over")
-    void theCollapseWaitsAFewDays() {
+    void todaysExtraRunsAreLeftAloneUntilTheGracePeriodIsOver() {
         final Retention policy = new Retention(30, 0, 0, 3);
         final List<Retention.Dated> today =
                 List.of(stamp("2026-09-16", "03:00"), stamp("2026-09-16", "14:00"), stamp("2026-09-17", "02:00"));
@@ -88,8 +83,7 @@ class RetentionTest {
     }
 
     @Test
-    @DisplayName("the newest days survive in full, and the schedule counts days rather than files")
-    void theDailyWindowIsDays() {
+    void theNewestDaysSurviveInFullAndTheScheduleCountsDaysRatherThanFiles() {
         final Retention policy = new Retention(7, 0, 0, 0);
         final List<Retention.Dated> all = new ArrayList<>(nightly(10));
         // Two more runs on the same day, which a file-counting window would spend a whole day on.
@@ -108,15 +102,12 @@ class RetentionTest {
     }
 
     @Test
-    @DisplayName("one backup a week survives past the daily window, for as many weeks as asked")
-    void theWeeklyWindowKeepsOnePerWeek() {
+    void oneBackupAWeekSurvivesPastTheDailyWindowForAsManyWeeksAsAsked() {
         // Two daily, three weekly: everything older than two days is judged by its week.
         final Retention policy = new Retention(2, 3, 0, 0);
         final List<String> gone = deleted(policy, nightly(30));
 
-        // 2026-09-17 is a Thursday, so the ISO weeks in play start on the 14th, 7th, Aug 31 and
-        // Aug 24. The newest day of each of the three newest weeks survives; the fourth week does
-        // not, which is what "three" means.
+        // The newest day of each of the three newest ISO weeks survives; the fourth week does not - that is "three".
         assertTrue(gone.stream().noneMatch(name -> name.startsWith("20260916")), "yesterday");
         assertTrue(gone.stream().noneMatch(name -> name.startsWith("20260915")), "the day before");
         assertTrue(
@@ -131,8 +122,7 @@ class RetentionTest {
     }
 
     @Test
-    @DisplayName("one backup a month survives past the weekly window")
-    void theMonthlyWindowKeepsOnePerMonth() {
+    void oneBackupAMonthSurvivesPastTheWeeklyWindow() {
         final Retention policy = new Retention(1, 1, 3, 0);
         final List<Retention.Dated> all = new ArrayList<>();
         for (final String day : List.of(
@@ -151,10 +141,8 @@ class RetentionTest {
     }
 
     @Test
-    @DisplayName("a policy that would keep nothing is refused, not obeyed")
-    void keepingNothingIsRefused() {
-        // The likeliest way to arrive at all-zero is an unset config read as 0, and obeying it
-        // deletes every backup there is. Same argument the old flat `keep` made, one field wider.
+    void aPolicyThatWouldKeepNothingIsRefusedNotObeyed() {
+        // The likeliest way to arrive at all-zero is an unset config read as 0, and obeying it deletes every backup.
         assertThrows(IllegalArgumentException.class, () -> new Retention(0, 0, 0, 3));
         assertThrows(IllegalArgumentException.class, () -> new Retention(-1, 2, 2, 3));
         assertThrows(IllegalArgumentException.class, () -> new Retention(2, 2, 2, -1));

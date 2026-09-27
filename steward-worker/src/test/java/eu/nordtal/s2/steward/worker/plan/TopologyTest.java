@@ -3,12 +3,12 @@ package eu.nordtal.s2.steward.worker.plan;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.Platform;
+import eu.nordtal.s2.steward.worker.config.BackupSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.io.IOException;
 import java.io.Reader;
@@ -20,24 +20,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.yaml.snakeyaml.Yaml;
 
 /**
- * {@link Topology} and {@code compose.yml} are two copies of one fact, and this makes the second
- * copy fail loudly instead of quietly. It reads the real compose file rather than a fixture,
- * because a fixture would be a third copy.
+ * Makes the second copy of a fact {@link Topology} and {@code compose.yml} share fail loudly instead of quietly.
+ *
+ * It reads the real compose file rather than a fixture, because a fixture would be a third copy.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyTest {
 
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+
     private final Map<String, Object> services = readComposeServices();
 
     @Test
-    @DisplayName("every service in the topology is a service in compose.yml, with the same server kind")
-    void servicesMatch() {
+    void everyServiceInTheTopologyIsAServiceInComposeYmlWithTheSameServerKind() {
         for (final Topology.Service service : Topology.SERVICES) {
             @SuppressWarnings("unchecked")
             final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
@@ -55,12 +56,8 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("every plugin the topology gives a service is one that service's guard asks for")
-    void theEntrypointGuardAsksForEveryPlugin() {
-        // The entrypoint refuses to start on a plugins folder missing any of these. Counts rather
-        // than names, because a third-party artefact id is not its filename prefix (`packetevents`
-        // resolves to packetevents-spigot-*.jar); what has to hold is that adding a plugin to a
-        // service here cannot be forgotten there.
+    void everyPluginTheTopologyGivesAServiceIsOneThatServicesGuardAsksFor() {
+        // Counts, not names: an artefact id is not its filename prefix, so this only checks the plugin is asked for.
         for (final Topology.Service service : Topology.SERVICES) {
             @SuppressWarnings("unchecked")
             final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
@@ -75,7 +72,8 @@ class TopologyTest {
                             + " back to 'the folder is not empty' - the check that let an SMP with no season"
                             + " on it start and report healthy");
 
-            final List<String> expected = List.of(defaultOf(String.valueOf(raw)).split("\\s+"));
+            final List<String> expected =
+                    WHITESPACE.splitAsStream(defaultOf(String.valueOf(raw))).toList();
             assertEquals(
                     service.guarded().size(),
                     expected.size(),
@@ -90,11 +88,8 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("an artefact that may have no build for this version is not one the guard demands")
-    void anOptionalPluginIsNotGuarded() {
-        // The reason Service#optional exists: EXPECTED_PLUGINS lists jars the container refuses to
-        // start without, so putting an artefact there whose publisher has not built for this
-        // Minecraft version hands somebody else's release schedule the power to keep the SMP down.
+    void anArtefactThatMayHaveNoBuildForThisVersionIsNotOneTheGuardDemands() {
+        // Service#optional exists so an artefact with no build for this version cannot keep the SMP down.
         final Topology.Service smp = Topology.SERVICES.stream()
                 .filter(service -> service.name().equals(Topology.SMP))
                 .findFirst()
@@ -110,8 +105,7 @@ class TopologyTest {
                         + " not start, every start, for a reason nobody here can act on.");
         assertFalse(smp.guarded().contains(Topology.CORE_PROTECT), "guarded() ignores optional()");
 
-        // Absent from the string an operator would edit, not merely from a count: `${file%-*.jar}`
-        // on CoreProtect-CE-24.0.jar is CoreProtect-CE, which is what a guard entry would look like.
+        // Checked against the guard string itself, not just a count: `${file%-*.jar}` is what an entry would read.
         @SuppressWarnings("unchecked")
         final Map<String, Object> environment =
                 (Map<String, Object>) ((Map<String, Object>) services.get(Topology.SMP)).get("environment");
@@ -122,28 +116,20 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("voice chat is one UDP port, on the guard, and no service of the network publishes one")
-    void voiceChatIsOneUdpPortOnTheGuard() {
-        // With Simple Voice Chat's Velocity plugin the proxy detects each backend's voice address
-        // itself and forwards over the internal network, so the outside world needs exactly one UDP
-        // port. Since season-2-ops/162 that port is published by the GUARD and no longer by the
-        // proxy: caddy owns 25565 in both protocols and hands each on to whichever proxy is
-        // answering. A service of the network that grows a port again takes it away from the guard.
+    void voiceChatIsOneUdpPortOnTheGuardAndNoServiceOfTheNetworkPublishesOne() {
+        // The proxy detects each backend's voice address and forwards it, so only the guard needs to publish it.
         for (final Topology.Service service : Topology.SERVICES) {
             assertEquals(
                     List.of(),
                     ports(service.name()),
                     service.name() + " publishes "
-                            + ports(service.name()) + ". Since the guard (season-2-ops/162) nothing in the"
+                            + ports(service.name()) + ". Nothing in the"
                             + " network is reachable from outside except through caddy - a port here is"
                             + " either a leftover or a second, disagreeing arrangement, and it takes the"
                             + " number away from the guard that needs it.");
         }
 
-        // "${PROXY_BIND:-0.0.0.0}:25565:25565/udp" on the guard, and the two 25565 are the point:
-        // voicechat-proxy.properties ships port: -1, so the plugin binds whatever port Velocity
-        // bound INSIDE the container and hands the CLIENT that same number. A remapped port answers
-        // the handshake and then times out every packet after it.
+        // port: -1 binds whatever port Velocity bound and hands the client that number; a remap breaks it.
         final String voice = udpPorts(GUARD).stream()
                 .filter(port -> port.contains(":25565:25565/udp"))
                 .findFirst()
@@ -153,8 +139,7 @@ class TopologyTest {
         final List<String> parts = fields(voice.substring(0, voice.length() - "/udp".length()));
         assertEquals(3, parts.size(), voice + " is not bind:host:container");
 
-        // The voice endpoint is the Minecraft endpoint with a different protocol; if the two ever
-        // separate, the client is told to talk to a port compose does not publish.
+        // The voice endpoint is the Minecraft endpoint under a different protocol; separated, the client hears no port.
         final String game = ports(GUARD).stream()
                 .filter(port -> !port.endsWith("/udp") && port.endsWith(":25565"))
                 .findFirst()
@@ -175,19 +160,15 @@ class TopologyTest {
     }
 
     /**
-     * The guard in front of 25565 (season-2-ops/162), which is a compose service and deliberately
-     * NOT a {@link Topology} one: a run stops what Topology names, and a guard that restarted with
-     * the proxy would have moved the dead port rather than closed it.
+     * The guard in front of 25565, deliberately not a {@link Topology} service.
+     *
+     * A run stops only what Topology names; a guard that restarted with the proxy would have moved the dead port.
      */
     private static final String GUARD = "caddy";
 
     @Test
-    @DisplayName("the guard prefers the live proxy and falls back to the standby")
-    void theGuardFallsBackToTheStandby() {
-        // The whole of what this ticket bought, in the one file that decides it. Run 73 left 25565
-        // dead for 26 seconds; the route below is why run 87 answered 349 of 349 pings through the
-        // same restart. `first` and the ORDER of the two upstreams are the rule: the standby is
-        // only ever the answer when the live proxy does not take the connection.
+    void theGuardPrefersTheLiveProxyAndFallsBackToTheStandby() {
+        // `first` and the order of the upstreams are the rule: the standby answers only when the live proxy refuses.
         final String caddyfile = configContent("caddyfile");
         assertTrue(
                 caddyfile.contains("layer4 {"),
@@ -222,11 +203,8 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("the proxy runs voice chat's proxy half, and it is not one the proxy refuses to start without")
-    void theProxyVoicePluginIsOptional() {
-        // Service#optional matters most here, because this container is the network:
-        // voicechat-velocity is resolved from a pre-release, and guarding on it would turn its next
-        // bad version into a proxy that will not start.
+    void theProxyRunsVoiceChatsProxyHalfAndItIsNotOneTheProxyRefusesToStartWithout() {
+        // voicechat-velocity is a pre-release; guarding on it lets its next bad build stop the proxy from starting.
         final Topology.Service proxy = Topology.SERVICES.stream()
                 .filter(service -> service.name().equals(Topology.PROXY))
                 .findFirst()
@@ -249,10 +227,8 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("neither backend refuses to start over a missing voice chat jar")
-    void voiceChatIsOptionalOnTheBackends() {
-        // Voice chat needs a client mod, so a missing jar costs a quiet evening while a guard entry
-        // for it costs the server.
+    void neitherBackendRefusesToStartOverAMissingVoiceChatJar() {
+        // Voice chat needs a client mod, so a missing jar costs a quiet evening while a guard entry costs the server.
         for (final String name : List.of(Topology.SMP, Topology.HUNGER_GAMES)) {
             final Topology.Service service = Topology.SERVICES.stream()
                     .filter(candidate -> candidate.name().equals(name))
@@ -265,8 +241,7 @@ class TopologyTest {
             @SuppressWarnings("unchecked")
             final Map<String, Object> environment =
                     (Map<String, Object>) ((Map<String, Object>) services.get(name)).get("environment");
-            // `${file%-*.jar}` on voicechat-bukkit-2.6.23.jar is voicechat-bukkit, which is what a
-            // guard entry would look like.
+            // `${file%-*.jar}` on the voicechat jar is what a guard entry would look like.
             final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
             assertFalse(
                     guard.toLowerCase(java.util.Locale.ROOT).contains("voicechat"),
@@ -275,13 +250,8 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("the waiting room has no voice chat, and that is how it stays silent")
-    void theLimboHasNoVoice() {
-        // season-2-ops/141. Till asked on 2026-09-20 that neither voice chat nor text chat work on
-        // the limbos at all. Text chat is the limbo plugin's own doing; voice is this
-        // line and nothing else - Simple Voice Chat needs its Bukkit plugin on the server the
-        // player is standing on, and the waiting room has never had it. Written down as a rule
-        // rather than left as an absence, because an absence is what somebody adds a jar to.
+    void theWaitingRoomHasNoVoiceChatAndThatIsHowItStaysSilent() {
+        // Simple Voice Chat needs its Bukkit plugin on the server a player stands on; the limbo has never had it.
         final Topology.Service limbo = Topology.SERVICES.stream()
                 .filter(candidate -> candidate.name().equals(Topology.LIMBO))
                 .findFirst()
@@ -307,36 +277,9 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("one player number, on the proxy and on every Paper backend")
-    void oneNumberLimitsTheNetwork() {
-        // One number, NETWORK_MAX_PLAYERS, everywhere. A backend's own limit is what every screen on
-        // that backend reads - Bukkit.getMaxPlayers() is what the tab list shows - so a second number
-        // set out of reach still contradicts the browser. Admins past a full network are admitted by
-        // the plugins themselves; see common's FullServerAdmission.
-        final List<String> limits = new java.util.ArrayList<>();
-        for (final Topology.Service service : Topology.SERVICES) {
-            if (service.kind() != Topology.Kind.PAPER) {
-                continue;
-            }
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
-
-            assertNull(
-                    environment.get("BACKEND_MAX_PLAYERS"),
-                    service.name() + " sets"
-                            + " BACKEND_MAX_PLAYERS again. The entrypoint no longer reads it, so this is"
-                            + " either dead or - worse - a second player number, which is what made a"
-                            + " backend advertise 3/1000 under a browser promising 500.");
-
-            final Object raw = environment.get("MAX_PLAYERS");
-            assertNotNull(
-                    raw,
-                    service.name() + " sets no MAX_PLAYERS, so it keeps Paper's default"
-                            + " of 20 and refuses the 21st player after the login gate");
-            limits.add(String.valueOf(raw));
-        }
+    void onePlayerNumberOnTheProxyAndOnEveryPaperBackend() {
+        // Bukkit.getMaxPlayers() is what the tab list shows, so a number set elsewhere still contradicts the browser.
+        final List<String> limits = paperMaxPlayerLimits();
         assertEquals(
                 1,
                 new LinkedHashSet<>(limits).size(),
@@ -372,9 +315,39 @@ class TopologyTest {
                         + ". .env.example, deploy/README.md and NetworkSpec all name it.");
     }
 
+    /** The MAX_PLAYERS value of every Paper backend, asserting BACKEND_MAX_PLAYERS is never set again. */
+    private List<String> paperMaxPlayerLimits() {
+        final List<String> limits = new java.util.ArrayList<>();
+        for (final Topology.Service service : Topology.SERVICES) {
+            if (service.kind() != Topology.Kind.PAPER) {
+                continue;
+            }
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
+
+            assertNull(
+                    environment.get("BACKEND_MAX_PLAYERS"),
+                    service.name() + " sets"
+                            + " BACKEND_MAX_PLAYERS again. The entrypoint no longer reads it, so this is"
+                            + " either dead or - worse - a second player number, which is what made a"
+                            + " backend advertise 3/1000 under a browser promising 500.");
+
+            final Object raw = environment.get("MAX_PLAYERS");
+            assertNotNull(
+                    raw,
+                    service.name() + " sets no MAX_PLAYERS, so it keeps Paper's default"
+                            + " of 20 and refuses the 21st player after the login gate");
+            limits.add(String.valueOf(raw));
+        }
+        return limits;
+    }
+
     /**
-     * A {@code bind:host:container} mapping split on the colons that separate it - not on the ones
-     * inside a {@code ${VAR:-default}}, of which every field here has one.
+     * Splits a {@code bind:host:container} mapping on its separating colons.
+     *
+     * Not on the colons inside a {@code ${VAR:-default}}, of which every field here has one.
      */
     private static List<String> fields(final String mapping) {
         final List<String> parts = new java.util.ArrayList<>();
@@ -406,11 +379,8 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("the server version in compose.yml is the one :common declares, as a literal")
-    void oneSourceForThePlatformVersion() {
-        // A platform version must not be settable from .env: it would point the whole network at a
-        // Minecraft nothing in this repository was compiled for. The literal is asserted rather than
-        // merely required to exist, because a `${…:-26.2}` would pass a shape check.
+    void theServerVersionInComposeYmlIsTheOneCommonDeclaresAsALiteral() {
+        // The literal is asserted, not merely required to exist, because a `${...:-26.2}` would pass a shape check.
         for (final Topology.Service service : Topology.SERVICES) {
             @SuppressWarnings("unchecked")
             final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
@@ -423,8 +393,7 @@ class TopologyTest {
                     version,
                     service.name() + " sets no SERVER_VERSION, so its entrypoint" + " cannot name the jar it runs");
 
-            // Paper is an exact Minecraft version and the proxy is Fill's name for Velocity's
-            // major - the asymmetry is Fill's own and Platform explains it.
+            // Paper is an exact Minecraft version and the proxy is Fill's name for Velocity's major; see Platform.
             final String expected =
                     "velocity".equals(service.kind().fillProject()) ? Platform.VELOCITY_FAMILY : Platform.MINECRAFT;
             assertEquals(
@@ -436,7 +405,7 @@ class TopologyTest {
                             + " against; a deployment where they differ loads no plugins.");
         }
 
-        // Nothing feeds steward-worker a version: it reads Platform directly.
+        // steward-worker reads Platform directly, so nothing here should feed it a version.
         @SuppressWarnings("unchecked")
         final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
         @SuppressWarnings("unchecked")
@@ -455,14 +424,8 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("compose.yml does not fetch plugins any more - two owners is one too many")
-    void pluginOwnershipStaysWithTheWorker() {
-        // SEASON_PLUGINS and EXTRA_PLUGIN_URLS must stay removed: entrypoint.sh would fetch
-        // `<module>-$SEASON_VERSION.jar` and delete every other version by prefix, so a restart with
-        // a stale .env deletes exactly the jar the worker just installed.
-        //
-        // PACK_URL and PACK_SHA1 for a different reason: a jcore environment override wins over the
-        // file and is never written back, so the worker would write a new sha1 nothing reads.
+    void composeYmlDoesNotFetchPluginsAnyMoreTwoOwnersIsOneTooMany() {
+        // entrypoint.sh deletes every other plugin version by prefix; a jcore PACK_SHA1 override is never written back.
         for (final String forbidden :
                 List.of("SEASON_PLUGINS", "EXTRA_PLUGIN_URLS", "NORDTAL_PROXY_PACK_URL", "NORDTAL_PROXY_PACK_SHA1")) {
             services.forEach((name, definition) -> {
@@ -480,8 +443,7 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("every service the topology knows has its volume mounted into steward-worker")
-    void theWorkerCanSeeEveryServer() {
+    void everyServiceTheTopologyKnowsHasItsVolumeMountedIntoStewardWorker() {
         @SuppressWarnings("unchecked")
         final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
         assertNotNull(worker, "compose.yml has no steward-worker service");
@@ -498,577 +460,17 @@ class TopologyTest {
 
     /**
      * The volumes {@code backup.volumes} actually names, asked of the spec rather than typed here.
-     * season-2-ops/137 took the proxy's and the limbo's out of it, and a second list of names in a
-     * test is a second decision nobody would remember to change.
+     *
+     * A second list of names in a test would be a second decision nobody would remember to change.
      */
     private static final Set<String> BACKED_UP = Set.copyOf(defaults().backup().volumes());
-
-    @Test
-    @DisplayName("every server's plugins/ is the same directory for the server and for the worker")
-    void thePluginDirectoryIsOneDirectory() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
-        final List<String> workerMounts = mountsOf(worker);
-
-        for (final Topology.Service service : Topology.SERVICES) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> definition = (Map<String, Object>) services.get(service.name());
-            assertNotNull(definition, "compose.yml has no " + service.name() + " service");
-
-            final String onTheServer = mountsOf(definition).stream()
-                    .filter(mount -> mount.endsWith(":/data/plugins"))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError(service.name() + " mounts nothing onto"
-                            + " /data/plugins. Since 2026-09-05 plugins/ is separate from the"
-                            + " server's own volume; without this line the server reads an empty"
-                            + " folder and the entrypoint stops the container."));
-
-            final String onTheWorker = workerMounts.stream()
-                    .filter(mount -> mount.endsWith(":/volumes/" + service.name() + "/plugins"))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError("steward-worker does not mount "
-                            + service.name() + "'s plugins/. It would then install into one place"
-                            + " while the server reads another - and nothing would say so:"
-                            + " `apply` reports success, the jars are on disk, and no server runs"
-                            + " a single one of them."));
-
-            // The same source, expression for expression: a variable spelt differently in the two
-            // places, or one side copying the default, is a silent split.
-            assertEquals(
-                    sourceOf(onTheServer),
-                    sourceOf(onTheWorker),
-                    service.name() + ": the server and steward-worker are pointed at two different"
-                            + " plugin sources");
-
-            // AND THE BACKUP READS THE SAME SOURCE - WHERE THERE IS A BACKUP AT ALL. It used to
-            // name the default volume outright while the other two carried the variable, so a
-            // deployment that set one of them archived a volume nothing ran from - an archive that
-            // restores cleanly and restores the wrong thing, discovered on the day it is needed.
-            //
-            // WHETHER a plugins/ volume is saved is backup.volumes' decision and not this test's,
-            // which is why the question is asked of the spec rather than of a list of names here
-            // (season-2-ops/137 took proxy and limbo out of it). What this holds either way is the
-            // sentence above: saved or not, the backup must never read a different directory than
-            // the server runs from.
-            final String backupVolume = "nordtal-s2_mc-" + service.name() + "-plugins";
-            final Optional<String> forTheBackup = workerMounts.stream()
-                    .filter(mount -> mount.endsWith(":/backup-sources/" + backupVolume + ":ro"))
-                    .findFirst();
-            if (BACKED_UP.contains(backupVolume)) {
-                assertTrue(
-                        forTheBackup.isPresent(),
-                        "backup.volumes lists " + backupVolume
-                                + " and steward-worker does not mount it, so it is not saved");
-                // `:ro` is a third field; sourceOf reads up to the destination, so drop it first.
-                final String mount = forTheBackup.orElseThrow();
-                assertEquals(
-                        sourceOf(onTheServer),
-                        sourceOf(mount.substring(0, mount.length() - ":ro".length())),
-                        service.name() + ": the backup reads a different plugin source than the" + " server runs from");
-            } else {
-                assertTrue(
-                        forTheBackup.isEmpty(),
-                        backupVolume + " is mounted for the backup and"
-                                + " backup.volumes does not list it - it would be mounted and never saved,"
-                                + " which is the quiet half of season-2-ops/137");
-            }
-
-            // The default has to be a PATH UNDER NORDTAL_DIR, and this assertion is the exact
-            // opposite of the one that stood here until 2026-09-19 (season-2-ops/124). It read:
-            // "The default has to be a VOLUME NAME, never a path: a path under a directory a
-            // deployment checks out is deleted the next time it is checked out, taking every
-            // hand-edited config.yml, milestones.yml and pack.yml with it (finding 151)."
-            //
-            // THE CHECKOUT THAT DELETED THINGS WAS ARCANE'S, AND ARCANE WAS REMOVED ON 2026-09-15.
-            // Nothing on the host checks this repository out any more; compose.yml arrives inside
-            // steward-deployer's image. What replaced Arcane's file browser is SFTP, which reads a
-            // directory and cannot see into a Docker volume at all - so the named volume became
-            // the thing that puts a hand-edited config out of reach, and the rule turned over.
-            //
-            // IT HAS TO GO THROUGH NORDTAL_DIR rather than merely containing a slash, because a
-            // relative path would be worse than either: steward-deployer runs compose from /app
-            // inside its own image, so `./plugins` there is a directory in the image and not on
-            // the host. Docker still tells a bind from a volume by the shape of the string alone.
-            final String fallback = defaultOf(sourceOf(onTheServer));
-            assertTrue(
-                    fallback.startsWith("${NORDTAL_DIR"),
-                    service.name() + "'s plugins/ defaults to '" + fallback + "', which does not"
-                            + " hang off NORDTAL_DIR. Production sets none of these variables, so"
-                            + " that default is what the host gets - and the installation is a"
-                            + " directory now, so the default has to be one: an absolute path,"
-                            + " built from the one variable deploy/nordtal.sh writes.");
-            assertTrue(
-                    fallback.contains("/"),
-                    service.name() + "'s plugins/ defaults to '" + fallback + "', which Docker"
-                            + " reads as a VOLUME NAME and not as a path - anything without a `/`"
-                            + " in it is a volume. Setting one of these variables to a name is"
-                            + " still the way back (deploy/dev.env.example does exactly that); the"
-                            + " default is not.");
-        }
-    }
-
-    @Test
-    @DisplayName("the configs the interface shows are the configs the services actually read")
-    void theInterfaceShowsTheRealConfigs() {
-        // §10a.6: every configuration in the stack is a form in the interface, and saving one IS
-        // the reload. That only holds if the file that is written is the file the service reads.
-        // The failure this guards is the quiet one: a volume spelt differently on this side shows
-        // an operator a form, accepts a change, reports success, and changes nothing anywhere -
-        // the same shape as the plugins split above, one floor up.
-        //
-        // THE MOUNTS ARE ON steward-worker SINCE 2026-09-14, not on steward-ui. Every config jcore
-        // writes is 0600 root:root and steward-ui is the one service that is not root, so it could
-        // read none of them; the interface now proxies to the worker. What this test asserts is
-        // unchanged - only which service has to carry the line.
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> editor = (Map<String, Object>) services.get("steward-worker");
-        assertNotNull(editor, "compose.yml has no steward-worker service");
-        final List<String> uiMounts = mountsOf(editor);
-
-        // And steward-ui must NOT have them back. A second copy of these seven lines would put the
-        // stack's whole configuration - the Postgres password, the Discord token - back inside the
-        // container that faces the internet, and nothing else would notice.
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> ui = (Map<String, Object>) services.get("steward-ui");
-        assertNotNull(ui, "compose.yml has no steward-ui service");
-        assertTrue(
-                mountsOf(ui).stream().noneMatch(mount -> mount.contains(":/configs/")),
-                "steward-ui mounts the stack's configuration again. It runs as uid 10001 and every"
-                        + " one of those files is 0600 root:root, so it can read none of them - and"
-                        + " database.yml holds the Postgres password.");
-
-        // The four Paper servers, under the name the interface shows as the service a file belongs
-        // to - which is the compose service name, and has to be.
-        for (final Topology.Service service : Topology.SERVICES) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> definition = (Map<String, Object>) services.get(service.name());
-            final String onTheServer = mountsOf(definition).stream()
-                    .filter(mount -> mount.endsWith(":/data/plugins"))
-                    .findFirst()
-                    .orElseThrow();
-            final String onTheInterface = uiMounts.stream()
-                    .filter(mount -> mount.endsWith(":/configs/" + service.name()))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError("steward-worker mounts nothing at"
-                            + " /configs/" + service.name() + ", so that server's config.yml is in"
-                            + " no form at all."
-                            + " A volume that is not mounted is not an error to the page - it lists"
-                            + " what it finds - so this is invisible from the browser."));
-
-            assertEquals(
-                    sourceOf(onTheServer),
-                    sourceOf(onTheInterface),
-                    service.name() + ": the interface edits one directory and the server reads"
-                            + " another. Saving would report success and change nothing.");
-
-            assertFalse(
-                    onTheInterface.endsWith(":ro"),
-                    service.name() + "'s config is mounted read-only into steward-worker, so the form"
-                            + " is drawn and the save fails. Till's decision on 2026-09-13 was that"
-                            + " every config in the stack is editable from the interface.");
-        }
-
-        // The three services whose config volume has no second owner. Their own service is the
-        // directory name, because that is what ConfigLocation#service reports to the browser.
-        for (final String each : List.of("steward-worker", "discord-bot", "steward-ui")) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> owner = (Map<String, Object>) services.get(each);
-            assertNotNull(owner, "compose.yml has no " + each + " service");
-            final String onTheOwner = mountsOf(owner).stream()
-                    .filter(mount -> mount.endsWith(":/app/config"))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError(each + " mounts nothing at /app/config"));
-            final String onTheInterface = uiMounts.stream()
-                    .filter(mount -> mount.endsWith(":/configs/" + each))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError("steward-worker mounts nothing at"
-                            + " /configs/" + each + ", so that service has no form in the"
-                            + " interface"));
-            assertEquals(
-                    sourceOf(onTheOwner),
-                    sourceOf(onTheInterface),
-                    each + ": the interface edits one volume and the service reads another");
-        }
-    }
-
-    /** The host side of a compose mount - everything before the last colon-separated field pair. */
-    private static String sourceOf(final String mount) {
-        final int split = mount.lastIndexOf(':');
-        return mount.substring(0, split);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<String> mountsOf(final Map<String, Object> service) {
-        final Object volumes = service.get("volumes");
-        assertNotNull(volumes, "service has no volumes block");
-        return ((List<Object>) volumes).stream().map(String::valueOf).toList();
-    }
-
-    @Test
-    @DisplayName("the local env file answers every variable compose.yml requires")
-    void theLocalEnvFileIsComplete() throws IOException {
-        // Compose interpolates the whole file before it filters by profile, so one `${X:?}` with no
-        // value stops the local stack before an image is pulled - even for a service the local
-        // selection never starts. Hence the obvious placeholders in the example file.
-        //
-        // COMMENT LINES ARE NOT SCANNED, and that is the point rather than a convenience. Compose
-        // does not interpolate a comment, so a `${...:?}` written in one can never stop a start -
-        // and this test claims to find the variables that would. It read the whole file until
-        // 2026-09-17, when steward/102's explanation of the inode trap used `${X:?}` as a
-        // placeholder in prose and turned CI red over a variable named X that nothing requires.
-        // The env side was already filtered this way; only the compose side was not, and that
-        // asymmetry was the defect. The cost is that a `#` opening an inline trailing comment is
-        // still scanned - no line in this file does that, and narrowing it further would mean
-        // parsing YAML quoting rules to find a false positive nobody has had.
-        final String compose = Files.readString(findUpwards("compose.yml"), StandardCharsets.UTF_8)
-                .lines()
-                .filter(line -> !line.strip().startsWith("#"))
-                .collect(java.util.stream.Collectors.joining("\n"));
-        final String env = Files.readString(findUpwards("deploy/dev.env.example"), StandardCharsets.UTF_8);
-
-        final java.util.Set<String> defined = env.lines()
-                .map(String::strip)
-                .filter(line -> !line.startsWith("#"))
-                .filter(line -> line.contains("="))
-                .map(line -> line.substring(0, line.indexOf('=')))
-                .collect(java.util.stream.Collectors.toSet());
-
-        final java.util.regex.Matcher required =
-                java.util.regex.Pattern.compile("\\$\\{([A-Z0-9_]+):\\?").matcher(compose);
-        final List<String> missing = new java.util.ArrayList<>();
-        while (required.find()) {
-            if (!defined.contains(required.group(1))) {
-                missing.add(required.group(1));
-            }
-        }
-
-        assertEquals(
-                List.of(),
-                missing.stream().distinct().sorted().toList(),
-                "deploy/dev.env.example does not answer every required variable in compose.yml."
-                        + " `deploy/dev up` would fail on the first of them, naming one variable"
-                        + " and no others, however many are missing.");
-    }
-
-    @Test
-    @DisplayName("every service name the worker looks up is a service compose.yml defines")
-    void everyNameTheWorkerLooksUpExists() {
-        // THIS IS THE TEST THAT WAS MISSING ON 2026-09-11. Topology named the bot `discord-bot`
-        // and compose.yml called the service `bot`, so the container runtime - which is keyed by
-        // compose's service names - never listed it. UpdateRun#stop cannot stop a service it
-        // cannot find, and refusing to install into something still running is correct, so every
-        // /update ended FAILED with "NOTHING WAS INSTALLED" after taking the whole network down
-        // and putting it back. Nothing in the build said a word: the two checks below this one
-        // covered the bot by the literal "bot", which is how the drift survived them.
-        //
-        // The worker is deliberately in this list. It never stops itself, but it does look itself
-        // up - a run reads the runtime before it does anything - and its own image note names it.
-        final List<String> asked = new java.util.ArrayList<>();
-        Topology.SERVICES.forEach(service -> asked.add(service.name()));
-        asked.addAll(Topology.STANDALONE_JARS);
-
-        for (final String name : asked.stream().distinct().toList()) {
-            assertNotNull(
-                    services.get(name),
-                    "Topology looks the service name '" + name + "' up"
-                            + " in the container runtime, but compose.yml defines no service called that."
-                            + " The runtime is keyed by compose's own service names, so this one can never"
-                            + " be found - and a service that cannot be found cannot be stopped, which"
-                            + " fails the entire update run rather than just that line.");
-        }
-    }
-
-    @Test
-    @DisplayName("the bot's and the worker's own volumes are mounted too, or neither could be updated")
-    void theWorkerCanSeeTheTwoStandaloneJars() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
-        final String mounts = String.valueOf(worker.get("volumes"));
-
-        for (final String artifact : Topology.STANDALONE_JARS) {
-            assertTrue(
-                    mounts.contains("/volumes/" + artifact),
-                    "the worker does not mount /volumes/" + artifact + ", so it could never move"
-                            + " that jar - which is the whole reason both stopped being images");
-        }
-    }
-
-    @Test
-    @DisplayName("the worker is in every profile selection, because everything else depends on it")
-    void theWorkerHasNoProfile() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
-        assertFalse(
-                worker.containsKey("profiles"),
-                "the worker has a profile again. It applies the schema and answers /update, so a"
-                        + " selection without it is a stack that cannot correctly start.");
-        assertEquals(
-                List.of("serve"),
-                worker.get("command"),
-                "the compose service must run `serve`; every writing mode is asked for by name");
-        assertNotNull(
-                worker.get("healthcheck"),
-                "without the healthcheck, depends_on: service_healthy on every other service is a"
-                        + " dependency on nothing");
-    }
-
-    @Test
-    @DisplayName("every process that can fail silently reports a readiness marker to its container")
-    void everyLongRunningServiceHasAHealthcheck() {
-        // The four Minecraft services and the bot each carry a check for the marker their process
-        // refreshes. The marker decides, not the port: an open port is exactly what a Paper server
-        // with a disabled plugin still has.
-        final List<String> named = new java.util.ArrayList<>(List.of(Topology.DISCORD_BOT));
-        Topology.SERVICES.forEach(service -> named.add(service.name()));
-
-        for (final String name : named) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> service = (Map<String, Object>) services.get(name);
-            assertNotNull(service, "compose.yml has no service '" + name + "'");
-
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> healthcheck = (Map<String, Object>) service.get("healthcheck");
-            assertNotNull(
-                    healthcheck,
-                    name + " has no healthcheck, so nothing outside its JVM"
-                            + " reports anything about it - a container that is up, green by default, and"
-                            + " running nothing useful");
-
-            final String test = String.valueOf(healthcheck.get("test"));
-            assertTrue(
-                    test.contains("/tmp/nordtal-ready"),
-                    name + "'s healthcheck does not look at the readiness marker: " + test);
-            assertNotNull(
-                    healthcheck.get("start_period"),
-                    name + " has no start_period, so a"
-                            + " perfectly healthy server reports unhealthy while it is still loading");
-        }
-    }
-
-    @Test
-    @DisplayName("the staleness window in compose.yml is still the one Readiness beats to")
-    void theStalenessWindowMatchesTheHelper() {
-        // Two copies of one number that cannot be one: compose.yml's test is a shell command and can
-        // read nothing from Java. Shortened below the beat interval, every healthy container flaps;
-        // widened, a dead process stays hidden.
-        final java.util.regex.Pattern window = java.util.regex.Pattern.compile("-lt (\\d+)");
-        final List<String> named = new java.util.ArrayList<>(List.of(Topology.DISCORD_BOT));
-        Topology.SERVICES.forEach(service -> named.add(service.name()));
-
-        for (final String name : named) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> service = (Map<String, Object>) services.get(name);
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> healthcheck = (Map<String, Object>) service.get("healthcheck");
-            assertNotNull(healthcheck, name + " has no healthcheck at all - see the case above");
-            final java.util.regex.Matcher matcher = window.matcher(String.valueOf(healthcheck.get("test")));
-
-            assertTrue(
-                    matcher.find(),
-                    name + "'s healthcheck no longer compares the marker's age" + " against a window: "
-                            + healthcheck.get("test"));
-            assertEquals(
-                    eu.nordtal.s2.common.health.Readiness.STALE_AFTER.toSeconds(),
-                    Long.parseLong(matcher.group(1)),
-                    name + "'s healthcheck window and Readiness.STALE_AFTER disagree");
-        }
-    }
-
-    @Test
-    @DisplayName("the Minecraft services still test the port as well as the marker")
-    void theMinecraftServicesKeepTheirPortTest() {
-        // The compose healthcheck REPLACES the image's rather than adding to it, so the TCP connect
-        // is repeated here: the marker is written at the end of onEnable, which is not the instant
-        // the server starts accepting connections, and "healthy" has to mean "accepts players".
-        for (final Topology.Service service : Topology.SERVICES) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> healthcheck = (Map<String, Object>) defined.get("healthcheck");
-            assertNotNull(healthcheck, service.name() + " has no healthcheck at all - see above");
-            final String test = String.valueOf(healthcheck.get("test"));
-
-            assertTrue(
-                    test.contains("/dev/tcp/"),
-                    service.name() + " no longer connects to its own"
-                            + " port, so a server that has stopped accepting players reports healthy: " + test);
-            assertTrue(
-                    test.contains("bash"),
-                    service.name() + "'s healthcheck does not run under"
-                            + " bash. /bin/sh in that image is dash, which has no /dev/tcp, so the port half"
-                            + " would fail on every check: " + test);
-        }
-    }
-
-    @Test
-    @DisplayName("every service that reads the database waits for the schema")
-    void everythingWaitsForTheWorker() {
-        services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> service = (Map<String, Object>) definition;
-            // postgres is the database itself, and pack-host serves one zip. steward-deployer
-            // and caddy read no rows at all - the deployer drives compose and the proxy forwards
-            // HTTP - and a depends_on for either would be worse than useless: caddy waiting for a
-            // healthy stack is a host that cannot even answer the 502 that says which half is
-            // broken, and the deployer waiting for the worker is the thing that would have to
-            // bring the worker back unable to start until the worker is back.
-            if (name.equals("steward-worker")
-                    || name.equals("postgres")
-                    || name.equals("pack-host")
-                    || name.equals("steward-deployer")
-                    || name.equals("caddy")) {
-                return;
-            }
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> dependsOn = (Map<String, Object>) service.get("depends_on");
-            assertNotNull(
-                    dependsOn,
-                    name + " does not wait for steward-worker, so it can come up"
-                            + " against a schema older than itself after a redeploy");
-            assertTrue(
-                    String.valueOf(dependsOn).contains("service_healthy"),
-                    name + " depends on steward-worker but not on it being healthy, which waits for"
-                            + " the container to exist rather than for the schema to be current");
-        });
-    }
-
-    @Test
-    @DisplayName("every volume a backup saves is a volume compose.yml declares, prefix included")
-    void theBackupNamesRealVolumes() {
-        // A volume is addressed by its real Docker name - compose's `name:` plus an underscore
-        // plus the key under `volumes:` - so a rename in one place and not the other fails on the
-        // night it matters. Worse than a failure is a typo naming a volume Docker CREATES on first
-        // use: the run then tars an empty directory and reports success for ever.
-        final String project = composeProject();
-        final Set<String> declared = composeVolumes();
-
-        for (final String volume : defaults().backup().volumes()) {
-            assertTrue(
-                    volume.startsWith(project + "_"),
-                    "backup.volumes lists '" + volume + "', which does not start with compose's own"
-                            + " project name '" + project + "_'. Docker prefixes every volume in a"
-                            + " compose project, and only the prefixed name exists.");
-            final String key = volume.substring(project.length() + 1);
-            assertTrue(
-                    declared.contains(key),
-                    "backup.volumes lists '" + volume + "', but compose.yml declares no volume '"
-                            + key + "'. Docker creates a volume it has never seen on first use, so"
-                            + " this would snapshot an empty directory and report success.");
-        }
-    }
-
-    @Test
-    @DisplayName("every volume mounted for the backup is a volume the backup actually saves")
-    void theBackupSavesEverythingItWasGivenToSave() {
-        // The other direction, and the quiet one. The test above catches a name in the list that
-        // no volume answers to, which fails loudly. This catches a volume compose went to the
-        // trouble of mounting READ-ONLY under /backup-sources and that the list never names - so
-        // nothing fails, nothing is reported, and the archive simply never exists. It was true of
-        // steward-ui-config for a day.
-        final Set<String> saved = Set.copyOf(defaults().backup().volumes());
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
-        final String root = new StewardSpec.BackupSpec() {
-                    // backup.remote is a section without a default, exactly as backup itself is - so an
-                    // anonymous spec has to hand back its defaults by name (steward/95).
-                    @Override
-                    public RemoteSpec remote() {
-                        return new RemoteSpec() {};
-                    }
-
-                    @Override
-                    public RetentionSpec retention() {
-                        return new RetentionSpec() {};
-                    }
-                }.sourcesRoot()
-                + "/";
-
-        // THE DESTINATION IS PARSED FROM THE RIGHT, and the reason is five of these eight mounts:
-        // `${SMP_PLUGINS:-mc-smp-plugins}:/backup-sources/…:ro` splits on ":" into a source, the
-        // string "-mc-smp-plugins}" and the rest - so `fields[1]` was the middle of a shell default
-        // and never started with the root, and this loop skipped every variable-backed mount in
-        // silence. A test that quietly checks three of eight is the failure it was written against.
-        int checked = 0;
-        for (final String mount : mountsOf(worker)) {
-            final String withoutMode =
-                    mount.endsWith(":ro") || mount.endsWith(":rw") ? mount.substring(0, mount.lastIndexOf(':')) : mount;
-            final String destination = withoutMode.substring(withoutMode.lastIndexOf(':') + 1);
-            if (!destination.startsWith(root)) {
-                continue;
-            }
-            checked++;
-            final String volume = destination.substring(root.length());
-            assertTrue(
-                    saved.contains(volume),
-                    "compose.yml mounts " + volume + " at " + destination + " for the backup to"
-                            + " read, and backup.volumes does not list it. Nothing fails: the volume"
-                            + " is simply never saved, and the report says nothing about a volume it"
-                            + " was never asked for.");
-        }
-        // And the count, because the whole failure above was a loop that ran and asserted nothing.
-        final long mounted =
-                mountsOf(worker).stream().filter(mount -> mount.contains(root)).count();
-        assertEquals(
-                mounted,
-                checked,
-                "compose.yml has " + mounted + " mounts under " + root
-                        + " and this test looked at " + checked + " of them. The parsing dropped the rest,"
-                        + " which is how a volume goes unsaved with a green build.");
-    }
-
-    @Test
-    @DisplayName("every service a backup stops is a service compose.yml runs")
-    void theBackupStopsRealServices() {
-        // A name no container carries aborts the run before anything is saved - the right
-        // direction to fail in, and still an outage for nothing.
-        for (final String service : defaults().backup().stopServices()) {
-            assertNotNull(
-                    services.get(service),
-                    "backup.stop-services names '" + service
-                            + "', which is not a service in compose.yml. The run would stop nothing, save"
-                            + " nothing and report a failure.");
-        }
-    }
-
-    /** The compose project name, which is the prefix Docker puts on every volume in it. */
-    private static String composeProject() {
-        final Path compose = findUpwards("compose.yml");
-        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
-            final Object name = root.get("name");
-            assertNotNull(
-                    name,
-                    "compose.yml has no top-level name:, so the volume prefix is the"
-                            + " directory name and depends on where somebody cloned this repository");
-            return String.valueOf(name);
-        } catch (final IOException unreadable) {
-            throw new IllegalStateException("could not read " + compose, unreadable);
-        }
-    }
-
-    /** The keys under compose.yml's top-level {@code volumes:} block. */
-    private static Set<String> composeVolumes() {
-        final Path compose = findUpwards("compose.yml");
-        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> volumes = (Map<String, Object>) root.get("volumes");
-            assertNotNull(volumes, compose + " has no volumes block");
-            return new LinkedHashSet<>(volumes.keySet());
-        } catch (final IOException unreadable) {
-            throw new IllegalStateException("could not read " + compose, unreadable);
-        }
-    }
 
     /** {@link StewardSpec} answering nothing but its own defaults. */
     private static StewardSpec defaults() {
         return new StewardSpec() {
             @Override
             public BunqSpec bunq() {
-                // Defaults: empty credentials, which is "no bank account" and is a valid season.
-                // Nothing in this test asks bunq anything (steward/109).
+                // Empty credentials are a valid season: "no bank account". Nothing here asks bunq anything.
                 return new BunqSpec() {};
             }
 
@@ -1080,7 +482,7 @@ class TopologyTest {
 
             @Override
             public DockerSpec docker() {
-                // Defaults: this test is not about the daemon, and nothing here reads it.
+                // This test is not about the Docker daemon.
                 return new DockerSpec() {};
             }
 
@@ -1092,8 +494,7 @@ class TopologyTest {
             @Override
             public BackupSpec backup() {
                 return new BackupSpec() {
-                    // backup.remote is a section without a default, exactly as backup itself is - so an
-                    // anonymous spec has to hand back its defaults by name (steward/95).
+                    // backup.remote has no default of its own, so this hands its defaults back by name.
                     @Override
                     public RemoteSpec remote() {
                         return new RemoteSpec() {};
@@ -1115,573 +516,185 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("the database can write its dump where the worker later looks for it")
-    void theDumpDirectoryIsMountedInBothContainers() {
-        // The dump is taken by running pg_dump INSIDE the postgres container - that is what makes
-        // it impossible for the client to be older than the server - so `backup.output-root` is a
-        // path in THAT container, not in steward-worker's. Mount it in only one of them and the
-        // nightly run fails on a directory that does not exist, every night, while the volume
-        // archives beside it keep succeeding and the report still looks mostly green.
-        final StewardSpec.BackupSpec backup = new StewardSpec.BackupSpec() {
-            // backup.remote is a section without a default, exactly as backup itself is - so an
-            // anonymous spec has to hand back its defaults by name (steward/95).
-            @Override
-            public RemoteSpec remote() {
-                return new RemoteSpec() {};
-            }
-
-            @Override
-            public RetentionSpec retention() {
-                return new RetentionSpec() {};
-            }
-        };
-        final String directory = backup.outputRoot();
-
-        final String worker = writableMountAt("steward-worker", directory);
-        final String database = writableMountAt(backup.databaseService(), directory);
-        assertEquals(
-                worker,
-                database,
-                backup.databaseService() + " writes the dump to "
-                        + directory + " out of one volume and steward-worker reads " + directory
-                        + " out of another, so the dump is saved where nothing ever looks for it.");
-    }
-
-    /**
-     * The volume behind a service's mount at {@code path}, insisting it is not read-only.
-     *
-     * <p>THE DESTINATION IS PARSED FROM THE RIGHT, for the same reason the backup loop above says
-     * so at length: since season-2-ops/124 every mount in compose.yml is a variable with a default,
-     * and those defaults contain colons of their own - {@code ${STEWARD_BACKUPS:-${NORDTAL_DIR:?
-     * …}/steward-backups}:/backups} splits on ":" into six pieces, none of which is
-     * {@code /backups}. This method used to take {@code split(":")[1]} and stopped matching the
-     * moment the volume gained a variable, reporting that nothing was mounted at all.</p>
-     */
-    private String writableMountAt(final String service, final String path) {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> definition = (Map<String, Object>) services.get(service);
-        assertNotNull(definition, "compose.yml has no service '" + service + "'");
-        final String mount = mountsOf(definition).stream()
-                .filter(each -> destinationOf(each).equals(path))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError(service + " mounts nothing at " + path
-                        + ", and the nightly database dump" + " is written there by name."));
-        assertFalse(mount.endsWith(":ro"), service + " mounts " + path + " read-only, and the dump is written to it.");
-        return sourceOf(mount);
-    }
-
-    /** The container path a mount lands on, whatever the source expression contains. */
-    private static String destinationOf(final String mount) {
-        final String withoutMode =
-                mount.endsWith(":ro") || mount.endsWith(":rw") ? mount.substring(0, mount.lastIndexOf(':')) : mount;
-        return withoutMode.substring(withoutMode.lastIndexOf(':') + 1);
-    }
-
-    @Test
-    @DisplayName("compose.yml does not pin bootstrap, so steward.yml still decides")
-    void theBootstrapIsNotPinnedInCompose() {
-        // THIS TEST USED TO DEMAND THE OPPOSITE, and the reason it gave was wrong. It said an
-        // environment variable set to the empty string wins over the file, so compose's fallback
-        // had to repeat StewardSpec#bootstrap rather than be empty. jcore's EnvOverlay.applyTo
-        // skips a variable that is null or blank - EnvOverlayTest.blankVariableIsUnset asserts it -
-        // so `${VAR:-}` leaves the spec's default in force, which is what every other defaulted
-        // line in that file has always relied on.
-        //
-        // The repetition was not harmless. A variable that always carries a value wins over
-        // steward.yml on every start, so turning bootstrap off in Steward would have written the
-        // file and changed nothing at all. What the old test was protecting - that a first
-        // deployment comes up without anybody running `steward-worker apply` on the host - is
-        // protected by the spec's own default being true, which is asserted here too.
+    void everyServersPluginsIsTheSameDirectoryForTheServerAndForTheWorker() {
         @SuppressWarnings("unchecked")
         final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment = (Map<String, Object>) worker.get("environment");
+        final List<String> workerMounts = mountsOf(worker);
 
-        assertAll(
-                () -> assertEquals(
-                        "${STEWARD_WORKER_BOOTSTRAP:-}",
-                        String.valueOf(environment.get("NORDTAL_STEWARD_BOOTSTRAP")),
-                        "compose.yml carries a fallback for STEWARD_WORKER_BOOTSTRAP. A value here"
-                                + " wins over steward.yml for ever, so the setting cannot be"
-                                + " changed from the interface."),
-                () -> assertTrue(
-                        new StewardSpec() {
-                            @Override
-                            public BunqSpec bunq() {
-                                // Defaults: empty credentials, which is "no bank account" and is a valid season.
-                                // Nothing in this test asks bunq anything (steward/109).
-                                return new BunqSpec() {};
-                            }
-
-                            @Override
-                            public ApiSpec api() {
-                                // Defaults: nothing here serves HTTP.
-                                return new ApiSpec() {};
-                            }
-
-                            @Override
-                            public DockerSpec docker() {
-                                // Defaults: this test is not about the daemon.
-                                return new DockerSpec() {};
-                            }
-
-                            @Override
-                            public UpdateSpec update() {
-                                return new UpdateSpec() {};
-                            }
-
-                            @Override
-                            public BackupSpec backup() {
-                                // Defaults throughout: this test is not about a backup.
-                                return new BackupSpec() {
-                                    // backup.remote is a section without a default, exactly as backup itself is - so an
-                                    // anonymous spec has to hand back its defaults by name (steward/95).
-                                    @Override
-                                    public RemoteSpec remote() {
-                                        return new RemoteSpec() {};
-                                    }
-
-                                    @Override
-                                    public RetentionSpec retention() {
-                                        return new RetentionSpec() {};
-                                    }
-                                };
-                            }
-
-                            @Override
-                            public DeployerSpec deployer() {
-                                // Defaults: this test never recreates a container.
-                                return new DeployerSpec() {};
-                            }
-                        }.bootstrap(),
-                        "StewardSpec#bootstrap is false. It is now the ONLY thing that makes a"
-                                + " first deployment fill its empty volumes, so with it off nothing"
-                                + " comes up without somebody running `steward-worker apply` on"
-                                + " the host."));
-    }
-
-    @Test
-    @DisplayName("every image of ours defaults to one the release workflow actually pushes")
-    void ourImagesArePulledAndNotInventedLocally() {
-        // A deployment that only pulls never builds, so a default tag nothing has pushed fails
-        // with a registry `denied` - which is also what a private package answers, and a `build:`
-        // block beside it makes the file look fine. If an image is ours, its default must be a
-        // ghcr.io/nordtal reference at `latest`, which is what release.yml publishes.
-        services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> service = (Map<String, Object>) definition;
-            final String image = String.valueOf(service.get("image"));
-            if (!image.contains("nordtal/")) {
-                return;
-            }
-            assertTrue(
-                    image.contains(":-ghcr.io/nordtal/"),
-                    "compose.yml's '" + name + "' defaults to the image " + image + ", which is not"
-                            + " a ghcr.io/nordtal reference. A deploy pulls and never builds, so an"
-                            + " image only this host can produce fails the deploy with `denied`.");
-            // The tag is the literal `latest` and there is no variable in it. IMAGE_TAG was
-            // removed on 2026-09-09: a rollback lever is a version number kept outside
-            // gradle.properties, and its own documented example still said 0.2.1 against a
-            // repository on 0.8.1. This assertion is what stops one coming back one image at a
-            // time - the shape that would be invisible is three images on `latest` and a fourth
-            // quietly pinned.
-            assertTrue(
-                    image.endsWith(":latest}"),
-                    "compose.yml's '" + name + "' defaults to " + image + ", which is not `latest`."
-                            + " Nothing pins an image any more; a bad release is fixed by publishing"
-                            + " a better one.");
-        });
-    }
-
-    @Test
-    @DisplayName("the release workflow pushes every image compose.yml expects to pull")
-    void ourImagesAreActuallyPublished() throws IOException {
-        // The test above says the default is a ghcr.io/nordtal reference. That is not the same
-        // question as whether anything ever pushes it, and the difference is invisible until a
-        // host that has never built anything runs a deploy and gets `denied` from the registry -
-        // which looks exactly like a private package. It was true of steward-ui and
-        // steward-deployer for a day: both defaulted correctly to ghcr.io/nordtal and neither was
-        // in release.yml, because the images were only ever built on the one host that has the
-        // repository. `build:` blocks beside them make the file look finished.
-        final String workflow = Files.readString(findUpwards(".github/workflows/release.yml"), StandardCharsets.UTF_8);
-        services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> service = (Map<String, Object>) definition;
-            final String image = String.valueOf(service.get("image"));
-            if (!image.contains(":-ghcr.io/nordtal/")) {
-                return;
-            }
-            // The repository, not the service: one image serves all four Minecraft services.
-            final String repository = image.substring(image.indexOf(":-ghcr.io/nordtal/") + 2, image.lastIndexOf(':'));
-            assertTrue(
-                    workflow.contains(repository + ":latest"),
-                    "compose.yml's '" + name + "' pulls " + repository + ":latest, and"
-                            + " .github/workflows/release.yml pushes no such tag. A deploy pulls and"
-                            + " never builds, so that image exists only where somebody built it by"
-                            + " hand and the deploy fails with `denied` everywhere else.");
-        });
-    }
-
-    @Test
-    @DisplayName("the deployer deploys the project it was started in, not one of its own")
-    void theDeployerAgreesWithComposeAboutTheProjectName() throws IOException {
-        // The failure this pins is not an error message. steward-deployer puts `--project-name` on
-        // every command line it builds, and if that name disagreed with the project compose uses
-        // out here, nothing would fail: a SECOND stack would come up beside the running one, with
-        // its own volumes and its own empty database, and the first sign of it would be a fresh
-        // world. So the fallback has to be the same on both sides, and both sides are read here.
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> deployer = (Map<String, Object>) services.get("steward-deployer");
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment = (Map<String, Object>) deployer.get("environment");
-        final String declared = String.valueOf(environment.get("COMPOSE_PROJECT_NAME"));
-        assertEquals(
-                "${COMPOSE_PROJECT_NAME:-nordtal-s2}",
-                declared,
-                "compose.yml no longer hands steward-deployer the project name. Without it the"
-                        + " service falls back to its own default, which is only the same value"
-                        + " until somebody sets COMPOSE_PROJECT_NAME in .env.");
-
-        final String source = Files.readString(
-                findUpwards("steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/StewardDeployer.java"),
-                StandardCharsets.UTF_8);
-        assertTrue(
-                source.contains("env(\"COMPOSE_PROJECT_NAME\", \"nordtal-s2\")"),
-                "StewardDeployer's fallback project name is not `nordtal-s2` any more, and"
-                        + " compose.yml's is. Two different defaults for the project name are two"
-                        + " deployments of the same stack.");
-    }
-
-    @Test
-    @DisplayName("DisplayTags really is required by smp, which is why the topology lists it")
-    void theRequiredPluginsAreRequiredBySmpsOwnManifest() throws IOException {
-        // Checked against the manifest that enforces it rather than against a comment about it.
-        final Path manifest = findUpwards("smp/src/main/resources/paper-plugin.yml");
-        final String text = Files.readString(manifest, StandardCharsets.UTF_8);
-
-        assertTrue(text.contains("DisplayTags"), manifest + " no longer names DisplayTags");
-        assertTrue(text.contains("required: true"), manifest + " no longer requires it");
-        assertTrue(
-                smpPlugins().contains(Topology.DISPLAY_TAGS),
-                "smp requires DisplayTags but Topology does not list it, so steward-worker would"
-                        + " never install it");
-    }
-
-    @Test
-    @DisplayName("no Minecraft service exists in compose.yml that the topology does not know about")
-    void nothingIsMissedOut() {
-        // Catches a fifth backend added to compose.yml and not here, which the worker would then
-        // quietly never touch.
-        final Set<String> known = new LinkedHashSet<>();
-        Topology.SERVICES.forEach(service -> known.add(service.name()));
-        // The standbys are Minecraft services too, and deliberately not Topology.Service rows:
-        // nothing is resolved for them, their jars are copied from the service they stand in for
-        // (Standbys). They still have to be named somewhere, or this check would refuse them for
-        // ever - season-2-ops/119.
-        known.addAll(Topology.standbyNames());
-
-        services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment =
-                    (Map<String, Object>) ((Map<String, Object>) definition).get("environment");
-            if (environment != null && environment.containsKey("SERVER_KIND")) {
-                assertTrue(
-                        known.contains(name),
-                        "compose.yml runs a Minecraft service '" + name + "' that Topology does not know."
-                                + " Add it to Topology.SERVICES - the worker will not touch it otherwise.");
-            }
-        });
-    }
-
-    @Test
-    @DisplayName("every variable the Minecraft entrypoint reads is a variable compose.yml passes in")
-    void theEntrypointsKnobsReachTheContainer() throws IOException {
-        // season-2-ops/08, found 2026-09-11 and unfixed until 2026-09-18: `deploy/dev.env.example`
-        // documented JVM_OPTS, `entrypoint.sh` read it, and compose.yml handed it to nobody. A value
-        // set in the env file therefore changed nothing at all, silently - the worst shape a
-        // configuration bug can take, because the file says it works.
-        //
-        // Written as "every knob", not "JVM_OPTS": the next variable the entrypoint learns to read
-        // will arrive the same way, and a test naming one string would not notice.
-        final String entrypoint =
-                Files.readString(findUpwards("deploy/minecraft/entrypoint.sh"), StandardCharsets.UTF_8);
-
-        // `VAR="${VAR:-...}"` is how the entrypoint states a knob with a default - the optional
-        // quote is part of the shape and not noise, since that is exactly how the line is written.
-        // HEAP and the rest are read plainly and are passed in already.
-        final java.util.Set<String> knobs = new LinkedHashSet<>();
-        final java.util.regex.Matcher reads = java.util.regex.Pattern.compile(
-                        "^([A-Z][A-Z0-9_]+)=\"?\\$\\{\\1:-", java.util.regex.Pattern.MULTILINE)
-                .matcher(entrypoint);
-        while (reads.find()) {
-            knobs.add(reads.group(1));
+        for (final Topology.Service service : Topology.SERVICES) {
+            assertPluginsDirectoryIsShared(service, workerMounts);
         }
-        assertTrue(
-                knobs.contains("JVM_OPTS"),
-                "the entrypoint no longer reads JVM_OPTS the way this test recognises a knob - " + knobs);
-
-        // Two of the knobs are deliberately not offered to an operator, and saying so here is the
-        // point of the list: a knob added to the entrypoint has to be either wired into compose or
-        // written down as internal, and neither can happen by accident.
-        //
-        // DATA is where the server lives inside the container - the volume mount decides that, and
-        // a second way to say it would be a way to say it wrongly. LEVEL_NAME is the world folder;
-        // nobody has asked to change it, and doing so on a running deployment means moving
-        // directories in a volume rather than setting a variable.
-        final java.util.Set<String> internal = java.util.Set.of("DATA", "LEVEL_NAME");
-        knobs.removeAll(internal);
-
-        final List<String> deaf = new java.util.ArrayList<>();
-        services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment =
-                    (Map<String, Object>) ((Map<String, Object>) definition).get("environment");
-            if (environment == null || !environment.containsKey("SERVER_KIND")) {
-                return;
-            }
-            knobs.stream()
-                    .filter(knob -> !environment.containsKey(knob))
-                    .forEach(knob -> deaf.add(name + " ignores " + knob));
-        });
-
-        assertEquals(
-                List.of(),
-                deaf,
-                "a Minecraft service that does not receive a variable its own entrypoint reads is a"
-                        + " setting somebody can write and nothing can apply.");
     }
 
-    // ---------------------------------------------------------------- the standbys
+    private void assertPluginsDirectoryIsShared(final Topology.Service service, final List<String> workerMounts) {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> definition = (Map<String, Object>) services.get(service.name());
+        assertNotNull(definition, "compose.yml has no " + service.name() + " service");
 
-    /**
-     * Environment keys a standby is <em>allowed</em> - and required - to set differently from its
-     * model, each with the sentence saying why. Typed and never empty by accident: an exemption
-     * without a reason is how the rule above erodes one key at a time.
-     */
-    private static final Map<String, String> TELLS_THE_PAIR_APART = Map.of(
-            "NORDTAL_PROXY_NETWORK_STANDBY",
-            "It is the only thing that tells the two proxies apart, and a proxy cannot work it out"
-                    + " for itself (season-2-ops/121).");
+        final String onTheServer = mountsOf(definition).stream()
+                .filter(mount -> mount.endsWith(":/data/plugins"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(service.name() + " mounts nothing onto"
+                        + " /data/plugins. plugins/ is separate from the"
+                        + " server's own volume; without this line the server reads an empty"
+                        + " folder and the entrypoint stops the container."));
 
-    @Test
-    @DisplayName("every standby is its model again, on its own volumes")
-    void aStandbyIsItsModelOnItsOwnVolumes() {
-        // What a standby is for is carrying the network while its model restarts, so the two have
-        // to be the same server in every respect a player can feel - and different in exactly the
-        // ones that would make them fight: the volumes, and the published port.
-        for (final String model : Topology.SERVICES_WITH_STANDBY) {
-            final String standby = Topology.standbyOf(model);
+        final String onTheWorker = workerMounts.stream()
+                .filter(mount -> mount.endsWith(":/volumes/" + service.name() + "/plugins"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("steward-worker does not mount "
+                        + service.name() + "'s plugins/. It would then install into one place"
+                        + " while the server reads another - and nothing would say so:"
+                        + " `apply` reports success, the jars are on disk, and no server runs"
+                        + " a single one of them."));
 
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defined = (Map<String, Object>) services.get(standby);
-            assertNotNull(
-                    defined,
-                    "compose.yml has no service '" + standby + "'. Without it there"
-                            + " is nobody to transfer players to and an update takes the network down the"
-                            + " way it always did.");
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> itsModel = (Map<String, Object>) services.get(model);
+        // Compared expression for expression: a variable spelt differently anywhere is a silent split.
+        assertEquals(
+                sourceOf(onTheServer),
+                sourceOf(onTheWorker),
+                service.name() + ": the server and steward-worker are pointed at two different" + " plugin sources");
 
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> theirs =
-                    new java.util.LinkedHashMap<>((Map<String, Object>) itsModel.get("environment"));
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> ours =
-                    new java.util.LinkedHashMap<>((Map<String, Object>) defined.get("environment"));
+        assertPluginsBackupMatchesSpec(service, workerMounts, onTheServer);
 
-            // The one variable that MUST differ, and it is asserted in both directions rather than
-            // merely skipped (season-2-ops/121). A proxy cannot find out which of the two it is:
-            // both containers bind 0.0.0.0:25565 inside their own network namespace, so the only
-            // thing that tells them apart is this string - and BOTH ways of getting it wrong are
-            // completely silent. A standby missing the line behaves like the live proxy and says
-            // nothing; a live proxy carrying it transfers everybody to the address they are
-            // already on. So: present on both, and different.
-            for (final Map.Entry<String, String> apart : TELLS_THE_PAIR_APART.entrySet()) {
-                final String key = apart.getKey();
-                if (!theirs.containsKey(key) && !ours.containsKey(key)) {
-                    continue;
-                }
-                assertNotNull(theirs.get(key), model + " does not set " + key + " at all. " + apart.getValue());
-                assertNotNull(ours.get(key), standby + " does not set " + key + " at all. " + apart.getValue());
-                assertNotEquals(
-                        String.valueOf(theirs.remove(key)),
-                        String.valueOf(ours.remove(key)),
-                        model + " and " + standby + " agree on " + key + ", so one of them is"
-                                + " playing the other's part. " + apart.getValue());
-            }
+        // The default is a path under NORDTAL_DIR, not bare and relative, which resolves inside the deployer image.
+        final String fallback = defaultOf(sourceOf(onTheServer));
+        assertTrue(
+                fallback.startsWith("${NORDTAL_DIR"),
+                service.name() + "'s plugins/ defaults to '" + fallback + "', which does not"
+                        + " hang off NORDTAL_DIR. Production sets none of these variables, so"
+                        + " that default is what the host gets - and the installation is a"
+                        + " directory now, so the default has to be one: an absolute path,"
+                        + " built from the one variable deploy/nordtal.sh writes.");
+        assertTrue(
+                fallback.contains("/"),
+                service.name() + "'s plugins/ defaults to '" + fallback + "', which Docker"
+                        + " reads as a VOLUME NAME and not as a path - anything without a `/`"
+                        + " in it is a volume. Setting one of these variables to a name is"
+                        + " still the way back (deploy/dev.env.example does exactly that); the"
+                        + " default is not.");
+    }
 
+    // Whether a plugins/ volume is saved is backup.volumes' own decision, asked of the spec, not named here.
+    private void assertPluginsBackupMatchesSpec(
+            final Topology.Service service, final List<String> workerMounts, final String onTheServer) {
+        final String backupVolume = "nordtal-s2_mc-" + service.name() + "-plugins";
+        final Optional<String> forTheBackup = workerMounts.stream()
+                .filter(mount -> mount.endsWith(":/backup-sources/" + backupVolume + ":ro"))
+                .findFirst();
+        if (BACKED_UP.contains(backupVolume)) {
+            assertTrue(
+                    forTheBackup.isPresent(),
+                    "backup.volumes lists " + backupVolume
+                            + " and steward-worker does not mount it, so it is not saved");
+            // `:ro` is a third field; sourceOf reads up to the destination, so drop it first.
+            final String mount = forTheBackup.orElseThrow();
             assertEquals(
-                    theirs,
-                    ours,
-                    standby + " is configured differently from " + model + ". It runs the same jars"
-                            + " under the same name and it is the process carrying every player for"
-                            + " the length of a swap; a setting that reaches only one of the two is"
-                            + " a setting players meet in half the season. compose.yml merges one"
-                            + " YAML anchor into both, so this fails when somebody has copied the"
-                            + " block instead of merging it - the only key allowed to differ is"
-                            + " " + TELLS_THE_PAIR_APART.keySet() + ".");
-
-            assertEquals(
-                    List.of("standby"),
-                    defined.get("profiles"),
-                    standby + " is not in a profile of its own. In `mc` it would run all season"
-                            + " beside the service it exists to replace, on a host that has been"
-                            + " out of memory once already.");
-            assertFalse(
-                    String.valueOf(itsModel.get("profiles")).contains("standby"),
-                    model + " is in the standby profile, so the pair would start together");
-
-            // The volumes are the half that must NOT be shared, and a copied block is exactly how
-            // they would come to be shared: two Paper processes on one /data fight over
-            // session.lock, and two Velocity processes on one plugins/ overwrite each other.
-            for (final String mountPoint : List.of(":/data", ":/data/plugins")) {
-                assertNotEquals(
-                        sourceOf(mountEndingIn(itsModel, mountPoint)),
-                        sourceOf(mountEndingIn(defined, mountPoint)),
-                        standby + " mounts the same source as " + model + " at " + mountPoint
-                                + ". Two servers on one directory is not a standby, it is one"
-                                + " server started twice.");
-            }
-
-            // And the plugins/ rule the four live services already keep: what steward-worker fills
-            // has to be what the container reads, expression for expression.
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
-            final String onTheWorker = mountsOf(worker).stream()
-                    .filter(mount -> mount.endsWith(":/volumes/" + standby + "/plugins"))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError("steward-worker does not mount " + standby
-                            + "'s plugins/, so Standbys#fill has nowhere to copy the jars. The"
-                            + " standby would be started for a swap with an empty folder and"
-                            + " refuse to boot."));
-            assertEquals(
-                    sourceOf(mountEndingIn(defined, ":/data/plugins")),
-                    sourceOf(onTheWorker),
-                    standby + ": steward-worker fills one directory and the container reads" + " another");
+                    sourceOf(onTheServer),
+                    sourceOf(mount.substring(0, mount.length() - ":ro".length())),
+                    service.name() + ": the backup reads a different plugin source than the" + " server runs from");
+        } else {
+            assertTrue(
+                    forTheBackup.isEmpty(),
+                    backupVolume + " is mounted for the backup and"
+                            + " backup.volumes does not list it - it would be mounted and never saved");
         }
     }
 
     @Test
-    @DisplayName("the standby is reached on a second port, and that is the port a client is told")
-    void theStandbyIsReachedOnTheSecondPort() {
-        final String standby = Topology.standbyOf(Topology.PROXY);
-        assertEquals(
-                List.of(),
-                ports(standby),
-                standby + " publishes " + ports(standby)
-                        + ". Since season-2-ops/162 it is reached through the guard, which forwards with a"
-                        + " PROXY header - a connection arriving any other way is one Velocity drops,"
-                        + " because haproxy-protocol is true in its velocity.toml.");
+    void theConfigsTheInterfaceShowsAreTheConfigsTheServicesActuallyRead() {
+        // Saving a form IS the reload, so a volume spelt differently here shows a form and quietly changes nothing.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> editor = (Map<String, Object>) services.get("steward-worker");
+        assertNotNull(editor, "compose.yml has no steward-worker service");
+        final List<String> uiMounts = mountsOf(editor);
 
-        // The guard publishes it instead, in both protocols and on one host port: the TCP half is
-        // where a transferred client arrives, the UDP half is the voice the standby cannot use yet.
-        final List<String> tcp = ports(GUARD).stream()
-                .filter(port -> !port.endsWith("/udp") && port.contains("PROXY_STANDBY_PORT"))
-                .toList();
-        final List<String> udp = udpPorts(GUARD).stream()
-                .filter(port -> port.contains("PROXY_STANDBY_PORT"))
-                .toList();
-        assertEquals(
-                1,
-                tcp.size(),
-                GUARD + " publishes " + tcp + " for the standby - it needs"
-                        + " exactly one TCP port, which is where a transferred client arrives");
-        assertEquals(1, udp.size(), GUARD + " publishes " + udp + " for the standby");
+        // steward-ui must not have these mounts: it faces the internet and is not root, so it could read none anyway.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> ui = (Map<String, Object>) services.get("steward-ui");
+        assertNotNull(ui, "compose.yml has no steward-ui service");
+        assertTrue(
+                mountsOf(ui).stream().noneMatch(mount -> mount.contains(":/configs/")),
+                "steward-ui mounts the stack's configuration again. It runs as uid 10001 and every"
+                        + " one of those files is 0600 root:root, so it can read none of them - and"
+                        + " database.yml holds the Postgres password.");
 
-        final List<String> tcpParts = fields(tcp.getFirst());
-        final String withProtocol = udp.getFirst();
-        final List<String> udpParts = fields(withProtocol.substring(0, withProtocol.length() - "/udp".length()));
-        assertEquals(
-                tcpParts.get(1),
-                udpParts.get(1),
-                "the guard publishes the standby's Minecraft and voice on two different host ports");
+        // The interface shows a file under the compose service name, the same name the server owns it under.
+        for (final Topology.Service service : Topology.SERVICES) {
+            assertServerConfigMatchesInterface(service, uiMounts);
+        }
 
-        // Not the live proxy's number: one host port serving both is the thing this was built to
-        // avoid, and the transfer would then send a player to the proxy he is leaving.
-        final String game = ports(GUARD).stream()
-                .filter(port -> !port.endsWith("/udp") && port.endsWith(":25565"))
+        // The three services whose own name is the directory name ConfigLocation#service reports to the browser.
+        for (final String each : List.of("steward-worker", "discord-bot", "steward-ui")) {
+            assertOwnConfigMatchesInterface(each, uiMounts);
+        }
+    }
+
+    private void assertServerConfigMatchesInterface(final Topology.Service service, final List<String> uiMounts) {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> definition = (Map<String, Object>) services.get(service.name());
+        final String onTheServer = mountsOf(definition).stream()
+                .filter(mount -> mount.endsWith(":/data/plugins"))
                 .findFirst()
                 .orElseThrow();
-        assertNotEquals(
-                fields(game).get(1),
-                tcpParts.get(1),
-                "the guard publishes the standby on"
-                        + " the same host port as the live proxy, so a transfer sends a player nowhere");
+        final String onTheInterface = uiMounts.stream()
+                .filter(mount -> mount.endsWith(":/configs/" + service.name()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("steward-worker mounts nothing at"
+                        + " /configs/" + service.name() + ", so that server's config.yml is in"
+                        + " no form at all."
+                        + " A volume that is not mounted is not an error to the page - it lists"
+                        + " what it finds - so this is invisible from the browser."));
 
-        // The port a transferred client is told to reconnect on has to be the port the guard
-        // listens on. Two literals are two chances to write 25566 and 25567.
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment =
-                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY)).get("environment");
         assertEquals(
-                tcpParts.get(1),
-                String.valueOf(environment.get("NORDTAL_PROXY_NETWORK_STANDBY_PORT")),
-                "the proxy sends a client to a port the guard does not listen on");
+                sourceOf(onTheServer),
+                sourceOf(onTheInterface),
+                service.name() + ": the interface edits one directory and the server reads"
+                        + " another. Saving would report success and change nothing.");
+
+        assertFalse(
+                onTheInterface.endsWith(":ro"),
+                service.name() + "'s config is mounted read-only into steward-worker, so the form"
+                        + " is drawn and the save fails: every config in the stack is editable from the interface.");
     }
 
-    @Test
-    @DisplayName("the proxies are told the address players reach this network on")
-    void thePublicAddressReachesTheProxy() {
-        // A transfer names an address to the CLIENT, so nothing inside the stack can work it out:
-        // `proxy:25565` is a compose name and 0.0.0.0 is a bind. deploy/nordtal.sh asks for it and
-        // this line is what carries the answer in.
+    private void assertOwnConfigMatchesInterface(final String each, final List<String> uiMounts) {
         @SuppressWarnings("unchecked")
-        final Map<String, Object> environment =
-                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY)).get("environment");
-        final Object address = environment.get("NORDTAL_PROXY_NETWORK_PUBLIC_ADDRESS");
-        assertNotNull(
-                address,
-                "the proxy is given no public address, so network.yml's empty"
-                        + " default stands, no transfer is ever offered, and nothing in .env can change"
-                        + " that - a jcore override is only read for a key the spec declares.");
-        assertTrue(
-                String.valueOf(address).contains("NETWORK_PUBLIC_ADDRESS"),
-                "the public address does not come from NETWORK_PUBLIC_ADDRESS: " + address
-                        + " - that is the name deploy/nordtal.sh writes into the env file");
-    }
-
-    @Test
-    @DisplayName("the proxies know the standby waiting room by name")
-    void theStandbyLimboIsRegistered() {
-        // A Velocity server that is not registered cannot be connected to at all, while a
-        // registered one that is down costs nothing until it is needed. The seed only runs on a
-        // fresh volume, so this value reaches an existing deployment by hand - which is written in
-        // the ticket as a deployment step.
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment =
-                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY)).get("environment");
-        final String servers = defaultOf(String.valueOf(environment.get("VELOCITY_SERVERS")));
-        final String standby = Topology.standbyOf(Topology.LIMBO);
-        assertTrue(
-                servers.contains(standby + "=" + standby + ":25565"),
-                "VELOCITY_SERVERS does not register " + standby + ": " + servers + ". Neither"
-                        + " proxy could then send anybody to the standby waiting room, which is"
-                        + " where every player spends a swap.");
-    }
-
-    /** The one mount of a service whose destination is {@code ending}. */
-    private static String mountEndingIn(final Map<String, Object> service, final String ending) {
-        return mountsOf(service).stream()
-                .filter(mount -> mount.endsWith(ending))
+        final Map<String, Object> owner = (Map<String, Object>) services.get(each);
+        assertNotNull(owner, "compose.yml has no " + each + " service");
+        final String onTheOwner = mountsOf(owner).stream()
+                .filter(mount -> mount.endsWith(":/app/config"))
                 .findFirst()
-                .orElseThrow(() ->
-                        new AssertionError("no mount ending in " + ending + " on " + service.get("container_name")));
+                .orElseThrow(() -> new AssertionError(each + " mounts nothing at /app/config"));
+        final String onTheInterface = uiMounts.stream()
+                .filter(mount -> mount.endsWith(":/configs/" + each))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("steward-worker mounts nothing at"
+                        + " /configs/" + each + ", so that service has no form in the"
+                        + " interface"));
+        assertEquals(
+                sourceOf(onTheOwner),
+                sourceOf(onTheInterface),
+                each + ": the interface edits one volume and the service reads another");
     }
 
-    private static java.util.List<String> smpPlugins() {
-        return Topology.SERVICES.stream()
-                .filter(service -> service.name().equals(Topology.SMP))
-                .findFirst()
-                .orElseThrow()
-                .plugins();
+    /** The host side of a compose mount - everything before the last colon-separated field pair. */
+    private static String sourceOf(final String mount) {
+        final int split = mount.lastIndexOf(':');
+        return mount.substring(0, split);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> mountsOf(final Map<String, Object> service) {
+        final Object volumes = service.get("volumes");
+        assertNotNull(volumes, "service has no volumes block");
+        return ((List<Object>) volumes).stream().map(String::valueOf).toList();
     }
 
     /**
      * One entry of compose.yml's {@code configs:} block, as the file writes it.
      *
-     * <p>The caddy configuration is the guard's whole behaviour (season-2-ops/162) and it lives
-     * there rather than in a file of its own, so a test about what the guard does has to read it
-     * where it is written.</p>
+     * The caddy configuration lives inline in compose.yml rather than in a file of its own, so a test about what the
+     * guard does has to read it where it is written.
      */
     private static String configContent(final String name) {
         final Path compose = findUpwards("compose.yml");
@@ -1729,8 +742,7 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("exactly the four Minecraft services have plugins, and nothing else does")
-    void hasPluginsIsTheFour() {
+    void exactlyTheFourMinecraftServicesHavePluginsAndNothingElseDoes() {
         assertAll(
                 () -> assertTrue(Topology.hasPlugins(Topology.SMP)),
                 () -> assertTrue(Topology.hasPlugins(Topology.PROXY)),

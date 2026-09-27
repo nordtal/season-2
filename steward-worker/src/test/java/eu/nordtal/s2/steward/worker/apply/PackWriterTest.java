@@ -11,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -52,15 +51,13 @@ class PackWriterTest {
     }
 
     @Test
-    @DisplayName("both values are replaced and every comment survives")
-    void writesTheTwoLinesAndNothingElse() throws IOException {
+    void bothValuesAreReplacedAndEveryCommentSurvives() throws IOException {
         assertTrue(PackWriter.write(packYml, URL, SHA1));
 
         final String written = Files.readString(packYml, StandardCharsets.UTF_8);
         assertTrue(written.contains("url: " + URL), written);
         assertTrue(written.contains("sha1: " + SHA1), written);
-        // The comments are the reason this file is readable at all, and the reason a whole-file
-        // rewrite through a spec this module does not own was rejected.
+        // The comments are why this file is readable, and why a whole-file rewrite through a spec is rejected.
         assertTrue(written.contains("# PUT THE github.com/.../releases/download/... URL HERE."), written);
         assertTrue(written.contains("enabled: true"), written);
         assertTrue(written.contains("force: true"), written);
@@ -68,23 +65,20 @@ class PackWriterTest {
     }
 
     @Test
-    @DisplayName("a file that already says this is not touched at all")
-    void unchangedMeansUnwritten() throws IOException {
+    void aFileThatAlreadySaysThisIsNotTouchedAtAll() throws IOException {
         PackWriter.write(packYml, URL, SHA1);
         final FileTime before = Files.getLastModifiedTime(packYml);
         final String content = Files.readString(packYml);
 
         assertFalse(PackWriter.write(packYml, URL, SHA1));
 
-        // A rewrite that changes nothing still changes a modification time, and on a config volume
-        // that is the difference between "the worker has never touched this" and "something did".
+        // A no-op rewrite still touches mtime, and on a config volume that says "never touched" versus "something did".
         assertEquals(before, Files.getLastModifiedTime(packYml));
         assertEquals(content, Files.readString(packYml));
     }
 
     @Test
-    @DisplayName("a key that is not there is an error, never an append")
-    void refusesAFileItDoesNotUnderstand() throws IOException {
+    void aKeyThatIsNotThereIsAnErrorNeverAnAppend() throws IOException {
         Files.writeString(packYml, "enabled: true\nforce: true\n", StandardCharsets.UTF_8);
 
         final IOException failure = assertThrows(IOException.class, () -> PackWriter.write(packYml, URL, SHA1));
@@ -92,8 +86,7 @@ class PackWriterTest {
     }
 
     @Test
-    @DisplayName("a nested url: is not a top-level one and is left alone")
-    void onlyTopLevelKeysAreTouched() throws IOException {
+    void aNestedUrlIsNotATopLevelOneAndIsLeftAlone() throws IOException {
         Files.writeString(packYml, """
                 enabled: true
                 url: old
@@ -108,10 +101,8 @@ class PackWriterTest {
     }
 
     @Test
-    @DisplayName("a volume the proxy has never started against gets a two-key file, not an error")
-    void createsTheFileOnAFreshVolume() throws IOException {
-        // The deadlock this resolves: the proxy writes pack.yml on its first start, and a proxy
-        // with no jar in plugins/ does not start - and filling plugins/ is the worker's job.
+    void aVolumeTheProxyHasNeverStartedAgainstGetsATwoKeyFileNotAnError() throws IOException {
+        // The deadlock this resolves: the proxy writes pack.yml on first start, but won't start with an empty plugins/.
         Files.delete(packYml);
 
         assertTrue(PackWriter.write(packYml, URL, SHA1));
@@ -119,18 +110,14 @@ class PackWriterTest {
         final String written = Files.readString(packYml, StandardCharsets.UTF_8);
         assertTrue(written.contains("url: " + URL), written);
         assertTrue(written.contains("sha1: " + SHA1), written);
-        // Only the two keys this module owns. jcore adds enabled, force and
-        // apply-timeout-seconds on the proxy's first load, and it is jcore's business what their
-        // defaults are.
+        // Only the two keys this module owns; jcore adds enabled/force/apply-timeout-seconds and owns their defaults.
         assertFalse(written.contains("enabled:"), written);
         assertFalse(written.contains("force:"), written);
     }
 
     @Test
-    @DisplayName("a file that exists but is missing a key is still an error")
-    void createIsNotAnExcuseToAppend() throws IOException {
-        // Creating a whole file and patching a broken one are different decisions. A pack.yml
-        // carrying three of five keys is one nothing here understands.
+    void aFileThatExistsButIsMissingAKeyIsStillAnError() throws IOException {
+        // Creating a whole file and patching a broken one are different decisions; three of five keys is neither.
         Files.writeString(packYml, "enabled: true\nurl: old\n", StandardCharsets.UTF_8);
 
         final IOException failure = assertThrows(IOException.class, () -> PackWriter.write(packYml, URL, SHA1));
@@ -138,8 +125,7 @@ class PackWriterTest {
     }
 
     @Test
-    @DisplayName("the parent directory is created with the file")
-    void createsThePluginDataDirectoryToo() throws IOException {
+    void theParentDirectoryIsCreatedWithTheFile() throws IOException {
         final Path nested = directory.resolve("plugins/proxy/pack.yml");
 
         assertTrue(PackWriter.write(nested, URL, SHA1));
@@ -147,8 +133,7 @@ class PackWriterTest {
     }
 
     @Test
-    @DisplayName("no temporary file is left behind")
-    void cleansUpAfterItself() throws IOException {
+    void noTemporaryFileIsLeftBehind() throws IOException {
         PackWriter.write(packYml, URL, SHA1);
 
         try (var entries = Files.list(directory)) {

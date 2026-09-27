@@ -11,17 +11,16 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * {@link PluginFolder} - the name of the directory a removal deletes (season-2-ops/129).
+ * {@link PluginFolder} - the name of the directory a removal deletes.
  *
- * <p>The reason this is worth a test of its own: the answer is used to delete a directory, and
- * the wrong answer deletes the wrong one. The two failures that matter are both here - guessing
- * from the filename (which is wrong for every plugin whose jar is not named after itself) and
- * matching a nested {@code name:}, of which every plugin descriptor has several.</p>
+ * The reason this is worth a test of its own: the answer is used to delete a directory, and the wrong answer deletes
+ * the wrong one. The two failures that matter are both here - guessing from the filename (which is wrong for every
+ * plugin whose jar is not named after itself) and matching a nested {@code name:}, of which every plugin descriptor
+ * has several.
  */
 class PluginFolderTest {
 
@@ -42,11 +41,8 @@ class PluginFolderTest {
     }
 
     @Test
-    @DisplayName("the folder is the descriptor's name, not the jar's")
-    void readsTheDescriptorAndNotTheFilename() throws IOException {
-        // Simple Voice Chat's real shape: the jar is voicechat-bukkit-<version>.jar and the folder
-        // is plugins/voicechat/. Anything deriving the folder from the filename deletes nothing, or
-        // something else.
+    void theFolderIsTheDescriptorsNameNotTheJars() throws IOException {
+        // The jar is voicechat-bukkit-<version>.jar and the folder is plugins/voicechat/ - name, not filename.
         final Path path = jar(
                 "voicechat-bukkit-2.6.24.jar",
                 Map.of("plugin.yml", "name: voicechat\nversion: 2.6.24\nmain: de.maxhenkel.voicechat.Voicechat\n"));
@@ -55,8 +51,7 @@ class PluginFolderTest {
     }
 
     @Test
-    @DisplayName("paper-plugin.yml is preferred, because that is the one the server reads")
-    void prefersThePaperDescriptor() throws IOException {
+    void paperPluginYmlIsPreferredBecauseThatIsTheOneTheServerReads() throws IOException {
         final Path path = jar(
                 "both-1.0.0.jar",
                 Map.of(
@@ -67,12 +62,8 @@ class PluginFolderTest {
     }
 
     @Test
-    @DisplayName("a name: nested under commands or libraries is not the plugin's name")
-    void ignoresNestedNames() throws IOException {
-        // The nested ones come FIRST, deliberately. YAML does not care about key order and real
-        // descriptors vary, and a matcher that simply takes the first `name:` it finds passes a
-        // fixture where the plugin's own name happens to be at the top - which is how this rule
-        // would have been "proved" by a test that could not fail.
+    void aNameNestedUnderCommandsOrLibrariesIsNotThePluginsName() throws IOException {
+        // Nested keys come first deliberately: a matcher taking the first name: it finds must not pass by accident.
         final Path path = jar("thing-1.0.0.jar", Map.of("plugin.yml", """
                 api-version: '1.21'
                 commands:
@@ -87,14 +78,12 @@ class PluginFolderTest {
     }
 
     @Test
-    @DisplayName("a jar with no descriptor answers null, and null must never become a deletion")
-    void noDescriptorIsNoAnswer() throws IOException {
+    void aJarWithNoDescriptorAnswersNullAndNullMustNeverBecomeADeletion() throws IOException {
         assertNull(PluginFolder.nameIn(jar("empty-1.0.0.jar", Map.of("META-INF/MANIFEST.MF", "\n"))));
     }
 
     @Test
-    @DisplayName("a file that is not a jar at all answers null rather than throwing")
-    void rubbishIsNotAnError() throws IOException {
+    void aFileThatIsNotAJarAtAllAnswersNullRatherThanThrowing() throws IOException {
         final Path path = directory.resolve("broken-1.0.0.jar");
         Files.writeString(path, "this is not a zip");
 

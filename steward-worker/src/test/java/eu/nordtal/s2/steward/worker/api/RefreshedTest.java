@@ -10,22 +10,19 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Nobody waits for a refresh they did not ask for.
  *
- * <p><b>Measured on the dev host, 2026-09-14.</b> {@code GET /api/services} took <b>11.5 s</b>
- * whenever the drift cache had just expired and <b>1.95 s</b> otherwise, because whichever request
- * arrived first after the minute was up went to a registry over the internet with the whole
- * response waiting behind it - and behind a {@code synchronized}, so every other request waited
- * too. steward-ui allows ten seconds, so that one request in every sixty timed out, and its log
- * said {@code steward-worker could not be reached} about a container that was healthy. Once a
- * minute. For hours.</p>
+ * A refresh that blocks the reader who triggers it is a trap: whichever request arrives first after the drift
+ * cache expires goes to a registry over the internet with the whole response waiting behind it - and behind a
+ * {@code synchronized}, so every other request waits too. steward-ui allows ten seconds, so that one request in
+ * every sixty times out, and its log says {@code steward-worker could not be reached} about a container that is
+ * healthy.
  *
- * <p>The cache was not wrong to be a minute old; it was wrong about <em>who pays</em> for making
- * it new. A reader gets the answer that exists and the refresh happens beside them.</p>
+ * The cache was not wrong to be a minute old; it was wrong about who pays for making it new. A reader gets the
+ * answer that exists and the refresh happens beside them.
  */
 class RefreshedTest {
 
@@ -56,8 +53,7 @@ class RefreshedTest {
     }
 
     @Test
-    @DisplayName("the first ask has nothing to hand back, so it waits - and only that one does")
-    void theFirstOneBlocks() {
+    void theFirstAskHasNothingToHandBackSoItWaitsAndOnlyThatOneDoes() {
         final AtomicInteger reads = new AtomicInteger();
         final Later later = new Later();
         final Refreshed<String> value =
@@ -69,8 +65,7 @@ class RefreshedTest {
     }
 
     @Test
-    @DisplayName("a stale value is handed over at once and made new behind the reader's back")
-    void staleIsServedAndRefreshed() {
+    void aStaleValueIsHandedOverAtOnceAndMadeNewBehindTheReadersBack() {
         final AtomicInteger reads = new AtomicInteger();
         final Later later = new Later();
         final Refreshed<String> value =
@@ -79,8 +74,7 @@ class RefreshedTest {
         assertEquals("read 1", value.get());
         tick(Duration.ofMinutes(2));
 
-        // The old answer, immediately. This is the whole point: the reader is not the one who pays
-        // for the registry round trip.
+        // The old answer, immediately: the reader is not the one who pays for the registry round trip.
         assertEquals("read 1", value.get());
         assertEquals(1, reads.get(), "the reader must not have done the read itself");
         assertEquals(1, later.pending());
@@ -90,8 +84,7 @@ class RefreshedTest {
     }
 
     @Test
-    @DisplayName("ten readers arriving at once ask for one refresh between them")
-    void onlyOneRefreshIsInFlight() {
+    void tenReadersArrivingAtOnceAskForOneRefreshBetweenThem() {
         final Later later = new Later();
         final Refreshed<String> value = new Refreshed<>(() -> "a value", Duration.ofMinutes(1), later, now::get);
 
@@ -105,11 +98,8 @@ class RefreshedTest {
     }
 
     @Test
-    @DisplayName("a refresh that fails keeps the old answer, and the next reader asks again")
-    void aFailedRefreshIsNotPoison() {
-        // The registry being unreachable is not a reason to have no drift column. The answer goes
-        // on saying what it said, and it carries its own age - which is what makes a stale one
-        // readable as stale rather than as current.
+    void aRefreshThatFailsKeepsTheOldAnswerAndTheNextReaderAsksAgain() {
+        // An unreachable registry is not a reason to have no drift column: the old answer stands, aged, not current.
         final AtomicInteger reads = new AtomicInteger();
         final Later later = new Later();
         final Refreshed<String> value = new Refreshed<>(
@@ -136,8 +126,7 @@ class RefreshedTest {
     }
 
     @Test
-    @DisplayName("a first read that fails is thrown, because there is nothing else to say")
-    void theFirstFailureIsAnError() {
+    void aFirstReadThatFailsIsThrownBecauseThereIsNothingElseToSay() {
         final Refreshed<String> value = new Refreshed<>(
                 () -> {
                     throw new IllegalStateException("the registry is not answering");
@@ -150,8 +139,7 @@ class RefreshedTest {
     }
 
     @Test
-    @DisplayName("it says how old the answer it handed over is")
-    void theAgeIsReadable() {
+    void itSaysHowOldTheAnswerItHandedOverIs() {
         final Later later = new Later();
         final Refreshed<String> value = new Refreshed<>(() -> "a value", Duration.ofMinutes(1), later, now::get);
 

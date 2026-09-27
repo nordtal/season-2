@@ -6,11 +6,10 @@ import java.nio.file.Path;
 
 /**
  * Whatever puts a {@link RemoteFile} on disk, verified.
- * <p>
- * One method, extracted purely so that the swap logic can be tested without a network: what
- * {@code Applier} does when a download fails half way through a set of eight jars is the part
- * worth testing, and it is unreachable if the only way to fail is an outage.
- * </p>
+ *
+ * One method, extracted purely so that the swap logic can be tested without a network: what {@code Applier} does
+ * when a download fails half way through a set of eight jars is the part worth testing, and it is unreachable if the
+ * only way to fail is an outage.
  */
 public interface Fetcher {
 

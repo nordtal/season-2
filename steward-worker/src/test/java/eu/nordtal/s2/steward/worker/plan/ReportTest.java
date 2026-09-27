@@ -6,20 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * That one outage produces one explanation.
  *
- * <h2>What went wrong</h2>
- * A GitHub failure makes every season row {@code UNRESOLVED}, and each carried the whole reason -
- * the URL, the advice about the rate limit, and 300 characters of trimmed JSON body. Eight rows of
- * that is roughly 4 600 characters. {@code UpdateCommand.DESCRIPTION_BUDGET} cuts a Discord embed
- * description at 4 000, so what fell off the end was everything after the rows: the summary line
- * that says the list is not the whole picture, and the "jars nothing accounts for" list. The two
- * parts that tell an admin what to do were the two parts that did not survive the outage they were
- * written for.
+ * What went wrong: A GitHub failure makes every season row {@code UNRESOLVED}, and each carried the whole reason -
+ * the URL, the advice about the rate limit, and 300 characters of trimmed JSON body. Eight rows of that is roughly 4
+ * 600 characters. {@code UpdateCommand.DESCRIPTION_BUDGET} cuts a Discord embed description at 4 000, so what fell
+ * off the end was everything after the rows: the summary line that says the list is not the whole picture, and the
+ * "jars nothing accounts for" list. The two parts that tell an admin what to do were the two parts that did not
+ * survive the outage they were written for.
  */
 class ReportTest {
 
@@ -34,8 +31,7 @@ class ReportTest {
                     + "x".repeat(300);
 
     @Test
-    @DisplayName("eight artefacts behind one outage still leave the summary inside the embed budget")
-    void oneOutageIsExplainedOnce() {
+    void eightArtefactsBehindOneOutageStillLeaveTheSummaryInsideTheEmbedBudget() {
         final String rendered = Report.render(githubIsDown());
 
         assertTrue(
@@ -53,8 +49,7 @@ class ReportTest {
     }
 
     @Test
-    @DisplayName("the parts that say what to do survive the outage they are written for")
-    void theSummarySurvives() {
+    void thePartsThatSayWhatToDoSurviveTheOutageTheyAreWrittenFor() {
         final String rendered = Report.render(githubIsDown());
 
         assertTrue(
@@ -64,10 +59,8 @@ class ReportTest {
     }
 
     @Test
-    @DisplayName("a reason that appears once is printed where it happened, not as a footnote")
-    void aLoneReasonStaysInline() {
-        // A footnote for a single occurrence is worse than the sentence itself: the reader has to
-        // go and find it, and there is nothing to deduplicate.
+    void aReasonThatAppearsOnceIsPrintedWhereItHappenedNotAsAFootnote() {
+        // A single occurrence as a footnote is worse than the sentence: reader has to find it, nothing to dedupe.
         final UpdatePlan plan = new UpdatePlan(
                 Instant.EPOCH,
                 "v0.2.1",
@@ -82,11 +75,8 @@ class ReportTest {
     }
 
     @Test
-    @DisplayName("an artefact with no build yet stops the summary claiming everything is up to date")
-    void anUnsupportedArtefactIsSaidOutLoudInTheSummary() {
-        // The summary is the line people read; the rows are the line people scan. "Everything is up
-        // to date" printed above a row reading "no build yet" is true about the artefacts that HAVE
-        // a build and is read as a statement about all of them.
+    void anArtefactWithNoBuildYetStopsTheSummaryClaimingEverythingIsUpToDate() {
+        // The summary is what people read; rows are what people scan. "Up to date" above "no build yet" reads as all.
         final UpdatePlan plan = new UpdatePlan(
                 Instant.EPOCH,
                 "v0.7.1",

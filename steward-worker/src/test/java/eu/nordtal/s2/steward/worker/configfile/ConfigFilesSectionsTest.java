@@ -15,39 +15,36 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * A YAML sequence of mappings, read as {@link Kind#SECTIONS} and - for an existing entry's own
- * field - written back (steward/68).
+ * A YAML sequence of mappings, read as {@link Kind#SECTIONS} and - for an existing entry's own field - written back.
  *
- * <p>{@link #TIERS_FIXTURE} is {@code tiers:} out of the bot's real {@code access.yml}, copied
- * byte for byte on 2026-09-16 (comments included) rather than typed to be easy to parse - it is
- * exactly the shape the old comment on {@link ConfigFiles}'s single {@code Kind.LIST} branch
- * warned a rewrite could not survive: a comment sitting <em>between</em> the two fields of the
- * first entry, and no comment at all on the second and third. {@link
- * #changingOneFieldLeavesEveryOtherEntryByteIdentical()} is the proof the ticket asks for -
- * without it, {@link ConfigChange.Sections} would not exist and this whole class would not
- * compile, so "red" here started as a compiler error against the pre-steward/68 shape rather
- * than a failing assertion.</p>
+ * {@link #TIERS_FIXTURE} is {@code tiers:} out of the bot's real {@code access.yml}, copied byte for byte (comments
+ * included) rather than typed to be easy to parse - it is exactly the shape the old comment on {@link ConfigFiles}
+ * 's single {@code Kind.LIST} branch warned a rewrite could not survive: a comment sitting between the two fields of
+ * the first entry, and no comment at all on the second and third.
+ * {@link #changingOneFieldLeavesEveryOtherEntryByteIdentical()} is the proof this class exists for - without it,
+ * {@link ConfigChange.Sections} would not exist and this whole class would not compile, so "red" here started as a
+ * compiler error against the old shape rather than a failing assertion.
  */
 class ConfigFilesSectionsTest {
 
     @TempDir
     Path directory;
 
-    private static final String TIERS_FIXTURE = "tiers:\n"
-            + "\n"
-            + "  # How many days of access this buys. A day is exactly 24 hours.\n"
-            + "- days: 30\n"
-            + "\n"
-            + "  # What it costs, in cents. Integer cents everywhere; never a float.\n"
-            + "  price-cents: 300\n"
-            + "- days: 60\n"
-            + "  price-cents: 500\n"
-            + "- days: 90\n"
-            + "  price-cents: 700\n";
+    private static final String TIERS_FIXTURE = """
+            tiers:
 
-    // -----------------------------------------------------------------------------------------
+              # How many days of access this buys. A day is exactly 24 hours.
+            - days: 30
+
+              # What it costs, in cents. Integer cents everywhere; never a float.
+              price-cents: 300
+            - days: 60
+              price-cents: 500
+            - days: 90
+              price-cents: 700
+            """;
+
     // Reading
-    // -----------------------------------------------------------------------------------------
 
     @Test
     void aSequenceOfMappingsReadsAsSections() throws IOException {
@@ -85,8 +82,7 @@ class ConfigFilesSectionsTest {
     void withNoSchemaThereIsNoTemplateAndTheFieldsAreStillDelivered() throws IOException {
         final ConfigEntry tiers = entry(read(TIERS_FIXTURE), "tiers");
 
-        // No schema for this fixture, so there is nothing to build a blank card's shape from - but
-        // steward/50's "the file is the truth" still applies: the fields themselves are there.
+        // No schema for this fixture, so there is no blank card shape to build - but the fields themselves are there.
         assertEquals(List.of(), tiers.template());
         assertEquals(3, tiers.sections().size());
     }
@@ -110,8 +106,7 @@ class ConfigFilesSectionsTest {
         assertEquals(Kind.LIST, mixed.kind());
         assertFalse(mixed.editable());
         assertEquals(List.of(), mixed.sections());
-        // Unchanged from before steward/68: the scalar collector still finds the one scalar entry,
-        // it is simply not editable because the sequence as a whole is not all one shape.
+        // The scalar collector still finds the one scalar entry; not editable since the sequence is not one shape.
         assertEquals(List.of("one"), mixed.items());
     }
 
@@ -123,9 +118,7 @@ class ConfigFilesSectionsTest {
         assertTrue(tiers.editable());
     }
 
-    // -----------------------------------------------------------------------------------------
-    // Writing - the proof steward/68 asks for
-    // -----------------------------------------------------------------------------------------
+    // Writing
 
     @Test
     void changingOneFieldLeavesEveryOtherEntryByteIdentical() throws IOException {
@@ -208,22 +201,14 @@ class ConfigFilesSectionsTest {
         assertEquals(before, Files.readString(file));
     }
 
-    // -----------------------------------------------------------------------------------------
-    // Writing - appending and removing (steward/71)
-    // -----------------------------------------------------------------------------------------
+    // Writing - appending and removing
 
     /**
-     * The proof steward/71 asks for on the append side: appending a fourth tier leaves the three
-     * existing entries - comments included - exactly as they were, and the new entry copies the
-     * shape (no comment, same indentation, no blank line before it) of the entry it was appended
-     * after.
+     * On the append side: appending a fourth tier leaves the three existing entries byte-identical.
      *
-     * <p><b>This is the test that has to fail against steward/68's own refusal first.</b> Before
-     * {@code ConfigFiles.sections} learned to dispatch a {@code size + 1} count to
-     * {@code appendSection}, this call threw {@code IllegalArgumentException} with steward/68's
-     * message - "adding or removing an entry is not something this editor can do yet (steward/68)"
-     * - which fails this test with that exception rather than with an assertion mismatch. That is
-     * the right red: the test was failing on the old refusal, not on a diff between two strings.</p>
+     * The new entry copies the shape (no comment, same indentation, no blank line before it) of the entry it was
+     * appended after. This is the test that has to fail against an editor that refuses to add an entry at all: a
+     * refusal fails this test with an exception rather than an assertion mismatch, which is the right kind of red.
      */
     @Test
     void appendingAnEntryLeavesEveryExistingEntryByteIdenticalAndCopiesTheLastEntrysStyle() throws IOException {
@@ -255,8 +240,14 @@ class ConfigFilesSectionsTest {
 
     @Test
     void appendingCopiesABlankLineBeforeEachEntryWhenTheLastEntryHadOne() throws IOException {
-        final String fixture =
-                "tiers:\n" + "- days: 30\n" + "  price-cents: 300\n" + "\n" + "- days: 60\n" + "  price-cents: 500\n";
+        final String fixture = """
+                tiers:
+                - days: 30
+                  price-cents: 300
+
+                - days: 60
+                  price-cents: 500
+                """;
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, fixture);
 
@@ -277,8 +268,13 @@ class ConfigFilesSectionsTest {
 
     @Test
     void appendingCopiesTheIndentationOfTheLastEntry() throws IOException {
-        final String fixture =
-                "tiers:\n" + "  - days: 30\n" + "    price-cents: 300\n" + "  - days: 60\n" + "    price-cents: 500\n";
+        final String fixture = """
+                tiers:
+                  - days: 30
+                    price-cents: 300
+                  - days: 60
+                    price-cents: 500
+                """;
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, fixture);
 
@@ -295,16 +291,21 @@ class ConfigFilesSectionsTest {
     }
 
     /**
-     * The bot's real {@code access.yml} - the case that actually matters (steward/71) - is a list
-     * of STRING fields, most of them empty (an unfilled snowflake id). This is the regression test
-     * for a bug the live worker itself caught while this ticket was being verified: the new entry's
-     * quoted file text ({@code ''}) was returned to {@link ConfigFiles#write}'s own verification as
-     * if it were the logical value, so an appended empty string read back as the two characters
-     * {@code ''} instead of emptiness.
+     * The bot's real {@code access.yml} is a list of STRING fields, most of them empty.
+     *
+     * The new entry's quoted file text ({@code ''}) must not be returned to {@link ConfigFiles#write}'s own
+     * verification as if it were the logical value, or an appended empty string reads back as {@code ''} instead of
+     * emptiness.
      */
     @Test
     void appendingAnEmptyStringFieldReadsBackEmptyNotQuoted() throws IOException {
-        final String fixture = "languages:\n" + "- tag: en\n" + "  role: ''\n" + "- tag: de\n" + "  role: ''\n";
+        final String fixture = """
+                languages:
+                - tag: en
+                  role: ''
+                - tag: de
+                  role: ''
+                """;
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, fixture);
 
@@ -371,26 +372,28 @@ class ConfigFilesSectionsTest {
     }
 
     /**
-     * The hard half steward/71 names explicitly: a comment sitting directly above an entry's own
-     * {@code - } line belongs to that entry and is removed with it, and a comment above the
-     * <em>next</em> entry's {@code - } line is left standing when a different entry is removed.
+     * The hard half of removal: which comment goes with which entry.
+     *
+     * A comment sitting directly above an entry's own {@code - } line belongs to that entry and is removed with it,
+     * and a comment above the next entry's {@code - } line is left standing when a different entry is removed.
      */
-    private static final String TIERS_WITH_A_COMMENT_BETWEEN_ENTRIES = "tiers:\n"
-            + "- days: 30\n"
-            + "  price-cents: 300\n"
-            + "# about the 60-day tier\n"
-            + "- days: 60\n"
-            + "  price-cents: 500\n"
-            + "- days: 90\n"
-            + "  price-cents: 700\n";
+    private static final String TIERS_WITH_A_COMMENT_BETWEEN_ENTRIES = """
+            tiers:
+            - days: 30
+              price-cents: 300
+            # about the 60-day tier
+            - days: 60
+              price-cents: 500
+            - days: 90
+              price-cents: 700
+            """;
 
     @Test
     void removingAnEntryDropsOnlyTheCommentThatBelongsToIt() throws IOException {
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, TIERS_WITH_A_COMMENT_BETWEEN_ENTRIES);
 
-        // Removing the FIRST entry (days: 30) must leave the comment about the 60-day tier alone:
-        // it sits directly above that entry's own `- ` line, not above the removed one's.
+        // Removing the FIRST entry (days: 30) must leave the 60-day comment alone: it sits above that entry's own line.
         final ConfigDocument written = ConfigFiles.write(
                 file,
                 Map.of(
@@ -399,14 +402,14 @@ class ConfigFilesSectionsTest {
                                 Map.of("days", "60", "price-cents", "500"),
                                 Map.of("days", "90", "price-cents", "700")))));
 
-        assertEquals(
-                "tiers:\n"
-                        + "# about the 60-day tier\n"
-                        + "- days: 60\n"
-                        + "  price-cents: 500\n"
-                        + "- days: 90\n"
-                        + "  price-cents: 700\n",
-                Files.readString(file));
+        assertEquals("""
+                tiers:
+                # about the 60-day tier
+                - days: 60
+                  price-cents: 500
+                - days: 90
+                  price-cents: 700
+                """, Files.readString(file));
 
         final ConfigEntry tiers = entry(written, "tiers");
         assertEquals(2, tiers.sections().size());
@@ -418,8 +421,7 @@ class ConfigFilesSectionsTest {
         final Path file = directory.resolve("access.yml");
         Files.writeString(file, TIERS_WITH_A_COMMENT_BETWEEN_ENTRIES);
 
-        // Removing the SECOND entry (days: 60) must take its own comment with it, and leave the
-        // 90-day entry - which never had one - untouched.
+        // Removing the SECOND entry (days: 60) must take its own comment with it, leaving the 90-day entry untouched.
         ConfigFiles.write(
                 file,
                 Map.of(
@@ -428,9 +430,13 @@ class ConfigFilesSectionsTest {
                                 Map.of("days", "30", "price-cents", "300"),
                                 Map.of("days", "90", "price-cents", "700")))));
 
-        assertEquals(
-                "tiers:\n" + "- days: 30\n" + "  price-cents: 300\n" + "- days: 90\n" + "  price-cents: 700\n",
-                Files.readString(file));
+        assertEquals("""
+                tiers:
+                - days: 30
+                  price-cents: 300
+                - days: 90
+                  price-cents: 700
+                """, Files.readString(file));
     }
 
     @Test
@@ -482,9 +488,7 @@ class ConfigFilesSectionsTest {
                         Map.of("tiers", ConfigChange.sections(List.of(Map.of("days", "30", "price-cents", "300"))))));
     }
 
-    // -----------------------------------------------------------------------------------------
     // Writing - refusals
-    // -----------------------------------------------------------------------------------------
 
     @Test
     void aFieldMissingFromASentEntryIsRefused() throws IOException {
@@ -542,9 +546,7 @@ class ConfigFilesSectionsTest {
         assertTrue(thrown.getMessage().contains("port"), thrown.getMessage());
     }
 
-    // -----------------------------------------------------------------------------------------
     // Fixtures
-    // -----------------------------------------------------------------------------------------
 
     private ConfigDocument read(final String yaml) throws IOException {
         final Path file = directory.resolve("fixture-" + System.nanoTime() + ".yml");

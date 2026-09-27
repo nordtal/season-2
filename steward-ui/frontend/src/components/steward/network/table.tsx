@@ -11,35 +11,9 @@ import { DriftMark, NodeToolbar } from "./node"
 import { SECTIONS, imageTag } from "./topology"
 
 /**
- * The network, on a phone: one row per service, and no drawing at all.
+ * The network on a phone: one row per service carrying the card's facts, grouped by `SECTIONS`.
  *
- * <h2>Why a table and not a smaller picture</h2>
- * On the mobile view the whole thing has to become a table
- * - every service node, with the information it carries in the network plan, drawn as one
- * row. A topology drawing is
- * two-dimensional and a phone is one column wide; a second hand-written arrangement, 352px across
- * and 940px tall, is a drawing
- * that has stopped being one - ten cards in three columns with the lines between them squeezed into
- * whatever was left. A list of ten rows says less and says all of it.
- *
- * <h2>What a row carries, and what it cannot</h2>
- * Exactly the card's four facts, in the card's own order: the identifier, the health dot, the image
- * drift mark with the running tag, and the player count for the four services that have one. The
- * toolbar comes across whole - `NodeToolbar` is imported from `node.tsx` rather than rebuilt, so
- * "open" and "recreate" are the same two buttons doing the same two things.
- *
- * What it cannot carry is the one thing the drawing is *for*: which edge goes where -
- * **no "connected to" column**. A column of service names beside a column of
- * service names is a table pretending to be a graph, and it would be read as neither. The wiring
- * becomes the **order** instead: `SECTIONS` in `topology.ts` is the plan's own grouping written
- * down as five headings, so a reader still learns that the three Paper servers belong together and
- * that everything above them is the way in.
- *
- * <h2>No frame, and no separators between the facts</h2>
- * Two standing rules of this interface, both of which a table is the usual place to break. Bordered
- * things do not nest, so the rows sit flat on the page under the panel's own heading rather than
- * inside a `Card`; and nothing between two facts on a row is a written character - the space
- * between them is the separator, the way it is on the card this row is a flattening of.
+ * The grouping stands in for the edges, since a "connected to" column would read as neither table nor graph.
  */
 export function NetworkTable() {
   const network = useNetwork()
@@ -54,11 +28,7 @@ export function NetworkTable() {
             const players = network.players(id)
             return (
               <div
-                /**
-                 * Read by `network.test.tsx` the same way a card is, so the one assertion that
-                 * matters most here - that every service in `navigation.ts` is on the page and
-                 * none has quietly fallen out of a section - is the same assertion either way.
-                 */
+                /** Read by `network.test.tsx` the same way a card is. */
                 key={id}
                 data-row={id}
                 className="flex min-w-0 items-center gap-2 border-b border-border/60 py-1 last:border-b-0"
@@ -70,9 +40,7 @@ export function NetworkTable() {
                         <HealthDot service={service} quiet={false} />
                       </span>
                     </TooltipTrigger>
-                    {/* For a held service Docker's own sentence is true and beside
-                        the point - "Exited (0) 5 minutes ago" is what a crash says too. The row
-                        that makes it a decision is `service_hold`, so that is what this says. */}
+                    {/* A held service shows `service_hold`, since Docker's exit sentence reads like a crash. */}
                     <TooltipContent>
                       {held(service)
                         ? `Held down since ${dateTime(service.hold!.since)}${
@@ -95,10 +63,7 @@ export function NetworkTable() {
 
                 {players === undefined ? null : (
                   <span
-                    /**
-                     * Same word and same reason as on the card: the icon is what a reader sees,
-                     * this is what a screen reader and a test see.
-                     */
+                    /** The icon carries the word on screen; this carries it to a screen reader and a test. */
                     title="players"
                     className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground"
                   >
@@ -116,11 +81,7 @@ export function NetworkTable() {
                   <SkeletonText className="w-16 shrink-0" width="short" />
                 )}
 
-                {/* Fixed width, because `RecreateButton` declines to draw itself for
-                    `steward-deployer` - the service that would be recreating itself - and a
-                    toolbar that is one button narrower on one row pulls that row's tag out of
-                    line with the other nine. On a card that never showed, because each card is
-                    its own box; in a list it is the only ragged edge there is. */}
+                {/* Fixed width, since `RecreateButton` skips `steward-deployer` and that row would sit ragged. */}
                 <div className="flex w-[3.125rem] shrink-0 justify-end">
                   <NodeToolbar id={id} />
                 </div>

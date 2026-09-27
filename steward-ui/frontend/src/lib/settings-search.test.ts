@@ -25,15 +25,7 @@ import {
   takePendingMessageJump,
 } from "@/lib/settings-search"
 
-/**
- * Search over the settings, per service and across all of them.
- *
- * The one test that matters most in this file is "a secret's known value finds nothing" - a search
- * whose hit/no-hit can be used to guess a secret is a leak with a search box in front of it. It is
- * written the way the ticket asked: with the entry carrying the secret value anyway, as if a future
- * bug had put it there, so the assertion is about this function refusing to look rather than about
- * the wire happening not to send it.
- */
+/** Search over the settings, per service and across all of them; a secret's value must never be findable. */
 
 function entry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
   return {
@@ -107,14 +99,8 @@ describe("entryHaystack / matchesQuery", () => {
     expect(matchesQuery(e, "retry")).toBe(false)
   })
 
-  // --- the one that matters most
-
   it("RED, then fixed: a secret's known value must never be findable by that value", () => {
-    /**
-     * Shaped as if a future bug sent the value anyway - `secret: true` AND a `value` present, which
-     * the wire contract in lib/api.ts says never happens together. The guard has to hold on its own,
-     * not by leaning on the backend never making this mistake.
-     */
+    /** The entry carries the secret value anyway, so the guard holds without trusting the wire. */
     const token = "MTA1NzE4.super-secret-discord-token"
     const secretEntry = entry({
       path: "discord.bot-token",
@@ -214,7 +200,7 @@ describe("pending jump", () => {
   })
 })
 
-// --- the message bundles are a second supplier, not a second search
+// The message bundles are a second supplier, not a second search.
 
 function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
   return { inBundle: true, args: [], section: [], ...over }
@@ -235,11 +221,7 @@ describe("messageEntryHaystack / matchesMessageQuery", () => {
   })
 
   it("matches the German translation, and only for the German language", () => {
-    /**
-     * A synthetic marker, not real German prose - `language.test.ts` scans every source file for
-     * German and a fixture is not exempt from that, the same reason `messages.test.tsx`
-     * spells its own German fixtures as "packaged-de-text" rather than an actual sentence.
-     */
+    /** A synthetic marker rather than German prose, since `language.test.ts` scans fixtures too. */
     const e = messageEntry({
       key: "grave.decay.announce",
       english: "Your grave has decayed.",
@@ -291,10 +273,7 @@ describe("searchMessagesAcross", () => {
         german: "packaged-de-marker",
       }),
     ])
-    /**
-     * A query that matches the key matches it in both languages - one hit per language, since
-     * each is a different destination (a different tab) once it is found.
-     */
+    /** One hit per language, since each opens a different tab. */
     const hits = searchMessagesAcross([{ location: loc, bundle: doc }], "grave.decay")
     expect(hits.map((hit) => hit.language).toSorted()).toEqual(["de", "en"])
   })
@@ -346,12 +325,7 @@ function configDocument(loc: ConfigLocation, entries: ConfigEntry[]): ParsedConf
 }
 
 describe("searchSettingsAndMessages - one list, from two suppliers", () => {
-  /**
-   * A text that lives in only one bundle is not found by a config-only search, and is found once
-   * the message bundles are searched too. This is that sentence, with a fixture proving the
-   * "before" half too - the config file has entries, none of which mention the text, so a
-   * config-only search (`searchAcross` alone) would answer nothing for this query.
-   */
+  /** Config search alone finds nothing for this text; with the bundles it finds it. */
   it("finds a text that lives only in a bundle - not in any config file of the same service", () => {
     const loc = configLocation({ path: "smp/steward.yml", name: "steward.yml" })
     const configDoc = configDocument(loc, [
@@ -446,11 +420,9 @@ describe("pending message jump", () => {
 })
 
 /**
- * What "Donor" is allowed to find, and in which order.
+ * What "Donor" may find and in which order, against real palette values.
  *
- * The values below are the real ones, taken from what `command-palette.tsx` hands cmdk and from
- * a representative `discord-bot/access.yml`. Each case is one of the two faults
- * this guards against: a row that must not match at all, and a row that must not come first.
+ * A row that must not match at all, and a row that must not come first.
  */
 describe("rankValue - a name outranks a mention, and a subsequence is not a match", () => {
   const donor = searchValue(
@@ -470,10 +442,7 @@ describe("rankValue - a name outranks a mention, and a subsequence is not a matc
   })
 
   it("refuses the service page that only contains those letters in order", () => {
-    /**
-     * d-o-n-o-r is hidden in "win(d)ow and c(o)ns(o)le … (r)estart", which is exactly what cmdk's
-     * default filter matched and why every service was offered.
-     */
+    /** "donor" is a subsequence of "window and console … restart", which cmdk's default filter matched. */
     expect(rankValue(smpPage, "donor")).toBe(0)
   })
 

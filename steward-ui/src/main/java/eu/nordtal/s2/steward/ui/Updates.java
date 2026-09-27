@@ -27,16 +27,11 @@ final class Updates {
 
     private static final Logger log = LoggerFactory.getLogger(Updates.class);
 
-    /** The Javalin mapper drops nulls; `/api/updates/active` answers "none" as an explicit null. */
+    /** Serializes nulls, so {@code /api/updates/active} can answer "none" as an explicit null. */
     private static final com.google.gson.Gson ACTIVE_JSON =
             new com.google.gson.GsonBuilder().serializeNulls().create();
 
-    /**
-     * How long a forced re-read of the update sources may take.
-     *
-     * Longer than the client's usual timeout: this call asks every source again and the slowness
-     * is the work, not a fault.
-     */
+    /** A forced re-read asks every source again, so it gets longer than the usual pass-through timeout. */
     private static final Duration RESOLVE_DEADLINE = Duration.ofMinutes(2);
 
     private final @Nullable Data data;
@@ -57,29 +52,19 @@ final class Updates {
     }
 
     void list(final Context ctx) {
-        // The same limit helper every other list on this class uses.
         ctx.json(data().updates().recent(StewardUi.limit(ctx, 20, 200)).stream()
                 .map(this::describe)
                 .toList());
     }
 
-    /**
-     * The one open run, or none.
-     *
-     * A map because {@code run} must be present as null, not dropped.
-     */
+    /** The one open run, as {@code run: null} when there is none. */
     void active(final Context ctx) {
         final Map<String, Object> answer = new java.util.HashMap<>();
         answer.put("run", data().updates().open().map(this::describe).orElse(null));
         ctx.contentType("application/json").result(ACTIVE_JSON.toJson(answer));
     }
 
-    /**
-     * What a run would do, without doing it.
-     *
-     * {@code refresh} drops the worker's cache and asks every source again, which is why this
-     * route gets its own deadline instead of the usual pass-through timeout.
-     */
+    /** What a run would do; {@code refresh} asks every source again, under {@link #RESOLVE_DEADLINE}. */
     void available(final Context ctx) {
         final boolean again = ctx.queryParam("refresh") != null;
         ctx.contentType("application/json")
@@ -97,7 +82,7 @@ final class Updates {
                 .orElseThrow(() -> new NotFoundResponse("no request " + id)));
     }
 
-    /** Asking for an update, a backup or a restart is writing a row - nothing here talks to a container. */
+    /** Asks for a run by writing a row; nothing here talks to a container. */
     void ask(final Context ctx) {
         final Ask ask = ctx.bodyAsClass(Ask.class);
         if (ask == null || ask.kind == null) {
@@ -134,12 +119,7 @@ final class Updates {
         ctx.status(202).json(describe(written));
     }
 
-    /**
-     * Cancels the earliest PENDING or RUNNING row whose {@code not_before} is still in the future.
-     *
-     * An empty answer means the countdown reached zero while the request was in flight, not an
-     * error in this process.
-     */
+    /** Cancels the earliest run still counting down; an empty answer means its countdown ran out meanwhile. */
     void cancel(final Context ctx) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final var cancelled =
@@ -177,17 +157,12 @@ final class Updates {
         };
     }
 
-    /**
-     * One request as the interface shows it.
-     *
-     * The {@code result} column is JSON and is parsed here into a structure; a report that cannot
-     * be parsed is reported as such with its text kept rather than treated as a failure.
-     */
+    /** One request as the interface shows it; a report that cannot be parsed is kept as text. */
     Map<String, Object> describe(final UpdateRequest request) {
         return describe(request, data().updates().scopeOf(request.id()));
     }
 
-    /** @param scope the services the run is for; empty is the whole network, as everywhere else */
+    /** The same, for a known {@code scope}, where empty is the whole network. */
     static Map<String, Object> describe(final UpdateRequest request, final List<String> scope) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("id", request.id());
@@ -224,11 +199,7 @@ final class Updates {
 
         @Nullable
         Long delaySeconds;
-        /**
-         * Which compose services this run is for.
-         *
-         * Absent or empty is the whole network; a scoped run still counts down and waits for health.
-         */
+        /** The compose services this run is for; absent or empty is the whole network. */
         java.util.@Nullable List<String> services;
     }
 }

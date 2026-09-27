@@ -17,26 +17,9 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 /**
- * Steward's mark is the server icon, and this is the test that keeps it one picture.
+ * Holds the frontend's icons to {@code resource-pack/src/pack.png}, which a Vite build cannot read itself.
  *
- * {@code resource-pack/src/pack.png} is what a player sees in the server browser beside the MOTD
- * (Velocity gets it through {@code ServerIcon}) and what the resource pack carries as its own
- * picture. It is now also Steward's favicon, its home-screen icon and the small mark in the sidebar.
- * Four uses, one file - except that a Vite build cannot read across the repository, so the frontend
- * needs its own copy under {@code frontend/public/}. A copy is a thing that drifts, so it is held
- * here, which is the same arrangement {@code PlatformTest} and {@code ResourcePackTest} already
- * use for the numbers they mirror.
- *
- * Why the big one is nearest neighbour
- * The source is 128 x 128 pixel art in which every 2 x 2 block is one colour - 21 colours in the
- * whole image. A smoothing resampler turns those into hundreds and the mark reads as a
- * low-resolution photograph rather than as a drawing. {@code ServerIcon} halves it with nearest
- * neighbour for exactly that reason; this quadruples it with the same rule, so an iPhone that
- * scales 512 down to 180 is working from clean edges.
- *
- * To make the pair again after the artwork changes: copy {@code pack.png} over
- * {@code icon.png}, and write {@code icon-512.png} by repeating each pixel four times - which is
- * the loop this test reads it back with. It names the exact pixel that disagrees.
+ * The 512 icon repeats each pixel four times, nearest neighbour like {@code ServerIcon}, to keep the pixel art clean.
  */
 class MarkIsTheServerIconTest {
 
@@ -139,7 +122,7 @@ class MarkIsTheServerIconTest {
         return image;
     }
 
-    /** The repository root, found rather than assumed - a test's working directory is its module. */
+    /** The repository root, found by walking up, since a test's working directory is its module. */
     private static Path repository() {
         Path directory = Path.of("").toAbsolutePath();
         while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {

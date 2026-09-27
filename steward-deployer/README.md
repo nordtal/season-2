@@ -17,15 +17,15 @@ through here.
     steward-deployer up      # the setup script: pull, then up, wait, exit with the code
     steward-deployer serve   # the HTTP API steward-ui calls (default in the container)
 
-| Endpoint                           | What it does                                                   |
-| ---------------------------------- | -------------------------------------------------------------- |
-| `GET /api/health`                  | the only route without the token                               |
-| `GET /api/state`                   | `docker compose ps --all --format json`                        |
-| `GET /api/services`                | every service in the baked file, with the image it runs        |
+| Endpoint                           | What it does                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------- |
+| `GET /api/health`                  | the only route without the token                                              |
+| `GET /api/state`                   | `docker compose ps --all --format json`                                       |
+| `GET /api/services`                | every service in the baked file, with the image it runs                       |
 | `POST /api/deploy`                 | `{"services": []}`, empty meaning the whole project; answers `202` with a job |
-| `POST /api/recreate/{service}`     | `up -d --no-deps --force-recreate` from the local image        |
-| `GET /api/jobs` · `/api/jobs/{id}` | what ran, and its output                                       |
-| `GET /api/jobs/{id}/stream`        | the same output as SSE, replayed from the start on connect     |
+| `POST /api/recreate/{service}`     | `up -d --no-deps --force-recreate` from the local image                       |
+| `GET /api/jobs` · `/api/jobs/{id}` | what ran, and its output                                                      |
+| `GET /api/jobs/{id}/stream`        | the same output as SSE, replayed from the start on connect                    |
 
 Every route but `/api/health` needs `X-Steward-Token`, and the service refuses to start without it.
 

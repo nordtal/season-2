@@ -3,13 +3,9 @@ import { toast } from "sonner"
 import type { ConfigReloadOutcome } from "@/lib/api"
 
 /**
- * The one toast a save produces, shaped by what `reload` says happened.
+ * The one toast a save produces, typed by what `reload` says happened.
  *
- * Three outcomes, three different toast types - not three variations of the same green success,
- * which would let them look alike when they mean different things. `APPLIED` and `NO_ANSWER` both mean a
- * command was actually sent; only the message says which. `undefined` is the GET-era shape kept
- * for a document nothing has re-fetched yet, and is treated the same as `APPLIED` was always
- * shown: a plain confirmation with the file's name.
+ * `APPLIED` and `NO_ANSWER` both sent a command; `undefined` is an older document, shown as `APPLIED`.
  */
 export function announceSave(label: string, reload: ConfigReloadOutcome | undefined, fallbackDescription: string) {
   if (!reload || reload.status === "APPLIED") {

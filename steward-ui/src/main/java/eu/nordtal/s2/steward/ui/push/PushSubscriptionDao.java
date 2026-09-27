@@ -7,22 +7,11 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The SQL behind {@link PushSubscriptions}. Package-private: {@code PushSubscriptions} is the API.
- *
- * @see eu.nordtal.s2.steward.ui.auth.CredentialDao the sibling this is modelled on - a table with no
- *      accounts table to point at, keyed by an identity the browser itself hands over
- */
+/** The SQL behind {@link PushSubscriptions}, which is the API. */
 @RegisterConstructorMapper(PushSubscriptions.Subscription.class)
 interface PushSubscriptionDao {
 
-    /**
-     * One browser, subscribed or resubscribed.
-     *
-     * {@code ON CONFLICT} rather than a lookup-then-branch, since the same endpoint calling this
-     * twice is a resubscription, not a second browser. {@code created_at} is left alone on a
-     * conflict; that is what {@code last_sent_at} is for.
-     */
+    /** Subscribes a browser, or resubscribes it by endpoint and leaves {@code created_at} alone. */
     @SqlUpdate("""
             INSERT INTO steward_push_subscription (endpoint, discord_id, p256dh, auth, created_at, device)
             VALUES (:endpoint, :discordId, :p256dh, :auth, now(), :device)
@@ -39,14 +28,14 @@ interface PushSubscriptionDao {
             @Bind("auth") String auth,
             @Bind("device") @Nullable String device);
 
-    /** Every subscription, for {@code AlertWatch} - whose it is does not matter on that path. */
+    /** Every subscription, for {@code AlertWatch}. */
     @SqlQuery("""
             SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
             FROM steward_push_subscription
             """)
     List<PushSubscriptions.Subscription> all();
 
-    /** One account's own subscriptions, oldest first - the settings page's own list. */
+    /** One account's own subscriptions, oldest first. */
     @SqlQuery("""
             SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
             FROM steward_push_subscription
@@ -55,7 +44,7 @@ interface PushSubscriptionDao {
             """)
     List<PushSubscriptions.Subscription> forAccount(@Bind("discordId") String discordId);
 
-    /** One subscription of one account, by endpoint; checked since an endpoint is not a secret. */
+    /** One subscription of one account, by endpoint; the account is checked since an endpoint is not a secret. */
     @SqlQuery("""
             SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
             FROM steward_push_subscription
@@ -64,20 +53,12 @@ interface PushSubscriptionDao {
     PushSubscriptions.Subscription find(@Bind("endpoint") String endpoint, @Bind("discordId") String discordId);
 
     /**
-     * One subscription of one account, gone - the settings page's own unsubscribe.
-     *
-     * The {@code discord_id} is checked, as in {@link #find}, since an endpoint is not a secret.
-     *
-     * @return 1 when a subscription of that endpoint was on that account, 0 otherwise
+     * Removes one subscription of one account and answers the row count; the account is checked, as in {@link #find}.
      */
     @SqlUpdate("DELETE FROM steward_push_subscription WHERE endpoint = :endpoint AND discord_id = :discordId")
     int remove(@Bind("endpoint") String endpoint, @Bind("discordId") String discordId);
 
-    /**
-     * One subscription, gone - no account check, since the endpoint itself reported it gone.
-     *
-     * @return 1 when that endpoint was a row, 0 when it had already gone
-     */
+    /** Removes one subscription whose push service reported it gone, and answers the row count. */
     @SqlUpdate("DELETE FROM steward_push_subscription WHERE endpoint = :endpoint")
     int expired(@Bind("endpoint") String endpoint);
 

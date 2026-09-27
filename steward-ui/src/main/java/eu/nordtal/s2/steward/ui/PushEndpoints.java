@@ -21,8 +21,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The web push half: browser subscriptions, notification preferences and the VAPID public key.
  *
- * {@code vapidKeys} and {@code alertWatch} are null together on a deployment with no VAPID
- * keypair yet - "not configured", not "not started".
+ * {@code vapidKeys} and {@code alertWatch} are null together on a deployment without a VAPID keypair.
  */
 final class PushEndpoints {
 
@@ -60,12 +59,7 @@ final class PushEndpoints {
         return Objects.requireNonNull(pushPreferences, "web-push is not configured on this deployment yet");
     }
 
-    /**
-     * {@code GET /api/web-push/public-key} - the VAPID public key, re-encoded for the Push API.
-     *
-     * {@link #vapidKeys} is parsed once at startup so this raw-EC-point conversion happens once,
-     * not on every call.
-     */
+    /** {@code GET /api/web-push/public-key}: the VAPID public key, encoded for the Push API. */
     void publicKey(final Context ctx) {
         if (vapidKeys == null) {
             throw new NotFoundResponse(
@@ -76,7 +70,7 @@ final class PushEndpoints {
                 Base64.getUrlEncoder().withoutPadding().encodeToString(vapidKeys.getApplicationServerKey())));
     }
 
-    /** {@code POST /api/web-push/subscribe} - the body is a browser's own {@code PushSubscription.toJSON()}. */
+    /** {@code POST /api/web-push/subscribe} with a browser's own {@code PushSubscription.toJSON()}. */
     void subscribe(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         final PushSubscriptionBody body = ctx.bodyAsClass(PushSubscriptionBody.class);
@@ -109,7 +103,7 @@ final class PushEndpoints {
         ctx.status(204);
     }
 
-    /** {@code DELETE /api/web-push/subscribe} - only the endpoint is needed to name the row. */
+    /** {@code DELETE /api/web-push/subscribe}: only the endpoint is needed to name the row. */
     void unsubscribe(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         final PushSubscriptionBody body = ctx.bodyAsClass(PushSubscriptionBody.class);
@@ -129,12 +123,7 @@ final class PushEndpoints {
         ctx.status(204);
     }
 
-    /**
-     * {@code GET /api/web-push/devices} - every browser of this account, named.
-     *
-     * The endpoint is sent along so the browser can match it against its own subscription and mark
-     * one row as "this device"; it is not a secret.
-     */
+    /** {@code GET /api/web-push/devices}: every browser of this account, with its endpoint to mark "this device". */
     void devices(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         final List<Map<String, Object>> listed = new ArrayList<>();
@@ -142,7 +131,6 @@ final class PushEndpoints {
                 pushSubscriptions().of(who.signedInDiscordId())) {
             final Map<String, Object> one = new LinkedHashMap<>();
             one.put("endpoint", subscription.endpoint());
-            // Absent rather than a placeholder; the interface writes its own words for "unknown".
             if (subscription.device() != null) {
                 one.put("device", subscription.device());
             }
@@ -155,12 +143,7 @@ final class PushEndpoints {
         ctx.json(listed);
     }
 
-    /**
-     * {@code GET /api/web-push/preferences} - which kinds of alert this account wants.
-     *
-     * Every type is answered with the effective value: an account that never opened the dialog
-     * gets {@link AlertType}'s own defaults, not an empty object.
-     */
+    /** {@code GET /api/web-push/preferences}: the effective value of every alert type for this account. */
     void preferences(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         final Map<String, Boolean> answer = new LinkedHashMap<>();
@@ -168,7 +151,7 @@ final class PushEndpoints {
         ctx.json(answer);
     }
 
-    /** {@code PUT /api/web-push/preferences} - one switch, for the account that is signed in. */
+    /** {@code PUT /api/web-push/preferences}: one switch, for the account that is signed in. */
     void setPreference(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         final PushPreferenceBody body = ctx.bodyAsClass(PushPreferenceBody.class);
@@ -181,10 +164,9 @@ final class PushEndpoints {
     }
 
     /**
-     * {@code POST /api/web-push/test} - one notification of one type, to one of this account's browsers.
+     * {@code POST /api/web-push/test}: one notification of one type, to one of this account's browsers.
      *
-     * Scoped by {@code discordId} AND endpoint, since an endpoint alone is not a secret. The
-     * preference switch is deliberately not consulted - see {@link AlertWatch#sendSample}.
+     * Scoped by {@code discordId} and endpoint, since an endpoint alone is not a secret; preferences are ignored.
      */
     void test(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
@@ -223,20 +205,18 @@ final class PushEndpoints {
         ctx.status(204);
     }
 
-    /** The body of {@code PUT /api/web-push/preferences}. */
     private static final class PushPreferenceBody {
         private @Nullable String type;
-        /** Boxed: a missing field is a bad request here, not a false. */
+        /** Boxed, so a missing field is a bad request, not a false. */
         private @Nullable Boolean enabled;
     }
 
-    /** The body of {@code POST /api/web-push/test}. */
     private static final class PushTestBody {
         private @Nullable String endpoint;
         private @Nullable String type;
     }
 
-    /** The one shape both web-push routes read; unsubscribe only needs its {@code endpoint}. */
+    /** The body of both subscription routes; unsubscribe only reads {@code endpoint}. */
     private static final class PushSubscriptionBody {
         private @Nullable String endpoint;
         private @Nullable Keys keys;

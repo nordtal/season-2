@@ -9,23 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 /**
- * Signed in, has a key, and has not held it yet in this session.
+ * Signed in with a key not yet held this session; the whole window, and the only way past is the key.
  *
- * This is package C on the screen: **Discord alone is not enough.** Before it, completing the
- * Discord redirect was the whole of signing in, and the key was something that had happened once,
- * weeks ago, on a different device - so a stolen cookie was thirty days of being able to stop a
- * Minecraft server. Now there is a page here, and the only way past it is the key.
- *
- * It is the whole window and not a dialog, for the same reason the setup page is: every route in
- * `/api` answers 403 until the ceremony is done, so a shell drawn underneath would be a sidebar
- * full of pages that cannot load.
- *
- * **There is no "skip" and there is no "remind me later".** The only other button leaves.
- *
- * As little text as possible, everywhere: no sentence names
- * which key belongs to this account - singular or the enumerated list for more than one.
- * The price is accepted: whoever is signing in is already holding a key, and WebAuthn
- * itself only accepts the one that fits.
+ * There is no skip. Every `/api` route answers 403 until the ceremony is done.
  */
 export function HoldKeyPage({ me }: { me: Me }) {
   const hold = useHoldKey()

@@ -7,15 +7,9 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import type { ChartConfig } from "@/components/ui/chart"
 
 /**
- * One curve, out of Postgres.
+ * One curve of `metric_sample` through `/api/metrics`, since Docker's `/stats` keeps no history.
  *
- * §10c decides where the points come from and it is worth repeating here, because the obvious
- * shortcut is wrong: Docker's `/stats` answers **now** and keeps no history, so a chart drawn from
- * the daemon draws one point and calls it a line. `steward-worker` samples every 30 seconds into
- * `metric_sample`; this reads that table through `/api/metrics`.
- *
- * The colour is a chart colour and never the brand. Blue in this interface means "you can click
- * this", and a blue area chart is the one blue thing on the page that does nothing.
+ * A chart colour and never the brand, since blue here means clickable.
  */
 export function SeriesChart({
   points,
@@ -106,30 +100,9 @@ export function SeriesChart({
 }
 
 /**
- * Which instant the tooltip's heading names.
+ * The instant the tooltip names, falling back to now when recharts has no payload or `at` is not a number.
  *
- * Recharts hands the formatter whatever it currently has, and on the first frame of a hover - and
- * for a chart being torn down - that is an empty list or an entry with no payload. Reaching for
- * `payload[0].payload.at` there yields `undefined`, and an `undefined` that reaches
- * `Intl.DateTimeFormat` is "Invalid Date" across the top of the tooltip.
- *
- * **Be precise about what this function changes, because the inline expression it replaces is not
- * broken.** It reads `Number(payload?.[0]?.payload?.at ?? Date.now())`, and the optional chaining
- * plus `??` already covers every missing case - no payload, no entry, no `at`, an explicit `null`.
- * Two things are actually new:
- *
- * 1. **It is testable.** As an argument to a JSX prop inside a chart inside a container, that
- *    expression could only be reached by rendering recharts in jsdom and hovering it. Nothing
- *    asserted any of it before, which is how it stayed unasserted.
- * 2. **A value that is present but not a number now falls back too.** `at: "not a date"` passes
- *    `??`, becomes `NaN`, and renders as "Invalid Date" - the one hole the old expression left. It
- *    needs a malformed timestamp out of `/api/metrics`, so it is a guard against the backend and
- *    not against recharts.
- *
- * Falling back to *now* rather than to an empty string is deliberate: the tooltip is over a point
- * that does exist, and the frame in which the payload has not arrived yet is followed immediately
- * by one in which it has. A blank heading that flickers reads as a defect; a heading that is a
- * moment off for one frame does not.
+ * Now rather than blank, since the payload arrives a frame later and a blank heading would flicker.
  */
 export function tooltipTimestamp(payload: readonly { payload?: { at?: unknown } }[] | undefined | null): number {
   const at = payload?.[0]?.payload?.at

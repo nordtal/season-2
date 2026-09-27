@@ -1,13 +1,6 @@
 import type { MessageArg } from "@/lib/api"
 import { tokenOf } from "@/lib/message-text"
 
-/**
- * A MiniMessage text read far enough to draw it on one line: colours, the decorations, and the
- * placeholders the key declares. Everything else - click, hover, gradient, lang - is dropped and
- * what it wraps is kept, because a preview that shows the words in roughly the right colour is
- * what a row in a list of keys has room for. The editor is where a text is read in full.
- */
-
 export type PreviewStyle = {
   colour?: string
   bold?: boolean
@@ -87,6 +80,11 @@ function closes(frame: string, closing: string): boolean {
   return decoration !== undefined && DECORATIONS[frame] === decoration
 }
 
+/**
+ * A MiniMessage text read for a one-line preview: colours, decorations and the key's placeholders.
+ *
+ * Click, hover, gradient and lang tags are dropped and what they wrap is kept.
+ */
 export function previewSegments(source: string, args: MessageArg[]): PreviewSegment[] {
   const placeholders = new Map(args.map((arg) => [tokenOf(arg), arg.name.replace(/^_/, "")]))
   const out: PreviewSegment[] = []

@@ -14,12 +14,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/**
- * The journal says what the dialog asked for.
- *
- * Holds the Java half of the formatting against the TypeScript half, which is a second
- * implementation of one rule and would otherwise drift in silence.
- */
+/** The journal says what the dialog asked for, holding the Java formatting against the TypeScript one. */
 class PlaytimeWordingTest {
 
     /** {@code format.ts}'s own tests pin these; the point here is that both halves agree. */
@@ -51,7 +46,7 @@ class PlaytimeWordingTest {
 
     @Test
     void theJournalDoesNotSaySeconds() throws IOException {
-        // Catches record(...) reverting to ask.seconds: precise to a machine, not to a person reading it.
+        // Catches record(...) reverting to ask.seconds, precise to a machine but not to a reader.
         final Path source = repository()
                 .resolve("discord-bot/src/main/java/eu/nordtal/s2/discordbot/discord/BotAccessEffects.java");
         final String text = Files.readString(source, StandardCharsets.UTF_8);

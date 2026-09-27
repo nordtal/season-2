@@ -5,26 +5,14 @@ import { QueryState, TRANSIENT_GRACE_MS, transient } from "@/components/steward/
 import { ApiError } from "@/lib/api"
 
 /**
- * A query that was never started must not look like one that is still running.
+ * A disabled query must not look like a running one, though TanStack reports it `isPending` for ever.
  *
- * **Measured** on `/configuration`: the page showed skeletons and a button and
- * nothing else, for as long as anybody was willing to wait. The mechanism is that TanStack Query
- * reports a *disabled* query as `isPending` forever - there is no data and there never will be -
- * and this component drew skeletons for `isPending`. So the interface said "loading" about
- * something nobody had asked for, which is the one thing a loading state must not be able to say.
- *
- * `fetchStatus` is what separates them: `"fetching"` is on its way, `"paused"` is waiting for a
- * network, and `"idle"` next to `isPending` means the query is switched off. That page is gone
- * (the configuration lives on each service's page now), but the trap is not - every `enabled:`
- * in `queries.ts` can lead back here.
+ * `fetchStatus` `"idle"` beside `isPending` is what tells them apart.
  */
 
 afterEach(cleanup)
 
-/**
- * The shape this component asks a child for: one expression, called with the
- * data and without it. A row that has no name yet still draws the row.
- */
+/** The shape a child is asked for: one expression, called with the data and without it. */
 const row = (data: string | undefined) => <span>{data ?? "…"}</span>
 
 describe("QueryState", () => {
@@ -44,7 +32,7 @@ describe("QueryState", () => {
   })
 
   it("still draws the waiting shape when nothing said which it is", () => {
-    // `fetchStatus` is optional, because a page may hand in a plain object rather than a query.
+    // `fetchStatus` is optional, since a page may hand in a plain object.
     render(<QueryState query={{ data: undefined, error: null, isPending: true }}>{row}</QueryState>)
     expect(screen.getByText("…")).toBeTruthy()
   })
@@ -54,13 +42,7 @@ describe("QueryState", () => {
     expect(screen.getByText("smp")).toBeTruthy()
   })
 
-  /**
-   * The child is the skeleton, so it has to be called while the answer is still out.
-   *
-   * This is the assertion the whole component rests on. A `QueryState` that only rendered its child
-   * once the data was there would leave every converted component's waiting shape unreachable -
-   * and the page would go back to flat grey bars without a single test turning red.
-   */
+  /** The child is the skeleton, so it is called while the answer is still out. */
   it("calls the child while waiting, so the child can draw its own shape", () => {
     render(
       <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "fetching" }}>{row}</QueryState>,
@@ -74,10 +56,7 @@ describe("QueryState", () => {
         {(data: string) => <span>{data}</span>}
       </QueryState>,
     )
-    /**
-     * `role="status"` belongs to `Loading` alone: it is a box of its own, so it can be announced
-     * without standing in anybody's layout. The shaped branch above deliberately has no wrapper.
-     */
+    /** Only `Loading` carries `role="status"`, being a box of its own; the shaped branch has no wrapper. */
     expect(screen.getByRole("status")).toBeTruthy()
     expect(screen.queryByText("…")).toBeNull()
   })
@@ -88,11 +67,7 @@ describe("QueryState", () => {
     expect(screen.queryByRole("status")).toBeNull()
   })
 
-  /**
-   * Nothing jumps on a refetch. TanStack Query keeps the old data and drops `isPending`, so this
-   * is really an assertion about which of the two this component reads - `isFetching` here would
-   * grey the page out on every poll.
-   */
+  /** The old data stands through a refetch, since this reads `isPending` and not `isFetching`. */
   it("leaves the old data standing while the next answer is fetched", () => {
     render(
       <QueryState query={{ data: "smp", error: null, isPending: false, fetchStatus: "fetching" }}>{row}</QueryState>,

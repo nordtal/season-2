@@ -9,11 +9,9 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { changesOf } from "@/lib/query-fixtures"
 
 /**
- * The Updates page: built like Backups, and kept apart from it.
+ * The Updates page: built like Backups, but its own.
  *
- * What is held here is what makes it a page of its own and not a second Backups: the schedule it
- * saves is `update.*`, never `backup.*`; the runs it lists are the UPDATE and RESTART rows of the
- * shared table and nothing else; and "Next" is the update clock's, which is off unless set.
+ * It saves `update.*`, lists only UPDATE and RESTART runs, and "Next" is the update clock's, off unless set.
  */
 
 function json(status: number, body: unknown): Response {
@@ -174,10 +172,7 @@ describe("UpdatesPage - its own schedule", () => {
     draw()
 
     fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
-    /**
-     * The fixture's update.days is Sunday alone; backup.days is Monday. Monday unpressed here is
-     * what proves this dialog reads the update keys and not the backup ones.
-     */
+    /** update.days is Sunday alone and backup.days Monday, so an unpressed Monday proves the update keys are read. */
     expect((await screen.findByRole("button", { name: "Sun" })).getAttribute("aria-pressed")).toBe("true")
     expect(screen.getByRole("button", { name: "Mon" }).getAttribute("aria-pressed")).toBe("false")
 

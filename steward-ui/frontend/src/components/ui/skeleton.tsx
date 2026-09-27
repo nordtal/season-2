@@ -1,12 +1,6 @@
 import { cn } from "cn"
 
-/**
- * The widths a line of absent text is allowed to have.
- *
- * Three of them, picked per position and never at random: a random width flickers on every
- * re-render and no test can hold it. They are shares rather than character counts because the
- * thing underneath is a share too - a name column is a name column at 390px and at 1440.
- */
+/** The widths a line of absent text may have, fixed per position since a random width flickers and cannot be tested. */
 const WIDTHS = {
   short: "w-[45%]",
   medium: "w-[60%]",
@@ -15,16 +9,9 @@ const WIDTHS = {
 } as const
 
 /**
- * A surface standing in for something that is not here yet.
+ * A surface standing in for something not here yet, inside the data component's own layout so nothing jumps.
  *
- * It shimmers rather than pulses; the animation,
- * its timing and why it is a moved pseudo-element rather than a moved background are argued at
- * length beside `@utility skeleton-shimmer` in `index.css`.
- *
- * **It is never the whole answer.** A skeleton that does not resemble what replaces it jumps when
- * the data lands, which is worse than an empty box - so the rule this file serves is that a data
- * component draws its own layout with these inside it, rather than a separate skeleton component
- * being kept in step by hand.
+ * The shimmer is explained beside `@utility skeleton-shimmer` in `index.css`.
  */
 function Skeleton({ className, width, ...props }: React.ComponentProps<"div"> & { width?: keyof typeof WIDTHS }) {
   return (
@@ -36,14 +23,7 @@ function Skeleton({ className, width, ...props }: React.ComponentProps<"div"> & 
   )
 }
 
-/**
- * A line of text that has not arrived, at the height of the text it replaces.
- *
- * `h-[1lh]` rather than a fixed height: it takes the line height of wherever it is dropped, so a
- * `text-xs` caption and a `text-lg` heading each get a bar the size of their own line without the
- * call site repeating the type scale. The inner bar is what carries the width, so the outer box
- * still occupies the full line and nothing reflows when the words appear.
- */
+/** A line of text that has not arrived, `h-[1lh]` tall so it takes the height of the line it replaces. */
 function SkeletonText({
   width = "medium",
   className,

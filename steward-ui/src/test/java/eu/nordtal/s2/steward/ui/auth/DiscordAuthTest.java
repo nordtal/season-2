@@ -17,15 +17,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/**
- * What the sign-in page is able to say about a deployment nobody can sign in to.
- *
- * This is the half of {@link DiscordAuth} that never reaches Discord, and it is the half an
- * operator meets first: a fresh deployment has none of these three values, and the difference
- * between "you are not an admin" and "this container was never given a client id" is the
- * difference between an evening of guessing and a one-line fix. The flow itself is exercised
- * end to end in {@code SignInAndSessionTest}, against a stand-in Discord.
- */
+/** What the sign-in page says about a deployment nobody can sign in to, the half that never reaches Discord. */
 class DiscordAuthTest {
 
     @Test
@@ -58,12 +50,7 @@ class DiscordAuthTest {
     private static final List<String> GUIDANCE =
             List.of("deploy/nordtal.sh", "deploy/dev.env.example", "deploy/README.md", "README.md");
 
-    /**
-     * A path ending in {@code auth/callback}.
-     *
-     * With whatever was written in front of it that is not whitespace - a scheme, a host, a
-     * placeholder like {@code <STEWARD_HOST>}.
-     */
+    /** A path ending in {@code auth/callback}, after whatever non-blank scheme, host or placeholder precedes it. */
     private static final Pattern MENTION = Pattern.compile("[^\\s\"'`]*auth/callback");
 
     @Test
@@ -106,9 +93,7 @@ class DiscordAuthTest {
         }
     }
 
-    /**
-     * The repository root, found rather than assumed - a test's working directory is its module.
-     */
+    /** The repository root, found by walking up, since a test's working directory is its module. */
     private static Path repository() {
         Path directory = Path.of("").toAbsolutePath();
         while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
@@ -174,7 +159,7 @@ class DiscordAuthTest {
                 IllegalArgumentException.class,
                 () -> new DiscordAuth(config, "https://steward.example", "http://10.0.0.5:8080"));
 
-        // And the two that are allowed: the real one, and the stand-in every test here uses.
+        // The two that are allowed: the real one, and the stand-in every test here uses.
         assertDoesNotThrow(() -> new DiscordAuth(config, "https://steward.example", DiscordAuth.DISCORD_API));
         assertDoesNotThrow(() -> new DiscordAuth(config, "https://steward.example", "http://127.0.0.1:18093"));
     }

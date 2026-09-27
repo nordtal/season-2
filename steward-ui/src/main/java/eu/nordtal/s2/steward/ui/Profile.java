@@ -66,7 +66,7 @@ final class Profile {
         return Objects.requireNonNull(exampleValues, "this route needs exampleValues, which this instance has none of");
     }
 
-    /** {@code GET /api/message-examples} - one example value per placeholder type and property. */
+    /** {@code GET /api/message-examples}: one example value per placeholder type and property. */
     void messageExamples(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         ctx.json(exampleValues().of(who.signedInDiscordId(), who.signedInDisplayName()));
@@ -77,7 +77,6 @@ final class Profile {
         final List<Map<String, Object>> listed = new ArrayList<>();
         for (final Credentials.Key key : credentials().of(discordId)) {
             final Map<String, Object> one = new LinkedHashMap<>();
-            // The id is not a secret; it lets a key be renamed or removed by naming it.
             one.put("id", new ByteArray(key.credentialId()).getBase64Url());
             one.put("label", key.label());
             one.put("registeredAt", key.createdAt().toString());
@@ -87,7 +86,7 @@ final class Profile {
             if (key.transports() != null && !key.transports().isBlank()) {
                 one.put("transports", List.of(key.transports().split(",")));
             }
-            // Absent rather than false when the authenticator did not say - the two are different.
+            // Absent rather than false when the authenticator did not say.
             if (key.backedUp() != null) {
                 one.put("backedUp", key.backedUp());
             }
@@ -97,11 +96,9 @@ final class Profile {
     }
 
     /**
-     * The Discord avatar {@code /api/people} would print for this account, or empty, never thrown.
+     * The Discord avatar {@code /api/people} would print for this account, or empty on any failure.
      *
-     * Read from the same {@code person} row, not a second Discord call and not
-     * {@code data().roster().people(...)}, which pages the whole access list for one picture. A
-     * missing row or a database hiccup both answer "no avatar" rather than break {@code /api/me}.
+     * Read from the {@code person} row directly, since the roster's list call pages the whole access list.
      */
     private Optional<String> avatarOf(final String discordId) {
         try {
@@ -122,7 +119,7 @@ final class Profile {
         found.ifPresent(who -> {
             answer.put("id", who.signedInDiscordId());
             answer.put("name", who.signedInDisplayName());
-            // Written with the row, never minted here; this route is the one place it may be read.
+            // Written with the row; this route is the one place it may be read.
             answer.put("csrf", who.csrf());
             answer.put("signedInAt", who.createdAt().toString());
             answer.put("expiresAt", who.expiresAt().toString());
@@ -141,7 +138,7 @@ final class Profile {
                 "A security key is required: it is asked for at every sign-in, and"
                         + " again before anything that changes something - one touch covers the next "
                         + StewardUi.STEP_UP.toMinutes() + " minutes.");
-        // A number too, so the dialog can say it rather than repeat a literal that could drift.
+        // A number too, so the dialog does not repeat a literal that could drift.
         answer.put("stepUpMinutes", StewardUi.STEP_UP.toMinutes());
         ctx.json(answer);
     }

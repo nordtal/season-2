@@ -13,17 +13,13 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The plain reads and writes this service forwards to steward-worker rather than answering itself.
- *
- * See {@link #forwardConfig}'s own note on why they are a proxy.
- */
+/** The plain reads and writes this service forwards to steward-worker rather than answering itself. */
 final class WorkerProxy {
 
     private static final Logger log = LoggerFactory.getLogger(WorkerProxy.class);
     private static final Gson GSON = new Gson();
 
-    /** What a name is allowed to be made of before it becomes a URL segment and a header value. */
+    /** The shape a backup name must have before it becomes a URL segment and a header value. */
     private static final Pattern FILENAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
 
     private final InternalClient worker;
@@ -55,7 +51,7 @@ final class WorkerProxy {
         ctx.status(202).contentType("application/json").result(answer);
     }
 
-    /** The unified "latest actions" feed; {@code ?limit=} needs {@code forwardedQuery} to survive. */
+    /** The unified "latest actions" feed, with its query string forwarded. */
     void actions(final Context ctx) {
         passThrough(ctx, "/api/actions" + StewardUi.forwardedQuery(ctx.queryString()));
     }
@@ -64,7 +60,6 @@ final class WorkerProxy {
         passThrough(ctx, "/api/host");
     }
 
-    /** What "tonight" means on the host, rather than in whatever zone the browser is in. */
     void schedule(final Context ctx) {
         passThrough(ctx, "/api/schedule");
     }
@@ -73,7 +68,6 @@ final class WorkerProxy {
         passThrough(ctx, "/api/backups");
     }
 
-    /** The configuration reads and writes, all through {@link #forwardConfig}. */
     void configRoot(final Context ctx) {
         forwardConfig(ctx, "/api/config", null);
     }
@@ -86,7 +80,7 @@ final class WorkerProxy {
         forwardConfig(ctx, configPath(ctx), ctx.body());
     }
 
-    /** The raw editor's own save: same worker and gate, but a body of text and a revision. */
+    /** The raw editor's save: a body of text and a revision. */
     void saveConfigRaw(final Context ctx) {
         forwardConfig(ctx, workerPath("/api/config-raw", ctx, "file"), ctx.body());
     }
@@ -103,7 +97,6 @@ final class WorkerProxy {
         forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"), ctx.body());
     }
 
-    /** {@code ?q=} has to survive, so this goes through {@code forwardedQuery} rather than {@link #passThrough}. */
     void pluginSearch(final Context ctx) {
         passThrough(
                 ctx,
@@ -111,7 +104,7 @@ final class WorkerProxy {
                         + StewardUi.forwardedQuery(ctx.queryString()));
     }
 
-    /** The name on the row is taken from the session and written into the body here, not from the browser. */
+    /** Takes the name on the row from the session, never from the browser. */
     void installPlugin(final Context ctx) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Map<String, Object> body =
@@ -125,23 +118,16 @@ final class WorkerProxy {
                 ctx, "/api/services/" + ctx.pathParam("name") + "/plugins/" + ctx.pathParam("artifact"), null, 200);
     }
 
-    /** The answer for both {@code GET} and {@code HEAD /api/health}. */
     void health(final Context ctx) {
         ctx.json(Map.of("status", "ok", "worker", worker.isReachable()));
     }
 
-    /**
-     * The configuration routes, answered by {@code steward-worker}.
-     *
-     * The worker's own answer is passed through, status and body, rather than wrapped in
-     * {@code InternalClient.Failure}'s envelope, so the real status and {@code error} field survive.
-     */
+    /** Passes the worker's answer through, status and body, so its real status and {@code error} field survive. */
     void forwardConfig(final Context ctx, final String path, final @Nullable String body) {
         try {
             final String answer = body == null ? worker.get(path) : worker.put(path, body);
             ctx.contentType("application/json").result(answer);
         } catch (final InternalClient.Failure failure) {
-            // A refusal the worker composed carries its own body; anything else has none.
             if (failure.body() == null || failure.body().isBlank()) {
                 throw failure;
             }
@@ -150,12 +136,12 @@ final class WorkerProxy {
         }
     }
 
-    /** {@code <file>} as the worker will read it, re-encoded segment by segment on the way out. */
+    /** The worker's path for {@code <file>}, re-encoded segment by segment. */
     static String configPath(final Context ctx) {
         return workerPath("/api/config", ctx, "file");
     }
 
-    /** {@code prefix} plus one path parameter, re-encoded segment by segment; shared with message bundles. */
+    /** {@code prefix} plus one path parameter, re-encoded segment by segment. */
     static String workerPath(final String prefix, final Context ctx, final String param) {
         final StringBuilder path = new StringBuilder(prefix);
         for (final String segment : ctx.pathParam(param).split("/", -1)) {
@@ -167,12 +153,7 @@ final class WorkerProxy {
     }
 
     /**
-     * A write forwarded to steward-worker.
-     *
-     * Same arrangement as {@link #forwardConfig}: the refusal is kept intact.
-     *
-     * @param body {@code null} for a {@code DELETE}, which carries none
-     * @param ok   what to answer on success, because a create is a 201 and a delete is a 200
+     * A write forwarded like {@link #forwardConfig}; a null {@code body} is a DELETE, {@code ok} the success status.
      */
     void forwardWorker(final Context ctx, final String path, final @Nullable String body, final int ok) {
         try {
@@ -187,12 +168,7 @@ final class WorkerProxy {
         }
     }
 
-    /**
-     * One archive, streamed straight through rather than parsed a second time.
-     *
-     * {@code name} is held to the shape of a filename before it becomes a URL segment and a
-     * response header here; the worker owns the real naming rule.
-     */
+    /** Streams one archive straight through, after holding {@code name} to the shape of a filename. */
     void downloadBackup(final Context ctx, final String name) {
         if (!FILENAME.matcher(name).matches()) {
             throw new BadRequestResponse("not the name of a backup: " + name);

@@ -22,17 +22,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Signing in with Discord, and reading the signer's roles without holding the bot's token.
+ * Signing in with Discord, and reading the signer's roles with their own token rather than the bot's.
  *
- * {@code guilds.members.read} lets this process read that person's own membership of one guild -
- * their roles and nickname - using their token, not the bot's. Discord confirms who somebody is
- * first and the role is checked after, so a refusal can name the person and the missing role.
+ * Identity comes first and the role check after, so a refusal can name the person and the missing role.
  */
 public final class DiscordAuth {
 
     private static final Logger log = LoggerFactory.getLogger(DiscordAuth.class);
 
-    /** Discord's API, and the one system boundary this class has. */
+    /** Discord's API base. */
     public static final String DISCORD_API = "https://discord.com/api/v10";
 
     private static final String AUTHORIZE = "https://discord.com/oauth2/authorize";
@@ -42,15 +40,9 @@ public final class DiscordAuth {
     private final UiSpec.DiscordSpec config;
     private final String redirectUri;
     private final String api;
-    /** Connecting to Discord. */
     private static final Duration CONNECT = Duration.ofSeconds(10);
 
-    /**
-     * How long an answer may take, once connected; somebody's browser is waiting on it.
-     *
-     * A connect timeout alone is not a deadline: Discord accepting the connection and then never
-     * finishing the answer would otherwise block the request thread with no way out.
-     */
+    /** How long an answer may take once connected, since a connect timeout alone never ends a stalled answer. */
     private static final Duration ANSWER = Duration.ofSeconds(15);
 
     private final HttpClient http;
@@ -59,12 +51,7 @@ public final class DiscordAuth {
         this(config, publicUrl, DISCORD_API);
     }
 
-    /**
-     * The same sign-in against a different API base.
-     *
-     * A test can put a stand-in where {@link #DISCORD_API} goes and still exercise the real state
-     * parameter, role check, session and cookie.
-     */
+    /** The same sign-in against a different API base, for a test's stand-in. */
     public DiscordAuth(final UiSpec.DiscordSpec config, final String publicUrl, final String api) {
         this.config = config;
         this.redirectUri = publicUrl + "/auth/callback";
@@ -72,12 +59,7 @@ public final class DiscordAuth {
         this.http = HttpClient.newBuilder().connectTimeout(CONNECT).build();
     }
 
-    /**
-     * Refuses a plaintext API base that is not on this machine.
-     *
-     * A stand-in for a test runs on {@code 127.0.0.1} over plain HTTP; everything else sent in
-     * cleartext would carry the client secret and a bearer token on the wire.
-     */
+    /** Refuses a plaintext API base off this machine, which would send the client secret in cleartext. */
     private static String plaintextOnlyToOurselves(final String api) {
         final URI uri = URI.create(api);
         if ("https".equalsIgnoreCase(uri.getScheme())) {
@@ -116,11 +98,9 @@ public final class DiscordAuth {
     }
 
     /**
-     * Where the browser is sent. {@code state} is this session's one-time value.
+     * Where the browser is sent, with this session's one-time {@code state}.
      *
-     * {@code prompt=consent} makes signing out mean something: on a screen where the next button
-     * can stop a Minecraft server, being asked again is the feature. It is not the second factor -
-     * it only proves the browser has a Discord session, which a stolen laptop already has.
+     * {@code prompt=consent} makes signing out mean something; it is not a second factor.
      */
     public URI authorizeUrl(final String state) {
         return URI.create(AUTHORIZE
@@ -135,9 +115,7 @@ public final class DiscordAuth {
     /**
      * Exchanges the code and says who this is, refusing anybody who is not in the guild.
      *
-     * Whether they may in is decided elsewhere, in the admin tree; Discord's roles decide nothing here.
-     *
-     * @return the account, or a refusal that says why in words an admin can act on
+     * Whether they may in is the admin tree's decision; Discord's roles decide nothing here.
      */
     public Outcome signIn(final String code) {
         final Optional<String> missing = whatIsMissing();
@@ -214,7 +192,7 @@ public final class DiscordAuth {
         return GSON.fromJson(response.body(), JsonObject.class);
     }
 
-    /** Every call to Discord goes through here, and every one of them carries {@link #ANSWER}. */
+    /** Every call to Discord, each under the {@link #ANSWER} deadline. */
     private HttpResponse<String> send(final HttpRequest.Builder request) {
         try {
             return http.send(request.timeout(ANSWER).build(), HttpResponse.BodyHandlers.ofString());
@@ -230,7 +208,7 @@ public final class DiscordAuth {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    /** Who signed in. Roles are kept so a later refusal can say which one was missing. */
+    /** Who signed in, with the roles kept so a later refusal can name the missing one. */
     public record Account(String id, String name, List<String> roles) {}
 
     /** Signed in, or refused with a reason a person can act on. */

@@ -22,18 +22,12 @@ describe("which modifier to print", () => {
   })
 
   it("prefers the user-agent hint where there is one", () => {
-    /**
-     * `navigator.platform` is deprecated; a browser that has stopped answering it must not turn
-     * every Mac into a Ctrl.
-     */
+    /** `navigator.platform` is deprecated, and a browser that stopped answering it must not turn a Mac into a Ctrl. */
     expect(usesCommandKey(navigatorWith({ platform: "", userAgentData: { platform: "macOS" } }))).toBe(true)
   })
 
   it("falls back to Ctrl rather than throwing where there is no navigator at all", () => {
-    /**
-     * Server-side rendering is not done here, but a test environment without a DOM is, and a label
-     * helper that throws would take the whole page with it.
-     */
+    /** Without a DOM the helper must answer rather than throw and take the page with it. */
     expect(usesCommandKey(undefined)).toBe(false)
     expect(modifierLabel(navigatorWith({}))).toBe("Ctrl")
   })

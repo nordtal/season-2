@@ -6,13 +6,7 @@ import type { SectionValues } from "@/components/steward/repeatable-cards"
 import type { ConfigEntry } from "@/lib/api"
 import { asButton, asInput } from "@/lib/test-elements"
 
-/**
- * `RepeatableCards` draws one card per entry of a repeating structure, add and remove, fields
- * drawn from the schema like any other field. `languages` in `discord-bot/access.yml` is the
- * motivating case, but the worker does not yet send the shape this component needs - see the long
- * comment on `ConfigEntry.kind` in `lib/api.ts`. These tests exercise the component against
- * fixtures shaped the way that comment proposes.
- */
+/** `RepeatableCards` against fixtures of a repeating structure, one card per entry with add and remove. */
 
 function field(over: Partial<ConfigEntry> & { key: string }): ConfigEntry {
   return {
@@ -127,10 +121,7 @@ describe("RepeatableCards", () => {
     )
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
-    /**
-     * The click arms a confirmation rather than removing straight away (see the describe block
-     * below) - nothing is drafted until that confirmation is answered.
-     */
+    /** The click only arms the confirmation, so nothing is drafted yet. */
     expect(onChange).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole("button", { name: "Remove it" }))
 
@@ -177,10 +168,7 @@ describe("RepeatableCards", () => {
       />,
     )
 
-    /**
-     * Without an available directory, SnowflakePicker degrades to a text input but keeps its own
-     * hint underneath it - the plain ScalarControl text branch never renders this sentence.
-     */
+    /** Without a directory, SnowflakePicker falls back to a text input and keeps its own hint. */
     expect(screen.getByText(/Paste the id instead/)).toBeTruthy()
   })
 
@@ -202,14 +190,7 @@ describe("RepeatableCards", () => {
   })
 })
 
-/**
- * Removing an entry asks first, and what it asks is the list's own explanation - the generic
- * confirmation built for every `SECTIONS` list, protected or not. Nothing here knows the word
- * "English" or the tag "en"; it shows whatever `explanationOf(entry)` already carries for the
- * parent list. The entry a schema actually marks `@Protected` never reaches this dialog at all -
- * see the describe block below - so this one stays the generic answer for every entry that is not
- * that one.
- */
+/** Removing an entry confirms with the list's own explanation, the same dialog for every unprotected entry. */
 describe("RepeatableCards - confirming a removal", () => {
   it("does not touch the draft on the trash icon alone - it opens a confirmation first", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
@@ -274,12 +255,7 @@ describe("RepeatableCards - confirming a removal", () => {
   })
 })
 
-/**
- * The one entry a schema's `@Protected` names cannot be removed from here at all - the worker
- * refuses the same removal (`ConfigFiles.removeSection`), so disabling the button up front is a
- * courtesy rather than the enforcement: the interface no longer lets somebody confirm a removal
- * that would only fail once the save reached the worker.
- */
+/** The entry `@Protected` names cannot be removed; the worker refuses it too, so the disabled button is a courtesy. */
 describe("RepeatableCards - a protected entry", () => {
   it("disables the trash icon for the entry the schema names, and leaves every other one alone", () => {
     const entry = {
@@ -329,11 +305,7 @@ describe("RepeatableCards - a protected entry", () => {
   })
 
   it("does not disable anything when the schema's protected value matches no current entry", () => {
-    /**
-     * The value is only removed once it stops matching - a schema still marking "en" as protected
-     * while nothing tagged "en" survives in the draft protects nothing right now, and nothing here
-     * should pretend otherwise.
-     */
+    /** The value is only removed once it stops matching, since a protected tag nothing carries protects nothing. */
     const entry = {
       ...sectionsEntry([[field({ key: "tag", value: "de" }), field({ key: "role" })]]),
       protectedEntry: { field: "tag", value: "en" },
@@ -354,12 +326,7 @@ describe("RepeatableCards - a protected entry", () => {
   })
 })
 
-/**
- * A card's title, when the caller supplies one - `configuration.tsx` is the only caller that
- * does, keyed on the `languages` path, because no field in an arbitrary schema is marked as "the
- * one that names this entry". Every other `SECTIONS` entry (`tiers`, today) gets no such prop and
- * keeps the plain "Entry N" every card has always had.
- */
+/** A title only when the caller supplies one; every other entry keeps "Entry N". */
 describe("RepeatableCards - a caller-supplied title", () => {
   it("uses it instead of the plain index", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
@@ -396,12 +363,7 @@ describe("RepeatableCards - a caller-supplied title", () => {
   })
 })
 
-/**
- * A card visibly says when it is missing a channel it needs, rather than merely leaving it empty -
- * generic on `isRequiredChannel` from `config-controls.tsx`, which itself decides from the field's
- * key (is it a channel at all) and the schema's own explanation (does it say OPTIONAL), never from
- * which section it happens to sit in.
- */
+/** A card says when it misses a required channel, decided by `isRequiredChannel` and not by its section. */
 describe("RepeatableCards - an incomplete card", () => {
   const REQUIRED_CHANNEL = field({
     key: "contribution-channel",
@@ -432,10 +394,7 @@ describe("RepeatableCards - an incomplete card", () => {
     )
 
     screen.getByText(/incomplete/i)
-    /**
-     * Named twice - once as the field's own label, once inside the "missing" sentence - so this
-     * checks there are two rather than exactly one.
-     */
+    /** Named as the field's label and again in the "missing" sentence. */
     expect(screen.getAllByText(/Contribution channel/)).toHaveLength(2)
   })
 
@@ -481,10 +440,7 @@ describe("RepeatableCards - an incomplete card", () => {
 })
 
 describe("RepeatableCards - sections inside sections", () => {
-  /**
-   * The track in `smp/milestones.yml`: milestones, each with a list of objectives, each objective
-   * with a list of items. The template goes as deep as the schema does.
-   */
+  /** The milestone track: objectives within milestones, items within objectives, as deep as the schema. */
   const OBJECTIVE: ConfigEntry[] = [
     field({ key: "key", label: "ID" }),
     field({ key: "target", label: "Target", type: "INTEGER" }),

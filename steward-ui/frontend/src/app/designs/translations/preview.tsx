@@ -7,11 +7,7 @@ import type { GlyphInfo } from "@/lib/api"
 import { gradientAt, hexOf, plainText, shadowOf } from "@/lib/rich-text"
 import type { Format, Run, Style } from "@/lib/rich-text"
 
-/**
- * A text drawn where it is shown: the Minecraft ones in the game's pixel font at the size the game
- * draws them, on the surface they appear on; the Discord ones the way Discord lays them out. Every
- * placeholder is its example value, so what is read here is what a player or a member reads.
- */
+/** Texts drawn as they are shown: Minecraft's pixel font on its surface, Discord's layout, placeholders as examples. */
 
 export type Fill = (name: string) => string
 
@@ -247,7 +243,7 @@ function HoverTip({ tip, children }: { tip: ReactNode; children: ReactNode }) {
   )
 }
 
-// --- the places
+// The places
 
 const SKY = "linear-gradient(180deg, #6b8cc4 0%, #9db8e3 55%, #5f8a3a 55.5%, #4b6e2c 70%, #3b2a1d 70.5%, #2e2117 100%)"
 
@@ -416,7 +412,7 @@ function Hotbar() {
   )
 }
 
-// --- Discord
+// Discord
 
 /** How long Discord lets a text be where it is shown, measured with the example values filled in. */
 export function discordLimit(shown: string | undefined, key: string): number | null {
@@ -481,7 +477,7 @@ function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
   )
 }
 
-/** The Discord author row - avatar, name, "APP" badge and timestamp - wrapping whatever it is given. */
+/** The Discord author row around `children`: avatar, name, "APP" badge and timestamp. */
 function author(children: ReactNode) {
   return (
     <div className="flex gap-3">

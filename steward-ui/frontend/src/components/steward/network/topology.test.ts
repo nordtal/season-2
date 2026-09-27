@@ -5,17 +5,7 @@ import { SERVICES } from "@/app/navigation"
 import { EDGES, INGRESS, SECTIONS, imageTag, layoutFaults } from "./topology"
 
 /**
- * A draft arranges the ten services by hand, and a hand-written arrangement is where the eleventh
- * service goes missing.
- *
- * It goes missing **silently**: a card that is not drawn looks exactly like a card further down the
- * page, and nothing about the picture says a name is absent from it. This is the same trade
- * `Topology.java` names for `compose.yml` and `Glyphs` for `default.json` - two copies of one fact,
- * and a failing test rather than a memory is what keeps them equal.
- *
- * **That each draft actually places all ten is asserted in `geometry.test.ts`**, against the plans
- * themselves rather than against a second list of members kept here - which is what this file did
- * until the third round, and it was a third copy of the same fact.
+ * A hand-written arrangement silently loses an eleventh service; `geometry.test.ts` asserts each plan places all ten.
  */
 describe("layoutFaults names what an arrangement forgot", () => {
   it("notices a service that no draft placed, which is the failure it exists for", () => {
@@ -32,19 +22,11 @@ describe("layoutFaults names what an arrangement forgot", () => {
   })
 })
 
-/**
- * The table on a phone is a second hand-written list of the same ten names, and a
- * hand-written list is where the eleventh service goes missing - silently, the same way it goes
- * missing from an arrangement. It is checked with the same function for the same reason.
- */
+/** The phone's table is a second hand-written list of the ten names, checked the same way. */
 describe("the sections cover every service, once", () => {
   it("names all ten between them and repeats none", () => {
     const rows = SECTIONS.flatMap((section) => section.members)
-    /**
-     * `INGRESS` is prepended rather than expected in a section: `players` is not a service and
-     * deliberately has no row - see the comment on SECTIONS - but `layoutFaults` is the drawing's
-     * checker and asks for it, so this hands it the one thing it is entitled to expect.
-     */
+    /** `players` has no row but `layoutFaults` expects it, so it is prepended. */
     expect(layoutFaults([INGRESS, ...rows])).toEqual([])
   })
 
@@ -67,10 +49,7 @@ describe("the edges are between boxes that exist", () => {
     for (const edge of EDGES.filter((one) => one.kind === "data")) {
       expect(edge.to).toBe("postgres")
     }
-    /**
-     * Seven of the ten services hold a connection; caddy, steward-deployer and postgres itself do
-     * not. Read off compose.yml, and a line here that compose does not back is a line that lies.
-     */
+    /** Seven of the ten hold a connection, as compose.yml declares; caddy, steward-deployer and postgres do not. */
     expect(EDGES.filter((edge) => edge.kind === "data").length).toBe(7)
   })
 })
@@ -87,10 +66,7 @@ describe("the tag under a name", () => {
   })
 
   it("shortens the bare image id docker reports for a container whose tag was rebuilt", () => {
-    /**
-     * steward-worker's row carries exactly this and no name. Without the leading
-     * `#`, "334951d" next to the "not compared" mark reads as "334951 days" instead of a digest.
-     */
+    /** steward-worker's row shows only this, and without `#` "334951d" reads as a count of days. */
     expect(imageTag("sha256:334951d4c54754fa0bcc40bc7e483f2af78c7244fbefc28eff775ffa40c1ce07")).toBe("#334951d")
   })
 
@@ -99,6 +75,6 @@ describe("the tag under a name", () => {
   })
 
   it("draws a dash rather than nothing when the row carries no image", () => {
-    expect(imageTag(undefined)).toBe("–")
+    expect(imageTag(undefined)).toBe("\u2013")
   })
 })

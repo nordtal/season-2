@@ -32,16 +32,9 @@ import { AskButton, CancelButton, ENDINGS, Notes, StageBadge, cancellable, summa
 import { DayPicker, chosenDays, entryAt, useConfigDraft, useWorkerConfig } from "@/pages/backups"
 
 /**
- * Everything about updates, built the way Backups is: a header, three numbers, and the lists.
+ * The updates page: a header, three numbers and the lists, built like Backups.
  *
- * Updates and backups are two things to the worker and to whoever runs them, and each has its own
- * page. They share the one run at a time and the countdown in front of it - an UPDATE or RESTART
- * asked for here is the same row in `update_request` a backup is, and waits behind it the same way.
- *
- * <h2>The schedule is optional</h2>
- * `update.at` is empty by default, and then an update only ever starts when an admin presses the
- * button. When it is set, the worker's clock writes the same UPDATE row that button writes, so a
- * scheduled update gets the same countdown and the same cancel window.
+ * `update.at`, empty by default, schedules the same `update_request` row the button writes.
  */
 export function UpdatesPage() {
   const refresh = useRefreshAvailable()
@@ -57,10 +50,7 @@ export function UpdatesPage() {
               type="button"
               variant="outline"
               size="sm"
-              /**
-               * The worker holds a reading for six hours and this is the only way to shorten it.
-               * Disabled while it runs rather than hidden: the wait is the point.
-               */
+              /** The worker holds a reading for six hours; disabled rather than hidden while it asks. */
               title="Ask the sources again. This takes a moment - it really asks them."
               disabled={refresh.isPending}
               onClick={() =>
@@ -88,8 +78,6 @@ export function UpdatesPage() {
     </div>
   )
 }
-
-// --- the numbers
 
 function Summary() {
   const available = useAvailable()
@@ -124,23 +112,7 @@ function Summary() {
   )
 }
 
-// --- what a run would install
-
-/**
- * What a run would do, resolved on demand and never run.
- *
- * <h2>The order is the point</h2>
- * A row that could not be asked sorts first, above the ones that merely have work in them. "the
- * source did not answer" and "nothing has changed" produce the same silence, and this page exists
- * to break that tie - `hasFailures` is drawn as a line of its own above the table for the same
- * reason, because a reader who scans a column of green ticks will not notice one grey badge in it.
- *
- * <h2>Why the age is in the header</h2>
- * The worker holds a reading for six hours and refreshes it behind whoever opened the page, so what
- * is drawn here is regularly the previous answer. Saying when it was taken is the difference
- * between a cache and a claim, and the refresh button next to it is the only way to shorten the
- * six hours from here.
- */
+/** Rank of each resolve outcome: a source that could not be asked sorts above ordinary work. */
 const AVAILABLE_RANK: Record<string, number> = {
   UNRESOLVED: 0,
   MOUNT_MISSING: 0,
@@ -150,14 +122,10 @@ const AVAILABLE_RANK: Record<string, number> = {
   UP_TO_DATE: 5,
 }
 
-/** Six absent rows - about what a resolve of this stack answers with. */
+/** Six absent rows, about what a resolve of this stack answers with. */
 const WAITING_CHANGES = Array.from({ length: 6 }, () => undefined)
 
-/**
- * The rows this card draws: work, failures, and the artefacts with no build for this platform.
- *
- * Sorted by the same rank as before, so a failure is read before an ordinary update.
- */
+/** The rows this card draws: work, failures, and artefacts with no build for this platform, failures first. */
 function worthShowing(changes: AvailableChange[]): AvailableChange[] {
   return changes
     .filter((change) => change.work || change.failure || change.status === "UNSUPPORTED")
@@ -170,17 +138,9 @@ function worthShowing(changes: AvailableChange[]): AvailableChange[] {
 }
 
 /**
- * One row's change, in as few characters as it can honestly be said.
+ * One row's change in as few characters as possible, or `nothing → 1.6.0` for a fresh volume.
  *
- * `1.5.3 → 1.6.0` when the two filenames come apart into a pair, and the filename in a monospace
- * face when they do not - drawn as a filename so it reads as the stopgap it is. Nothing installed
- * is `nothing → 1.6.0`, which is what a fresh volume looks like and is worth saying rather than
- * leaving blank.
- *
- * **An artefact with no pair at all gets a dash, not its note.** The one that has none on this
- * network is CoreProtect, and its note is a hundred-word paragraph about stable releases and
- * platforms - true, useful, and not something a table cell can hold. It is on the dash as a title,
- * and the badge beside it already carries the short version.
+ * An artefact with no pair gets a dash, with its long note as the title.
  */
 function Jump({ change }: { change: AvailableChange }) {
   const jump = versionJump(change.installed, change.fileName, change.version)
@@ -192,7 +152,7 @@ function Jump({ change }: { change: AvailableChange }) {
   }
   return (
     <span className="text-xs" title={change.note}>
-      {change.installed ?? "–"}
+      {change.installed ?? "\u2013"}
     </span>
   )
 }
@@ -210,28 +170,9 @@ function Pair({ from, to, exact }: { from: string; to: string; exact: boolean })
 }
 
 /**
- * What a run would install, and nothing else.
+ * What a run would install: rows with work, failures, and `UNSUPPORTED` artefacts.
  *
- * <h2>Only the rows with something in them</h2>
- * Listing every artefact the resolve touched would be thirty-odd lines of "up to date" with
- * the one interesting row somewhere inside, so only the services
- * that have an update show at all. The filter is {@code change.work}, which is the worker's
- * own opinion of what a run would act on, plus the two kinds of row that are not work and still
- * have to be read:
- *
- * <ul>
- *   <li><b>A failure</b> - a source that could not be asked. Hiding it would turn "this list is
- *       incomplete" into "there is nothing to do", which is the one confusion the whole resolve
- *       exists to prevent.</li>
- *   <li><b>{@code UNSUPPORTED}</b> - CoreProtect has no build for 26.2. That is the ticket's own
- *       named exception, and it earns its place for the same reason: it is the answer to "why is
- *       this plugin not on the list", asked once a month, and a row that disappears when it is
- *       nothing to worry about cannot answer it.</li>
- * </ul>
- *
- * <h2>The jump, not the bookkeeping</h2>
- * One column instead of two, `1.5.3 → 1.6.0`, derived by {@link versionJump} from the two
- * filenames rather than parsed out of either - see that file for why a guess is refused.
+ * Hiding a failure would read as nothing to do; `UNSUPPORTED` answers why a plugin is missing.
  */
 function Available() {
   const available = useAvailable()
@@ -318,24 +259,13 @@ function Available() {
   )
 }
 
-// --- the images
-
-/**
- * OUTDATED first, then anything the registry could not answer, then LOCAL, then UP_TO_DATE, then by
- * name - what wants attention before a screenful of ordinary rows.
- */
+/** OUTDATED first, then unanswered, LOCAL, UP_TO_DATE, then by name. */
 const DRIFT_RANK: Record<string, number> = { OUTDATED: 0, LOCAL: 2, UP_TO_DATE: 3 }
 
 /** Ten absent services, because this stack has ten. */
 const WAITING_SERVICES = Array.from({ length: 10 }, () => undefined)
 
-/**
- * Each container's image against the registry, with a Recreate per row.
- *
- * Moved here from the old Operations overview and made plain: the image name is the row's second
- * line rather than a column of its own, and the three sentences that stood around the table are
- * one line of data - when the registry was last asked.
- */
+/** Each container's image against the registry, with a Recreate per row. */
 function Images() {
   const services = useServices()
 
@@ -422,14 +352,12 @@ function Images() {
   )
 }
 
-// --- the runs
-
 /** Every row of `update_request` that is not a backup's and not a single service's Down or Start. */
 export function updateRuns(runs: Run[] | undefined): Run[] {
   return (runs ?? []).filter((run) => run.kind === "UPDATE" || run.kind === "RESTART")
 }
 
-/** Four absent runs - the panel shows eight at most. */
+/** Four absent runs; the panel shows eight at most. */
 const WAITING_UPDATE_RUNS = Array.from({ length: 4 }, () => undefined)
 
 function Runs() {
@@ -532,20 +460,16 @@ function Runs() {
   )
 }
 
-// --- the schedule
-
 /** `update.at`, the one scalar of the update schedule. */
 const SCHEDULE_KEYS = ["update.at"] as const
 
-/** The `update.days` key - a LIST, kept apart from the scalar draft as on Backups. */
+/** The `update.days` key, a list kept apart from the scalar draft as on Backups. */
 const DAYS_KEY = "update.days"
 
 /**
- * When an update runs on its own - separate keys from the backup's, the same shape.
+ * When an update runs on its own; an empty time, the default, is no schedule.
  *
- * An empty time is no schedule, and that is the default: then an update only starts when somebody
- * presses the button. The worker re-reads its file after a save, so what is saved here is what the
- * clock does from then on, without a restart.
+ * The worker re-reads its file after a save, so no restart is needed.
  */
 function ScheduleDialog() {
   const { file, document, pending } = useWorkerConfig()

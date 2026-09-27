@@ -24,22 +24,9 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Nothing in Steward is German.
+ * Nothing in Steward's three services, their deploy script or the compose file is German.
  *
- * The three services, the script that deploys them and the compose file they are described in.
- * The word list is derived from {@code commands/.../de.properties}, a corpus of real German this
- * project maintains anyway: every word in it that is not also in {@code en.properties} is
- * forbidden here. What a derivation cannot know lives in {@code steward-ui/language-rules.json} -
- * words German in the bundle and English here, ones that leaked and are in no bundle, and
- * abbreviations with no word boundary to match on. The frontend's guard reads the same file.
- *
- * Stems and shapes catch what the derived list alone misses: the bundle says {@code Befehl} and
- * Steward says {@code Befehle}, so a derived list knows only the forms the bot happens to use and
- * German inflects and compounds. {@code Gelaufen} is in no bundle and no stem of it is either; the
- * {@code shapes} patterns find German by its endings. {@code Sperre} is the honest exception, in
- * {@code extra} by hand.
- *
- * The bot is the bilingual half of this project and is deliberately not scanned.
+ * The word list is the German bundle minus the English one, plus {@code language-rules.json}, matched by stem.
  */
 class NothingIsGermanTest {
 
@@ -56,39 +43,19 @@ class NothingIsGermanTest {
     private static final String BUNDLE = "commands/src/main/resources/messages/commands/";
     private static final String RULES = "steward-ui/language-rules.json";
 
-    /**
-     * The files whose subject is German, which is the whole of the exception.
-     *
-     * This test is one of them: Steward can edit the bot's message bundles, and its German half is
-     * one of the two things it edits. A test for that has to hold real German - {@code Willkommen}
-     * next to {@code Welcome}, and {@code Die Mühle dreht sich - äöüÄÖÜß} to prove the file is
-     * written as UTF-8 rather than as {@code Properties.store()}'s Latin-1 with escapes. Fixtures
-     * in a made-up language would prove neither.
-     *
-     * By file name and no wider. The rule the guard exists for is unchanged and still
-     * applies to every other file in these three modules, {@code MessageBundles.java} included:
-     * handling German is not speaking it, so the production code that reads and writes those
-     * bundles has no German word in it and is scanned like everything else. An exemption that
-     * covered a package, or anything matching {@code *Message*}, would have quietly taken that
-     * with it.
-     */
+    /** The files whose subject is German, exempted by file name and no wider, since Steward edits the bot's bundles. */
     private static final Set<String> ABOUT_GERMAN =
             Set.of("NothingIsGermanTest.java", "MessageBundlesTest.java", "MessagesApiIntegrationTest.java");
 
-    /** Three or more letters, German ones included. Two-letter words are noise in both languages. */
+    /** Three or more letters, German ones included; two-letter words are noise in both languages. */
     private static final Pattern WORD = Pattern.compile("[A-Za-zÄÖÜäöüß]{3,}");
 
     /**
-     * The same word, but only where a reader would see one - and an identifier is not one.
-     *
-     * {@code _} and a digit count as part of the word, exactly as {@code \b} treats them, because
-     * that is what kept {@code NORDTAL_STEWARD_UI_CONFIG_DIR} quiet while {@code dir} sat in the
-     * German bundle. Splitting on letters alone finds {@code DIR} in there and is wrong: nobody
-     * reads an environment variable as a sentence.
+     * The same word, but only where a reader would see one, so {@code _} and a digit are part of it as in {@code \b}.
      */
     private static final Pattern SOURCE_WORD = Pattern.compile("(?<![\\wÄÖÜäöüß])[A-Za-zÄÖÜäöüß]{3,}(?![\\wÄÖÜäöüß])");
 
-    /** The hand-kept half of the rule. Everything else about the list is computed. */
+    /** The hand-kept half of the rule; the rest of the list is computed. */
     private record Rules(
             List<String> alsoEnglish,
             List<String> extra,
@@ -208,11 +175,7 @@ class NothingIsGermanTest {
         return words;
     }
 
-    /**
-     * Parsed once.
-     *
-     * Asked of every word of every line of every scanned file; re-parsing that often is slow.
-     */
+    /** Parsed once, since every word of every scanned line asks. */
     private static final Rules RULES_FILE = rules();
 
     private static final Set<String> ALSO_ENGLISH = lowercased(RULES_FILE.alsoEnglish());
@@ -232,13 +195,9 @@ class NothingIsGermanTest {
     }
 
     /**
-     * Whether one word out of a source file is German - by stem, not only by equality.
+     * Whether one word out of a source file is German, by stem as well as equality.
      *
-     * Two cases, and they are different mistakes. Inflection: the word is a derived one
-     * plus a German ending, which is how {@code Befehle} got past a list holding {@code Befehl}.
-     * Compounding: a derived word continues it, which is how {@code Konfiguration} got past
-     * a list holding {@code Konfigurationsdateien}. The ending list is German-only on purpose -
-     * {@code stopped} is {@code stoppe} plus a {@code d}, and {@code d} is not one of them.
+     * A derived word plus a German ending is inflection; a derived word continued is compounding.
      */
     private static boolean isGerman(final String word, final Set<String> german) {
         final Rules rules = RULES_FILE;
@@ -330,13 +289,7 @@ class NothingIsGermanTest {
         }
     }
 
-    /**
-     * The repository root, found rather than assumed.
-     *
-     * A test's working directory is its module, and every path here is relative to the root, so
-     * getting this wrong would not fail - it would quietly scan nothing. Walking up to the file
-     * that defines the build is the one landmark that cannot move.
-     */
+    /** The repository root, found by walking up to the build definition, so a wrong guess cannot scan nothing. */
     private static Path repository() {
         Path directory = Path.of("").toAbsolutePath();
         while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {

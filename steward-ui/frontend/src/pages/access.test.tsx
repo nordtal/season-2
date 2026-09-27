@@ -11,10 +11,9 @@ import { toast } from "sonner"
 import { asButton } from "@/lib/test-elements"
 
 /**
- * Faces instead of identifiers in the Access table, search over four fields, and pagination that
- * filters the whole roster before it pages. `unlink` and `settle` are row actions rather than a
- * generic command card, covered in a second describe block lower in this file against the same
- * backend fixture.
+ * The Access page: faces for identifiers, search over four fields, and filtering before paging.
+ *
+ * `unlink` and `settle` are row actions, covered lower down against the same backend fixture.
  */
 
 function json(status: number, body: unknown): Response {
@@ -133,7 +132,7 @@ function backend(
     payments?: () => Record<string, unknown>[]
     journal?: () => Record<string, unknown>[]
     playtimePost?: (url: string, body: unknown) => { status: number; body: unknown }
-    /** What the bot answered, by kind - DONE with an empty result unless a test says otherwise. */
+    /** What the bot answered, by kind; DONE with an empty result unless a test says otherwise. */
     answer?: (kind: string) => Record<string, unknown>
   } = {},
 ) {
@@ -193,10 +192,7 @@ function draw(node: ReactNode) {
   )
 }
 
-/**
- * Clicks one of a row's actions. Three or more of them sit behind the row's popover, so that is
- * opened first when there is one - the same two taps a person makes.
- */
+/** Clicks one of a row's actions, opening its popover first when it has one. */
 async function clickRowAction(name: RegExp) {
   const trigger = await screen.findByRole("button", { name: /^Actions for/ })
   fireEvent.click(trigger)
@@ -339,7 +335,7 @@ describe("AccessPage - the Minecraft column draws a face", () => {
 })
 
 describe("AccessPage - pagination filters the whole roster before it pages", () => {
-  // Fifteen seconds rather than the default five: it draws 21 rows and waits twice, which is close to the default budget on a busy machine.
+  // Fifteen seconds: it draws 21 rows and waits twice, close to the default budget on a busy machine.
   it(
     "holds 21 matches over two pages of at most 20, without the second page vanishing from the search",
     { timeout: 15_000 },
@@ -351,7 +347,7 @@ describe("AccessPage - pagination filters the whole roster before it pages", () 
 
       fireEvent.change(screen.getByLabelText(/filter/i), { target: { value: "searchable" } })
 
-      // Page 1: twenty rows, and the count line names the full, filtered total - not just this page.
+      // Page 1: twenty rows, and the count line names the whole filtered total.
       await waitFor(() => expect(screen.getAllByText(/searchable-/).length).toBe(20))
       expect(screen.getByText(/21 of 21/)).toBeTruthy()
 
@@ -362,10 +358,7 @@ describe("AccessPage - pagination filters the whole roster before it pages", () 
   )
 })
 
-/**
- * Play time is shown in the user list and overridable through a dialog: the donor tier is derived
- * from it on every render and stored nowhere else, so `player_playtime.seconds` is the only lever.
- */
+/** Play time is listed and overridable, since the donor tier derives from `player_playtime.seconds` alone. */
 describe("AccessPage - play time in the list, and overridable", () => {
   it("prints an account's play time as a span, not as a number of seconds", async () => {
     vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "alice", playtimeSeconds: 32400 })] }))
@@ -398,7 +391,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
   })
 
   it("asks in days, hours and minutes rather than in decimal hours", async () => {
-    // 37.5 typed as 375 is a plausible number of hours and an impossible number of days; three fields make that mistake visible.
+    // Three fields, so 37.5 hours typed as 375 does not pass as days.
     const calls: { url: string; body: unknown }[] = []
     vi.stubGlobal(
       "fetch",
@@ -423,7 +416,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
   })
 
   it("carries an out-of-range field instead of refusing it", async () => {
-    // "0 days 50 hours" means two days and two hours; an empty field is a zero for the same reason, since clearing "0" to type is how a number input is used.
+    // "0 days 50 hours" is two days and two hours; an empty field counts as zero.
     const calls: { url: string; body: unknown }[] = []
     vi.stubGlobal(
       "fetch",
@@ -510,7 +503,7 @@ describe("PaymentsPage - settle as a row action", () => {
     await waitFor(() => expect(fetched.mock.calls.some(([url]) => url === "/api/access/requests/a-settle")).toBe(true))
   })
 
-  // jsdom does not lay out CSS, so this checks the class that would cause the wrap rather than a bounding box.
+  // jsdom has no layout, so this checks the class that would cause the wrap.
   it("keeps Tab and Settle on one line instead of letting them wrap", async () => {
     vi.stubGlobal(
       "fetch",
@@ -556,10 +549,7 @@ describe("AccessPage - unlink as a row action", () => {
   })
 })
 
-/**
- * An action is drawn when the state of that row allows it, and not otherwise: Ally is linked,
- * paid and running, bob is none of the three, and the two rows must not look the same.
- */
+/** An action is drawn only when the row's state allows it, so linked Ally and bare bob differ. */
 describe("AccessPage - the actions of a row depend on that row", () => {
   it("offers nothing to unlink for somebody with no Minecraft account", async () => {
     vi.stubGlobal("fetch", backend())
@@ -574,7 +564,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    // `accessUntil` absent means no period was ever written - the dialog would open on nothing.
+    // No `accessUntil` means no period was ever written, so the dialog would open on nothing.
     expect(await actionsOf("bob")).not.toContain("Periods")
     expect(await actionsOf("Ally")).toContain("Periods")
   })
@@ -599,10 +589,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    /**
-     * Ally has four; bob has one, and a popover holding a single button would be a click for
-     * nothing.
-     */
+    /** Ally has four; bob has one, which needs no popover. */
     const ally = await rowFor("Ally")
     const bob = await rowFor("bob")
     expect(within(ally).getByRole("button", { name: /^Actions for/ })).toBeTruthy()
@@ -611,11 +598,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
   })
 })
 
-/**
- * Every access change is asked of the bot (an `access_request` row), because only the bot can
- * apply the role, send the direct message and post the admin note. Writing the tables from here
- * skipped all three, and nobody granted access from a browser was ever told.
- */
+/** Every access change is an `access_request` row, since only the bot applies the role and tells the person. */
 describe("AccessPage - access changes are asked of the bot", () => {
   it("refuses a grant longer than 365 days before it is sent", async () => {
     const fetched = backend()
@@ -703,12 +686,7 @@ describe("AccessPage - the generic command card is gone", () => {
   })
 })
 
-/**
- * A table cell is a field by default (shadcn's `TableCell` carries `whitespace-nowrap`), which is
- * right for a date or an id. `audit_log.detail` is the one column on these four pages that is
- * running prose rather than a field, and prose that never wraps makes the row as wide as its
- * longest sentence.
- */
+/** `audit_log.detail` is prose, so it wraps while every other cell stays `whitespace-nowrap`. */
 describe("JournalPage - Detail is running text, not a field", () => {
   it("lets the Detail cell wrap, rather than forcing it onto one unbroken line", async () => {
     const LONG_DETAIL = "30 days granted by hm.ally from the admin panel; the Minecraft account was linked beforehand"
@@ -734,10 +712,7 @@ describe("JournalPage - Detail is running text, not a field", () => {
   })
 })
 
-/**
- * The identity component handles the case of somebody the roster no longer knows by saying so
- * and keeping the id copyable in the popover, rather than drawing an anonymous row.
- */
+/** Somebody the roster no longer knows is named as such, the id still copyable in the popover. */
 const JOURNAL_ENTRIES = () => [
   {
     id: "j1",
@@ -819,11 +794,7 @@ describe("JournalPage - profiles, never user ids", () => {
   })
 })
 
-/**
- * Every declared column of the Payments table is a field, so the budget problem at 1440px is
- * independent of wrapping. `Created` sits in a title attribute on `Reference` and `Donation` is
- * folded into `Amount`, which keeps the data without widening the row.
- */
+/** Every Payments column is a field, so the width at 1440px is kept by folding `Created` and `Donation`. */
 describe("PaymentsPage - the column budget fits the card at 1440px", () => {
   it("keeps the declared header widths under 1152px (72rem), the measured card width", async () => {
     vi.stubGlobal(
@@ -858,11 +829,7 @@ describe("PaymentsPage - the column budget fits the card at 1440px", () => {
   })
 })
 
-/**
- * Admins are granted and revoked on this page. The badge says who granted whom; "Make admin" is
- * offered on a member of the guild who is none yet, and "Revoke admin" only on an admin strictly
- * below the one signed in - the server refuses every other revocation, so the button is not drawn.
- */
+/** Admins are granted and revoked here; "Revoke admin" is drawn only for an admin below the signed in one. */
 describe("AccessPage - the admin tree", () => {
   const TREE = [
     person({ discordId: ME, discordUsername: "me", admin: true, adminGrantedBy: null }),

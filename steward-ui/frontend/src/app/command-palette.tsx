@@ -33,16 +33,10 @@ import { bundleFileId } from "@/components/steward/settings"
 import { messageName } from "@/lib/settings-tree"
 import { RUN_KIND, RUN_STATUS } from "@/components/steward/status"
 
-/**
- * How many settings hits the palette ever shows at once.
- *
- * Not a correctness limit - `searchAcross` itself returns every match - but a screen of thirty rows
- * is already more than anyone reads before narrowing the query further, and cmdk draws every item
- * it is handed whether or not it fits the visible list.
- */
-/** Four rows while the documents are read. The group itself is cut to `MAX_SETTINGS_HITS`. */
+/** Four rows while the documents are read. */
 const WAITING_HITS = [0, 1, 2, 3]
 
+/** How many settings hits the palette shows, since cmdk draws every item it is handed. */
 const MAX_SETTINGS_HITS = 30
 
 /** A stable identity for "nothing loaded yet", so a memo keyed on it does not recompute every render. */
@@ -50,15 +44,9 @@ const NO_CONFIGS: ConfigLocation[] = []
 const NO_BUNDLES: MessageBundleLocation[] = []
 
 /**
- * A run's own search text.
+ * A run's search text: number, kind, outcome, absolute time and the kind's extra search terms.
  *
- * A run has four things a person would search it by - its number, its kind, its
- * outcome and a time - and none of them is a page title, which is what the palette searched
- * before this. `dateTime` rather than `relative` for the time: `relative` reads differently on
- * every render ("3 minutes ago" becomes "4 minutes ago"), which would make the same run match a
- * different typed time from one moment to the next. `RUN_KIND_SEARCH_TERMS` adds the words a
- * person would type that are not the kind's own name - German among them, because not everybody
- * always types English. See that file for why one of those words is German rather than English.
+ * `dateTime`, not `relative`, since a relative time would match different text from one render to the next.
  */
 function runSearchValue(run: Run): string {
   return searchValue(
@@ -73,55 +61,28 @@ function runSearchValue(run: Run): string {
 }
 
 /**
- * Ctrl+K, and ⌘K on a Mac - both are listened for, always, so the label the interface prints is
- * a courtesy and never a condition. Every route in the interface is in here, including the parameterised
- * ones, which appear with a representative parameter - the point of the palette is that a place
- * you know the name of is one keystroke away, and "Run" is a name somebody knows.
+ * The search dialog on Ctrl+K and ⌘K: every route, every run, and every setting and message.
  *
- * Runs themselves are the other half: `useRuns` is only enabled while the
- * dialog is open, so a palette nobody has opened costs nothing beyond the one poll a page that is
- * already open may be running anyway.
+ * Runs, configs and bundles are only fetched while the dialog is open.
  */
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
-  /**
-   * Controlled rather than left to cmdk's own state, only so the Settings group below
-   * knows what has actually been typed - the Pages and Runs groups above still go through cmdk's
-   * own fuzzy filter over each item's `value`, unaffected by this.
-   */
+  /** Controlled only so the Settings group knows what was typed; the other groups use cmdk's filter. */
   const [search, setSearch] = React.useState("")
   const navigate = useNavigate()
   const runs = useRuns(20, open).data ?? []
 
-  /**
-   * Every config file's location, and then every one of their documents - both gated on `open` the
-   * same way `runs` is, and the documents a second time on there being anything typed, as a
-   * fallback clause for if this ever turns out too slow: the mount holds a modest number of files
-   * over roughly a dozen services, so fetching all of them once somebody opens
-   * the palette and starts typing is a bounded, cached cost rather than a reason to stand up a
-   * worker-side index.
-   */
+  /** Every config file's documents, fetched once the palette is open and something is typed. */
   const locations = useConfigs(open).data ?? NO_CONFIGS
   const paths = React.useMemo(() => locations.map((location) => location.path), [locations])
   const documents = useConfigDocuments(paths, open && search.trim().length > 0)
 
-  /**
-   * The message bundles are a second supplier for the same search, gated on `open` and
-   * on something being typed the same way the config side already is - a handful of bundles with a
-   * few hundred keys each, which is the same "small enough to just fetch
-   * it" case `useConfigDocuments` already makes for config files.
-   */
+  /** The message bundles, the second supplier of the same search, gated the same way. */
   const bundleLocations = useMessageBundles(open).data ?? NO_BUNDLES
   const bundlePaths = React.useMemo(() => bundleLocations.map((location) => location.path), [bundleLocations])
   const bundleDocuments = useMessageDocuments(bundlePaths, open && search.trim().length > 0)
 
-  /**
-   * The settings group appears only once there are hits, so the first keystroke used
-   * to be answered by "Nothing found." while documents were still on the wire. This is
-   * the one search in the interface that fetches rather than filters, and it is the only place a
-   * waiting shape is needed - `useConfigDocuments` is keyed by path and not by the query, so the
-   * hits themselves never go away between keystrokes and need no `keepPreviousData`.
-   */
+  /** While documents are still on the wire, the settings group shows a waiting shape, not "Nothing found.". */
   const reading =
     open &&
     search.trim().length > 0 &&
@@ -134,28 +95,17 @@ export function CommandPalette() {
       location,
       bundle: bundleDocuments[index]?.data,
     }))
-    /**
-     * Ranked here, not only by the filter below: `MAX_SETTINGS_HITS` cuts this list before cmdk
-     * ever sees it, so an unranked list would hand it the first thirty rather than the best thirty.
-     */
+    /** Ranked before `MAX_SETTINGS_HITS` cuts the list, so cmdk gets the best thirty, not the first. */
     return rankHits(searchSettingsAndMessages(configPairs, messagePairs, search), search)
   }, [locations, documents, bundleLocations, bundleDocuments, search])
 
-  /**
-   * The listener is registered once, so it would otherwise read the `open` of the render it was
-   * created in - which is always false.
-   */
+  /** The listener is registered once, so it reads `open` through a ref. */
   const openRef = React.useRef(open)
   React.useEffect(() => {
     openRef.current = open
   }, [open])
 
-  /**
-   * A stale query from the last time this was open would otherwise sit in `search` (this component
-   * never unmounts, only the dialog's own content does) and gate the Settings group on nothing the
-   * reopened box actually shows. Cleared during render, on the transition, rather than in an
-   * effect: this component never unmounts, so an effect would clear it one frame after the close.
-   */
+  /** Clears a stale query on reopening, during render, since this component never unmounts. */
   const [wasOpen, setWasOpen] = React.useState(open)
   if (wasOpen !== open) {
     setWasOpen(open)
@@ -166,12 +116,7 @@ export function CommandPalette() {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key.toLowerCase() !== "k") return
       if (!event.metaKey && !event.ctrlKey) return
-      /**
-       * Let the browser keep its own Ctrl+K when the user is typing into something. The comment
-       * said so and the code did the opposite: every Ctrl+K in a console line or a config field
-       * was swallowed and opened the search instead. The palette's own input is the exception -
-       * there the shortcut is how you close it again.
-       */
+      /** A Ctrl+K typed into a field stays the browser's, except in the palette's own input, where it closes. */
       if (!openRef.current && isEditable(event.target)) return
       event.preventDefault()
       setOpen((previous) => !previous)
@@ -187,29 +132,13 @@ export function CommandPalette() {
       title="Search"
       description="Jump to a page"
       label="Search pages, runs, settings"
-      /*
-        cmdk's default filter matches a *subsequence*, so "donor" would match every
-        service page through the d-o-n-o-r hidden in "window and console for … restart", and the
-        setting actually called Donor would sit below all of them - the Settings group is written
-        last and cmdk cannot reorder groups. This
-        asks for a substring instead, and scores a name above a mere mention, which is the same
-        rule `matchesQuery` has always used to decide what a hit even is.
-
-        The searchable text lives in `keywords` rather than `value`, because `value` is
-        also how cmdk *identifies* a row - and two rows whose haystack happened to be identical (the
-        same setting name in two services, which `entryHaystack` cannot tell apart) would otherwise be
-        one row to cmdk, lighting up together. Values are the same unique strings the React keys
-        use, and the haystack rides along beside them.
-      */
+      // A substring match ranking a name above a mention; the text is in `keywords`, as `value` is the identity.
       filter={(value, query, keywords) => rankValue(keywords?.join("\n") ?? value, query)}
       // The dialog half only: on a phone the sheet is the full width at the bottom edge.
       className="sm:top-[20%] sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:translate-y-0"
     >
       <CommandInput
-        /**
-         * A sheet does not move focus into itself the way the dialog does, so without this every
-         * search on a phone started with a tap into the field.
-         */
+        /** A sheet does not move focus into itself as the dialog does, so the field takes it. */
         autoFocus
         value={search}
         onValueChange={setSearch}
@@ -226,11 +155,7 @@ export function CommandPalette() {
                 return (
                   <CommandItem
                     key={entry.id}
-                    /**
-                     * The label alone on the first line, its group, note and keywords after it:
-                     * a page is found by its note, but never *ahead of* a row that is named what
-                     * was typed.
-                     */
+                    /** The label first, so a row named what was typed ranks above one that only mentions it. */
                     value={`page-${group.id}-${entry.id}`}
                     keywords={[
                       searchValue(
@@ -282,18 +207,8 @@ export function CommandPalette() {
             </CommandGroup>
           </>
         ) : null}
-        {/*
-          Search over the settings, across every service, with the service in the hit.
-          Only drawn once something is typed - unlike Pages and Runs, the settings list is not a
-          small fixed set, so an empty query would mean handing cmdk hundreds of rows to filter for
-          nothing anyone asked to see yet.
-        */}
-        {/*
-          Plain divs rather than `CommandItem`s, and outside any `CommandGroup`: cmdk filters items
-          and hides a group whose items all fell away, so a waiting row built out of either would
-          vanish under the very filter it exists to survive. Nothing here is selectable - there is
-          nothing yet to select.
-        */}
+        {/* The settings search, only once something is typed, since the list is not a small fixed set. */}
+        {/* Plain divs outside any group, since cmdk would filter a waiting `CommandItem` away. */}
         {reading && settingsHits.length === 0 ? (
           <>
             <CommandSeparator />
@@ -311,11 +226,7 @@ export function CommandPalette() {
         {settingsHits.length > 0 ? (
           <>
             <CommandSeparator />
-            {/*
-              Config hits and message hits in one group, in the order the search returned them.
-              Either lands on the Settings & Translations tab with its file open; the pending jump
-              is what the tree there scrolls to and lights up.
-            */}
+            {/* Config and message hits together; either opens its file on the Settings & Translations tab. */}
             <CommandGroup heading="Settings">
               {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
                 const service = hit.location.service || "steward-ui"

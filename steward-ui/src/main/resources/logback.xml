@@ -1,27 +1,17 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <configuration>
-    <!--
-      WITHOUT THIS FILE LOGBACK DEFAULTS TO DEBUG, and for a web server that is not a preference -
-      it is a defect. Measured on 2026-09-13 by running the built image: Jetty wrote six lines per
-      request about selector endpoints and thread pool eviction, so an idle interface with a
-      polling browser filled the log faster than anything a person could read. Docker keeps 10 MB
-      in five files per container, and that buffer is what the log search on the service page reads,
-      so a debug flood is also how a container's whole searchable history becomes twenty minutes.
-    -->
+    <!-- Without this file logback logs Jetty at DEBUG, which floods the log search the service page reads. -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <!-- An <encoder>, not a <layout>: a layout warns, and a logback warning makes logback print
-             its entire startup status report. -->
+        <!-- An encoder, since a layout warns and a warning prints logback's whole status report. -->
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Jetty and Javalin narrate the connection lifecycle at DEBUG. Their WARNs matter and are
-         kept; the rest is a per-request transcript of a server doing its job. -->
+    <!-- Jetty and Javalin narrate every connection at DEBUG; their WARNs are kept. -->
     <logger name="org.eclipse.jetty" level="INFO"/>
     <logger name="io.javalin" level="INFO"/>
-    <!-- The pool announces every state change at DEBUG. Its INFO lines - opened, shut down - are
-         the ones worth having when a database goes away. -->
+    <!-- The pool narrates every state change at DEBUG; its INFO lines matter when a database goes away. -->
     <logger name="com.zaxxer.hikari" level="INFO"/>
     <logger name="org.jdbi" level="INFO"/>
 

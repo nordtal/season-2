@@ -2,16 +2,6 @@ import type { MessageArg } from "@/lib/api"
 import { NAMED_COLOURS } from "@/lib/mini-message"
 import { tokenOf } from "@/lib/message-text"
 
-/**
- * A message as a list of runs, the one model all three translation editors edit: each run is a
- * piece of text, a placeholder, a glyph or a line break, and carries its whole style itself. Tags
- * exist only at the two edges - `parse` reads them into runs, `serialize` writes the fewest tags
- * that say the same thing back out - so an editor never has to know how a style is spelled.
- *
- * The same runs serve all three formats. MiniMessage uses every field; Discord markdown uses the
- * decorations, `code` and an `open_url` click as a link; plain text uses none.
- */
-
 export type Format = "MINIMESSAGE" | "DISCORD_MARKDOWN" | "PLAIN"
 
 export type ClickAction = "open_url" | "run_command" | "suggest_command" | "copy_to_clipboard"
@@ -35,6 +25,11 @@ export type Style = {
   click?: Click
 }
 
+/**
+ * A message as runs, each carrying its whole style; only `parse` and `serialize` know how tags are spelled.
+ *
+ * MiniMessage uses every field; Discord markdown uses the decorations, `code` and an `open_url` link; plain text none.
+ */
 export type Run =
   | { kind: "text"; text: string; style: Style }
   | { kind: "placeholder"; name: string; style: Style }
@@ -67,7 +62,7 @@ export function formatOf(value: string | undefined): Format {
   return value === "DISCORD_MARKDOWN" || value === "PLAIN" ? value : "MINIMESSAGE"
 }
 
-// --- parsing
+// Parsing
 
 export function parse(source: string, format: Format, args: MessageArg[]): Run[] {
   if (format === "DISCORD_MARKDOWN") return normalize(parseMarkdown(source, args))
@@ -408,7 +403,7 @@ function parseMarkdown(source: string, args: MessageArg[]): Run[] {
   return out
 }
 
-// --- serializing
+// Serializing
 
 export function serialize(runs: Run[], format: Format, args: MessageArg[]): string {
   const tokens = new Map(args.map((arg) => [arg.name, tokenOf(arg)]))
@@ -517,7 +512,7 @@ function quote(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")
 }
 
-// --- editing
+// Editing
 
 export function same(a: unknown, b: unknown): boolean {
   if (a === b) return true
@@ -638,7 +633,7 @@ function setShared<K extends keyof Style>(result: Style, key: K, first: Style, r
   return value
 }
 
-/** The plain characters of the runs, with placeholders as their names - for counting and search. */
+/** The plain characters of the runs, with placeholders as their names, for counting and search. */
 export function plainText(runs: Run[], fill: (name: string) => string = (name) => `{${name}}`): string {
   return runs
     .map((run) =>
@@ -655,7 +650,7 @@ export function plainText(runs: Run[], fill: (name: string) => string = (name) =
     .join("")
 }
 
-// --- colour
+// Colour
 
 export function hexOf(colour: string): string {
   return HEX.test(colour) ? colour : (NAMED_COLOURS[colour.toLowerCase()] ?? "#FFFFFF")

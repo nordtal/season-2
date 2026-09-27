@@ -18,7 +18,7 @@ final class Settings {
                 "disk", config.alerts().diskPercent(),
                 "memory", config.alerts().memoryPercent(),
                 "backupAgeHours", config.alerts().backupAgeHours(),
-                // The base a Minecraft head is composed from, never the image itself.
+                // The base a Minecraft head URL is composed from.
                 "minecraftHeadBaseUrl", config.avatars().minecraftHeadBaseUrl()));
     }
 }

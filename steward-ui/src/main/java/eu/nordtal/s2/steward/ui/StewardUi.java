@@ -38,8 +38,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Nordtal Steward, the web interface.
  *
- * This process never touches Docker: everything about a container is a call to
- * {@code steward-worker}, and creating one is {@code steward-deployer}'s.
+ * It never touches Docker: containers are steward-worker's business, and creating one is steward-deployer's.
  */
 public final class StewardUi {
 
@@ -51,10 +50,10 @@ public final class StewardUi {
     /** How often expired rows are swept out of {@code steward_session}. */
     static final Duration SWEEP = Duration.ofHours(1);
 
-    /** How long one touch of the security key covers. Not configurable: see {@code UiSpec}. */
+    /** How long one touch of the security key covers; deliberately not configurable. */
     static final Duration STEP_UP = Duration.ofMinutes(5);
 
-    /** The default: serve. Named so that spelling it out is not an error. */
+    /** The default command, named so that spelling it out is not an error. */
     static final String SERVE = "serve";
 
     /** Clears a signed-in admin's second factor. Reachable only from a shell on the host. */
@@ -66,68 +65,52 @@ public final class StewardUi {
     private final UiSpec config;
     private final DiscordAuth discord;
 
-    /** Everything this service reads or writes by asking steward-worker instead. */
     private final WorkerProxy workerProxy;
 
-    /** Signed-in browsers, in PostgreSQL. Null only in a test that never signs anybody in. */
+    /** Signed-in browsers; null only in a test that signs nobody in. */
     private final @Nullable Sessions sessions;
 
-    /** The WebAuthn ceremony and the checks {@code guard} runs against a session's key. */
     private final SecondFactor secondFactor;
 
     private final @Nullable ExampleValues exampleValues;
 
-    /** The web push half of the second factor's neighbourhood (concept §10c) - see its own class. */
     private final PushEndpoints push;
 
-    /** Pushes proactive alerts, polled on {@link #heartbeats}. Null without a VAPID keypair. */
+    /** Pushes proactive alerts; null without a VAPID keypair. */
     private final @Nullable AlertWatch alertWatch;
 
-    /** What the guild's roles and channels are CALLED, so an id can be picked rather than typed. */
+    /** The names of the guild's roles and channels, so an id can be picked rather than typed. */
     private final DiscordApi guild;
 
-    /** The admin commands that also exist in the game, over `command_request`. */
     private final CommandApi commands;
 
-    /** The SMP's and the hunger games' actions, over the same rows as {@link #commands}. */
     private final GameActions games;
-    /** Announcements written by hand, over the same rows as {@link #commands}. */
     private final Announcements announcements;
 
     private final AccessApi access;
 
-    /** Who is in the guild, what they paid, what they may - and the journal of it all. */
     private final RosterRoutes roster;
 
-    /** {@code /api/settings}: the thresholds and the base URL the start page judges by. */
     private final Settings settings;
-    /** Who may sign in, and who stays signed in. Null only in a test without a database. */
+    /** Who may sign in; null only in a test without a database. */
     private final @Nullable AdminTree admins;
 
     private final @Nullable AdminApi adminApi;
 
-    /** The Discord OAuth round trip: {@code /auth/login}, {@code /auth/callback}, and the sweep. */
     private final AuthFlow authFlow;
 
-    /** The one service allowed to create a container, asked for exactly one thing (10a.4). */
     private final DeployerApi deployments;
 
-    /** How an update run's refusal and its row are turned into what the interface shows. */
     private final Updates updates;
 
-    /** The season's phase and its two dates. */
     private final SeasonRoutes season;
 
-    /** {@code /api/me} and {@code /api/message-examples}. */
     private final Profile profile;
 
-    /** {@code /api/services/{name}/logs}, proxied to the browser line by line. */
     private final LogFollow logFollow;
 
-    /** The one filter every route but the frontend bundle passes through. */
     private final Gatekeeper gatekeeper;
 
-    /** {@code /api/metrics}: the curves the start page draws. */
     private final Metrics metrics;
 
     private final ExecutorService streams = Executors.newVirtualThreadPerTaskExecutor();
@@ -203,7 +186,6 @@ public final class StewardUi {
         this.push = pushWiring.push();
     }
 
-    /** {@link #alertWatch} and {@link #push}, which share the same VAPID keypair and thresholds. */
     private record PushWiring(@Nullable AlertWatch alertWatch, PushEndpoints push) {}
 
     private PushWiring wirePush(
@@ -236,26 +218,25 @@ public final class StewardUi {
         return new PushWiring(localAlertWatch, localPush);
     }
 
-    /** {@link #sessions}, for the routes that only exist once a database does. */
+    /** Fails the route when this instance has no database. */
     private Sessions sessions() {
         return Objects.requireNonNull(sessions, "this route needs sessions, which this instance has none of");
     }
 
-    /** {@link #admins}, for the routes that only exist once a database does. */
+    /** Fails the route when this instance has no database. */
     private AdminTree admins() {
         return Objects.requireNonNull(admins, "this route needs admins, which this instance has none of");
     }
 
-    /** {@link #adminApi}, for the routes that only exist once a database does. */
+    /** Fails the route when this instance has no database. */
     private AdminApi adminApi() {
         return Objects.requireNonNull(adminApi, "this route needs adminApi, which this instance has none of");
     }
 
     /**
-     * The VAPID keypair out of config, or null when {@code web-push} is not configured yet.
+     * The VAPID keypair from config, or null when {@code web-push} is not configured.
      *
-     * Both keys blank means unconfigured; exactly one blank is refused, since neither key alone
-     * can sign or be handed to a browser as a working {@code applicationServerKey}.
+     * Exactly one blank key is refused, since neither alone can sign or serve as an {@code applicationServerKey}.
      */
     private static com.interaso.webpush.@Nullable VapidKeys vapidKeysOf(final UiSpec.WebPushSpec webPush) {
         final String publicKey = webPush.publicKey();
@@ -271,7 +252,7 @@ public final class StewardUi {
         return com.interaso.webpush.VapidKeys.create(publicKey, privateKey);
     }
 
-    /** The container's entry point. See {@link Cli#run} for what it actually does. */
+    /** The container's entry point; see {@link Cli#run}. */
     public static void main(final String[] args) {
         Cli.run(args);
     }
@@ -326,7 +307,7 @@ public final class StewardUi {
         cfg.jsonMapper(new JavalinGson(new Gson(), true));
         cfg.startup.showJavalinBanner = false;
 
-        // The built frontend, out of the jar. `/web` is where Gradle's vite build lands.
+        // The built frontend, which Gradle packs into the jar under /web.
         cfg.staticFiles.add(staticFiles -> {
             staticFiles.hostedPath = "/";
             staticFiles.directory = "/web";

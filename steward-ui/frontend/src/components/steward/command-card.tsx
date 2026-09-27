@@ -24,32 +24,16 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 /**
- * The admin commands that stayed in the game, with a button each (concept §10a, §10b).
+ * The admin commands with `Surface.WEB`, a button each, drawn from `/api/commands` without knowing what they do.
  *
- * **Nothing here knows what a command does.** The list, the arguments, which ones need a
- * confirmation - all of it comes from the declarations in `:commands`, over `/api/commands`. A
- * button appears here because a `Declaration` carries `Surface.WEB`, and for no other reason; that
- * is what keeps this from becoming a second, quietly diverging copy of the command catalogue.
- *
- * **A command is a row, not a call.** Pressing one writes `command_request` and the process that
- * owns the command claims it. So the answer arrives late, and the four states it can arrive in are
- * all shown: EXPIRED means nothing ever claimed the row, which is a different fault from FAILED and
- * wants a different errand.
+ * A press writes a `command_request` row; EXPIRED means nobody claimed it, a different fault from FAILED.
  */
 export function CommandCard({
   title = "Commands",
   only,
 }: {
   title?: string
-  /**
-   * Which of the declared commands belong on this page. Absent means all of them.
-   *
-   * A filter and not a second list: the card still draws whatever `/api/commands` returns, so a
-   * command added to a declaration still appears somewhere without this file being edited. What
-   * the predicate decides is only *where* - `access settle` under Access rather than under Season,
-   * which is where it would otherwise have landed for no better reason than that the card was
-   * already there.
-   */
+  /** Which declared commands belong on this page, all when absent; it decides only where a command is drawn. */
   only?: (command: AdminCommand) => boolean
 } = {}) {
   const commands = useCommands()
@@ -72,11 +56,7 @@ export function CommandCard({
             note: "A command appears here once its declaration carries Surface.WEB.",
           }}
         >
-          {/*
-            Four rows while waiting, because four is roughly what every page carrying this card
-            has. The count sits here rather than in a constant somewhere: it is a fact about this
-            card, and a card that grows a fifth command should change it here or not at all.
-          */}
+          {/* Four rows while waiting, roughly what every page carrying this card has. */}
           {(list) =>
             (list ?? PLACEHOLDERS).map((command, index) => (
               <CommandRow key={command?.name ?? index} command={command} />
@@ -88,21 +68,12 @@ export function CommandCard({
   )
 }
 
-/**
- * The `/access` commands, which belong on the Access page and not on the Season one.
- *
- * One predicate used from both sides, so the two cards cannot both claim a command or both
- * disown it - which is exactly what two independently written filters do the first time a command
- * is added.
- */
+/** The `/access` commands, one predicate used from both sides so no command is claimed or disowned twice. */
 export function isAccessCommand(command: AdminCommand): boolean {
   return command.path[0] === "access"
 }
 
-/**
- * The smp and hunger-games commands, which are designed controls on their service pages and are
- * not drawn as commands anywhere.
- */
+/** The smp and hunger-games commands, which are designed controls on their service pages instead. */
 export function isServiceCommand(command: AdminCommand): boolean {
   return command.path[0] === "smp" || command.path[0] === "hg"
 }
@@ -110,12 +81,7 @@ export function isServiceCommand(command: AdminCommand): boolean {
 /** Four absent commands, so the card waits at about the height it will have. */
 const PLACEHOLDERS: (AdminCommand | undefined)[] = [undefined, undefined, undefined, undefined]
 
-/**
- * One command, with or without knowing which one yet.
- *
- * The same rows, the same paddings and the same button, so nothing on the card moves when the
- * names arrive. The button is drawn rather than hidden because its height is part of the row.
- */
+/** One command, known or not yet; the rows and the button are the same either way, so nothing moves. */
 function CommandRow({ command }: { command?: AdminCommand }) {
   const [values, setValues] = useState<Record<string, string>>({})
   const [confirming, setConfirming] = useState(false)
@@ -186,11 +152,7 @@ function CommandRow({ command }: { command?: AdminCommand }) {
         </div>
       ) : null}
 
-      {/*
-        While the confirmation is open it covers this, so the same failure is shown inside the
-        dialog instead - see below. A refusal rendered behind a modal is a refusal nobody reads,
-        and the button it belongs to is still sitting there looking like it did nothing.
-      */}
+      {/* While the confirmation is open the failure is shown inside it, since a modal would cover this. */}
       {ask.error && !confirming ? <Failure error={ask.error} /> : null}
       {run.error ? (
         <Failure error={run.error} onRetry={() => void run.refetch()} />
@@ -230,30 +192,9 @@ function CommandRow({ command }: { command?: AdminCommand }) {
 }
 
 /**
- * One argument, drawn the way its kind asks to be drawn.
+ * The roster as a picker by name, valued by Discord id, since nobody types an id from memory.
  *
- * **Two of the kinds are lists and not fields**, and that is the whole of package H's second
- * sentence: a REFERENCE is six characters with no meaning, and an ACCOUNT is a Discord snowflake.
- * Typing either from memory is a mistake nobody needs, on the two commands that book money and
- * break a link. Discord has autocompleted the reference since the command existed; this is the
- * browser's half of the same decision.
- *
- * The hooks are called unconditionally and switched off with `enabled`, because they are hooks -
- * and because a command with no ACCOUNT argument must not make the interface fetch the roster.
- */
-/**
- * The roster as a picker, by NAME.
- *
- * Each option is the person drawn by {@link Entity}, without its popover because an option is
- * already something to click. Somebody the roster has no name for reads "no Discord name on
- * record" - a row that says what it does not know, not a bare snowflake.
- *
- * The **value** is still the Discord id, because that is what the command takes. This is only what
- * a human reads while choosing - which is also why this is a picker and not a field: an id is not
- * something anybody types correctly from memory.
- *
- * Exported for the test: the options live inside a Radix `Select`, which does not open in jsdom,
- * and what is worth holding here is the labelling rule rather than the popup's behaviour.
+ * Exported for the test, since the Radix `Select` holding the options does not open in jsdom.
  */
 export function accountOptions(
   people: Pick<Person, "discordId" | "minecraftUuid">[] | undefined,
@@ -269,6 +210,7 @@ export function accountOptions(
   }))
 }
 
+/** One argument; an ACCOUNT or REFERENCE is a list, and its hooks are switched off by `enabled` otherwise. */
 function ArgumentField({
   id,
   argument,
@@ -291,11 +233,7 @@ function ArgumentField({
   )
 
   if (argument.choices || argument.kind === "ACCOUNT" || argument.kind === "REFERENCE") {
-    /**
-     * One `Select` for three sources. The empty case is spelled out rather than left as a silent
-     * dropdown with nothing in it: "nothing is open" and "the list has not loaded" are different
-     * answers and the difference decides whether somebody waits or goes and looks.
-     */
+    /** One `Select` for three sources, saying whether the list is empty or still loading. */
     const options: { value: string; label: ReactNode }[] = argument.choices
       ? argument.choices.map((choice) => ({ value: choice, label: choice }))
       : argument.kind === "ACCOUNT"
@@ -329,7 +267,7 @@ function ArgumentField({
                     ? argument.kind === "REFERENCE"
                       ? "Nothing is open"
                       : "Nobody to pick"
-                    : "—"
+                    : "\u2014"
               }
             />
           </SelectTrigger>
@@ -360,9 +298,7 @@ function ArgumentField({
   )
 }
 
-/**
- * The four states a request can be in, each said in words rather than coloured.
- */
+/** The four states a request can be in, each said in words rather than coloured. */
 function Outcome({ run }: { run: CommandRun }) {
   const text: Record<CommandRun["status"], string> = {
     PENDING: "Written. The service responsible has not picked it up yet.",

@@ -10,9 +10,7 @@ import java.net.http.HttpResponse;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * The plugin catalogue, linking an account, and the commands and game actions rows they become.
- */
+/** The plugin catalogue, linking an account, and the commands and game actions rows they become. */
 class RosterApiTest extends StewardUiTestSupport {
 
     @Test
@@ -110,11 +108,11 @@ class RosterApiTest extends StewardUiTestSupport {
         final long id = Long.parseLong(
                 GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsString());
 
-        // Reading the row back through the endpoint the browser polls is what proves the round trip.
+        // Reading the row back through the endpoint the browser polls proves the round trip.
         final JsonObject outcome = GSON.fromJson(get("/api/commands/" + id).body(), JsonObject.class);
         assertEquals("PENDING", outcome.get("status").getAsString());
 
-        // source = WEB is the whole reason V18 exists: a CONSOLE row must never carry a Discord id.
+        // A WEB row carries a Discord id; a CONSOLE row never does.
         try (var connection = java.sql.DriverManager.getConnection(
                         postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
                 var statement =
@@ -133,11 +131,9 @@ class RosterApiTest extends StewardUiTestSupport {
     }
 
     /**
-     * The service pages ask for what they act on, and never by command name.
+     * The service pages ask for what they act on, never by command name.
      *
-     * Only what can be acted on is offered and accepted: the open objectives of the
-     * active milestone and that milestone itself, because unlocking one further down the track by
-     * hand skips the ones before it.
+     * Only the active milestone and its open objectives are offered, since unlocking a later one skips the ones before.
      */
     @Test
     void gameActionsAreRowsWithoutACommandName() throws Exception {
@@ -189,12 +185,7 @@ class RosterApiTest extends StewardUiTestSupport {
         }
     }
 
-    /**
-     * One form, one row per language.
-     *
-     * Nothing is written when any language is missing its text: an announcement in one of two
-     * languages is the mistake the form is for.
-     */
+    /** One form, one row per language, and nothing written while any language is missing its text. */
     @Test
     void anAnnouncementIsOneRowPerLanguage() throws Exception {
         final long before = count("SELECT count(*) FROM command_request WHERE command = 'announce'");

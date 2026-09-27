@@ -6,12 +6,9 @@ import { colourRuns } from "@/components/steward/colour-control"
 import { pairedBlocks, pairedPaths, type PairedBlocks } from "@/components/steward/paired-blocks"
 
 /**
- * The Settings & Translations tab draws every file as one tree: branches named after the sections
- * they stand for, leaves that are one field (or one row of fields that belong together). The tree
- * is built here, as data, so what it looks like can be checked without drawing it.
+ * One leaf of a file's settings tree, built as data so its shape can be tested without drawing.
  *
- * Keys are never shown. They are still the identity of everything below - a leaf's `ids` are the
- * config paths or bundle keys it covers, which is what a draft, a search hit and a jump all refer to.
+ * Keys are never shown but stay the identity: a leaf's `ids` are what a draft, a search hit and a jump name.
  */
 export type TreeLeaf<L> = {
   kind: "leaf"
@@ -33,7 +30,7 @@ export type TreeBranch<L> = {
 
 export type TreeNode<L> = TreeLeaf<L> | TreeBranch<L>
 
-/** `farm-world` reads "Farm world", `serverUuid` "Server UUID" - the fallback for a section nothing named. */
+/** `farm-world` reads "Farm world" and `serverUuid` "Server UUID", for a section nothing named. */
 export function humanise(segment: string): string {
   return sentenceOf(segment.split(/[-_.\s]+/)) || segment
 }
@@ -67,11 +64,7 @@ class Builder<L> {
     return branch.children
   }
 
-  /**
-   * A branch whose only child is another branch says nothing on its own row, so the two become one
-   * row with both names. And a file whose whole content sits under one section - every key of a
-   * bundle starting with `smp.` - does not get that section as a root to click through first.
-   */
+  /** A branch with one branch child becomes one row with both names, and a lone top section is not a root. */
   build(): TreeNode<L>[] {
     let nodes = this.root.map(fold)
     while (nodes.length === 1 && nodes[0].kind === "branch") nodes = nodes[0].children
@@ -94,7 +87,7 @@ function parentPath(path: string): string | null {
   return at < 0 ? null : path.slice(0, at)
 }
 
-// --- config files
+// Config files
 
 export type ConfigLeafValue =
   | { kind: "entry"; entry: ConfigEntry }
@@ -120,10 +113,7 @@ export function configTree(entries: ConfigEntry[]): TreeNode<ConfigLeafValue>[] 
   for (const run of runs) for (const member of run) runOf.set(member.path, run)
   const labelOf = new Map(entries.filter((entry) => entry.kind === "MAP").map((entry) => [entry.path, entry.label]))
 
-  /**
-   * A section the document never listed as a MAP of its own still gets a branch, named after its
-   * last segment, so a leaf always has somewhere to hang.
-   */
+  /** A section never listed as its own MAP still gets a branch, so every leaf has somewhere to hang. */
   const ensure = (path: string | null): string | null => {
     if (path === null) return null
     if (!builder.has(path)) {
@@ -187,7 +177,7 @@ export function configLeafMatches(value: ConfigLeafValue, query: string): boolea
   return entries.some((entry) => entryHaystack(entry).includes(needle))
 }
 
-// --- message bundles
+// Message bundles
 
 export function messageTree(entries: MessageEntry[]): TreeNode<MessageEntry>[] {
   const builder = new Builder<MessageEntry>()
@@ -220,9 +210,9 @@ export function messageLeafMatches(entry: MessageEntry, query: string): boolean 
     .includes(needle)
 }
 
-// --- walking a tree
+// Walking a tree
 
-/** How many keys a tree draws - what decides whether it starts open. */
+/** How many keys a tree draws, which decides whether it starts open. */
 export function leafCount<L>(nodes: TreeNode<L>[]): number {
   return nodes.reduce((sum, node) => sum + (node.kind === "leaf" ? node.ids.length : leafCount(node.children)), 0)
 }

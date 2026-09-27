@@ -19,11 +19,9 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every {@code /api/...} path the browser asks for is a path this service answers.
+ * Every {@code /api/...} path the browser asks for is a path this service registers.
  *
- * A feature built in two halves, each tested and each green, can still miss the middle: the piece
- * between the worker and the frontend grows nothing, and every suite stays green while the page
- * answers 404. This only checks that the path is registered at all, not that the answer is right.
+ * Two green halves can still miss the middle; whether the answer is right is not checked here.
  */
 class EveryCalledPathIsRoutedTest {
 
@@ -32,30 +30,14 @@ class EveryCalledPathIsRoutedTest {
     private static final String SAMPLER =
             "steward-worker/src/main/java/eu/nordtal/s2/steward/worker/metric/Sampler.java";
 
-    /**
-     * An {@code /api/...} literal in the frontend, in either quote style.
-     *
-     * It stops at the first character that ends a path: the closing quote, a {@code ?} beginning
-     * a query, a {@code $} beginning an interpolation - the interpolated part is a value and not
-     * a route segment, and what matters for routing is the shape up to there - or a backslash,
-     * which begins an escape.
-     *
-     * A backslash cannot occur in a path, so it belongs with the other three terminators: without
-     * it, a template literal containing {@code \n} would have its escape read as part of the path.
-     */
+    /** An {@code /api/...} literal in the frontend, up to a quote, a query, an interpolation or a backslash. */
     private static final Pattern CALLED = Pattern.compile("[\"`](/api/[^\"`?$\\\\]*)");
 
     /** {@code cfg.routes.get("/api/...", ...)} and the other five verbs, plus sse. */
     private static final Pattern REGISTERED =
             Pattern.compile("routes\\.(?:get|post|put|patch|delete|sse)\\(\\s*\"(/api/[^\"]*)\"");
 
-    /**
-     * The catch-all, which is a route and is not an answer.
-     *
-     * {@code /api/<path>} is registered last on purpose: it turns an unmatched {@code /api}
-     * request into a plain 404 instead of letting the single-page fallback claim it. It therefore
-     * matches every path ever written, and counting it would make this whole test say nothing.
-     */
+    /** The catch-all {@code /api/<path>}, which matches every path and so must not count as an answer. */
     private static final Pattern CATCH_ALL = Pattern.compile("/api/(?:\\{[^}]+}|<[^>]+>)");
 
     @Test
@@ -99,7 +81,7 @@ class EveryCalledPathIsRoutedTest {
                         + " reason to look for it, and this line should go with it.");
     }
 
-    /** {@code useMetrics("host", "cpu_percent", 6)} - the second argument is the one that matters. */
+    /** {@code useMetrics("host", "cpu_percent", 6)}; the second argument is the one that matters. */
     private static final Pattern ASKED_METRIC = Pattern.compile("useMetrics\\(\\s*\"[^\"]*\"\\s*,\\s*\"([^\"]+)\"");
 
     /** {@code new MetricSample(subject, "cpu_percent", at, value)} in the sampler. */
@@ -108,20 +90,7 @@ class EveryCalledPathIsRoutedTest {
     /**
      * Every metric the frontend draws a curve of is one the sampler actually writes.
      *
-     * The same mistake one layer in
-     * The test above holds the paths, and it was green while the start page's CPU sparkline had
-     * never drawn a single point in its life: the path {@code /api/metrics} is registered, so
-     * nothing complained. What was wrong is the value of {@code metric} - the page asked for
-     * {@code cpu} and the sampler writes {@code cpu_percent}, and
-     * {@link StewardUi}'s handler answers an unknown name with {@code 200} and an empty list of
-     * points rather than with an error. That is right for a name with no samples yet, on a
-     * deployment where the sampler has not run; it is indistinguishable from a name that will
-     * never have any. Measured on the running stack: thousands of rows under
-     * {@code host/cpu_percent}, none at all under {@code host/cpu}.
-     *
-     * Only the metric is held, never the subject. The sampler writes {@code "host"} as a
-     * literal and every service name as a variable, so a list of valid subjects cannot be read out
-     * of it - and the subject was not where this went wrong.
+     * An unknown metric answers 200 with no points, so a misspelt one draws nothing silently; subjects are not held.
      */
     @Test
     void nothingIsDrawnThatIsNeverSampled() {
@@ -155,14 +124,7 @@ class EveryCalledPathIsRoutedTest {
                         + " sampler writes are " + written + ".");
     }
 
-    /**
-     * Whether a Javalin route pattern covers a called path.
-     *
-     * Both parameter styles are here because this file uses both, and they differ in exactly the
-     * way that matters: {@code {name}} is one segment, {@code <file>} is the rest of the path,
-     * slashes included. That is why a config file called {@code smp/config.yml} can be one
-     * parameter at all.
-     */
+    /** Whether a Javalin route pattern covers a called path: {@code {name}} is one segment, {@code <file>} the rest. */
     private static boolean matches(final String route, final String called) {
         // A trailing slash is where the interpolation began, not part of the path; only the prefix is known.
         if (called.endsWith("/")) {
@@ -212,12 +174,7 @@ class EveryCalledPathIsRoutedTest {
         return found;
     }
 
-    /**
-     * Every {@code .ts} and {@code .tsx} source file of the frontend, handed over one at a time.
-     *
-     * Two guards in this class walk the same tree looking for two different literals; the walk
-     * belongs in one place rather than in both.
-     */
+    /** Every {@code .ts} and {@code .tsx} source file of the frontend, one at a time. */
     private static void forEachSourceFile(final java.util.function.Consumer<Path> visitor) {
         final Path root = repository().resolve(FRONTEND);
         assertTrue(

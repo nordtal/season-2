@@ -5,29 +5,13 @@ import { useServices } from "@/lib/queries"
 import { HealthDot } from "@/components/steward/status"
 
 /**
- * The list of places, the one thing the desktop's column and the phone's dock both hold.
+ * The list of places, held by the desktop's column and the phone's dock alike.
  *
- * **Every row is a box of `size-control` and a label, and the box is the column.** The toggle
- * above the list is the same box on the same line, so the toggle and every row's icon stand one
- * above the other, and the mark beside the toggle starts where every label starts. A group heading
- * is indented by half of what the box has around its 16px glyph, so its first letter stands on the
- * glyph's edge rather than on the box's. That is the whole of the grid, and the spacing complaint
- * that retired the last sidebar (uneven gaps around "Steward" and "Overview") was three elements
- * each measuring from an edge of its own.
- *
- * **The marker differs by device, and that is deliberate, not an oversight**:
- * the desktop's column marks the page with blue text, as it always has; the phone's dock with a
- * muted surface, which reads better under a thumb that is about to cover the text.
- *
- * **Every service row carries a health dot.** `useServices()` is the one query this
- * opens, and it is the same query every page shares, so it does not add a second poll.
+ * Every row is a `size-control` box and a label, so icons and labels align with the toggle above.
  */
 export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "text" | "surface" }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  /**
-   * Decided once for the whole navigation rather than per entry: "is this one active" cannot be
-   * answered by looking at one entry, because two of them can match and only the longer is meant.
-   */
+  /** Decided across the whole navigation, since two entries can match and only the longer is meant. */
   const active = activeEntryId(pathname, NAVIGATION)
   const services = useServices()
 
@@ -53,8 +37,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
             {group.entries.map((entry) => {
               const isActive = entry.id === active
               /**
-               * Only the ten container rows carry a dot. `entry.params.name` is the exact service
-               * name the query answers with, because `navigation.ts` built the params from it.
+               * Only the ten container rows carry a dot, keyed by the service name `navigation.ts` put in the params.
                */
               const service =
                 group.id === "services"
@@ -92,17 +75,9 @@ export function resolveHref(to: string, params?: Record<string, string>) {
 }
 
 /**
- * Which single entry a path lights up.
+ * The single entry a path lights up: the longest fixed part wins across the whole navigation.
  *
- * <p>Two entries can match one path - {@code /services/limbo} matches every service entry by its
- * fixed part {@code /services} - and the sidebar then showed several selected rows with no way to
- * tell which page you were on. The rule is the longest match wins, decided across the whole
- * navigation, which is why this cannot be a predicate on one entry.</p>
- *
- * <p>A parameterised route is matched by its fixed part, not by the link it happens to point at:
- * "Backups" links to {@code /operations/backups} and must still be the selected row while you are
- * reading backup run 27. A per-service entry carries a real name in its parameters, and that longer
- * match is what keeps the right service selected rather than all of them.</p>
+ * A route matches by its fixed part, so "Backups" stays selected on a backup run's page.
  */
 export function activeEntryId(
   pathname: string,

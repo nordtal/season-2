@@ -6,25 +6,10 @@ import { assert, describe, expect, it } from "vitest"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-/**
- * No middle dot ("·") as a separator anywhere in the interface.
- *
- * A middle dot should generally not be used in the UI. Typography should not carry a text symbol
- * for a separator - an icon, if anything - and no separator character of that kind is preferred at
- * all. An em dash is not bad by itself, but nowhere in this app should a text be long enough to
- * need one. An ellipsis ("Waiting for the key…") and an arrow are unaffected.
- *
- * There is no middle dot left anywhere under `src/` for this guard to name an owner for.
- */
+/** No middle dot as a separator anywhere in the interface; an ellipsis and an arrow are fine. */
 const MIDDLE_DOT = /·/
 
-/**
- * Pre-existing dots, each with the reason it is allowed to stay - empty for now. The exemption is
- * by file, not by line: a file half-swept looks identical to one this test never read, which is
- * the same failure mode `identifiers-stay-in-the-popover.test.ts`'s `ALLOWED` and
- * `SoundVocabularyTest.ALLOWED` both guard against. Left as a typed, empty map rather than
- * deleted, so the next dot has somewhere to be listed rather than a structure to reinvent.
- */
+/** Files allowed a middle dot, each with its reason; empty, and kept so the next one has a place. */
 const EXEMPT = new Map<string, string>([])
 
 function sourceFiles(directory: string): string[] {
@@ -67,22 +52,14 @@ describe("no middle dot as a separator", () => {
     )
   })
 
-  /**
-   * Without this, a broken path or a changed extension makes the rule above pass by finding
-   * nothing at all - the failure mode that leaves a green build and a guard nobody can trust. Same
-   * shape as `identifiers-stay-in-the-popover.test.ts`'s second test.
-   */
+  /** Without this, a broken path or extension makes the rule above pass by finding nothing. */
   it("actually reads the sources, so an empty result means something", () => {
     const files = sourceFiles(source)
     expect(files.length).toBeGreaterThan(30)
     expect(files.some((f) => f.endsWith("app/sign-in.tsx"))).toBe(true)
   })
 
-  /**
-   * Mirrors `SoundVocabularyTest.theAllowlistHasNoGhosts`: an `EXEMPT` entry for a file that no
-   * longer has a middle dot is a promise nobody is keeping any more - if this test does not check
-   * for that, the list only ever grows.
-   */
+  /** An exemption for a file that is already clean fails, or the list only ever grows. */
   it("has no exemption for a file that is already clean or gone", () => {
     const stale: string[] = []
     for (const [relative, reason] of EXEMPT) {

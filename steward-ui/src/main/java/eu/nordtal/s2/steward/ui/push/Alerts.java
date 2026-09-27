@@ -7,12 +7,9 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Where the worker's raw reading meets this service's own thresholds, one alert per {@link AlertType}.
+ * Applies this service's thresholds to the worker's raw reading, one alert per {@link AlertType}.
  *
- * The policy lives here: steward-worker sends only what it measured, never what it thinks of a
- * number, since the thresholds are {@code UiSpec.AlertSpec}'s. A missing measurement is skipped,
- * never treated as zero or as over. Several triggers of one type merge into one alert, at the
- * worst level, with every subject listed and the tap landing on the worst one's page.
+ * A missing measurement is never over; several triggers of one type merge at the worst level.
  */
 final class Alerts {
 
@@ -22,9 +19,7 @@ final class Alerts {
     /**
      * One notification-sized fact.
      *
-     * @param level {@code warn} or {@code down} - never {@code ok}. An alert that is over is absent
-     *              from the map rather than present and green, so that {@link AlertWatch} can tell
-     *              "still wrong, differently" from "no longer wrong" by presence alone.
+     * @param level {@code warn} or {@code down}; an alert that is over is absent from the map rather than green
      */
     record Alert(AlertType type, String level, String subject, String path) {}
 
@@ -66,9 +61,7 @@ final class Alerts {
     }
 
     /**
-     * Whether a percentage is at or past its threshold, using {@code >=} to match {@code health.ts}.
-     *
-     * Null is never over - see the class note.
+     * Whether a percentage is at or past its threshold, matching {@code health.ts}'s {@code >=}; null is never over.
      */
     private static boolean over(final @Nullable Double measured, final int threshold) {
         return measured != null && measured >= threshold;

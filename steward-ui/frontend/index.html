@@ -4,13 +4,7 @@
   <head>
     <meta charset="UTF-8" />
 
-    <!--
-      A script or stylesheet that fails to load reports itself through a DOM "error" event that
-      does not bubble; a capturing-phase listener on `window`, registered before anything else in
-      <head> starts fetching, is the one place that still sees it. A plain script rather than a
-      module, so it shares the document's fate rather than the bundle's, and it draws nothing
-      itself: the paragraph and button it can write into already sit in #root as plain HTML.
-    -->
+    <!-- Reports a script or stylesheet that failed to load, which only a capturing listener set first can see. -->
     <script>
       ;(function () {
         // Remembered in storage, not a variable: the recovery this guards is a full page reload, which nothing in memory survives.
@@ -84,15 +78,7 @@
       })()
     </script>
 
-    <!--
-      This fallback sits in the document from the first byte, because a screen that can only be
-      drawn by JavaScript cannot report that JavaScript never ran. It stays invisible for two and a
-      half seconds and then fades in, since React normally replaces it within a few hundred
-      milliseconds and a message flashing past on every healthy start would just teach everyone to
-      ignore it. The animation is CSS, inline in this document, so an animation that never runs
-      leaves the panel hidden rather than sharing the bundle's fate; the reporter above reveals it
-      directly instead of waiting for this once it has something to say.
-    -->
+    <!-- The fallback fades in after 2.5s in plain CSS, so a healthy start never flashes it. -->
     <style>
       #startup-fallback {
         opacity: 0;
@@ -105,21 +91,12 @@
       }
     </style>
 
-    <!--
-      viewport-fit=cover, because the status bar below is translucent: the page is drawn behind the
-      notch and the home indicator, and index.css gives every edge back with env(safe-area-inset-*).
-      Without the cover the browser letterboxes the page and a near-black interface grows two grey
-      bars on a black phone.
-    -->
+    <!-- viewport-fit=cover, as the status bar is translucent; index.css restores the edges with safe-area insets. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0d0d0d" />
 
-    <!--
-      The mark is the server icon: resource-pack/src/pack.png is what a player sees in the server
-      browser, and icon-512.png is that same file at exactly four times the size, nearest
-      neighbour, since a smoothing resampler turns its 21 colours into hundreds.
-    -->
+    <!-- The server icon: resource-pack/src/pack.png, scaled four times by nearest neighbour into icon-512.png. -->
     <link rel="icon" type="image/png" sizes="128x128" href="/icon.png" />
     <link rel="apple-touch-icon" href="/icon-512.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -134,13 +111,7 @@
   </head>
   <body>
     <div id="root">
-      <!--
-        Static, and stays on screen until React replaces it: createRoot(container).render(...) in
-        main.tsx overwrites every child of #root on its first successful render, so this paragraph
-        and button surviving means nothing above ever ran. Styled inline rather than through a
-        class from index.css, since that stylesheet is one more built asset that can itself be the
-        thing missing.
-      -->
+      <!-- Styled inline and replaced by React's first render, so it only stays when nothing above ran. -->
       <div
         id="startup-fallback"
         style="

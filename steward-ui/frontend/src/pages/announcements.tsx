@@ -30,17 +30,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
-/**
- * Announcements: one text per language, each posted by the bot into that language's channel.
- *
- * The same `announce` row the SMP writes at a milestone, so the list beside the form is one channel
- * with two senders. Every language needs its text before anything is sent - a line that went out
- * in one language of two is the mistake this page is for.
- */
-
 /** Discord's own cap on one message, mirrored from the backend's refusal. */
 const MAX_LENGTH = 2000
 
+/**
+ * Announcements: one text per language, each posted by the bot into that language's channel.
+ *
+ * Nothing is sent until every language has its text. The list shares the `announce` row with the SMP's milestones.
+ */
 export function AnnouncementsPage() {
   return (
     <div className="flex flex-col gap-6">

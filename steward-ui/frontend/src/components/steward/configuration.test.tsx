@@ -10,12 +10,9 @@ import type { ConfigEntry, ConfigLocation } from "@/lib/api"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The configuration form draws headings, labels and controls out of the schema beside a file, when
- * there is one, and this is where that drawing is checked, the same way `recreate.test.tsx` checks
- * a dialog against a fake backend answering by URL.
+ * The configuration form drawn from the schema beside a file, against a fake backend answering by URL.
  *
- * No `jest-dom` - this project does not install it, so an assertion like "disabled" reads the DOM
- * property directly rather than through a matcher this repo has deliberately not added.
+ * No `jest-dom`, so assertions read DOM properties directly.
  */
 
 async function search(query: string) {
@@ -37,7 +34,7 @@ function asButton(element: HTMLElement): HTMLButtonElement {
   return element
 }
 
-/** The text a `PUT` request carried, for a fixture's `RequestInit['body']`, which is not always a string. */
+/** The text a `PUT` request carried, since `RequestInit['body']` is not always a string. */
 function requestBody(body: BodyInit | null | undefined): string {
   if (typeof body !== "string") throw new Error("expected the request body to be a string")
   return body
@@ -108,7 +105,7 @@ function ladder(hours: string[], colours: string[]): ConfigEntry[] {
   ]
 }
 
-/** What is on the screen: everything `sr-only` is for a screen reader and not for the eye. */
+/** The text on screen, without the `sr-only` parts. */
 function visibleText(element: HTMLElement): string {
   const copy = element.cloneNode(true)
   if (!(copy instanceof HTMLElement)) throw new Error("expected a cloned element")
@@ -116,11 +113,7 @@ function visibleText(element: HTMLElement): string {
   return copy.textContent ?? ""
 }
 
-/**
- * By id, not by value: a colour field is an `<input type="color">` and a text box carrying the
- * same value, so `getByDisplayValue` is ambiguous for every colour on the page. The id is the
- * entry's own path.
- */
+/** A field by id, its entry's path, since a colour shows its value twice. */
 function fieldFor(container: HTMLElement, path: string): HTMLInputElement {
   return asInput(nonNull(container.querySelector<HTMLElement>(`[id="${path}"]`), `a field drawn for ${path}`))
 }
@@ -132,7 +125,7 @@ function nonNull<T>(value: T | null, what: string): T {
 
 const GUILD_UNAVAILABLE = { available: false, reason: "no bot token in this test", entries: [] }
 
-/** One `/api/config/<path>` answer per fixture file, keyed exactly the way the route is called. */
+/** One `/api/config/<path>` answer per fixture file, keyed the way the route is called. */
 function backend(documents: Record<string, ConfigLocation & Record<string, unknown>>) {
   const listing = Object.values(documents).map(({ service, name, path, readable, writable }) => ({
     service,
@@ -155,11 +148,7 @@ function draw(node: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  /**
-   * The same provider the Shell puts around everything (recreate.test.tsx's own comment on this):
-   * EnvironmentOverriddenBadge is a Radix tooltip and throws without one, which would be a test
-   * failing for a reason the component does not have.
-   */
+  /** The tooltip provider the Shell supplies, which EnvironmentOverriddenBadge needs. */
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>{node}</TooltipProvider>
@@ -172,7 +161,7 @@ async function open(humanName: string) {
   fireEvent.click(await screen.findByText(humanName))
 }
 
-/** The tab as the service page draws it, with `?file=` kept in state instead of the URL. */
+/** The tab as the service page draws it, with `?file=` kept in state. */
 function Settings({ service }: { service: string }) {
   const [file, setFile] = useState<string | undefined>()
   return <ServiceSettings service={service} file={file} onFile={setFile} />
@@ -202,10 +191,7 @@ describe("the file row", () => {
     draw(<Settings service="steward-worker" />)
 
     await screen.findByText("Steward")
-    /**
-     * The path used to sit under the name in monospace and made every row in the list two lines
-     * tall, so the assertion is the absence of it.
-     */
+    /** The path is not shown under the name. */
     expect(screen.queryByText("steward.yml")).toBeNull()
   })
 
@@ -303,10 +289,7 @@ describe("the file row", () => {
   })
 })
 
-/**
- * The search box of an open file: label, key path, current value and explanation text, a secret's
- * value excluded from all of it, and the tree cut down to what matched.
- */
+/** The search box of an open file: label, path, value and explanation, never a secret's value, and a pruned tree. */
 describe("searching a file", () => {
   const file = "steward-worker/steward.yml"
 
@@ -371,10 +354,7 @@ describe("searching a file", () => {
   it("never finds a secret by its value", async () => {
     const token = "MTA1NzE4.super-secret-discord-token"
     withEntries([
-      /**
-       * As if a future bug sent a value for a secret anyway - the wire contract in lib/api.ts says
-       * this never happens, and the search has to refuse it on its own regardless.
-       */
+      /** A secret carrying a value despite the wire contract, which the search must still refuse. */
       entry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: token }),
     ])
     draw(<Settings service="steward-worker" />)
@@ -414,10 +394,7 @@ describe("headings and explanations", () => {
           entries: [
             entry({ path: "worker", key: "worker", label: "Worker", kind: "MAP" }),
             entry({ path: "worker.limits", key: "limits", label: "Limits", kind: "MAP" }),
-            /**
-             * Three levels deep: a heading stops here and the leaf's own path carries the rest
-             * instead of a fourth grouping concept.
-             */
+            /** Three levels deep: a heading stops here and the leaf's path carries the rest. */
             entry({ path: "worker.limits.retry", key: "retry", label: "Retry", kind: "MAP" }),
             entry({
               path: "worker.limits.retry.max-attempts",
@@ -504,11 +481,9 @@ describe("headings and explanations", () => {
 })
 
 /**
- * An environment variable can take a path over from the file - `NORDTAL_ACCESS_LANGUAGES` does
- * exactly that to `access.yml`'s `languages` - and a field under such an override must not draw
- * like any other editable one, since a save there would look like it worked and change nothing the
- * bot would ever read. `environmentOverridden` is absent/`true`/`false` and all three have to draw
- * differently: absent is "this service never said", not "not overridden".
+ * A field an environment variable overrides must not draw as editable, since saving it changes nothing.
+ *
+ * `environmentOverridden` absent, `true` and `false` all draw differently.
  */
 describe("environment overrides", () => {
   const file = "steward-worker/steward.yml"
@@ -650,11 +625,7 @@ describe("database.yml", () => {
   })
 
   it("is read-only for a plugin too, whose file is not called database.yml on its own", async () => {
-    /**
-     * `name` is the path under the service directory, so only the three services that keep their
-     * file at the top - discord-bot, steward-worker, steward-ui - are called `database.yml`
-     * outright. A plugin's is `smp/database.yml`, and an equality check alone would miss it.
-     */
+    /** A plugin's database file sits one level down, so an equality check alone would miss it. */
     const file = "smp/smp/database.yml"
     vi.stubGlobal(
       "fetch",
@@ -694,10 +665,7 @@ describe("a file that does not parse as YAML", () => {
     draw(<Settings service="steward-worker" />)
     await open("Readme")
 
-    /**
-     * `findByDisplayValue`'s default normalizer trims trailing whitespace, so the trailing newline
-     * the fixture's content ends in is not part of what it matches against.
-     */
+    /** The default normalizer trims the fixture's trailing newline. */
     await screen.findByDisplayValue("Read me.")
     const save = asButton(screen.getByRole("button", { name: /Save/ }))
     expect(save.disabled).toBe(true)
@@ -769,13 +737,7 @@ describe("a file that does not parse as YAML", () => {
 
     await screen.findByText("Line 3: not valid YAML: expected ',' or ']', but got :")
     expect(putBody).toEqual({ revision: "r1", content: broken })
-    /**
-     * The warning is shown beside the save, not instead of it - the text the operator typed is
-     * still what is on screen, matching what the fake worker above actually wrote.
-     * `getByDisplayValue` collapses inner whitespace under its default normalizer, which would
-     * treat this content's own line break as insignificant, so the element's real `value` is
-     * asserted directly instead.
-     */
+    /** The editor keeps what was typed; `value` is read directly so the line break counts. */
     expect(editor.value).toBe(broken)
   })
 })
@@ -813,14 +775,7 @@ describe("a file with no schema at all", () => {
   })
 })
 
-/**
- * Repeatable cards, wired through the real form rather than tested in isolation the way
- * `repeatable-cards.test.tsx` does it - these prove `Control` actually reaches for
- * `RepeatableCards` on a `SECTIONS` entry, and that the whole page still only writes on Save.
- *
- * The worker does not send `kind: "SECTIONS"` today - see the comment on `ConfigEntry.kind` in
- * `lib/api.ts` - so every fixture below is this file's own proposal for the shape.
- */
+/** Repeatable cards through the real form: `SECTIONS` draws `RepeatableCards`, and only Save writes. */
 describe("repeatable cards for a SECTIONS entry", () => {
   const file = "discord-bot/access.yml"
   const TEMPLATE: ConfigEntry[] = [
@@ -893,10 +848,7 @@ describe("repeatable cards for a SECTIONS entry", () => {
     expect(screen.queryByText("Entry 1")).toBeNull()
     expect(screen.queryByText("en", { selector: "span" })).toBeNull()
 
-    /**
-     * A freshly added, still-blank card has no tag yet and falls back to the plain index rather
-     * than showing an empty title.
-     */
+    /** A blank new card falls back to its index for a title. */
     fireEvent.click(screen.getByRole("button", { name: /Add entry/ }))
     screen.getByText("Entry 3")
   })
@@ -917,10 +869,7 @@ describe("repeatable cards for a SECTIONS entry", () => {
     draw(<Settings service="discord-bot" />)
     await open("Access")
 
-    /**
-     * GUILD_UNAVAILABLE (no bot token in this test) makes the picker degrade to a text input, but
-     * it still carries its own fallback hint - a plain ScalarControl text field never shows this.
-     */
+    /** Without a bot token the picker degrades to a text input that still carries its fallback hint. */
     expect(await screen.findByText(/Paste the id instead/)).not.toBeNull()
   })
 
@@ -962,10 +911,10 @@ describe("repeatable cards for a SECTIONS entry", () => {
     await screen.findByDisplayValue("de")
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 2" }))
-    // Removing asks first - the click only arms the confirmation.
+    // Removing asks first; the click only arms the confirmation.
     fireEvent.click(screen.getByRole("button", { name: "Remove it" }))
 
-    // The card is gone from the draft, and the count says so - but nothing has been written yet.
+    // The card is gone from the draft and the count says so, but nothing has been written yet.
     expect(screen.queryByDisplayValue("de")).toBeNull()
     screen.getByRole("button", { name: "Save 1" })
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false)
@@ -977,12 +926,7 @@ describe("repeatable cards for a SECTIONS entry", () => {
   })
 })
 
-/**
- * The five tones of `colours.yml`, end to end through the real form - `colourRuns` and its unit
- * tests in `colour-control.test.tsx` cover the grouping logic in isolation, but this is what a
- * person actually sees on the page: the Settings tab wired up for real, the tree receiving the
- * file's entries, building the run, and the run actually reaching the DOM.
- */
+/** The five tones of `colours.yml` through the real form, drawn as one run. */
 describe("a file of colours, side by side", () => {
   const file = "smp/colours.yml"
 
@@ -1011,11 +955,7 @@ describe("a file of colours, side by side", () => {
     const swatches = await screen.findAllByLabelText("Pick a colour")
     expect(swatches).toHaveLength(5)
 
-    /**
-     * Every swatch's row ancestor (`.flex-wrap`, the container `EntryList` builds for a run) has to
-     * be the very same element - that is what "one row" means in the DOM, as opposed to five
-     * separate fields that merely look similar stacked one after another.
-     */
+    /** Every swatch shares one row ancestor, the container `EntryList` builds for a run. */
     const rows = new Set(swatches.map((swatch) => swatch.closest(".flex-wrap")))
     expect(rows.size).toBe(1)
     expect(rows.has(null)).toBe(false)
@@ -1030,10 +970,7 @@ describe("a file of colours, side by side", () => {
           revision: "r1",
           header: [],
           restartRequired: false,
-          /**
-           * Only one colour in the file - `colourRuns` never groups a single entry, but the field
-           * itself is still exactly the colour it looks like and still gets the picker.
-           */
+          /** A single colour is not grouped, yet still gets the picker. */
           entries: [colourEntry("good", "#8ba888"), entry({ path: "label", key: "label", value: "smp" })],
         },
       }),
@@ -1065,13 +1002,7 @@ describe("a file of colours, side by side", () => {
   })
 })
 
-/**
- * `prestige.yml`'s two blocks, end to end through the real form.
- *
- * `paired-blocks.test.ts` holds the rule itself; this is the half that rule exists for - one row
- * per tier, with the hour and the colour of that tier in it, drawn by `ServiceConfiguration` from
- * a file that looks exactly like the one the plugin ships.
- */
+/** `prestige.yml`'s two blocks through the real form, as one row per tier with its hour and colour. */
 describe("two blocks that share their keys, as one row per key", () => {
   const file = "smp/prestige.yml"
 
@@ -1101,10 +1032,7 @@ describe("two blocks that share their keys, as one row per key", () => {
     const row = hour.closest("li")
 
     expect(row).not.toBeNull()
-    /**
-     * The same `<li>`, which is what "one row per tier" means in the DOM. Two fields that merely
-     * look similar, stacked, is precisely the arrangement this ticket exists to end.
-     */
+    /** The same `<li>`, which is what one row per tier means in the DOM. */
     expect(colour.closest("li")).toBe(row)
     expect(row?.textContent).toContain("tier-02")
   })
@@ -1116,23 +1044,14 @@ describe("two blocks that share their keys, as one row per key", () => {
 
     await screen.findByDisplayValue("2")
     const row = nonNull(fieldFor(container, "hours.tier-02").closest<HTMLElement>("li"), "the row")
-    /**
-     * `tier-02` is the row's subject and is said once, on the left. The two halves carry no visible
-     * label of their own: three rows repeating "hours" and "colours" is three repetitions of a
-     * column heading, and on a phone it is also the width the hex field needs. What a screen reader
-     * hears is the next test; this one is about what is drawn, so the `sr-only` labels come out
-     * first - `textContent` cannot tell them apart from anything else.
-     */
+    /** The tier is named once, and the halves carry only `sr-only` labels, removed here first. */
     expect(visibleText(row).match(/tier-02/g) ?? []).toHaveLength(1)
     const block = nonNull(row.closest<HTMLElement>("ul"), "the block")
     expect(visibleText(block).match(/hours/g) ?? []).toHaveLength(1)
     expect(visibleText(block).match(/colours/g) ?? []).toHaveLength(1)
   })
 
-  /**
-   * The label is hidden, not deleted. A field whose only name was a column heading three rows above
-   * it has no accessible name at all, which is the kind of thing a picture never shows.
-   */
+  /** The label is hidden for the eye but kept as the field's accessible name. */
   it("keeps each half's label for a screen reader", async () => {
     withLadder()
     draw(<Settings service="smp" />)
@@ -1169,10 +1088,7 @@ describe("two blocks that share their keys, as one row per key", () => {
     const parsed: unknown = JSON.parse(body)
     if (!isBodyWithChanges(parsed)) throw new Error("the save did not carry changes")
     expect(parsed.changes).toEqual({
-      /**
-       * The display label was overridden, the path was not - which is what keeps a search hit and
-       * a save pointing at the same key.
-       */
+      /** The display label was overridden and the path was not, so search and save hit the same key. */
       "hours.tier-02": "3",
       "colours.tier-02": "#112233",
     })
@@ -1200,10 +1116,7 @@ describe("two blocks that share their keys, as one row per key", () => {
     const { container } = draw(<Settings service="smp" />)
     await open("Prestige")
 
-    /**
-     * Nothing is paired, so nothing is a row - and, crucially, nothing has been dropped either:
-     * all three values are still on the page, each as its own field.
-     */
+    /** Nothing is paired, and all three values are still drawn as separate fields. */
     await screen.findByDisplayValue("2")
     expect(fieldFor(container, "hours.tier-02").closest("li")).toBeNull()
     expect(fieldFor(container, "hours.tier-01").value).toBe("0")
@@ -1212,13 +1125,9 @@ describe("two blocks that share their keys, as one row per key", () => {
 })
 
 /**
- * A click on a search hit has to actually take you there, including the case that looks like the
- * easiest of them: searching while already standing on the service page the hit belongs to.
+ * A search hit must also work when this page is already open, where `navigate` remounts nothing.
  *
- * `navigate` to the route you are on is a no-op, nothing remounts, `service` does not change, and
- * the effect that consumes a pending jump is keyed on exactly that - so without care the click does
- * nothing at all, and leaves the jump in the map, where it fires the next time somebody arrives on
- * this page.
+ * Otherwise the jump stays in the map and fires on the next visit.
  */
 describe("a hit that arrives while this page is already open", () => {
   const file = "steward-worker/steward.yml"
@@ -1240,10 +1149,7 @@ describe("a hit that arrives while this page is already open", () => {
   }
 
   afterEach(() => {
-    /**
-     * Nothing may survive into the next test: the map is module level and a leftover jump is
-     * exactly the second bug this ticket is about.
-     */
+    /** The map is module level, so no jump may survive into the next test. */
     takePendingJump("steward-worker")
   })
 

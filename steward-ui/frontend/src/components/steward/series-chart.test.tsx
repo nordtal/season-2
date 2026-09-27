@@ -2,23 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { tooltipTimestamp } from "@/components/steward/series-chart"
 
-/**
- * One of five findings about null values in the chart tooltip.
- *
- * Recharts hands the label formatter whatever it currently holds, and that is not always a point.
- *
- * **Most of these cases were already handled before this file existed**, and saying otherwise would
- * make the tests look like they caught something they did not: the inline expression read
- * `Number(payload?.[0]?.payload?.at ?? Date.now())`, so every *missing* shape already fell back.
- * What was missing was any way to check it - the expression sat in a JSX prop three components deep
- * - and one case it really did get wrong, `at: "not a date"`, which survives `??`, becomes `NaN`,
- * and prints "Invalid Date". So: six of the seven rows below pass against the old expression too,
- * and they are here to pin behaviour rather than to claim a fix; the seventh is the fix.
- *
- * `Date.now()` is frozen here rather than allowed a tolerance: a test that asserts "within 50 ms of
- * now" is a test that measures how busy the machine is, which is the same trap `vitest.setup.ts`
- * documents for Testing Library's timeouts.
- */
+/** Frozen rather than given a tolerance, which would measure how busy the machine is. */
 const NOW = 1_763_000_000_000
 
 afterEach(() => vi.useRealTimers())
@@ -28,6 +12,7 @@ function atNow() {
   vi.setSystemTime(NOW)
 }
 
+/** Recharts hands the label formatter whatever it holds, so every shape that is not a point falls back to now. */
 describe("tooltipTimestamp - the point the heading names", () => {
   it("takes the timestamp of the first entry when there is one", () => {
     expect(tooltipTimestamp([{ payload: { at: 1_700_000_000_000 } }])).toBe(1_700_000_000_000)

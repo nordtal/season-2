@@ -6,41 +6,14 @@ import { fileURLToPath } from "node:url"
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /**
- * Two rules that make the interface fit a 390px screen, held here because jsdom cannot check them.
+ * Source rules that keep the interface fitting a 390px screen, since jsdom has no layout to measure.
  *
- * Both were found by measuring a real browser at 390 x 844, and neither has a symptom a rendering
- * test could see: jsdom has no layout, so an element drawn 80px off the right edge of the phone has
- * exactly the same box in jsdom as one that fits. What a test *can* do is notice that the rule was
- * deleted - which is the failure mode worth guarding, because both look like tidy-up candidates:
- * one is an `!important` in a vendored shadcn component, and the other is a property nobody needs
- * on a desktop.
- *
- * The measurement itself lives in `/home/dev/ui-shots/tool/overflow.mjs` on the dev server: it
- * walks every box on every page at 390px and prints the ones that stick out. Run that after a
- * layout change; this file only keeps the two known answers from being lost.
- *
- * **THIS FILE CANNOT TELL YOU THAT THE INTERFACE FITS. It can only tell you that a rule which once
- * made it fit has not been deleted.** Written out after four boxes were found running off the
- * right edge of `/access` while every test here was green -
- * correctly, because a width is a number jsdom does not have and no assertion over source text can
- * produce. The only instrument that sees a width is a picture: `/home/dev/ui-shots/tool/preview.mjs
- * --target=/access --width=390 --out=…` renders the built frontend against the fixtures in
- * `/home/dev/ui-shots/fixtures` with no server and no session, and `overflow.mjs` measures the same
- * thing in numbers when a deployment is running. A guard that is trusted further than it can see is
- * worse than no guard, so: **if the change is about how wide something is, take the picture.**
+ * They only prove a rule is still written; a change to a width needs a picture from `ui-shots`.
  */
 /**
- * Every string in the sources that is a list of Tailwind classes - wherever it is written.
+ * Every double-quoted string in the sources shaped like a Tailwind class list, `cn(…)` and `cva(…)` included.
  *
- * Reading `className="…"` alone would miss half of them: the vendored shadcn
- * components write theirs inside `cn(…)` and `cva(…)`, where a `className=` matcher sees nothing.
- * A grid with no column count in `chart.tsx`, `alert.tsx`, `dialog.tsx` or
- * `form.tsx` would then leave the rule below reporting zero offenders - which is the worst thing a guard can
- * do, because the build stays green and somebody has read the test and believed it.
- *
- * So every double-quoted string is taken, and what makes one a class list is its shape: no
- * sentence punctuation, and at least one hyphenated utility in it. Comments are stripped first,
- * because a comment explaining a grid is not a grid.
+ * Comments are stripped first, since a comment explaining a grid is not a grid.
  */
 function everyClassAttribute(directory: string): Array<{ file: string; classes: string }> {
   const found: Array<{ file: string; classes: string }> = []
@@ -66,19 +39,7 @@ function everyClassAttribute(directory: string): Array<{ file: string; classes: 
 
 describe("the rules that make it fit on a phone", () => {
   it("gives every grid an explicit column count, so one long word cannot widen the page", () => {
-    /**
-     * MEASURED at 390px. `grid gap-4 lg:grid-cols-2` on the status page drew a card
-     * 413px wide on a 390px screen. Below `lg` there is no `grid-template-columns` at all, so the
-     * column is an *implicit* track, and an implicit track is `auto` - sized by the min-content of
-     * what is in it, with no upper bound from the container. One journal row holding a Discord
-     * snowflake was enough; `truncate` does not help, because the automatic minimum is what is
-     * being summed. `grid-cols-1` makes the track `minmax(0, 1fr)`, which cannot exceed the
-     * container, and everything inside truncates as it was written to.
-     *
-     * Why a source rule and not a measurement: the measurement is `/home/dev/ui-shots/tool/
-     * overflow.mjs` and it needs a running deployment. This one notices the next grid written
-     * without a base, which is the moment the cost is a character.
-     */
+    /** Below `lg` a grid without `grid-cols-1` has an implicit `auto` track, which one snowflake widened past 390px. */
     const offenders = everyClassAttribute(source)
       .filter(({ classes }) => /(^|\s)grid(\s|$)/.test(classes))
       .filter(({ classes }) => !/(^|\s)grid-cols-/.test(classes))
@@ -93,11 +54,7 @@ describe("the rules that make it fit on a phone", () => {
   })
 
   it("does not size the shell with a viewport unit, because a home screen gets those wrong", () => {
-    /**
-     * MEASURED on an iPhone home screen: at `h-svh` the page and the sidebar sheet were
-     * both cut off about a fifth above the bottom edge. `--app-height` is measured from the window
-     * by `lib/app-frame.ts` and falls back to `100svh` in the stylesheet, where it is right.
-     */
+    /** `h-svh` cut the page and the sidebar off on an iPhone home screen; `--app-height` is measured instead. */
     const shell = fs.readFileSync(path.join(source, "app/shell.tsx"), "utf8")
     const sidebar = fs.readFileSync(path.join(source, "components/ui/sidebar.tsx"), "utf8")
     const classes = [shell, sidebar]
@@ -115,10 +72,7 @@ describe("the rules that make it fit on a phone", () => {
 
   it("caps the scroll area's inner box at the viewport, rather than at its content", () => {
     const scrollArea = fs.readFileSync(path.join(source, "components/ui/scroll-area.tsx"), "utf8")
-    /**
-     * The class attributes only. The comment beside this one names the rule too, and a test that
-     * reads the whole file passes on a file where the rule has been deleted and explained.
-     */
+    /** Class attributes only, since the comment beside the rule names it too. */
     const classes = [...scrollArea.matchAll(/className="([^"]*)"/g)].map((m) => m[1]).join(" ")
     assert.include(
       classes,
@@ -131,19 +85,7 @@ describe("the rules that make it fit on a phone", () => {
   })
 
   it("caps a status badge at the width of the cell it sits in", () => {
-    /**
-     * MEASURED at 390px. shadcn's `Badge` is `w-fit shrink-0
-     * whitespace-nowrap overflow-hidden`: as wide as its text, refusing to shrink, refusing to
-     * wrap, and clipping the rest WITHOUT an ellipsis. In a table card that is a date drawn as
-     * `active until 1 Dec 2026, 00:0` - the last digit simply gone, and nothing on screen saying
-     * so. `index.css`'s `.steward-table td > *` rule does not reach it, because the badge sits one
-     * level deeper inside the tooltip's own span.
-     *
-     * This is the one half of that finding a source rule can hold: not "the badge fits", which
-     * needs a picture, but "the cap somebody measured is still written down". It is the same shape
-     * as the scroll-area rule above and it fails for the same reason - somebody tidying away a
-     * class that looks redundant on a desktop.
-     */
+    /** `Badge` is `w-fit shrink-0 overflow-hidden`, so without the cap a date is clipped with no ellipsis. */
     const status = fs.readFileSync(path.join(source, "components/steward/status.tsx"), "utf8")
     const classes = [...status.matchAll(/"([^"\n]*)"/g)].map((m) => m[1]).join(" ")
 
@@ -169,15 +111,7 @@ describe("the rules that make it fit on a phone", () => {
   })
 
   it("lets a stacked cell actually wrap, not just break inside an unbreakable word", () => {
-    /**
-     * Measured at 390px: `TableCell`/`TableHead` carry `whitespace-nowrap` (shadcn's default), and
-     * `.steward-table :where(th, td)` in this media block only ever set `overflow-wrap: anywhere`.
-     * `overflow-wrap` decides where a line breaks WITHIN an unbreakable run; it cannot make
-     * ordinary prose wrap at all while `white-space: nowrap` still holds - that property is more
-     * specific here (`.steward-table` + `:where()` beats the utility class), so it wins and the
-     * rule never fires. A `detail` sentence like "the Minecraft account was" is not one unbreakable
-     * word, so it ran straight off the card with no ellipsis.
-     */
+    /** `whitespace-nowrap` on the cells outranks the stacked rule, so `overflow-wrap` alone never wraps prose. */
     const css = fs.readFileSync(path.join(source, "index.css"), "utf8")
     const mobile = css.slice(css.indexOf("@media (width < 48rem)")).replace(/\/\*[\s\S]*?\*\//g, "")
     assert.match(
@@ -190,14 +124,7 @@ describe("the rules that make it fit on a phone", () => {
   })
 
   it("puts a cell's second child beside its label instead of underneath it", () => {
-    /**
-     * Measured at 390px: `td[data-label]` is a two-column grid, `minmax(5rem,7rem) minmax(0,1fr)`.
-     * A cell with two children - the Journal table's `Concerns`, text plus a `PersonIdentity` line
-     * below it - only ever declares the FIRST child's column implicitly; grid auto-placement puts
-     * the second one in row 2, column 1, which is the label column, and it collides with the next
-     * cell's `::before` label. Measured: the identity line sat at `left 85 … right 169`, exactly
-     * the label column's box.
-     */
+    /** A labelled cell's second child would auto-place into the label column and collide with the next label. */
     const css = fs.readFileSync(path.join(source, "index.css"), "utf8")
     const mobile = css.slice(css.indexOf("@media (width < 48rem)")).replace(/\/\*[\s\S]*?\*\//g, "")
     assert.match(

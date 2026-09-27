@@ -7,12 +7,6 @@ import { sidebarDefaultOpen } from "@/app/sidebar-state"
 import type { Me } from "@/lib/api"
 import { asImage } from "@/lib/test-elements"
 
-/**
- * The account picture and its popover, and the cookie the navigation's state is kept in.
- *
- * Rendered here rather than through the frame, because none of it needs a router. The island
- * itself does - its mark and its trail are router links - so it is drawn in `frames.test.tsx`.
- */
 const KEYS = [
   {
     id: "k1",
@@ -50,10 +44,7 @@ describe("the account popover is the settings page's account half", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Account/ }))
 
-    /**
-     * The keys stand in the popover as a list. Not behind a disclosure, not
-     * behind a dialog - a dialog opens only where one belongs, and reading is not one of those.
-     */
+    /** The keys stand in the popover as a plain list, not behind a disclosure or a dialog. */
     expect(await screen.findByText("YubiKey on my keyring")).toBeTruthy()
     expect(screen.getByText("Phone")).toBeTruthy()
     expect(screen.getByText("ally")).toBeTruthy()
@@ -84,11 +75,7 @@ describe("the account popover is the settings page's account half", () => {
   })
 
   it("stays tappable for an account with no picture on record", () => {
-    /**
-     * The fallback is not a nicety: a way to sign out that is there most of the time is worse
-     * than one that is plain. `discordAvatarUrl` absent is the ordinary case, not an
-     * error - an account can be signed into Steward without ever having a `person` row at all.
-     */
+    /** No avatar is the ordinary case, and signing out must stay plain then. */
     withQueries(<UserMenu me={{ ...ME, name: "ally smith" }} />)
 
     const trigger = screen.getByRole("button", { name: /Account/ })

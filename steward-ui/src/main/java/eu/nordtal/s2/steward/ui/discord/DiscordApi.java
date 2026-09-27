@@ -6,10 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Two routes over {@link DiscordDirectory}: what the guild's roles are called, and its channels.
+ * Two routes over {@link DiscordDirectory}: the names of the guild's roles and of its channels.
  *
- * Neither ever fails the page: an unreachable Discord, a missing token and a rate limit all come
- * back as {@code 200} with {@code available: false} and a reason, since the ids can still be typed.
+ * Neither fails the page: every failure is a {@code 200} with {@code available: false} and a reason.
  */
 public final class DiscordApi {
 
@@ -19,12 +18,10 @@ public final class DiscordApi {
         this.directory = directory;
     }
 
-    /** {@code GET /api/discord/roles} */
     public void roles(final Context ctx) {
         answer(ctx, directory::roles);
     }
 
-    /** {@code GET /api/discord/channels} */
     public void channels(final Context ctx) {
         answer(ctx, directory::channels);
     }

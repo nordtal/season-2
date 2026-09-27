@@ -10,12 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import javax.sql.DataSource;
 
-/**
- * What a translation editor fills a placeholder with, per context type rather than per message.
- *
- * Real rows first, then a fixed value per type when the table has nothing, so a preview never
- * shows an empty hole.
- */
+/** What a translation editor fills a placeholder with, per context type, from real rows or a fixed fallback. */
 public final class ExampleValues {
 
     private final DataSource dataSource;
@@ -25,9 +20,7 @@ public final class ExampleValues {
     }
 
     /**
-     * @param discordId   the admin asking, whose own account is the example player when it has one
-     * @param displayName the admin's name from the session, the last resort for a Discord member
-     * @return type to property to value, one entry per context type
+     * Example values by type and property, with the asking admin's own account as the example player when it has one.
      */
     public Map<String, Map<String, String>> of(final String discordId, final String displayName) {
         final Map<String, Map<String, String>> answer = new LinkedHashMap<>();

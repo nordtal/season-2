@@ -5,34 +5,10 @@ import type { GuildEntry, GuildList } from "@/lib/api"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-/**
- * A Discord id, picked by name instead of typed.
- *
- * **Why this exists.** Every id in the bot's configuration is an eighteen-digit number that a
- * person can read in exactly one place: Discord's own right-click menu, behind a developer-mode
- * switch most people have never turned on. Typing one into a text field is a transcription with no
- * feedback - the wrong id is still a valid snowflake, so nothing refuses it, and the first sign of
- * the mistake is a message appearing in a channel nobody meant. A list of names removes the whole
- * class of mistake.
- *
- * **It always degrades to the field it replaces.** No bot token, an unreachable Discord, a rate
- * limit - any of them and this is the text input again, with the reason underneath it. The ids
- * still work; it is the names that are missing. That is also why an id that is set but is not in
- * the list is kept and shown as itself rather than cleared: a channel the bot cannot see is not a
- * value this page gets to delete.
- *
- * **The open list draws a name and nothing else**, applying the identifier rule to roles
- * and channels: a raw snowflake never appears in a row here, even in a muted corner. Searching is
- * a different question from showing - the filter above the list matches the id as well as the
- * name, because somebody holding an id copied from a log or from Discord's own "Copy ID" has to be
- * able to paste it in and land on the right row without ever being shown what they pasted. The one
- * exception is {@link withUnknown}'s placeholder: an id the guild did not name is the one case
- * where the id *is* the only honest thing to show, and it is drawn to look like exactly that - a
- * missing name, not an ordinary row.
- */
 /** A stable identity for "no entries", so a memo keyed on it does not recompute every render. */
 const NO_ENTRIES: GuildEntry[] = []
 
+/** A Discord id picked by name, falling back to a plain id field with the reason when the guild cannot be listed. */
 export function SnowflakePicker({
   id,
   value,
@@ -51,18 +27,10 @@ export function SnowflakePicker({
 }) {
   const entries = directory?.available ? directory.entries : NO_ENTRIES
 
-  /**
-   * A category (Discord type 4) is not a channel anything here posts in, but it is what tells two
-   * channels of the same name apart, so it is kept as a heading rather than dropped.
-   */
+  /** Categories are kept as headings, since they tell two channels of the same name apart. */
   const options = useMemo(() => withUnknown(entries, value), [entries, value])
   const [query, setQuery] = useState("")
-  /**
-   * The row that is set now is never filtered out, whatever is typed. Radix reads the closed
-   * trigger's text off the mounted item, so hiding the chosen row empties the control the person is
-   * looking at - and being told your setting has no value because you typed in a search box is a
-   * worse lie than a row that does not match sitting in the list.
-   */
+  /** The row set now is never filtered out, since Radix reads the closed trigger's text off it. */
   const visible = useMemo(
     () => (query.trim() ? options.filter((entry) => entry.id === value || matchesQuery(entry, what, query)) : options),
     [options, query, value, what],
@@ -90,10 +58,7 @@ export function SnowflakePicker({
   }
 
   return (
-    /**
-     * The empty option is a real choice and says what choosing it means, because "none" in this
-     * interface is never "the default" - it is the feature switched off, and the bot says which.
-     */
+    /** The empty option says what choosing it means: the feature switched off. */
     <Select
       value={value === "" ? NOTHING : value}
       disabled={disabled}
@@ -103,8 +68,7 @@ export function SnowflakePicker({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {/* A plain input, not a `Select` item - Radix would otherwise read every keystroke here as
-            its own typeahead and jump the highlighted row instead of letting the user type. */}
+        {/* A plain input, not a `Select` item, or Radix would read each keystroke as typeahead. */}
         <div className="sticky top-0 z-10 -mx-1 -mt-1 mb-1 border-b border-border bg-popover p-1.5">
           <Input
             role="searchbox"
@@ -117,7 +81,7 @@ export function SnowflakePicker({
           />
         </div>
         <SelectItem value={NOTHING}>
-          <span className="text-muted-foreground">none — this feature is not served</span>
+          <span className="text-muted-foreground">none {"\u2014"} this feature is not served</span>
         </SelectItem>
         {visible.map((entry) => {
           const named = entries.some((known) => known.id === entry.id)
@@ -141,11 +105,7 @@ export function SnowflakePicker({
   )
 }
 
-/**
- * Radix refuses an empty string as an item value - it is how it spells "nothing is selected" - so
- * "no channel" needs a sentinel of its own. A `#` cannot begin a snowflake, so it can never collide
- * with a real id.
- */
+/** Radix refuses "" as an item value, and `#` cannot begin a snowflake. */
 const NOTHING = "#none"
 
 function label(entry: GuildEntry, what: "role" | "channel"): string {
@@ -155,26 +115,15 @@ function label(entry: GuildEntry, what: "role" | "channel"): string {
   return `# ${entry.name}`
 }
 
-/**
- * Whether `entry` matches a typed `query` - by the name the list actually draws, or by the raw
- * snowflake it never draws. Searching and showing are different questions: the row
- * never prints an id, but a person holding one from a log or from Discord's own "Copy ID" still
- * has to be able to paste it here and land on the right row.
- */
+/** Whether `entry` matches `query`, by the name drawn or by the id it never draws, so a pasted id lands. */
 export function matchesQuery(entry: GuildEntry, what: "role" | "channel", query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
   return label(entry, what).toLowerCase().includes(needle) || entry.id.includes(needle)
 }
 
-/**
- * An id the guild did not list is still offered, as itself.
- *
- * A channel the bot cannot see, or one deleted since it was configured, would otherwise vanish out
- * of the select the moment the page drew it - and a value silently replaced by "none" is the exact
- * failure this component exists to prevent, only faster.
- */
+/** An id the guild did not list, still offered as itself rather than silently replaced by none. */
 export function withUnknown(entries: GuildEntry[], value: string): GuildEntry[] {
   if (value === "" || entries.some((entry) => entry.id === value)) return entries
-  return [{ id: value, name: "unknown — not in this guild, or not visible to the bot", type: null }, ...entries]
+  return [{ id: value, name: "unknown \u2014 not in this guild, or not visible to the bot", type: null }, ...entries]
 }

@@ -26,11 +26,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The registered security keys, and the library's view of them.
  *
- * The user handle is the Discord id, in bytes: a snowflake, not personal, already the actor
- * written into every {@code audit_log} row, and the one identifier here that never changes. There
- * is no account table in this schema, so {@code lookup} and
- * {@code getCredentialDescriptorsForUserHandle} query {@code discord_id} directly. This class
- * holds no Jackson and no ceremony - see {@link WebAuthn} for that.
+ * The user handle is the Discord id in bytes: not personal, never changing, and already the actor in {@code audit_log}.
  */
 public final class Credentials implements CredentialRepositoryV2<Credentials.Key> {
 
@@ -46,15 +42,15 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
                 .onDemand(CredentialDao.class);
     }
 
-    /** The user handle of an account: its Discord id as UTF-8 bytes. See the class note. */
+    /** The user handle of an account: its Discord id as UTF-8 bytes. */
     public static ByteArray handleOf(final String discordId) {
         return new ByteArray(discordId.getBytes(StandardCharsets.UTF_8));
     }
 
-    /** The account behind a user handle, or empty if it is not one this service ever issued. */
+    /** The account behind a user handle, or empty if this service never issued it. */
     public static Optional<String> accountOf(final ByteArray handle) {
         final String text = new String(handle.getBytes(), StandardCharsets.UTF_8);
-        // A Discord id is decimal digits; anything else is a handle from somewhere else entirely.
+        // A Discord id is decimal digits; anything else is a handle from somewhere else.
         return text.isEmpty() || !text.chars().allMatch(Character::isDigit) ? Optional.empty() : Optional.of(text);
     }
 
@@ -63,7 +59,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
         return dao.forAccount(discordId);
     }
 
-    /** Whether this account can get past the door at all. */
+    /** Whether this account has a key, and so can get past the door at all. */
     public boolean any(final String discordId) {
         return !dao.forAccount(discordId).isEmpty();
     }
@@ -96,11 +92,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
                 dao.forAccount(discordId).size());
     }
 
-    /**
-     * Removes every key of one account. See {@link CredentialDao#forget}.
-     *
-     * @return how many were removed
-     */
+    /** Removes every key of one account and answers how many; see {@link CredentialDao#forget}. */
     public int forget(final String discordId) {
         final int gone = dao.forget(Objects.requireNonNull(discordId, "discordId"));
         log.warn(
@@ -112,12 +104,9 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
     }
 
     /**
-     * Removes one key of one account.
+     * Removes one key of one account, and answers whether it was there.
      *
-     * Removing the last one is allowed: an account with no key just reaches the setup page again,
-     * the same state a fresh deployment is in.
-     *
-     * @return whether a key of that id was on that account
+     * Removing the last one is allowed: the account just reaches the setup page again.
      */
     public boolean remove(final String discordId, final ByteArray credentialId) {
         final boolean gone = dao.remove(credentialId.getBytes(), discordId) == 1;
@@ -130,11 +119,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
         return gone;
     }
 
-    /**
-     * Renames one key of one account.
-     *
-     * @return whether a key of that id was on that account
-     */
+    /** Renames one key of one account, and answers whether it was there. */
     public boolean rename(final String discordId, final ByteArray credentialId, final String label) {
         return dao.rename(credentialId.getBytes(), discordId, label.trim()) == 1;
     }
@@ -170,8 +155,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
     /**
      * One row of {@code steward_credential}, and the library's {@code CredentialRecord} at once.
      *
-     * Its {@code byte[]} components make {@code equals} compare references, not bytes; two reads
-     * of the same row are unequal, so nothing here relies on comparing two instances.
+     * Its {@code byte[]} components make {@code equals} compare references, so nothing compares two instances.
      */
     public record Key(
             @ColumnName("credential_id") byte[] credentialId,
@@ -211,7 +195,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
             if (transports == null || transports.isBlank()) {
                 return Optional.empty();
             }
-            // `of` accepts a transport invented after this jar was built; it only goes back to a browser.
+            // `of` accepts a transport newer than this jar; it only goes back to a browser.
             return Optional.of(Arrays.stream(transports.split(","))
                     .map(String::trim)
                     .filter(part -> !part.isEmpty())

@@ -22,9 +22,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The guild's roles and channels, so a Discord id can be picked rather than typed.
  *
- * Needs the bot's read-only token, which is never sent to a browser, logged or written into an
- * answer - only {@code {id, name}} leaves here. One answer is cached for {@link #TTL}, since a
- * configuration page with eleven pickers would otherwise ask Discord's rate-limited endpoint eleven times.
+ * Only {@code {id, name}} leaves here, never the bot's token; one answer is cached for {@link #TTL}.
  */
 public final class DiscordDirectory {
 
@@ -34,7 +32,7 @@ public final class DiscordDirectory {
     private static final Duration CONNECT = Duration.ofSeconds(5);
     private static final Duration ANSWER = Duration.ofSeconds(10);
 
-    /** How long one answer is reused. Long enough to draw a page, short enough to feel live. */
+    /** How long one answer is reused: long enough to draw a page, short enough to feel live. */
     static final Duration TTL = Duration.ofSeconds(60);
 
     private final UiSpec.DiscordSpec config;
@@ -50,11 +48,7 @@ public final class DiscordDirectory {
         this.http = HttpClient.newBuilder().connectTimeout(CONNECT).build();
     }
 
-    /**
-     * Whether this can answer at all, and if not, why.
-     *
-     * @return the reason it cannot answer, or {@code null} when it can
-     */
+    /** Why this cannot answer, or {@code null} when it can. */
     public @Nullable String unavailable() {
         if (config.guildId().isBlank()) {
             return "discord.guild-id is not set, so there is no guild to list.";
@@ -67,7 +61,7 @@ public final class DiscordDirectory {
         return null;
     }
 
-    /** The guild's roles, @everyone excluded, highest first - the order Discord itself draws. */
+    /** The guild's roles without @everyone, highest first, as Discord draws them. */
     public synchronized List<Entry> roles() {
         final @Nullable Cached cached = roles;
         if (cached != null && fresh(cached)) {
@@ -77,7 +71,7 @@ public final class DiscordDirectory {
         for (final JsonElement element : fetch("/guilds/" + config.guildId() + "/roles")) {
             final JsonObject role = element.getAsJsonObject();
             final String id = role.get("id").getAsString();
-            // @everyone carries the guild's own id and is not a role anybody means to configure.
+            // @everyone carries the guild's own id and is not a role anybody configures.
             if (id.equals(config.guildId())) {
                 continue;
             }
@@ -92,11 +86,7 @@ public final class DiscordDirectory {
         return roles.entries();
     }
 
-    /**
-     * The guild's channels, in the order Discord draws them.
-     *
-     * Categories are kept and marked, since two channels can share a name across categories.
-     */
+    /** The guild's channels in Discord's order, categories included since names repeat across them. */
     public synchronized List<Entry> channels() {
         final @Nullable Cached cached = channels;
         if (cached != null && fresh(cached)) {
@@ -138,7 +128,7 @@ public final class DiscordDirectory {
             throw new DirectoryException(503, "interrupted while talking to Discord");
         }
         if (response.statusCode() != 200) {
-            // The body is not passed on: this is the one place a token could leak by way of an error.
+            // The body is not passed on, since an error is the one place a token could leak.
             log.warn("Discord answered {} for {}", response.statusCode(), path);
             throw new DirectoryException(
                     502,
@@ -155,20 +145,13 @@ public final class DiscordDirectory {
         return GSON.fromJson(response.body(), JsonArray.class);
     }
 
-    /**
-     * One thing that can be picked.
-     *
-     * @param id       the snowflake, which is what gets written into the config file
-     * @param name     what it is called in the guild
-     * @param position where Discord draws it
-     * @param type     Discord's channel type, or {@code null} for a role
-     */
+    /** One thing that can be picked; {@code type} is Discord's channel type, or {@code null} for a role. */
     public record Entry(
             String id, String name, int position, @Nullable Integer type) {}
 
     private record Cached(List<Entry> entries, Instant at) {}
 
-    /** Discord did not answer, or answered no. Carries the status the browser should see. */
+    /** Discord did not answer, or answered no, with the status the browser should see. */
     public static final class DirectoryException extends RuntimeException {
 
         private final int status;

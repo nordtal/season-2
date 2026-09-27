@@ -59,10 +59,7 @@ function SidebarProvider({
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
 
-  /**
-   * This is the internal state of the sidebar.
-   * We use openProp and setOpenProp for control from outside the component.
-   */
+  /** Internal state, overridden by `openProp` and `setOpenProp` from outside. */
   const [_open, _setOpen] = React.useState(defaultOpen)
   const open = openProp ?? _open
   const setOpen = React.useCallback(
@@ -80,7 +77,6 @@ function SidebarProvider({
     [setOpenProp, open],
   )
 
-  // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
     return isMobile ? setOpenMobile((wasOpen) => !wasOpen) : setOpen((wasOpen) => !wasOpen)
   }, [isMobile, setOpen, setOpenMobile])
@@ -98,10 +94,7 @@ function SidebarProvider({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [toggleSidebar])
 
-  /**
-   * We add a state so that we can do data-state="expanded" or "collapsed".
-   * This makes it easier to style the sidebar with Tailwind classes.
-   */
+  /** Exposed as `data-state` for styling with Tailwind. */
   const state = open ? "expanded" : "collapsed"
 
   const contextValue = React.useMemo<SidebarContextProps>(
@@ -185,9 +178,7 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          {/* The status bar is translucent (index.html) and this sheet is full height, so its
-              own top edge is behind the notch without this - and on a home screen iOS blurs a band
-              deeper than the notch, which is what `--blur-clearance` adds. Zero everywhere else. */}
+          {/* Clears the notch and, on a home screen, iOS's deeper blur band via `--blur-clearance`. */}
           <div className="flex h-full w-full flex-col pt-[calc(env(safe-area-inset-top)+var(--blur-clearance))]">
             {children}
           </div>
@@ -205,7 +196,7 @@ function Sidebar({
       data-side={side}
       data-slot="sidebar"
     >
-      {/* This is what handles the sidebar gap on desktop */}
+      {/* The sidebar's gap on desktop. */}
       <div
         data-slot="sidebar-gap"
         className={cn(

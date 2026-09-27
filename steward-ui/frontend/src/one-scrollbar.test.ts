@@ -7,10 +7,9 @@ import { describe, expect, it } from "vitest"
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /**
- * Every scroll container in this interface draws the same thin scrollbar in the border colour: the
- * one rule on `*` in index.css for native overflow, and the same colour on `ScrollArea`'s thumb.
- * A class that hides or restyles a scrollbar in one place is a second style - and `no-scrollbar`
- * was used in two places while being defined nowhere, so it did nothing at all.
+ * Every scroll container draws the same thin scrollbar in the border colour, natively and in `ScrollArea`.
+ *
+ * A class that hides or restyles a scrollbar in one place is a second style.
  */
 function files(directory: string): string[] {
   return readdirSync(directory).flatMap((name) => {

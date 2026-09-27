@@ -10,34 +10,15 @@ import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
- * If Caddy ever grows a Content-Security-Policy, it has to allow Modrinth's image CDN.
+ * A Content-Security-Policy in the Caddyfile, if one ever appears, must allow Modrinth's image CDN.
  *
- * Why this is a conditional and not an assertion that the header exists
- * Because there is no policy today, and putting one in front of this interface is a separate
- * decision this test does not make: the frontend is a Vite build with inline styles
- * and a service worker, and a policy written to satisfy a plugin thumbnail would be one nobody
- * measured against the rest of the page. What is this test's to guard against is the trap that
- * comes with a policy at all - the browser loads plugin icons from
- * {@code cdn.modrinth.com} itself, and a policy added later without that host does
- * not fail loudly. The images go blank, every other part of the page keeps working, and the only
- * report is in a console somebody has to open.
- *
- * So: no policy passes, and a policy naming the host passes. A policy that forgot it is the one
- * state this file exists to turn into a red build, on the commit that introduces it rather than on
- * the day somebody notices the squares are empty.
+ * Without that host plugin icons go blank silently, so no policy passes and a policy naming it passes.
  */
 class CaddyPolicyTest {
 
     private static final Path COMPOSE = Path.of("..", "compose.yml");
 
-    /**
-     * The Caddyfile out of {@code compose.yml}, and nothing else in the file.
-     *
-     * Not the whole file, and that is not tidiness. {@code cdn.modrinth.com} already
-     * appears in compose.yml on the {@code smp} service - two datapack URLs are hosted there - so
-     * a search over the whole document finds the host for a Caddyfile that has never heard of it.
-     * That is exactly a test which cannot fail, and it was one until this method existed.
-     */
+    /** The Caddyfile out of {@code compose.yml} and nothing else, since the {@code smp} service names the CDN too. */
     private static String caddyfileIn(final String compose) {
         final int block = compose.indexOf("caddyfile:");
         return block < 0 ? "" : compose.substring(block);
@@ -66,7 +47,7 @@ class CaddyPolicyTest {
         final String lower = compose.toLowerCase(Locale.ROOT);
         final int directive = lower.indexOf("content-security-policy");
         if (directive < 0) {
-            // No policy is allowed: the thumbnails load, which is the only thing this test is about.
+            // No policy: the thumbnails load.
             return;
         }
 
@@ -83,7 +64,7 @@ class CaddyPolicyTest {
     void theCaddyfileCarriesTheWarning() throws IOException {
         final String compose = caddyfileIn(Files.readString(COMPOSE, StandardCharsets.UTF_8));
 
-        // The comment reaches somebody before they write the header; the assertion above only catches it after.
+        // The comment reaches somebody before they write the header; the assertion only catches it after.
         assertTrue(
                 compose.contains(CDN),
                 "the Caddyfile in compose.yml no longer mentions " + CDN + ". That note is what"

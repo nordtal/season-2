@@ -9,35 +9,18 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { fileTitle } from "@/lib/words"
 
-/**
- * The single-key rendering `configuration.tsx` and `repeatable-cards.tsx` both need.
- *
- * It lives here, apart from both, so that neither has to import the other: `repeatable-cards.tsx`
- * draws one of these per field inside a card, `configuration.tsx` draws one per top-level key, and a
- * component that needed both directions would be a cycle for no reason - the rendering of one key
- * never depends on whether it happens to sit inside a card.
- */
+/** One scalar key's control, shared by `configuration.tsx` and `repeatable-cards.tsx` so neither imports the other. */
 
 /**
- * The plain-text file name shown instead of `nordtal-smp/config.yml` verbatim
- * - mechanical, the same way `Labels.of` on the backend turns a YAML key into a
- * label: strip the extension, split on the characters a path uses to separate words and on a
- * change of case, drop a word that repeats the one before it, and write it in Capital Case. The
- * path is not shown under it: the words of the path are already in the name this builds, and a
- * second monospace line would make every row in the list two lines tall. Where the path itself is
- * what matters -
- * an error about a file that could not be parsed - it is named there, not in the browsing list.
+ * The plain-text name of a config file, built like `Labels.of`: no extension, words split, Capital Case.
  *
- * It lives here rather than in `configuration.tsx`, the same reason `discordId` does:
- * `config-search.tsx`'s global and per-service search results need it too, and a
- * third file importing it from `configuration.tsx` while `configuration.tsx` imports the search
- * box back would be a cycle for no reason.
+ * Kept here so `config-search.tsx` can import it without a cycle.
  */
 export function humanFileName(name: string): string {
   return fileTitle(name)
 }
 
-/** The short text under a label - the schema's own words, or the mechanical comment block. */
+/** The short text under a label: the schema's words, or the file's own comment block. */
 export function explanationOf(entry: ConfigEntry): string | null {
   if (entry.noExplanationNeeded) return null
   if (entry.explanation) return entry.explanation
@@ -46,29 +29,9 @@ export function explanationOf(entry: ConfigEntry): string | null {
 }
 
 /**
- * Which keys hold a Discord id, and whether it is a role or a channel.
+ * Which keys hold a Discord id, and whether a role or a channel, decided on the key so an empty field still helps.
  *
- * It is decided on the KEY, not on the value, because the whole point is to help with a key that is
- * still empty - a value-shaped test would offer the picker only once somebody had already typed the
- * thing they needed help typing. The names are the ones jcore writes: `roles.admin`,
- * `channels.admin`, and on each language entry `role`, `contribution-channel`, `link-channel`,
- * `hunger-games-channel`, `announcement-channel`. A field inside a repeatable card
- * carries its own bare key - `role`, `contribution-channel` - rather than a path prefixed with the
- * section it lives in, so this still matches it correctly without knowing it is inside a card at
- * all.
- *
- * `guild-id` matches none of them, and that is the intended answer rather than an oversight: the
- * guild is what the list is READ FROM, so offering to pick it out of itself is circular and would
- * draw an empty select on the one field that always has to be typed. It is asserted in the tests
- * so a later rule - anything keyed on `-id`, say - cannot quietly acquire it.
- *
- * **`status-channel` is excluded on purpose, where it would otherwise match** - it ends in
- * `-channel` like every real snowflake field, but `AccessSpec.LanguageSpec#statusChannel`'s own
- * `@Comment` says it is stored "as a channel NAME - the bot renames it, it never posts in it", not
- * an id at all. `SnowflakePicker` writes back `entry.id`, an eighteen-digit snowflake, so wiring it
- * to this key would silently replace a channel's plain-text name with a number the bot then
- * searches for and never finds. This is the one of the six fields the language cards draw
- * that is not a snowflake despite its name. Left as plain text, which is what the value actually is.
+ * `guild-id` matches nothing, and `status-channel` stores a channel name, not an id.
  */
 export function discordId(entry: ConfigEntry): "role" | "channel" | null {
   if (entry.kind !== "SCALAR" || !entry.editable || entry.secret) return null
@@ -81,19 +44,9 @@ export function discordId(entry: ConfigEntry): "role" | "channel" | null {
 }
 
 /**
- * Whether an empty channel field is a problem worth calling out, rather than an ordinary blank:
- * a language missing a channel is visibly incomplete, not merely empty.
+ * Whether an empty channel field is a problem, since a language missing a channel is incomplete.
  *
- * This is generic on purpose - `RepeatableCards` calls it for every field of every card, `languages`
- * included, without knowing it is looking at a language. Two things decide it, both from the schema
- * rather than from a value: {@link discordId} says the field is a channel at all, and the schema's
- * own explanation says whether it is optional. Every field this project marks optional says so in
- * the same word, in the sentence jcore copies verbatim from the `@Comment` -
- * `AccessSpec.LanguageSpec#statusChannel` and `#announcementChannel` both start theirs with
- * "OPTIONAL" - so a field is required unless its own explanation says otherwise. That is a real
- * heuristic, not a schema fact (a future field marked optional in different words would slip past
- * it), and it is the same trade `colourValue` above already makes for the same reason: nothing in
- * `SchemaNode` carries a required/optional flag to read instead.
+ * A channel is required unless its schema explanation starts with "OPTIONAL".
  */
 export function isRequiredChannel(entry: ConfigEntry): boolean {
   if (discordId(entry) !== "channel") return false
@@ -103,31 +56,9 @@ export function isRequiredChannel(entry: ConfigEntry): boolean {
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i
 
 /**
- * Whether a scalar's stored value looks like a colour, `#rrggbb`.
+ * The colour a scalar's stored value holds, `#rrggbb`, until the schema gains a colour kind.
  *
- * **Why a heuristic at all.** A cleaner answer would be a "colour" kind in the schema, the same
- * place a key's type and its choices already live - the picker would then follow from
- * the schema like every other control here, instead of being a special case keyed on what a value
- * happens to look like. That needs a new annotation in jcore, a separate repository, so this stays
- * a fallback rather than the real fix: the day the schema carries a colour kind, this whole
- * function is deleted in favour of `entry.kind ===
- * "COLOUR"` or whatever that lands as. Until then the documented fallback
- * applies - the interface recognises, from the shape of the value alone, that it looks like
- * `#rrggbb`, and shows the picker - and it lives in the same drawer as `discordId` above and the
- * other value-shaped heuristic here: it
- * works until the day it is wrong. That day is an ORDINARY TEXT setting whose value happens to start
- * with "#" and is followed by exactly six hex digits - a literal colour string typed into a field
- * that is not one, say. Nothing shipped so far looks like that.
- *
- * **It reads `entry.value` - the value the FILE holds - never the live keystroke.** `discordId`
- * above decides on the key rather than the value because the value is what is still missing; here
- * the reasoning runs the other way but lands on the same rule: deciding on whatever is being typed
- * right now would flip the control away from the picker the moment somebody selects the text to
- * retype it, which is the worst possible time to lose it. An empty `entry.value` therefore never
- * matches - it is not "not a colour", it is "unknown", but nothing in one entry says otherwise, and a
- * colour setting saved blank falls back to being an ordinary field until a hex value is typed into it
- * again. That is the honest cost of deciding by value instead of by a schema kind, and it is why the
- * schema route stays open above rather than being called unnecessary.
+ * Reads the file's value, never the draft, so selecting the text to retype it keeps the picker.
  */
 export function colourValue(entry: ConfigEntry): string | null {
   if (entry.kind !== "SCALAR" || !entry.editable || entry.secret) return null
@@ -135,14 +66,7 @@ export function colourValue(entry: ConfigEntry): string | null {
   return HEX_COLOUR.test(value) ? value : null
 }
 
-/**
- * A schema's allowed (or suggested) values.
- *
- * `strict` is the whole of the difference: a closed list is a select and nothing else, because
- * anything else it could hold is not a valid save. A suggestion is the same select beside a
- * free-text field that still takes anything - so the common case is a click and the uncommon one
- * is still just typing, the way it always was.
- */
+/** A schema's choices: a strict list is a select only, a suggestion is a select beside free text. */
 function ChoicesControl({
   id,
   value,
@@ -156,12 +80,7 @@ function ChoicesControl({
   disabled: boolean
   onChange: (value: string) => void
 }) {
-  /**
-   * Radix refuses an item with an empty value, and a value the schema did not list is a normal
-   * state here - typed by hand before this shipped, or (when not strict) simply a suggestion not
-   * taken. Passing it through as "" leaves the select showing its placeholder rather than a value
-   * it does not have.
-   */
+  /** A value the schema did not list is passed as "", so the select shows its placeholder. */
   const known = choices.values.includes(value)
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -193,14 +112,9 @@ function ChoicesControl({
 }
 
 /**
- * One scalar key, drawn the same way whether it sits at the top of a file or inside a repeatable
- * card - a secret, a schema's choices, a Discord id, a colour, a boolean
- * or plain text, in that order of precedence.
+ * One scalar key: a secret, choices, a Discord id, a colour, a boolean or text, in that precedence.
  *
- * `edited` is the caller's own dirty flag - "has anything been typed here since the value this
- * control started from" - and it decides exactly one thing: whether an empty secret reads as
- * untouched or as a deliberate deletion. It cannot be derived from `value` alone, because an empty
- * string is what an untouched secret already looks like.
+ * `edited` tells an untouched empty secret from a deliberate deletion.
  */
 export function ScalarControl({
   id,
@@ -242,11 +156,7 @@ export function ScalarControl({
     )
   }
 
-  /**
-   * A schema's allowed values win over the Discord picker below: they are
-   * the more specific of the two, being data this particular key actually declared rather than a
-   * guess drawn from its name.
-   */
+  /** Declared choices win over the Discord picker, being more specific than a guess from the name. */
   if (entry.choices) {
     return <ChoicesControl id={id} value={value} choices={entry.choices} disabled={disabled} onChange={onChange} />
   }
@@ -265,11 +175,7 @@ export function ScalarControl({
     )
   }
 
-  /**
-   * Decided on `entry.value`, not on `value` (the live draft) - see `colourValue`'s own comment for
-   * why. `value` (which may be mid-edit, or blank while somebody retypes it) is still what gets
-   * shown and typed into the control once it is chosen.
-   */
+  /** Decided on the stored value, not the draft; see {@link colourValue}. */
   if (colourValue(entry) !== null) {
     return <ColourControl id={id} value={value} disabled={disabled} onChange={onChange} />
   }
@@ -288,10 +194,7 @@ export function ScalarControl({
     )
   }
 
-  /**
-   * A value that already spans lines keeps a box it fits in. Typing a newline into the single-line
-   * field is allowed too - the backend turns it into a block scalar - but nobody would find that.
-   */
+  /** A value that already spans lines gets a box it fits in. */
   if (value.includes("\n")) {
     return (
       <Textarea
@@ -322,10 +225,7 @@ export function ScalarControl({
 /**
  * A list, one row per entry.
  *
- * The whole list is sent on save rather than a single added entry: two browsers sending "add one"
- * both succeed and the result is neither of the two lists anybody was looking at. Sending the list
- * is only half of it - the two saves would still have overwritten each other, one silently - and
- * the other half is the `revision` every save carries, which makes the second one a 409.
+ * The whole list is sent with the file's `revision`, so a concurrent save gets a 409.
  */
 export function ListControl({
   id,

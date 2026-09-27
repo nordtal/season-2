@@ -88,11 +88,9 @@ import { MessagePreview } from "@/components/steward/message-preview"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 /**
- * The Settings & Translations tab of a service page: every config file and every message bundle of
- * the service in one list, and the chosen one as a tree of named sections.
+ * The Settings & Translations tab: the service's config files and bundles in one list, the chosen one as a tree.
  *
- * Which file is open is the page's `?file=` - a config file by its path, a bundle by
- * {@link bundleFileId} - so it is handed in and reported back rather than kept here.
+ * The open file is the page's `?file=`, handed in and reported back rather than kept here.
  */
 export function ServiceSettings({
   service,
@@ -120,18 +118,11 @@ export function ServiceSettings({
   )
   const files = useMemo(() => groups.flatMap((group) => group.items), [groups])
   const loading = configs.isPending || bundles.isPending
-  /**
-   * On a wide screen the content column is never empty: without a chosen file it shows the first
-   * one. That is derived, not written into the URL - a write from here would still run in the
-   * render that leaves the tab and put it straight back.
-   */
+  /** On a wide screen the first readable file is shown when none is chosen, derived rather than written to the URL. */
   const shown = file ?? (wide ? files.find((item) => item.readable)?.id : undefined)
   const selected = files.find((item) => item.id === shown)
 
-  /**
-   * A jump from the command palette, whether it arrived with the navigation or while this page was
-   * already open. Each one gets a new number, so the same hit twice lands twice.
-   */
+  /** A jump from the command palette; each gets a new number, so the same hit twice lands twice. */
   useEffect(() => {
     const land = () => {
       const config = takePendingJump(service)
@@ -249,11 +240,7 @@ function historyEntryIndex(): number {
   return typeof index === "number" ? index : 0
 }
 
-/**
- * Nordtal's files first - its translations, then its configs - and everything a third-party plugin
- * wrote below them, by the same Nordtal set the plugins tab uses. The headings only appear when
- * there is a third-party group to tell apart.
- */
+/** Nordtal's translations and configs first, third-party files below; headings only when there are both. */
 function groupsOf(service: string, configs: ConfigLocation[], bundles: MessageBundleLocation[]): FileGroup[] {
   const byLabel = (a: FileItem, b: FileItem) => a.label.localeCompare(b.label)
   const settings: FileItem[] = configs
@@ -286,7 +273,7 @@ function groupsOf(service: string, configs: ConfigLocation[], bundles: MessageBu
   ].filter((group) => group.items.length > 0)
 }
 
-/** Whether the two-column layout is showing - Tailwind's `lg`. */
+/** Whether the two-column layout, Tailwind's `lg`, is showing. */
 function useWide(): boolean {
   const query = "(min-width: 64rem)"
   const [wide, setWide] = useState(() => typeof window !== "undefined" && window.matchMedia?.(query).matches)
@@ -341,18 +328,9 @@ function DraftDot() {
   return <span aria-label="Changed" className="size-1.5 shrink-0 rounded-full bg-primary" />
 }
 
-/**
- *
- * One tree, whatever its leaves are
- *
- */
-
 type Highlight = { id: string; seq: number; language?: Language }
 
-/**
- * The part both kinds of file share: the search box, the one sentence about the file, the tree
- * with its open branches and counts, and the save row pinned to the bottom of the screen.
- */
+/** The part both kinds of file share: search box, description, tree with counts, and the pinned save row. */
 function TreeView<L>({
   file,
   nodes,
@@ -387,10 +365,7 @@ function TreeView<L>({
   const top = useRef<HTMLDivElement>(null)
   const search = useRef<HTMLDivElement>(null)
   const [appliedSeq, setAppliedSeq] = useState(-1)
-  /**
-   * The arrow back up only once the search box has left the screen: on a file that fits, there is
-   * nowhere to go back to.
-   */
+  /** The arrow back up appears only once the search box has left the screen. */
   const [scrolledAway, setScrolledAway] = useState(false)
   useEffect(() => {
     const node = search.current
@@ -406,13 +381,7 @@ function TreeView<L>({
     [nodes, query, matches],
   )
 
-  /**
-   * A jump target names a place in the tree the moment it changes, which is state this render
-   * reacts to rather than an external system, so it is adjusted here instead of in an effect - one
-   * render catches up to it directly rather than committing once and then correcting itself.
-   * `appliedSeq` is the target this component has already caught up to; the chain is only real
-   * while it has not.
-   */
+  /** Opens the chain to a new jump target during render, so it lands in one commit; `appliedSeq` marks the last. */
   const chainForTarget =
     target && target.file === file && target.seq !== appliedSeq ? ancestorsOf(nodes, target.id) : null
 
@@ -596,28 +565,17 @@ function useLanding(highlight: Highlight | null) {
 
 const LIT = "bg-accent ring-2 ring-primary ring-offset-4 ring-offset-background"
 
-/** A highlight sequence number never actually reaches, so the first render always counts as new. */
+/** A sequence number no highlight reaches, so the first render always counts as new. */
 const UNSEEN = Symbol("unseen")
 
 function isLanguage(value: string): value is Language {
   return value === "en" || value === "de"
 }
 
-/**
- * Whether `document` carries the two fields every GET and PUT of a config file actually sends.
- *
- * `ParsedConfigDocument` itself does not declare them - see `ReloadAwareConfigDocument`'s own
- * comment for why it is a separate type - so this is what tells the two apart at runtime.
- */
+/** Whether `document` carries the two reload fields every GET and PUT of a config file sends. */
 function isReloadAware(document: ConfigDocument): document is ReloadAwareConfigDocument {
   return !document.raw && "restartRequired" in document && typeof document.restartRequired === "boolean"
 }
-
-/**
- *
- * A config file
- *
- */
 
 function ConfigFile({ item, target }: { item: Extract<FileItem, { kind: "config" }>; target: Target | null }) {
   const document = useConfig(item.location.path)
@@ -761,11 +719,7 @@ function ConfigForm({
   )
 }
 
-/**
- * `compact` is one of several side by side, where the explanation would repeat in every one of them;
- * `cell` is one half of a paired row, whose column is named once above the block - its label stays
- * for a screen reader, since a heading three rows up gives an input no name.
- */
+/** `compact` sits beside others and drops the explanation; `cell` is half a paired row, named for screen readers. */
 type FieldLayout = "full" | "compact" | "cell"
 
 function SettingField({
@@ -830,11 +784,7 @@ function SettingField({
   )
 }
 
-/**
- * A number needs room for four digits and no more; the other half - a hex colour, a name - gets
- * the rest. A custom property rather than an inline grid template, so `fits-on-a-phone.test.ts`
- * still sees a column count in the class.
- */
+/** A number gets room for four digits and the other half the rest, via a custom property the phone test reads. */
 function span(entry: ConfigEntry): string {
   return entry.type === "INTEGER" || entry.type === "DECIMAL" ? "5rem" : "minmax(0,1fr)"
 }
@@ -866,12 +816,6 @@ function PairedRows({ pair, field }: { pair: PairedBlocks; field: (entry: Config
     </ul>
   )
 }
-
-/**
- *
- * A message bundle
- *
- */
 
 /** One key's draft: per language, a new text, `null` for "back to the jar", absent for no change. */
 type MessageDraft = Partial<Record<Language, string | null>>
@@ -986,12 +930,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
   )
 }
 
-/**
- * One key in the tree: its name and its text rendered on one line, and - once opened - its field.
- * On a wide screen the field opens inline under the row, where the tree already is; below that it
- * opens as a sheet, because a field typed into under a row half a screen down is where a phone's
- * keyboard lands.
- */
+/** One key: its name and text on one line, and once opened its field, inline when wide and in a sheet below. */
 function MessageRow({
   entry,
   open,

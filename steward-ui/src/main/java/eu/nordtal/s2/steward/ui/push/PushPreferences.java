@@ -12,11 +12,9 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Which kinds of alert each account wants pushed, and the rule that a missing row is the default.
+ * Which kinds of alert each account wants pushed, where a missing row is the default.
  *
- * Nothing here ever writes a row for an account that has not touched a switch. Turning a switch
- * back to where it started writes a row saying so rather than deleting one: "chose this" and
- * "never looked" are different facts.
+ * A switch turned back to its start writes a row rather than deleting one: "chose this" and "never looked" differ.
  */
 public final class PushPreferences {
 
@@ -30,17 +28,12 @@ public final class PushPreferences {
                 .onDemand(PushPreferenceDao.class);
     }
 
-    /** One account's effective answer for every type - defaults where it has never chosen. */
+    /** One account's effective answer for every type, defaults where it has never chosen. */
     public Map<AlertType, Boolean> of(final String discordId) {
         return effective(dao.forAccount(discordId));
     }
 
-    /**
-     * Every account's effective answer, in one query - what {@link AlertWatch} asks once per push.
-     *
-     * An account with no row at all is simply absent from this map; {@link #enabled} answers the
-     * default for it.
-     */
+    /** Every account's own choices in one query; an account with no row is absent, and {@link #enabled} answers it. */
     public Map<String, Map<AlertType, Boolean>> all() {
         final Map<String, Map<AlertType, Boolean>> chosen = new HashMap<>();
         for (final Row row : dao.all()) {
@@ -54,11 +47,7 @@ public final class PushPreferences {
         return chosen;
     }
 
-    /**
-     * Whether this account wants this type, given whatever {@link #all} found for it.
-     *
-     * @param chosen that account's own map out of {@link #all}, or null when it has chosen nothing
-     */
+    /** Whether an account wants this type, given its map out of {@link #all}, or null when it has chosen nothing. */
     public static boolean enabled(final @Nullable Map<AlertType, Boolean> chosen, final AlertType type) {
         if (chosen == null) {
             return type.enabledByDefault();
@@ -66,7 +55,7 @@ public final class PushPreferences {
         return chosen.getOrDefault(type, type.enabledByDefault());
     }
 
-    /** One switch, set by the account it belongs to. */
+    /** Sets one switch, for the account it belongs to. */
     public void set(final String discordId, final AlertType type, final boolean enabled) {
         dao.set(discordId, type.key(), enabled);
     }

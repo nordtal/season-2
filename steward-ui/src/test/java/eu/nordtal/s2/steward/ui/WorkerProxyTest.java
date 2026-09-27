@@ -11,9 +11,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 
-/**
- * The proxy in front of steward-worker: the token it adds, health, and the command run rows.
- */
+/** The proxy in front of steward-worker: the token it adds, health, and the command run rows. */
 class WorkerProxyTest extends StewardUiTestSupport {
 
     @Test
@@ -82,14 +80,9 @@ class WorkerProxyTest extends StewardUiTestSupport {
     }
 
     /**
-     * Javalin answers a HEAD against a registered GET by discarding the body at the wire layer.
+     * A {@code HEAD} against the health route answers like its {@code GET}, which is what a monitor sends first.
      *
-     * {@code guard}'s {@code beforeMatched} reads {@code ctx.routeRoles()}, and
-     * that lookup is keyed to the exact HTTP method. With no route ever registered for
-     * {@code HEAD /api/health}, it saw zero decided roles and {@code gateOf} refused it as an
-     * undecided route: a 500 that named a fault this service does not have. A real monitor tries
-     * HEAD before GET because it is cheaper, so this is exactly the request an outside watcher
-     * would send first - and the health route is the one place it has to come back cheap.
+     * The gate looks up roles by exact method, so an unrouted {@code HEAD} would read as undecided.
      */
     @Test
     void headOnHealthIsNotUndecided() throws Exception {
@@ -127,14 +120,14 @@ class WorkerProxyTest extends StewardUiTestSupport {
         final JsonObject row = GSON.fromJson(asked.body(), JsonObject.class);
         assertEquals("BACKUP", row.get("kind").getAsString());
         assertEquals("PENDING", row.get("status").getAsString());
-        // Who asked is written down, since with three admins a name is the difference from "strange".
+        // Who asked is written down.
         assertTrue(row.get("requestedBy").getAsString().contains("Ally"), row.toString());
         // The same actor fields the unified actions feed carries, read out of the same string.
         assertEquals("Ally (1)", row.get("actorLabel").getAsString(), row.toString());
         assertEquals("", row.get("actorDiscordId").getAsString(), row.toString());
         assertFalse(row.get("system").getAsBoolean(), row.toString());
 
-        // And it is in the list the interface draws its runs from.
+        // It is in the list the interface draws its runs from.
         final JsonArray recent = GSON.fromJson(get("/api/updates").body(), JsonArray.class);
         assertTrue(recent.size() >= 1);
         assertEquals(
@@ -189,33 +182,22 @@ class WorkerProxyTest extends StewardUiTestSupport {
         assertEquals(400, refused.statusCode(), refused.body());
     }
 
-    /**
-     * A grant of six million years is a slip of the keyboard, and it has to read like one.
-     *
-     * The only check was {@code days > 0}, so {@code 2147483647} went to PostgreSQL, where
-     * {@code make_interval(hours => :days * 24)} overflows an integer and the driver reports it -
-     * a 500 blaming this program for a number the operator typed. The ceiling is a decade, which
-     * is nine seasons more than anybody will ever buy.
-     */
+    /** A grant of six million years is refused as a slip of the keyboard, capped at a decade. */
     @Test
     void anAbsurdGrantIsRefused() throws Exception {
         final HttpResponse<String> refused = post("/api/access/grant", "{\"discordId\":\"1\",\"days\":2147483647}");
         assertEquals(400, refused.statusCode(), refused.body());
 
-        // 3650 was the old ceiling: a decade of free access, one keystroke away from 365.
+        // 3650 is a decade of free access, one keystroke away from 365.
         final HttpResponse<String> decade = post("/api/access/grant", "{\"discordId\":\"1\",\"days\":3650}");
         assertEquals(400, decade.statusCode(), decade.body());
         assertTrue(decade.body().contains("between 1 and 365 days"), decade.body());
     }
 
     /**
-     * A grant from here is a row the bot carries out, not a write to the access tables.
+     * A grant from here is an {@code access_request} row the bot carries out, answered 202 with its id.
      *
-     * Writing the tables directly skipped the role, the direct message and the admin note - the
-     * three things only the bot can do - and nobody granted access from a browser was ever told.
-     * So every one of the five writes has to leave an {@code access_request} row signed by the
-     * admin, answer 202 with its id, and write no journal line of its own: the bot journals what it
-     * carries out.
+     * Only the bot sets the role, messages the member and journals, so this side writes no journal line.
      */
     @Test
     void accessChangesAskTheBot() throws Exception {

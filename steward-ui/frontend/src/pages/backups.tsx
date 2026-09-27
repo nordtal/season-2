@@ -31,45 +31,9 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /**
- * Everything about the backups, in one place.
+ * Everything about the backups: the numbers, the runs, the offsite target and the schedule.
  *
- * <h2>Why it is a page and not four halves of other pages</h2>
- * Spreading the backups over Operations (the archive list and the runs),
- * Settings (the age threshold the light turns on) and the start page (one tile) leaves out
- * where an offsite copy would go. A copy that only exists on the disk it
- * is a copy of is the one fact an operator has to be able to read in a second, so the target is on
- * this page and is typed here rather than in `setup.sh`.
- *
- * <h2>What each part of this page is for</h2>
- *
- * <ol>
- *   <li>"Storage available" says plainly that nothing queries the Storage
- *       Box yet rather than inventing a number for it - see {@link Summary}.</li>
- *   <li>The whole run row is a link, not only the number - see {@link Runs}.</li>
- *   <li>"Archives" counts files rather than drawing a fraction nobody without
- *       the run's own report line could interpret - see {@link Runs}.</li>
- *   <li>"Initiated by" goes through {@link Actor}, the one place a
- *       Discord id is allowed to be resolved to a person - see {@link Runs} and
- *       {@link StewardUi.ActorFields} on the backend, which reads `requested_by` apart the same
- *       way the unified actions feed already does.</li>
- *   <li>There is no volumes panel: it would only repeat the newest run's own report line for line.</li>
- *   <li>There is no archive listing on this page; a run's own archives are listed, and made
- *       downloadable, on its own detail page - see {@link BackupRunDetailPage} and the
- *       `/api/backups/{name}/download` route.</li>
- *   <li>The remote target and the schedule are both dialogs off the top-right corner, not
- *       permanent panels - see {@link DestinationDialog} and {@link ScheduleDialog}.</li>
- *   <li>Every route this page reads is `Gate.KEY_HELD`; only the two saves are `Gate.KEY_FRESH`.</li>
- *   <li>The retention numbers live in the schedule dialog, with a sentence underneath that
- *       computes what they mean against {@code Retention}'s own algorithm - see
- *       {@link retentionSentence}.</li>
- * </ol>
- *
- * <h2>The two rules this page is held to</h2>
- * A secret is never drawn: the destination dialog sends the two keys the way every other
- * credential in this interface is sent, as "set" or "not set", and typing a new one does not
- * require having seen the old one. And nothing here starts or restores anything - asking for a run
- * lives on Operations, where the countdown and the confirmation already stand, and a restore is
- * the host's own script on purpose (a way back that runs inside the stack is no way back at all).
+ * A secret is never drawn, and nothing here starts or restores anything; runs are asked for on Operations.
  */
 export function BackupsPage() {
   return (
@@ -93,16 +57,7 @@ export function BackupsPage() {
   )
 }
 
-// --- the file this page reads and writes
-
-/**
- * `steward-worker/steward.yml`, looked up rather than spelled out.
- *
- * The id is the path out of `/api/config`, and that listing is what the backend actually found
- * under the mount - a constant here would be a path this page believes in and the worker may not
- * have. A deployment whose worker config is missing or unreadable gets no form rather than a form
- * that cannot save.
- */
+/** `steward-worker/steward.yml`, looked up in `/api/config` so a missing file gets no form. */
 export function useWorkerConfig() {
   const configs = useConfigs()
   const file = configs.data?.find(
@@ -113,25 +68,20 @@ export function useWorkerConfig() {
   return { file: file?.path, document: parsed, pending: configs.isPending || document.isPending }
 }
 
-/** One key of that file, by its dotted path - `undefined` when the file has no such key. */
+/** One key of that file by its dotted path, or `undefined` when there is none. */
 export function entryAt(document: ParsedConfigDocument | undefined, path: string): ConfigEntry | undefined {
   return document?.entries.find((entry) => entry.path === path)
 }
 
 /**
- * The draft, the computed changes and the save state for a fixed list of keys of one document -
- * shared between {@link DestinationDialog} and {@link ScheduleDialog} rather than written twice.
+ * The draft, changes and save state for a fixed list of keys of one document.
  *
- * `keys` has to be a stable reference (a module-level constant, as both callers below pass): a new
- * array literal every render would invalidate the memo on every render and defeat the point of it.
+ * `keys` must be a stable reference, or the memo is invalidated every render.
  */
 export function useConfigDraft(document: ParsedConfigDocument | undefined, keys: readonly string[]) {
   const [draft, setDraft] = useState<Record<string, string>>({})
 
-  /**
-   * The answer to a save IS the file as it now reads, so a write empties the form's own state and
-   * what is on screen afterwards is what was written rather than what this browser hoped for.
-   */
+  /** The answer to a save is the file as written, so a write resets the form to it. */
   const [lastDocument, setLastDocument] = useState(document)
   if (lastDocument !== document) {
     setLastDocument(document)
@@ -147,10 +97,7 @@ export function useConfigDraft(document: ParsedConfigDocument | undefined, keys:
   for (const entry of entries) {
     const typed = draft[entry.path]
     if (typed === undefined) continue
-    /**
-     * A secret has no value to compare against - it was never sent - so anything typed into one is
-     * a change. Everything else is compared with what the file says.
-     */
+    /** A secret has no value to compare with, so anything typed into one is a change. */
     if (entry.secret ? typed !== "" : typed !== (entry.value ?? "")) changes[entry.path] = typed
   }
   const changed = Object.keys(changes).length
@@ -158,24 +105,17 @@ export function useConfigDraft(document: ParsedConfigDocument | undefined, keys:
   return { entries, draft, setDraft, changes, changed }
 }
 
-/** The value of one of this draft's entries as it would be saved right now - typed, or the file's. */
+/** One entry's value as it would be saved now: typed, or the file's. */
 export function draftValue(entries: ConfigEntry[], draft: Record<string, string>, path: string): string {
   const typed = draft[path]
   if (typed !== undefined) return typed
   return entries.find((entry) => entry.path === path)?.value ?? ""
 }
 
-// --- the numbers
-
 /**
  * Three numbers, roughly two to a row on a phone.
  *
- * Mobile first, the standing rule for this page. "Storage available" is deliberately not a sum of
- * the local directory, which is exactly the copy an offsite target exists to not be the only one
- * of. Nothing in this stack queries the Storage Box yet - `backup.remote`'s own doc says as much,
- * "nothing in this service uploads yet" - so this tile says that honestly rather than drawing a
- * number for either the free space or what is stored there. The day steward-worker can ask S3 a
- * `HEAD` on its bucket, this is the one place that answer needs to land.
+ * Nothing queries the Storage Box yet, so "Storage available" says so instead of drawing a number.
  */
 function Summary() {
   const backups = useBackups()
@@ -191,25 +131,20 @@ function Summary() {
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-3">
       <Stat
         label="Latest backup"
-        value={newest ? relative(newest.modified) : backups.data ? "none" : "–"}
+        value={newest ? relative(newest.modified) : backups.data ? "none" : "\u2013"}
         tone={backups.data && !newest ? "down" : undefined}
-        hint={newest ? newest.human : backups.data ? "no finished backup" : "–"}
+        hint={newest ? newest.human : backups.data ? "no finished backup" : "\u2013"}
       />
-      {/*
-        Neutral, not `tone="warn"`: a tile that will read exactly
-        this until somebody builds the S3 query would be a permanently amber tile, and an amber
-        tile in this interface means something needs attention tonight. "Not tracked" is a fact
-        about the feature, not an alarm about the backups.
-      */}
+      {/* Neutral rather than warn, since "not tracked" is a fact about the feature, not an alarm. */}
       <Stat label="Storage available" value="not tracked" hint="steward-worker does not query the Storage Box yet" />
       <Stat
         label="Next"
-        value={schedule.data?.nextBackupAt ? relative(schedule.data.nextBackupAt) : "–"}
+        value={schedule.data?.nextBackupAt ? relative(schedule.data.nextBackupAt) : "\u2013"}
         hint={
           schedule.data?.nextBackupAt
             ? `${at ?? schedule.data.backupAt} ${schedule.data.zone}`
             : schedule.isPending
-              ? "–"
+              ? "\u2013"
               : "no nightly clock"
         }
       />
@@ -217,14 +152,12 @@ function Summary() {
   )
 }
 
-// --- the runs
-
 /** The `BACKUP` rows of `update_request`, newest first. */
 function backupRuns(runs: Run[] | undefined): Run[] {
   return (runs ?? []).filter((run) => run.kind === "BACKUP")
 }
 
-/** How many of a run's report lines were actually saved, and how many there were. */
+/** How many of a run's report lines were saved, out of how many. */
 function saved(run: Run): { saved: number; total: number } {
   const lines = run.report?.services ?? []
   return { saved: lines.filter((line) => line.state === "SAVED").length, total: lines.length }
@@ -233,24 +166,14 @@ function saved(run: Run): { saved: number; total: number } {
 function ran(run: Run): string {
   const started = parseInstant(run.started)
   const finished = parseInstant(run.finished)
-  if (!started || !finished) return "–"
+  if (!started || !finished) return "\u2013"
   return duration((finished.getTime() - started.getTime()) / 1000)
 }
 
-/**
- * The last backup runs, whole rows clickable through to their own detail page.
- *
- * Every cell of a row is a link, not only the run number
- * (`onClick` on the row plus a `Link` kept on the number itself for keyboard and middle-click);
- * "Archives" counts the files a run actually wrote rather than drawing a fraction
- * that needed the run's own report line to make sense of; and "Initiated by",
- * drawn through {@link Actor}, means a raw Discord id is never the thing on screen - see
- * `StewardUi.ActorFields` for where `requestedBy` is read apart into the id, the plain label or
- * the flag that says this was Steward's own nightly clock.
- */
-/** Four absent runs - the panel shows eight at most and rarely has that many. */
+/** Four waiting runs; the panel shows eight at most. */
 const WAITING_BACKUP_RUNS = Array.from({ length: 4 }, () => undefined)
 
+/** The last backup runs, each row a link to its detail page. */
 function Runs() {
   const navigate = useNavigate()
   const runs = useRuns(40)
@@ -310,7 +233,7 @@ function Runs() {
                     <TableCell data-label="Archives" className="text-right tnum">
                       {archives ? (
                         archives.total === 0 ? (
-                          "–"
+                          "\u2013"
                         ) : (
                           count(archives.saved)
                         )
@@ -343,8 +266,6 @@ function Runs() {
   )
 }
 
-// --- the offsite target, in its own dialog
-
 /** The five keys of `backup.remote`, in the order the form draws them. */
 const REMOTE_KEYS = [
   "backup.remote.endpoint",
@@ -355,22 +276,9 @@ const REMOTE_KEYS = [
 ] as const
 
 /**
- * Where a copy goes that is not on this disk - a dialog
- * off the page header rather than a permanent panel, since it is read far less often than the runs
- * below it.
+ * Where a copy goes that is not on this disk.
  *
- * <h2>It writes into `steward.yml`, and it is deliberately not a form of its own</h2>
- * The values are five keys of the worker's own config file, saved through the same `PUT
- * /api/config/…` every other setting in this interface goes through - revision and all, so two open
- * browsers get a 409 rather than a silent overwrite. Inventing an endpoint for these five would
- * have meant a second way to write a config file, and the second one is the one that forgets the
- * revision.
- *
- * <h2>The keys are never read back, which is what makes typing them here safe</h2>
- * `access-key` and `secret-key` are `@Secret` in `StewardSpec`, so the worker sends them as
- * `filled` and no value. {@link ScalarControl} draws exactly that: a password field that says
- * whether something is set. Nothing on this page can show a credential, because nothing on this
- * page ever receives one.
+ * Saves five keys of `steward.yml` with its revision; the two keys are secrets never read back.
  */
 function DestinationDialog() {
   const { file, document, pending } = useWorkerConfig()
@@ -445,9 +353,7 @@ function DestinationDialog() {
   )
 }
 
-// --- the nightly clock and the retention it keeps, in its own dialog
-
-/** `backup.at` and the four keys of `backup.retention`, in the order the dialog draws them. */
+/** `backup.at` and the four `backup.retention` keys, in the order the dialog draws them. */
 const SCHEDULE_KEYS = [
   "backup.at",
   "backup.retention.daily",
@@ -456,13 +362,7 @@ const SCHEDULE_KEYS = [
   "backup.retention.collapse-after-days",
 ] as const
 
-/**
- * The seven, in the order a week is read, with what the config file calls each one.
- *
- * The file holds `java.time.DayOfWeek` names because that is what the worker parses them into;
- * `NightlyClock` also accepts the three-letter form and any casing, so a file edited by hand is
- * still read here - `chosenDays` compares on the first three letters for exactly that reason.
- */
+/** The seven days in week order, with their `java.time.DayOfWeek` names. */
 const WEEKDAYS = [
   { label: "Mon", value: "MONDAY" },
   { label: "Tue", value: "TUESDAY" },
@@ -473,26 +373,17 @@ const WEEKDAYS = [
   { label: "Sun", value: "SUNDAY" },
 ] as const
 
-/** The `backup.days` key, which is a LIST and therefore not part of the scalar draft. */
+/** The `backup.days` key, a list and therefore not part of the scalar draft. */
 const DAYS_KEY = "backup.days"
 
-/**
- * Which of the seven a list of config entries means - by the first three letters, upper-cased.
- *
- * A file written by hand may say `mon`, `Mon` or `MONDAY`, and the worker reads all three
- * (`NightlyClock.weekdays`). Anything that matches no day is dropped here exactly as it is
- * dropped there, so what the badges show is what the schedule does.
- */
+/** Which days a list of config entries means, by the first three letters, as `NightlyClock` reads them. */
 export function chosenDays(items: string[] | undefined): string[] {
   if (items === undefined) return []
   const stems = new Set(items.map((item) => item.trim().slice(0, 3).toUpperCase()))
   return WEEKDAYS.filter((day) => stems.has(day.value.slice(0, 3))).map((day) => day.value)
 }
 
-/**
- * The seven days as toggles, in week order whatever order they were clicked in. Shared by the
- * backup and the update schedule, which are separate keys with the same shape.
- */
+/** The seven days as toggles, in week order; shared by the backup and update schedules. */
 export function DayPicker({
   days,
   disabled,
@@ -536,24 +427,16 @@ export function DayPicker({
   )
 }
 
-/** A whole number out of a draft, falling back to `otherwise` when it does not parse as one. */
+/** A whole number out of a draft, or `otherwise` when it does not parse. */
 function intOr(value: string, otherwise: number): number {
   const parsed = Number.parseInt(value, 10)
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : otherwise
 }
 
 /**
- * What `daily`, `weekly`, `monthly` and `collapseAfterDays` mean, in one sentence - matched against
- * `Retention.expired`'s own algorithm rather than a paraphrase of it, so this text can never drift
- * from what a sweep actually does:
+ * What the retention numbers mean in one sentence, matched to `Retention.expired`.
  *
- * <ul>
- *   <li>the schedule is staggered and counted from now, not stacked on top of the daily window
- *       (`Retention`'s own javadoc: "eight weekly copies means eight weeks of history, not eight
- *       weeks on top of the daily ones") - so the total kept is AT MOST daily + weekly + monthly;</li>
- *   <li>several runs on one day collapse to the last of them, but only once they are older than
- *       the grace period - a backup taken by hand minutes ago is never the one a sweep removes.</li>
- * </ul>
+ * At most daily + weekly + monthly are kept; same-day runs collapse after the grace period.
  */
 function retentionSentence(daily: number, weekly: number, monthly: number, collapseAfterDays: number): string {
   const steps = [`the last ${count(daily)} day${daily === 1 ? "" : "s"} in full`]
@@ -568,30 +451,16 @@ function retentionSentence(daily: number, weekly: number, monthly: number, colla
 }
 
 /**
- * The nightly clock and how long it keeps what it writes - a dialog rather than a permanent panel,
- * for the same reason the destination is one.
+ * The nightly clock and its retention, in a dialog.
  *
- * <h2>The weekdays are wired</h2>
- * The seven weekday badges beside the time are not decoration: they
- * write `backup.days`, a LIST key on the worker, read by `NightlyClock`, which skips a night
- * that is not one of them instead of firing anyway. A day nobody picked is a night with no
- * backup - the caption under the badges says which, rather than leaving it to be discovered by a
- * missing archive.
- *
- * <p>`backup.days` is a LIST and every other key here is a scalar, which is why it is kept beside
- * {@link useConfigDraft}'s draft rather than inside it: that draft is `Record<string, string>` on
- * purpose, and a list flattened into a string is how `stop-services: smp` gets written over a
- * sequence (see `ConfigChange`'s own comment on the worker).</p>
+ * The weekday badges write the `backup.days` list, kept beside the scalar draft.
  */
 function ScheduleDialog() {
   const { file, document, pending } = useWorkerConfig()
   const save = useSaveConfig(file ?? "")
   const { entries, draft, setDraft, changes, changed } = useConfigDraft(document, SCHEDULE_KEYS)
 
-  /**
-   * The list key, kept out of the scalar draft - see the class comment. `undefined` is "nothing
-   * touched yet", so the file's own list is what is drawn until somebody clicks a badge.
-   */
+  /** The picked days; `undefined` until a badge is clicked, so the file's list is drawn. */
   const [pickedDays, setPickedDays] = useState<string[] | undefined>(undefined)
   const [lastScheduleDocument, setLastScheduleDocument] = useState(document)
   if (lastScheduleDocument !== document) {
@@ -700,14 +569,10 @@ function ScheduleDialog() {
   )
 }
 
-// --- the way back
-
 /**
- * Restores nothing - it builds the command, and a person runs it on the host (concept §10a).
+ * Builds the restore command for a person to run on the host, where it still works with the stack down.
  *
- * A restore is needed exactly when the stack is broken, and `steward-ui` is part of the stack it
- * would be restoring: a button here would work in every situation except the one it exists for.
- * Only finished archives are offered - `restore.sh` will not take a `.partial`.
+ * Only finished archives are offered.
  */
 function RestoreDialog() {
   const backups = useBackups()
@@ -775,25 +640,10 @@ function RestoreDialog() {
   )
 }
 
-// --- one backup run's own archives
-
 /**
- * Which of the files under `backup.output-root` belong to one run.
+ * The archives one run wrote: those modified within a minute of the run's start and finish.
  *
- * <h2>Why a time window, and not a name</h2>
- * A run's report names volumes, not files - `saved(run)` already reads that - and an archive's own
- * name carries a stamp taken when that one file was written, not the run's start. Several archives
- * from one run are therefore several different stamps, each a few seconds apart. The window is
- * `[started, finished]` widened by a minute on each side: generous enough to catch every archive a
- * run of ordinary length wrote, and narrow enough that two nights never overlap (they are, at
- * minimum, `backup.at` apart - hours, not minutes). A run this page cannot date at all matches
- * nothing, rather than guessing.
- *
- * <h2>Why this is not `operations.tsx`'s own matching</h2>
- * That page's `matchingRun` answers the opposite question (given a file, which run wrote it) and is
- * private to a file this ticket was explicitly told not to touch while another agent was using it.
- * Reusing it was not an option; this is a independent implementation of the same idea; a follow-up
- * ticket to unify the two once both are done would be sound.
+ * A run that cannot be dated matches nothing.
  */
 function archivesOf(run: Run, backups: Backup[]): Backup[] {
   const started = parseInstant(run.started)?.getTime()
@@ -811,34 +661,17 @@ function archivesOf(run: Run, backups: Backup[]): Backup[] {
     .toSorted((left, right) => left.name.localeCompare(right.name))
 }
 
-/**
- * What one file is, out of its name - and `.partial` said plainly.
- *
- * A `.partial` is either a run in flight or one that was abandoned, and it cannot be restored
- * either way. The word is in the column rather than in a legend somewhere, because the column is
- * where somebody is looking when it matters.
- */
+/** What one file is, from its name, with `.partial` said plainly. */
 function holds(backup: Backup): string {
   const what = archived(backup.name)
   const subject = what.kind === "database" ? "database" : (what.subject ?? "unknown")
   return backup.partial ? `${subject}, partial` : subject
 }
 
-/**
- * One backup run: what it was and, now that the list page no longer carries them, its own
- * archives - each one downloadable through the route this ticket built (steward-worker resolves
- * and streams the file; steward-ui proxies it the same way it already proxies a log follow, with
- * `worker.stream`).
- *
- * This is what `/operations/backups/$id` now draws. It used to be one archive file's own page,
- * keyed by filename (`operations.tsx`'s `OperationsBackupPage`, orphaned by this change rather than
- * deleted - see the ticket for why). The route is a better fit for a run: a run wrote several
- * archives, not one, and "a backup" in every other sentence on this page already means the run, not
- * one file out of it.
- */
-/** Three absent archives: a backup run writes one per volume it was asked for, and three is usual. */
+/** Three waiting archives, the usual number for one run. */
 const WAITING_ARCHIVES = Array.from({ length: 3 }, () => undefined)
 
+/** One backup run and the archives it wrote, each downloadable. */
 export function BackupRunDetailPage() {
   const { id } = useParams({ from: "/operations/backups/$id" })
   const runs = useRuns(80)
@@ -861,8 +694,7 @@ export function BackupRunDetailPage() {
         {(answer) => (
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
-              {/* The four figures are the head of the page and are always four, so they keep their
-                places while the run is looked up. */}
+              {/* The four figures keep their places while the run is looked up. */}
               <Stat label="Status" value={run ? <RunStatus status={run.status} /> : undefined} />
               <Stat label="When" value={run ? dateTime(run.started || run.requested) : undefined} />
               <Stat label="Took" value={run ? ran(run) : undefined} />

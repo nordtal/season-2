@@ -1,18 +1,9 @@
-// Steward's service worker (concept §10c) - the traffic light on a phone's lock screen.
+// Steward's service worker: the traffic light on a phone's lock screen.
 //
-// PLAIN JAVASCRIPT, NOT TYPESCRIPT, AND DELIBERATELY OUTSIDE src/. Vite does not process anything
-// under public/ - it copies it byte for byte to the built site's root, which is what a service
-// worker needs anyway: the browser fetches /sw.js itself, before any bundle has run, and it has to
-// be a file the browser can execute directly rather than something that only makes sense after a
-// build step notices it.
-//
-// Holds no state of its own and reads nothing out of IndexedDB: every push already carries the
-// four fields it needs (type, level, subject, path), which is the whole of what AlertWatch's
-// payload is.
+// Plain JavaScript under public/, since the browser fetches /sw.js before any bundle runs and Vite copies it as is.
 
 self.addEventListener("install", () => {
-  // Takes over from the moment it is installed, not from the next full reload. There is nothing in
-  // an older version of this file worth finishing first.
+  // Takes over at once, not from the next reload.
   self.skipWaiting()
 })
 
@@ -20,29 +11,14 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim())
 })
 
-// What the three level values are called on a lock screen. Deliberately not the level's own word
-// alone ("warn") - a notification is read once, standing up, without the rest of the page beside it.
-//
-// SECOND LINE, NOT THE TITLE: putting the sender in the title as well as here would say the
-// sender three times over - once in the title, once in the source line the browser draws itself,
-// and the thing that actually happened only in the third. The title names the subject and what is
-// up with it, and this is the line below it.
+// The line below the title: each level in words, read once on a lock screen.
 const STATES = {
   ok: "all clear",
   warn: "needs a look",
   down: "down",
 }
 
-/**
- * The title: the service and what is up with it, in that order.
- *
- * Two shapes - `<service>: <action>` over `by <user>` for something somebody
- * set off, and `<service> needs attention` over `<status>` for something that happened by itself.
- * Every push this service sends is the second kind: the traffic light changes because the stack
- * changed, and no push is ever the consequence of a tap. The first shape is therefore not built
- * here rather than built and never reached - the day a run reports itself, its payload will carry
- * the person who started it, and that is the moment to write it.
- */
+/** The title: the subject and what is up with it; every push is a state change, never a person's action. */
 function titleOf(subject, level) {
   if (!subject) return level === "ok" ? "Steward is clear" : "Steward needs attention"
   return level === "ok" ? `${subject} is clear` : `${subject} needs attention`
@@ -65,11 +41,7 @@ self.addEventListener("push", (event) => {
       body: STATES[level] || level,
       icon: "/icon.png",
       badge: "/icon.png",
-      // One notification PER TYPE replaces the last of that type rather than stacking: each type
-      // has exactly one current state, and three lock-screen entries saying "down", "ok", "down"
-      // from one flapping service would be three copies of the same one fact. The type is in the
-      // tag - without it, a full disk arriving after a stopped service would silently
-      // replace it, and the service would never be mentioned again.
+      // One notification per type, replacing the last of that type, so a flapping service does not stack.
       tag: `steward-alert-${type}`,
       renotify: true,
       data: { path, type },

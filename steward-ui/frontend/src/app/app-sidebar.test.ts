@@ -3,17 +3,7 @@ import { describe, expect, it } from "vitest"
 import { activeEntryId, resolveHref } from "@/app/app-sidebar"
 import { NAVIGATION } from "@/app/navigation"
 
-/**
- * Which single row the sidebar lights up.
- *
- * `activeEntryId` is exported for this test: a pure function
- * over the real `NAVIGATION`, so a navigation entry that breaks the rule breaks this too.
- *
- * The rule is *longest match wins, decided across the whole navigation*. The two things it exists
- * for are the two cases below: a nested path that matches its parent as well, and a parameterised
- * route that must stay selected while you are looking at a different parameter than the link
- * carries.
- */
+/** Which single row the sidebar lights up: the longest match across the whole navigation wins. */
 describe("activeEntryId - the longest match wins", () => {
   it("lights up the start page for / and nothing else", () => {
     expect(activeEntryId("/", NAVIGATION)).toBe("overview")
@@ -31,10 +21,7 @@ describe("activeEntryId - the longest match wins", () => {
   })
 
   it("keeps the right service selected rather than all ten of them", () => {
-    /**
-     * Every service entry shares the fixed part /services, so the fixed part alone cannot decide;
-     * the resolved href with the real name is the longer match.
-     */
+    /** Every service entry shares /services, so the resolved href with the real name decides. */
     expect(activeEntryId("/services/limbo", NAVIGATION)).toBe("service-limbo")
     expect(activeEntryId("/services/steward-worker", NAVIGATION)).toBe("service-steward-worker")
   })

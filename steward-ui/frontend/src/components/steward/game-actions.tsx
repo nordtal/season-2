@@ -19,17 +19,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-/**
- * The SMP's and the hunger games' admin actions, on their own service pages.
- *
- * These actions must never look like commands in any way. Nothing here names a command, draws a terminal or offers an argument field: an
- * objective and a milestone are picked from the SMP's own track, and a round is one button.
- *
- * **Each press is still a row a Paper server has to pick up**, so the answer arrives late and in
- * one of four states. EXPIRED is its own sentence: nobody claimed the row, which says the server is
- * not listening - not that the action failed.
- */
-
 type Ask = {
   path: string
   body: unknown
@@ -44,6 +33,7 @@ export function keyName(key: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
+/** The SMP's admin actions, picked from its own track and never shaped like a command. */
 export function SmpActions() {
   const track = useSmpTrack()
   const [ask, setAsk] = useState<Ask | null>(null)
@@ -142,6 +132,7 @@ function Milestone({ milestone, onAsk }: { milestone: SmpTrack["active"][number]
   )
 }
 
+/** The hunger games' round, started with one button. */
 export function HungerGamesActions() {
   const round = useHungerGamesRound()
   const [ask, setAsk] = useState<Ask | null>(null)
@@ -156,11 +147,7 @@ export function HungerGamesActions() {
       confirm: confirm ? "Start anyway" : "Start",
     })
 
-  /**
-   * The server asks again when fewer than the recommended number are registered, and says
-   * so in its answer. A round still open for registration after a start is one that did not
-   * start - so that is when the second step is offered, and never before the first answer.
-   */
+  /** A start still open for registration asked for more players, so only then is the second step offered. */
   const after = (run: CommandRun) =>
     run.status === "DONE" && ask?.confirm === "Start" ? <StartAnyway onStart={() => start(true)} /> : null
 
@@ -194,17 +181,7 @@ export function HungerGamesActions() {
           Start round
         </Button>
       </CardContent>
-      <ActionDialog
-        ask={ask}
-        onClose={() => setAsk(null)}
-        refresh="hunger-games-round"
-        /**
-         * The server asks again when fewer than the recommended number are registered, and says
-         * so in its answer. A round still open for registration after a start is one that did not
-         * start - so that is when the second step is offered, and never before the first answer.
-         */
-        after={after}
-      />
+      <ActionDialog ask={ask} onClose={() => setAsk(null)} refresh="hunger-games-round" after={after} />
     </Card>
   )
 }
@@ -219,9 +196,7 @@ function StartAnyway({ onStart }: { onStart: () => void }) {
   )
 }
 
-/**
- * Asks, sends, and then stays open with what became of it - the row's four states in words.
- */
+/** Asks, sends, and then stays open with what became of it. */
 function ActionDialog({
   ask,
   onClose,
@@ -300,7 +275,11 @@ function ActionDialog({
   )
 }
 
-/** The four states a request can be in, each said in words. */
+/**
+ * The four states a request can be in, each said in words.
+ *
+ * EXPIRED means no server claimed the row, so it is not listening; the action did not fail.
+ */
 export function RequestOutcome({ run }: { run: CommandRun }) {
   const text: Record<CommandRun["status"], string> = {
     PENDING: "Sent. The server has not picked it up yet.",

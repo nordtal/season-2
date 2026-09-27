@@ -7,24 +7,12 @@ import type { ConfigEntry, GuildList } from "@/lib/api"
 import { asInput } from "@/lib/test-elements"
 
 /**
- * Picking a Discord id by name, and the two ways that must never make things worse.
+ * Picking a Discord id by name, which must still work without the list and never draw an id.
  *
- * The picker exists because an eighteen-digit id typed by hand is a transcription with no feedback:
- * the wrong one is still a valid snowflake, so nothing refuses it and the first sign of the mistake
- * is a message in a channel nobody meant. Both tests below are about what happens when the list of
- * names cannot be had - because a configuration page that loses the ability to set an id when
- * Discord is unreachable would be a worse page than the text field it replaced.
- *
- * The other half of the identifier rule: identifiers stay out of this list's
- * rendering entirely, but a snowflake pasted from Discord's own "Copy ID" still has to find its
- * row - the rule is about what is drawn, never about what can be searched.
+ * A snowflake pasted from "Copy ID" still finds its row, as the rule is about drawing, not searching.
  */
 
-/**
- * jsdom has neither method - the same gap `vitest.setup.ts` already patches for ResizeObserver and
- * scrollIntoView. Radix Select's trigger calls both on pointer down, so without this an open()
- * throws instead of drawing the popup, in every test below that needs the list open.
- */
+/** Radix Select's trigger calls pointer capture methods on pointer down, which jsdom lacks. */
 beforeAll(() => {
   if (!Element.prototype.hasPointerCapture) {
     Element.prototype.hasPointerCapture = () => false
@@ -47,7 +35,7 @@ const ROLES: GuildList = {
   ],
 }
 
-/** Opens the picker's popup the way a pointer does - see the `beforeAll` polyfill above. */
+/** Opens the popup the way a pointer does, relying on the polyfill above. */
 function open(trigger: HTMLElement) {
   fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
   fireEvent.click(trigger)
@@ -76,10 +64,7 @@ function entry(over: Partial<ConfigEntry>): ConfigEntry {
 
 describe("SnowflakePicker", () => {
   it("falls back to a field that still writes the id when the guild cannot be listed", () => {
-    /**
-     * No bot token, an unreachable Discord, a rate limit - all of them arrive here the same way,
-     * and none of them may take away the ability to configure the id.
-     */
+    /** Every way the list can fail arrives the same, and none may take away setting the id. */
     const onChange = vi.fn<(value: string) => void>()
     render(
       <SnowflakePicker
@@ -95,16 +80,12 @@ describe("SnowflakePicker", () => {
     const field = asInput(screen.getByDisplayValue("214906139328839681"))
     expect(field.disabled).toBe(false)
     expect(screen.getByText(/discord\.bot-token is not set/)).toBeTruthy()
-    // And it says where to get the id by hand, which is the thing nobody remembers.
+    // It says where to get the id by hand.
     expect(screen.getByText(/Developer Mode/)).toBeTruthy()
   })
 
   it("keeps an id the guild did not list rather than silently dropping it", () => {
-    /**
-     * A channel the bot cannot see, or one deleted since it was configured, is still the value in
-     * the file. Replacing it with "none" the moment the page draws is the exact failure this
-     * component exists to prevent, only faster and without anybody pressing anything.
-     */
+    /** A channel the bot cannot see is still the file's value, and must not become "none" on drawing. */
     const offered = withUnknown(ROLES.entries, "999999999999999999")
 
     expect(offered).toHaveLength(3)
@@ -132,10 +113,7 @@ describe("SnowflakePicker", () => {
 
     expect(screen.getByText("Admin")).toBeTruthy()
     expect(screen.getByText("Donor")).toBeTruthy()
-    /**
-     * The identifier rule applied here: a known entry's row carries no snowflake at
-     * all, not even in a muted corner - the whole popup's text is checked, not just one row's.
-     */
+    /** No known row carries a snowflake anywhere in the popup's text. */
     expect(screen.queryByText("100000000000000001")).toBeNull()
     expect(screen.queryByText("100000000000000002")).toBeNull()
     expect(document.body.textContent).not.toMatch(/\b\d{17,20}\b/)
@@ -205,11 +183,7 @@ describe("SnowflakePicker", () => {
     )
     open(screen.getByRole("combobox"))
 
-    /**
-     * This is the one honest exception to the identifier rule: the guild gave no name for this id, so the
-     * id itself is the only thing there is to show - but it has to read as "a name is missing"
-     * rather than sit among the named rows looking like one of them.
-     */
+    /** An id the guild gave no name for is shown, but reads as a missing name. */
     const row = screen.getByRole("option", { name: /999999999999999999/ })
     expect(within(row).getByText(/name unavailable/i)).toBeTruthy()
   })
@@ -217,17 +191,7 @@ describe("SnowflakePicker", () => {
 
 describe("discordId", () => {
   it("keeps the chosen row in the list while a search hides the others, so the control keeps its name", () => {
-    /**
-     * A real regression this test catches: the filter unmounts every
-     * row it does not match, and without an exception for the chosen one, typing four letters
-     * would empty the control the user is looking at, and tell them their setting
-     * has no value. Radix reads the closed trigger's text off the mounted item; unmount it and the
-     * name is gone.
-     *
-     * The fix is the behaviour a person would expect anyway: what is set now stays in the list, no
-     * matter what is typed. Seen red first - `expect(trigger.textContent).toContain("Admin")`
-     * failed with "Received - Admin", an empty trigger.
-     */
+    /** What is set stays in the list whatever is typed, since the closed trigger reads its text off the item. */
     const three: GuildList = {
       available: true,
       entries: [
@@ -266,11 +230,7 @@ describe("discordId", () => {
   })
 
   it("leaves status-channel alone, because it holds a channel NAME rather than an id", () => {
-    /**
-     * `key.endsWith("-channel")` would otherwise catch this one too, and `SnowflakePicker` writes back an
-     * id - so saving through it would replace the channel's name with a snowflake the bot
-     * then searches for and never finds.
-     */
+    /** `-channel` keys that hold a name must not get a picker that writes back an id. */
     expect(discordId(entry({ path: "languages.status-channel", key: "status-channel" }))).toBeNull()
   })
 
@@ -279,10 +239,7 @@ describe("discordId", () => {
   })
 
   it("leaves guild-id alone, because the list is read from the guild", () => {
-    /**
-     * Offering to pick the guild out of a list that only exists once the guild is known is
-     * circular, and would draw an empty select on the one field that has to be typed.
-     */
+    /** The guild cannot be picked from a list that needs the guild first. */
     expect(discordId(entry({ path: "guild-id", key: "guild-id" }))).toBeNull()
   })
 

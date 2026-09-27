@@ -28,12 +28,7 @@ final class SeasonRoutes {
         return Objects.requireNonNull(data, "this route needs the database, which this instance has none of");
     }
 
-    /**
-     * Switches the season phase.
-     *
-     * {@code PhaseDirectory} writes its own {@code audit_log} row inside the statement that
-     * performs the change, so nothing is recorded twice here.
-     */
+    /** Switches the season phase; {@code PhaseDirectory} writes the {@code audit_log} row itself. */
     void phase(final Context ctx) {
         final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
         if (ask == null || ask.phase == null) {
@@ -71,7 +66,7 @@ final class SeasonRoutes {
         final DiscordAuth.Account who = accounts.apply(ctx);
         // The Discord id, since PhaseDirectory's SQL casts this to varchar(32) and truncates.
         final String actor = who.id();
-        // A switch, not a ternary: an unmatched value must refuse rather than default to one date.
+        // An unmatched value must refuse rather than default to one date.
         final var change = switch (ask.which == null ? "" : ask.which.trim()) {
             case "smpStart" -> data().phase().setSmpStart(at, actor);
             case "launch" -> data().phase().setLaunch(at, actor);
@@ -88,7 +83,7 @@ final class SeasonRoutes {
         ctx.json(season);
     }
 
-    /** The body of both season endpoints. Each uses the fields it needs. */
+    /** The body of both season endpoints; each reads the fields it needs. */
     static final class SeasonChange {
         @Nullable
         String phase;

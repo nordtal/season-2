@@ -4,22 +4,9 @@ import { fileURLToPath } from "node:url"
 
 import { assert, describe, expect, it } from "vitest"
 
-/**
- * A guard that does not let the header come back.
- *
- * The top bar goes, in both states, expanded sidebar included. That is easy to obey once and easy
- * to undo by accident - a header is the first thing anybody adds when a page needs a title, a
- * button or a filter row, and the second one would be back within a week without anything
- * noticing. jsdom cannot see it: the shell needs a router, and a bar drawn above the content has
- * the same box as no bar at all where there is no layout. So this reads the sources.
- *
- * Two more things ride along, because they are the same decision and have the same failure mode:
- * the sidebar must really collapse, and the search must not be lost with the bar that used to
- * carry it - on a phone there is no `⌘K`, so a shell with nowhere to tap has no command palette.
- */
 const app = path.dirname(fileURLToPath(import.meta.url))
 
-/** Every shell source, comments blanked - a comment about a header is not a header. */
+/** Every shell source with comments blanked, since a comment about a header is not a header. */
 function shellSources(): Array<{ file: string; text: string }> {
   return readdirSync(app)
     .filter((name) => name.endsWith(".tsx") && !name.includes(".test."))
@@ -31,6 +18,7 @@ function shellSources(): Array<{ file: string; text: string }> {
     }))
 }
 
+/** Read from the sources, since jsdom cannot see a top bar; the sidebar collapses and search stays on a phone. */
 describe("the header is gone and does not grow back", () => {
   it("reads the sources, so an empty result means something", () => {
     const sources = shellSources()
@@ -80,11 +68,7 @@ describe("the header is gone and does not grow back", () => {
   })
 
   it("does not grow a second shell back behind a query parameter", () => {
-    /**
-     * There is exactly one shell frame; a comparison between several shells behind a query
-     * parameter is a fork in the code nobody is standing at, and each fork has its own answer to
-     * where the search goes.
-     */
+    /** There is exactly one shell frame, never several behind a query parameter. */
     const offenders = shellSources()
       .filter(({ text }) => /export function Shell[A-Z]\b/.test(text))
       .map(({ file }) => file)

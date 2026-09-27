@@ -5,49 +5,9 @@ import { fileURLToPath } from "node:url"
 import { assert, describe, expect, it } from "vitest"
 
 /**
- * Nothing in Steward is German.
+ * Nothing in Steward is German; this file and the rules file are lists of German words and are not scanned.
  *
- * The rule is the project's, not this file's: the interface, its comments and the files it writes
- * are English, and the bot is the bilingual half - that is what its language configuration is for.
- *
- * <h2>The word list is derived, and that is the whole design</h2>
- * A hand-kept list of about sixty words misses German strings that a person could read on screen:
- * `Abschicken` on the console's button, `Vergleich` as a column head, `Zuletzt ermittelt`, `Stufen`
- * and `Was dabei passiert` as card titles, `Gestartet` and `Stand` as figures, `Aktuell` on the
- * season page and `Leere Liste.` in the configuration form. A list of sixty words is not a rule; it
- * is a memory of the words that had already been noticed once.
- *
- * So the list has a source instead of an opinion. `commands/.../de.properties` is a corpus of real
- * German this project maintains anyway - every word in it that is **not** also in `en.properties`
- * is forbidden here. That filter is what keeps `Server`, `Status` and `Discord` out of the way, and
- * it means the guard grows whenever the bot's German does, with nobody having to remember.
- *
- * What a derivation cannot know is in `steward-ui/language-rules.json`: the words that are German
- * in the bundle and English here (`die`, `stand`, `spawn`, `tag`), the words that leaked and are
- * not in the bundle at all (`Ampel`, `Strg`, `Vergleich`), and the abbreviations, which are not
- * words and so have no boundary to match on. That file is read by this test and by
- * `NothingIsGermanTest`, which enforces the same rule on the Java half - one rule, one file.
- *
- * <h2>Two more things, because the derivation alone walks past four words</h2>
- * `Befehle`, `Konfiguration`, `Gelaufen` and `Sperre` can all be on the screen with every test
- * green. Three of them are answered without adding a single word to a hand list:
- *
- * - **Stems, not whole words.** The bundle says `Befehl` and this said `Befehle`; the bundle says
- *   `Konfigurationsdateien` and this said `Konfiguration`. A derived list only ever knows the
- *   forms the bot happens to use, and German inflects and compounds, so a word counts as German
- *   when a derived word is a prefix of it or it is a prefix of a derived one.
- * - **Shape, not vocabulary.** `Gelaufen` is in no bundle and no stem of it is either. `shapes`
- *   in the rules file finds German by its endings, which works on words the bot has never said.
- *   `Verwerfen`, on the config form's discard button, was the same and cost a third pattern.
- *
- * **`Sperre` is the honest fourth**, and it is why the blind spot is written down rather than
- * papered over: a German word with no German ending, that the bot never says, cannot be derived
- * or recognised. It is in `extra`, by hand, which is what that list is for.
- *
- * An umlaut and an ß need no list at all: there is no English word with one, and every name in
- * this repository is spelt without.
- *
- * <b>This file is not scanned.</b> Neither is the rules file - both are lists of German words.
+ * Forbidden: words in `de.properties` but not `en.properties`, by stem, plus `language-rules.json`.
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -68,7 +28,7 @@ type Rules = {
 
 const rules: Rules = JSON.parse(readFileSync(path.join(repository, "steward-ui/language-rules.json"), "utf8"))
 
-/** Every word of three letters or more in the *values* of a message bundle - never in its keys. */
+/** Every word of three letters or more in a message bundle's values, never its keys. */
 function bundleWords(file: string): Set<string> {
   const words = new Set<string>()
   for (const line of readFileSync(path.join(bundle, file), "utf8").split("\n")) {
@@ -97,13 +57,9 @@ function forbidden(): string[] {
 const ALSO_ENGLISH = new Set(rules.alsoEnglish.map((word) => word.toLowerCase()))
 
 /**
- * Whether one word out of a source file is German - by stem, not only by equality.
+ * Whether a word is German by stem: a derived word plus a German ending, or a prefix of a derived compound.
  *
- * Two cases, and they are different mistakes. **Inflection**: the word is a derived one plus a
- * German ending, which is how `Befehle` got past a list holding `Befehl`. **Compounding**: a
- * derived word continues it, which is how `Konfiguration` got past a list holding
- * `Konfigurationsdateien`. The ending list is German-only on purpose - `stopped` is `stoppe` plus
- * a `d`, and `d` is not one of them.
+ * The endings are German only, so `stopped` is not `stoppe` plus `d`.
  */
 export function isGerman(word: string, german: Set<string>): boolean {
   const lower = word.toLowerCase()
@@ -120,14 +76,7 @@ export function isGerman(word: string, german: Set<string>): boolean {
   return false
 }
 
-/**
- * A word as a reader would see one, which an identifier is not.
- *
- * `_` and a digit count as part of the word - which is what `\b` did before this rule read
- * stems, and is what kept `NORDTAL_STEWARD_UI_CONFIG_DIR` quiet while `dir` sits in the German
- * bundle. Splitting on letters alone finds `DIR` in there, and nobody reads an environment
- * variable as a sentence.
- */
+/** A word as a reader sees one: `_` and digits join it, so `NORDTAL_STEWARD_UI_CONFIG_DIR` is not `dir`. */
 const WORD = /(?<![\wÄÖÜäöüß])[A-Za-zÄÖÜäöüß]{3,}(?![\wÄÖÜäöüß])/g
 
 const SHAPES = rules.shapes.map((shape) => new RegExp(shape, "i"))
@@ -137,18 +86,9 @@ const ABBREVIATION = new RegExp(`(${rules.abbreviations.join("|")})`)
 const NON_ENGLISH_LETTERS = /[äöüÄÖÜß]/
 
 /**
- * The deliberate exemptions, and the list is deliberately two long.
+ * The exemptions: this file and the palette's search synonyms, which are typed, never printed.
  *
- * `run-search-terms.ts` holds search synonyms for the command palette, in English and
- * German both. A synonym is matched against what somebody typed - it is never printed to a screen
- * the way a label, a button or a comment is - so it carries none of the risk this guard exists for.
- *
- * **Nothing else is exempt, and that is the part worth keeping true.** The German word is exported
- * from that one file as a constant, so its own test, `command-palette.tsx` and
- * `command-palette.test.tsx` all import it instead of spelling it out - which is what leaves every
- * one of them inside the ordinary scan. Dropping
- * `run-search-terms.test.ts` back out of this set leaves this guard green, so it stays out.
- * An exemption that is not needed is a hole waiting for somebody to put something in it.
+ * Everything else imports the German synonym from there, so it stays inside the scan.
  */
 const EXEMPT = new Set([path.join(here, "language.test.ts"), path.join(frontend, "src", "app", "run-search-terms.ts")])
 
@@ -185,7 +125,7 @@ function offences(guilty: (line: string) => boolean): string[] {
 
 const matching = (pattern: RegExp) => (line: string) => pattern.test(line)
 
-/** Derived once. It is a set of 450 words and this is asked of every line of every source file. */
+/** Derived once, since it is asked of every line of every source file. */
 const GERMAN = new Set(forbidden())
 
 function germanWords(line: string): boolean {
@@ -196,32 +136,20 @@ const hasGermanShape = (line: string) => SHAPES.some((shape) => shape.test(line)
 
 describe("nothing in Steward is German", () => {
   it("derives its word list from the bot's own bundle, and it is not a short one", () => {
-    /**
-     * If this ever collapses to a handful, the bundle moved or the parse broke - and a guard that
-     * silently stops guarding is worse than none, because the build stays green.
-     */
+    /** A collapse to a handful means the bundle moved or the parse broke, and the guard stopped guarding. */
     expect(forbidden().length).toBeGreaterThan(300)
     expect(forbidden()).toContain("vergleich")
     expect(forbidden()).not.toContain("stand")
   })
 
   it("knows a German word by its stem, not only by the form the bot happens to use", () => {
-    /**
-     * The four that can be on the screen with every test green. Three are answered
-     * here; `Sperre` is the one that cannot be, and it is in the rules file by hand.
-     */
+    /** Inflection, compounding and shape, the three ways a derived list is extended. */
     expect(isGerman("Befehle", GERMAN), "inflection: the bundle only says Befehl").toBe(true)
     expect(isGerman("Konfiguration", GERMAN), "compounding: the bundle only says Konfigurationsdateien").toBe(true)
-    /**
-     * The honest fourth: no stem of it is derivable and it has no German ending, so it is in the
-     * hand list. If that line is ever removed this goes red, which is the point of asserting it.
-     */
+    /** No stem or ending derives it, so it is in the rules file by hand. */
     expect(isGerman("Sperre", GERMAN), "Sperre is in the rules file by hand").toBe(true)
 
-    /**
-     * And it still lets the language this interface is written in through. `started` and `stopped`
-     * are the two that a looser rule flagged: they extend `starte` and `stoppe` by an English `d`.
-     */
+    /** English still passes: `started` and `stopped` extend `starte` and `stoppe` by an English `d`. */
     const english = [
       "Configuration",
       "Commands",
@@ -241,10 +169,7 @@ describe("nothing in Steward is German", () => {
     expect(hasGermanShape('label="Gelaufen"')).toBe(true)
     expect(hasGermanShape('title="Einstellung"')).toBe(true)
     expect(hasGermanShape("<Button>Verwerfen</Button>")).toBe(true)
-    /**
-     * The two that are deliberately reachable by no shape: `ge...t` participles share their shape
-     * with `government`, and a guard that cries on `government` is a guard somebody deletes.
-     */
+    /** `ge...t` participles are left alone, since they share their shape with `government`. */
     expect(hasGermanShape("const government = readableNumber(x)")).toBe(false)
     expect(hasGermanShape("<span>the gentlest version</span>")).toBe(false)
   })

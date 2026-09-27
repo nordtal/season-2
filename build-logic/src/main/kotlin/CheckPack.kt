@@ -12,7 +12,7 @@ import org.gradle.work.DisableCachingByDefault
 /** Fails with every [PackRules] finding in the pack at [assets]. */
 @DisableCachingByDefault(because = "Cheaper to run than to cache")
 abstract class CheckPack : DefaultTask() {
-    /** The pack's `src/assets`. */
+    /** The assembled pack's `assets`. */
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val assets: DirectoryProperty

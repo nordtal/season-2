@@ -21,8 +21,8 @@ import net.kyori.adventure.text.Component;
  * <b>The geometry, and where it is decided</b>
  *
  * A card is drawn {@link #INSET} pixels inside the slot cells it covers, so the two rows of cards read as separate
- * and the clickable area still ends within two pixels of the art. {@code resource-pack/tools/generate_gui_panels.py}
- * draws the cards from the same three numbers ( {@link SlotGeometry} 's origin and pitch, and the inset);
+ * and the clickable area still ends within two pixels of the art. The pack's panel is drawn on the same three
+ * numbers ( {@link SlotGeometry} 's origin and pitch, and the inset);
  * {@code TravelPanelTest} reads the panel PNG back and asserts every card is where this class says it is, so the two
  * cannot drift apart without the build saying so.
  */

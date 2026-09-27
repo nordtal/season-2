@@ -1,11 +1,13 @@
-// Not a Java module. It packs src/ into the zip the release ships and the pack-install server
-// serves, and installs src/ into a local Minecraft instance for whoever draws the pack. The
+// Not a Java module. It assembles src/ and the fonts generated from templates/ into one pack, zips
+// that for the release and the pack-install server, and installs it into a local Minecraft
+// instance for whoever draws the pack. The
 // client is sent a URL and a SHA-1 and refuses the pack if they disagree, so the hash is
 // generated on every build rather than written down anywhere.
 
 import eu.nordtal.s2.build.CheckNoTrackerIds
 import eu.nordtal.s2.build.CheckPack
 import eu.nordtal.s2.build.CheckSourcesTracked
+import eu.nordtal.s2.build.GenerateRowFonts
 import eu.nordtal.s2.build.InstallPack
 import eu.nordtal.s2.build.MinecraftInstanceChooser
 import eu.nordtal.s2.build.Sha1File
@@ -14,13 +16,44 @@ plugins {
     id("base")
 }
 
+val packSource = layout.projectDirectory.dir("src")
+val templates = layout.projectDirectory.dir("templates")
+
+// The six chest-row fonts are one font at six heights, so only row 0 is written down. The pitch
+// and the row count are SlotGeometry.PITCH and MenuTitle.MAX_ROWS; MenuFontTest holds every
+// ascent against them.
+val generateRowFonts =
+    tasks.register<GenerateRowFonts>("generateRowFonts") {
+        template.set(templates.file("gui_row.json"))
+        rows.set(6)
+        pitch.set(18)
+        target.set(layout.buildDirectory.dir("generated/row-fonts"))
+    }
+
+// The pack as the client receives it. Everything that reads the pack - the zip, checkPack,
+// installPack and the tests of :common and :smp - reads this, never src/ alone.
+val assembledPack = layout.buildDirectory.dir("pack")
+val assemblePack =
+    tasks.register<Sync>("assemblePack") {
+        group = "build"
+        description = "Assembles src/ and the generated fonts into the resource pack."
+        from(packSource)
+        from(generateRowFonts)
+        into(assembledPack)
+    }
+
+// For the Java modules whose tests and resources are derived from the pack.
+configurations.consumable("pack") {
+    outgoing.artifact(assembledPack) { builtBy(assemblePack) }
+}
+
 val packZip =
     tasks.register<Zip>("packZip") {
         group = "distribution"
-        description = "Packs src/ into the distributable resource pack zip."
+        description = "Packs the assembled pack into the distributable resource pack zip."
 
         // The zip's root must be pack.mcmeta / assets, not a src/ folder.
-        from(layout.projectDirectory.dir("src"))
+        from(assemblePack)
         archiveBaseName.set("nordtal-resource-pack")
         archiveVersion.set(project.version.toString())
 
@@ -51,12 +84,11 @@ tasks.named("assemble") {
 
 // The same guard the Java modules get. This module has no source sets, but it has a src/ whose
 // contents go into the zip, and an ignored file there is a glyph the client never receives.
-val packSource = layout.projectDirectory.dir("src")
 val repositoryRootDirectory = rootProject.layout.projectDirectory
 
 val checkSourcesTracked =
     tasks.register<CheckSourcesTracked>("checkSourcesTracked") {
-        sourceDirectories.from(packSource)
+        sourceDirectories.from(packSource, templates)
         repositoryRoot.set(repositoryRootDirectory)
     }
 
@@ -84,7 +116,8 @@ tasks.named("check") {
 
 val checkPack =
     tasks.register<CheckPack>("checkPack") {
-        assets.set(packSource.dir("assets"))
+        dependsOn(assemblePack)
+        assets.set(assembledPack.map { it.dir("assets") })
     }
 
 tasks.named("check") {
@@ -111,7 +144,7 @@ tasks.register<JavaExec>("chooseMinecraftInstance") {
 
 tasks.register<InstallPack>("installPack") {
     dependsOn(checkPack)
-    pack.set(packSource)
+    pack.set(assembledPack)
     instanceFile.set(minecraftInstance)
     packName.set("nordtal-dev")
 }

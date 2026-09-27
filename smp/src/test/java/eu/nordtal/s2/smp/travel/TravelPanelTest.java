@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Holds {@link TravelPanel} 's geometry against the panel the pack actually draws.
  *
- * Two things decide where a card is: {@code resource-pack/tools/generate_gui_panels.py}, which paints it, and
+ * Two things decide where a card is: the panel PNG, which paints it, and
  * {@link TravelPanel}, which tells {@link MenuTitle.Canvas} where to lay an overlay and {@link BalloonMenu} which
  * slots to fill. Nothing else compares them. So this reads the panel PNG, finds each card by the colour it is
  * painted in, and asserts its rectangle is the one the Java side computes - and reads {@code gui.json} to assert
@@ -40,7 +40,7 @@ class TravelPanelTest {
     private static final Path ASSETS = ROOT.resolve("resource-pack/src/assets/nordtal");
 
     /**
-     * The three cards' colours - fill, outline, highlight - verbatim from generate_gui_panels.py's TILES.
+     * The three cards' colours - fill, outline, highlight - as the panel PNG paints them.
      *
      * A card is the bounding box of every pixel in any of its three exact colours; the pictogram is the highlight
      * colour blended at partial alpha and therefore never exact, so it cannot widen the box.

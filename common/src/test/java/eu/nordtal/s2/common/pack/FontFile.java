@@ -22,7 +22,7 @@ import java.util.Set;
 public final class FontFile {
 
     /** Where a texture id such as {@code nordtal:font/ascii.png} resolves against. */
-    private static final String ASSETS = "resource-pack/src/assets";
+    private static final String ASSETS = RepositoryRoot.packAssets();
 
     /**
      * Resolves {@code namespace:path/to.png} to its file in the unpacked pack, as the client does.

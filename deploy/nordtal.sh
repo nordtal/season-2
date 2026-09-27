@@ -463,7 +463,8 @@ shown_value() {
         return
     fi
     case "$kind" in
-        secret|optional-secret) printf '\u2022\u2022\u2022' ;;
+        # The bytes of three bullets in UTF-8, because \u is only expanded in a UTF-8 locale.
+        secret|optional-secret) printf '\342\200\242\342\200\242\342\200\242' ;;
         *)                      printf '%s' "$value" ;;
     esac
 }

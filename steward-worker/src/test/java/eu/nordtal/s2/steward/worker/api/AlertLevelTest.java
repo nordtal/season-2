@@ -9,26 +9,24 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link AlertLevel#of} against the same shapes {@code WorkerApi} actually builds - see that
- * class's javadoc for why it is a subset of {@code health.ts}'s {@code summarise} and not a port.
+ * {@link AlertLevel#of} against the same shapes {@code WorkerApi} actually builds.
+ *
+ * See that class's javadoc for why it is a subset of {@code health.ts}'s {@code summarise} and not a port.
  */
 class AlertLevelTest {
 
     @Test
-    @DisplayName("an empty service list is a warning, not a green light")
-    void emptyTableIsWarn() {
+    void anEmptyServiceListIsAWarningNotAGreenLight() {
         final AlertLevel.Reading reading = AlertLevel.of(table(List.of()), List.of());
         assertEquals(AlertLevel.Level.WARN, reading.level());
         assertEquals("services", reading.subject());
     }
 
     @Test
-    @DisplayName("a stopped service is red and links to that service")
-    void stoppedServiceIsDown() {
+    void aStoppedServiceIsRedAndLinksToThatService() {
         final Map<String, Object> table = table(
                 List.of(service("smp", "exited", null, "UP_TO_DATE"), service("caddy", "running", null, "UP_TO_DATE")));
 
@@ -40,8 +38,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("running but unhealthy is red too")
-    void unhealthyServiceIsDown() {
+    void runningButUnhealthyIsRedToo() {
         final Map<String, Object> table = table(List.of(service("postgres", "running", "unhealthy", "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()));
@@ -51,8 +48,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("no backup at all is red, ranked below a stopped service")
-    void noBackupAtAllIsDown() {
+    void noBackupAtAllIsRedRankedBelowAStoppedService() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of());
@@ -63,8 +59,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("a dump with no volume archive is its own sentence")
-    void missingVolumeArchiveIsDown() {
+    void aDumpWithNoVolumeArchiveIsItsOwnSentence() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump()));
@@ -74,8 +69,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("a missing database dump names itself, not the general word")
-    void missingDatabaseDumpIsNamed() {
+    void aMissingDatabaseDumpNamesItselfNotTheGeneralWord() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of(volume()));
@@ -85,8 +79,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("a .partial backup does not count as one that is there")
-    void partialBackupsAreIgnored() {
+    void aPartialBackupDoesNotCountAsOneThatIsThere() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
         final Map<String, Object> partialDump = dump();
         partialDump.put("partial", true);
@@ -98,8 +91,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("an outdated image is yellow when nothing else is wrong")
-    void outdatedImageIsWarn() {
+    void anOutdatedImageIsYellowWhenNothingElseIsWrong() {
         final Map<String, Object> table = table(
                 List.of(service("smp", "running", null, "OUTDATED"), service("caddy", "running", null, "UP_TO_DATE")));
 
@@ -111,8 +103,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("the registry not answering is yellow too")
-    void driftNotReachedIsWarn() {
+    void theRegistryNotAnsweringIsYellowToo() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UNKNOWN")));
         ((Map<String, Object>) table.get("drift")).put("reached", false);
 
@@ -123,8 +114,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("nothing wrong is the OK reading, and nothing else answers it")
-    void allClearIsOk() {
+    void nothingWrongIsTheOkReadingAndNothingElseAnswersIt() {
         final Map<String, Object> table = table(List.of(
                 service("smp", "running", null, "UP_TO_DATE"), service("caddy", "running", null, "UP_TO_DATE")));
 
@@ -134,8 +124,6 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName(
-            "a stopped service outranks a missing backup, exactly like a stopped service and a missing backup both being true")
     void downOutranksWarnEvenWhenBothArePresent() {
         final Map<String, Object> table = table(List.of(service("smp", "exited", null, "OUTDATED")));
 
@@ -146,16 +134,13 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("every trigger is listed, not only the worst one")
-    void everyTriggerIsListed() {
+    void everyTriggerIsListedNotOnlyTheWorstOne() {
         final Map<String, Object> table = table(
                 List.of(service("smp", "exited", null, "OUTDATED"), service("caddy", "running", null, "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of());
 
-        // Before steward/98's review this returned the first branch that fired and stopped, which
-        // is why this assertion exists: a push is now per type and switchable per account, so an
-        // image drift hidden behind a stopped service is a notification nobody can ever receive.
+        // A push is per type and switchable per account, so a drift hidden behind a stopped service must still surface.
         assertEquals(
                 List.of(AlertLevel.Kind.SERVICE, AlertLevel.Kind.BACKUP, AlertLevel.Kind.DRIFT),
                 reading.triggers().stream().map(AlertLevel.Trigger::kind).toList(),
@@ -165,8 +150,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("the two percentages come out of the host's own numbers, unjudged")
-    void percentagesAreMeasuredAndNotJudged() {
+    void theTwoPercentagesComeOutOfTheHostsOwnNumbersUnjudged() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
         final Map<String, Object> host = new LinkedHashMap<>();
         host.put("diskUsedBytes", 90L);
@@ -186,8 +170,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("a host that could not be read leaves both percentages absent, never zero")
-    void anUnreadableHostIsNotZeroPercent() {
+    void aHostThatCouldNotBeReadLeavesBothPercentagesAbsentNeverZero() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
         final Map<String, Object> host = new LinkedHashMap<>();
         host.put("unreadable", "could not read /proc: no such file");
@@ -199,8 +182,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("the backup age is the MOST NEGLECTED series, not the newest file in the directory")
-    void backupAgeIsPerSeries() {
+    void theBackupAgeIsTheMostNeglectedSeriesNotTheNewestFileInTheDirectory() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
         final Instant now = Instant.parse("2026-09-19T12:00:00Z");
         final List<Map<String, Object>> archives = List.of(
@@ -210,9 +192,7 @@ class AlertLevelTest {
 
         final AlertLevel.Reading reading = AlertLevel.of(table, archives, Map.of(), now);
 
-        // health.ts's own argument, held to one number: sixteen archives from tonight and a world
-        // from three weeks ago make "the newest backup" minutes old, and the per-volume failure
-        // that a missing mount produces hides behind the small volumes that succeeded.
+        // A recent small volume must not mask a stale large one: "the newest backup" alone hides a missing mount.
         assertEquals(
                 50.0,
                 reading.backupAgeHours(),
@@ -221,8 +201,7 @@ class AlertLevelTest {
     }
 
     @Test
-    @DisplayName("no finished backup at all has no age - it is already a trigger in words")
-    void noBackupHasNoAge() {
+    void noFinishedBackupAtAllHasNoAgeItIsAlreadyATriggerInWords() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
 
         final AlertLevel.Reading reading = AlertLevel.of(table, List.of(), Map.of(), Instant.now());

@@ -5,49 +5,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SchemaWriter;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The credentials {@code steward.yml} carries, and the annotation that keeps them out of a browser.
  *
- * <h2>Why this file exists here (steward/109)</h2>
- * The assertion on {@code bunq.api-key} used to live in {@code discord-bot}'s
- * {@code SchemaSecretsTest}, because the key used to live in {@code bot.yml}. Moving a credential
- * without moving its guard is the kind of change that costs nothing at the time and everything
- * later: the old test would have been deleted along with the old setting, the new setting would
- * have arrived with nobody asserting anything about it, and <b>nothing would have gone red</b>.
+ * Every credential in this schema needs its own assertion here: moving a credential without moving its guard is a
+ * change that costs nothing at the time and everything later, with nobody asserting anything about the new setting.
  *
- * <h2>What the annotation actually buys</h2>
- * A value that is not declared {@code @Secret} is not masked by the schema at all. It is still
- * masked by the leaf-key heuristic in this module's own {@code ConfigEntry.isSecretKey} - which
- * matches {@code token}, {@code password}, {@code key} and {@code secret} as substrings, and would
- * catch {@code api-key} by accident - and that heuristic stays in force underneath either way. It
- * is not a substitute: the heuristic is a guess about a name, the annotation is a statement about a
- * value, and steward/58's search exclusion keys off the annotation.
+ * What the annotation actually buys: A value that is not declared {@code @Secret} is not masked by the schema at
+ * all. It is still masked by the leaf-key heuristic in this module's own {@code ConfigEntry.isSecretKey} - which
+ * matches {@code token}, {@code password}, {@code key} and {@code secret} as substrings, and would catch
+ * {@code api-key} by accident - and that heuristic stays in force underneath either way. It is not a substitute: the
+ * heuristic is a guess about a name, the annotation is a statement about a value.
  *
- * <p>Built straight from the {@code @ConfigSpec} interface with {@link SchemaWriter#build} rather
- * than through {@link Configs}: whether the annotation is present is a property of the interface
- * alone and needs no file on disk.</p>
+ * Built straight from the {@code @ConfigSpec} interface with {@link SchemaWriter#build} rather than through
+ * {@link Configs}: whether the annotation is present is a property of the interface alone and needs no file on disk.
  */
 class SchemaSecretsTest {
 
     @Test
-    @DisplayName("steward.yml's bunq.api-key is declared @Secret in its schema")
-    void bunqApiKeyIsSecret() {
+    void stewardYmlsBunqApiKeyIsDeclaredSecretInItsSchema() {
         final SchemaNode bunq = SchemaWriter.build(StewardSpec.class).children().get("bunq");
-        assertNotNull(
-                bunq,
-                "StewardSpec's schema has no 'bunq' entry at all - the credential moved"
-                        + " here in steward/109 and this is where its guard lives");
+        assertNotNull(bunq, "StewardSpec's schema has no 'bunq' entry at all - this is where its guard lives");
         final SchemaNode apiKey = bunq.children().get("api-key");
         assertNotNull(apiKey, "BunqSpec's schema has no 'api-key' entry at all");
         assertTrue(apiKey.secret(), "bunq.api-key is a bunq API credential and must be @Secret");
     }
 
     @Test
-    @DisplayName("steward.yml's api.token is declared @Secret in its schema")
-    void apiTokenIsSecret() {
+    void stewardYmlsApiTokenIsDeclaredSecretInItsSchema() {
         final SchemaNode api = SchemaWriter.build(StewardSpec.class).children().get("api");
         assertNotNull(api, "StewardSpec's schema has no 'api' entry at all");
         final SchemaNode token = api.children().get("token");
@@ -57,12 +44,11 @@ class SchemaSecretsTest {
                 "api.token is the shared secret steward-ui sends as"
                         + " X-Steward-Token and must be @Secret - without the annotation it is masked only"
                         + " by ConfigEntry.isSecretKey's 'token' substring heuristic, which a rename of this"
-                        + " key would silently break (steward/115)");
+                        + " key would silently break");
     }
 
     @Test
-    @DisplayName("steward.yml's deployer.token is declared @Secret in its schema")
-    void deployerTokenIsSecret() {
+    void stewardYmlsDeployerTokenIsDeclaredSecretInItsSchema() {
         final SchemaNode deployer =
                 SchemaWriter.build(StewardSpec.class).children().get("deployer");
         assertNotNull(deployer, "StewardSpec's schema has no 'deployer' entry at all");
@@ -73,6 +59,6 @@ class SchemaSecretsTest {
                 "deployer.token is the shared secret sent to steward-deployer as"
                         + " X-Steward-Token and must be @Secret - without the annotation it is masked only"
                         + " by ConfigEntry.isSecretKey's 'token' substring heuristic, which a rename of this"
-                        + " key would silently break (steward/115)");
+                        + " key would silently break");
     }
 }

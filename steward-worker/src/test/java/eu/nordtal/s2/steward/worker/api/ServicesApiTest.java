@@ -16,13 +16,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * What {@link ServicesApi} does with what {@link OnlineDirectory} and {@link OnlineRoster} hand
- * back - entirely in memory, against fake directories, the same way {@code PlaytimeWriterTest}
- * drives {@code PlaytimeStore} without a database.
+ * What {@link ServicesApi} does with what {@link OnlineDirectory} and {@link OnlineRoster} hand back.
+ *
+ * Entirely in memory, against fake directories, the same way {@code PlaytimeWriterTest} drives
+ * {@code PlaytimeStore} without a database.
  */
 class ServicesApiTest {
 
@@ -33,17 +33,13 @@ class ServicesApiTest {
     private static final UUID BEN = UUID.fromString("00000000-0000-4000-8000-000000000002");
     private static final UUID CIA = UUID.fromString("00000000-0000-4000-8000-000000000003");
 
-    // ---------------------------------------------------------------- the counts (steward/86)
-
     @Test
-    @DisplayName("a subject with no row at all is simply not in the answer")
-    void aSubjectNeverWrittenIsAbsent() {
+    void aSubjectWithNoRowAtAllIsSimplyNotInTheAnswer() {
         assertTrue(api(Map.of(), List.of()).read().counts().isEmpty());
     }
 
     @Test
-    @DisplayName("a fresh row's count is returned exactly - including a genuine zero")
-    void aFreshRowIsReturnedAsItStands() {
+    void aFreshRowsCountIsReturnedExactlyIncludingAGenuineZero() {
         final Map<String, Integer> players = api(
                         Map.of(
                                 "smp", new OnlineCount("smp", 3, NOW.minusSeconds(1)),
@@ -58,8 +54,7 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("a row just inside the staleness cutoff is still trusted")
-    void aRowRightAtTheCutoffIsStillTrusted() {
+    void aRowJustInsideTheStalenessCutoffIsStillTrusted() {
         final Instant justInside = NOW.minus(ServicesApi.STALE_AFTER);
 
         assertEquals(
@@ -71,10 +66,8 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("a row older than the cutoff is treated exactly like no row at all")
-    void aStaleRowIsDropped() {
-        // proxy stopped writing a while ago - this is the case the class exists for,
-        // never mind what number happened to be sitting in the row when it stopped.
+    void aRowOlderThanTheCutoffIsTreatedExactlyLikeNoRowAtAll() {
+        // A stopped-writing service is the case the class exists for, never mind what number the row last held.
         final Instant tooOld = NOW.minus(ServicesApi.STALE_AFTER).minusSeconds(1);
 
         assertFalse(
@@ -86,8 +79,7 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("proxy being stale takes every subject down with it, since it is the only writer")
-    void allFourGoStaleTogetherWhenProxyStopsWriting() {
+    void proxyBeingStaleTakesEverySubjectDownWithItSinceItIsTheOnlyWriter() {
         final Instant tooOld = NOW.minus(ServicesApi.STALE_AFTER).minusSeconds(1);
 
         assertTrue(
@@ -104,19 +96,15 @@ class ServicesApiTest {
                 "every row shares one writer, so a stale write makes all four unknown at once");
     }
 
-    // ---------------------------------------------------------------- the roster (steward/111)
-
     @Test
-    @DisplayName("nobody written means no key at all - not an empty list under proxy")
-    void anEmptyRosterProducesNoKeys() {
+    void nobodyWrittenMeansNoKeyAtAllNotAnEmptyListUnderProxy() {
         assertTrue(
                 api(Map.of(), List.of()).read().roster().isEmpty(),
                 "an empty list is a claim; absence is the honest answer");
     }
 
     @Test
-    @DisplayName("a fresh player is on their own server's list and on the network's")
-    void aFreshPlayerAppearsUnderBothKeys() {
+    void aFreshPlayerIsOnTheirOwnServersListAndOnTheNetworks() {
         final Map<String, List<OnlinePlayer>> roster = api(
                         Map.of(), List.of(new OnlinePlayer(ADA, "Ada", "smp", NOW.minusSeconds(1))))
                 .read()
@@ -131,8 +119,7 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("a player with no server is on the network's list and on nobody else's")
-    void aPlayerBetweenServersIsOnlyOnTheNetworkList() {
+    void aPlayerWithNoServerIsOnTheNetworksListAndOnNobodyElses() {
         final Map<String, List<OnlinePlayer>> roster = api(Map.of(), List.of(new OnlinePlayer(ADA, "Ada", null, NOW)))
                 .read()
                 .roster();
@@ -145,8 +132,7 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("a player older than the cutoff VANISHES - no empty name, no placeholder, no zero")
-    void aStalePlayerIsGoneEntirely() {
+    void aPlayerOlderThanTheCutoffVanishesNoEmptyNameNoPlaceholderNoZero() {
         final Instant tooOld = NOW.minus(ServicesApi.STALE_AFTER).minusSeconds(1);
 
         final Map<String, List<OnlinePlayer>> roster = api(
@@ -158,8 +144,7 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("a player right at the cutoff is still trusted, the same as a count is")
-    void aPlayerRightAtTheCutoffIsStillTrusted() {
+    void aPlayerRightAtTheCutoffIsStillTrustedTheSameAsACountIs() {
         final Instant justInside = NOW.minus(ServicesApi.STALE_AFTER);
 
         assertEquals(
@@ -171,8 +156,7 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("the stale ones drop out and the fresh ones stay, in the same read")
-    void staleAndFreshDoNotTakeEachOtherWithThem() {
+    void theStaleOnesDropOutAndTheFreshOnesStayInTheSameRead() {
         final Instant tooOld = NOW.minus(ServicesApi.STALE_AFTER).minusSeconds(1);
 
         final Map<String, List<OnlinePlayer>> roster = api(
@@ -185,8 +169,7 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("each list comes back in name order, so the three faces drawn do not reshuffle")
-    void theListIsSortedByName() {
+    void eachListComesBackInNameOrderSoTheThreeFacesDrawnDoNotReshuffle() {
         final Map<String, List<OnlinePlayer>> roster = api(
                         Map.of(),
                         List.of(
@@ -200,11 +183,8 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("the counts and the roster are read against one instant, not two")
-    void bothHalvesShareOneReading() {
-        // A clock that moves on every call would let the counts be judged at one moment and the
-        // players at another - a difference of a tick around the cutoff, and nothing in the answer
-        // to say which of the two was right.
+    void theCountsAndTheRosterAreReadAgainstOneInstantNotTwo() {
+        // A clock that moves on every call would judge counts and players at different moments around the cutoff.
         final Instant justInside = NOW.minus(ServicesApi.STALE_AFTER);
         final ServicesApi api = new ServicesApi(
                 new FakeDirectory(Map.of("smp", new OnlineCount("smp", 1, justInside))),
@@ -220,13 +200,10 @@ class ServicesApiTest {
     }
 
     @Test
-    @DisplayName("what a deployment with no database answers is absence, not zeroes")
-    void theEmptyAnswerIsEmpty() {
+    void whatADeploymentWithNoDatabaseAnswersIsAbsenceNotZeroes() {
         assertTrue(ServicesApi.Online.NONE.counts().isEmpty());
         assertTrue(ServicesApi.Online.NONE.roster().isEmpty());
     }
-
-    // ---------------------------------------------------------------- plumbing
 
     private static ServicesApi api(final Map<String, OnlineCount> counts, final List<OnlinePlayer> players) {
         return new ServicesApi(new FakeDirectory(counts), new FakeRoster(players), CLOCK);
@@ -278,7 +255,11 @@ class ServicesApiTest {
         }
     }
 
-    /** Moves on by a second every time it is asked, which is what {@link #bothHalvesShareOneReading} catches. */
+    /**
+     * Moves on by a second every time it is asked.
+     *
+     * That is what {@link #theCountsAndTheRosterAreReadAgainstOneInstantNotTwo} catches.
+     */
     private static final class SteppingClock extends Clock {
 
         private Instant now;

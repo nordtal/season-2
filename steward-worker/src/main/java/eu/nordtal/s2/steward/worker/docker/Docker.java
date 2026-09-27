@@ -9,6 +9,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.function.Consumer;
@@ -19,10 +20,9 @@ import org.slf4j.LoggerFactory;
 /**
  * The Docker Engine API, as far as Steward needs it.
  *
- * <p>Everything here is a read except {@link #stop}, {@link #start} and {@link #exec}. Creating a
- * container is not here at all and never will be: that is {@code steward-deployer}'s, because it
- * needs the compose file to do it correctly, and two services able to create containers is one
- * too many (§8b).</p>
+ * Everything here is a read except {@link #stop}, {@link #start} and {@link #exec}. Creating a container is not here
+ * at all and never will be: that is {@code steward-deployer} 's, because it needs the compose file to do it
+ * correctly, and two services able to create containers is one too many (§8b).
  */
 public final class Docker {
 
@@ -37,9 +37,9 @@ public final class Docker {
     /**
      * How long an exec may take before the connection is closed under it.
      *
-     * <p>Generous for something that should answer in milliseconds, and finite because the caller
-     * is a person waiting for a console to respond. A closed channel surfaces as a
-     * {@link DockerException}, which is an answer; a hang is not.</p>
+     * Generous for something that should answer in milliseconds, and finite because the caller is a person waiting
+     * for a console to respond. A closed channel surfaces as a {@link DockerException}, which is an answer; a
+     * hang is not.
      */
     private static final java.time.Duration EXEC_DEADLINE = java.time.Duration.ofSeconds(15);
 
@@ -66,7 +66,7 @@ public final class Docker {
                 continue;
             }
             containers.add(new Container(
-                    string(json, "Id"),
+                    id(json),
                     string(labels, LABEL_SERVICE),
                     firstName(json),
                     string(json, "Image"),
@@ -80,9 +80,8 @@ public final class Docker {
     /**
      * One container in full: its health, when it started, and whether it has a TTY.
      *
-     * <p>The TTY is not a detail. It decides how the log stream is framed, and reading the wrong
-     * framing produces output that is subtly wrong rather than obviously broken - see
-     * {@link LogFrames}.</p>
+     * The TTY is not a detail. It decides how the log stream is framed, and reading the wrong framing produces output
+     * that is subtly wrong rather than obviously broken - see {@link LogFrames}.
      */
     public Inspection inspect(final String id) {
         final JsonObject json =
@@ -91,9 +90,10 @@ public final class Docker {
         final JsonObject config = json.getAsJsonObject("Config");
         final String health =
                 state != null && state.has("Health") ? string(state.getAsJsonObject("Health"), "Status") : null;
+        final String name = string(json, "Name");
         return new Inspection(
-                string(json, "Id"),
-                json.has("Name") ? string(json, "Name").replaceFirst("^/", "") : null,
+                id(json),
+                name == null ? null : name.replaceFirst("^/", ""),
                 config == null ? null : string(config, "Image"),
                 string(json, "Image"),
                 state == null ? null : string(state, "Status"),
@@ -109,17 +109,15 @@ public final class Docker {
     /**
      * One sample of CPU and memory.
      *
-     * <p><b>{@code one-shot} is deliberately not set.</b> With it, Docker answers immediately and
-     * leaves {@code precpu_stats} at zero, which makes every CPU figure either meaningless or
-     * 100 %. Without it the daemon takes two readings about a second apart and the delta is real -
-     * so this call costs a second of wall clock, which is why the sampler runs it on its own
-     * thread and not inside a request.</p>
+     * {@code one-shot} is deliberately not set. With it, Docker answers immediately and leaves
+     * {@code precpu_stats} at zero, which makes every CPU figure either meaningless or 100 %. Without it the
+     * daemon takes two readings about a second apart and the delta is real - so this call costs a second of wall
+     * clock, which is why the sampler runs it on its own thread and not inside a request.
      *
-     * <p>Memory is Docker's own definition: usage minus {@code inactive_file}, the same arithmetic
-     * {@code docker stats} prints, because page cache that the kernel will drop under pressure is
-     * not memory the service is using. <b>The limit is the host's memory</b> unless a container has
-     * one of its own, and none of ours does (measured 2026-09-12) - so a percentage here is a share
-     * of the whole machine and has to be labelled that way (§10c).</p>
+     * Memory is Docker's own definition: usage minus {@code inactive_file}, the same arithmetic {@code docker
+     * stats} prints, because page cache that the kernel will drop under pressure is not memory the service is
+     * using. The limit is the host's memory unless a container has one of its own, and none of ours does - so a
+     * percentage here is a share of the whole machine and has to be labelled that way.
      */
     public Stats stats(final String id) {
         final JsonObject json =
@@ -143,9 +141,9 @@ public final class Docker {
     /**
      * CPU as a share of the whole machine.
      *
-     * <p>Docker's own formula: the container's delta over the system delta, times the number of
-     * CPUs. It can exceed 100 % on a multi-core host and that is correct - one container using two
-     * cores fully is 200 % in {@code docker stats} as well.</p>
+     * Docker's own formula: the container's delta over the system delta, times the number of CPUs. It can exceed
+     * 100 % on a multi-core host and that is correct - one container using two cores fully is 200 % in
+     * {@code docker stats} as well.
      */
     private static OptionalDouble cpuPercent(final JsonObject json) {
         final JsonObject cpu = json.getAsJsonObject("cpu_stats");
@@ -161,8 +159,7 @@ public final class Docker {
         final long containerDelta = number(usage, "total_usage") - number(previousUsage, "total_usage");
         final long systemDelta = number(cpu, "system_cpu_usage") - number(previous, "system_cpu_usage");
         if (systemDelta <= 0 || containerDelta < 0) {
-            // The first reading of a container, or a counter that went backwards after a restart.
-            // Empty says "not known", which a chart can draw as a gap; zero would be a lie.
+            // A first reading, or a counter that went backwards; empty draws as a gap, zero would be a lie.
             return OptionalDouble.empty();
         }
         final long cpus = Math.max(1, number(cpu, "online_cpus"));
@@ -172,14 +169,13 @@ public final class Docker {
     /**
      * The log stream, followed or not.
      *
-     * <p>The caller closes the returned stream, and closing it is how a follow is ended. Docker's
-     * own rotation is the only retention there is: {@code json-file} with {@code max-size 10m} and
-     * {@code max-file 5} measured on this host on 2026-09-12, so <b>up to 50 MB per container and
-     * not one byte more</b>. What it has rotated away is gone, and recreating a container starts
-     * the buffer again - both of which the interface has to say out loud rather than imply.</p>
+     * The caller closes the returned stream, and closing it is how a follow is ended. Docker's own rotation is the
+     * only retention there is: {@code json-file} with {@code max-size 10m} and {@code max-file 5}, so up to 50 MB
+     * per container and not one byte more. What it has rotated away is gone, and recreating a container starts the
+     * buffer again - both of which the interface has to say out loud rather than imply.
      *
      * @param since RFC3339 or a unix timestamp; empty for everything Docker still has
-     * @param tail  how many lines to start with, or {@code "all"}
+     * @param tail how many lines to start with, or {@code "all"}
      */
     public DockerSocket.Stream logs(
             final String id, final boolean follow, final String tail, final @Nullable String since) {
@@ -214,15 +210,13 @@ public final class Docker {
     /**
      * What the registry has for this exact reference, as a digest.
      *
-     * <p>This is the check Arcane did not do. Its image comparison never asked a registry at all,
-     * so four releases ran behind while that interface said "up to date"; it was removed on
-     * 2026-09-13.
-     * Here the daemon is asked to resolve the reference remotely, and the answer is compared with
-     * the digest the running container was created from.</p>
+     * The daemon is asked to resolve the reference remotely, and the answer is compared with the digest the running
+     * container was created from - which is the check a panel that only compares what it has already persisted
+     * cannot do.
      *
-     * <p>Empty means the question could not be answered - a private registry, no credentials, no
-     * network. It is never reported as "current": not knowing and being current are different
-     * answers and the one that gets conflated is the one that costs four releases.</p>
+     * Empty means the question could not be answered - a private registry, no credentials, no network. It is never
+     * reported as "current": not knowing and being current are different answers, and conflating them is how
+     * releases run behind silently.
      */
     public Optional<String> registryDigest(final String imageRef) {
         try {
@@ -237,7 +231,7 @@ public final class Docker {
     }
 
     /** The digests a local image carries, as {@code repo@sha256:...}. */
-    public List<String> repoDigests(final String imageId) {
+    public List<String> repoDigests(final @Nullable String imageId) {
         if (imageId == null || imageId.isBlank()) {
             return List.of();
         }
@@ -258,30 +252,27 @@ public final class Docker {
     }
 
     /**
-     * The daemon's own record of one local image: the digests it can vouch for, and how the image
-     * got here - in one call, so {@link eu.nordtal.s2.steward.worker.docker.DockerOps#check} does
-     * not have to guess which shape it is looking at.
+     * The daemon's own record of one local image: the digests it can vouch for, and how the image got here.
      *
-     * <h2>Why {@code Identity} and not just {@code RepoDigests}</h2>
-     * Measured on this host on 2026-09-16, Docker Engine 29.8.0 with
-     * {@code driver-type: io.containerd.snapshotter.v1} ({@code docker info}): the containerd image
-     * store writes a {@code RepoDigests} entry - one equal to the image's own content id, never
-     * confirmed by any registry round trip - for an image built locally, exactly as it does for one
-     * that was pulled. {@code steward-ui} and {@code steward-worker}, rebuilt with a local
-     * {@code docker build} on that date, both carry one. So "no repo digest" is no longer a
-     * reliable sign of "built here and pushed nowhere" the way it was under the classic graphdriver,
-     * and the digest comparison alone would call a local rebuild {@code OUTDATED} - the opposite of
-     * the truth (steward/75). {@code Identity.Pull} is set once {@code docker pull} (or compose's
-     * own pull) put an image here from a registry; {@code Identity.Build} is set once
-     * {@code docker build}/buildx produced it locally. Neither field is documented API surface, so
-     * {@link ImageIdentity#builtLocally()} is treated as a hint {@code DockerOps} corroborates with
-     * the digest comparison, never as the only signal.
+     * In one call, so {@link eu.nordtal.s2.steward.worker.docker.DockerOps#check} does not have to guess which
+     * shape it is looking at.
      *
-     * @return empty when the image cannot be read at all: it is gone from the daemon's store, which
-     *         is what a container's own image looks like once its tag has been rebuilt out from
-     *         under it without a {@code --force-recreate}
+     * Why {@code Identity} and not just {@code RepoDigests}: under the containerd snapshotter
+     * ({@code driver-type: io.containerd.snapshotter.v1}, {@code docker info}), the containerd image store writes a
+     * {@code RepoDigests} entry - one equal to the image's own content id, never confirmed by any registry round
+     * trip - for an image built locally, exactly as it does for one that was pulled. So "no repo digest" is no
+     * longer a reliable sign of "built here and pushed nowhere" the way it was under the classic graphdriver, and
+     * the digest comparison alone would call a local rebuild {@code OUTDATED} - the opposite of the truth.
+     * {@code Identity.Pull} is set once {@code docker pull} (or compose's own pull) put an image here from a
+     * registry; {@code Identity.Build} is set once {@code docker build}/buildx produced it locally. Neither field
+     * is documented API surface, so {@link ImageIdentity#builtLocally()} is treated as a hint {@code DockerOps}
+     * corroborates with the digest comparison, never as the only signal.
+     *
+     * @return empty when the image cannot be read at all: it is gone from the daemon's store, which is what a
+     *     container's own image looks like once its tag has been rebuilt out from under it without a
+     *     {@code --force-recreate}
      */
-    public Optional<ImageIdentity> imageIdentity(final String imageRef) {
+    public Optional<ImageIdentity> imageIdentity(final @Nullable String imageRef) {
         if (imageRef == null || imageRef.isBlank()) {
             return Optional.empty();
         }
@@ -316,12 +307,10 @@ public final class Docker {
     /**
      * Runs a command in a container and collects what it printed.
      *
-     * <p>This is the console of §10a.2, and it is deliberately not a shell: the caller passes an
-     * argument list, nothing is concatenated, and there is no interpretation of quotes or
-     * semicolons anywhere on the way. <b>Only the four Minecraft services get this offered</b>, and
-     * that rule lives above this method - here it would be the wrong place, because a
-     * general-purpose exec that quietly refuses some containers is a puzzle rather than a
-     * boundary.</p>
+     * This is the console of §10a.2, and it is deliberately not a shell: the caller passes an argument list, nothing is
+     * concatenated, and there is no interpretation of quotes or semicolons anywhere on the way. Only the four Minecraft
+     * services get this offered, and that rule lives above this method - here it would be the wrong place, because a
+     * general-purpose exec that quietly refuses some containers is a puzzle rather than a boundary.
      */
     public ExecResult exec(final String id, final List<String> command) {
         return exec(id, command, null);
@@ -330,10 +319,9 @@ public final class Docker {
     /**
      * The same, as a named user inside the container.
      *
-     * <p>Needed for exactly one thing so far: {@code pg_dump} has to run as {@code postgres},
-     * because the official image trusts the local socket for that user and for nobody else. Passing
-     * a user is a smaller lie than putting a password in an argument list where {@code ps} can read
-     * it.</p>
+     * Needed for exactly one thing so far: {@code pg_dump} has to run as {@code postgres}, because the official
+     * image trusts the local socket for that user and for nobody else. Passing a user is a smaller lie than
+     * putting a password in an argument list where {@code ps} can read it.
      */
     public ExecResult exec(final String id, final List<String> command, final @Nullable String user) {
         final JsonObject request = new JsonObject();
@@ -361,17 +349,13 @@ public final class Docker {
         final StringBuilder output = new StringBuilder();
         try (DockerSocket.Stream stream =
                 socket.stream("POST", "/exec/" + execId + "/start", GSON.toJson(start), EXEC_DEADLINE)) {
-            // Always multiplexed: Tty was false above, so the answer carries frame headers even
-            // though the container it runs in may have a TTY of its own.
+            // Always multiplexed: Tty was false above, so the answer carries frame headers regardless of the target.
             LogFrames.read(stream.body(), true, line -> output.append(line).append('\n'));
         } catch (IOException e) {
             throw new DockerException("reading the answer of exec in " + id, e);
         }
 
-        // THE EXIT CODE IS A SECOND REQUEST, and leaving it out is how a failed command looks like
-        // a quiet one. `pg_dump` writes its complaint to stderr and exits 1; without this the
-        // caller would see some text, no exception, and would go on to rename a partial file over
-        // a good backup.
+        // The exit code is a second request; leaving it out is how a failed command looks like a quiet one.
         final JsonObject finished =
                 GSON.fromJson(socket.send("GET", "/exec/" + execId + "/json", null), JsonObject.class);
         final int exitCode =
@@ -398,8 +382,6 @@ public final class Docker {
                 sum(json, "Containers", "SizeRw"));
     }
 
-    // --- the shapes ------------------------------------------------------------------------
-
     /** One container as the list shows it. {@code service} is null for anything not from compose. */
     public record Container(
             String id,
@@ -415,8 +397,9 @@ public final class Docker {
         }
     }
 
-    /** One container in full. {@code repoDigests} is what the drift check compares. */
     /**
+     * One container in full. {@code repoDigests} is what the drift check compares.
+     *
      * @param exitCode what the container's process exited with, or {@code -1} if it has not exited.
      *                 {@code 137} is the one worth knowing: SIGKILL, which after a
      *                 {@code docker stop} means the grace period ran out and Docker killed a
@@ -462,14 +445,17 @@ public final class Docker {
 
     public record DiskUsage(long imagesBytes, long volumesBytes, long containersBytes) {}
 
-    // --- the small print -------------------------------------------------------------------
-
-    private static String firstName(final JsonObject json) {
+    private static @Nullable String firstName(final JsonObject json) {
         final JsonArray names = json.getAsJsonArray("Names");
         if (names == null || names.isEmpty()) {
             return null;
         }
         return names.get(0).getAsString().replaceFirst("^/", "");
+    }
+
+    /** Every container the daemon lists carries an {@code Id}; there is no shape without one. */
+    private static String id(final JsonObject json) {
+        return Objects.requireNonNull(string(json, "Id"), "container has no Id");
     }
 
     private static @Nullable String string(final @Nullable JsonObject json, final String key) {
@@ -511,14 +497,11 @@ public final class Docker {
     /**
      * Encodes an image reference for a path segment.
      *
-     * <p>{@code ghcr.io/nordtal/smp:latest} has to stay readable to the daemon, so the slashes and
-     * the colon are left alone and only what would break the request line is escaped.</p>
+     * {@code ghcr.io/nordtal/smp:latest} has to stay readable to the daemon, so the slashes and the colon are left
+     * alone and only what would break the request line is escaped.
      */
     private static String encodePath(final String reference) {
-        // The slashes and the colon are what the daemon parses the reference WITH, so percent-
-        // encoding them - which is what URLEncoder would do - turns a valid reference into a 404.
-        // A space cannot occur in a valid one; it is escaped anyway so a malformed value produces
-        // an error from Docker rather than a broken request line.
+        // The slashes and colon are what the daemon parses the reference with; encoding them turns it into a 404.
         return reference.replace(" ", "%20");
     }
 }

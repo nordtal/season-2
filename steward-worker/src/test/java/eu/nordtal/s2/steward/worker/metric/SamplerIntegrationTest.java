@@ -17,7 +17,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -25,11 +24,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * The sampler, end to end: the real daemon on one side, a real PostgreSQL on the other.
  *
- * <h2>Why a throwaway database and not the one on this host</h2>
- * The live database belongs to a deployment running the released jar. Applying this branch's
- * migration to it would leave a version in its history the deployed bot does not know, and the bot
- * calls {@code validate()} and refuses to start against exactly that. So the migration is proved
- * where breaking it costs nothing, and the live one is left alone until the cutover.
+ * Why a throwaway database and not the one on this host: The live database belongs to a deployment running the
+ * released jar. Applying this branch's migration to it would leave a version in its history the deployed bot does
+ * not know, and the bot calls {@code validate()} and refuses to start against exactly that. So the migration is
+ * proved where breaking it costs nothing, and the live one is left alone until the cutover.
  */
 class SamplerIntegrationTest {
 
@@ -44,8 +42,7 @@ class SamplerIntegrationTest {
         postgres = new PostgreSQLContainer<>("postgres:17-alpine");
         postgres.start();
 
-        // The worker's own migration path, not a hand-rolled Flyway call: what is under test
-        // includes V15 arriving the way it will arrive in production.
+        // The worker's own migration path, not a hand-rolled Flyway call - as a migration arrives in production.
         database = Schema.open(new DatabaseSpec() {
             @Override
             public String jdbcUrl() {
@@ -76,8 +73,7 @@ class SamplerIntegrationTest {
     }
 
     @Test
-    @DisplayName("one round writes the host's numbers and one row per running container")
-    void oneRoundLandsInTheDatabase() {
+    void oneRoundWritesTheHostsNumbersAndOneRowPerRunningContainer() {
         final DockerSocket socket = new DockerSocket();
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
@@ -86,8 +82,7 @@ class SamplerIntegrationTest {
         final Instant at = Instant.now();
         final int written;
         try (Sampler sampler = new Sampler(docker, new HostMetrics(), metrics, PROJECT)) {
-            // Twice: the first round has no previous CPU reading to subtract from - for the host and
-            // for every container - so it is the round that legitimately carries no cpu_percent.
+            // Twice: the first round has no previous CPU reading to subtract from, so it carries no cpu_percent.
             sampler.tick(at.minusSeconds(30));
             written = sampler.tick(at);
         }
@@ -113,24 +108,19 @@ class SamplerIntegrationTest {
     }
 
     @Test
-    @DisplayName("the same instant sampled twice is one reading, not two")
-    void samplingTwiceIsNotTwiceTheRows() {
+    void theSameInstantSampledTwiceIsOneReadingNotTwo() {
         final DockerSocket socket = new DockerSocket();
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final MetricDirectory metrics = MetricDirectory.using(database.dataSource());
 
-        // The same instant twice is what a restart at an unlucky moment looks like. The table is
-        // keyed by subject, metric, resolution and time, so the second round has to land on the
-        // first rather than beside it - two values for one moment is a chart nobody can read.
+        // Keyed by subject, metric, resolution and time, so a second round must land on the first, not beside it.
         final Instant at = Instant.parse("2026-09-13T00:00:00Z");
         try (Sampler sampler = new Sampler(new Docker(socket), new HostMetrics(), metrics, PROJECT)) {
             sampler.tick(at);
             sampler.tick(at);
         }
 
-        // Exactly one, not "at most one": <= 1 is also what two rounds that wrote nothing at all
-        // look like, and a sampler that has quietly stopped recording passes that assertion every
-        // time. The row has to be there, and there has to be one of it.
+        // Exactly one, not "at most one": <= 1 also passes for a sampler that has quietly stopped recording.
         assertEquals(
                 1,
                 metrics.range("host", "memory_used_bytes", at.minusSeconds(1), at.plusSeconds(1))

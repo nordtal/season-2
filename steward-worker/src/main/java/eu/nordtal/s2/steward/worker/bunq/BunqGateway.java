@@ -23,26 +23,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Everything this network does at bunq: create a tab, cancel a tab, ask a tab who paid it, and list
- * recent payments on the account.
+ * Everything this network does at bunq.
  *
- * <p><b>This is the only class anywhere that talks to a bank, and it lives here rather than in
- * {@code discord-bot} since steward/109.</b> The reason is not tidiness: the bot is a process with a
- * gateway connection to a third party and a permanent invitation for strangers to press its buttons,
- * and the bunq key was sitting in it. The bot now writes a row saying what it wants and reads back
- * what happened, and holds no credential that moves money.</p>
+ * Create a tab, cancel a tab, ask a tab who paid it, and list recent payments on the account.
  *
- * <p>A payment is matched primarily through {@link #paymentsFor(long)} - a bunq.me tab knows the
- * payments that settled it, an exact link with no text parsing. The reference in the description is
- * only the fallback, for money that reaches the account outside a tab.</p>
+ * This is the only class anywhere that talks to a bank, and it lives here rather than in {@code discord-bot}.
+ * The reason is not tidiness: the bot is a process with a gateway connection to a third party and a
+ * permanent invitation for strangers to press its buttons, and the bunq key was sitting in it. The bot now writes a
+ * row saying what it wants and reads back what happened, and holds no credential that moves money.
  *
- * <p>EUR only: another currency is refused rather than converted at a rate nobody agreed on.</p>
+ * A payment is matched primarily through {@link #paymentsFor(long)} - a bunq.me tab knows the payments that settled
+ * it, an exact link with no text parsing. The reference in the description is only the fallback, for money that
+ * reaches the account outside a tab.
+ *
+ * EUR only: another currency is refused rather than converted at a rate nobody agreed on.
  */
 @Slf4j
-// No HTTP timeout is set here because the SDK's own ApiClient bounds every call at 30 seconds
-// (connect, read and write), so a bank that stops answering costs the worker thread half a minute.
+// No HTTP timeout is set here: the SDK's own ApiClient already bounds every call at 30 seconds.
 public final class BunqGateway {
 
     private static final String CURRENCY = "EUR";
@@ -53,8 +53,10 @@ public final class BunqGateway {
     private static final String STATUS_CANCELLED = "CANCELLED";
 
     /**
-     * bunq renders timestamps as {@code 2026-08-30 14:21:07.123456} in UTC, with no zone in the
-     * string. {@code BunqGsonBuilder} parses them with exactly this pattern.
+     * bunq renders timestamps in UTC with no zone in the string.
+     *
+     * The shape is {@code yyyy-MM-dd HH:mm:ss.SSSSSS}, and {@code BunqGsonBuilder} parses them with exactly this
+     * pattern.
      */
     private static final DateTimeFormatter TIMESTAMP =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]");
@@ -76,9 +78,10 @@ public final class BunqGateway {
     }
 
     /**
-     * Whether a credential was filled in at all - the same question {@code discord-bot}'s
-     * {@code Configured.isSet} asks, written out here because that class is Discord's and this
-     * module has no reason to know about it.
+     * Whether a credential was filled in at all.
+     *
+     * The same question {@code discord-bot}'s {@code Configured.isSet} asks, written out here because that
+     * class is Discord's and this module has no reason to know about it.
      */
     private static boolean isSet(final String value) {
         return value != null && !value.isBlank();
@@ -87,17 +90,15 @@ public final class BunqGateway {
     /**
      * Whether there is a bunq account behind this at all.
      *
-     * <p>A season without one is a season whose network does everything except take money: the
-     * roles, the link codes, the hunger games and the update commands are untouched. The caller
-     * decides what to do about it - the poll loop is not started at all - because a gateway that
-     * quietly answered "no payments" would look exactly like a bank that had nothing new, which is
-     * the one thing this must never be mistaken for.</p>
+     * A season without one is a season whose network does everything except take money: the roles, the link codes, the
+     * hunger games and the update commands are untouched. The caller decides what to do about it - the poll loop is not
+     * started at all - because a gateway that quietly answered "no payments" would look exactly like a bank that had
+     * nothing new, which is the one thing this must never be mistaken for.
      *
-     * <p>Whichever it is, {@code StewardWorker} says so in one line at startup and writes it into
-     * {@code bot_setting} for the bot to repeat. That is not decoration: the two variables are
-     * deliberately not {@code :?} in {@code compose.yml}, so an environment file carrying the old
-     * {@code NORDTAL_BOT_BUNQ_*} names produces a perfectly healthy stack in which no payment is
-     * ever noticed again (steward/101).</p>
+     * Whichever it is, {@code StewardWorker} says so in one line at startup and writes it into {@code bot_setting} for
+     * the bot to repeat. That is not decoration: the two variables are deliberately not {@code :?} in
+     * {@code compose.yml}, so an environment file carrying the wrong variable names produces a perfectly
+     * healthy stack in which no payment is ever noticed again.
      *
      * @return whether an API key and an account id were both configured
      */
@@ -106,22 +107,17 @@ public final class BunqGateway {
     }
 
     /**
-     * The one line this container says about bunq on every start, and the reason it is not
-     * negotiable.
+     * The one line this container says about bunq on every start, and the reason it is not negotiable.
      *
-     * <h2>What it is for</h2>
-     * The two variables behind {@link StewardSpec.BunqSpec#apiKey()} and
-     * {@link StewardSpec.BunqSpec#accountId()} are deliberately <b>not</b> {@code :?} in
-     * {@code compose.yml}: a season without a bank account is a valid season. So an environment file
-     * that still carries the pre-steward/109 names - {@code NORDTAL_BOT_BUNQ_*} rather than
-     * {@code NORDTAL_STEWARD_BUNQ_*} - produces a stack where every container is healthy, every log
-     * is quiet, nobody can buy anything and <b>no payment is ever noticed again</b>. There is no
-     * error to find, because nothing went wrong; there is only an absence. This line is the whole
-     * of the evidence, and steward/101 is the checklist that reads it.
+     * What it is for: The two variables behind {@link StewardSpec.BunqSpec#apiKey()} and
+     * {@link StewardSpec.BunqSpec#accountId()} are deliberately not {@code :?} in {@code compose.yml}: a season without
+     * a bank account is a valid season. So an environment file carrying the wrong variable names -
+     * anything other than {@code NORDTAL_STEWARD_BUNQ_*} - produces a stack where every container is
+     * healthy, every log is quiet, nobody can buy anything and no payment is ever noticed again. There is no error to
+     * find, because nothing went wrong; there is only an absence. This line is the whole of the evidence.
      *
-     * <h2>It never contains the key</h2>
-     * The account id is in it because an id pointed at the wrong account is the other way this goes
-     * wrong quietly. The API key is not, and must never be.
+     * It never contains the key: The account id is in it because an id pointed at the wrong account is the other way
+     * this goes wrong quietly. The API key is not, and must never be.
      *
      * @param poll how often the bank will be asked, for the "on" half
      * @return one line, ready to log - at INFO when {@link #configured()}, at WARN when not
@@ -140,16 +136,14 @@ public final class BunqGateway {
     }
 
     /**
-     * Writes {@link #startupLine(Duration)} to this class's own log, at the level that matches which
-     * of the two sentences it is.
+     * Writes {@link #startupLine(Duration)} to this class's own log.
      *
-     * <h2>Why the level is here and not at the call site</h2>
-     * Because it is half the message. "bunq is OFF" at INFO is a line nobody reads in a container
-     * that prints several hundred of them at startup, and the whole point of the sentence is to be
-     * found by somebody who has just renamed two variables and wants to know whether it worked. It
-     * is also the one thing about this that can be driven from a test without a bank, a database or
-     * a deployment: an appender sees the level and the text, both branches, which is what
-     * steward/109 asks for instead of a rollout.
+     * At the level that matches which of the two sentences it is. Why the level is here and not at the call
+     * site: it is half the message. "bunq is OFF" at INFO is a line nobody reads in a container that prints
+     * several hundred of them at startup, and the whole point of the sentence is to be found by somebody who has
+     * just renamed two variables and wants to know whether it worked. It is also the one thing about this that
+     * can be driven from a test without a bank, a database or a deployment: an appender sees the level and the
+     * text, both branches, without a rollout.
      *
      * @param poll how often the bank will be asked
      */
@@ -193,9 +187,11 @@ public final class BunqGateway {
     }
 
     /**
-     * Closes a tab so it can no longer be paid. A real call to bunq, not a status flip in our own
-     * table: a superseded request whose tab stays live is a URL somebody can still pay, and that
-     * payment would arrive against a reference the bot refuses to book automatically.
+     * Closes a tab so it can no longer be paid.
+     *
+     * A real call to bunq, not a status flip in our own table: a superseded request whose tab stays live is a
+     * URL somebody can still pay, and that payment would arrive against a reference the bot refuses to book
+     * automatically.
      *
      * @param tabId the tab
      * @return whether bunq accepted the cancellation
@@ -207,8 +203,7 @@ public final class BunqGateway {
             BunqMeTabApiObject.update(tabId, accountId, STATUS_CANCELLED);
             return true;
         } catch (final RuntimeException exception) {
-            // A tab that is already cancelled or already paid answers with an error. Neither is
-            // worth failing the caller for - both mean it cannot be paid again.
+            // A tab already cancelled or paid answers with an error; neither is worth failing the caller for.
             log.warn("Could not cancel bunq.me tab {}: {}", tabId, exception.toString());
             return false;
         }
@@ -252,7 +247,7 @@ public final class BunqGateway {
      * @return its amount in cents, or {@code null} when it is not a positive EUR amount - which is
      *         every outgoing payment and anything in another currency
      */
-    public static Integer positiveEuroCents(final PaymentApiObject payment) {
+    public static @Nullable Integer positiveEuroCents(final PaymentApiObject payment) {
         final AmountObject amount = payment.getAmount();
         if (amount == null || !CURRENCY.equals(amount.getCurrency())) {
             return null;
@@ -272,7 +267,7 @@ public final class BunqGateway {
      *         with no readable timestamp is treated as being before every watermark, so it is
      *         ignored rather than booked
      */
-    public static Instant createdAt(final PaymentApiObject payment) {
+    public static @Nullable Instant createdAt(final PaymentApiObject payment) {
         final String created = payment.getCreated();
         if (created == null || created.isBlank()) {
             return null;
@@ -285,12 +280,11 @@ public final class BunqGateway {
         }
     }
 
-    // ---------------------------------------------------------------- the API context
-
     /**
-     * Loads or creates the bunq API context, once per process. The context file holds credentials
-     * and the installed device key, and belongs to one environment - there is only
-     * {@link ApiEnvironmentType#PRODUCTION}.
+     * Loads or creates the bunq API context, once per process.
+     *
+     * The context file holds credentials and the installed device key, and belongs to one environment - there
+     * is only {@link ApiEnvironmentType#PRODUCTION}.
      */
     private synchronized void loadContext() {
         if (contextLoaded) {

@@ -7,15 +7,14 @@ import org.jspecify.annotations.Nullable;
 /**
  * What came of asking the container runtime for the project's services.
  *
- * <p>Two answers rather than an {@code Optional}, because "the daemon did not answer" is the one
- * that has to stop the whole run before anything is touched, and the sentence explaining it is what
- * a person reads days later. An empty list from a daemon that did answer is a different thing
- * entirely - a project with no containers - and would be silently identical under an
- * {@code Optional}.</p>
+ * Two answers rather than an {@code Optional}, because "the daemon did not answer" is the one that has to stop the
+ * whole run before anything is touched, and the sentence explaining it is what a person reads days later. An empty
+ * list from a daemon that did answer is a different thing entirely - a project with no containers - and would be
+ * silently identical under an {@code Optional}.
  *
- * @param reached  whether the runtime could be read at all
+ * @param reached whether the runtime could be read at all
  * @param services what was found, empty when it could not
- * @param message  why not, or {@code null} when it could
+ * @param message why not, or {@code null} when it could
  */
 public record RuntimeResult(
         boolean reached,

@@ -23,31 +23,26 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 /**
  * What happens to a log follow when the browser watching it goes away, and when the worker stops.
  *
- * <h2>Why this counts warnings instead of asserting something</h2>
- * Neither ending fails anything. Javalin does not throw when a client has gone: writing to a
- * terminated {@code SseClient} logs <em>"Cannot send data"</em> and returns - so the follow read on
- * happily through the container's backlog and reported every line of it to nobody, one warning per
- * line. Measured on this host on 2026-09-13, a {@code tail=200} follow whose reader left after one
- * line still wrote 69 of them, and a chatty container has far more than 200 lines behind it.
+ * Why this counts warnings instead of asserting something: neither ending fails anything. Javalin does not throw
+ * when a client has gone: writing to a terminated {@code SseClient} logs "Cannot send data" and returns - so the
+ * follow reads on happily through the container's backlog and reports every line of it to nobody, one warning per
+ * line. A chatty container has far more than the {@code tail=200} this test asks for.
  *
- * <p>There is no status code and no exception in any of that. The symptom <em>is</em> the logging,
- * so the logging is what this counts.</p>
+ * There is no status code and no exception in any of that. The symptom is the logging, so the logging is what this
+ * counts.
  *
- * <p>The shutdown at the end is the second half, and it is held less tightly on purpose: the
- * failure there - an emitter closed against a request Jetty has already recycled, which threw,
- * which the exception mapper could not report because it threw too, which was then retried, about
- * sixty thousand times a second until the JVM ran out of memory - was measured on 2026-09-13 but
- * needs a client that is still connected at the moment Jetty stops, and a test that hangs on to a
- * socket that precisely is a test that will one day fail for its own reasons. What is asserted
- * here is that closing a worker with a follow behind it is quiet. See {@code WorkerApi#follows}
- * for the order that keeps it that way.</p>
+ * The shutdown at the end is the second half, and it is held less tightly on purpose: the failure there - an emitter
+ * closed against a request Jetty has already recycled, which throws, which the exception mapper cannot report
+ * because it throws too, retried thousands of times a second until the JVM runs out of memory - needs a client that
+ * is still connected at the moment Jetty stops, and a test that hangs on to a socket that precisely is a test that
+ * will one day fail for its own reasons. What is asserted here is that closing a worker with a follow behind it is
+ * quiet. See {@code WorkerApi#follows} for the order that keeps it that way.
  */
 class FollowEndsTest {
 
@@ -70,17 +65,47 @@ class FollowEndsTest {
     }
 
     @Test
-    @DisplayName("a follow whose browser has gone stops, rather than reading the rest aloud to nobody")
-    void aFollowEndsWithItsBrowser() throws Exception {
-        // EVERY ASSUMPTION BEFORE THE THING IT COULD STRAND. An assumption is an abort, not a
-        // failure, so it runs no `finally` that has not been entered yet - and this test attaches
-        // an appender to the ROOT logger and opens a port. Skipping between those two and their
-        // cleanup left both behind for every later test in the same JVM, which is a test suite
-        // that counts somebody else's warnings.
+    void aFollowWhoseBrowserHasGoneStopsRatherThanReadingTheRestAloudToNobody() throws Exception {
+        // Every assumption before the thing it could strand: an assumption aborts rather than running `finally`.
         final DockerSocket socket = new DockerSocket();
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
-        final WorkerApi api = new WorkerApi(
+        final WorkerApi api = newApi(docker);
+        boolean closedByTheTest = false;
+        api.start(PORT);
+        try {
+            final HttpClient http = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(5))
+                    .build();
+            final String name = aRunningService(http);
+
+            try (WarningWatch watch = WarningWatch.attach()) {
+                followThenLeaveLikeABrowser(http, name);
+                Thread.sleep(200);
+
+                api.close();
+                closedByTheTest = true;
+                // A second is nothing next to a retry storm, and long enough for one follow ending to settle.
+                Thread.sleep(1_000);
+
+                assertTrue(
+                        watch.count() < 5,
+                        "a follow that lost its browser, and the shutdown after it, logged " + watch.count()
+                                + " warnings. One per line of the backlog is the shape to look for:"
+                                + " WorkerApi asks client.terminated() before it writes, because Javalin"
+                                + " will not tell it any other way");
+            }
+        } finally {
+            // The close IS the thing under test, so it happens above; this is only for the paths that never got there.
+            if (!closedByTheTest) {
+                api.close();
+            }
+        }
+    }
+
+    /** The {@link WorkerApi} under test, wired to the real Docker daemon and a nightly window that never fires. */
+    private static WorkerApi newApi(final Docker docker) {
+        return new WorkerApi(
                 docker,
                 new DockerOps(docker, PROJECT),
                 new Console(docker, PROJECT),
@@ -95,64 +120,59 @@ class FollowEndsTest {
                         "04:45",
                         List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"),
                         ZoneId.of("Europe/Berlin")));
-        boolean closedByTheTest = false;
-        api.start(PORT);
-        try {
-            final HttpClient http = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(5))
-                    .build();
-            final String name = aRunningService(http);
+    }
 
+    /**
+     * Opens the follow and leaves it the way a browser leaves.
+     *
+     * A first line is read so the follow is established rather than merely accepted, then the body is closed and
+     * the server told nothing.
+     */
+    private static void followThenLeaveLikeABrowser(final HttpClient http, final String name) throws Exception {
+        final HttpResponse<InputStream> follow = http.send(
+                HttpRequest.newBuilder(
+                                URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name + "/logs?tail=200"))
+                        .header("X-Steward-Token", TOKEN)
+                        .header("Accept", "text/event-stream")
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofInputStream());
+        assertEquals(200, follow.statusCode());
+
+        try (InputStream lines = follow.body()) {
+            assertTrue(lines.read() != -1, "the follow ended before it said anything");
+        }
+    }
+
+    /** Counts warnings on the ROOT logger while attached, and detaches itself on {@link #close()}. */
+    private static final class WarningWatch implements AutoCloseable {
+
+        private final ch.qos.logback.classic.Logger root;
+        private final Warnings warnings;
+
+        private WarningWatch(final ch.qos.logback.classic.Logger root, final Warnings warnings) {
+            this.root = root;
+            this.warnings = warnings;
+        }
+
+        static WarningWatch attach() {
             final Warnings warnings = new Warnings();
             final ch.qos.logback.classic.Logger root =
                     (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
             warnings.setContext(root.getLoggerContext());
             warnings.start();
             root.addAppender(warnings);
+            return new WarningWatch(root, warnings);
+        }
 
-            final HttpResponse<InputStream> follow = http.send(
-                    HttpRequest.newBuilder(
-                                    URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name + "/logs?tail=200"))
-                            .header("X-Steward-Token", TOKEN)
-                            .header("Accept", "text/event-stream")
-                            .GET()
-                            .build(),
-                    HttpResponse.BodyHandlers.ofInputStream());
-            assertEquals(200, follow.statusCode());
+        int count() {
+            return warnings.count.get();
+        }
 
-            // Read one line, so the follow is established rather than merely accepted, and then leave
-            // the way a browser leaves: the body closed and the server told nothing. That is the state
-            // the defect needs - an emitter whose connection is already broken, closed a second time
-            // by a shutdown - and it is also the ordinary case, because a tab closing is the usual way
-            // a log view ends.
-            try (InputStream lines = follow.body()) {
-                assertTrue(lines.read() != -1, "the follow ended before it said anything");
-            }
-            Thread.sleep(200);
-
-            try {
-                api.close();
-                closedByTheTest = true;
-                // A second is nothing next to sixty thousand a second, and it is long enough for the
-                // ordinary path - one follow ending, one emitter closing - to have happened.
-                Thread.sleep(1_000);
-
-                assertTrue(
-                        warnings.count.get() < 5,
-                        "a follow that lost its browser, and the shutdown after it, logged "
-                                + warnings.count.get() + " warnings. One per line of the backlog is the shape"
-                                + " to look for: WorkerApi asks client.terminated() before it writes, because"
-                                + " Javalin will not tell it any other way");
-            } finally {
-                root.detachAppender(warnings);
-                warnings.stop();
-            }
-        } finally {
-            // The close IS the thing under test, so it happens above; this is only for the paths
-            // that never got there.
-            if (!closedByTheTest) {
-                api.close();
-            }
+        @Override
+        public void close() {
+            root.detachAppender(warnings);
+            warnings.stop();
         }
     }
 

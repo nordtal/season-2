@@ -6,18 +6,17 @@ import com.google.gson.JsonParser;
 import eu.nordtal.s2.steward.worker.configfile.ConfigChange;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * A section can hold lists: a milestone's objectives, and each objective's items. What the browser
- * sends for those has to reach {@code ConfigFiles} as lists, not as their JSON text.
+ * A section can hold lists: a milestone's objectives, and each objective's items.
+ *
+ * What the browser sends for those has to reach {@code ConfigFiles} as lists, not as their JSON text.
  */
 class ConfigApiNestedChangeTest {
 
     @Test
-    @DisplayName("a list of sections inside a section arrives as records, and a list of values as values")
-    void nestedListsArriveAsLists() {
+    void aListOfSectionsInsideASectionArrivesAsRecordsAndAListOfValuesAsValues() {
         final Map<String, ConfigChange> changes =
                 ConfigApi.changesOf(JsonParser.parseString("""
                 {"changes": {"milestones": [

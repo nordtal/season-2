@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -20,11 +19,8 @@ class PackStateTest {
     Path volume;
 
     @Test
-    @DisplayName("a hash made only of digits is text, not a number")
-    void doesNotCoerceANumericLookingHash() throws IOException {
-        // The bug this test exists for, found 2026-09-01: SnakeYAML's implicit resolvers turned
-        // forty zeroes into the long 0, so the comparison ran against a hash that was never in the
-        // file - and it reported the pack as changed from "0" to itself.
+    void aHashMadeOnlyOfDigitsIsTextNotANumber() throws IOException {
+        // Guards against SnakeYAML reading forty zeroes as the long 0, matched against a hash never in the file.
         writePackYml("0000000000000000000000000000000000000000");
 
         assertEquals(
@@ -33,8 +29,7 @@ class PackStateTest {
     }
 
     @Test
-    @DisplayName("the ordinary case: url and sha1 come back as they are written")
-    void readsBothValues() throws IOException {
+    void theOrdinaryCaseUrlAndSha1ComeBackAsTheyAreWritten() throws IOException {
         writePackYml("6f1ed002ab5595859014ebf0951522d9d0f2ee34");
 
         final PackState state = PackState.read(volume);
@@ -45,8 +40,7 @@ class PackStateTest {
     }
 
     @Test
-    @DisplayName("no file is absent, and reading it creates nothing")
-    void absentWithoutCreatingAnything() throws IOException {
+    void noFileIsAbsentAndReadingItCreatesNothing() throws IOException {
         final PackState state = PackState.read(volume);
 
         assertFalse(state.present());
@@ -55,8 +49,7 @@ class PackStateTest {
     }
 
     @Test
-    @DisplayName("an empty value is empty, not the text null")
-    void emptyValuesStayEmpty() throws IOException {
+    void anEmptyValueIsEmptyNotTheTextNull() throws IOException {
         final Path file = PackState.fileIn(volume);
         Files.createDirectories(file.getParent());
         Files.writeString(file, "enabled: true\nurl:\nsha1:\n", StandardCharsets.UTF_8);

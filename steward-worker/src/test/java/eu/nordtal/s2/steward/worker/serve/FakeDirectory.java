@@ -14,14 +14,12 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * An {@link UpdateDirectory} that lives in a map, for the tests about {@link UpdateServer}'s loop.
- * <p>
+ * An {@link UpdateDirectory} that lives in a map, for the tests about {@link UpdateServer} 's loop.
+ *
  * The real one is exercised against a real PostgreSQL in {@code :common} - the claim is
- * {@code FOR UPDATE SKIP LOCKED} and the countdown is database arithmetic, neither of which has a
- * meaningful in-memory version. What this stands in for is the <em>shape</em> of the answers, so
- * that the loop above it can be driven through cases a real database would take a minute of wall
- * clock to produce.
- * </p>
+ * {@code FOR UPDATE SKIP LOCKED} and the countdown is database arithmetic, neither of which has a meaningful
+ * in-memory version. What this stands in for is the shape of the answers, so that the loop above it can be driven
+ * through cases a real database would take a minute of wall clock to produce.
  */
 final class FakeDirectory implements UpdateDirectory {
 
@@ -116,9 +114,7 @@ final class FakeDirectory implements UpdateDirectory {
 
     @Override
     public boolean progress(final long id, final String result) {
-        // The stage-by-stage writes the real directory makes. Recorded rather than ignored so a
-        // test can assert that a run reported its progress at all - a run that only writes its
-        // answer at the end is the thing the live embed exists to stop being.
+        // The stage-by-stage writes the real directory makes, recorded so a test can assert progress was reported.
         progressWrites.add(result);
         final UpdateRequest row = rows.get(id);
         return row != null && row.status() == UpdateStatus.RUNNING;
@@ -237,8 +233,7 @@ final class FakeDirectory implements UpdateDirectory {
             if (row.status() != UpdateStatus.RUNNING) {
                 continue;
             }
-            // Every kind, since 2026-09-08. A RESTART used to be closed as DONE here, because a
-            // redeploy of the whole project took the worker down mid-call; it does not any more.
+            // Every kind: a RESTART used to be closed as DONE here, because a redeploy took the worker down mid-call.
             rows.put(
                     row.id(),
                     new UpdateRequest(
@@ -264,8 +259,7 @@ final class FakeDirectory implements UpdateDirectory {
 
     @Override
     public java.util.List<UpdateRequest> recent(final int limit) {
-        // Nothing in this fake ever lists: the list is a page in the interface, not a decision
-        // anything here makes.
+        // Nothing in this fake ever lists: the list is a page in the interface, not a decision anything here makes.
         return java.util.List.of();
     }
 }

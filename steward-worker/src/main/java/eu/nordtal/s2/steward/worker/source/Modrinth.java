@@ -18,35 +18,28 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The Modrinth v2 API, for the third-party plugins the network runs: PacketEvents,
- * Simple Voice Chat - on the two backends and on the proxy - and CoreProtect.
+ * The Modrinth v2 API, for the third-party plugins the network runs.
  *
- * <h2>Why Modrinth and not each project's own releases</h2>
- * Because Modrinth is the only source that answers the question actually being asked. GitHub
- * releases say "here is version 2.13.0"; Modrinth says "here is what is tagged for Minecraft 26.2
- * on paper", which is a different and much narrower set. Measured 2026-09-01 against the live API,
- * that filter returns <b>exactly one</b> version for each of the two projects, and both filenames
- * are byte-for-byte what {@code compose.yml} pins by hand today.
+ * PacketEvents, Simple Voice Chat (on the two backends and on the proxy) and CoreProtect. Modrinth is the source
+ * used rather than each project's own releases because it answers the question actually being asked: GitHub
+ * releases say "here is version 2.13.0"; Modrinth says "here is what is tagged for Minecraft 26.2 on paper", a
+ * different and much narrower set. Against the live API that filter returns exactly one version for each of the
+ * two projects, and both filenames are byte-for-byte what {@code compose.yml} pins by hand.
  *
- * <h2>Two traps, both present in the real payloads</h2>
- * <ul>
- *   <li><b>PacketEvents ships a {@code -sources.jar} in the same version.</b> Modrinth marks the
- *       real artefact {@code "primary": true}; anything that matches on {@code .jar} alone puts a
- *       sources jar into a plugins folder, where it loads as a plugin with no code in it. This
- *       class refuses a version with no primary file rather than guessing - see below.</li>
- *   <li><b>The list is not documented as ordered.</b> It comes back newest-first in practice; it
- *       is sorted here by {@code date_published} anyway, because "in practice" is not a
- *       guarantee and the failure mode is installing a two-year-old build silently.</li>
- * </ul>
+ * Two traps, both present in the real payloads:
  *
- * <h2>Only {@code release}, and one artefact that is named</h2>
- * {@code version_type} is one of {@code release}, {@code beta}, {@code alpha}. Only the first is
- * considered. A worker that pulls somebody's alpha onto a server people paid to play on, at
- * three in the morning, without being asked, is the thing this whole module is arranged to avoid.
- *
- * <p>The rule is unchanged for every artefact but one. {@link #PRE_RELEASE_EXCEPTIONS} is that one,
- * written out by name rather than expressed as a switch - see its own note for why a setting would
- * have been the wrong shape.</p>
+ * - PacketEvents ships a {@code -sources.jar} in the same version. Modrinth marks the real artefact
+ *   {@code "primary": true}; anything that matches on {@code .jar} alone puts a sources jar into a plugins folder,
+ *   where it loads as a plugin with no code in it. This class refuses a version with no primary file rather than
+ *   guessing.
+ * - The list is not documented as ordered. It comes back newest-first in practice; it is sorted here by
+ *   {@code date_published} anyway, because "in practice" is not a guarantee and the failure mode is installing a
+ *   two-year-old build silently.
+ * - Only {@code release} is considered. The artefact field named {@code version_type} is one of {@code release},
+ *   {@code beta}, {@code alpha}, and a worker that pulls somebody's alpha onto a server people paid to play on,
+ *   without being asked, is the thing this whole module is arranged to avoid. The rule is unchanged for every
+ *   artefact but one. {@link #PRE_RELEASE_EXCEPTIONS} is that one, written out by name rather than expressed as a
+ *   switch - see its own note for why a setting would have been the wrong shape.
  */
 public final class Modrinth {
 
@@ -63,53 +56,48 @@ public final class Modrinth {
     /**
      * How many hits one search asks for.
      *
-     * <p>Twenty, and it is a constant rather than a parameter because the caller that would set it
-     * is a browser and this is somebody else's API. A person looking for a plugin types its name;
-     * a person scrolling to hit ninety has not found it and needs a better search term, not a
-     * longer list.</p>
+     * Twenty, and it is a constant rather than a parameter because the caller that would set it is a browser and
+     * this is somebody else's API. A person looking for a plugin types its name; a person scrolling to hit ninety
+     * has not found it and needs a better search term, not a longer list.
      */
     public static final int SEARCH_LIMIT = 20;
 
     /**
-     * The artefact ids for which a {@code beta} or an {@code alpha} counts, and there is exactly
-     * one: {@code voicechat-velocity}, Simple Voice Chat's proxy half.
+     * The artefact ids for which a {@code beta} or an {@code alpha} counts.
      *
-     * <h2>Why this one and why not a setting</h2>
-     * Because the reason is not "the alpha is newer". <b>The project has never published a
-     * {@code release} for Velocity at all</b> - 13 versions since 2022, every one of them
-     * {@code alpha} or {@code beta}, newest {@code velocity-2.6.18} of 2026-05-28, and it is the
-     * only one of the thirteen tagged for Minecraft 26.2 (queried against the live API,
-     * 2026-09-09). So "wait for a release" is not a slower path to the same place; it is a decision
-     * never to install this plugin, taken by accident and never written down.
+     * There is exactly one: {@code voicechat-velocity}, Simple Voice Chat's proxy half.
      *
-     * <p>The alternative that was rejected is a config key - a {@code minimum-version-type}, or a
-     * per-artefact flag in {@code steward.yml}. That would put the decision in a deployed file
-     * where an operator can widen it to everything at three in the morning to make one run
-     * succeed, and where nothing afterwards records that it was ever narrow. A named constant costs
-     * a code change and a red build, which is the price this exception should cost.</p>
+     * Not a setting: the reason is not "the alpha is newer" but that the project has never published a
+     * {@code release} for Velocity at all, and it is the only version of the plugin tagged for Minecraft 26.2. So
+     * "wait for a release" is not a slower path to the same place; it is a decision never to install this plugin,
+     * taken by accident and never written down.
      *
-     * <p><b>Adding a second entry here is a decision, not a line.</b> {@code ModrinthTest} asserts
-     * this set has exactly one member and which one, so a second artefact leaning on the exception
-     * fails the build rather than inheriting it. What would have to be true for a new entry is what
-     * is true here: not that a pre-release is available, but that a stable one has never existed
-     * and there is no reason to expect one.</p>
+     * The alternative that was rejected is a config key - a {@code minimum-version-type}, or a per-artefact flag in
+     * {@code steward.yml}. That would put the decision in a deployed file where an operator can widen it to
+     * everything at three in the morning to make one run succeed, and where nothing afterwards records that it was
+     * ever narrow. A named constant costs a code change and a red build, which is the price this exception should
+     * cost.
+     *
+     * Adding a second entry here is a decision, not a line. {@code ModrinthTest} asserts this set has exactly one
+     * member and which one, so a second artefact leaning on the exception fails the build rather than inheriting
+     * it. What would have to be true for a new entry is what is true here: not that a pre-release is available, but
+     * that a stable one has never existed and there is no reason to expect one.
      */
     public static final List<String> PRE_RELEASE_EXCEPTIONS = List.of("voicechat-velocity");
 
     /**
      * Modrinth answered, and it has no stable build of this plugin for this Minecraft version.
      *
-     * <h2>Why this is a separate exception and not the general one</h2>
-     * Because the two are opposite advice. An outage is "this list is not the whole picture, look
-     * again later"; this is "there is nothing to look for, and there will not be until somebody
-     * else publishes". Both used to come out as a plain {@link IOException}, so a plugin that is
-     * simply behind the platform read as a source steward-worker could not reach - which makes the
-     * whole of its service {@code SKIPPED}, every run, for as long as the situation lasts. On
-     * {@code smp} that means the season jar is never installed either.
+     * A separate exception from the general one because the two are opposite advice. An outage is "this list is not
+     * the whole picture, look again later"; this is "there is nothing to look for, and there will not be until
+     * somebody else publishes". Both used to come out as a plain {@link IOException}, so a plugin that is simply
+     * behind the platform read as a source steward-worker could not reach - which makes the whole of its service
+     * {@code SKIPPED}, every run, for as long as the situation lasts. On {@code smp} that means the season jar is
+     * never installed either.
      *
-     * <p>What it must <b>not</b> become is a way to install something else. There is no fallback
-     * here and there is deliberately no config key to allow one: a 26.1 jar on a 26.2 server is
-     * not a degraded version of a working plugin.</p>
+     * What it must not become is a way to install something else. There is no fallback here and there is
+     * deliberately no config key to allow one: a 26.1 jar on a 26.2 server is not a degraded version of a working
+     * plugin.
      */
     public static final class Unsupported extends IOException {
 
@@ -127,28 +115,23 @@ public final class Modrinth {
     }
 
     /**
-     * The newest {@code release} of {@code projectId} tagged for {@code gameVersion} on
-     * {@code loader}.
+     * The newest {@code release} of {@code projectId} tagged for {@code gameVersion} on {@code loader}.
      *
-     * <p>For an artefact in {@link #PRE_RELEASE_EXCEPTIONS}, and only for those, a {@code beta} or
-     * an {@code alpha} counts as well. There is no parameter and no setting for that: the decision
-     * is the id, so a caller cannot ask for it on the wrong artefact.</p>
+     * For an artefact in {@link #PRE_RELEASE_EXCEPTIONS}, and only for those, a {@code beta} or an {@code alpha} counts
+     * as well. There is no parameter and no setting for that: the decision is the id, so a caller cannot ask for it on
+     * the wrong artefact.
      *
      * @param artifact the id this module knows the plugin by, carried into the {@link RemoteFile}.
-     * @throws Unsupported if the filter matches nothing - the plugin has no stable build for this
-     *                     Minecraft version, which is a fact about somebody else's release
-     *                     schedule rather than a failure of this run
-     * @throws IOException if the newest match has no primary file, or the API could not be read.
-     *                     Both are refusals rather than fallbacks: installing the 26.1 build
-     *                     instead is not a decision a program gets to make.
+     * @throws Unsupported if the filter matches nothing - the plugin has no stable build for this Minecraft version,
+     *     which is a fact about somebody else's release schedule rather than a failure of this run
+     * @throws IOException if the newest match has no primary file, or the API could not be read. Both are refusals
+     *     rather than fallbacks: installing the 26.1 build instead is not a decision a program gets to make.
      */
     public RemoteFile newest(
             final String artifact, final String projectId, final String gameVersion, final String loader)
             throws IOException {
 
-        // Both filters are JSON arrays inside a query parameter - Modrinth's own documented shape,
-        // ?game_versions=["26.2"]&loaders=["paper"] - so the brackets and quotes have to survive
-        // encoding as data rather than being taken for URL syntax.
+        // Both filters are JSON arrays inside a query parameter, so the brackets and quotes must survive encoding.
         final URI uri = URI.create(API + projectId + "/version"
                 + "?game_versions=" + encode("[\"" + gameVersion + "\"]")
                 + "&loaders=" + encode("[\"" + loader + "\"]"));
@@ -156,8 +139,7 @@ public final class Modrinth {
         final String what = "Modrinth " + artifact + " (" + projectId + ") for " + gameVersion + "/" + loader;
         final JsonArray versions = Json.array(http.get(uri), what);
 
-        // The exception is decided here, from the artefact id alone, so that no caller and no
-        // config file can point it at anything else. See PRE_RELEASE_EXCEPTIONS.
+        // Decided here, from the artefact id alone, so no caller or config file can point it elsewhere.
         final boolean preReleasesCount = PRE_RELEASE_EXCEPTIONS.contains(artifact);
 
         final List<JsonObject> releases = new ArrayList<>();
@@ -176,9 +158,7 @@ public final class Modrinth {
                     + " may work around by installing a build for a different Minecraft version.");
         }
 
-        // Newest first. A version with an unparseable date sorts last rather than crashing the run:
-        // the field is not one we control, and one odd row must not cost the other five artefacts
-        // their report.
+        // Newest first; a version with an unparseable date sorts last rather than crashing the run.
         releases.sort(
                 Comparator.comparing((JsonObject version) -> published(version)).reversed());
         final JsonObject newest = releases.getFirst();
@@ -202,23 +182,20 @@ public final class Modrinth {
                 sha512 == null ? null : Checksum.sha512(sha512));
     }
 
-    // ---------------------------------------------------------------- the search (season-2-ops/129)
-
     /**
      * One hit of a plugin search, in the shape the interface draws it.
      *
-     * @param projectId   Modrinth's immutable id. <b>This is the identity</b> - what
-     *                    {@link #newest} is asked with, and what makes a slug rename cost nothing
-     * @param slug        the readable id, which becomes the artefact id of an added plugin
-     * @param title       the project's name
+     * @param projectId Modrinth's immutable id. This is the identity - what {@link #newest} is asked with, and what
+     *     makes a slug rename cost nothing
+     * @param slug the readable id, which becomes the artefact id of an added plugin
+     * @param title the project's name
      * @param description the one-line summary Modrinth calls {@code description}
-     * @param iconUrl     the thumbnail, on {@code cdn.modrinth.com}, or {@code null} for a project
-     *                    that has none. <b>The browser loads this from Modrinth directly</b>
-     *                    (owner, 2026-09-19) - which is why any Content-Security-Policy in front of
-     *                    steward-ui has to allow that host, or the images silently stay blank
-     * @param pageUrl     the project's own page, for the link next to the install button
-     * @param downloads   how many times it has been downloaded - the only number here that says
-     *                    anything about whether a stranger's plugin is worth trusting
+     * @param iconUrl the thumbnail, on {@code cdn.modrinth.com}, or {@code null} for a project that has none. The
+     *     browser loads this from Modrinth directly, which is why any Content-Security-Policy in front of
+     *     steward-ui has to allow that host, or the images silently stay blank
+     * @param pageUrl the project's own page, for the link next to the install button
+     * @param downloads how many times it has been downloaded - the only number here that says anything about whether a
+     *     stranger's plugin is worth trusting
      */
     public record Hit(
             String projectId,
@@ -232,34 +209,27 @@ public final class Modrinth {
     /**
      * Plugins matching {@code query} that are tagged for {@code gameVersion} on {@code loader}.
      *
-     * <h2>Filtered, never merely sorted</h2>
-     * The facets are the whole point of searching here rather than on the project's own site: a
-     * list somebody can install from must not contain a plugin that cannot run on this network.
-     * Measured against the live API on 2026-09-19, {@code categories:velocity} with
-     * {@code versions:26.2} answers 310 projects and {@code categories:paper} answers a far larger
-     * set - so the fallback the ticket describes, narrowing the proxy's search to its own loader
-     * and accepting a shorter list, is simply what this does for both platforms.
+     * Filtered, never merely sorted: The facets are the whole point of searching here rather than on the project's own
+     * site: a list somebody can install from must not contain a plugin that cannot run on this network.
+     * {@code categories:paper} answers a far larger set than {@code categories:velocity}, so narrowing the proxy's
+     * search to its own loader and accepting a shorter list is simply what this does for both platforms.
      *
-     * <p><b>{@code categories}, not {@code loaders}.</b> The two filters are spelled differently on
-     * the two endpoints - a version query takes {@code loaders}, a search takes the loader as a
-     * {@code categories} facet - and that asymmetry is Modrinth's own. Getting it wrong is not an
-     * error: the facet simply matches nothing and the search comes back empty, which reads exactly
-     * like a plugin nobody has written.</p>
+     * {@code categories}, not the plural loaders key. The two filters are spelled differently on the two endpoints - a
+     * version query takes the plural key, a search takes the loader as a {@code categories} facet - and that asymmetry
+     * is Modrinth's own. Getting it wrong is not an error: the facet simply matches nothing and the search comes back
+     * empty, which reads exactly like a plugin nobody has written.
      *
-     * <p>A hit is <b>not</b> a promise that the plugin can be installed. The search index answers
-     * per project; {@link #newest} answers per version and is what decides, which is why adding a
-     * plugin asks it rather than trusting the hit.</p>
+     * A hit is not a promise that the plugin can be installed. The search index answers per project; {@link #newest}
+     * answers per version and is what decides, which is why adding a plugin asks it rather than trusting the hit.
      *
-     * @param query       what was typed. Blank is allowed and means "the most popular ones", which
-     *                    is what an empty search box should show rather than nothing
+     * @param query what was typed. Blank is allowed and means "the most popular ones", which is what an empty
+     *     search box should show rather than nothing
      * @param gameVersion the Minecraft version this service runs
-     * @param loader      {@code paper} or {@code velocity} - {@code Topology.Kind#modrinthLoader}
+     * @param loader {@code paper} or {@code velocity} - {@code Topology.Kind#modrinthLoader}
      * @throws IOException if the API could not be read
      */
     public List<Hit> search(final String query, final String gameVersion, final String loader) throws IOException {
-        // Modrinth's own shape: facets is a JSON array of arrays, AND between the outer entries,
-        // OR inside each. So this reads "on this loader, AND for this Minecraft version, AND a
-        // plugin" - three separate requirements rather than three alternatives.
+        // Modrinth's own shape: facets is AND between the outer entries, OR inside each - three requirements here.
         final String facets =
                 "[[\"categories:" + loader + "\"],[\"versions:" + gameVersion + "\"],[\"project_type:plugin\"]]";
         final URI uri = URI.create(
@@ -278,9 +248,7 @@ public final class Modrinth {
             final String projectId = Json.optionalString(hit, "project_id");
             final String slug = Json.optionalString(hit, "slug");
             if (projectId == null || slug == null) {
-                // Skipped rather than refused: one odd row out of twenty must not cost the other
-                // nineteen their search, and a hit with no id is one nothing could be installed
-                // from anyway.
+                // Skipped rather than refused: one odd row must not cost the rest of the search their results.
                 continue;
             }
             found.add(new Hit(
@@ -295,8 +263,6 @@ public final class Modrinth {
         return List.copyOf(found);
     }
 
-    // ---------------------------------------------------------------- what a jar is
-
     /**
      * A Modrinth project as the plugin list draws it.
      *
@@ -310,12 +276,13 @@ public final class Modrinth {
             String pageUrl) {}
 
     /**
-     * The project a file with this SHA-512 was published under, or {@code null} when Modrinth has
-     * never published that file.
+     * The project a file with this SHA-512 was published under.
      *
-     * <p>The hash is the identity, not the name: {@code voicechat-bukkit-2.6.24.jar} says nothing about
-     * which project it came from, and the same answer holds for a jar somebody put there by hand. A
-     * 404 is an answer - "not from Modrinth" - and every other failure is a failure.</p>
+     * {@code null} when Modrinth has never published that file.
+     *
+     * The hash is the identity, not the name: {@code voicechat-bukkit-2.6.24.jar} says nothing about which project it
+     * came from, and the same answer holds for a jar somebody put there by hand. A 404 is an answer - "not from
+     * Modrinth" - and every other failure is a failure.
      */
     public @Nullable String projectOfFile(final String sha512) throws IOException {
         final URI uri = URI.create(VERSION_FILE + sha512 + "?algorithm=sha512");

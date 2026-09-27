@@ -26,58 +26,60 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The two routes over {@code eu.nordtal.s2.steward.worker.configfile.MessageBundles} (steward/48).
+ * The two routes over {@code eu.nordtal.s2.steward.worker.configfile.MessageBundles}.
  *
- * <p>Deliberately its own class rather than three more methods on {@link ConfigApi}: a bundle is not
- * a config file - it has no YAML shape, no schema, and its own key-by-key override rule - and the
- * interface is asked to draw it as its own card, beside the configuration cards rather than inside
- * them. Keeping the two APIs apart is what makes that true on this side of the wire as well: nothing
- * a bundle needs changes what {@code GET /api/config} answers.</p>
+ * Deliberately its own class rather than three more methods on {@link ConfigApi}: a bundle is not a config file - it
+ * has no YAML shape, no schema, and its own key-by-key override rule - and the interface is asked to draw it as its
+ * own card, beside the configuration cards rather than inside them. Keeping the two APIs apart is what makes that
+ * true on this side of the wire as well: nothing a bundle needs changes what {@code GET /api/config} answers.
  */
 public final class MessagesApi {
 
     private static final Logger log = LoggerFactory.getLogger(MessagesApi.class);
 
     /**
-     * The one bundle whose reload does not go through a console: the bot is not a Minecraft server,
-     * so it is asked through the inbox it already listens on. Every other bundle is in
-     * {@code ConfigApi}'s table.
+     * The one bundle whose reload does not go through a console.
+     *
+     * The bot is not a Minecraft server, so it is asked through the inbox it already listens on. Every other
+     * bundle is in {@code ConfigApi}'s table.
      */
     private static final String RELOADABLE_SERVICE = "discord-bot";
 
     /**
      * How long the browser waits for the bot, and how long the row waits for the bot.
      *
-     * <p>The two are the same number on purpose. A row that outlived the answer would be carried
-     * out by a bot that came back a minute later, after this interface had already said "takes
-     * effect after a restart" - and then both sentences would be true at different moments, which
-     * is the one outcome worse than either. Five seconds is far longer than a listening bot needs:
-     * the insert carries its own {@code pg_notify}, so the wake-up is not waiting on a poll.</p>
+     * The two are the same number on purpose. A row that outlived the answer would be carried out by a bot that came
+     * back a minute later, after this interface had already said "takes effect after a restart" - and then both
+     * sentences would be true at different moments, which is the one outcome worse than either. Five seconds is far
+     * longer than a listening bot needs: the insert carries its own {@code pg_notify}, so the wake-up is not waiting on
+     * a poll.
      */
     private static final Duration ANSWER_WITHIN = Duration.ofSeconds(5);
 
     /** How often the answer is looked for while waiting - see {@link #ANSWER_WITHIN}. */
     private static final Duration LOOK_EVERY = Duration.ofMillis(100);
 
+    private static final Pattern COMMA = Pattern.compile(",");
+
     /**
      * Who the row is filed under.
      *
-     * <p>A fixed name, unlike the other five kinds, and that is not laziness: a reload sends no
-     * direct message and writes no admin line, so the only thing the requester would be used for is
-     * the row itself. This process does not know which browser asked - steward-ui holds the session
-     * and the worker sees a service token - and inventing a person here would be the kind of
-     * plausible-looking lie an audit trail is exactly the wrong place for.</p>
+     * A fixed name, unlike the other five kinds, and that is not laziness: a reload sends no direct message and writes
+     * no admin line, so the only thing the requester would be used for is the row itself. This process does not know
+     * which browser asked - steward-ui holds the session and the worker sees a service token - and inventing a person
+     * here would be the kind of plausible-looking lie an audit trail is exactly the wrong place for.
      */
     private static final String ASKED_BY = "steward-ui";
 
     private final Path configsRoot;
-    private final Path volumesRoot;
-    private final AccessRequests inbox;
+    private final @Nullable Path volumesRoot;
+    private final @Nullable AccessRequests inbox;
     private final ConfigApi.ConsoleLine console;
 
     public MessagesApi(final Path configsRoot, final @Nullable Path volumesRoot) {
@@ -122,17 +124,16 @@ public final class MessagesApi {
     /**
      * {@code PUT /api/messages/<bundle>} - apply changes to both languages' override files at once.
      *
-     * <p>The body is {@code {"changes": {"key": {"en": "new text", "de": null}}}}.
-     * A {@code null} value resets that key - it is removed from the override rather than filled with
-     * the packaged text, so the line goes back to following the jar (steward/48).</p>
+     * The body is {@code {"changes": {"key": {"en": "new text", "de": null}}}}. A {@code null} value resets that key -
+     * it is removed from the override rather than filled with the packaged text, so the line goes back to following
+     * the jar.
      *
-     * <p><b>A dropped placeholder is a warning, never a refusal</b> - the same rule steward/60 gives
-     * a syntax error in the raw editor. The response always carries {@code warnings}, empty when
-     * there was nothing to say.</p>
+     * A dropped placeholder is a warning, never a refusal, the same rule the raw editor gives a syntax error. The
+     * response always carries {@code warnings}, empty when there was nothing to say.
      *
-     * <p><b>A placeholder the schema does not declare is a refusal</b>, and nothing of the request is
-     * written: the plugin fills the declared arguments and nothing else, so the line would draw its
-     * {@code {name}} literally. The 400 names the key.</p>
+     * A placeholder the schema does not declare is a refusal, and nothing of the request is written: the plugin fills
+     * the declared arguments and nothing else, so the line would draw its {@code {name}} literally. The 400 names the
+     * key.
      */
     public void save(final Context ctx) {
         final MessageBundleLocation location = locate(ctx);
@@ -179,17 +180,15 @@ public final class MessagesApi {
     }
 
     /**
-     * Asks the service that owns a just-saved bundle to re-read it, answered under {@code reload}
-     * in the save's own response.
+     * Asks the service that owns a just-saved bundle to re-read it.
      *
-     * <p>In the vocabulary {@code ConfigApi#reload} already gave a config file - {@code APPLIED},
-     * {@code NO_ANSWER} or {@code RESTART_REQUIRED} plus a {@code message} - and a Minecraft bundle
-     * goes through that same table and that same console. The bot has no console, so its bundle
-     * rides the inbox it already listens on.</p>
+     * Answered under {@code reload} in the save's own response, in the vocabulary {@code ConfigApi#reload} already
+     * gave a config file - {@code APPLIED}, {@code NO_ANSWER} or
+     * {@code RESTART_REQUIRED} plus a {@code message} - and a Minecraft bundle goes through that same table and that
+     * same console. The bot has no console, so its bundle rides the inbox it already listens on.
      *
-     * <p>One field is added: {@code unknown}, the keys the override file declares that the bundle
-     * has never heard of. Only the bot reports it; a typo there does nothing at all and says
-     * nothing at all otherwise.</p>
+     * One field is added: {@code unknown}, the keys the override file declares that the bundle has never heard of. Only
+     * the bot reports it; a typo there does nothing at all and says nothing at all otherwise.
      */
     private Map<String, Object> reload(final MessageBundleLocation location) {
         if (!RELOADABLE_SERVICE.equals(location.service())) {
@@ -198,13 +197,14 @@ public final class MessagesApi {
             answer.put("unknown", List.of());
             return answer;
         }
-        if (inbox == null) {
+        final AccessRequests requests = inbox;
+        if (requests == null) {
             return outcome(
                     "RESTART_REQUIRED",
                     "Nothing was sent: this deployment has no database" + " to ask the bot through.",
                     List.of());
         }
-        final AccessRequest asked = inbox.submit(
+        final AccessRequest asked = requests.submit(
                 new AccessRequests.NewAccessRequest(
                         AccessRequestKind.RELOAD_MESSAGES,
                         identityOf(location),
@@ -212,7 +212,7 @@ public final class MessagesApi {
                         AccessRequestSource.STEWARD,
                         ASKED_BY),
                 ANSWER_WITHIN);
-        final AccessRequest settled = waitFor(asked.id());
+        final AccessRequest settled = waitFor(requests, asked.id());
         if (settled == null || settled.status() == AccessRequestStatus.EXPIRED) {
             return outcome(
                     "NO_ANSWER",
@@ -249,10 +249,10 @@ public final class MessagesApi {
      * @return the row once it has stopped being pending, or {@code null} if it has not within
      *         {@link #ANSWER_WITHIN} - which is a bot that is not running, and is not an error
      */
-    private AccessRequest waitFor(final long id) {
+    private @Nullable AccessRequest waitFor(final AccessRequests requests, final long id) {
         final long giveUpAt = System.nanoTime() + ANSWER_WITHIN.plusSeconds(1).toNanos();
         while (System.nanoTime() < giveUpAt) {
-            final AccessRequest row = inbox.outcome(id).orElse(null);
+            final AccessRequest row = requests.outcome(id).orElse(null);
             if (row != null && row.status().settled()) {
                 return row;
             }
@@ -269,12 +269,11 @@ public final class MessagesApi {
     /**
      * The {@code unknown} field of the bot's own answer, split back into a list.
      *
-     * <p>The row carries the bot's JSON verbatim - see {@code AccessRequests#finish} on why no
-     * surface composes a second rendering of it - and the bot writes one comma-joined string
-     * because {@code AccessInbox#json} takes pairs of strings. Splitting it here is the whole
-     * translation, and an empty string is no keys rather than one empty key.</p>
+     * The row carries the bot's JSON verbatim - see {@code AccessRequests#finish} on why no surface composes a second
+     * rendering of it - and the bot writes one comma-joined string because {@code AccessInbox#json} takes pairs of
+     * strings. Splitting it here is the whole translation, and an empty string is no keys rather than one empty key.
      */
-    private static List<String> unknownIn(final String result) {
+    private static List<String> unknownIn(final @Nullable String result) {
         if (result == null || result.isBlank()) {
             return List.of();
         }
@@ -289,7 +288,7 @@ public final class MessagesApi {
                     || unknown.getAsString().isBlank()) {
                 return List.of();
             }
-            return List.of(unknown.getAsString().split(","));
+            return COMMA.splitAsStream(unknown.getAsString()).toList();
         } catch (final JsonSyntaxException | IllegalStateException malformed) {
             log.warn("the bot answered a reload with something that is not the expected JSON: {}", result);
             return List.of();
@@ -325,8 +324,9 @@ public final class MessagesApi {
     }
 
     /**
-     * A dropped placeholder for every changed key that had one, checked against the packaged text -
-     * the "original" the ticket means, not whatever the override said a moment ago.
+     * A dropped placeholder for every changed key that had one.
+     *
+     * Checked against the packaged text - the "original" this means, not whatever the override said a moment ago.
      */
     private static List<String> warningsOf(
             final MessageBundle before, final String language, final Map<String, String> changes) {
@@ -355,9 +355,7 @@ public final class MessagesApi {
         return warnings;
     }
 
-    // ---------------------------------------------------------------------------------------
     // Finding the bundle
-    // ---------------------------------------------------------------------------------------
 
     private List<MessageBundleLocation> locations() {
         return MessageBundles.discover(configsRoot, volumesRoot);
@@ -376,9 +374,7 @@ public final class MessagesApi {
         return location.module().isEmpty() ? location.service() : location.service() + "/" + location.module();
     }
 
-    // ---------------------------------------------------------------------------------------
     // What goes over the wire
-    // ---------------------------------------------------------------------------------------
 
     private static Map<String, Object> describe(final MessageBundleLocation location) {
         final Map<String, Object> row = new LinkedHashMap<>();
@@ -403,11 +399,7 @@ public final class MessagesApi {
     private static Map<String, Object> describe(final MessageEntry entry) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("key", entry.key());
-        // Gson drops a null-valued map entry by default rather than writing `null` (unlike a field
-        // on a POJO), and this class does not own the app-wide JsonMapper to turn serializeNulls()
-        // on without changing what every other route answers. So absence IS the "no text in this
-        // language" signal here, the same way ConfigApi already leaves `value`/`items` off a secret
-        // entry rather than sending them as null.
+        // Gson drops a null-valued map entry rather than writing `null`, so absence IS the "no text" signal here.
         putIfPresent(row, "english", entry.english());
         putIfPresent(row, "german", entry.german());
         putIfPresent(row, "overrideEnglish", entry.overrideEnglish());
@@ -433,15 +425,13 @@ public final class MessagesApi {
         return row;
     }
 
-    private static void putIfPresent(final Map<String, Object> row, final String key, final String value) {
+    private static void putIfPresent(final Map<String, Object> row, final String key, final @Nullable String value) {
         if (value != null) {
             row.put(key, value);
         }
     }
 
-    // ---------------------------------------------------------------------------------------
     // What comes in
-    // ---------------------------------------------------------------------------------------
 
     private static JsonObject bodyOf(final String body) {
         try {
@@ -452,8 +442,9 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code {"changes": {"key": {"en": "text", "de": null}}}} split by language, English first -
-     * {@code null} resets that language of that key.
+     * The changes split by language, English first.
+     *
+     * {@code {"changes": {"key": {"en": "text", "de": null}}}} - {@code null} resets that language of that key.
      */
     private static Map<String, Map<String, String>> changesOf(final JsonObject body) {
         final JsonElement changes = body.get("changes");

@@ -2,31 +2,37 @@ package eu.nordtal.s2.steward.worker.configfile;
 
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Turns a config key into the words a human reads above the input.
  *
- * <p>Mechanical on purpose. A table of nicer names ("Base URL", "Session length") would be a
- * second place to keep every key of every module in the stack up to date, and the one that is
- * wrong is always the one nobody remembers exists. What the key says is what the label says. jcore's
- * {@code SettingLabels.of} applies the same rule to a key it writes a schema for.</p>
+ * Mechanical on purpose. A table of nicer names ("Base URL", "Session length") would be a second place to keep every
+ * key of every module in the stack up to date, and the one that is wrong is always the one nobody remembers exists.
+ * What the key says is what the label says. jcore's {@code SettingLabels.of} applies the same rule to a key it
+ * writes a schema for.
  */
 final class Labels {
 
     private Labels() {}
 
     /**
-     * The few abbreviations a config key in this stack actually uses, written upper-case in a
-     * label. A short list rather than "every word of two or three letters", which would turn
-     * {@code max} and {@code day} into shouting.
+     * The few abbreviations a config key in this stack actually uses, written upper-case in a label.
+     *
+     * A short list rather than "every word of two or three letters", which would turn {@code max} and {@code day}
+     * into shouting.
      */
     private static final Set<String> ACRONYMS = Set.of(
             "api", "db", "gui", "http", "https", "id", "ip", "json", "jvm", "motd", "mspt", "pvp", "smp", "sql", "tps",
             "ttl", "ui", "url", "uri", "uuid", "xp");
 
+    private static final Pattern SEPARATORS = Pattern.compile("[-_]+");
+    private static final Pattern CAMEL_BOUNDARY = Pattern.compile("(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])");
+
     /**
-     * {@code base-url} becomes {@code Base URL}, {@code stop_services} becomes
-     * {@code Stop services}, {@code logFailedRequests} becomes {@code Log failed requests}.
+     * {@code base-url} becomes {@code Base URL}, {@code stop_services} becomes {@code Stop services}.
+     *
+     * {@code logFailedRequests} becomes {@code Log failed requests}.
      *
      * @param key the leaf key
      * @return the key split on {@code -}, {@code _} and a change of case, lowercased except for a
@@ -34,12 +40,12 @@ final class Labels {
      */
     static String of(final String key) {
         final StringBuilder out = new StringBuilder(key.length() + 4);
-        for (final String part : key.split("[-_]+")) {
-            // "HTTPServer" is HTTP and Server, "serverUuid" is server and Uuid. A key written all
-            // in capitals is one word, not one word per letter.
+        for (final String part : SEPARATORS.splitAsStream(key).toArray(String[]::new)) {
+            // "HTTPServer" is HTTP and Server; a key written all in capitals is one word, not one per letter.
             final boolean allCaps = part.equals(part.toUpperCase(Locale.ROOT));
-            final String[] words =
-                    allCaps ? new String[] {part} : part.split("(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])");
+            final String[] words = allCaps
+                    ? new String[] {part}
+                    : CAMEL_BOUNDARY.splitAsStream(part).toArray(String[]::new);
             for (final String word : words) {
                 if (word.isEmpty()) {
                     continue;

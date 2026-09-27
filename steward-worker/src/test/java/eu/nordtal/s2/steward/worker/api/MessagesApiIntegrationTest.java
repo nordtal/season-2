@@ -32,19 +32,14 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * {@link MessagesApi} served over real HTTP - the contract steward-ui reads, not the methods behind
- * it (steward/48).
+ * {@link MessagesApi} served over real HTTP - the contract steward-ui reads, not the methods behind it.
  *
- * <p><b>The red this class exists to have shown</b>: before {@link MessagesApi} and its two routes
- * existed, nothing under {@code /api/} could answer a question about a message bundle at all - the
- * ticket's own words are that {@code GET /api/config} "lists no bundle at all", and that remains true
- * on purpose (see {@link MessagesApi}'s javadoc for why the two stay apart): a bundle is answered by
- * its own route, {@code /api/messages}, which is the one this class asserts against instead.</p>
+ * {@code GET /api/config} lists no bundle at all: a bundle is answered by its own route, {@code /api/messages},
+ * which is the one this class asserts against (see {@link MessagesApi} 's javadoc for why the two stay apart).
  */
 class MessagesApiIntegrationTest {
 
@@ -92,15 +87,13 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("an empty mount lists no bundle at all - the state before this route existed")
-    void anEmptyMountListsNoBundle() throws Exception {
+    void anEmptyMountListsNoBundleAtAllTheStateBeforeThisRouteExisted() throws Exception {
         final JsonArray list = GSON.fromJson(get("/api/messages"), JsonArray.class);
         assertEquals(0, list.size(), list.toString());
     }
 
     @Test
-    @DisplayName("a real bundle is listed, and its content shows packaged text and override side by side")
-    void aRealBundleIsListedAndRead() throws Exception {
+    void aRealBundleIsListedAndItsContentShowsPackagedTextAndOverrideSideBySide() throws Exception {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
@@ -123,8 +116,7 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("saving a line creates the override and warns, but still saves, when a placeholder is dropped")
-    void savingWarnsOnADroppedPlaceholder() throws Exception {
+    void savingALineCreatesTheOverrideAndWarnsButStillSavesWhenAPlaceholderIsDropped() throws Exception {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of("messages/smp/en.properties", "greeting=Hello <_sender>\n"));
@@ -138,12 +130,11 @@ class MessagesApiIntegrationTest {
         assertEquals(
                 "Hello there",
                 entry(saved, "greeting").get("overrideEnglish").getAsString(),
-                "a warning must not stop the save - steward/60's rule applies here too");
+                "a warning must not stop the save");
     }
 
     @Test
-    @DisplayName("a placeholder the schema does not declare is refused with the key, and nothing is saved")
-    void anUnknownPlaceholderIsRefused() throws Exception {
+    void aPlaceholderTheSchemaDoesNotDeclareIsRefusedWithTheKeyAndNothingIsSaved() throws Exception {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
@@ -175,8 +166,7 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("resetting a key removes it from the override rather than copying English into it")
-    void resettingRemovesTheOverride() throws Exception {
+    void resettingAKeyRemovesItFromTheOverrideRatherThanCopyingEnglishIntoIt() throws Exception {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
@@ -191,22 +181,18 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("a bundle that does not exist is a 404")
-    void anUnknownBundleIsNotFound() throws Exception {
-        assertEquals(404, raw("/api/messages/no-such-thing", null).statusCode());
+    void aBundleThatDoesNotExistIsA404() throws Exception {
+        assertEquals(404, raw("/api/messages/no-such-thing").statusCode());
     }
 
-    // ---------------------------------------------------------------------------------- reload
-
     /**
-     * The three answers season-2-community/09 asks this route for, in the order the ticket names
-     * them. Before it existed there was no fourth route at all and a saved bot message took effect
-     * at the next restart of the container, with nothing on the page saying so - which is the whole
-     * defect, and it is invisible rather than red.
+     * The route re-reads the bot's message bundle on demand and reports unknown keys by name.
+     *
+     * Without it, a saved bot message would only take effect at the next restart of the container, with nothing on
+     * the page saying so.
      */
     @Test
-    @DisplayName("the bot's bundle is re-read on demand, and unknown keys come back named")
-    void reloadingTheBotsBundleReportsWhatItFound() throws Exception {
+    void theBotsBundleIsReReadOnDemandAndUnknownKeysComeBackNamed() throws Exception {
         botBundle();
         inbox.answer = request -> settled(request, AccessRequestStatus.DONE, "{\"unknown\":\"\"}");
 
@@ -228,8 +214,7 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("a bot that did not re-read is said so, not reported as applied")
-    void aFailedReloadIsNotAnAppliedOne() throws Exception {
+    void aBotThatDidNotReReadIsSaidSoNotReportedAsApplied() throws Exception {
         botBundle();
         inbox.answer = request ->
                 settled(request, AccessRequestStatus.FAILED, "{\"error\":\"de.properties is not readable\"}");
@@ -239,13 +224,14 @@ class MessagesApiIntegrationTest {
     }
 
     /**
-     * <b>The answer this ticket exists for.</b> Until now it was not a wrong answer, it was no
-     * answer: the page said "saved" and let the reader assume the line was in force, and the bot
-     * went on sending the old one until somebody restarted the container for an unrelated reason.
+     * The answer this ticket exists for.
+     *
+     * Until now it was not a wrong answer, it was no answer: the page said "saved" and let the reader assume the line
+     * was in force, and the bot went on sending the old one until somebody restarted the container for an unrelated
+     * reason.
      */
     @Test
-    @DisplayName("a bot that is not running means saved, in force after a restart")
-    void aBotThatNeverAnswersIsSaidToNeedARestart() throws Exception {
+    void aBotThatIsNotRunningMeansSavedInForceAfterARestart() throws Exception {
         botBundle();
         // The default: the row is written and nobody ever claims it.
         final JsonObject answer = saveBot();
@@ -258,8 +244,7 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("both languages are saved in one call")
-    void bothLanguagesInOneCall() throws Exception {
+    void bothLanguagesAreSavedInOneCall() throws Exception {
         smpBundle();
 
         final JsonObject saved = GSON.fromJson(
@@ -271,8 +256,7 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("saving a Minecraft bundle sends that plugin's reload to its console")
-    void savingAMinecraftBundleReloadsIt() throws Exception {
+    void savingAMinecraftBundleSendsThatPluginsReloadToItsConsole() throws Exception {
         smpBundle();
 
         final JsonObject saved = GSON.fromJson(
@@ -285,8 +269,7 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("a Minecraft service that is down means saved, in force once it runs again")
-    void aStoppedMinecraftServiceIsNoAnswer() throws Exception {
+    void aMinecraftServiceThatIsDownMeansSavedInForceOnceItRunsAgain() throws Exception {
         smpBundle();
         consoleDown = true;
 
@@ -343,9 +326,8 @@ class MessagesApiIntegrationTest {
     /**
      * An inbox nobody polls, answering whatever the test decided the bot would have done.
      *
-     * <p>A fake rather than Testcontainers because what is under test here is the route's three
-     * answers, not the SQL - {@code AccessRequestsIntegrationTest} in {@code :common} is where the
-     * table is held against a real PostgreSQL.</p>
+     * A fake rather than Testcontainers because what is under test here is the route's three answers, not the SQL -
+     * {@code AccessRequestsIntegrationTest} in {@code :common} is where the table is held against a real PostgreSQL.
      */
     private static final class Inbox implements AccessRequests {
 
@@ -423,7 +405,7 @@ class MessagesApiIntegrationTest {
     }
 
     private String get(final String path) throws Exception {
-        final HttpResponse<String> response = raw(path, null);
+        final HttpResponse<String> response = raw(path);
         assertEquals(200, response.statusCode(), path + " answered " + response.body());
         return response.body();
     }
@@ -448,7 +430,7 @@ class MessagesApiIntegrationTest {
                 HttpResponse.BodyHandlers.ofString());
     }
 
-    private HttpResponse<String> raw(final String path, final String body) throws Exception {
+    private HttpResponse<String> raw(final String path) throws Exception {
         final HttpRequest.Builder request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path));
         request.GET();
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());

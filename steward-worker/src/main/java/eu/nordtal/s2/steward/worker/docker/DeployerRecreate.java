@@ -17,53 +17,40 @@ import java.time.Duration;
 import java.time.Instant;
 
 /**
- * {@link ContainerOps#deploy} and {@link ContainerOps#recreate}, asked of
- * {@code steward-deployer} over HTTP instead of refused.
+ * {@link ContainerOps#deploy} and {@link ContainerOps#recreate}, asked of {@code steward-deployer} over HTTP.
  *
- * <h2>The boundary this decorates rather than removes</h2>
- * {@link DockerOps#deploy} still refuses every time: it has no compose file, and a container
- * rebuilt from an {@code inspect} would drift from it silently (season-2-ops/22). That refusal is
- * correct and stays exactly where it is. What was missing was a way to ask <em>across</em> the
- * boundary rather than a hole in it - {@code steward-deployer} carries the compose file and exposes
- * it over HTTP, so that a service whose image the registry has moved past is actually renewed
- * rather than reported {@code FAILED} on every single run until a person runs
- * {@code docker compose up} by hand.
+ * The boundary this decorates rather than removes: {@link DockerOps#deploy} still refuses every time: it has no
+ * compose file, and a container rebuilt from an {@code inspect} would drift from it silently. That refusal is
+ * correct and stays exactly where it is. What was missing was a way to ask across the boundary rather than a hole
+ * in it - {@code steward-deployer} carries the compose file and exposes it over HTTP, so that a service whose image
+ * the registry has moved past is actually renewed rather than reported {@code FAILED} on every single run until a
+ * person runs {@code docker compose up} by hand.
  *
- * <h2>An update run asks for a deploy, not a recreate, and that is season-2-ops/140</h2>
- * The deployer has two routes and season-2-ops/134 put a real difference between them:
- * {@code POST /api/recreate/{service}} rebuilds the container <b>from the image already on this
- * host</b>, and {@code POST /api/deploy} pulls first. That split is right - the button an admin
- * presses to un-wedge a container must not silently replace a locally built image with the
- * published one - but this class went on asking for the recreate, and an update run's whole reason
- * to touch a container is that the registry has something the host does not.
+ * An update run asks for a deploy, not a recreate. The deployer has two routes with a real difference between them:
+ * {@code POST /api/recreate/{service}} rebuilds the container from the image already on this host, and
+ * {@code POST /api/deploy} pulls first. That split is right - the button an admin presses to un-wedge a container
+ * must not silently replace a locally built image with the published one - but an update run's whole reason to
+ * touch a container is that the registry has something the host does not, so it has to take the fetching route: a
+ * run that reports "pulling its image and recreating the container" while asking for a recreate pulls nothing,
+ * comes back healthy on the same stale image, and finds the same service {@code OUTDATED} again on the next run. A
+ * run that takes the network down to change nothing is the defect this project has regressed into before.
  *
- * <p>The result was a run that reported "pulling its image and recreating the container", pulled
- * nothing, came back healthy on the same stale image, and therefore found the same service
- * {@code OUTDATED} on the next run: measured on this host on 2026-09-20, two consecutive update
- * runs stopped and recreated all four Minecraft services and the image on disk was the one from
- * 2026-09-18 both times, while a plain {@code docker pull} by hand fetched a newer one immediately.
- * A run that takes the network down to change nothing is the defect this project has regressed
- * into before, so the direction of the fix is fixed: <b>the update run takes the fetching
- * route.</b></p>
+ * A pull that fails is not a server left off. The deployer tolerates a failed pull when the image is already here,
+ * and when it does not, {@code UpdateRun#start} starts the old container again and settles the line {@code FAILED} -
+ * the same fallback that was already there for a refused recreate.
  *
- * <p>A pull that fails is not a server left off. The deployer tolerates a failed pull when the
- * image is already here, and when it does not, {@code UpdateRun#start} starts the old container
- * again and settles the line {@code FAILED} - the same fallback that was already there for a
- * refused recreate.</p>
+ * The recreate route is not dead, it has a different caller: a standby is started with it, precisely because it
+ * must not fetch. See {@link #recreate}.
  *
- * <p><b>The recreate route is not dead, it has a different caller</b> (season-2-ops/122): a standby
- * is started with it, precisely because it must <em>not</em> fetch. See {@link #recreate}.</p>
+ * Everything else passes through unchanged: {@link #runtime}, {@link #stop}, {@link #start} and {@link #images} are
+ * the delegate's, untouched - this class only ever speaks to the deployer for the one thing {@code DockerOps} cannot
+ * do.
  *
- * <h2>Everything else passes through unchanged</h2>
- * {@link #runtime}, {@link #stop}, {@link #start} and {@link #images} are the delegate's, untouched
- * - this class only ever speaks to the deployer for the one thing {@code DockerOps} cannot do.
- *
- * <h2>Why a poll and not the SSE stream</h2>
- * steward-deployer also serves {@code GET /api/jobs/{id}/stream}, which is what steward-ui's
- * console reads from. An update run has no console to draw into: {@code UpdateRun} calls
- * {@link #deploy} once and needs exactly one verdict - triggered, refused or unverified - so a
- * plain {@code GET /api/jobs/{id}} asked every few seconds is the whole answer, with no connection
- * to keep alive underneath a bigger retry loop.
+ * Why a poll and not the SSE stream: steward-deployer also serves {@code GET /api/jobs/{id}/stream}, which is what
+ * steward-ui's console reads from. An update run has no console to draw into: {@code UpdateRun} calls
+ * {@link #deploy} once and needs exactly one verdict - triggered, refused or unverified - so a plain
+ * {@code GET /api/jobs/{id}} asked every few seconds is the whole answer, with no connection to keep alive
+ * underneath a bigger retry loop.
  */
 public final class DeployerRecreate implements ContainerOps {
 
@@ -127,12 +114,12 @@ public final class DeployerRecreate implements ContainerOps {
     }
 
     /**
-     * {@code POST /api/deploy} on steward-deployer naming this one service, then polls the job it
-     * hands back until it settles or this call's patience runs out.
+     * {@code POST /api/deploy} on steward-deployer naming this one service.
      *
-     * <p>The service is named, never left out. An empty list means <em>every</em> service to
-     * compose, and the deployer's own {@code servicesToDeploy} exists because that mistake has
-     * been made here before.</p>
+     * Then polls the job it hands back until it settles or this call's patience runs out.
+     *
+     * The service is named, never left out. An empty list means every service to compose, and the deployer's own
+     * {@code servicesToDeploy} exists because that mistake has been made here before.
      */
     @Override
     public RedeployResult deploy(final String service) {
@@ -148,13 +135,11 @@ public final class DeployerRecreate implements ContainerOps {
     /**
      * {@code POST /api/recreate/{service}}: the container again, from the image already here.
      *
-     * <p>The other of the two routes season-2-ops/134 separated, and the one a standby needs. A
-     * standby exists to stand in for a live service for a minute, so it has to run <b>the same
-     * image that service is running</b> - and on this deployment that image is very often one built
-     * on the host and pushed to no registry. A pull here would put the published image under the
-     * standby while the live proxy runs the local one, which is the same silent downgrade
-     * season-2-ops/134 removed from the admin's Recreate button, arriving through a different
-     * door.</p>
+     * The route a standby needs, as opposed to the one that pulls first. A standby exists to stand in
+     * for a live service for a minute, so it has to run the same image that service is running - and on this deployment
+     * that image is very often one built on the host and pushed to no registry. A pull here would put the published
+     * image under the standby while the live proxy runs the local one, which is the same silent downgrade
+     * kept off the admin's Recreate button, arriving through a different door.
      */
     @Override
     public RedeployResult recreate(final String service) {
@@ -262,9 +247,9 @@ public final class DeployerRecreate implements ContainerOps {
     /**
      * The body of {@code POST /api/deploy} for exactly one service.
      *
-     * <p>Built with Gson rather than by concatenation so a service name can never end the JSON
-     * string early, and package-visible so a test can read the bytes that go out - "it names one
-     * service" is the assertion that separates this from the empty list compose reads as "all".</p>
+     * Built with Gson rather than by concatenation so a service name can never end the JSON string early, and
+     * package-visible so a test can read the bytes that go out - "it names one service" is the assertion that separates
+     * this from the empty list compose reads as "all".
      */
     static String deployBody(final String service) {
         final JsonArray services = new JsonArray();
@@ -287,13 +272,12 @@ public final class DeployerRecreate implements ContainerOps {
     /**
      * Refuses to send the token in clear to an address outside this deployment.
      *
-     * <p>{@code deployer.url} lives in {@code steward.yml}, which is one of the files the config
-     * editor offers - so it is one careless save away from being pointed at a public address, with
-     * nothing stopping this token going out in clear the next time a recreate is asked for. Plain
-     * {@code http} is therefore only allowed to a name with no dot in it (a compose service, which
-     * cannot be a public DNS name) or to loopback; anything else has to be {@code https}. Mirrors
-     * steward-ui's {@code InternalClient}, which guards the same token for the same reason on the
-     * other side of this same call.</p>
+     * {@code deployer.url} lives in {@code steward.yml}, which is one of the files the config editor offers - so it
+     * is one careless save away from being pointed at a public address, with nothing stopping this token going out
+     * in clear the next time a recreate is asked for. Plain {@code http} is therefore only allowed to a name with
+     * no dot in it (a compose service, which cannot be a public DNS name) or to loopback; anything else has to be
+     * {@code https}. Mirrors steward-ui's {@code InternalClient}, which guards the same token for the same reason
+     * on the other side of this same call.
      */
     private static String plaintextOnlyInside(final String baseUrl) {
         final URI uri = URI.create(baseUrl);

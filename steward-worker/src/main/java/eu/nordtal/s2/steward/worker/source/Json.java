@@ -10,14 +10,12 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Reading the three APIs' JSON, with the field name in the message when it is not there.
- * <p>
- * gson arrives through jcore as a transitive api dependency, which is also why no parser is
- * declared in this module's build file. It is used raw rather than through {@code @SerializedName}
- * data classes on purpose: these payloads are large, mostly irrelevant, and change shape upstream
- * without warning. Naming the six fields we actually read means an upstream addition is ignored
- * and an upstream <em>removal</em> is an error that says which field went missing - a mapped class
- * would instead hand back an object with a silent null in it.
- * </p>
+ *
+ * gson arrives through jcore as a transitive api dependency, which is also why no parser is declared in this
+ * module's build file. It is used raw rather than through {@code @SerializedName} data classes on purpose: these
+ * payloads are large, mostly irrelevant, and change shape upstream without warning. Naming the six fields we
+ * actually read means an upstream addition is ignored and an upstream removal is an error that says which field went
+ * missing - a mapped class would instead hand back an object with a silent null in it.
  */
 final class Json {
 
@@ -60,7 +58,7 @@ final class Json {
 
     static boolean bool(final JsonObject object, final String field, final boolean fallback) {
         final JsonElement element = object.get(field);
-        return element == null || element.isJsonNull() ? fallback : element.getAsBoolean();
+        return (element == null || element.isJsonNull()) ? fallback : element.getAsBoolean();
     }
 
     static long number(final JsonObject object, final String field, final long fallback) {

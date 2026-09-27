@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.Platform;
+import eu.nordtal.s2.steward.worker.config.BackupSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.http.FakeHttp;
 import eu.nordtal.s2.steward.worker.http.HttpException;
@@ -24,17 +25,13 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The whole of step 1, against recorded API responses and a volume tree on disk.
- * <p>
- * Every fixture is a real payload from 2026-09-01, and the release in it is the one that carried
- * the scaffold jars - so these tests run against exactly the situation the module was built to
- * make visible.
- * </p>
+ *
+ * Fixtures are real payloads whose release carries the scaffold jars - the situation this module targets.
  */
 class ResolverTest {
 
@@ -53,42 +50,24 @@ class ResolverTest {
                 .serving("/repos/nordtal/papermc-display-tags/releases", "github-display-tags.json")
                 .serving("/project/HYKaKraK/version", "modrinth-packetevents.json")
                 .serving("/project/9eGKb6K1/version", "modrinth-voicechat.json")
-                // The same project asked a second time for its Velocity build, so the route has to
-                // be the loader filter rather than the project - a longer substring wins in
-                // FakeHttp, and this is the only artefact resolved on that loader. The fixture is
-                // the real answer: one version, alpha, which is the whole reason the pre-release
-                // exception in Modrinth exists.
+                // Velocity is asked again by loader filter, not project; the longer substring wins in FakeHttp.
                 .serving("loaders=%5B%22velocity%22%5D", "modrinth-voicechat-velocity.json")
-                // A recorded EMPTY array - what Modrinth really answered for CoreProtect filtered
-                // to 26.2/paper on 2026-09-08. It is a fixture and not a literal because the shape
-                // of "no version matches" is the thing under test.
+                // A recorded EMPTY array is what Modrinth answers for CoreProtect on this platform: no version matches.
                 .serving("/project/Lu3KuzdV/version", "modrinth-coreprotect-none.json")
                 .serving("/projects/paper/versions/26.2/builds", "fill-paper-26.2.json")
-                // Two calls for the proxy since 2026-09-09: the project list says which version
-                // Velocity's major 4 is on, and only then is that version's build list read.
+                // Two calls for the proxy: the project list names Velocity's major, then its build list is read.
                 .serving("/projects/velocity", "fill-velocity-project.json")
                 .serving("/projects/velocity/versions/4.2.0/builds", "fill-velocity-4.2.0.json")
                 .answering(".zip.sha1", PACK_SHA1 + "\n");
     }
 
-    // ---------------------------------------------------------------- scenarios
-
     @Test
-    @DisplayName("the proxy's version is resolved out of its family, and says nothing while it agrees")
-    void theVelocityFamilyResolvesToTheCompiledApi() throws IOException {
+    void theProxysVersionIsResolvedOutOfItsFamilyAndSaysNothingWhileItAgrees() throws IOException {
         installCurrentEverything();
 
         final UpdatePlan plan = resolve();
 
-        // 4.0.0 is Fill's name for the whole 4.x line and carries four SNAPSHOTs; what comes out is
-        // 4.2.0, which is the version the proxy plugin is compiled against, reached without anybody
-        // maintaining a pin.
-        //
-        // The recording was 4.1.1 until 2026-09-15, and re-recording it is the whole point of this
-        // test: Fill had published 4.2.0 into the family, the live proxy was already running
-        // velocity-4.2.0-30.jar, and the catalog still said 4.1.1. When the catalog was corrected,
-        // this assertion is what went red - a fixture from 2026-09-09 against a constant from
-        // today - and that is the coupling working rather than a nuisance.
+        // 4.0.0 names the whole 4.x line; what resolves is 4.2.0, the version the proxy plugin is compiled against.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "velocity"));
         assertEquals(
                 List.of(),
@@ -98,13 +77,9 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a Velocity newer than the API proxy was built for is named, not refused")
-    void aVelocityAheadOfTheCatalogIsReported() throws IOException {
+    void aVelocityNewerThanTheApiProxyWasBuiltForIsNamedNotRefused() throws IOException {
         installCurrentEverything();
-        // The same family with one release added. This is the situation the whole note exists for:
-        // nothing in the run fails, the proxy simply ends up on an API the plugin in it predates.
-        // 4.3.0 is invented; it is one minor past whatever the catalog holds, which is what this
-        // branch needs and what no recorded fixture can contain.
+        // Same family, one release added: the run must not fail, it should simply predate the API it lands on.
         http.answering("/projects/velocity", """
                 {"project":{"id":"velocity","name":"Velocity"},
                  "versions":{"4.0.0":["4.3.0-SNAPSHOT","4.3.0","4.2.0","4.1.1","4.1.0","4.0.0"]}}
@@ -117,12 +92,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        // MISSING and not OUTDATED, and that is the filename identity rule showing through rather
-        // than a defect: a jar is superseded by its prefix, and `velocity-4.2.0` and `velocity-4.3.0`
-        // are different prefixes. It is the same thing a Paper version bump has always done. What it
-        // costs is one line of the report - "velocity 4.3.0" instead of "4.2.0 -> 4.3.0" - and one
-        // stale jar in .server/ that the entrypoint removes on the very start this run performs,
-        // because it keeps exactly one jar per kind. Asserted rather than left to be discovered.
+        // MISSING not OUTDATED: a different prefix is a different jar, exactly like a Paper version bump.
         assertEquals(Change.Status.MISSING, statusOf(plan, "proxy", "velocity"));
         assertTrue(plan.hasWork());
         assertEquals(
@@ -139,8 +109,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a deployment that is exactly what the sources say is up to date, with no work")
-    void everythingCurrent() throws IOException {
+    void aDeploymentThatIsExactlyWhatTheSourcesSayIsUpToDateWithNoWork() throws IOException {
         installCurrentEverything();
 
         final UpdatePlan plan = resolve();
@@ -155,8 +124,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("voice chat is resolved for the two servers people play on, and for nothing else")
-    void voiceChatIsOnTheTwoBackendsThatPlay() throws IOException {
+    void voiceChatIsResolvedForTheTwoServersPeoplePlayOnAndForNothingElse() throws IOException {
         installCurrentEverything();
 
         final UpdatePlan plan = resolve();
@@ -167,10 +135,7 @@ class ResolverTest {
             assertEquals("voicechat-bukkit-2.6.23.jar", change.installed(), service);
         }
 
-        // limbo and the proxy carry no row for the SERVER half: an artefact nothing installs must
-        // not appear as one that is merely up to date, because a row is what the guard and the
-        // applier act on. The waiting room is seconds long and holds nobody who could be talked to,
-        // and the proxy runs the other jar entirely.
+        // limbo and the proxy carry no SERVER row for voicechat: nothing installs it, so it must not read as current.
         assertTrue(
                 plan.changes().stream()
                         .filter(change -> "voicechat".equals(change.artifact()))
@@ -179,17 +144,12 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("the proxy half of voice chat is resolved from a pre-release, and only on the proxy")
-    void theVoiceChatProxyPluginIsOnTheProxyAlone() throws IOException {
+    void theProxyHalfOfVoiceChatIsResolvedFromAPreReleaseAndOnlyOnTheProxy() throws IOException {
         installCurrentEverything();
 
         final UpdatePlan plan = resolve();
 
-        // Same Modrinth project as the row above, different loader and therefore a different jar.
-        // This is the one artefact in the network installed from something not marked `release` -
-        // Modrinth.PRE_RELEASE_EXCEPTIONS names it and says why - and this asserts the exception is
-        // actually reached rather than merely declared: without it the row would be UNSUPPORTED and
-        // the proxy would silently never get the plugin that makes one UDP port enough.
+        // A different loader, a different jar, from Modrinth.PRE_RELEASE_EXCEPTIONS - asserts the exception is reached.
         final Change change = changeFor(plan, "proxy", "voicechat-velocity");
         assertEquals(Change.Status.UP_TO_DATE, change.status(), Report.render(plan));
         assertEquals("voicechat-velocity-2.6.18.jar", change.installed());
@@ -202,8 +162,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a plugin with no build for this Minecraft version is UNSUPPORTED, not a failure")
-    void aPluginWithNoBuildIsUnsupported() throws IOException {
+    void aPluginWithNoBuildForThisMinecraftVersionIsUnsupportedNotAFailure() throws IOException {
         installCurrentEverything();
 
         final UpdatePlan plan = resolve();
@@ -214,11 +173,7 @@ class ResolverTest {
         assertNull(change.installed());
         assertNotNull(change.note());
 
-        // The properties that make this different from UNRESOLVED, and every one of them is about
-        // the SEASON JAR standing next to it rather than about CoreProtect. A failure row makes
-        // Applier skip the whole service, so treating "the publisher has not shipped for 26.2" as
-        // an outage would have meant the SMP's own jar was never installed - every run, for as long
-        // as it lasted.
+        // Distinct from UNRESOLVED: a failure row skips the whole service, so a missing build must not read as one.
         assertFalse(change.status().isFailure(), Report.render(plan));
         assertFalse(change.status().isWork(), Report.render(plan));
         assertTrue(
@@ -229,15 +184,12 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a run that finds nothing but an unsupported artefact is nothing to do")
-    void anUnsupportedOnlyRunIsNothingToDo() throws IOException {
+    void aRunThatFindsNothingButAnUnsupportedArtefactIsNothingToDo() throws IOException {
         installCurrentEverything();
 
         final UpdatePlan plan = resolve();
 
-        // Everything else on this deployment is current, so the only row that is not UP_TO_DATE is
-        // CoreProtect's. That must not read as work: no server is stopped, nothing is installed,
-        // and a report closing with "installed" would be a claim about a file that does not exist.
+        // Everything else is current, so CoreProtect alone must not turn the report into a claim of work done.
         assertFalse(plan.hasWork(), Report.render(plan));
         assertFalse(plan.hasMissing(), Report.render(plan));
 
@@ -254,20 +206,16 @@ class ResolverTest {
                 "the artefact has to stay NAMED while it waits - one dropped from the report is one"
                         + " somebody has to remember: " + report.render());
 
-        // The text report names it too. What its SUMMARY says when nothing else is wrong is
-        // ReportTest's job: this fixture's release predates steward-worker's own jar, so it always
-        // carries one unresolved row and the summary is about that instead.
+        // The text report names it too; its SUMMARY when nothing else is wrong is ReportTest's job, not this one's.
         final String text = Report.render(plan);
         assertTrue(text.contains("coreprotect"), text);
         assertTrue(text.contains("no build yet"), text);
     }
 
     @Test
-    @DisplayName("a Modrinth outage is still a failure - it is the one that must not read as fine")
-    void anOutageIsStillAFailure() throws IOException {
+    void aModrinthOutageIsStillAFailureItIsTheOneThatMustNotReadAsFine() throws IOException {
         installCurrentEverything();
-        // The same artefact, the other reason for having no file. The distinction is the whole
-        // point of the new status, so it is asserted from both sides.
+        // Same artefact, the other reason for no file: asserted from both sides of the new status.
         http.failing(
                 "/project/Lu3KuzdV/version",
                 new HttpException(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
@@ -280,12 +228,9 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("an unclaimed voice chat jar on limbo is reported, never removed")
-    void voiceChatOnLimboIsUnclaimed() throws IOException {
+    void anUnclaimedVoiceChatJarOnLimboIsReportedNeverRemoved() throws IOException {
         installCurrentEverything();
-        // Somebody dropped it in by hand. That is legitimate and has to stay visible: the worker
-        // deletes nothing it does not account for, and a jar it silently ignored would be a second
-        // copy of a plugin loading beside the one it does manage.
+        // A hand-placed jar stays visible: the worker deletes nothing it does not account for.
         write("limbo", "plugins/voicechat-bukkit-2.6.23.jar");
 
         final UpdatePlan plan = resolve();
@@ -298,8 +243,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("an older jar of the same plugin is OUTDATED, and the report names both files")
-    void anOlderJarIsOutdated() throws IOException {
+    void anOlderJarOfTheSamePluginIsOutdatedAndTheReportNamesBothFiles() throws IOException {
         installCurrentEverything();
         replace("smp", "plugins/smp-0.1.0.jar", "plugins/smp-0.0.9.jar");
 
@@ -315,8 +259,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("an empty but mounted volume is every row MISSING - a first deployment, not a fault")
-    void aFreshVolumeIsAllMissing() throws IOException {
+    void anEmptyButMountedVolumeIsEveryRowMissingAFirstDeploymentNotAFault() throws IOException {
         for (final Topology.Service service : Topology.SERVICES) {
             Files.createDirectories(volumes.resolve(service.name()).resolve("plugins"));
         }
@@ -333,10 +276,8 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a volume that is not mounted is unknown, and unknown is not up to date")
-    void anUnmountedVolumeIsNotAnEmptyOne() {
-        // Nothing is created at all: this is a compose file that forgot a volume, and the
-        // dangerous reading of it is "the SMP server has no plugins and needs all of them".
+    void aVolumeThatIsNotMountedIsUnknownAndUnknownIsNotUpToDate() {
+        // Nothing is created: an unmounted volume must not read as "the SMP has no plugins and needs all of them".
         final UpdatePlan plan = resolve();
 
         assertTrue(plan.hasFailures());
@@ -348,8 +289,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("one source failing costs its own rows and nobody else's")
-    void oneOutageStaysLocal() throws IOException {
+    void oneSourceFailingCostsItsOwnRowsAndNobodyElses() throws IOException {
         installCurrentEverything();
         http.failing("api.modrinth.com", new IOException("connect timed out"));
 
@@ -357,8 +297,7 @@ class ResolverTest {
 
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "packetevents"));
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "voicechat"));
-        // The question an operator is usually asking is about our own jars. Losing that answer to
-        // somebody else's CDN would make this report worth less than the .env file it replaces.
+        // An operator asks about our own jars; losing that to a third-party CDN outage makes the report worth less.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "smp"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "display-tags"));
         assertTrue(plan.hasFailures());
@@ -366,8 +305,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a season release that cannot be read names one reason on all six rows it feeds")
-    void theSeasonReleaseIsTheExpensiveFailure() throws IOException {
+    void aSeasonReleaseThatCannotBeReadNamesOneReasonOnAllSixRowsItFeeds() throws IOException {
         installCurrentEverything();
         http.failing(
                 "/repos/nordtal/season-2/",
@@ -379,16 +317,14 @@ class ResolverTest {
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "smp"));
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "proxy", "resource-pack"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "packetevents"));
-        // A 404 here is not an outage: it is a repository with no published release, which is a
-        // thing a person has to go and do. The message has to say so.
+        // A 404 is not an outage: it is a repository with no published release, and the message has to say so.
         final Change change = changeFor(plan, "smp", "smp");
         assertNotNull(change.note());
         assertTrue(change.note().contains("not published") || change.note().contains("404"), change.note());
     }
 
     @Test
-    @DisplayName("a jar nothing accounts for is reported and never touched")
-    void unclaimedJarsAreReported() throws IOException {
+    void aJarNothingAccountsForIsReportedAndNeverTouched() throws IOException {
         installCurrentEverything();
         write("smp", "plugins/SomeoneElsesPlugin-1.0.0.jar");
 
@@ -399,12 +335,9 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a plugin renamed by its publisher shows up as MISSING and unclaimed at once")
-    void aRenamedJarIsVisibleFromBothSides() throws IOException {
+    void aPluginRenamedByItsPublisherShowsUpAsMissingAndUnclaimedAtOnce() throws IOException {
         installCurrentEverything();
-        // packetevents-paper-* instead of packetevents-spigot-*. This is the one way this module could end up
-        // installing a second copy of something, and the two rows together are what make it
-        // obvious rather than mysterious.
+        // packetevents-paper-* instead of -spigot-*: the two rows together make a renamed jar obvious.
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-paper-2.13.0.jar");
 
         final UpdatePlan plan = resolve();
@@ -414,8 +347,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("the pack is compared on its hash, not on its URL")
-    void packOutOfDate() throws IOException {
+    void thePackIsComparedOnItsHashNotOnItsUrl() throws IOException {
         installCurrentEverything();
         writePackYml("0000000000000000000000000000000000000000");
 
@@ -426,15 +358,13 @@ class ResolverTest {
         assertNotNull(change.wanted());
         assertNotNull(change.wanted().checksum());
         assertEquals(PACK_SHA1, change.wanted().checksum().hex());
-        // The full hash on both sides: two pack releases sharing twelve leading hex
-        // characters would otherwise render as an unexplained change from a value to itself.
+        // Full hash on both sides: releases sharing a hex prefix must not render as a change from a value to itself.
         assertEquals("0000000000000000000000000000000000000000", change.installed());
         assertTrue(Report.render(plan).contains("sha1 " + PACK_SHA1), Report.render(plan));
     }
 
     @Test
-    @DisplayName("no pack.yml yet is MISSING with the path in it, not a crash")
-    void packNotConfiguredYet() throws IOException {
+    void noPackYmlYetIsMissingWithThePathInItNotACrash() throws IOException {
         installCurrentEverything();
         Files.delete(PackState.fileIn(volumes.resolve("proxy")));
 
@@ -446,8 +376,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("the bot is a jar in a volume like everything else, and reads as up to date")
-    void theBotIsResolvedFromItsOwnVolume() throws IOException {
+    void theBotIsAJarInAVolumeLikeEverythingElseAndReadsAsUpToDate() throws IOException {
         installCurrentEverything();
 
         final Change change = changeFor(resolve(), "discord-bot", "discord-bot");
@@ -457,8 +386,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("an older bot jar is work, exactly like an older plugin")
-    void anOlderBotJarIsOutdated() throws IOException {
+    void anOlderBotJarIsWorkExactlyLikeAnOlderPlugin() throws IOException {
         installCurrentEverything();
         replace("discord-bot", "discord-bot-0.1.0.jar", "discord-bot-0.0.9.jar");
 
@@ -470,8 +398,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a volume that is not mounted is reported as that, never as an empty one")
-    void anUnmountedStandaloneVolumeSaysSo() throws IOException {
+    void aVolumeThatIsNotMountedIsReportedAsThatNeverAsAnEmptyOne() throws IOException {
         installCurrentEverything();
         Files.delete(volumes.resolve("discord-bot").resolve("discord-bot-0.1.0.jar"));
         Files.delete(volumes.resolve("discord-bot"));
@@ -484,11 +411,9 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a release with no steward-worker jar in it leaves that row unresolved, not wrong")
-    void aReleaseWithoutAWorkerJarSaysSo() throws IOException {
+    void aReleaseWithNoStewardWorkerJarInItLeavesThatRowUnresolvedNotWrong() throws IOException {
         installCurrentEverything();
-        // v0.1.0 predates this module, so the release carries no worker jar - which is exactly
-        // what an unresolvable row should look like, and it clears itself with the next release.
+        // No worker jar in this release is exactly what an unresolvable row looks like, clearing on the next release.
         final Change change = changeFor(resolve(), "steward-worker", "steward-worker");
 
         assertEquals(Change.Status.UNRESOLVED, change.status());
@@ -497,8 +422,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a release without the smp jar leaves the installed one alone and moves the plugins beside it")
-    void aSeasonJarMissingFromTheReleaseKeepsWhatIsInstalled() throws IOException {
+    void aReleaseWithoutTheSmpJarLeavesTheInstalledOneAloneAndMovesThePluginsBesideIt() throws IOException {
         installCurrentEverything();
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
         http.answering(
@@ -508,8 +432,7 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
         final Change smp = changeFor(plan, "smp", "smp");
 
-        // The release answered; it simply has no file for this jar. That is not "could not look",
-        // and treating it as such held back every third-party plugin on the SMP.
+        // The release answered but has no file for this jar - that is NOT_IN_RELEASE, not a failed lookup.
         assertEquals(Change.Status.NOT_IN_RELEASE, smp.status(), Report.render(plan));
         assertEquals("smp-0.1.0.jar", smp.installed());
         assertFalse(smp.status().isFailure(), Report.render(plan));
@@ -528,8 +451,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a release without the smp jar and nothing else new is nothing to do")
-    void aSeasonJarMissingFromTheReleaseIsNoWorkOnItsOwn() throws IOException {
+    void aReleaseWithoutTheSmpJarAndNothingElseNewIsNothingToDo() throws IOException {
         installCurrentEverything();
         http.answering(
                 "/repos/nordtal/season-2/releases",
@@ -545,8 +467,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a service held back by a real failure is not moving, so nobody is counted down for it")
-    void aHeldBackServiceIsNotMoving() throws IOException {
+    void aServiceHeldBackByARealFailureIsNotMovingSoNobodyIsCountedDownForIt() throws IOException {
         installCurrentEverything();
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
         http.failing(
@@ -555,8 +476,7 @@ class ResolverTest {
 
         final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
 
-        // Applier skips the whole SMP over the outage, so stopping it would be an outage of our own
-        // for nothing. The line stays FAILED and says what it held back.
+        // Applier skips the whole SMP over the outage; the line stays FAILED and says what it held back.
         assertEquals(
                 eu.nordtal.s2.common.update.UpdateReport.State.FAILED,
                 report.line("smp").state(),
@@ -566,8 +486,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a server jar that could not be checked holds nothing back, so the plugins still move")
-    void anUncheckedServerJarLeavesThePluginsMoving() throws IOException {
+    void aServerJarThatCouldNotBeCheckedHoldsNothingBackSoThePluginsStillMove() throws IOException {
         installCurrentEverything();
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
         http.failing(
@@ -577,14 +496,12 @@ class ResolverTest {
 
         final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
 
-        // The applier installs the plugins beside a paper row it could not check, so the line has
-        // to say it moves: that is what stops the server before its jars are written.
+        // The applier installs plugins beside a paper row it could not check, so the line must say it moves.
         assertTrue(report.line("smp").isMoving(), report.render());
     }
 
     @Test
-    @DisplayName("the worker installs its own jar, which takes effect on the next start and not before")
-    void theWorkerResolvesItsOwnJar() throws IOException {
+    void theWorkerInstallsItsOwnJarWhichTakesEffectOnTheNextStartAndNotBefore() throws IOException {
         installCurrentEverything();
         http.answering(
                 "/repos/nordtal/season-2/releases",
@@ -592,8 +509,7 @@ class ResolverTest {
 
         final Change change = changeFor(resolve(), "steward-worker", "steward-worker");
 
-        // MISSING rather than UP_TO_DATE: the volume is mounted and empty, which is what a
-        // deployment looks like before the first run that installs a worker jar into it.
+        // MISSING not UP_TO_DATE: an empty, mounted volume is what a first deployment looks like before any install.
         assertEquals(Change.Status.MISSING, change.status());
         assertTrue(
                 change.status().isWork(),
@@ -603,8 +519,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a release pinned by tag that is a pre-release says so on the second line")
-    void aPinnedPreReleaseIsAnnounced() throws IOException {
+    void aReleasePinnedByTagThatIsAPreReleaseSaysSoOnTheSecondLine() throws IOException {
         installCurrentEverything();
         http.answering(
                 "/repos/nordtal/season-2/releases",
@@ -617,8 +532,7 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("nothing on disk is written, read or created - not even the config directory")
-    void resolvingWritesNothing() throws IOException {
+    void nothingOnDiskIsWrittenReadOrCreatedNotEvenTheConfigDirectory() throws IOException {
         installCurrentEverything();
         final List<String> before = tree();
 
@@ -626,8 +540,6 @@ class ResolverTest {
 
         assertEquals(before, tree());
     }
-
-    // ---------------------------------------------------------------- fixtures on disk
 
     /** The exact deployment the recorded release and the recorded APIs describe. */
     private void installCurrentEverything() throws IOException {
@@ -644,8 +556,7 @@ class ResolverTest {
         write("smp", "plugins/packetevents-spigot-2.13.0.jar");
         write("smp", "plugins/voicechat-bukkit-2.6.23.jar");
         write("smp", ".server/paper-26.2-121.jar");
-        // The bot and the worker are one jar in the root of their own volume - no plugins folder,
-        // nothing else in there. v0.1.0 carries no worker jar, so only the bot's is written here.
+        // The bot and the worker share one jar folder with no plugins subfolder; only the bot's jar exists here.
         write("discord-bot", "discord-bot-0.1.0.jar");
         Files.createDirectories(volumes.resolve("steward-worker"));
         writePackYml(PACK_SHA1);
@@ -680,14 +591,22 @@ class ResolverTest {
         }
     }
 
-    // ---------------------------------------------------------------- plumbing
-
     private UpdatePlan resolve() {
-        final StewardSpec config = new StewardSpec() {
+        return new Resolver(
+                        testConfig(),
+                        new GitHubReleases(http),
+                        new Modrinth(http),
+                        new PaperFill(http),
+                        Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC))
+                .resolve();
+    }
+
+    /** A {@link StewardSpec} whose every section but {@link StewardSpec#volumesRoot} is a plain default. */
+    private StewardSpec testConfig() {
+        return new StewardSpec() {
             @Override
             public BunqSpec bunq() {
-                // Defaults: empty credentials, which is "no bank account" and is a valid season.
-                // Nothing in this test asks bunq anything (steward/109).
+                // Defaults: empty credentials, which is "no bank account" and a valid season on its own.
                 return new BunqSpec() {};
             }
 
@@ -715,11 +634,9 @@ class ResolverTest {
 
             @Override
             public BackupSpec backup() {
-                // Defaults throughout: this test is not about a backup, and BackupSpec's own
-                // defaults are the production ones.
+                // Defaults throughout: this test is not about a backup, and BackupSpec's own defaults are fine.
                 return new BackupSpec() {
-                    // backup.remote is a section without a default, exactly as backup itself is - so an
-                    // anonymous spec has to hand back its defaults by name (steward/95).
+                    // backup.remote has no default of its own, so an anonymous spec hands its defaults back by name.
                     @Override
                     public RemoteSpec remote() {
                         return new RemoteSpec() {};
@@ -738,13 +655,6 @@ class ResolverTest {
                 return new DeployerSpec() {};
             }
         };
-        return new Resolver(
-                        config,
-                        new GitHubReleases(http),
-                        new Modrinth(http),
-                        new PaperFill(http),
-                        Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC))
-                .resolve();
     }
 
     private static Change changeFor(final UpdatePlan plan, final String service, final String artifact) {

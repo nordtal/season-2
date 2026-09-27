@@ -7,15 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.steward.worker.http.FakeHttp;
 import java.io.IOException;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** The releases API, against what {@code nordtal/season-2} and the fork really published. */
 class GitHubReleasesTest {
 
     @Test
-    @DisplayName("the season release's seven assets are read, sizes included")
-    void readsTheSeasonRelease() throws IOException {
+    void theSeasonReleasesSevenAssetsAreReadSizesIncluded() throws IOException {
         final GitHubReleases github =
                 new GitHubReleases(new FakeHttp().serving("/releases/latest", "github-season-v0.1.0.json"));
 
@@ -27,10 +25,7 @@ class GitHubReleasesTest {
 
         final GitHubReleases.Asset smp = release.asset("smp-0.1.0.jar");
         assertNotNull(smp);
-        // The finding this whole module exists for, recorded as a fixture: v0.1.0's smp jar is
-        // 51 273 bytes - the scaffold's two log lines - while the same version built from main
-        // that day was 4 820 904. Nothing in the API says so, which is the point: only a person
-        // comparing the number against a build notices, and no person was going to.
+        // A tiny jar is the scaffold's two log lines, not a real build; nothing in the API says so - the size does.
         assertEquals(51_273, smp.size());
         assertTrue(
                 smp.url().toString().startsWith("https://github.com/nordtal/season-2/releases/download/"),
@@ -38,8 +33,7 @@ class GitHubReleasesTest {
     }
 
     @Test
-    @DisplayName("the fork's tag has no leading v, and that is read rather than assumed")
-    void readsTheForkRelease() throws IOException {
+    void theForksTagHasNoLeadingVAndThatIsReadRatherThanAssumed() throws IOException {
         final GitHubReleases github =
                 new GitHubReleases(new FakeHttp().serving("/releases/latest", "github-display-tags.json"));
 
@@ -50,13 +44,8 @@ class GitHubReleasesTest {
     }
 
     @Test
-    @DisplayName("there is one endpoint and it is /releases/latest - a tag cannot be asked for")
-    void thereIsOnlyTheLatestEndpoint() throws IOException {
-        // What this replaced was a test asserting that `latest` and a pinned tag reach two
-        // different endpoints. The tags endpoint is gone with the pin (2026-09-09): it existed only
-        // to serve `season-release`, and a release nobody can pin is a version number nobody can
-        // write down twice. This holds the remaining half - that the one call still goes to the
-        // endpoint which skips drafts and pre-releases, rather than to /releases, which does not.
+    void thereIsOneEndpointAndItIsReleasesLatestATagCannotBeAskedFor() throws IOException {
+        // There is no pin and no tags endpoint: the one call goes to the endpoint that skips drafts and pre-releases.
         final FakeHttp http = new FakeHttp().serving("/releases/", "github-season-v0.1.0.json");
         final GitHubReleases github = new GitHubReleases(http);
 
@@ -69,8 +58,7 @@ class GitHubReleasesTest {
     }
 
     @Test
-    @DisplayName("a text asset is read through its redirect, and the redirect target is never kept")
-    void readsASmallTextAsset() throws IOException {
+    void aTextAssetIsReadThroughItsRedirectAndTheRedirectTargetIsNeverKept() throws IOException {
         final FakeHttp http = new FakeHttp()
                 .serving("/releases/latest", "github-season-v0.1.0.json")
                 .answering(".zip.sha1", "  6f1ed002ab5595859014ebf0951522d9d0f2ee34\n");
@@ -80,8 +68,7 @@ class GitHubReleasesTest {
         final GitHubReleases.Asset sha1 = release.asset("nordtal-resource-pack-0.1.0.zip.sha1");
         assertNotNull(sha1);
 
-        // Stripped, because the file ends in a newline and a 41-character "40 hex characters"
-        // fails proxy's own validation with a message about the alphabet.
+        // Stripped: the file ends in a newline, and 41 characters fails proxy's "40 hex characters" validation.
         assertEquals("6f1ed002ab5595859014ebf0951522d9d0f2ee34", github.readText(sha1));
     }
 }

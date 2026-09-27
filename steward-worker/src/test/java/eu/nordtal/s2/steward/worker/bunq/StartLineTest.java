@@ -11,31 +11,27 @@ import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 /**
  * The one line steward-worker says about bunq at startup, seen both ways.
  *
- * <h2>Why a test and not a deployment</h2>
- * The line exists for exactly one situation: the two variables were renamed from
- * {@code NORDTAL_BOT_BUNQ_*} to {@code NORDTAL_STEWARD_BUNQ_*} in steward/109, and both are
- * deliberately <b>not</b> {@code :?} in {@code compose.yml} because a season without a bank account
- * is a valid season. An environment file that still has the old names therefore produces a stack in
- * which every container is healthy, every log is quiet, and no payment is ever noticed again.
+ * Why a test and not a deployment: {@code NORDTAL_STEWARD_BUNQ_*} is deliberately not
+ * {@code :?} in {@code compose.yml} because a season without a bank account is a valid season. An environment file
+ * missing that pair therefore produces a stack in which every container is healthy, every log is quiet,
+ * and no payment is ever noticed again.
  *
- * <p>Proving that by rolling out would mean rolling out twice - once with a key and once without -
- * on the only machine this project has, and steward/109 forbids deploying at all. So the decision is
- * driven here instead, through the <b>real logging path</b>: {@link BunqGateway#logStartupLine} is
- * what {@code StewardWorker} calls, an appender on the root logger sees what actually came out, and
- * both branches are asserted on the text and on the level. The two sentences are printed to standard
- * output as well, so the test report carries the words themselves rather than a claim about them.</p>
+ * Proving that by rolling out would mean rolling out twice - once with a key and once without - on the only machine
+ * this project has. So the decision is driven here instead, through the
+ * real logging path: {@link BunqGateway#logStartupLine} is what {@code StewardWorker} calls, an appender on the root
+ * logger sees what actually came out, and both branches are asserted on the text and on the level. The two sentences
+ * are printed to standard output as well, so the test report carries the words themselves rather than a claim about
+ * them.
  *
- * <h2>What it cannot prove</h2>
- * That the line is reached at startup. That is one call in {@code StewardWorker#startPayments},
- * unconditional and above the {@code return}, and a test that asserted it would be asserting the
- * shape of a method rather than a behaviour.
+ * What it cannot prove: That the line is reached at startup. That is one call in
+ * {@code StewardWorker#startPayments}, unconditional and above the {@code return}, and a test that asserted it would
+ * be asserting the shape of a method rather than a behaviour.
  */
 class StartLineTest {
 
@@ -46,8 +42,7 @@ class StartLineTest {
     private static final String API_KEY = "sandbox_1234567890abcdefghijklmnopqrstuvwxyz";
 
     @Test
-    @DisplayName("with a key: one INFO line naming the account and the poll, and never the key")
-    void theOnBranch() {
+    void withAKeyOneInfoLineNamingTheAccountAndThePollAndNeverTheKey() {
         final List<ILoggingEvent> events = capture(() -> new BunqGateway(bunq(API_KEY, "987654")).logStartupLine(POLL));
 
         assertEquals(1, events.size(), "the start line is one line: " + events);
@@ -66,8 +61,7 @@ class StartLineTest {
     }
 
     @Test
-    @DisplayName("without a key: one WARN line naming both new variables and the old ones")
-    void theOffBranch() {
+    void withoutAKeyOneWarnLineNamingBothNewVariablesAndTheOldOnes() {
         final List<ILoggingEvent> events = capture(() -> new BunqGateway(bunq("", "")).logStartupLine(POLL));
 
         assertEquals(1, events.size(), "the start line is one line: " + events);
@@ -91,20 +85,14 @@ class StartLineTest {
     }
 
     @Test
-    @DisplayName("half a credential is not half on - it is off, and the config refuses it first")
-    void halfIsNotOn() {
-        // Configs.requireBunq refuses this pair before a gateway is ever built, which is why there
-        // is no third sentence. What is asserted here is the gateway's own answer if it ever got
-        // one anyway: not configured. A gateway that treated a key with no account as "on" would
-        // reach Long.parseLong("") in its constructor.
+    void halfACredentialIsNotHalfOnItIsOffAndTheConfigRefusesItFirst() {
+        // Asserts the gateway is unconfigured with half a credential - a key with no account must not read as on.
         assertFalse(new BunqGateway(bunq(API_KEY, "")).configured());
         assertFalse(new BunqGateway(bunq("", "987654")).configured());
         assertFalse(
                 new BunqGateway(bunq("   ", "  ")).configured(),
                 "whitespace is not a credential - a blank environment value is unset to jcore");
     }
-
-    // ---------------------------------------------------------------- plumbing
 
     private static StewardSpec.BunqSpec bunq(final String apiKey, final String accountId) {
         return new StewardSpec.BunqSpec() {

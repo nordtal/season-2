@@ -10,16 +10,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * What a standby's {@code plugins/} holds after a run (season-2-ops/119).
+ * What a standby's {@code plugins/} holds after a run.
  *
- * <p>The thing being protected is not "files were copied" - it is that a replacement instance comes
- * up on the same jars and the same {@code pack.yml} as the service it replaces. Every case here is
- * one way that can stop being true without anything saying so.</p>
+ * The thing being protected is not "files were copied" - it is that a replacement instance comes up on the same jars
+ * and the same {@code pack.yml} as the service it replaces. Every case here is one way that can stop being true
+ * without anything saying so.
  */
 class StandbysTest {
 
@@ -27,8 +26,7 @@ class StandbysTest {
     Path volumes;
 
     @Test
-    @DisplayName("the standby gets the jars and the pack.yml the live service just got")
-    void theStandbyIsACopy() throws IOException {
+    void theStandbyGetsTheJarsAndThePackYmlTheLiveServiceJustGot() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
         write("proxy/plugins/proxy/pack.yml", "url: https://example.invalid/pack.zip\nsha1: abc\n");
         mounted(Topology.standbyOf(Topology.PROXY));
@@ -50,8 +48,7 @@ class StandbysTest {
     }
 
     @Test
-    @DisplayName("a jar the live service no longer has is removed from the standby")
-    void theOldJarDoesNotSurvive() throws IOException {
+    void aJarTheLiveServiceNoLongerHasIsRemovedFromTheStandby() throws IOException {
         write("limbo/plugins/limbo-0.9.3.jar", "new");
         write("limbo-standby/plugins/limbo-0.9.2.jar", "old");
 
@@ -65,28 +62,20 @@ class StandbysTest {
     }
 
     @Test
-    @DisplayName("a second run in a row copies nothing and says so")
-    void theSecondRunIsQuiet() throws IOException {
+    void aSecondRunInARowCopiesNothingAndSaysSo() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
         mounted(Topology.standbyOf(Topology.PROXY));
 
         Standbys.fill(volumes, List.of(Topology.PROXY));
         final List<ApplyResult.Outcome> second = Standbys.fill(volumes, List.of(Topology.PROXY));
 
-        // The rule this keeps is the deployment's, not this class's: a second run immediately
-        // after a real one has to come back with every line UNCHANGED. A mirror that copied
-        // unconditionally would report DONE for ever, and an update run that changed nothing would
-        // say it had.
+        // A second run right after a real one must come back UNCHANGED; an unconditional mirror would say DONE forever.
         assertEquals(ApplyResult.Status.UNCHANGED, second.getFirst().status(), detail(second));
     }
 
     @Test
-    @DisplayName("a file that changed without changing size is copied")
-    void aSameSizeChangeIsNotMissed() throws IOException {
-        // pack.yml is exactly that file and it is the one that matters: a sha1 is forty hex
-        // characters whatever the pack is, so a comparison by size would hand every transferred
-        // player the previous pack's hash - and the client would refuse a download it cannot
-        // verify. The url beside it is usually the same length too, release to release.
+    void aFileThatChangedWithoutChangingSizeIsCopied() throws IOException {
+        // pack.yml is the file that matters: a sha1 is forty hex chars regardless, so comparing by size hides a change.
         write("proxy/plugins/proxy/pack.yml", "url: https://example.invalid/p.zip\nsha1: aaaa\n");
         mounted(Topology.standbyOf(Topology.PROXY));
         Standbys.fill(volumes, List.of(Topology.PROXY));
@@ -103,20 +92,15 @@ class StandbysTest {
     }
 
     @Test
-    @DisplayName("a service without a standby in compose.yml gets no row at all")
-    void nothingIsWrittenForADeploymentWithoutStandbys() throws IOException {
+    void aServiceWithoutAStandbyInComposeYmlGetsNoRowAtAll() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
 
-        // No proxy-standby directory: the volume is not mounted into this container, which is what
-        // a stack from before this feature looks like. It must not grow a skipped line in every
-        // report - the case it could hide is caught by the entrypoint, loudly, at the one moment a
-        // standby is actually started.
+        // No proxy-standby directory: an older stack without this feature must not grow a skipped line in the report.
         assertEquals(List.of(), Standbys.fill(volumes, List.of(Topology.PROXY)));
     }
 
     @Test
-    @DisplayName("only the services the run touched are mirrored")
-    void anUntouchedServiceIsLeftAlone() throws IOException {
+    void onlyTheServicesTheRunTouchedAreMirrored() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
         write("limbo/plugins/limbo-0.9.3.jar", "new");
         mounted(Topology.standbyOf(Topology.PROXY));
@@ -133,16 +117,13 @@ class StandbysTest {
     }
 
     @Test
-    @DisplayName("a mounted standby with nothing to copy from is a failure, not a silence")
-    void anEmptySourceIsReported() throws IOException {
+    void aMountedStandbyWithNothingToCopyFromIsAFailureNotASilence() throws IOException {
         mounted(Topology.standbyOf(Topology.PROXY));
 
         final List<ApplyResult.Outcome> outcomes = Standbys.fill(volumes, List.of(Topology.PROXY));
 
         assertEquals(ApplyResult.Status.FAILED, outcomes.getFirst().status(), detail(outcomes));
-        // The status alone would be reached by an unhandled exception too. What the row has to say
-        // is which directory was empty and what it costs, because the only other place this shows
-        // up is a container refusing to start in the middle of a swap.
+        // The status alone could also mean an unhandled exception; the row must name which directory was empty.
         assertTrue(
                 String.valueOf(outcomes.getFirst().detail()).contains("refuse to start"),
                 "the failure does not say what an empty standby costs: " + detail(outcomes));
@@ -150,8 +131,6 @@ class StandbysTest {
                 String.valueOf(outcomes.getFirst().detail()).contains("plugins"),
                 "the failure does not name the directory it could not read: " + detail(outcomes));
     }
-
-    // ---------------------------------------------------------------- fixtures
 
     private void write(final String relative, final String content) throws IOException {
         final Path file = volumes.resolve(relative);

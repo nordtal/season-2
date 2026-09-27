@@ -20,12 +20,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * A list of sections whose sections hold lists of their own - smp's {@code milestones.yml}, where
- * every milestone carries a list of objectives and every objective a list of items.
+ * A list of sections whose sections hold lists of their own.
  *
- * <p>The cards are built from the schema, not from a guess at how uniform the file looks, so the
- * card shape reaches every level the schema describes, and the writer edits, appends and removes
- * at any of those levels while leaving every other line where it was.</p>
+ * smp's {@code milestones.yml}, where every milestone carries a list of objectives and every objective a list of
+ * items.
+ *
+ * The cards are built from the schema, not from a guess at how uniform the file looks, so the card shape reaches
+ * every level the schema describes, and the writer edits, appends and removes at any of those levels while leaving
+ * every other line where it was.
  */
 class ConfigFilesNestedSectionsTest {
 
@@ -36,33 +38,35 @@ class ConfigFilesNestedSectionsTest {
 
     private static final Gson GSON = new Gson();
 
-    private static final String TRACK = "# the milestone track\n"
-            + "milestones:\n"
-            + "- key: waiting\n"
-            + "  unlocks: BORDER\n"
-            + "  objectives: []\n"
-            + "- key: foothold\n"
-            + "  unlocks: BORDER\n"
-            + "  objectives:\n"
-            + "  - key: logs\n"
-            + "    type: HAND_IN\n"
-            + "    # lowering this is always allowed\n"
-            + "    target: 2048\n"
-            + "    items:\n"
-            + "    - OAK_LOG\n"
-            + "    - SPRUCE_LOG\n"
-            + "  - key: coal\n"
-            + "    type: STATISTIC\n"
-            + "    target: 1500\n"
-            + "    items: []\n"
-            + "- key: nether\n"
-            + "  unlocks: NETHER\n"
-            + "  objectives:\n"
-            + "  - key: blaze\n"
-            + "    type: STATISTIC\n"
-            + "    target: 30\n"
-            + "    items: []\n"
-            + "season: 2\n";
+    private static final String TRACK = """
+            # the milestone track
+            milestones:
+            - key: waiting
+              unlocks: BORDER
+              objectives: []
+            - key: foothold
+              unlocks: BORDER
+              objectives:
+              - key: logs
+                type: HAND_IN
+                # lowering this is always allowed
+                target: 2048
+                items:
+                - OAK_LOG
+                - SPRUCE_LOG
+              - key: coal
+                type: STATISTIC
+                target: 1500
+                items: []
+            - key: nether
+              unlocks: NETHER
+              objectives:
+              - key: blaze
+                type: STATISTIC
+                target: 30
+                items: []
+            season: 2
+            """;
 
     @BeforeEach
     void writeTrack() throws IOException {
@@ -87,9 +91,7 @@ class ConfigFilesNestedSectionsTest {
                 GSON.toJson(new SchemaNode(SettingKind.MAP, "", "", false, false, null, null, root, null)));
     }
 
-    // -----------------------------------------------------------------------------------------
     // Reading
-    // -----------------------------------------------------------------------------------------
 
     @Test
     void theTemplateReachesEveryLevelTheSchemaDescribes() throws IOException {
@@ -112,9 +114,7 @@ class ConfigFilesNestedSectionsTest {
         assertEquals(4, waitingObjectives.template().size());
     }
 
-    // -----------------------------------------------------------------------------------------
     // Editing inside a nested entry
-    // -----------------------------------------------------------------------------------------
 
     @Test
     void changingANestedValueTouchesThatLineOnly() throws IOException {
@@ -137,9 +137,7 @@ class ConfigFilesNestedSectionsTest {
                 TRACK.replace("    - SPRUCE_LOG\n", "    - BIRCH_LOG\n    - CHERRY_LOG\n"), Files.readString(file));
     }
 
-    // -----------------------------------------------------------------------------------------
     // Adding and removing a nested entry
-    // -----------------------------------------------------------------------------------------
 
     @Test
     void anObjectiveAppendedToAMilestoneLandsUnderItsSiblings() throws IOException {
@@ -148,17 +146,15 @@ class ConfigFilesNestedSectionsTest {
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(
-                TRACK.replace(
-                        "    items: []\n- key: nether",
-                        "    items: []\n"
-                                + "  - key: iron\n"
-                                + "    type: HAND_IN\n"
-                                + "    target: 64\n"
-                                + "    items:\n"
-                                + "    - IRON_INGOT\n"
-                                + "- key: nether"),
-                Files.readString(file));
+        assertEquals(TRACK.replace("    items: []\n- key: nether", """
+                            items: []
+                          - key: iron
+                            type: HAND_IN
+                            target: 64
+                            items:
+                            - IRON_INGOT
+                        - key: nether\
+                        """), Files.readString(file));
     }
 
     @Test
@@ -168,16 +164,14 @@ class ConfigFilesNestedSectionsTest {
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(
-                TRACK.replace(
-                        "  objectives: []\n- key: foothold",
-                        "  objectives:\n"
-                                + "  - key: wood\n"
-                                + "    type: HAND_IN\n"
-                                + "    target: 10\n"
-                                + "    items: []\n"
-                                + "- key: foothold"),
-                Files.readString(file));
+        assertEquals(TRACK.replace("  objectives: []\n- key: foothold", """
+                          objectives:
+                          - key: wood
+                            type: HAND_IN
+                            target: 10
+                            items: []
+                        - key: foothold\
+                        """), Files.readString(file));
     }
 
     @Test
@@ -187,17 +181,15 @@ class ConfigFilesNestedSectionsTest {
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(
-                TRACK.replace(
-                        "  - key: logs\n"
-                                + "    type: HAND_IN\n"
-                                + "    # lowering this is always allowed\n"
-                                + "    target: 2048\n"
-                                + "    items:\n"
-                                + "    - OAK_LOG\n"
-                                + "    - SPRUCE_LOG\n",
-                        ""),
-                Files.readString(file));
+        assertEquals(TRACK.replace("""
+                          - key: logs
+                            type: HAND_IN
+                            # lowering this is always allowed
+                            target: 2048
+                            items:
+                            - OAK_LOG
+                            - SPRUCE_LOG
+                        """, ""), Files.readString(file));
     }
 
     @Test
@@ -207,15 +199,13 @@ class ConfigFilesNestedSectionsTest {
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(
-                TRACK.replace(
-                        "  objectives:\n"
-                                + "  - key: blaze\n"
-                                + "    type: STATISTIC\n"
-                                + "    target: 30\n"
-                                + "    items: []\n",
-                        "  objectives: []\n"),
-                Files.readString(file));
+        assertEquals(TRACK.replace("""
+                          objectives:
+                          - key: blaze
+                            type: STATISTIC
+                            target: 30
+                            items: []
+                        """, "  objectives: []\n"), Files.readString(file));
     }
 
     @Test
@@ -245,31 +235,27 @@ class ConfigFilesNestedSectionsTest {
 
         ConfigFiles.write(file, Map.of("milestones", ConfigChange.sections(track)));
 
-        assertEquals(
-                TRACK.replace(
-                        "season: 2\n",
-                        "- key: end\n"
-                                + "  unlocks: END\n"
-                                + "  objectives:\n"
-                                + "  - key: dragon\n"
-                                + "    type: ADVANCEMENT\n"
-                                + "    target: 5\n"
-                                + "    items: []\n"
-                                + "  - key: pearls\n"
-                                + "    type: HAND_IN\n"
-                                + "    target: 16\n"
-                                + "    items:\n"
-                                + "    - ENDER_PEARL\n"
-                                + "season: 2\n"),
-                Files.readString(file));
+        assertEquals(TRACK.replace("season: 2\n", """
+                        - key: end
+                          unlocks: END
+                          objectives:
+                          - key: dragon
+                            type: ADVANCEMENT
+                            target: 5
+                            items: []
+                          - key: pearls
+                            type: HAND_IN
+                            target: 16
+                            items:
+                            - ENDER_PEARL
+                        season: 2
+                        """), Files.readString(file));
         assertEquals(track, valuesOf(milestones()));
     }
 
     @Test
     void anEditInOneMilestoneAndAnAppendInAnotherAreOneSave() throws IOException {
-        // Pure append or pure remove is a rule per list, not per file: two different lists, one
-        // changed in place and the other grown by one, are two unrelated edits that happen to
-        // share a save button.
+        // Pure append or pure remove is a rule per list, not per file: two edits that happen to share a save button.
         final List<Map<String, Object>> track = valuesOf(milestones());
         objective(track, 1, 1).put("target", "1200");
         objectives(track, 2).add(objectiveRow("ghast", "STATISTIC", "3", List.of()));
@@ -280,9 +266,7 @@ class ConfigFilesNestedSectionsTest {
         assertTrue(Files.readString(file).startsWith("# the milestone track\n"));
     }
 
-    // -----------------------------------------------------------------------------------------
     // Fixtures
-    // -----------------------------------------------------------------------------------------
 
     private ConfigEntry milestones() throws IOException {
         return ConfigFiles.read(file).find("milestones").orElseThrow();

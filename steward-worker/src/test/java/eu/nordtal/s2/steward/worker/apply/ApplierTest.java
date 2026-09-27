@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.steward.worker.config.BackupSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.http.Fetcher;
 import eu.nordtal.s2.steward.worker.plan.Change;
@@ -21,13 +22,13 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Step 3: what happens on disk, and - the part worth the test - what happens on disk when it goes
- * wrong half way through.
+ * Step 3: what happens on disk.
+ *
+ * The part worth the test: what happens on disk when it goes wrong half way through.
  */
 class ApplierTest {
 
@@ -36,11 +37,8 @@ class ApplierTest {
     @TempDir
     Path volumes;
 
-    // ---------------------------------------------------------------- the good case
-
     @Test
-    @DisplayName("an outdated jar is replaced and the one it supersedes is deleted")
-    void replacesAndSupersedes() throws IOException {
+    void anOutdatedJarIsReplacedAndTheOneItSupersedesIsDeleted() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
 
         final ApplyResult result = apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
@@ -56,8 +54,7 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("a season jar the release does not carry stays, and the plugins beside it still move")
-    void aJarNotInTheReleaseDoesNotHoldBackTheService() throws IOException {
+    void aSeasonJarTheReleaseDoesNotCarryStaysAndThePluginsBesideItStillMove() throws IOException {
         install("smp", "plugins/smp-0.9.5.jar");
         install("smp", "plugins/packetevents-spigot-2.13.0.jar");
 
@@ -85,8 +82,7 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("a server jar goes into the entrypoint's cache, not into plugins")
-    void serverJarsGoToTheServerCache() throws IOException {
+    void aServerJarGoesIntoTheEntrypointsCacheNotIntoPlugins() throws IOException {
         install("limbo", ".server/paper-26.2-119.jar");
 
         apply(new Fake(), plan(outdated("limbo", "paper", "paper-26.2-119.jar", "paper-26.2-121.jar")));
@@ -97,8 +93,7 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("a jar nothing accounts for survives a swap of the one beside it")
-    void neverDeletesWhatItDoesNotOwn() throws IOException {
+    void aJarNothingAccountsForSurvivesASwapOfTheOneBesideIt() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
         install("smp", "plugins/SomeoneElsesPlugin-1.0.0.jar");
 
@@ -108,8 +103,7 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("the staging directory is gone afterwards")
-    void leavesNoStagingBehind() throws IOException {
+    void theStagingDirectoryIsGoneAfterwards() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
 
         apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
@@ -121,16 +115,11 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("staging happens inside the destination directory, not at the volume root")
-    void theStagingDirectoryLivesBesideItsDestination() throws IOException {
+    void stagingHappensInsideTheDestinationDirectoryNotAtTheVolumeRoot() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
         install("smp", ".server/paper-26.2-121.jar");
 
-        // THE POINT OF THIS TEST. plugins/ is a bind mount in compose.yml and .server/ is not, so
-        // the two are different filesystems on a real deployment. A rename across that boundary is
-        // a copy, and a copy is not atomic - which nothing would ever have reported, because
-        // Files.move falls back to copy-and-delete without complaining. The only way that stays
-        // true is if staging is resolved per destination, so that is what is asserted.
+        // plugins/ is a bind mount and .server/ is not, so a rename across that boundary is a non-atomic copy.
         final Fake fetcher = new Fake();
         apply(
                 fetcher,
@@ -154,40 +143,33 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("a staging directory left at the volume root by an older version is swept up")
-    void theOldStagingLocationIsCleanedAway() throws IOException {
+    void aStagingDirectoryLeftAtTheVolumeRootByAnOlderVersionIsSweptUp() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
         install("smp", Applier.STAGING + "/smp-0.1.5.jar");
 
         apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
 
-        // Nothing would ever look at it again, and a directory full of jars that no program reads
-        // is a puzzle for whoever finds it rather than a harmless leftover.
+        // A directory full of jars that no program reads is a puzzle for whoever finds it, not a harmless leftover.
         assertFalse(Files.exists(volumes.resolve("smp").resolve(Applier.STAGING)));
     }
 
     @Test
-    @DisplayName("a file left in staging by a run that died is not installed")
-    void staleStagedFilesAreNeverReused() throws IOException {
+    void aFileLeftInStagingByARunThatDiedIsNotInstalled() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
         install("smp", "plugins/" + Applier.STAGING + "/smp-0.2.0.jar");
 
         apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
 
-        // "old" is what install() writes. A run that died between the two phases leaves exactly
-        // this, and re-using it would install a jar this run never verified.
+        // "old" is what install() writes; a run dying between the two phases must not reuse a jar it never verified.
         assertEquals("downloaded smp-0.2.0.jar", Files.readString(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
     }
 
     @Test
-    @DisplayName("the staging directory is never read back as an installed jar")
-    void stagingIsInvisibleToTheScan() throws IOException {
+    void theStagingDirectoryIsNeverReadBackAsAnInstalledJar() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
         install("smp", "plugins/" + Applier.STAGING + "/smp-9.9.9.jar");
 
-        // It sits inside plugins/ now, so this is the assumption everything above rests on: a
-        // Paper server loads only jars directly in plugins/, and Installation only takes regular
-        // files. If either stopped being true, the SMP would try to load a half-downloaded jar.
+        // A Paper server loads only jars directly in plugins/, and Installation only takes regular files.
         final var installed = eu.nordtal.s2.steward.worker.plan.Installation.scan("smp", volumes.resolve("smp"))
                 .plugins();
 
@@ -198,16 +180,12 @@ class ApplierTest {
                         .toList());
     }
 
-    // ---------------------------------------------------------------- the failure cases
-
     @Test
-    @DisplayName("a download failing part way through leaves the whole server exactly as it was")
-    void nothingMovesUntilEverythingIsStaged() throws IOException {
+    void aDownloadFailingPartWayThroughLeavesTheWholeServerExactlyAsItWas() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
         install("smp", "plugins/voicechat-bukkit-2.6.21.jar");
 
-        // The second of two downloads fails. Without two phases the SMP server would now be
-        // running a new season jar against an old Simple Voice Chat, which is a combination nobody chose.
+        // The second of two downloads fails: nothing must run a new season jar against an old Simple Voice Chat.
         final ApplyResult result = apply(
                 new Fake().failingOn("voicechat-bukkit-2.6.23.jar"),
                 plan(
@@ -226,8 +204,7 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("one unresolvable artefact skips its whole server, jars included")
-    void aServerMovesTogetherOrNotAtAll() throws IOException {
+    void oneUnresolvableArtefactSkipsItsWholeServerJarsIncluded() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
 
         final ApplyResult result = apply(
@@ -236,8 +213,7 @@ class ApplierTest {
                         outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
                         Change.unresolved("smp", "packetevents", "Modrinth: connect timed out")));
 
-        // DisplayTags is a required plugin of smp and PacketEvents is required under it. A partial
-        // swap here is a server that does not start.
+        // DisplayTags and PacketEvents are both required under smp; a partial swap here fails to start.
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")));
         assertFalse(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
         assertEquals(ApplyResult.Status.SKIPPED, outcome(result, "smp", "smp").status());
@@ -246,13 +222,10 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("an artefact with no build for this version does not hold its server back")
-    void anUnsupportedArtefactDoesNotSkipTheServer() throws IOException {
+    void anArtefactWithNoBuildForThisVersionDoesNotHoldItsServerBack() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
 
-        // The same shape as the case above it and the opposite outcome, which is the whole reason
-        // the status is not UNRESOLVED: CoreProtect has no 26.2 build, and a failure row would have
-        // meant the SMP's own jar was never installed - every run, for as long as that lasted.
+        // CoreProtect has no build for this platform; a failure row would wrongly hold back the SMP's own jar too.
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
@@ -262,9 +235,7 @@ class ApplierTest {
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
         assertEquals(ApplyResult.Status.DONE, outcome(result, "smp", "smp").status());
 
-        // Its own word. UNCHANGED is a claim about a file that is there and nothing is, and SKIPPED
-        // is the whole-service refusal, which would put "nothing was installed, and not because
-        // everything was current" under a run that installed the season jar.
+        // UNCHANGED claims a file that is there; SKIPPED is a whole-service refusal - neither fits a partial install.
         assertEquals(
                 ApplyResult.Status.UNSUPPORTED,
                 outcome(result, "smp", "coreprotect").status());
@@ -274,13 +245,11 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("a server jar that could not be resolved does not hold the plugins back")
-    void anUnresolvedServerJarDoesNotBlockThePlugins() throws IOException {
+    void aServerJarThatCouldNotBeResolvedDoesNotHoldThePluginsBack() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
         install("smp", ".server/paper-26.2-121.jar");
 
-        // Fill is down. The plugins are compiled against 26.2, not against build 121, and 121 is
-        // a build that runs - so there is nothing for a Fill outage to protect the plugins from.
+        // The plugins are compiled against this version, not a build number, so a Fill outage protects nothing.
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
@@ -298,8 +267,7 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("one server failing does not stop another")
-    void failuresDoNotSpreadBetweenServers() throws IOException {
+    void oneServerFailingDoesNotStopAnother() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
         install("limbo", "plugins/limbo-0.1.0.jar");
 
@@ -314,11 +282,8 @@ class ApplierTest {
         assertTrue(Files.exists(volumes.resolve("limbo/plugins/limbo-0.2.0.jar")));
     }
 
-    // ---------------------------------------------------------------- the pack
-
     @Test
-    @DisplayName("the pack's two lines are written from the release, hash included")
-    void writesThePack() throws IOException {
+    void thePacksTwoLinesAreWrittenFromTheReleaseHashIncluded() throws IOException {
         install("proxy", "plugins/proxy-0.1.0.jar");
         writePackYml();
 
@@ -349,8 +314,7 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("the bot's jar goes into the root of its own volume, not into a plugins folder")
-    void installsAStandaloneJarInTheVolumeRoot() throws IOException {
+    void theBotsJarGoesIntoTheRootOfItsOwnVolumeNotIntoAPluginsFolder() throws IOException {
         Files.createDirectories(volumes.resolve("discord-bot"));
         Files.writeString(volumes.resolve("discord-bot/discord-bot-0.1.0.jar"), "old");
 
@@ -377,8 +341,7 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("steward-worker installs its own jar, for the next start to pick up")
-    void installsItsOwnJar() throws IOException {
+    void stewardWorkerInstallsItsOwnJarForTheNextStartToPickUp() throws IOException {
         Files.createDirectories(volumes.resolve("steward-worker"));
 
         final ApplyResult result = apply(
@@ -401,8 +364,7 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("a volume that is not mounted is skipped whole, never created")
-    void doesNotCreateAVolumeThatIsNotThere() {
+    void aVolumeThatIsNotMountedIsSkippedWholeNeverCreated() {
         final ApplyResult result = apply(
                 new Fake(),
                 plan(new Change(
@@ -421,11 +383,8 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("a run where everything was skipped does not read as a run where nothing was needed")
-    void skippedIsNotTheSameAsCurrent() {
-        // Found on a real container run, 2026-09-01: every volume unmounted, every row skipped,
-        // and the report closed with "Nothing needed doing." - which is the sentence that lets
-        // somebody shut the report believing the network is up to date.
+    void aRunWhereEverythingWasSkippedDoesNotReadAsARunWhereNothingWasNeeded() {
+        // Every volume unmounted and every row skipped must not close the report with "Nothing needed doing."
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
@@ -448,16 +407,8 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("B4: a bootstrap whose season jar is unresolved installs nothing for that server")
-    void anIncompleteServerIsNotPartlyFilled() {
-        // The first real deployment. GitHub answered 403 for the season release while Modrinth
-        // answered fine for PacketEvents and Simple Voice Chat, so smp's folder was filled with its two
-        // third-party plugins and no season - and the entrypoint's guard, which only counted jars,
-        // let it start. Three other servers were caught because their folders stayed empty.
-        //
-        // The plan goes through onlyMissing() here rather than being built by hand, because that
-        // filter is where the row used to disappear: this asserts the whole bootstrap path, not
-        // just the Applier.
+    void b4ABootstrapWhoseSeasonJarIsUnresolvedInstallsNothingForThatServer() {
+        // A resolved plugin next to an unresolved season jar must not let the entrypoint start on a partial install.
         final UpdatePlan bootstrap = plan(
                         Change.unresolved("smp", "smp", "could not read nordtal/season-2@latest: HTTP 403"),
                         new Change(
@@ -492,14 +443,10 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("M1: a pack that cannot be resolved falls back and does not hold the jars back")
-    void anUnresolvablePackDoesNotBlockTheProxy() throws IOException {
+    void m1APackThatCannotBeResolvedFallsBackAndDoesNotHoldTheJarsBack() throws IOException {
         install("proxy", "plugins/proxy-0.1.0.jar");
 
-        // A release that published no .sha1 beside the pack zip. This used to skip the whole
-        // service - the proxy plugin and the Velocity jar with it - while the three backends
-        // updated regardless, which is precisely the split network the all-or-nothing rule exists
-        // to prevent.
+        // A release with no .sha1 beside the pack zip must not skip the whole service while the other backends update.
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
@@ -521,10 +468,8 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("M1: the pack still gets a row when the service really is blocked")
-    void aBlockedServiceStillReportsItsPack() {
-        // The early return used to skip applyPack entirely, so a run that skipped this service said
-        // nothing at all about what the client is being sent - the one row here a player can see.
+    void m1ThePackStillGetsARowWhenTheServiceReallyIsBlocked() {
+        // A skipped service must still report on the one row a player can see: what the client is being sent.
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
@@ -534,8 +479,6 @@ class ApplierTest {
         final ApplyResult.Outcome pack = outcome(result, "proxy", Topology.RESOURCE_PACK);
         assertNotNull(pack, "the pack row vanished from a report for a service that was skipped");
     }
-
-    // ---------------------------------------------------------------- plumbing
 
     /** A {@link Fetcher} that writes a marker instead of downloading, and can be told to fail. */
     private static final class Fake implements Fetcher {
@@ -565,8 +508,7 @@ class ApplierTest {
         final StewardSpec config = new StewardSpec() {
             @Override
             public BunqSpec bunq() {
-                // Defaults: empty credentials, which is "no bank account" and is a valid season.
-                // Nothing in this test asks bunq anything (steward/109).
+                // Defaults: empty credentials, which is "no bank account" and a valid season on its own.
                 return new BunqSpec() {};
             }
 
@@ -594,11 +536,9 @@ class ApplierTest {
 
             @Override
             public BackupSpec backup() {
-                // Defaults throughout: this test is not about a backup, and BackupSpec's own
-                // defaults are the production ones.
+                // Defaults throughout: this test is not about a backup, and BackupSpec's own defaults are fine.
                 return new BackupSpec() {
-                    // backup.remote is a section without a default, exactly as backup itself is - so an
-                    // anonymous spec has to hand back its defaults by name (steward/95).
+                    // backup.remote has no default of its own, so an anonymous spec hands its defaults back by name.
                     @Override
                     public RemoteSpec remote() {
                         return new RemoteSpec() {};

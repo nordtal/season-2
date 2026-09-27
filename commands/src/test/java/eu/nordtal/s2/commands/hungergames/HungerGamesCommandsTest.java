@@ -56,7 +56,7 @@ class HungerGamesCommandsTest {
     }
 
     @Test
-    void allFourAreAdminOnlyConsoleReachableAndOffGameAndDiscordOps18() {
+    void allFourAreAdminOnlyConsoleReachableAndOffGameAndDiscord() {
         // Every admin command lost Surface.GAME and Surface.DISCORD. /hg start keeps Surface.WEB too.
         for (final Declaration declaration : HungerGamesCommands.declarations()) {
             assertTrue(declaration.adminOnly(), declaration.name());

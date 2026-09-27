@@ -11,34 +11,28 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Stop, swap, start, and prove it came back.
  *
- * <h2>Why this is tested against a fake and not rehearsed</h2>
- * Rehearsing this needs a live compose project and a willingness to take the network down, and the
- * cases worth testing are the ones a healthy stack will not produce on demand: a daemon that has
- * stopped answering, a stop that is refused, a container that comes back {@code running} and sick.
- * Every decision in the sequence is therefore held here: what it refuses to start, what it will not
- * stop, what it does when a stop fails, and above all what it calls "back".
+ * Why this is tested against a fake and not rehearsed: Rehearsing this needs a live compose project and a
+ * willingness to take the network down, and the cases worth testing are the ones a healthy stack will not produce on
+ * demand: a daemon that has stopped answering, a stop that is refused, a container that comes back {@code running}
+ * and sick. Every decision in the sequence is therefore held here: what it refuses to start, what it will not stop,
+ * what it does when a stop fails, and above all what it calls "back".
  *
- * <h2>The failures it has to survive are the interesting cases</h2>
- * A container that is {@code running} with a dead plugin inside it is the exact shape the first
- * deployment produced - green healthcheck, open port, no season on it - and it is why every process
- * writes a readiness marker at all. A sequence that accepted {@code running} would report a
+ * The failures it has to survive are the interesting cases: A container that is {@code running} with a dead plugin
+ * inside it is the exact shape the first deployment produced - green healthcheck, open port, no season on it - and
+ * it is why every process writes a readiness marker at all. A sequence that accepted {@code running} would report a
  * successful update over a network that is down.
  */
 class UpdateRunTest {
 
     private final List<UpdateReport> progress = new ArrayList<>();
 
-    // ---------------------------------------------------------------- refusing to begin
-
     @Test
-    @DisplayName("a run whose container runtime is unreachable never gets as far as a plan")
-    void anUnreachableRuntimeStopsEverything() {
+    void aRunWhoseContainerRuntimeIsUnreachableNeverGetsAsFarAsAPlan() {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).unreachable();
 
@@ -48,15 +42,13 @@ class UpdateRunTest {
                         .reached(),
                 "the runtime read is the first thing a run does, before a version is resolved or a"
                         + " byte is downloaded - because a run that cannot STOP a server must not"
-                        + " move a jar. Continuing anyway is finding 147 performed as a fallback");
+                        + " move a jar underneath it. Continuing anyway is the defect performed as a"
+                        + " fallback");
         assertEquals(List.of(), containers.calls, "and nothing was asked of the daemon");
     }
 
-    // ---------------------------------------------------------------- stopping
-
     @Test
-    @DisplayName("only services with work are stopped")
-    void aServiceWithNothingToInstallKeepsRunning() {
+    void onlyServicesWithWorkAreStopped() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP, Topology.LIMBO);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
@@ -75,15 +67,11 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a service is not stopped for an artefact that has no build to install")
-    void anUnsupportedArtefactIsNotAnOutage() {
+    void aServiceIsNotStoppedForAnArtefactThatHasNoBuildToInstall() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
-        // smp's only line is CoreProtect, which has no build for this Minecraft version. It has
-        // something to SAY and nothing to do - and the difference is measured in whether people
-        // playing get thrown off. `changes().isEmpty()` was the old test and would fail this one:
-        // the line is not empty, it is simply not moving.
+        // smp's only line has no build for this version: something to SAY, nothing to do - and it is not empty.
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
                 .with(new UpdateReport.ServiceLine(
                         Topology.SMP,
@@ -101,8 +89,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("steward-worker never stops itself")
-    void theWorkerIsNotInItsOwnSequence() {
+    void stewardWorkerNeverStopsItself() {
         final FakeContainers containers = new FakeContainers().running(Topology.STEWARD_WORKER, Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
@@ -123,15 +110,8 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("the database dump is a report line and not a container, so the stop leaves it alone")
-    void theDumpLineIsNotLookedUpAsAContainer() {
-        // Measured on the dev stack on 2026-09-15, run 13: the dump succeeded for the first time
-        // ever - 790 KiB, no .partial - and the run still settled FAILED. This loop looked for a
-        // container called "database", found none (the compose service is `postgres`), and
-        // overwrote a SAVED line with "could not be stopped and nothing was installed for it".
-        //
-        // Runner#servicesThatRefused already carries this exact finding in its javadoc and already
-        // exempts the line. The stop does not, and that was the whole of the remaining failure.
+    void theDatabaseDumpIsAReportLineAndNotAContainerSoTheStopLeavesItAlone() {
+        // The database dump succeeds while a stop finding no matching container must not overwrite a SAVED line.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
         final UpdateReport planned = planned(Topology.SMP)
@@ -155,8 +135,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a service that could not be stopped is not installed to and not started")
-    void aRefusedStopTakesItsServiceOutOfTheRun() {
+    void aServiceThatCouldNotBeStoppedIsNotInstalledToAndNotStarted() {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopFails();
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
@@ -174,8 +153,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a service the project has no container for fails by name rather than silently")
-    void anUnknownServiceIsNamed() {
+    void aServiceTheProjectHasNoContainerForFailsByNameRatherThanSilently() {
         final FakeContainers containers = new FakeContainers().running(Topology.LIMBO);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
@@ -188,11 +166,8 @@ class UpdateRunTest {
                 stopped.report().line(Topology.SMP).detail());
     }
 
-    // ---------------------------------------------------------------- coming back
-
     @Test
-    @DisplayName("stop comes before start, and both are recorded in order")
-    void theOrderIsTheWholePoint() {
+    void stopComesBeforeStartAndBothAreRecordedInOrder() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
@@ -206,8 +181,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a service that is running but not healthy has not come back")
-    void runningIsNotBack() {
+    void aServiceThatIsRunningButNotHealthyHasNotComeBack() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
@@ -228,8 +202,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a service that reports healthy inside the window is the success case")
-    void healthyEndsTheWait() {
+    void aServiceThatReportsHealthyInsideTheWindowIsTheSuccessCase() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
@@ -258,8 +231,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("one service failing does not lose the ones that came back")
-    void aPartialFailureStillReportsTheRest() {
+    void oneServiceFailingDoesNotLoseTheOnesThatCameBack() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP, Topology.LIMBO);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped =
@@ -279,11 +251,8 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a service that refused to stop is not in the set the run may install into")
-    void aRefusedStopIsVisibleToTheCaller() {
-        // Runner reads exactly this to decide whether to abort: a service with work that is not in
-        // stopped.services() is still RUNNING, and installing into it is finding 147 reached
-        // through the sequence that exists to prevent it. Found by review, 2026-09-08.
+    void aServiceThatRefusedToStopIsNotInTheSetTheRunMayInstallInto() {
+        // Runner reads exactly this to abort: a service with work not in stopped.services() is still RUNNING.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP, Topology.LIMBO).stopFails();
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
@@ -301,15 +270,9 @@ class UpdateRunTest {
                 "and both had work, which is what makes the difference detectable at all");
     }
 
-    // ---------------------------------------------------------------- the backup
-
     @Test
-    @DisplayName("a volume is saved with the servers already stopped, and started after")
-    void theSnapshotSitsInTheGap() {
-        // The whole correctness of a backup run is this ordering, and it is the one thing no
-        // amount of watching a successful run can confirm: a snapshot taken of a server that is
-        // still writing to the volume produces an archive that fails at RESTORE, months later,
-        // on the day somebody needs it. Nothing at backup time complains.
+    void aVolumeIsSavedWithTheServersAlreadyStoppedAndStartedAfter() {
+        // The whole correctness of a backup run is this ordering: a still-writing snapshot fails at RESTORE, unseen.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
         final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
@@ -326,12 +289,8 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("the volumes are saved one after another, in the order they are configured")
-    void theSnapshotsRunInOrder() {
-        // This reverses what the HTTP version did, and the reason is worth keeping: over an API
-        // you start every snapshot at once because somebody else's machine does the work. A local
-        // tar is this container's CPU and this host's one disk, and eight of them at once would
-        // lengthen the outage by making them fight over it rather than shorten it.
+    void theVolumesAreSavedOneAfterAnotherInTheOrderTheyAreConfigured() {
+        // Reverses the HTTP version: a local tar is this host's one disk, and running them all at once fights over it.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
         final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
@@ -342,8 +301,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("one volume that fails does not cost the run the volumes that would have worked")
-    void oneFailedVolumeIsNotAllOfThem() {
+    void oneVolumeThatFailsDoesNotCostTheRunTheVolumesThatWouldHaveWorked() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).fails("mc-smp");
         final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
@@ -356,8 +314,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a failure carries its own reason into the report, not a generic sentence")
-    void theReasonSurvives() {
+    void aFailureCarriesItsOwnReasonIntoTheReportNotAGenericSentence() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).fails("mc-smp");
         final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
@@ -372,10 +329,8 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a volume that saved nothing is FAILED, not a successful line with no bytes")
-    void savingNothingIsNotSuccess() {
-        // Run 23 once reported success having snapshotted zero volumes, and nothing in the
-        // report made that visible. This is the assertion that stops it happening twice.
+    void aVolumeThatSavedNothingIsFailedNotASuccessfulLineWithNoBytes() {
+        // A past run once reported success having snapshotted zero volumes; this stops that happening again.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).savesNothing("mc-smp");
         final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
@@ -388,11 +343,8 @@ class UpdateRunTest {
                 saved.line("mc-smp").detail());
     }
 
-    // ---------------------------------------------------------------- the live report
-
     @Test
-    @DisplayName("every step reports its progress, because the row is the progress bar")
-    void theRunSaysWhereItIs() {
+    void everyStepReportsItsProgressBecauseTheRowIsTheProgressBar() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
@@ -406,8 +358,6 @@ class UpdateRunTest {
                         + " unchanging message for minutes, which is what the live embed exists to"
                         + " stop being");
     }
-
-    // ---------------------------------------------------------------- helpers
 
     /** A plan where the first service has work and the rest do not. */
     private static UpdateReport planned(final String... services) {
@@ -426,26 +376,11 @@ class UpdateRunTest {
                 service, UpdateReport.State.PLANNED, List.of(new UpdateReport.Change(service, "0.6.0", "0.7.0")), null);
     }
 
-    /** A clock that never runs out, so a wait ends only because the work finished. */
-    private static UpdateRun.Waiting patient() {
-        return new UpdateRun.Waiting() {
-            @Override
-            public Instant now() {
-                return Instant.parse("2026-09-08T04:45:00Z");
-            }
-
-            @Override
-            public boolean sleep(final Duration duration) {
-                return true;
-            }
-        };
-    }
-
     /**
      * A clock well inside the window that lets the service come back while it is being waited for.
      *
-     * <p>The wait is driven rather than slept through: the sleep advances the instant and makes the
-     * container healthy, which is what a real start does one poll later.</p>
+     * The wait is driven rather than slept through: the sleep advances the instant and makes the container healthy,
+     * which is what a real start does one poll later.
      */
     private static UpdateRun.Waiting comesBackOnTheSecondLook(final FakeContainers containers, final String service) {
         return new UpdateRun.Waiting() {
@@ -484,14 +419,9 @@ class UpdateRunTest {
         };
     }
 
-    // ---------------------------------------------------------------- the image
-
     @Test
-    @DisplayName("a service whose image has moved is recreated, not started")
-    void aStaleImageIsRecreated() {
-        // The whole point of the image path. A start hands the container back to Docker on exactly
-        // the image it was created from, so the jars would be new and entrypoint.sh, the JRE and
-        // every change to compose.yml would still be whatever was pulled at the last deploy.
+    void aServiceWhoseImageHasMovedIsRecreatedNotStarted() {
+        // The whole point of the image path: a start hands the container back on exactly the image it was created from.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
@@ -505,25 +435,20 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a current image is started exactly as before, and so is an unchecked one")
-    void aCurrentImageIsStarted() {
+    void aCurrentImageIsStartedExactlyAsBeforeAndSoIsAnUncheckedOne() {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP, Topology.LIMBO).imageCurrent(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP, Topology.LIMBO), containers.runtime()), containers.images());
 
-        // limbo is not in the images map at all, which is UNKNOWN - "nobody has looked", and never
-        // a reason to pull anything. Only smp had work, so only smp was stopped and started.
+        // limbo is not in the images map at all, UNKNOWN never being a reason to pull; only smp had work.
         assertEquals(List.of("stop:smp-container", "start:smp-container"), containers.calls);
     }
 
     @Test
-    @DisplayName("putting the network back never pulls an image, whatever the images say")
-    void anAbortNeverRecreates() {
-        // Every path that is undoing something - a refused stop, a failed migration, a restart -
-        // calls the one-argument start(). All three promise to change no version, and pulling an
-        // image there would change the biggest one there is.
+    void puttingTheNetworkBackNeverPullsAnImageWhateverTheImagesSay() {
+        // Every path undoing something calls the one-argument start(); pulling an image there would change a version.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
@@ -538,8 +463,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a refused recreate puts the old container back and still reports the failure")
-    void aRefusedRecreateIsNamed() {
+    void aRefusedRecreatePutsTheOldContainerBackAndStillReportsTheFailure() {
         final FakeContainers containers = new FakeContainers()
                 .running(Topology.SMP)
                 .imageOutdated(Topology.SMP)
@@ -549,10 +473,7 @@ class UpdateRunTest {
         final UpdateReport report =
                 run.start(run.stop(planned(Topology.SMP), containers.runtime()), containers.images());
 
-        // The server is BACK. This used to stop it, fail the line and move on, which left every
-        // outdated service off until somebody looked - and DockerOps#recreate refuses every time,
-        // so "every outdated service" was all of them. The old image is the second-best outcome;
-        // an empty server is the worst one.
+        // The server is BACK. This used to stop it and fail the line, leaving it off until somebody looked.
         assertEquals(List.of("stop:smp-container", "recreate:smp", "start:smp-container"), containers.calls);
         assertEquals(
                 UpdateReport.State.FAILED,
@@ -577,8 +498,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a fallback that really came back is said to have come back, and only then")
-    void aFallbackThatComesBackIsReportedAsBack() {
+    void aFallbackThatReallyCameBackIsSaidToHaveComeBackAndOnlyThen() {
         final FakeContainers containers = new FakeContainers()
                 .running(Topology.SMP)
                 .imageOutdated(Topology.SMP)
@@ -606,12 +526,8 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a fallback that never came back says the service is down, not that it is back")
-    void aFallbackThatStaysDownIsReportedAsDown() {
-        // The case the old wording could not tell from the one above, because it was written the
-        // moment Docker accepted the start. A container that exits on the first tick - the old
-        // image's entrypoint against a plugins directory that has just been updated is a good way
-        // to get one - was reported as a service that was back on the old version.
+    void aFallbackThatNeverCameBackSaysTheServiceIsDownNotThatItIsBack() {
+        // A container exiting on the first tick used to be reported as a service back on the old version.
         final FakeContainers containers = new FakeContainers()
                 .running(Topology.SMP)
                 .imageOutdated(Topology.SMP)
@@ -640,12 +556,8 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("the recreate is announced before it is asked for, so a run that dies in it says where")
-    void theRecreateIsAnnouncedFirst() {
-        // A recreate is `compose up --force-recreate --no-deps` at bottom, and every backend
-        // depends on the worker - so a recreate that considers the worker a diverged dependency can
-        // take the process making the call down with it. When that happens the last report written
-        // is the whole diagnosis.
+    void theRecreateIsAnnouncedBeforeItIsAskedForSoARunThatDiesInItSaysWhere() {
+        // A recreate that considered the worker a dependency could take down the process making the call.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);

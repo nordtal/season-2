@@ -5,10 +5,10 @@ import java.nio.file.Path;
 /**
  * The file was written by somebody else since this save's form was drawn.
  *
- * <p>Its own type rather than an {@link IllegalArgumentException} because the answer it deserves is
- * a different one: nobody made a mistake, and nothing about the change needs correcting. Somebody
- * was simply faster, and the only useful thing to do is show the file as it now stands and let the
- * operator decide whether their change is still the one they want.</p>
+ * Its own type rather than an {@link IllegalArgumentException} because the answer it deserves is a different one:
+ * nobody made a mistake, and nothing about the change needs correcting. Somebody was simply faster, and the only
+ * useful thing to do is show the file as it now stands and let the operator decide whether their change is still the
+ * one they want.
  */
 public final class StaleConfigException extends RuntimeException {
 

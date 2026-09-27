@@ -3,8 +3,9 @@ package eu.nordtal.s2.steward.worker.configfile;
 import java.util.List;
 
 /**
- * One module's message bundle as a form: every key the jar declares, plus whatever an operator has
- * overridden, in both languages (steward/48).
+ * One module's message bundle as a form.
+ *
+ * Every key the jar declares, plus whatever an operator has overridden, in both languages.
  *
  * @param service   the compose service directory, e.g. {@code smp}
  * @param module    the plugin's own data directory under it, or the empty string - see

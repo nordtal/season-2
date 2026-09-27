@@ -7,27 +7,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SchemaWriter;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code backup.remote} - the offsite target steward/95 put on the backup page.
+ * {@code backup.remote} - the offsite target on the backup page.
  *
- * <p>The page draws a form out of this section and saves it back through {@code ConfigApi}, so two
- * properties of the schema are load-bearing for something a person can see. The first is that the
- * two credentials are declared {@code @Secret}: a secret is sent as {@code filled: true} with no
- * value, which is the whole reason the page can show that a key is set without the key being in the
- * browser. {@code ConfigEntry.isSecretKey} would catch both names by its own heuristic as well -
- * the point of the annotation is that the masking does not depend on what the key is called, and
- * that is exactly what steward/70 wrote down for the bot's credentials.</p>
+ * The page draws a form out of this section and saves it back through {@code ConfigApi}, so two properties of the
+ * schema are load-bearing for something a person can see. The first is that the two credentials are declared
+ * {@code @Secret}: a secret is sent as {@code filled: true} with no value, which is the whole reason the page can
+ * show that a key is set without the key being in the browser. {@code ConfigEntry.isSecretKey} would catch both
+ * names by its own heuristic as well - the point of the annotation is that the masking does not depend on what the
+ * key is called.
  *
- * <p>The second is that the endpoint is empty by default. A deployment with no offsite copy must
- * look like one, rather than like a target somebody has to check before believing the archives are
- * only on this disk.</p>
+ * The second is that the endpoint is empty by default. A deployment with no offsite copy must look like one, rather
+ * than like a target somebody has to check before believing the archives are only on this disk.
  *
- * <p>Built straight from the interface with {@link SchemaWriter#build} rather than through
- * {@link Configs}: whether the annotation is there is a property of the interface and needs no file
- * on disk to demonstrate.</p>
+ * Built straight from the interface with {@link SchemaWriter#build} rather than through {@link Configs}: whether the
+ * annotation is there is a property of the interface and needs no file on disk to demonstrate.
  */
 class BackupRemoteSpecTest {
 
@@ -41,8 +37,7 @@ class BackupRemoteSpecTest {
     }
 
     @Test
-    @DisplayName("both credentials of backup.remote are declared @Secret")
-    void theKeysAreSecret() {
+    void bothCredentialsOfBackupRemoteAreDeclaredSecret() {
         final SchemaNode accessKey = remote().children().get("access-key");
         assertNotNull(accessKey, "RemoteSpec's schema has no 'access-key' entry");
         assertTrue(accessKey.secret(), "backup.remote.access-key must never be sent to a browser");
@@ -53,8 +48,7 @@ class BackupRemoteSpecTest {
     }
 
     @Test
-    @DisplayName("the endpoint, the bucket and the prefix are not secret - a target is not a credential")
-    void theTargetItselfIsReadable() {
+    void theEndpointTheBucketAndThePrefixAreNotSecretATargetIsNotACredential() {
         for (final String key : new String[] {"endpoint", "bucket", "prefix"}) {
             final SchemaNode node = remote().children().get(key);
             assertNotNull(node, "RemoteSpec's schema has no '" + key + "' entry");
@@ -66,9 +60,8 @@ class BackupRemoteSpecTest {
     }
 
     @Test
-    @DisplayName("a fresh file has no offsite target, and says so by being empty")
-    void freshIsEmpty() {
-        final StewardSpec.BackupSpec.RemoteSpec remote = new StewardSpec.BackupSpec.RemoteSpec() {};
+    void aFreshFileHasNoOffsiteTargetAndSaysSoByBeingEmpty() {
+        final BackupSpec.RemoteSpec remote = new BackupSpec.RemoteSpec() {};
         assertEquals("", remote.endpoint(), "a deployment with no Storage Box must look like one");
         assertEquals("", remote.bucket());
         assertEquals("", remote.prefix());

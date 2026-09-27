@@ -7,16 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link UpdatePlan#onlyServices} - what a run for one service is allowed to move (season-2-ops/127).
+ * {@link UpdatePlan#onlyServices} - what a run for one service is allowed to move.
  *
- * <p>The filter is on the <b>plan</b> and not only on the report, and that is the whole reason this
- * file exists: {@code Runs#apply} installs what is in the plan. A scope that narrowed the report
- * alone would give a run that stops one server, says it is updating one server, and moves every jar
- * in the network - which is worse than not having the feature at all.</p>
+ * The filter is on the plan and not only on the report, and that is the whole reason this file exists:
+ * {@code Runs#apply} installs what is in the plan. A scope that narrowed the report alone would give a run that
+ * stops one server, says it is updating one server, and moves every jar in the network - which is worse than not
+ * having the feature at all.
  */
 class UpdatePlanScopeTest {
 
@@ -29,8 +28,7 @@ class UpdatePlanScopeTest {
     }
 
     @Test
-    @DisplayName("a scope keeps only the services it names")
-    void keepsOnlyTheNamedServices() {
+    void aScopeKeepsOnlyTheServicesItNames() {
         final UpdatePlan plan = planOf(
                 List.of(on("smp", "smp"), on("smp", "packetevents"), on("limbo", "limbo")),
                 List.of(
@@ -52,10 +50,8 @@ class UpdatePlanScopeTest {
     }
 
     @Test
-    @DisplayName("the resource pack is not in a scoped run")
-    void theResourcePackFallsOut() {
-        // service == null is the pack: it is written into the proxy's pack.yml rather than
-        // installed into anybody's plugins folder. "Update smp" must not rewrite it.
+    void theResourcePackIsNotInAScopedRun() {
+        // service == null is the pack: it lives in the proxy pack.yml, not a plugins folder; "update smp" leaves it.
         final Change pack = new Change(null, "pack", Change.Status.OUTDATED, "abc1234", null, null);
         final UpdatePlan plan = planOf(List.of(on("smp", "smp"), pack), List.of());
 
@@ -70,10 +66,8 @@ class UpdatePlanScopeTest {
     }
 
     @Test
-    @DisplayName("an empty scope is the whole network, untouched")
-    void emptyIsEverything() {
-        // The same meaning the column, the API and the button all carry: nothing named is not "no
-        // services", it is "do not narrow anything". Every run before this existed was one.
+    void anEmptyScopeIsTheWholeNetworkUntouched() {
+        // Nothing named means "do not narrow anything", not "no services" - the same meaning the column and API carry.
         final UpdatePlan plan = planOf(List.of(on("smp", "smp"), on("limbo", "limbo")), List.of());
 
         assertSame(

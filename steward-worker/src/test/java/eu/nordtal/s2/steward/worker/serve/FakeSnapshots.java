@@ -15,9 +15,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Saving volumes, without a disk.
  *
- * <p>It shares its call list with {@link FakeContainers} on purpose: what a backup run has to get right
- * is the <b>order</b> of stopping, saving and starting, and an ordering split across two recorders
- * is an ordering nothing asserts.</p>
+ * It shares its call list with {@link FakeContainers} on purpose: what a backup run has to get right is the order of
+ * stopping, saving and starting, and an ordering split across two recorders is an ordering nothing asserts.
  */
 final class FakeSnapshots implements Snapshots {
 
@@ -71,12 +70,9 @@ final class FakeSnapshots implements Snapshots {
     /**
      * What was marked, and with which sentence, in the order the marks were made.
      *
-     * <p>{@code Map.copyOf} was here first, and it is a trap in a double whose field is a
-     * {@link LinkedHashMap}: the field says insertion order is meant to be observable, the copy
-     * throws it away, and {@code Map.copyOf}'s iteration order is randomised per JVM. A test that
-     * asserted the order passed four times and then did not. The order is kept here so that the
-     * field and the accessor agree; whether the order is a <em>claim</em> is asserted against the
-     * shared call list, which is where ordering lives in these doubles.</p>
+     * Copies the {@link LinkedHashMap} field directly, never through {@code Map.copyOf}: that call randomises
+     * iteration order per JVM, which would make an order assertion pass intermittently. Whether order is a claim
+     * worth asserting is decided against the shared call list, which is where ordering lives in these doubles.
      */
     Map<String, String> marks() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(marks));

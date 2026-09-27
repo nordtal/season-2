@@ -6,9 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 /**
- * The name heuristic behind a hidden value. A key called just {@code key} is the ID of an entry in
- * this repository - a milestone, an objective, a sound - and hiding it blanks the title of every
- * card that shows one. Every credential here is named {@code something-key}.
+ * The name heuristic behind a hidden value.
+ *
+ * A key called just {@code key} is the ID of an entry in this repository - a milestone, an objective, a sound - and
+ * hiding it blanks the title of every card that shows one. Every credential here is named {@code something-key}.
  */
 class ConfigEntrySecretKeyTest {
 

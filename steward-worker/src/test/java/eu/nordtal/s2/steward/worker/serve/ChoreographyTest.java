@@ -13,25 +13,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The stage directions of a run: which standbys it needs, what a standby that will not come up
- * costs, and what happens when the players are still there (season-2-ops/122).
+ * The stage directions of a run.
  *
- * <p>Every clock here is driven rather than slept through - a ten-second cap and a three-minute
- * patience are both things a test must reach in microseconds or not assert at all.</p>
+ * Which standbys it needs, what a standby that will not come up costs, and what happens when the players are still
+ * there. Every clock here is driven rather than slept through - a ten-second cap and a three-minute patience are
+ * both things a test must reach in microseconds or not assert at all.
  */
 class ChoreographyTest {
 
-    // -------------------------------------------------------------------------------------------
     // The trigger rule
-    // -------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("the limbo brings a limbo, the proxy brings a proxy, and the SMP brings neither")
-    void theTriggerRule() {
+    void theLimboBringsALimboTheProxyBringsAProxyAndTheSmpBringsNeither() {
         assertEquals(List.of("limbo-standby"), Choreography.standbysFor(Set.of("limbo")));
         assertEquals(List.of("proxy-standby"), Choreography.standbysFor(Set.of("proxy")));
         assertEquals(
@@ -39,10 +35,7 @@ class ChoreographyTest {
                 Choreography.standbysFor(Set.of("limbo", "proxy")),
                 "the order is SERVICES_WITH_STANDBY's, so a swap always starts the proxy first");
 
-        // The third of the owner's three sentences, and the one with no line of its own: a run that
-        // moves the SMP needs a waiting room the whole time, and the waiting room of a run that
-        // leaves the limbo alone IS the limbo. Asking for a standby here would start a second
-        // limbo for no reason on every ordinary backend update.
+        // A run that moves the SMP needs a waiting room the whole time - and if it leaves limbo alone, limbo IS it.
         assertEquals(
                 List.of(),
                 Choreography.standbysFor(Set.of("smp")),
@@ -55,13 +48,10 @@ class ChoreographyTest {
         assertEquals(List.of(), Choreography.standbysFor(Set.of("hunger-games", "discord-bot")));
     }
 
-    // -------------------------------------------------------------------------------------------
     // Opening the window
-    // -------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("the standbys are started before anything else happens, and from the local image")
-    void theStandbysComeUpFirst() {
+    void theStandbysAreStartedBeforeAnythingElseHappensAndFromTheLocalImage() {
         final FakeContainers containers = new FakeContainers().running("proxy", "limbo", "smp");
         final Choreography choreography = new Choreography(containers, Occupancy.NONE, driven());
 
@@ -69,8 +59,7 @@ class ChoreographyTest {
 
         assertTrue(window.opened(), window.refusal());
         assertEquals(List.of("proxy-standby", "limbo-standby"), window.standbys());
-        // recreate-local, not recreate: the standby has to run the image its live service runs,
-        // and on this deployment that image is very often built on the host.
+        // recreate-local, not recreate: the standby must run the image its live service runs, often built here.
         assertEquals(
                 List.of("recreate-local:proxy-standby", "recreate-local:limbo-standby"),
                 containers.calls,
@@ -78,8 +67,7 @@ class ChoreographyTest {
     }
 
     @Test
-    @DisplayName("a standby that never becomes healthy aborts the run with nothing stopped")
-    void anUnhealthyStandbyAbortsEverything() {
+    void aStandbyThatNeverBecomesHealthyAbortsTheRunWithNothingStopped() {
         final FakeContainers containers =
                 new FakeContainers().running("proxy", "limbo").neverHealthy("limbo-standby");
         final Choreography choreography = new Choreography(containers, Occupancy.NONE, driven());
@@ -90,8 +78,7 @@ class ChoreographyTest {
         assertNotNull(window.refusal());
         assertTrue(window.refusal().contains("limbo-standby"), window.refusal());
         assertTrue(window.refusal().contains("unhealthy"), window.refusal());
-        // And it leaves nothing behind: the container it started is stopped again, so a refused run
-        // does not park a second network on this host until somebody notices.
+        // And it leaves nothing behind: a refused run does not park a second network on this host unnoticed.
         assertTrue(
                 containers.calls.contains("stop:limbo-standby-container-2"),
                 "a refused window stops what it started - " + containers.calls);
@@ -101,8 +88,7 @@ class ChoreographyTest {
     }
 
     @Test
-    @DisplayName("a run that needs no standby opens an empty window and calls nothing")
-    void noStandbyNeeded() {
+    void aRunThatNeedsNoStandbyOpensAnEmptyWindowAndCallsNothing() {
         final FakeContainers containers = new FakeContainers().running("smp");
         final Choreography choreography = new Choreography(containers, Occupancy.NONE, driven());
 
@@ -113,13 +99,10 @@ class ChoreographyTest {
         assertEquals(List.of(), containers.calls, "an SMP-only run touches no standby at all");
     }
 
-    // -------------------------------------------------------------------------------------------
     // Waiting for the players
-    // -------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("an empty server is not waited for at all")
-    void nobodyOnItMeansNoWait() {
+    void anEmptyServerIsNotWaitedForAtAll() {
         final Counts counts = new Counts().on("smp", 0);
         final Choreography choreography = new Choreography(new FakeContainers(), counts, driven());
 
@@ -127,8 +110,7 @@ class ChoreographyTest {
     }
 
     @Test
-    @DisplayName("the wait ends the moment the last player is gone")
-    void itEndsWhenTheyAreGone() {
+    void theWaitEndsTheMomentTheLastPlayerIsGone() {
         final Counts counts = new Counts().on("smp", 3);
         final Driven clock = driven();
         clock.onSleep(() -> counts.on("smp", 0));
@@ -142,8 +124,7 @@ class ChoreographyTest {
     }
 
     @Test
-    @DisplayName("after the cap it stops anyway, and the report says with how many")
-    void theCapStopsAnyway() {
+    void afterTheCapItStopsAnywayAndTheReportSaysWithHowMany() {
         final Counts counts = new Counts().on("smp", 1);
         final Driven clock = driven();
         final Choreography choreography = new Choreography(new FakeContainers(), counts, clock);
@@ -156,11 +137,8 @@ class ChoreographyTest {
     }
 
     @Test
-    @DisplayName("nobody having said is not nobody being there")
-    void silenceIsNotEmptiness() {
-        // The failure this Optional exists for. online_count is written by the proxy; a proxy that
-        // has stopped writing leaves a row that is minutes old, and reading that as "zero players"
-        // would end the wait early on exactly the run where waiting mattered.
+    void nobodyHavingSaidIsNotNobodyBeingThere() {
+        // The failure this Optional exists for: a proxy that stopped writing must never be read as "zero players".
         final Choreography choreography = new Choreography(new FakeContainers(), Occupancy.NONE, driven());
 
         final String said = choreography.waitUntilEmpty(List.of("smp"));
@@ -170,8 +148,7 @@ class ChoreographyTest {
     }
 
     @Test
-    @DisplayName("the two halves of the sentence are told apart")
-    void bothHalvesAreSaid() {
+    void theTwoHalvesOfTheSentenceAreToldApart() {
         final Map<String, Integer> occupied = new LinkedHashMap<>();
         occupied.put("smp", 2);
         final String said = Choreography.stoppedAnyway(occupied, List.of("limbo"));
@@ -180,13 +157,10 @@ class ChoreographyTest {
         assertTrue(said.contains("Nothing recent said how many players were on limbo"), said);
     }
 
-    // -------------------------------------------------------------------------------------------
     // Closing the window
-    // -------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("the standby is stopped again once it is empty, and only once")
-    void theStandbyIsStoppedAgain() {
+    void theStandbyIsStoppedAgainOnceItIsEmptyAndOnlyOnce() {
         final FakeContainers containers = new FakeContainers().running("limbo");
         final Counts counts = new Counts().on("limbo-standby", 0);
         final Choreography choreography = new Choreography(containers, counts, driven());
@@ -206,8 +180,7 @@ class ChoreographyTest {
     }
 
     @Test
-    @DisplayName("a standby still holding players is waited for before it is stopped")
-    void itWaitsForTheStandbyToEmpty() {
+    void aStandbyStillHoldingPlayersIsWaitedForBeforeItIsStopped() {
         final FakeContainers containers = new FakeContainers().running("proxy");
         final Counts counts = new Counts().standbyProxy(2);
         final Driven clock = driven();
@@ -226,9 +199,7 @@ class ChoreographyTest {
                 "it waited for the two players to go home before pulling the standby out" + " from under them");
     }
 
-    // -------------------------------------------------------------------------------------------
     // The doubles
-    // -------------------------------------------------------------------------------------------
 
     private static Driven driven() {
         return new Driven();

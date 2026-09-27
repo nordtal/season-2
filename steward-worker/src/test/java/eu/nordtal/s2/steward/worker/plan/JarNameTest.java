@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -14,18 +13,15 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The filename rule, pinned against every jar this deployment actually runs.
- * <p>
- * These six names were read off the live APIs and {@code compose.yml} on 2026-09-01. The test is
- * here so that a source which starts publishing a differently shaped name breaks a build rather
- * than a server: the failure mode of a mis-read prefix is Paper loading two versions of the same
- * plugin, which it does silently.
- * </p>
+ *
+ * These six names come from the live APIs and {@code compose.yml}. The test is here so that a source which starts
+ * publishing a differently shaped name breaks a build rather than a server: the failure mode of a mis-read prefix is
+ * Paper loading two versions of the same plugin, which it does silently.
  */
 class JarNameTest {
 
     @Nested
-    @DisplayName("the names this deployment really runs")
-    class RealNames {
+    class TheNamesThisDeploymentReallyRuns {
 
         @ParameterizedTest(name = "{0} -> {1} / {2}")
         @CsvSource({
@@ -46,34 +42,26 @@ class JarNameTest {
         }
 
         @Test
-        @DisplayName("two versions of one plugin share a prefix, which is what makes one supersede the other")
-        void supersedes() {
+        void twoVersionsOfOnePluginShareAPrefixWhichIsWhatMakesOneSupersedeTheOther() {
             assertTrue(JarName.looksSuperseded("smp-0.1.0.jar", "smp-0.2.0.jar"));
             assertFalse(JarName.looksSuperseded("smp-0.2.0.jar", "smp-0.2.0.jar"));
             assertFalse(JarName.looksSuperseded("limbo-0.1.0.jar", "smp-0.2.0.jar"));
         }
 
         @Test
-        @DisplayName("a Paper build supersedes only a build of the same Minecraft version")
-        void serverJarsAreScopedToTheirVersion() {
-            // paper-26.2-120.jar and paper-26.2-121.jar share the prefix 'paper-26.2', so the
-            // older build is superseded. paper-26.1-* does not, which is right: a version change
-            // is a season decision and its jar must not be deleted by a build bump.
+        void aPaperBuildSupersedesOnlyABuildOfTheSameMinecraftVersion() {
+            // paper-26.2-120.jar supersedes -121.jar by their shared prefix; paper-26.1-* does not, by design.
             assertTrue(JarName.looksSuperseded("paper-26.2-120.jar", "paper-26.2-121.jar"));
             assertFalse(JarName.looksSuperseded("paper-26.1-99.jar", "paper-26.2-121.jar"));
         }
     }
 
     @Nested
-    @DisplayName("the shapes the rule cannot read")
-    class Limits {
+    class TheShapesTheRuleCannotRead {
 
         @Test
-        @DisplayName("a version qualifier moves the split, which is the documented gap")
-        void qualifierBreaksTheRule() {
-            // Nothing in this deployment publishes such a name today. If one ever does, this is
-            // where it is noticed: the prefix swallows the version, so the new jar would be
-            // installed NEXT TO the one it replaces rather than over it.
+        void aVersionQualifierMovesTheSplitWhichIsTheDocumentedGap() {
+            // Nothing publishes such a name today; if it ever does, the new jar installs next to the one it replaces.
             assertEquals("packetevents-spigot-2.14.0", JarName.prefixOf("packetevents-spigot-2.14.0-SNAPSHOT.jar"));
             assertFalse(JarName.looksSuperseded(
                     "packetevents-spigot-2.13.0.jar", "packetevents-spigot-2.14.0-SNAPSHOT.jar"));
@@ -81,18 +69,14 @@ class JarNameTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"server.jar", "-1.0.jar", "plugins", "smp-0.2.0.jar.partial", "smp-.jar"})
-        @DisplayName("anything without a readable version has no prefix and no version")
-        void unreadable(final String fileName) {
+        void anythingWithoutAReadableVersionHasNoPrefixAndNoVersion(final String fileName) {
             assertNull(JarName.prefixOf(fileName));
             assertNull(JarName.versionOf(fileName));
         }
 
         @Test
-        @DisplayName("a .partial download is not a jar")
-        void partialsAreNotJars() {
-            // entrypoint.sh and step 3 of this module both download to <name>.partial first. A
-            // scan that counted those as installed jars would report an interrupted download as a
-            // finished install.
+        void aPartialDownloadIsNotAJar() {
+            // entrypoint.sh downloads to <name>.partial first; that must not count as an installed, finished jar.
             assertFalse(JarName.isJar("smp-0.2.0.jar.partial"));
             assertTrue(JarName.isJar("smp-0.2.0.jar"));
         }

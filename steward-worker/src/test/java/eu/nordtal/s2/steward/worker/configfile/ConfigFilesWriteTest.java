@@ -24,10 +24,10 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Writing one value back without disturbing anything else.
  *
- * <p>The assertions are on the <b>whole text of the file</b>, not on a re-parse. A parse-level
- * check would pass just as happily for a file that had been dumped back out with every comment
- * gone - which is the exact failure this class exists to prevent, since those comments are the
- * only documentation an operator editing another container's config has.</p>
+ * The assertions are on the whole text of the file, not on a re-parse. A parse-level check would pass just as
+ * happily for a file that had been dumped back out with every comment gone - which is the exact failure this class
+ * exists to prevent, since those comments are the only documentation an operator editing another container's config
+ * has.
  */
 class ConfigFilesWriteTest {
 
@@ -71,17 +71,14 @@ class ConfigFilesWriteTest {
 
     @Test
     void thisServicesOwnConfigSurvivesAnEditWordForWord() throws IOException, ConfigException {
-        // It was steward-ui.yml until 2026-09-14, when this package moved into steward-worker.
-        // The file is not the point: a real spec written by jcore is, because the thing being
-        // asserted is that everything this class did NOT edit comes back byte for byte.
+        // The file is not the point: a real spec written by jcore is, since untouched content must come back exactly.
         final Path file = directory.resolve("steward.yml");
         ConfigLoader.builder(file, StewardSpec.class).load();
         final String before = Files.readString(file);
 
         ConfigFiles.write(file, Map.of("poll-interval-seconds", ConfigChange.of("90")));
 
-        // Anchored to the start of a line: a bare replace would rewrite any comment that quotes
-        // the same text, and the file would then differ in a place nothing had edited.
+        // Anchored to the start of a line: a bare replace would rewrite any comment that quotes the same text too.
         assertEquals(
                 before.replace("\npoll-interval-seconds: 15\n", "\npoll-interval-seconds: 90\n"),
                 Files.readString(file));
@@ -92,9 +89,7 @@ class ConfigFilesWriteTest {
         final ConfigDocument document = ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("9090")));
 
         assertEquals("9090", document.find("port").orElseThrow().value());
-        // jcore 4.0.0 writes no comments at all (steward/54); the explanation FixtureSpec's
-        // @Comment used to carry now lives only in fixture.schema.json, which ConfigFilesSchemaTest
-        // covers.
+        // jcore writes no comments at all; the explanation once carried by @Comment now lives only in the schema.
         assertEquals(List.of(), document.find("port").orElseThrow().comments());
     }
 
@@ -107,9 +102,7 @@ class ConfigFilesWriteTest {
         assertEquals(before, Files.readString(fixture));
     }
 
-    // ---------------------------------------------------------------------------------------
     // Quoting
-    // ---------------------------------------------------------------------------------------
 
     @Test
     void aValueThatNeedsNoQuotesGetsNone() throws IOException {
@@ -149,8 +142,7 @@ class ConfigFilesWriteTest {
 
     @Test
     void aValueWithAControlCharacterInItIsAlwaysEscaped() throws IOException {
-        // A raw tab reads back correctly and is escaped anyway: YAML forbids a tab in
-        // indentation, and the next person to open this file by hand cannot see one.
+        // A raw tab reads back correctly and is escaped anyway: YAML forbids a tab in indentation, hand-edited or not.
         assertRendersAs("tab\there", "\"tab\\there\"");
     }
 
@@ -173,9 +165,7 @@ class ConfigFilesWriteTest {
         assertTrue(Files.readString(fixture).contains("\nratio: 1.50\n"), Files.readString(fixture));
     }
 
-    // ---------------------------------------------------------------------------------------
     // Refusals
-    // ---------------------------------------------------------------------------------------
 
     @Test
     void anUnknownPathIsRefusedAndNamed() throws IOException {
@@ -198,8 +188,7 @@ class ConfigFilesWriteTest {
                 () -> ConfigFiles.write(fixture, Map.of("stop-services", ConfigChange.of("smp"))));
 
         assertTrue(thrown.getMessage().contains("stop-services"), thrown.getMessage());
-        // Both halves matter. This is the mistake that writes `stop-services: smp` over a list of
-        // three services - a file that parses, and a backup that stops one thing instead of three.
+        // Both halves matter: writing stop-services: smp over a list of three would parse while stopping only one.
         assertTrue(thrown.getMessage().contains("is a list"), thrown.getMessage());
         assertTrue(thrown.getMessage().contains("send its entries"), thrown.getMessage());
         assertEquals(before, Files.readString(fixture), "a refused write must not touch the file");
@@ -264,9 +253,7 @@ class ConfigFilesWriteTest {
         assertTrue(thrown.getMessage().contains("cannot hold more than one line"), thrown.getMessage());
     }
 
-    // ---------------------------------------------------------------------------------------
     // The shape of the file
-    // ---------------------------------------------------------------------------------------
 
     @Test
     void aTrailingCommentOnTheSameLineStays() throws IOException {
@@ -332,9 +319,7 @@ class ConfigFilesWriteTest {
     void theWriteLeavesNoTemporaryFileBehind() throws IOException {
         ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("9090")));
 
-        // fixture.schema.json is jcore's own, written beside fixture.yml the moment @BeforeEach
-        // loads FixtureSpec through it (steward/54) - it is not a temporary file this class wrote
-        // and has to be there, not absent, for this assertion to mean what it says.
+        // fixture.schema.json is jcore's own; it must exist beside fixture.yml for this assertion to mean anything.
         try (Stream<Path> files = Files.list(directory)) {
             assertEquals(
                     List.of("fixture.schema.json", "fixture.yml"),
@@ -342,9 +327,7 @@ class ConfigFilesWriteTest {
         }
     }
 
-    // ---------------------------------------------------------------------------------------
     // Values written as a block
-    // ---------------------------------------------------------------------------------------
 
     @Test
     void aBlockScalarIsRewrittenAndEverythingAroundItStays() throws IOException {
@@ -430,8 +413,7 @@ class ConfigFilesWriteTest {
 
     @Test
     void aBlockThatWouldNotReadBackIsQuotedInstead() throws IOException {
-        // Nothing but newlines cannot be a block: the content would be empty and the chomping
-        // indicator would have nothing to chomp. It still has to survive the round trip.
+        // Nothing but newlines cannot be a block: the content is empty and the chomping indicator has nothing to chomp.
         ConfigFiles.write(fixture, Map.of("public-url", ConfigChange.of("\n\n")));
 
         assertEquals(
@@ -439,9 +421,7 @@ class ConfigFilesWriteTest {
                 ConfigFiles.read(fixture).find("public-url").orElseThrow().value());
     }
 
-    // ---------------------------------------------------------------------------------------
     // Lists
-    // ---------------------------------------------------------------------------------------
 
     @Test
     void aBlockListIsRewrittenInPlace() throws IOException {
@@ -477,8 +457,7 @@ class ConfigFilesWriteTest {
 
         ConfigFiles.write(file, Map.of("stop-services", ConfigChange.list(List.of())));
 
-        // `[]` and a bare `stop-services:` are two different configs: one is an empty list, the
-        // other is null. jcore reads the second as "no value" and puts the default back.
+        // [] and a bare stop-services: are different configs: one is an empty list, the other is null.
         assertEquals("""
                 stop-services: []
                 port: 1
@@ -521,8 +500,7 @@ class ConfigFilesWriteTest {
 
         ConfigFiles.write(file, Map.of("ports", ConfigChange.list(List.of("25565", "19132"))));
 
-        // Not `- '19132'`. A list of ints quietly turning into a list of strings is a file that
-        // parses and a config that does not load.
+        // Not - '19132'. A list of ints quietly turning into a list of strings is a config that fails to load.
         assertEquals("""
                 ports:
                   - 25565
@@ -576,9 +554,7 @@ class ConfigFilesWriteTest {
         assertTrue(thrown.getMessage().contains("list of sections"), thrown.getMessage());
     }
 
-    // ---------------------------------------------------------------------------------------
     // Several blocks at once
-    // ---------------------------------------------------------------------------------------
 
     @Test
     void anEditThatChangesTheLineCountDoesNotMoveTheOnesBelowIt() throws IOException {
@@ -592,8 +568,7 @@ class ConfigFilesWriteTest {
                 port: 25565
                 """);
 
-        // The block at the top grows by two lines and the list below it shrinks by one. Applied in
-        // the order they are written down, the second edit would land on the wrong lines entirely.
+        // The top block grows by two lines and the list below shrinks by one; edits must not land on wrong lines.
         ConfigFiles.write(
                 file,
                 Map.of(
@@ -661,13 +636,10 @@ class ConfigFilesWriteTest {
     /**
      * A save is a replace, and a replace must not quietly re-decide who may read the file.
      *
-     * <p>{@code Files.createTempFile} makes an owner-only file, and the atomic move installs that
-     * inode under the destination's name - so a {@code config.yml} that was {@code rw-r--r--}
-     * comes back {@code rw-------} from one click in the browser. Nothing in this stack runs as a
-     * second user <em>today</em> (no {@code USER} in any Dockerfile, no {@code user:} in
-     * {@code compose.yml}, checked 2026-09-13), which is why this is a quiet change rather than an
-     * outage - and exactly why it has to be caught here instead of on the day one of those images
-     * gains a {@code USER} line.</p>
+     * {@code Files.createTempFile} makes an owner-only file, and the atomic move installs that inode under the
+     * destination's name - so a {@code config.yml} readable by everyone else stays readable by everyone else after a
+     * save, which is why this is a quiet change rather than an outage - and exactly why it has to be caught here
+     * instead of on the day one of those images gains a {@code USER} line.
      */
     @Test
     void savingLeavesTheFilesOwnPermissionsAlone() throws IOException {
@@ -682,10 +654,10 @@ class ConfigFilesWriteTest {
     /**
      * {@code 8080 # oops} is a typo, and a typo is a 400.
      *
-     * <p>YAML resolves it to the integer 8080 and hands back the whole line, comment included. The
-     * value then reads back as {@code 8080}, {@code verify} notices the disagreement and refuses -
-     * correctly, but with an {@link IllegalStateException} that says "This is a bug in ConfigFiles"
-     * and reaches the operator as a 500. It is their mistake, so it has to be their sentence.</p>
+     * YAML resolves it to the integer 8080 and hands back the whole line, comment included. The value then reads
+     * back as {@code 8080}, {@code verify} notices the disagreement and refuses - correctly, but with an
+     * {@link IllegalStateException} that says "This is a bug in ConfigFiles" and reaches the operator as a 500.
+     * It is their mistake, so it has to be their sentence.
      */
     @Test
     void aNumberWithSomethingAfterItIsTheOperatorsMistakeAndNotThisPrograms() {

@@ -58,7 +58,7 @@ class LimboCommandsTest {
     }
 
     @Test
-    void itIsConsoleOnlySinceOps18TookEveryAdminCommandOffGameAndDiscord() {
+    void itIsConsoleOnlyAndOffGameAndDiscord() {
         // Every admin command loses GAME and DISCORD regardless of who could type it where - console remains.
         assertEquals(java.util.Set.of(Surface.CONSOLE), LimboCommands.RELOAD.surfaces());
     }

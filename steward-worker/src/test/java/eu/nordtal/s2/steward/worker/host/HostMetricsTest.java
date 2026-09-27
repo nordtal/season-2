@@ -12,29 +12,29 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The parser, fed a {@code /proc} that is a directory of captured text.
  *
- * <p><b>Every fixture below was captured from this host, {@code dev.nordtal.eu}, on 2026-09-12</b> -
- * {@code cat /proc/loadavg}, {@code head -20 /proc/meminfo} and two {@code head -7 /proc/stat} two
- * seconds apart - and pasted in unedited except where a test says it edited one line. That matters
- * more than it looks: an invented {@code /proc/meminfo} agrees with whatever the parser happens to
- * do, and the two kinds of line this file actually contains (a size with a {@code kB} suffix, a
- * counter with no unit at all) are exactly the distinction a made-up fixture would smooth over.</p>
+ * Every fixture below is captured from a real host - {@code cat /proc/loadavg}, {@code head -20 /proc/meminfo} and
+ * two {@code head -7 /proc/stat} two seconds apart - and pasted in unedited except where a test says it edited one
+ * line. That matters more than it looks: an invented
+ * {@code /proc/meminfo} agrees with whatever the parser happens to do, and the two kinds of line this file actually
+ * contains (a size with a {@code kB} suffix, a counter with no unit at all) are exactly the distinction a made-up
+ * fixture would smooth over.
  */
 class HostMetricsTest {
 
-    /** {@code cat /proc/loadavg}, 2026-09-12. */
+    /** {@code cat /proc/loadavg} on a real host. */
     private static final String LOADAVG = "0.46 0.42 0.36 1/912 2757165\n";
 
     /**
-     * {@code head -7 /proc/stat}, 2026-09-12 - the aggregate line and this host's six cores. The
-     * rest of the real file ({@code intr}, {@code ctxt}, {@code btime}, ...) is left off because
-     * nothing here reads it, and the {@code intr} line alone is several kilobytes of zeroes.
+     * {@code head -7 /proc/stat}: the aggregate line and this host's six cores.
+     *
+     * The rest of the real file ({@code intr}, {@code ctxt}, {@code btime}, ...) is left off because nothing here
+     * reads it, and the {@code intr} line alone is several kilobytes of zeroes.
      */
     private static final String STAT_FIRST = """
             cpu  2670895 785 1558887 65586703 309159 0 519579 86870 0 0
@@ -57,7 +57,7 @@ class HostMetricsTest {
             cpu5 449745 0 258587 10963839 51683 0 10460 12087 0 0
             """;
 
-    /** {@code head -20 /proc/meminfo}, 2026-09-12. This host has no swap and says so in kB. */
+    /** {@code head -20 /proc/meminfo} from a host with no swap, which says so in kB. */
     private static final String MEMINFO = """
             MemTotal:       16372536 kB
             MemFree:         1355252 kB
@@ -104,16 +104,14 @@ class HostMetricsTest {
     }
 
     @Test
-    @DisplayName("the captured /proc parses to the numbers uptime and free printed beside it")
-    void parsesTheCapturedProc() throws IOException {
+    void theCapturedProcParsesToTheNumbersUptimeAndFreePrintedBesideIt() throws IOException {
         final HostSnapshot snapshot = metrics().read();
 
         assertEquals(0.46, snapshot.load1());
         assertEquals(0.42, snapshot.load5());
         assertEquals(0.36, snapshot.load15());
 
-        // Six cpuN lines, not seven: the aggregate "cpu " line is not a core. nproc on this host
-        // said 6 on the same day.
+        // Six cpuN lines, not seven: the aggregate "cpu " line is not a core.
         assertEquals(6, snapshot.cpus());
 
         // kB in the file is KiB. 16372536 * 1024 is what `free -b` printed: 16765476864.
@@ -121,14 +119,12 @@ class HostMetricsTest {
         assertEquals(5_493_088_256L, snapshot.memoryAvailableBytes());
         assertEquals(1_387_778_048L, snapshot.memoryFreeBytes());
 
-        // Available is nearly four times free, and that gap is the whole reason both are in the
-        // record: a bar built on MemFree would have called this machine 92 % full.
+        // Available is nearly four times free, and that gap is why both are in the record, not just one.
         assertTrue(snapshot.memoryAvailableBytes() > snapshot.memoryFreeBytes());
     }
 
     @Test
-    @DisplayName("no swap is zero swap, and that is not a missing value")
-    void readsSwapAsZero() throws IOException {
+    void noSwapIsZeroSwapAndThatIsNotAMissingValue() throws IOException {
         final HostSnapshot snapshot = metrics().read();
 
         assertEquals(0L, snapshot.swapTotalBytes());
@@ -136,12 +132,8 @@ class HostMetricsTest {
     }
 
     @Test
-    @DisplayName("a kernel with no SwapTotal line at all is also zero swap, not an error")
-    void missingSwapLinesAreZero() throws IOException {
-        // The other spelling of swapless: CONFIG_SWAP=n prints no Swap* lines whatsoever. This is
-        // the one field where a missing line gets a default instead of an exception, and the
-        // distinction is worth a test of its own - without it the default is never exercised,
-        // because this host's captured file does contain the lines and they say 0 kB.
+    void aKernelWithNoSwaptotalLineAtAllIsAlsoZeroSwapNotAnError() throws IOException {
+        // CONFIG_SWAP=n prints no Swap* lines at all - the one field where a missing line gets a default, not an error.
         write(
                 "meminfo",
                 MEMINFO.lines().filter(line -> !line.startsWith("Swap")).reduce("", (a, b) -> a + b + "\n"));
@@ -153,12 +145,10 @@ class HostMetricsTest {
     }
 
     @Test
-    @DisplayName("the first read cannot know the CPU percentage and says so; the second can")
-    void cpuPercentNeedsTwoReadings() throws IOException {
+    void theFirstReadCannotKnowTheCpuPercentageAndSaysSoTheSecondCan() throws IOException {
         final HostMetrics metrics = metrics();
 
-        // THE POINT OF THE WHOLE OptionalDouble. A first reading is a counter since boot, and there
-        // is nothing to subtract it from.
+        // A first reading is a counter since boot, and there is nothing to subtract it from.
         assertFalse(
                 metrics.read().cpuPercent().isPresent(),
                 "the first read has no previous reading and must not invent 0.0");
@@ -167,29 +157,22 @@ class HostMetricsTest {
         final HostSnapshot second = metrics.read();
 
         assertTrue(second.cpuPercent().isPresent(), "the second read has an interval to divide by");
-        // By hand from the two captured lines: total moved 1192 jiffies, idle+iowait 1125 of them,
-        // so 67/1192 = 5.6208...%. Six cores over two seconds is ~1200 jiffies, which is the
-        // arithmetic saying the two captures really are two seconds apart.
+        // By hand from the two captured lines: total moved 1192 jiffies, idle+iowait 1125 of them, so ~5.62%.
         assertEquals(5.620805369127517, second.cpuPercent().getAsDouble(), 1e-9);
     }
 
     @Test
-    @DisplayName("two reads of the same counters are no interval at all, so still no percentage")
-    void cpuPercentStaysAbsentWithoutProgress() throws IOException {
+    void twoReadsOfTheSameCountersAreNoIntervalAtAllSoStillNoPercentage() throws IOException {
         final HostMetrics metrics = metrics();
         metrics.read();
 
-        // Not a contrived case: it is what a caller polling faster than the 10 ms jiffy sees, and
-        // dividing by a zero interval would be a NaN on somebody's dashboard.
+        // What a caller polling faster than the jiffy resolution sees: dividing by a zero interval is a NaN.
         assertFalse(metrics.read().cpuPercent().isPresent());
     }
 
     @Test
-    @DisplayName("a missing MemAvailable throws, naming the field, rather than reporting zero")
-    void missingFieldThrows() throws IOException {
-        // Linux has had MemAvailable since 3.14; its absence means this is not the file we think it
-        // is. The record's field is a long, so there is no honest value to put there - and a
-        // dashboard reading "0 bytes available" is an incident nobody is having.
+    void aMissingMemavailableThrowsNamingTheFieldRatherThanReportingZero() throws IOException {
+        // MemAvailable has existed for a decade; its absence means this is not the file we think it is.
         write(
                 "meminfo",
                 MEMINFO.lines().filter(line -> !line.startsWith("MemAvailable")).reduce("", (a, b) -> a + b + "\n"));
@@ -202,10 +185,8 @@ class HostMetricsTest {
     }
 
     @Test
-    @DisplayName("a unit that is not kB throws, quoting the line, rather than being read as kB")
-    void unexpectedUnitThrows() throws IOException {
-        // The one edited line in this file. If the kernel ever prints a size in MB, reading it as
-        // kilobytes is wrong by 1024 and looks entirely plausible on a chart.
+    void aUnitThatIsNotKbThrowsQuotingTheLineRatherThanBeingReadAsKb() throws IOException {
+        // If the kernel ever prints a size in MB, reading it as kilobytes is wrong by 1024 and looks plausible.
         write("meminfo", MEMINFO.replace("MemTotal:       16372536 kB", "MemTotal:          15988 MB"));
 
         final IOException thrown =
@@ -215,24 +196,15 @@ class HostMetricsTest {
     }
 
     @Test
-    @DisplayName("a missing /proc file is a NoSuchFileException and not a snapshot of zeroes")
-    void missingProcFileThrows() throws IOException {
+    void aMissingProcFileIsANosuchfileexceptionAndNotASnapshotOfZeroes() throws IOException {
         Files.delete(proc.resolve("stat"));
 
         assertThrows(NoSuchFileException.class, () -> metrics().read());
     }
 
     @Test
-    @DisplayName("the disk half is the FileStore's, with used measured against unallocated")
-    void readsTheDiskFromTheFileStore() throws IOException {
-        // The @TempDir is on a real, live filesystem, so the numbers are whatever this machine has
-        // and they move while the test runs. Hence the sandwich: read the store, take the snapshot,
-        // read the store again, and require the snapshot to lie between the two. Measured
-        // 2026-09-12, two thousand consecutive statvfs calls on this host returned an identical
-        // free-block count every time, so in practice both bounds are the same number and this is
-        // an equality; what the sandwich buys is that a busy minute cannot make it flaky. It is
-        // still far tighter than the thing it has to catch, which is off by the root reserve -
-        // 16.8 MB on this host's root filesystem.
+    void theDiskHalfIsTheFilestoresWithUsedMeasuredAgainstUnallocated() throws IOException {
+        // Numbers move while the test runs on a live filesystem, so the snapshot must lie between two live reads.
         final FileStore before = Files.getFileStore(disk);
         final long usedBefore = before.getTotalSpace() - before.getUnallocatedSpace();
         final long freeBefore = before.getUsableSpace();
@@ -248,9 +220,7 @@ class HostMetricsTest {
         assertBetween(usedBefore, usedAfter, snapshot.diskUsedBytes(), "used");
         assertBetween(freeBefore, freeAfter, snapshot.diskFreeBytes(), "free");
 
-        // The relationship is the part a refactor could quietly get wrong: used is total minus
-        // UNALLOCATED, free is USABLE, and the two therefore do not add up to the total. That gap
-        // is the root reserve, and `df` has exactly the same one.
+        // used is total minus UNALLOCATED, free is USABLE; the gap between them is the root reserve, same as df.
         assertTrue(
                 snapshot.diskUsedBytes() + snapshot.diskFreeBytes() <= snapshot.diskTotalBytes(),
                 "used + free may fall short of total by the root reserve, but never exceed it");

@@ -6,16 +6,16 @@ import org.jspecify.annotations.Nullable;
 /**
  * What saving one thing came to.
  *
- * <p><b>{@code bytes} is on this record because a backup that saved nothing has to be able to say
- * so.</b> Run 23 once reported success having snapshotted zero volumes, and nothing in the report
- * made that visible. A size of zero is not a detail here; it is the finding.</p>
+ * {@code bytes} is on this record because a backup that saved nothing has to be able to say so. Run 23 once reported
+ * success having snapshotted zero volumes, and nothing in the report made that visible. A size of zero is not a
+ * detail here; it is the finding.
  *
- * @param name     what was saved - a volume name, or {@code database}
- * @param ok       whether there is now a file that can be restored from
- * @param bytes    how large it is. Zero with {@code ok} true is a contradiction the report shows
- * @param took     how long it ran, because "the stack was down for 66 seconds" is half the story
- * @param file     where it landed, or {@code null} when nothing was written
- * @param message  what happened, in a sentence a person can act on
+ * @param name what was saved - a volume name, or {@code database}
+ * @param ok whether there is now a file that can be restored from
+ * @param bytes how large it is. Zero with {@code ok} true is a contradiction the report shows
+ * @param took how long it ran, because "the stack was down for 66 seconds" is half the story
+ * @param file where it landed, or {@code null} when nothing was written
+ * @param message what happened, in a sentence a person can act on
  */
 public record SnapshotResult(
         String name,

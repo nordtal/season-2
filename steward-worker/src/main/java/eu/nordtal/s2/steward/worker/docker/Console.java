@@ -10,21 +10,18 @@ import org.slf4j.LoggerFactory;
 /**
  * The console of §10a.2: one line, typed into one server.
  *
- * <h2>The answer does not come back here, and that is not a limitation</h2>
- * {@code mc} inside the Minecraft image hands the line to the tmux session the server runs in and
- * returns immediately - the server's reply is printed on its console and therefore lands in
- * {@code docker logs}, where the interface is already watching. So a command and its answer arrive
- * on the same stream and in the same order as everybody else's, which is what makes a second
- * admin's line visible to the first. A console that collected its own replies privately would make
- * two people typing look like one person hallucinating.
+ * The answer does not come back here, and that is not a limitation: {@code mc} inside the Minecraft image hands the
+ * line to the tmux session the server runs in and returns immediately - the server's reply is printed on its console
+ * and therefore lands in {@code docker logs}, where the interface is already watching. So a command and its answer
+ * arrive on the same stream and in the same order as everybody else's, which is what makes a second admin's line
+ * visible to the first. A console that collected its own replies privately would make two people typing look like
+ * one person hallucinating.
  *
- * <h2>Four services have one, six do not</h2>
- * The four Minecraft servers run a console because they have one. {@code postgres} and
- * {@code caddy} have no such thing; {@code discord-bot}'s interface is Discord; steward-worker's
- * own is this. The rule lives here rather than in {@link Docker} deliberately: a general-purpose
- * exec that quietly refuses some containers is a puzzle, while a named boundary is a boundary. It
- * is also why the interface shows no console field at all for those six, rather than a disabled
- * one (§10c).
+ * Four services have one, six do not: The four Minecraft servers run a console because they have one.
+ * {@code postgres} and {@code caddy} have no such thing; {@code discord-bot} 's interface is Discord;
+ * steward-worker's own is this. The rule lives here rather than in {@link Docker} deliberately: a general-purpose
+ * exec that quietly refuses some containers is a puzzle, while a named boundary is a boundary. It is also why the
+ * interface shows no console field at all for those six, rather than a disabled one (§10c).
  */
 public final class Console {
 
@@ -49,13 +46,13 @@ public final class Console {
     /**
      * Sends one line to a server's console.
      *
-     * <p>The command is passed as an argument and never through a shell: no quoting, no
-     * interpretation, no way for a semicolon in a message to become a second command.</p>
+     * The command is passed as an argument and never through a shell: no quoting, no interpretation, no way for a
+     * semicolon in a message to become a second command.
      *
      * @param service the compose service name, which must be one of {@link #WITH_A_CONSOLE}
      * @param command the line as typed, without a leading slash - {@code list}, {@code say hello}
      * @throws IllegalArgumentException if that service has no console, naming what it has instead
-     * @throws DockerException          if the container is not there or the exec failed
+     * @throws DockerException if the container is not there or the exec failed
      */
     public void send(final String service, final String command) {
         if (!has(service)) {
@@ -69,19 +66,15 @@ public final class Console {
                 .orElseThrow(() -> new DockerException(
                         "no running container for " + service + ", so there is no console to type into"));
 
-        // `mc` is in the image and is the supported way in - see deploy/minecraft/Dockerfile. It
-        // exits as soon as tmux has the line, so an empty answer here is success, not silence.
+        // `mc` exits as soon as tmux has the line, so an empty answer here is success, not silence.
         final Docker.ExecResult answer = docker.exec(containerId, List.of("mc", command));
         if (!answer.ok()) {
-            // `mc` failing is not the server refusing the command - the server never sees a line
-            // that `mc` could not hand to tmux. Saying "sent" here would be a lie with a
-            // convincing shape.
+            // `mc` failing is not the server refusing it - it never saw a line `mc` could not hand to tmux.
             throw new DockerException("`mc " + command + "` in " + service + " exited " + answer.exitCode() + ": "
                     + answer.output().strip());
         }
         if (!answer.output().isBlank()) {
-            // Only `mc` itself talks here, and only when it is unhappy about something it survived.
-            // The server's own reply never comes this way.
+            // Only `mc` itself talks here, when unhappy about something it survived; the server's reply never does.
             log.info("console {}: {}", service, answer.output().strip());
         }
     }
@@ -100,10 +93,7 @@ public final class Console {
             case "postgres" ->
                 "a database is not driven by typing into a terminal, and `psql` on "
                         + "the host is the tool for the times when it is";
-            // caddy, and it says "reverse proxy" rather than naming the service because that is
-            // what it is. NOT the Velocity proxy: since season-2-ops/117 the service called
-            // `proxy` is a Minecraft server and is in WITH_A_CONSOLE, so this branch is
-            // unreachable for it - which is exactly why it had to stop saying "proxy".
+            // NOT the Velocity proxy: that service is a Minecraft server and is in WITH_A_CONSOLE instead.
             case "caddy" -> "a reverse proxy has no console; its configuration is a file";
             default -> "it runs no console";
         };

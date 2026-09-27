@@ -11,18 +11,17 @@ import java.util.List;
 /**
  * Changes exactly two lines of the proxy's {@code pack.yml}: {@code url} and {@code sha1}.
  *
- * <p>Editing two lines rather than loading the file through jcore avoids depending on
- * {@code PackSpec}, which belongs to {@code :proxy}, and keeps steward-worker unable to
- * touch {@code enabled}, {@code force} or {@code apply-timeout-seconds} by accident.</p>
+ * Editing two lines rather than loading the file through jcore avoids depending on {@code PackSpec}, which belongs
+ * to {@code :proxy}, and keeps steward-worker unable to touch {@code enabled}, {@code force} or
+ * {@code apply-timeout-seconds} by accident.
  *
- * <p>A key missing from a file that exists is an error rather than something to append: appending
- * would leave YAML the proxy refuses at the worst moment. A file that is not there at all <em>is</em>
- * created with just these two keys, because a fresh volume is otherwise deadlocked - the proxy
- * writes {@code pack.yml} on first start, and a proxy with no jar in {@code plugins/} never starts.
- * jcore normalises on load, so the proxy's first start fills in the rest.</p>
+ * A key missing from a file that exists is an error rather than something to append: appending would leave YAML the
+ * proxy refuses at the worst moment. A file that is not there at all is created with just these two keys, because a
+ * fresh volume is otherwise deadlocked - the proxy writes {@code pack.yml} on first start, and a proxy with no jar
+ * in {@code plugins/} never starts. jcore normalises on load, so the proxy's first start fills in the rest.
  *
- * <p>A file already carrying the wanted values is left untouched byte for byte, so a modification
- * time still means the worker changed something.</p>
+ * A file already carrying the wanted values is left untouched byte for byte, so a modification time still means the
+ * worker changed something.
  */
 public final class PackWriter {
 
@@ -64,23 +63,22 @@ public final class PackWriter {
             return false;
         }
 
-        // Atomic within the volume: written beside the file and renamed over it, so a crash leaves
-        // either the old config or the new one and never half of either.
+        // Atomic within the volume: written beside the file and renamed over it, so a crash leaves one whole file.
         final Path temporary = packYml.resolveSibling(packYml.getFileName() + ".steward-worker-tmp");
         Files.write(temporary, written, StandardCharsets.UTF_8);
         try {
             Files.move(temporary, packYml, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (final IOException atomicUnsupported) {
-            // Some volume drivers cannot do an atomic rename; a plain replace of a five-line file
-            // is still better than writing in place.
+            // Some volume drivers cannot do an atomic rename; a plain replace still beats writing in place.
             Files.move(temporary, packYml, StandardCopyOption.REPLACE_EXISTING);
         }
         return true;
     }
 
     /**
-     * Writes a two-key {@code pack.yml} into a volume the proxy has never started against; the proxy
-     * rewrites the header and adds the other three settings on its first load.
+     * Writes a two-key {@code pack.yml} into a volume the proxy has never started against.
+     *
+     * The proxy rewrites the header and adds the other three settings on its first load.
      */
     private static boolean create(final Path packYml, final String url, final String sha1) throws IOException {
         Files.createDirectories(packYml.getParent());
@@ -97,8 +95,9 @@ public final class PackWriter {
     }
 
     /**
-     * A top-level key line: no indentation, so a {@code url:} nested under something else is not
-     * touched. {@code pack.yml} is flat, which is what makes this safe.
+     * A top-level key line: no indentation, so a {@code url:} nested under something else is not touched.
+     *
+     * {@code pack.yml} is flat, which is what makes this safe.
      */
     private static boolean isKey(final String line, final String key) {
         return line.startsWith(key + ":")

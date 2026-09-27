@@ -18,19 +18,16 @@ import java.util.HexFormat;
 /**
  * Fetching a jar onto disk and proving it is the jar that was asked for.
  *
- * <h2>Separate from {@link Http} on purpose</h2>
- * {@link Http} returns a {@code String} and is faked in tests with recorded payloads, which is
- * right for six small JSON documents and wrong for a 64 MB Paper jar. This writes straight to a
+ * Separate from {@link Http} on purpose: {@link Http} returns a {@code String} and is faked in tests with recorded
+ * payloads, which is right for six small JSON documents and wrong for a 64 MB Paper jar. This writes straight to a
  * file and never holds the body in memory.
  *
- * <h2>What is verified and what is not</h2>
- * Modrinth publishes a sha512 per file and the Fill API a sha256 per build; both are checked, and a
- * mismatch deletes the download rather than moving it anywhere. <b>A GitHub release asset carries
- * no digest of any kind</b> (checked against the live API 2026-09-01), so our own six jars, the
- * pack and the DisplayTags jar arrive unverified - exactly as {@code entrypoint.sh} has always
- * fetched them. The mitigation is TLS to {@code github.com} and the fact that a truncated jar is
- * one the JVM refuses to load, loudly, at start. It is a real gap and it is written down rather
- * than implied.
+ * What is verified and what is not: Modrinth publishes a sha512 per file and the Fill API a sha256 per build; both
+ * are checked, and a mismatch deletes the download rather than moving it anywhere. A GitHub release asset carries no
+ * digest of any kind, so our own six jars, the pack and the DisplayTags jar arrive unverified - exactly as
+ * {@code entrypoint.sh} fetches them. The mitigation is TLS to
+ * {@code github.com} and the fact that a truncated jar is one the JVM refuses to load, loudly, at start. It is a
+ * real gap and it is written down rather than implied.
  */
 public final class Downloads implements Fetcher {
 
@@ -47,11 +44,10 @@ public final class Downloads implements Fetcher {
 
     /**
      * Downloads {@code file} to {@code destination}, verifying its checksum if it has one.
-     * <p>
-     * The destination is written directly rather than through a {@code .partial} rename, because
-     * every caller in this module already downloads into a staging directory it is about to throw
-     * away - see {@code Applier}. A failure therefore leaves a file nobody will move.
-     * </p>
+     *
+     * The destination is written directly rather than through a {@code .partial} rename, because every caller in this
+     * module already downloads into a staging directory it is about to throw away - see {@code Applier}. A failure
+     * therefore leaves a file nobody will move.
      *
      * @throws IOException on a transport failure, a non-2xx status, or a checksum that disagrees.
      */

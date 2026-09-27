@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,7 +19,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -37,7 +37,7 @@ class JarIdentityTest {
     }
 
     private static String sha512(final String content) throws NoSuchAlgorithmException {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-512").digest(content.getBytes()));
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-512").digest(content.getBytes(UTF_8)));
     }
 
     private static HttpException notFound() {
@@ -45,8 +45,7 @@ class JarIdentityTest {
     }
 
     @Test
-    @DisplayName("a jar Modrinth published gets its project, one it never published gets nothing")
-    void publishedAndNot() throws Exception {
+    void aJarModrinthPublishedGetsItsProjectOneItNeverPublishedGetsNothing() throws Exception {
         final Installation.Jar voicechat = jar("voicechat-bukkit-2.6.24.jar", "voicechat");
         final Installation.Jar tags = jar("papermc-display-tags-2.2.0.jar", "tags");
         final FakeHttp http = new FakeHttp()
@@ -65,8 +64,7 @@ class JarIdentityTest {
     }
 
     @Test
-    @DisplayName("the second list asks Modrinth nothing, and a day later only for the names")
-    void askedOnce() throws Exception {
+    void theSecondListAsksModrinthNothingAndADayLaterOnlyForTheNames() throws Exception {
         final Installation.Jar voicechat = jar("voicechat-bukkit-2.6.24.jar", "voicechat");
         final Installation.Jar tags = jar("papermc-display-tags-2.2.0.jar", "tags");
         final FakeHttp http = new FakeHttp()
@@ -88,8 +86,7 @@ class JarIdentityTest {
     }
 
     @Test
-    @DisplayName("Modrinth unreachable: nothing identified, nothing thrown, asked again next time")
-    void unreachable() throws Exception {
+    void modrinthUnreachableNothingIdentifiedNothingThrownAskedAgainNextTime() throws Exception {
         final Installation.Jar voicechat = jar("voicechat-bukkit-2.6.24.jar", "voicechat");
         final FakeHttp http = new FakeHttp().failing("/version_file/", new IOException("timed out"));
         final JarIdentity identity = new JarIdentity(new Modrinth(http));

@@ -19,26 +19,26 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Turns an {@link UpdatePlan} into files on disk.
  *
- * <p>Everything is downloaded into a staging directory first and only moved into place once every
- * artefact of a service is present, so a run that fails half way leaves the server as it was. The
- * staging directory is resolved <em>per destination directory</em> because it has to sit on the
- * same filesystem: a cross-device move silently degrades to copy-and-delete, which is precisely
- * the half-written jar in {@code plugins/} this class exists to prevent.</p>
+ * Everything is downloaded into a staging directory first and only moved into place once every artefact of a service
+ * is present, so a run that fails half way leaves the server as it was. The staging directory is resolved per
+ * destination directory because it has to sit on the same filesystem: a cross-device move silently degrades to
+ * copy-and-delete, which is precisely the half-written jar in {@code plugins/} this class exists to prevent.
  *
- * <p>A service moves together or not at all - a partial swap of coupled plugins is a server that
- * does not start. Two artefacts are exempt. A server jar: plugins are compiled against the
- * version, never the build, and the build already in {@code .server/} runs. The resource pack: it
- * is not a file in a volume at all, and leaving {@code pack.yml} alone keeps the previous URL and
- * hash in force, which is a pack that works.</p>
+ * A service moves together or not at all - a partial swap of coupled plugins is a server that does not start. Two
+ * artefacts are exempt. A server jar: plugins are compiled against the version, never the build, and the build
+ * already in {@code .server/} runs. The resource pack: it is not a file in a volume at all, and leaving
+ * {@code pack.yml} alone keeps the previous URL and hash in force, which is a pack that works.
  *
- * <p>Only a jar whose filename prefix matches the one just installed is deleted, and only after
- * the new jar is in place ({@link JarName}). A jar nothing accounts for is reported and left.</p>
+ * Only a jar whose filename prefix matches the one just installed is deleted, and only after the new jar is in place
+ * ( {@link JarName}). A jar nothing accounts for is reported and left.
  */
 @Slf4j
 public final class Applier {
@@ -72,73 +72,44 @@ public final class Applier {
             outcomes.addAll(applyService(root, entry.getKey(), entry.getValue()));
         }
 
-        // THE STANDBYS COME LAST, AND THEY COME EVERY TIME (season-2-ops/119). Last, because a copy
-        // of a folder that is still being written is a copy of something that never existed; every
-        // time, because a service can be UNCHANGED here and its standby still be empty - a standby
-        // volume is created long after the live one and starts out with nothing in it.
-        //
-        // A run that reaches this method is a run that had work: Runner answers NOTHING_TO_DO
-        // before it ever calls apply. So this cannot turn an idle run into one that reports doing
-        // something.
-        outcomes.addAll(Standbys.fill(root, byService.keySet()));
+        outcomes.addAll(fillStandbys(root, byService.keySet()));
 
         return new ApplyResult(List.copyOf(outcomes));
     }
 
-    // ---------------------------------------------------------------- one service
+    /**
+     * Fills the standby volumes, always last and always attempted.
+     *
+     * Last, because a copy of a folder that is still being written is a copy of something that never existed; every
+     * time, because a service can be UNCHANGED here and its standby still be empty - a standby volume is created
+     * long after the live one and starts out with nothing in it. A run that reaches this method is a run that had
+     * work: {@code Runner} answers NOTHING_TO_DO before it ever calls apply, so this cannot turn an idle run into
+     * one that reports doing something.
+     */
+    private static List<ApplyResult.Outcome> fillStandbys(final Path root, final Set<String> services) {
+        return Standbys.fill(root, services);
+    }
 
     private List<ApplyResult.Outcome> applyService(final Path root, final String service, final List<Change> changes) {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
 
         final Change blocked = UpdatePlan.blocker(changes);
         if (blocked != null) {
-            final String why = blocked.artifact() + " could not be checked"
-                    + (blocked.note() == null ? "" : " (" + blocked.note() + ")")
-                    + ", so nothing on this server was touched";
-            changes.stream()
-                    .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
-                    .forEach(change -> outcomes.add(
-                            new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
-            // The pack still gets its own row: a skipped service must still say what the client is sent.
+            markServiceBlocked(service, changes, blocked, outcomes);
             outcomes.addAll(applyPack(root, service, changes));
             return outcomes;
         }
 
-        // A server jar that could not be resolved does not block the plugins beside it: plugins are
-        // compiled against the version, never the build, and the build in .server/ already runs.
-        changes.stream()
-                .filter(change -> change.status().isFailure())
-                .filter(change -> isServerJar(change.artifact()))
-                .forEach(change -> outcomes.add(new ApplyResult.Outcome(
-                        service,
-                        change.artifact(),
-                        ApplyResult.Status.SKIPPED,
-                        "could not be checked" + (change.note() == null ? "" : " (" + change.note() + ")")
-                                + "; the build in .server/ stays, and the plugins were not held back for it")));
+        markUnresolvedServerJarsSkipped(service, changes, outcomes);
 
-        // The pack is not a file this module downloads - the proxy only describes it and the client
-        // fetches the zip - so it is excluded here and handled by applyPack.
+        // The pack is not a file this module downloads - the client fetches the zip - so applyPack handles it.
         final List<Change> work = changes.stream()
                 .filter(change -> change.status().isWork())
                 .filter(change -> change.wanted() != null)
                 .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
                 .toList();
 
-        changes.stream()
-                .filter(change -> !change.status().isWork())
-                .filter(change -> !change.status().isFailure())
-                .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
-                .forEach(change -> outcomes.add(
-                        change.status() == Change.Status.UNSUPPORTED
-                                // Not UNCHANGED: nothing is there and nothing was attempted. The row keeps the
-                                // artefact named until its publisher ships a build for this Minecraft version.
-                                ? new ApplyResult.Outcome(
-                                        service,
-                                        change.artifact(),
-                                        ApplyResult.Status.UNSUPPORTED,
-                                        "no build for this Minecraft version yet")
-                                : new ApplyResult.Outcome(
-                                        service, change.artifact(), ApplyResult.Status.UNCHANGED, change.installed())));
+        markUnsupportedOrUnchanged(service, changes, outcomes);
 
         if (work.isEmpty()) {
             outcomes.addAll(applyPack(root, service, changes));
@@ -146,24 +117,10 @@ public final class Applier {
         }
 
         final Path volume = root.resolve(service);
-
-        // One staging directory per destination directory, built as the work is walked so an empty
-        // one is never created.
         final Map<Path, Path> stagingByDestination = new LinkedHashMap<>();
-
-        // --- phase one: fetch everything, place nothing -----------------------------------
-        final Map<String, Path> staged = new LinkedHashMap<>();
+        final Map<String, Path> staged;
         try {
-            // Sweep up the old layout's staging directory at the volume root; nothing else reads it.
-            deleteRecursively(volume.resolve(STAGING));
-            for (final Change change : work) {
-                final RemoteFile wanted = change.wanted();
-                final Path destination = directoryFor(volume, change.artifact());
-                final Path staging = stagingFor(stagingByDestination, destination);
-                final Path target = staging.resolve(wanted.fileName());
-                fetcher.fetch(wanted, target);
-                staged.put(change.artifact(), target);
-            }
+            staged = stageWork(volume, work, stagingByDestination);
         } catch (final IOException failed) {
             log.warn("Staging {} failed: {}", service, failed.getMessage());
             final String why = "download failed (" + failed.getMessage() + "); nothing on this server was moved";
@@ -174,21 +131,92 @@ public final class Applier {
             return outcomes;
         }
 
-        // --- phase two: move them all in ---------------------------------------------------
+        outcomes.addAll(moveIntoPlace(service, volume, work, staged));
+        stagingByDestination.values().forEach(Applier::quietlyDelete);
+        outcomes.addAll(applyPack(root, service, changes));
+        return outcomes;
+    }
+
+    private static void markServiceBlocked(
+            final String service,
+            final List<Change> changes,
+            final Change blocked,
+            final List<ApplyResult.Outcome> outcomes) {
+        final String why = blocked.artifact() + " could not be checked"
+                + (blocked.note() == null ? "" : " (" + blocked.note() + ")")
+                + ", so nothing on this server was touched";
+        // The pack still gets its own row: a skipped service must still say what the client is sent.
+        changes.stream()
+                .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
+                .forEach(change -> outcomes.add(
+                        new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
+    }
+
+    private static void markUnresolvedServerJarsSkipped(
+            final String service, final List<Change> changes, final List<ApplyResult.Outcome> outcomes) {
+        // A server jar that could not be resolved does not block the plugins: they compile against the version.
+        changes.stream()
+                .filter(change -> change.status().isFailure())
+                .filter(change -> isServerJar(change.artifact()))
+                .forEach(change -> outcomes.add(new ApplyResult.Outcome(
+                        service,
+                        change.artifact(),
+                        ApplyResult.Status.SKIPPED,
+                        "could not be checked" + (change.note() == null ? "" : " (" + change.note() + ")")
+                                + "; the build in .server/ stays, and the plugins were not held back for it")));
+    }
+
+    private static void markUnsupportedOrUnchanged(
+            final String service, final List<Change> changes, final List<ApplyResult.Outcome> outcomes) {
+        changes.stream()
+                .filter(change -> !change.status().isWork())
+                .filter(change -> !change.status().isFailure())
+                .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
+                .forEach(change -> outcomes.add(
+                        change.status() == Change.Status.UNSUPPORTED
+                                // Not UNCHANGED: nothing is there and nothing was attempted.
+                                ? new ApplyResult.Outcome(
+                                        service,
+                                        change.artifact(),
+                                        ApplyResult.Status.UNSUPPORTED,
+                                        "no build for this Minecraft version yet")
+                                : new ApplyResult.Outcome(
+                                        service, change.artifact(), ApplyResult.Status.UNCHANGED, change.installed())));
+    }
+
+    private Map<String, Path> stageWork(final Path volume, final List<Change> work, final Map<Path, Path> byDestination)
+            throws IOException {
+        // Sweep up the old layout's staging directory at the volume root; nothing else reads it.
+        deleteRecursively(volume.resolve(STAGING));
+        final Map<String, Path> staged = new LinkedHashMap<>();
         for (final Change change : work) {
-            final RemoteFile wanted = change.wanted();
+            final RemoteFile wanted = Objects.requireNonNull(change.wanted(), "work is filtered to wanted() != null");
+            final Path destination = directoryFor(volume, change.artifact());
+            final Path staging = stagingFor(byDestination, destination);
+            final Path target = staging.resolve(wanted.fileName());
+            fetcher.fetch(wanted, target);
+            staged.put(change.artifact(), target);
+        }
+        return staged;
+    }
+
+    private List<ApplyResult.Outcome> moveIntoPlace(
+            final String service, final Path volume, final List<Change> work, final Map<String, Path> staged) {
+        final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
+        for (final Change change : work) {
+            final RemoteFile wanted = Objects.requireNonNull(change.wanted(), "work is filtered to wanted() != null");
             final Path destination = directoryFor(volume, change.artifact()).resolve(wanted.fileName());
+            final Path destinationDirectory =
+                    Objects.requireNonNull(destination.getParent(), "resolved against a directory");
             try {
-                Files.createDirectories(destination.getParent());
-                // ATOMIC_MOVE, and a failure if the filesystem cannot do one: without it a move
-                // across a device boundary degrades silently to copy-and-delete. An
-                // AtomicMoveNotSupportedException means staging is no longer on the same filesystem.
+                Files.createDirectories(destinationDirectory);
+                // ATOMIC_MOVE and nothing else: a silent fallback would let a cross-device move corrupt the jar.
                 Files.move(
                         staged.get(change.artifact()),
                         destination,
                         StandardCopyOption.REPLACE_EXISTING,
                         StandardCopyOption.ATOMIC_MOVE);
-                final List<String> removed = removeSuperseded(destination.getParent(), wanted.fileName());
+                final List<String> removed = removeSuperseded(destinationDirectory, wanted.fileName());
                 outcomes.add(new ApplyResult.Outcome(
                         service, change.artifact(), ApplyResult.Status.DONE, describe(change, wanted, removed)));
             } catch (final IOException failed) {
@@ -201,18 +229,14 @@ public final class Applier {
                                 + ". This server may now be part-updated - check it before restarting."));
             }
         }
-
-        stagingByDestination.values().forEach(Applier::quietlyDelete);
-        outcomes.addAll(applyPack(root, service, changes));
         return outcomes;
     }
 
-    // ---------------------------------------------------------------- the pack
-
     /**
-     * The proxy's {@code pack.yml}, written after its jars. Both values come from the release: the
-     * asset's own download URL and the content of the {@code .sha1} asset beside the zip - never
-     * computed here, never copied by a person.
+     * The proxy's {@code pack.yml}, written after its jars.
+     *
+     * Both values come from the release: the asset's own download URL and the content of the {@code .sha1} asset
+     * beside the zip - never computed here, never copied by a person.
      */
     private List<ApplyResult.Outcome> applyPack(final Path root, final String service, final List<Change> changes) {
         final Change pack = changes.stream()
@@ -223,8 +247,7 @@ public final class Applier {
             return List.of();
         }
 
-        // "Could not be checked" is not "unchanged": pack.yml keeps what it said, so the client is
-        // still sent the previous pack. That has to read as a fallback, not as a no-op.
+        // "Could not be checked" is not "unchanged": pack.yml keeps what it said, so the previous pack is resent.
         if (pack.status().isFailure()) {
             return List.of(new ApplyResult.Outcome(
                     service,
@@ -267,11 +290,10 @@ public final class Applier {
         }
     }
 
-    // ---------------------------------------------------------------- helpers
-
     /**
-     * The staging directory for one destination, created on first use and emptied first: a run that
-     * died between the two phases leaves files here, and re-using them would install a jar nobody
+     * The staging directory for one destination, created on first use and emptied first.
+     *
+     * A run that died between the two phases leaves files here, and re-using them would install a jar nobody
      * verified in this run.
      */
     private static Path stagingFor(final Map<Path, Path> known, final Path destination) throws IOException {
@@ -297,9 +319,12 @@ public final class Applier {
         return Topology.PAPER.equals(artifact) || Topology.VELOCITY.equals(artifact);
     }
 
-    // Steward-worker deleting its own superseded jar while running from it is safe only because
-    // Linux keeps an unlinked inode alive for whoever holds it open; on Windows the delete would
-    // fail.
+    /**
+     * Deletes any jar this artefact's new file supersedes.
+     *
+     * Safe to delete steward-worker's own running jar this way only because Linux keeps an unlinked inode alive for
+     * whoever holds it open; on Windows the delete would fail.
+     */
     private static List<String> removeSuperseded(final Path directory, final String installed) throws IOException {
         final List<String> removed = new ArrayList<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory)) {

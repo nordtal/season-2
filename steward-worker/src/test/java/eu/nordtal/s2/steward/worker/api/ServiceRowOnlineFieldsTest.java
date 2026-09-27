@@ -10,18 +10,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The one rule {@code /api/services} has about these two fields, held where it can be held without
- * a Docker daemon: <b>a subject {@link ServicesApi} does not name produces no field at all</b> -
- * not {@code 0}, not {@code null}, not {@code []}.
+ * The one rule {@code /api/services} has about these two fields, held where it can be held without a Docker daemon.
  *
- * <p>It is two {@code null} checks in {@code WorkerApi#putOnline} and that is precisely why it is
- * tested: a later edit could make either one a {@code getOrDefault} and every other test in this
- * module would still pass, while the start page would start drawing "nobody is playing" over
- * "nobody has said" (steward/86, steward/111).
+ * A subject {@link ServicesApi} does not name produces no field at all - not {@code 0}, not {@code null}, not
+ * {@code []}.
+ *
+ * It is two {@code null} checks in {@code ServiceRows#putOnline} and that is precisely why it is tested: a later edit
+ * could make either one a {@code getOrDefault} and every other test in this module would still pass, while the start
+ * page would start drawing "nobody is playing" over "nobody has said".
  */
 class ServiceRowOnlineFieldsTest {
 
@@ -30,8 +29,7 @@ class ServiceRowOnlineFieldsTest {
     private static final Instant WHENEVER = Instant.parse("2026-09-17T12:00:00Z");
 
     @Test
-    @DisplayName("a service nothing was written for carries neither field")
-    void anUnknownServiceHasNoFields() {
+    void aServiceNothingWasWrittenForCarriesNeitherField() {
         final Map<String, Object> row = row("smp", ServicesApi.Online.NONE);
 
         assertFalse(row.containsKey("players"), "unknown must not read as zero");
@@ -39,8 +37,7 @@ class ServiceRowOnlineFieldsTest {
     }
 
     @Test
-    @DisplayName("a genuine zero is written as a zero, and still carries no roster")
-    void aQuietServiceHasACountAndNoList() {
+    void aGenuineZeroIsWrittenAsAZeroAndStillCarriesNoRoster() {
         final Map<String, Object> row = row("smp", new ServicesApi.Online(Map.of("smp", 0), Map.of()));
 
         assertEquals(0, row.get("players"), "nobody connected is a fact, and it is a number");
@@ -48,8 +45,7 @@ class ServiceRowOnlineFieldsTest {
     }
 
     @Test
-    @DisplayName("the list rides along as uuid and name, in the order it was given")
-    void aBusyServiceCarriesItsPeople() {
+    void theListRidesAlongAsUuidAndNameInTheOrderItWasGiven() {
         final Map<String, Object> row = row(
                 "smp",
                 new ServicesApi.Online(
@@ -76,8 +72,7 @@ class ServiceRowOnlineFieldsTest {
     }
 
     @Test
-    @DisplayName("the roster of one service does not leak into another's row")
-    void anotherServicesPeopleStayThere() {
+    void theRosterOfOneServiceDoesNotLeakIntoAnothersRow() {
         final Map<String, Object> row = row(
                 "limbo",
                 new ServicesApi.Online(
@@ -89,8 +84,7 @@ class ServiceRowOnlineFieldsTest {
     }
 
     @Test
-    @DisplayName("nothing else on the row is touched")
-    void theRestOfTheRowIsLeftAlone() {
+    void nothingElseOnTheRowIsTouched() {
         final Map<String, Object> row = row("smp", ServicesApi.Online.NONE);
 
         assertTrue(row.containsKey("service"), "putOnline adds fields, it does not build the row");
@@ -100,7 +94,7 @@ class ServiceRowOnlineFieldsTest {
     private static Map<String, Object> row(final String service, final ServicesApi.Online online) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("service", service);
-        WorkerApi.putOnline(row, service, online);
+        ServiceRows.putOnline(row, service, online);
         return row;
     }
 }

@@ -7,17 +7,16 @@ import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * A backup refuses to save anything when a service it asked to stop is still running. The question
- * this answers is which lines of the report are services that were asked.
+ * A backup refuses to save anything when a service it asked to stop is still running.
  *
- * <p>It is not all of them. The database dump is taken first, with everything still up, and it
- * writes a line of its own - and that line named a thing no container is. Counting it made every
- * backup abort before saving a single volume, quietly, with a message blaming "database" for not
- * stopping.</p>
+ * The question this answers is which lines of the report are services that were asked.
+ *
+ * It is not all of them. The database dump is taken first, with everything still up, and it writes a line of its own
+ * - and that line named a thing no container is. Counting it made every backup abort before saving a single volume,
+ * quietly, with a message blaming "database" for not stopping.
  */
 class StopVerificationTest {
 
@@ -31,20 +30,17 @@ class StopVerificationTest {
     }
 
     @Test
-    @DisplayName("the database dump is not a container and never counts as one that refused to stop")
-    void theDatabaseLineIsNotAService() {
+    void theDatabaseDumpIsNotAContainerAndNeverCountsAsOneThatRefusedToStop() {
         assertEquals(List.of(), Runner.servicesThatRefused(planned("smp", "limbo"), Set.of("smp", "limbo")));
     }
 
     @Test
-    @DisplayName("a service that really did not stop is still reported")
-    void aServiceThatRefusedIsReported() {
+    void aServiceThatReallyDidNotStopIsStillReported() {
         assertEquals(List.of("limbo"), Runner.servicesThatRefused(planned("smp", "limbo"), Set.of("smp")));
     }
 
     @Test
-    @DisplayName("steward-worker is never counted: it is the process asking")
-    void theWorkerIsNeverCounted() {
+    void stewardWorkerIsNeverCountedItIsTheProcessAsking() {
         assertTrue(
                 Runner.servicesThatRefused(planned("steward-worker"), Set.of()).isEmpty());
     }

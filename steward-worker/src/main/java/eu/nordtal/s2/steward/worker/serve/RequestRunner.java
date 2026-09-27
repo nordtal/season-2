@@ -6,11 +6,10 @@ import java.util.function.Consumer;
 
 /**
  * Carries out one claimed request.
- * <p>
- * An interface so that {@link UpdateServer}'s loop - the reconnects, the drain, the arithmetic that
- * decides when a countdown fires - can be tested without a network, a database or four Docker
- * volumes. {@link Runner} is the only implementation that does anything.
- * </p>
+ *
+ * An interface so that {@link UpdateServer} 's loop - the reconnects, the drain, the arithmetic that decides when a
+ * countdown fires - can be tested without a network, a database or four Docker volumes. {@link Runner} is the only
+ * implementation that does anything.
  */
 @FunctionalInterface
 public interface RequestRunner {

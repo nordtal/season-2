@@ -10,21 +10,19 @@ import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import java.time.Clock;
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The database dump against the PostgreSQL that is actually running here.
  *
- * <p>It dumps the live season database - which is a read, taken as an MVCC snapshot, and changes
- * nothing - into {@code /tmp} inside the postgres container rather than into the shared backup
- * directory, because a test has no business writing into the real one. Everything else is the real
- * path: the real {@code pg_dump}, the real verification, the real rename, the real file size.</p>
+ * It dumps the live season database - which is a read, taken as an MVCC snapshot, and changes nothing - into
+ * {@code /tmp} inside the postgres container rather than into the shared backup directory, because a test has no
+ * business writing into the real one. Everything else is the real path: the real {@code pg_dump}, the real
+ * verification, the real rename, the real file size.
  *
- * <p><b>The directory is created root-owned on purpose.</b> {@code pg_dump} runs as
- * {@code postgres}, so a root-owned directory is the whole of finding 39 - and the setup here used
- * to hand the directory over itself, which is why the test stayed green for months while not one
- * dump was ever written on the running stack.</p>
+ * The directory is created root-owned on purpose. {@code pg_dump} runs as {@code postgres}, so a root-owned
+ * directory is the whole of finding 39 - and the setup here used to hand the directory over itself, which is why the
+ * test stayed green for months while not one dump was ever written on the running stack.
  */
 class DatabaseDumpIntegrationTest {
 
@@ -45,11 +43,7 @@ class DatabaseDumpIntegrationTest {
                 .findFirst()
                 .orElse(null);
         assumeTrue(postgres != null, "no postgres container here - skipping");
-        // ROOT-OWNED AND 0755, which is what a fresh docker volume actually looks like - and is
-        // exactly the condition the live backup directory was in on 2026-09-14, when every
-        // database dump since the sidecar's removal had failed with "Permission denied" while the
-        // volume archives beside it succeeded. Handing it to `postgres` here would hide the bug
-        // this test is supposed to catch, so the setup does the opposite: it recreates it.
+        // Root-owned and 0755, what a fresh docker volume looks like; handing it to `postgres` would hide the bug here.
         docker.exec(
                 postgres,
                 List.of(
@@ -61,8 +55,7 @@ class DatabaseDumpIntegrationTest {
     }
 
     @Test
-    @DisplayName("the live database dumps, verifies, and lands under its final name")
-    void dumpsTheLiveDatabase() {
+    void theLiveDatabaseDumpsVerifiesAndLandsUnderItsFinalName() {
         final SnapshotResult result =
                 new DatabaseDump(docker, PROJECT, "postgres", DIRECTORY, Clock.systemUTC()).save();
 
@@ -85,8 +78,7 @@ class DatabaseDumpIntegrationTest {
     }
 
     @Test
-    @DisplayName("a directory nobody can write to is a failure, not a dump of nothing")
-    void refusesWhatItCannotWrite() {
+    void aDirectoryNobodyCanWriteToIsAFailureNotADumpOfNothing() {
         final SnapshotResult result =
                 new DatabaseDump(docker, PROJECT, "postgres", "/proc/nowhere", Clock.systemUTC()).save();
 
@@ -97,8 +89,7 @@ class DatabaseDumpIntegrationTest {
     }
 
     @Test
-    @DisplayName("a service that is not running is named as the reason")
-    void saysWhenThereIsNoDatabase() {
+    void aServiceThatIsNotRunningIsNamedAsTheReason() {
         final SnapshotResult result =
                 new DatabaseDump(docker, PROJECT, "no-such-service", DIRECTORY, Clock.systemUTC()).save();
 

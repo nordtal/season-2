@@ -11,35 +11,30 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * What a backup is worth when nobody could watch the servers stop.
  *
- * <h2>The shape this exists for</h2>
- * Docker's stop call succeeds whether the server shut down properly or was killed at the end of its
- * grace period, so the client inspects the container afterwards to find out which. That inspect can
- * fail on its own - a daemon that stopped answering between the two calls - and then the run holds a
- * stopped container and no idea whether the world had finished writing. Refusing there would take
- * the network down over an unreadable inspect, so the run carries on; what must not happen is the
- * thing that happened in run 23, where carrying on meant the archive came out of the sequence
- * indistinguishable from one taken over a clean shutdown.
+ * The shape this exists for: Docker's stop call succeeds whether the server shut down properly or was killed at the
+ * end of its grace period, so the client inspects the container afterwards to find out which. That inspect can fail
+ * on its own - a daemon that stopped answering between the two calls - and then the run holds a stopped container
+ * and no idea whether the world had finished writing. Refusing there would take the network down over an unreadable
+ * inspect, so the run carries on; what must not happen is the thing that happened in run 23, where carrying on meant
+ * the archive came out of the sequence indistinguishable from one taken over a clean shutdown.
  *
- * <h2>Why the ordering is asserted and not just the outcome</h2>
- * {@link FakeSnapshots} shares {@link FakeContainers#calls} deliberately, so stopping, saving and
- * marking are one list in one order. A mark written before the archive exists is a warning about a
- * file that is not there yet, and on a run where the save then fails it is a warning about a file
- * that never arrives - so the position of {@code mark:} in that list is the assertion, not an
- * afterthought to it.
+ * Why the ordering is asserted and not just the outcome: {@link FakeSnapshots} shares {@link FakeContainers#calls}
+ * deliberately, so stopping, saving and marking are one list in one order. A mark written before the archive exists
+ * is a warning about a file that is not there yet, and on a run where the save then fails it is a warning about a
+ * file that never arrives - so the position of {@code mark:} in that list is the assertion, not an afterthought to
+ * it.
  */
 class UnverifiedStopBackupTest {
 
     private final List<UpdateReport> progress = new ArrayList<>();
 
     @Test
-    @DisplayName("every archive written after a stop nobody could confirm carries a mark")
-    void anUnverifiedStopMarksEveryArchiveTheRunWrites() {
+    void everyArchiveWrittenAfterAStopNobodyCouldConfirmCarriesAMark() {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
@@ -48,9 +43,7 @@ class UnverifiedStopBackupTest {
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
         final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp", "bot-config"));
 
-        // Every volume, not the first one: the stop that could not be read was the same stop for
-        // all of them, and an operator who restores the second volume needs telling just as much as
-        // one who restores the first.
+        // Every volume, not the first: the same unreadable stop applies to all of them equally.
         assertEquals(
                 List.of(
                         "stop:smp-container",
@@ -77,8 +70,7 @@ class UnverifiedStopBackupTest {
     }
 
     @Test
-    @DisplayName("the mark says which service's ending could not be read, not just that one could not")
-    void theMarkNamesTheService() {
+    void theMarkSaysWhichServicesEndingCouldNotBeReadNotJustThatOneCouldNot() {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP, Topology.LIMBO).stopUnverified(Topology.LIMBO);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
@@ -99,8 +91,7 @@ class UnverifiedStopBackupTest {
     }
 
     @Test
-    @DisplayName("the line for an unverified stop carries the reason instead of looking ordinary")
-    void theStoppedLineSaysWhatCouldNotBeRead() {
+    void theLineForAnUnverifiedStopCarriesTheReasonInsteadOfLookingOrdinary() {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
@@ -121,13 +112,8 @@ class UnverifiedStopBackupTest {
     }
 
     @Test
-    @DisplayName("reported FAILED is not the same as not backed up")
-    void aRunThatWillBeReportedFailedStillWroteAndMarkedEveryArchive() {
-        // The whole risk of the owner's decision of 2026-09-13, in one test. Settling the run
-        // FAILED is a safety note about evidence that is missing, and the archives it is a note
-        // ABOUT have to be on disk when it is written. A change that made the run bail out on the
-        // unverified stop instead - which reads like caution - would turn the note into the thing
-        // it warns about, and a FAILED row is exactly where nobody would go looking for a file.
+    void reportedFailedIsNotTheSameAsNotBackedUp() {
+        // The whole risk of the owner's decision, in one test: FAILED is a note about evidence that must exist.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
@@ -146,9 +132,7 @@ class UnverifiedStopBackupTest {
                 saved.line("bot-config").state(),
                 "both volumes were saved, and the run is a failure anyway - the two facts are"
                         + " supposed to hold at the same time");
-        // A set, not a list: FakeSnapshots#marks hands back a Map.copyOf, whose iteration order is
-        // deliberately unspecified and really does vary between JVMs. The order these were written
-        // in is asserted where it is actually a claim - against the shared call list, above.
+        // A set, not a list: FakeSnapshots#marks hands back a Map.copyOf, whose order is unspecified and varies.
         assertEquals(
                 Set.of("/backups/mc-smp-20260913T000000Z.tar.zst", "/backups/bot-config-20260913T000000Z.tar.zst"),
                 snapshots.marks().keySet(),
@@ -158,11 +142,8 @@ class UnverifiedStopBackupTest {
     }
 
     @Test
-    @DisplayName("the run names the stops it could not confirm, in the order they were made")
-    void theRunNamesTheStopsItCouldNotConfirm() {
-        // Runner reads exactly this to settle a backup FAILED (owner's decision, 2026-09-13). A
-        // list that came back empty would leave the rule switched off with every other assertion
-        // in this file still green, so the list itself is held here rather than only its effects.
+    void theRunNamesTheStopsItCouldNotConfirmInTheOrderTheyWereMade() {
+        // Runner reads exactly this to settle a backup FAILED; the list itself is checked, not only its effects.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP, Topology.LIMBO).stopUnverified(Topology.LIMBO);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
@@ -178,10 +159,8 @@ class UnverifiedStopBackupTest {
     }
 
     @Test
-    @DisplayName("an ordinary run marks nothing and leaves its lines clean")
-    void aStopThatWasConfirmedMarksNothing() {
-        // The other half of the claim, and the half that is easy to lose: a mark on every archive
-        // is a mark nobody reads. This is what makes the mark mean something when it is there.
+    void anOrdinaryRunMarksNothingAndLeavesItsLinesClean() {
+        // The other half of the claim, easy to lose: a mark on every archive is a mark nobody reads.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
         final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
@@ -201,11 +180,8 @@ class UnverifiedStopBackupTest {
     }
 
     @Test
-    @DisplayName("a volume that saved nothing is not marked - there is no archive to mark")
-    void aFailedVolumeKeepsItsOwnReason() {
-        // A mark beside a file that was never written is a warning about nothing, and it would
-        // replace the one sentence that matters here: what the tar actually said. Found by review
-        // rather than by a run, because the two failures have to coincide to reach it.
+    void aVolumeThatSavedNothingIsNotMarkedThereIsNoArchiveToMark() {
+        // A mark beside a file never written is a warning about nothing, replacing what the tar actually said.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).fails("mc-smp");
@@ -225,8 +201,6 @@ class UnverifiedStopBackupTest {
                 "the tar's own reason is what a person acts on: "
                         + saved.line("mc-smp").detail());
     }
-
-    // ---------------------------------------------------------------- helpers
 
     /** A plan where the first service has work and the rest do not. */
     private static UpdateReport planned(final String... services) {

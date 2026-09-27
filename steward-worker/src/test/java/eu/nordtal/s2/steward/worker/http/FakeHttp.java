@@ -10,12 +10,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * An {@link Http} backed by responses recorded from the live APIs on 2026-09-01.
- * <p>
+ * An {@link Http} backed by responses recorded from the live APIs.
+ *
  * Routing is by substring (longest match wins) rather than by exact URL on purpose: the tests are about what the
- * parsers do with a real payload, not about how a query string is spelled. The one place the spelling
- * matters - Modrinth's bracketed JSON filters - is asserted directly in {@link #requested()}.
- * </p>
+ * parsers do with a real payload, not about how a query string is spelled. The one place the spelling matters -
+ * Modrinth's bracketed JSON filters - is asserted directly in {@link #requested()}.
  */
 public final class FakeHttp implements Http {
 
@@ -54,8 +53,7 @@ public final class FakeHttp implements Http {
                 throw failure.getValue();
             }
         }
-        // The most specific match wins, not the first registered: "/builds/119" over "/builds",
-        // so a test can pin one build on top of the shared list fixture.
+        // The most specific match wins, not the first registered: "/builds/119" over "/builds".
         String best = null;
         for (final Map.Entry<String, String> route : routes.entrySet()) {
             if (url.contains(route.getKey()) && (best == null || route.getKey().length() > best.length())) {

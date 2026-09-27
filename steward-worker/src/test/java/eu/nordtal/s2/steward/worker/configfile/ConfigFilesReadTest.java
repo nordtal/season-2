@@ -9,7 +9,6 @@ import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
-import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Type;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,14 +20,11 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Reading a jcore-written file back as a form.
  *
- * <p>The fixtures are produced by calling jcore, not by typing YAML into a text block: this parser
- * only has to read what jcore writes, and the only honest statement of what jcore writes is what
- * jcore wrote. Two of its habits would not have been guessed and are asserted below, because a
- * parser written against a guess breaks silently -
- * {@link #aNestedSectionsKeyCarriesNoCommentAboveItAnyMore()} and
- * {@link #jcoreWritesNoCommentCharacterAtAll()}. Both used to pin the opposite behaviour, jcore
- * 3.1.0's, until the version bump to 4.0.0 for steward/54/steward/55 turned them red - see
- * ConfigFilesSchemaTest for where the explanations those comments used to carry live now.</p>
+ * The fixtures are produced by calling jcore, not by typing YAML into a text block: this parser only has to read
+ * what jcore writes, and the only honest statement of what jcore writes is what jcore wrote. Two of its habits would
+ * not have been guessed and are asserted below, because a parser written against a guess breaks silently -
+ * {@link #aNestedSectionsKeyCarriesNoCommentAboveItAnyMore()} and {@link #jcoreWritesNoCommentCharacterAtAll()} -
+ * see {@code ConfigFilesSchemaTest} for the schema-driven text that replaces what jcore no longer writes.
  */
 class ConfigFilesReadTest {
 
@@ -45,9 +41,7 @@ class ConfigFilesReadTest {
 
     @Test
     void theHeaderIsTheCommentBlockAboveTheBlankLineAtTheTop() throws IOException {
-        // jcore 4.0.0 writes no header and no comments at all any more (steward/54) - the
-        // @ConfigSpec(header=…) text FixtureSpec carries never reaches a freshly-written file.
-        // This test used to pin the old jcore behaviour; ConfigFilesSchemaTest pins the new one.
+        // jcore writes no header and no comments at all: the @ConfigSpec(header=…) text never reaches the file.
         final ConfigDocument document = ConfigFiles.read(fixture);
 
         assertEquals(List.of(), document.header());
@@ -55,9 +49,7 @@ class ConfigFilesReadTest {
 
     @Test
     void commentsAreTheBlockDirectlyAboveTheKey() throws IOException {
-        // Same as above: a file jcore 4.0.0 writes carries no comments, so a freshly-written
-        // fixture has none to read back. A hand-written file with a real comment block is covered
-        // by aWorkerStyleFileWithAListAndTwoSectionsReadsBack below, which never goes through jcore.
+        // A file jcore writes carries no comments; a hand-written file with a real comment block is covered elsewhere.
         final ConfigDocument document = ConfigFiles.read(fixture);
 
         assertEquals(List.of(), entry(document, "port").comments());
@@ -105,9 +97,9 @@ class ConfigFilesReadTest {
     }
 
     /**
-     * A nested section's key is still indented to its own column - that is YAML nesting and has
-     * nothing to do with comments - but jcore 4.0.0 puts no comment line above it any more, where
-     * 3.1.0 always did. Pinned so a jcore change that brought comments back would show up as a
+     * A nested section's key is still indented to its own column, which is YAML nesting, not comments.
+     *
+     * jcore puts no comment line above it. Pinned so a jcore change that brought comments back would show up as a
      * failure here rather than as a page quietly gaining text nobody asked for.
      */
     @Test
@@ -136,14 +128,14 @@ class ConfigFilesReadTest {
     void theTypeOfAScalarIsWhatYamlMakesOfIt() throws IOException {
         final ConfigDocument document = ConfigFiles.read(fixture);
 
-        assertEquals(Type.INTEGER, entry(document, "port").type());
-        assertEquals(Type.DECIMAL, entry(document, "ratio").type());
-        assertEquals(Type.BOOLEAN, entry(document, "enabled").type());
-        assertEquals(Type.STRING, entry(document, "public-url").type());
+        assertEquals(ConfigEntry.Type.INTEGER, entry(document, "port").type());
+        assertEquals(ConfigEntry.Type.DECIMAL, entry(document, "ratio").type());
+        assertEquals(ConfigEntry.Type.BOOLEAN, entry(document, "enabled").type());
+        assertEquals(ConfigEntry.Type.STRING, entry(document, "public-url").type());
         // '12' - quoted by jcore because the spec method returns a String, and read back as one.
-        assertEquals(Type.STRING, entry(document, "build-number").type());
+        assertEquals(ConfigEntry.Type.STRING, entry(document, "build-number").type());
         assertEquals("12", entry(document, "build-number").value());
-        assertEquals(Type.STRING, entry(document, "api-token").type());
+        assertEquals(ConfigEntry.Type.STRING, entry(document, "api-token").type());
         assertEquals("", entry(document, "api-token").value());
     }
 
@@ -242,19 +234,15 @@ class ConfigFilesReadTest {
 
     @Test
     void thisServicesOwnConfigReadsBackTheWayItsSpecDescribesIt() throws IOException, ConfigException {
-        // A REAL CONFIG FROM THIS REPOSITORY, written by jcore, rather than a fixture written to
-        // be easy to parse. It was steward-ui.yml until 2026-09-14, when this whole package moved
-        // here; the point is unchanged and is not about which file it is - a fixture only proves
-        // that the parser agrees with whoever wrote the fixture.
+        // A real config written by jcore, not a fixture written to be easy to parse and self-agreeing.
         final Path file = directory.resolve("steward.yml");
         ConfigLoader.builder(file, StewardSpec.class).load();
 
         final ConfigDocument document = ConfigFiles.read(file);
 
-        // jcore 4.0.0 writes no header any more (steward/54) - StewardSpec's own header text is
-        // gone from the file itself; ConfigFilesSchemaTest is where the schema-driven text lives.
+        // jcore writes no header - StewardSpec's own header text is gone from the file itself.
         assertEquals(List.of(), document.header());
-        assertEquals(Type.INTEGER, entry(document, "api.port").type());
+        assertEquals(ConfigEntry.Type.INTEGER, entry(document, "api.port").type());
         assertEquals("8082", entry(document, "api.port").value());
         assertEquals(Kind.MAP, entry(document, "api").kind());
         assertEquals("/configs", entry(document, "api.configs-root").value());
@@ -266,10 +254,9 @@ class ConfigFilesReadTest {
     /**
      * The same shapes again, hand-made.
      *
-     * <p>It duplicates the test above on purpose. That one loads a real spec, so it drifts with
-     * the spec and would go quiet if somebody deleted the key it was asserting on; this one pins
-     * the <em>shapes</em> - a list, two sections, a comment above a key - in a fixture that is
-     * only ever changed by somebody meaning to change it.</p>
+     * It duplicates the test above on purpose. That one loads a real spec, so it drifts with the spec and would go
+     * quiet if somebody deleted the key it was asserting on; this one pins the shapes - a list, two sections, a
+     * comment above a key - in a fixture that is only ever changed by somebody meaning to change it.
      */
     @Test
     void aWorkerStyleFileWithAListAndTwoSectionsReadsBack() throws IOException {
@@ -307,7 +294,7 @@ class ConfigFilesReadTest {
         assertEquals(
                 List.of("The compose services, by name."),
                 entry(document, "backup.stop-services").comments());
-        assertEquals(Type.INTEGER, entry(document, "backup.keep").type());
+        assertEquals(ConfigEntry.Type.INTEGER, entry(document, "backup.keep").type());
         assertEquals(
                 List.of("season-repo", "backup", "backup.stop-services", "backup.keep"),
                 document.entries().stream().map(ConfigEntry::path).toList());

@@ -4,41 +4,31 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The two versions behind two filenames, read against each other rather than parsed out of either
- * (season-2-ops/142).
+ * The two versions behind two filenames, read against each other rather than parsed out of either.
  *
- * <h2>Why a comparison and not a parse</h2>
- * Nothing in this project knows the version of an installed jar. A {@link Change} carries the
- * installed <em>filename</em> and the wanted <em>file</em>, and a version parsed out of one name on
- * its own is a guess: {@code voicechat-bukkit-2.6.24.jar} could be version {@code 2.6.24} or
- * {@code bukkit-2.6.24}, and PacketEvents publishes {@code 2.13.0+spigot} as
- * {@code packetevents-spigot-2.13.0.jar}. Two builds of the same artefact, on the other hand,
- * differ in the version and nowhere else - so the part that differs <b>is</b> the version, and
- * finding it is a comparison nobody has to trust.
+ * Why a comparison and not a parse: nothing in this project knows the version of an installed jar. A {@link Change}
+ * carries the installed filename and the wanted file, and a version parsed out of one name on its own is a guess:
+ * {@code voicechat-bukkit-2.6.24.jar} could be version {@code 2.6.24} or {@code bukkit-2.6.24}, and PacketEvents
+ * publishes {@code 2.13.0+spigot} as {@code packetevents-spigot-2.13.0.jar}. Two builds of the same artefact, on the
+ * other hand, differ in the version and nowhere else - so the part that differs is the version, and finding it is a
+ * comparison nobody has to trust.
  *
- * <pre>
- * voicechat-bukkit-2.6.18.jar
- * voicechat-bukkit-2.7.0.jar   ->   2.6.18 -> 2.7.0
- * </pre>
+ * voicechat-bukkit-2.6.18.jar voicechat-bukkit-2.7.0.jar -> 2.6.18 -> 2.7.0
  *
- * <h2>Two ways it refuses, and both matter</h2>
- * The common prefix alone would answer {@code 5.3 -> 6.0} for the pair above, dropping the major
- * version, so both ends are walked back out of the number they landed inside.
+ * Two ways it refuses, and both matter: The common prefix alone would answer {@code 5.3 -> 6.0} for the pair above,
+ * dropping the major version, so both ends are walked back out of the number they landed inside.
  *
- * <p>And the names have to <b>start</b> alike. Without that rule the resource pack - whose
- * "installed" side is a SHA-1 and whose wanted side is a zip's name - comes apart into a hash and a
- * filename and is printed as if it were a version jump. A pair that shares no first character is
- * not two builds of one artefact.</p>
+ * And the names have to start alike. Without that rule the resource pack - whose "installed" side is a SHA-1 and
+ * whose wanted side is a zip's name - comes apart into a hash and a filename and is printed as if it were a version
+ * jump. A pair that shares no first character is not two builds of one artefact.
  *
- * <h2>Its twin in the frontend</h2>
- * {@code steward-ui/frontend/src/lib/version-jump.ts} is the same rule in TypeScript, for the
- * Available card, which reads the resolve straight from the worker's API rather than through a
- * report. The two are deliberate copies of one rule; a change to either is a change to both, and
- * both carry the {@code packetevents-spigot-2.13.0.jar} case as the proof that the walking-back
- * half is not decoration.
+ * Its twin in the frontend: {@code steward-ui/frontend/src/lib/version-jump.ts} is the same rule in TypeScript, for
+ * the Available card, which reads the resolve straight from the worker's API rather than through a report. The two
+ * are deliberate copies of one rule; a change to either is a change to both, and both carry the
+ * {@code packetevents-spigot-2.13.0.jar} case as the proof that the walking-back half is not decoration.
  *
  * @param from what is installed now
- * @param to   what the run installs
+ * @param to what the run installs
  */
 public record VersionPair(String from, String to) {
 

@@ -7,18 +7,17 @@ import java.util.Optional;
 /**
  * One config file, read as a form rather than as an object.
  *
- * <p>The entries are in the order the file has them, a nested section immediately before the keys
- * beneath it, which is the order a page should draw them in: jcore writes them in {@code @Order},
- * and that order is somebody's decision about what an operator reads first.</p>
+ * The entries are in the order the file has them, a nested section immediately before the keys beneath it, which is
+ * the order a page should draw them in: jcore writes them in {@code @Order}, and that order is somebody's decision
+ * about what an operator reads first.
  *
- * @param file     where it was read from
- * @param revision what the file said when it was read - see {@link ConfigFiles#revisionOf}. It is
- *                 handed to the browser and comes back with the next save, so a form somebody left
- *                 open while another window wrote the same file is refused instead of quietly
- *                 undoing that write
- * @param header  the comment block at the top of the file - jcore's {@code @ConfigSpec(header=…)},
- *                with the leading {@code # } removed and the blank line that ends it dropped.
- *                Empty when the file starts with a key or with a comment that belongs to one
+ * @param file where it was read from
+ * @param revision what the file said when it was read - see {@link ConfigFiles#revisionOf}. It is handed to the
+ *     browser and comes back with the next save, so a form somebody left open while another window wrote the same
+ *     file is refused instead of quietly undoing that write
+ * @param header the comment block at the top of the file - jcore's {@code @ConfigSpec(header=…)}, with the leading
+ *     {@code # } removed and the blank line that ends it dropped. Empty when the file starts with a key or with a
+ *     comment that belongs to one
  * @param entries every key in the file, in file order, sections included
  */
 public record ConfigDocument(Path file, String revision, List<String> header, List<ConfigEntry> entries) {

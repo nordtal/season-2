@@ -11,16 +11,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The three outcomes steward/59 asks a save not to blur together, and where "needs a restart" is
- * recorded.
+ * The three outcomes a save must not blur together, and where "needs a restart" is recorded.
  *
- * <p>Driven entirely through {@link ConfigApi.ConsoleLine}, a lambda rather than a real
- * {@code Docker} socket - which is what lets {@code NO_ANSWER} be exercised deterministically
- * instead of by hoping a container is not running.</p>
+ * Driven entirely through {@link ConfigApi.ConsoleLine}, a lambda rather than a real {@code Docker} socket - which
+ * is what lets {@code NO_ANSWER} be exercised deterministically instead of by hoping a container is not running.
  */
 class ConfigApiReloadTest {
 
@@ -43,13 +40,11 @@ class ConfigApiReloadTest {
     }
 
     @Test
-    @DisplayName("a file no command reaches is RESTART_REQUIRED, and names the file")
-    void restartRequiredWhenNoCommandIsKnown() {
+    void aFileNoCommandReachesIsRestartRequiredAndNamesTheFile() {
         final RecordingConsole console = new RecordingConsole();
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), console);
 
-        // smp/smp/config.yml binds worlds at enable - see ReloadSmp's own javadoc - so it is
-        // deliberately absent from ConfigApi.RELOAD_COMMAND.
+        // smp/smp/config.yml binds worlds at enable, so it is deliberately absent from ConfigApi.RELOAD_COMMAND.
         final Map<String, Object> outcome = api.reload(location("smp", "smp/config.yml"));
 
         assertEquals("RESTART_REQUIRED", outcome.get("status"));
@@ -60,8 +55,7 @@ class ConfigApiReloadTest {
     }
 
     @Test
-    @DisplayName("a reloadable file that a live console accepts is APPLIED")
-    void appliedWhenTheConsoleAcceptsTheLine() {
+    void aReloadableFileThatALiveConsoleAcceptsIsApplied() {
         final RecordingConsole console = new RecordingConsole();
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), console);
 
@@ -72,40 +66,31 @@ class ConfigApiReloadTest {
     }
 
     @Test
-    @DisplayName("colours.yml reloads too - /smp reload re-reads it (steward/73)")
-    void theTonePaletteIsReloadable() {
+    void coloursYmlReloadsBecauseSmpReloadReReadsIt() {
         final RecordingConsole console = new RecordingConsole();
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), console);
 
         final Map<String, Object> outcome = api.reload(location("smp", "smp/colours.yml"));
 
-        // season-2-ingame/22 made the five tone colours a file of their own, and SmpPlugin re-reads
-        // it on `/smp reload`. This map was written the evening before that file existed, so the
-        // interface told an operator to restart a server for a change a console line already
-        // applies - and colours are picked by trying, which is where that costs the most.
+        // SmpPlugin re-reads the five tone colours on `/smp reload`, so a restart prompt here would be a lie.
         assertEquals("APPLIED", outcome.get("status"));
         assertEquals(List.of("smp: smp reload"), console.calls);
     }
 
     @Test
-    @DisplayName("prestige.yml reloads too - /smp reload re-reads hours and colours (steward/130)")
-    void thePrestigePaletteIsReloadable() {
+    void prestigeYmlReloadsBecauseSmpReloadReReadsHoursAndColours() {
         final RecordingConsole console = new RecordingConsole();
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), console);
 
         final Map<String, Object> outcome = api.reload(location("smp", "smp/prestige.yml"));
 
-        // Its own file beside colours.yml, and SmpPlugin re-reads it on `/smp reload` the same way
-        // - see PlayerComposition's colours supplier. Without this line the interface would tell an
-        // operator to restart a server for a colour change a console line already applies, the same
-        // lie steward/73 fixed for the tone palette.
+        // Its own file beside colours.yml; SmpPlugin re-reads it on `/smp reload` the same way, so no restart prompt.
         assertEquals("APPLIED", outcome.get("status"));
         assertEquals(List.of("smp: smp reload"), console.calls);
     }
 
     @Test
-    @DisplayName("a reloadable file whose service does not answer is NO_ANSWER, not APPLIED")
-    void noAnswerWhenTheContainerCannotBeReached() {
+    void aReloadableFileWhoseServiceDoesNotAnswerIsNoAnswerNotApplied() {
         final RecordingConsole console = new RecordingConsole();
         console.fail = new DockerException("no running container for hunger-games");
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), console);
@@ -119,8 +104,7 @@ class ConfigApiReloadTest {
     }
 
     @Test
-    @DisplayName("APPLIED and NO_ANSWER never share a status word")
-    void appliedAndNoAnswerAreDistinguishable() {
+    void appliedAndNoAnswerNeverShareAStatusWord() {
         final RecordingConsole ok = new RecordingConsole();
         final RecordingConsole down = new RecordingConsole();
         down.fail = new DockerException("gone");
@@ -135,11 +119,8 @@ class ConfigApiReloadTest {
     }
 
     @Test
-    @DisplayName("a console that refuses the service by name still reads as needing a restart")
-    void restartRequiredWhenTheConsoleItselfRefuses() {
-        // Defensive: nothing in RELOAD_COMMAND today names a service without a console, but a
-        // future edit to that map that got this wrong must not turn an already-successful save
-        // into a 500 - it degrades to the same sentence an unknown file gets.
+    void aConsoleThatRefusesTheServiceByNameStillReadsAsNeedingARestart() {
+        // Defensive: a RELOAD_COMMAND entry naming a service with no console must degrade, not turn a save into a 500.
         final RecordingConsole console = new RecordingConsole();
         console.fail = new IllegalArgumentException("hunger-games has no console: reasons");
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), console);
@@ -150,30 +131,27 @@ class ConfigApiReloadTest {
     }
 
     @Test
-    @DisplayName("the open form is told a restart is needed before anybody saves anything")
-    void documentCarriesRestartRequiredForAFileNothingReloads() {
+    void theOpenFormIsToldARestartIsNeededBeforeAnybodySavesAnything() {
         final ConfigLocation loc = location("proxy", "proxy/network.yml");
         final ConfigDocument read = new ConfigDocument(loc.file(), "rev-1", List.of(), List.of());
 
         final Map<String, Object> document = ConfigApi.document(loc, read);
 
-        assertEquals(Boolean.TRUE, document.get("restartRequired"));
+        assertEquals(true, document.get("restartRequired"));
     }
 
     @Test
-    @DisplayName("the open form says no restart is needed for a file that does reload")
-    void documentSaysNoRestartNeededForAReloadableFile() {
+    void theOpenFormSaysNoRestartIsNeededForAFileThatDoesReload() {
         final ConfigLocation loc = location("smp", "smp/milestones.yml");
         final ConfigDocument read = new ConfigDocument(loc.file(), "rev-1", List.of(), List.of());
 
         final Map<String, Object> document = ConfigApi.document(loc, read);
 
-        assertEquals(Boolean.FALSE, document.get("restartRequired"));
+        assertEquals(false, document.get("restartRequired"));
     }
 
     @Test
-    @DisplayName("this worker's own steward.yml is read again by this process, not by a console")
-    void theWorkersOwnFileReReadsItself() {
+    void thisWorkersOwnStewardYmlIsReadAgainByThisProcessNotByAConsole() {
         final RecordingConsole console = new RecordingConsole();
         final int[] reread = {0};
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), console, Map.of(ConfigApi.OWN_CONFIG, () -> reread[0]++));
@@ -186,8 +164,7 @@ class ConfigApiReloadTest {
     }
 
     @Test
-    @DisplayName("a re-read that fails leaves the save standing and says a restart picks it up")
-    void aFailedReReadIsReportedNotThrown() {
+    void aReReadThatFailsLeavesTheSaveStandingAndSaysARestartPicksItUp() {
         final ConfigApi api =
                 new ConfigApi(Path.of("/tmp"), new RecordingConsole(), Map.of(ConfigApi.OWN_CONFIG, () -> {
                     throw new IllegalStateException("backup.patience-minutes must be positive");

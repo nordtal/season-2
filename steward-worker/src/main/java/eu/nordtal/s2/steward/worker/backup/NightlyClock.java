@@ -18,33 +18,24 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * The nightly backup, asked for by the service that performs it.
  *
- * <h2>This is a rule being rewritten, not broken</h2>
- * {@code serve} had exactly one protection: it did nothing at all until a row appeared in
- * {@code update_request}, which is what stopped a crash restart at three in the morning from
- * moving a version. So the nightly row was written by {@code smp}, the one process that already
- * ran a daily clock. §9a changes that deliberately, and the reason is the hole it leaves: a season
- * with {@code smp} down has no nightly backup <b>and nothing says so</b>.
+ * This clock writes a request row and nothing else - it never claims one, never runs one, and never touches a jar.
+ * Everything downstream of the row is the same path an admin's {@code /backup now} takes, lock and countdown
+ * included. A season where the process that would otherwise write this row is down still gets a nightly backup.
  *
- * <p>The protection is kept in the part that mattered. This clock writes a request row and nothing
- * else - it never claims one, never runs one, and never touches a jar. Everything downstream of the
- * row is the same path an admin's {@code /backup now} takes, lock and countdown included. What is
- * new is one row a night, from a timer, and that is the whole of the change.</p>
+ * The delay is rounded up, never down: flooring it risks firing a fraction of a second early and re-arming for
+ * another fraction, writing a row per pass in a tight loop where the first one takes the lock and every one after
+ * it is refused into the log.
  *
- * <h2>Two lessons inherited from the clock it replaces</h2>
- * <b>The delay is rounded up, never down.</b> Its predecessor floored the wait, fired a fraction of
- * a second early, re-armed for another fraction, and wrote a row per pass - a backup submitting
- * itself in a tight loop, where the first one takes the lock and every one after it is refused into
- * the log.
- *
- * <p><b>It re-arms whether the write worked or not.</b> A database briefly unreachable at 04:45
- * must not cost every night after it as well, which is exactly what a schedule that only continues
- * on success does - silently, for the rest of the season.</p>
+ * It re-arms whether the write worked or not. A database briefly unreachable at 04:45 must not cost every night
+ * after it as well, which is what a schedule that only continues on success would do, silently, for the rest of
+ * the season.
  */
 public final class NightlyClock implements AutoCloseable {
 
@@ -52,17 +43,22 @@ public final class NightlyClock implements AutoCloseable {
 
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
 
-    /** Who the row says asked. CONSOLE, because the database's CHECK allows three and this is
-     * none of DISCORD or GAME - it is this host, on a timer, which is what CONSOLE has always
-     * meant for the nightly row. */
+    /**
+     * Who the row says asked.
+     *
+     * CONSOLE, because the database's CHECK allows three and this is none of DISCORD or GAME - it is this host, on
+     * a timer, which is what CONSOLE has always meant for the nightly row.
+     */
     private static final UpdateSource SOURCE = UpdateSource.CONSOLE;
 
     /**
-     * What a clock asks for. The backup was the only one until the update schedule joined it; the
-     * two differ in the row they write and the words they log, and in nothing else.
+     * What a clock asks for.
      *
-     * <p>Both {@code requestedBy} values begin with {@code steward-worker}, which is what the
-     * interface reads as "the clock, not a person".</p>
+     * The backup was the only one until the update schedule joined it; the two differ in the row they write and the
+     * words they log, and in nothing else.
+     *
+     * Both {@code requestedBy} values begin with {@code steward-worker}, which is what the interface reads as "the
+     * clock, not a person".
      */
     public enum Job {
         BACKUP(UpdateKind.BACKUP, "backup", "steward-worker (nightly)", "the nightly backup"),
@@ -113,7 +109,8 @@ public final class NightlyClock implements AutoCloseable {
      * @return empty when it is switched off or unreadable - and unreadable is logged as the
      *         configuration error it is, rather than silently becoming midnight
      */
-    public static Optional<NightlyClock> from(final UpdateDirectory directory, final String at, final ZoneId zone) {
+    public static Optional<NightlyClock> from(
+            final UpdateDirectory directory, final @Nullable String at, final ZoneId zone) {
         return from(directory, at, null, zone);
     }
 
@@ -125,7 +122,10 @@ public final class NightlyClock implements AutoCloseable {
      * @return empty when it is switched off, unreadable, or asked for no weekday at all
      */
     public static Optional<NightlyClock> from(
-            final UpdateDirectory directory, final String at, final List<String> days, final ZoneId zone) {
+            final UpdateDirectory directory,
+            final @Nullable String at,
+            final @Nullable List<String> days,
+            final ZoneId zone) {
         return from(directory, Job.BACKUP, at, days, zone);
     }
 
@@ -137,8 +137,8 @@ public final class NightlyClock implements AutoCloseable {
     public static Optional<NightlyClock> from(
             final UpdateDirectory directory,
             final Job job,
-            final String at,
-            final List<String> days,
+            final @Nullable String at,
+            final @Nullable List<String> days,
             final ZoneId zone) {
         if (at == null || at.isBlank()) {
             return Optional.empty();
@@ -161,13 +161,12 @@ public final class NightlyClock implements AutoCloseable {
     /**
      * {@code backup.days} as a set, empty when the list is present and holds nothing usable.
      *
-     * <p>Full names and the three-letter forms both, in any case and with any spacing around
-     * them - this value is typed by an operator into a YAML file, and refusing {@code Mon} because
-     * the enum spells it {@code MONDAY} is a config error nobody can see in a diff. A word that is
-     * neither is logged and dropped rather than emptying the whole schedule, which is the same
-     * decision {@code hour()} makes one field up.</p>
+     * Full names and the three-letter forms both, in any case and with any spacing around them: this value is typed
+     * by an operator into a YAML file, and refusing {@code Mon} because the enum spells it {@code MONDAY} is a
+     * config error nobody can see in a diff. A word that is neither is logged and dropped rather than emptying the
+     * whole schedule, which is the same decision {@code hour()} makes one field up.
      */
-    private static Set<DayOfWeek> weekdays(final Job job, final List<String> days) {
+    private static Set<DayOfWeek> weekdays(final Job job, final @Nullable List<String> days) {
         if (days == null) {
             return EnumSet.allOf(DayOfWeek.class);
         }
@@ -179,7 +178,7 @@ public final class NightlyClock implements AutoCloseable {
             final String word = day.strip().toUpperCase(java.util.Locale.ROOT);
             DayOfWeek found = null;
             for (final DayOfWeek candidate : DayOfWeek.values()) {
-                if (candidate.name().equals(word) || candidate.name().startsWith(word) && word.length() == 3) {
+                if (candidate.name().equals(word) || (candidate.name().startsWith(word) && word.length() == 3)) {
                     found = candidate;
                     break;
                 }
@@ -200,14 +199,12 @@ public final class NightlyClock implements AutoCloseable {
     /**
      * When the next nightly backup would be asked for, or empty when there is none.
      *
-     * <h2>Why anybody outside this class asks</h2>
-     * The interface offers "tonight" beside "now" for a run that stops servers, and tonight has to
-     * land <em>before</em> this clock rather than on top of it: both take the same lock, so two runs
-     * at the same minute are one run waiting for the other with the network already down. The
-     * interface used to work that out in the browser's time zone, which is not this container's -
-     * an admin one hour east of the host scheduled the thing it was avoiding.
+     * The interface offers "tonight" beside "now" for a run that stops servers, and tonight has to land before this
+     * clock rather than on top of it: both take the same lock, so two runs at the same minute are one run waiting
+     * for the other with the network already down. This answers in this container's own time zone, never the
+     * browser's.
      */
-    public static Optional<ZonedDateTime> next(final String at, final ZoneId zone, final ZonedDateTime now) {
+    public static Optional<ZonedDateTime> next(final @Nullable String at, final ZoneId zone, final ZonedDateTime now) {
         return next(at, null, zone, now);
     }
 
@@ -217,13 +214,17 @@ public final class NightlyClock implements AutoCloseable {
      * @param days {@code null} for every night - see {@link #from(UpdateDirectory, String, List, ZoneId)}
      */
     public static Optional<ZonedDateTime> next(
-            final String at, final List<String> days, final ZoneId zone, final ZonedDateTime now) {
+            final @Nullable String at, final @Nullable List<String> days, final ZoneId zone, final ZonedDateTime now) {
         return next(Job.BACKUP, at, days, zone, now);
     }
 
     /** The same answer for either clock - {@code job} only decides which key a log line names. */
     public static Optional<ZonedDateTime> next(
-            final Job job, final String at, final List<String> days, final ZoneId zone, final ZonedDateTime now) {
+            final Job job,
+            final @Nullable String at,
+            final @Nullable List<String> days,
+            final ZoneId zone,
+            final ZonedDateTime now) {
         final LocalTime parsed = hour(job, at);
         if (parsed == null) {
             return Optional.empty();
@@ -235,7 +236,7 @@ public final class NightlyClock implements AutoCloseable {
     }
 
     /** {@code HH:mm}, or null for blank and for anything that is not a time - both are logged. */
-    private static LocalTime hour(final Job job, final String at) {
+    private static @Nullable LocalTime hour(final Job job, final @Nullable String at) {
         if (at == null || at.isBlank()) {
             return null;
         }
@@ -252,12 +253,11 @@ public final class NightlyClock implements AutoCloseable {
     }
 
     /**
-     * Always strictly in the future, so asking exactly on the second cannot answer with now, and
-     * always on one of {@code days} - up to seven days ahead, never one.
+     * Always strictly in the future, and always on one of {@code days} - up to seven days ahead, never one.
      *
-     * <p>The loop is what makes a weekday schedule a weekday schedule: adding a single day when
-     * today is not one of them and answering that is a daily backup with extra configuration.
-     * {@code days} is non-empty by the time this is called, so it terminates within a week.</p>
+     * The loop is what makes a weekday schedule a weekday schedule: adding a single day when today is not one of
+     * them and answering that is a daily backup with extra configuration. {@code days} is non-empty by the time
+     * this is called, so it terminates within a week.
      */
     private static ZonedDateTime nextAt(final LocalTime at, final Set<DayOfWeek> days, final ZonedDateTime now) {
         ZonedDateTime next = now.with(at);
@@ -287,15 +287,14 @@ public final class NightlyClock implements AutoCloseable {
         arm(until, null);
     }
 
-    private void arm(final Duration until, final ZonedDateTime due) {
-        // Rounded UP. toSeconds() floors, and a wait of 04:44:59.6 floored to zero is a task that
-        // fires while the target is still ahead and re-arms into a loop.
+    private void arm(final Duration until, final @Nullable ZonedDateTime due) {
+        // Rounded up: toSeconds() floors, and a wait floored to zero fires early and re-arms into a loop.
         final long seconds = Math.max(1, Math.ceilDiv(until.toNanos(), 1_000_000_000L));
-        clock.schedule(
+        final var _ = clock.schedule(
                 () -> {
                     final ZonedDateTime now = ZonedDateTime.now(zone);
                     final ZonedDateTime tonight = due == null ? now : due;
-                    // Whatever happened inside. See the class comment.
+                    // Re-arms whether the request succeeded or not; see the class comment.
                     final Duration next = fire(tonight, now);
                     arm(next, next.equals(RETRY) ? tonight : null);
                 },
@@ -304,8 +303,10 @@ public final class NightlyClock implements AutoCloseable {
     }
 
     /**
-     * How long to wait before asking again when another run is open: only one run happens in the
-     * network at a time, and a backup refused for that reason is asked for again rather than lost.
+     * How long to wait before asking again when another run is open.
+     *
+     * Only one run happens in the network at a time, and a backup refused for that reason is asked for again
+     * rather than lost.
      */
     static final Duration RETRY = Duration.ofMinutes(5);
 

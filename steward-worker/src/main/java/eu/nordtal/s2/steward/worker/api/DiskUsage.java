@@ -22,19 +22,18 @@ import org.slf4j.LoggerFactory;
 /**
  * How much of the disk one service's volume takes, for the Disk field on its page.
  *
- * <p><b>Only the four services whose volume this container mounts have a number</b> - smp, proxy,
- * limbo and hunger-games, under {@code <volumes-root>/<name>}. postgres, caddy and the rest have no
- * volume here, and they get no field rather than a zero: 0 bytes would be a statement, and a false
- * one.
+ * Only the four services whose volume this container mounts have a number - smp, proxy, limbo and hunger-games,
+ * under {@code <volumes-root>/<name>}. postgres, caddy and the rest have no volume here, and they get no field
+ * rather than a zero: 0 bytes would be a statement, and a false one.
  *
- * <p><b>It is {@code du -sk}, not a walk in Java</b>, because the number on the page is meant to be
- * the one {@code du} prints on the host - allocated blocks, not the sum of file lengths. It follows
- * the {@code plugins/} mount beneath each volume, so the number is the world plus its jars.
+ * It is {@code du -sk}, not a walk in Java, because the number on the page is meant to be the one {@code du} prints
+ * on the host - allocated blocks, not the sum of file lengths. It follows the {@code plugins/} mount beneath each
+ * volume, so the number is the world plus its jars.
  *
- * <p><b>Measured 2026-09-23 on the dev host:</b> {@code du -s} over all four volumes took 0.31 s,
- * smp alone being 4.7 GB. Cheap enough that the first ask may wait for it; every later one is handed
- * the last answer and a refresh starts beside it ({@link Refreshed}), so a world that has grown
- * until {@code du} is slow makes the number older, never the page slower. The age travels with it.
+ * Measured on the dev host: {@code du -s} over all four volumes took a fraction of a second, smp alone several GB.
+ * Cheap enough that the first ask may wait for it; every later one is handed the last answer and a refresh starts
+ * beside it ( {@link Refreshed}), so a world that has grown until {@code du} is slow makes the number older, never
+ * the page slower. The age travels with it.
  */
 final class DiskUsage {
 
@@ -94,8 +93,7 @@ final class DiskUsage {
                 log.warn("du on {} took longer than 30 s and was stopped", path);
                 return OptionalLong.empty();
             }
-            // du exits 1 when one file vanished under it, which a running server does all the
-            // time; the total it printed is still the total.
+            // du exits 1 when a file vanished under it, which a running server does all the time; the total stands.
             final String out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
             final int tab = out.indexOf('\t');
             if (tab <= 0) {

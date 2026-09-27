@@ -7,17 +7,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link UpdatePlan} as text a person reads before deciding whether to restart a network.
  *
- * <p>Plain text rather than Discord components, because the container's log, the Discord embed and
- * the in-game lines all carry this string verbatim out of {@code update_request.result} and must
- * not drift apart - and because this half is then testable without a bot token.</p>
+ * Plain text rather than Discord components, because the container's log, the Discord embed and the in-game lines
+ * all carry this string verbatim out of {@code update_request.result} and must not drift apart - and because this
+ * half is then testable without a bot token.
  *
- * <p>The resolved release tag is printed even when nothing changed: "everything is up to date" and
- * "the release you meant is still a draft, so latest is last week's tag" produce identical rows,
- * and the tag is what tells them apart.</p>
+ * The resolved release tag is printed even when nothing changed: "everything is up to date" and "the release you
+ * meant is still a draft, so latest is last week's tag" produce identical rows, and the tag is what tells them
+ * apart.
  */
 public final class Report {
 
@@ -30,7 +31,19 @@ public final class Report {
 
     public static String render(final UpdatePlan plan) {
         final StringBuilder out = new StringBuilder();
+        appendHeader(out, plan);
 
+        // One outage, one explanation: a repeated failure reason is printed once at the bottom, referenced by number.
+        final Map<String, Integer> footnotes = footnotesOf(plan);
+        appendServices(out, groupByService(plan), footnotes);
+        appendUnclaimed(out, plan);
+        appendFootnotes(out, footnotes);
+
+        out.append(summary(plan)).append('\n');
+        return out.toString();
+    }
+
+    private static void appendHeader(final StringBuilder out, final UpdatePlan plan) {
         out.append("nordtal season 2 - update check at ")
                 .append(plan.resolvedAt())
                 .append('\n');
@@ -42,21 +55,26 @@ public final class Report {
             out.append('\n');
         }
         out.append('\n');
+    }
 
-        // One outage, one explanation: a GitHub failure repeats the same ~450-character sentence on
-        // every season row, which overruns a Discord embed's 4 000 characters and drops the summary
-        // off the end. A repeated reason is printed once at the bottom and referenced by number.
-        final Map<String, Integer> footnotes = footnotesOf(plan);
-
-        // Grouped as the network is shaped, proxy first, with everything outside a Minecraft volume
-        // collected at the end rather than filed under a server it does not run on.
+    /**
+     * Groups the plan's rows the way the network is shaped.
+     *
+     * Proxy first, with everything outside a Minecraft volume collected at the end rather than filed under a
+     * server it does not run on.
+     */
+    private static Map<String, List<Change>> groupByService(final UpdatePlan plan) {
         final Map<String, List<Change>> grouped = new LinkedHashMap<>();
         for (final Change change : plan.changes()) {
             grouped.computeIfAbsent(
                             change.service() == null ? "(no volume)" : change.service(), key -> new ArrayList<>())
                     .add(change);
         }
+        return grouped;
+    }
 
+    private static void appendServices(
+            final StringBuilder out, final Map<String, List<Change>> grouped, final Map<String, Integer> footnotes) {
         final int width = grouped.values().stream()
                 .flatMap(List::stream)
                 .mapToInt(change -> change.artifact().length())
@@ -91,39 +109,43 @@ public final class Report {
             }
             out.append('\n');
         });
+    }
 
-        if (!plan.unclaimed().isEmpty()) {
-            out.append("jars nothing accounts for - left alone, never deleted:\n");
-            for (final UpdatePlan.Unclaimed jar : plan.unclaimed()) {
-                out.append(INDENT)
-                        .append(jar.service())
-                        .append('/')
-                        .append(Installation.PLUGINS)
-                        .append('/')
-                        .append(jar.fileName())
-                        .append('\n');
-            }
-            out.append('\n');
+    private static void appendUnclaimed(final StringBuilder out, final UpdatePlan plan) {
+        if (plan.unclaimed().isEmpty()) {
+            return;
         }
-
-        if (!footnotes.isEmpty()) {
-            out.append("why:\n");
-            footnotes.forEach((note, number) -> out.append(INDENT)
-                    .append('[')
-                    .append(number)
-                    .append("] ")
-                    .append(note)
-                    .append('\n'));
-            out.append('\n');
+        out.append("jars nothing accounts for - left alone, never deleted:\n");
+        for (final UpdatePlan.Unclaimed jar : plan.unclaimed()) {
+            out.append(INDENT)
+                    .append(jar.service())
+                    .append('/')
+                    .append(Installation.PLUGINS)
+                    .append('/')
+                    .append(jar.fileName())
+                    .append('\n');
         }
+        out.append('\n');
+    }
 
-        out.append(summary(plan)).append('\n');
-        return out.toString();
+    private static void appendFootnotes(final StringBuilder out, final Map<String, Integer> footnotes) {
+        if (footnotes.isEmpty()) {
+            return;
+        }
+        out.append("why:\n");
+        footnotes.forEach((note, number) -> out.append(INDENT)
+                .append('[')
+                .append(number)
+                .append("] ")
+                .append(note)
+                .append('\n'));
+        out.append('\n');
     }
 
     /**
-     * The notes worth printing once instead of on every row that carries them: only the repeated
-     * ones, insertion-ordered so the numbers run down the page.
+     * The notes worth printing once instead of on every row that carries them.
+     *
+     * Only the repeated ones, insertion-ordered so the numbers run down the page.
      */
     private static Map<String, Integer> footnotesOf(final UpdatePlan plan) {
         final Map<String, Integer> counts = new LinkedHashMap<>();
@@ -148,9 +170,10 @@ public final class Report {
     }
 
     /**
-     * What a run did, in the same shape as the plan above so the two read as one page. Printed
-     * <b>before</b> anything restarts: the whole value of the restart being a separate button is
-     * that somebody sees this first.
+     * What a run did.
+     *
+     * In the same shape as the plan above so the two read as one page. Printed before anything restarts: the whole
+     * value of the restart being a separate button is that somebody sees this first.
      */
     public static String render(final ApplyResult result) {
         final StringBuilder out = new StringBuilder("what was done\n\n");
@@ -193,7 +216,7 @@ public final class Report {
             out.append("Everything asked for was done. A restart is what puts it into effect -")
                     .append(" nothing here changed a running server.\n");
         } else if (result.skippedAnything()) {
-            // Neither a failure nor a no-op, and it must not read as either.
+            // Neither a failure nor a no-op; must not read as either.
             out.append("Nothing was installed, and not because everything was current -")
                     .append(" every line above says why it was skipped. Read them before assuming")
                     .append(" the network is up to date.\n");
@@ -233,7 +256,7 @@ public final class Report {
     }
 
     /** The note every row in a group shares, or {@code null} when they do not all share one. */
-    private static String sharedNote(final List<Change> changes) {
+    private static @Nullable String sharedNote(final List<Change> changes) {
         final String first = changes.getFirst().note();
         if (first == null || changes.size() < 2) {
             return null;
@@ -242,13 +265,12 @@ public final class Report {
     }
 
     /** What a row is compared on: the filename for a jar, the hash for the pack. */
-    private static String identity(final String installed, final RemoteFile wanted) {
+    private static String identity(final @Nullable String installed, final @Nullable RemoteFile wanted) {
         if (wanted == null) {
             return installed == null ? "?" : installed;
         }
         if (wanted.checksum() != null && "sha1".equals(wanted.checksum().algorithm())) {
-            // The hash in full: two pack releases can share twelve leading hex characters on the
-            // screen and none in the client, and this row exists to show that they differ.
+            // The hash in full: two releases can share twelve leading hex chars on screen, none in the client.
             return wanted.fileName() + " (sha1 " + wanted.checksum().hex() + ")";
         }
         return wanted.fileName();
@@ -274,8 +296,7 @@ public final class Report {
             return work + " artefact(s) would be updated.";
         }
 
-        // "Everything is up to date" is only about artefacts that have a build for this Minecraft
-        // version; saying it while one has none would be true and misread.
+        // "Everything is up to date" is only about artefacts with a build for this Minecraft version.
         final long waiting = plan.changes().stream()
                 .filter(change -> change.status() == Change.Status.UNSUPPORTED)
                 .count();

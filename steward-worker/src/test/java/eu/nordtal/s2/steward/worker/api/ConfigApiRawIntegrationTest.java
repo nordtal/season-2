@@ -16,15 +16,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * {@code PUT /api/config-raw/<file>} served over real HTTP - the raw editor's own save (steward/60).
+ * {@code PUT /api/config-raw/<file>} served over real HTTP - the raw editor's own save.
  *
- * <p>Follows {@code MessagesApiIntegrationTest}'s shape: the contract steward-ui and the frontend
- * read is the HTTP one, not the methods behind it.</p>
+ * Follows {@code MessagesApiIntegrationTest} 's shape: the contract steward-ui and the frontend read is the HTTP
+ * one, not the methods behind it.
  */
 class ConfigApiRawIntegrationTest {
 
@@ -60,8 +59,7 @@ class ConfigApiRawIntegrationTest {
     }
 
     @Test
-    @DisplayName("what is typed lands on disk verbatim, and the answer says so")
-    void savesVerbatimAndAnswersWithTheNewRevision() throws Exception {
+    void whatIsTypedLandsOnDiskVerbatimAndTheAnswerSaysSo() throws Exception {
         Files.writeString(configs.resolve("steward.txt"), "one\ntwo\n", StandardCharsets.UTF_8);
         final String revision = GSON.fromJson(get("/api/config/steward.txt"), JsonObject.class)
                 .get("revision")
@@ -79,13 +77,9 @@ class ConfigApiRawIntegrationTest {
     }
 
     @Test
-    @DisplayName("a syntax error is a warning naming the line, and the save still happens - nothing is refused")
-    void syntaxErrorWarnsButStillSaves() throws Exception {
+    void aSyntaxErrorIsAWarningNamingTheLineAndTheSaveStillHappensNothingIsRefused() throws Exception {
         Files.writeString(configs.resolve("broken.yml"), "one: 1\n", StandardCharsets.UTF_8);
-        // "one: 1" alone parses as an ordinary one-key config file, which is the OTHER route -
-        // GET /api/config/<file> answers `raw: false` with entries, and that answer's own
-        // `revision` is what a save against it has to carry. Reading it through the same route the
-        // real editor would is what keeps this test honest about which shape it is checking.
+        // "one: 1" parses fine, so GET /api/config/<file> answers `raw: false`; its `revision` is what a save carries.
         final String revision = GSON.fromJson(get("/api/config/broken.yml"), JsonObject.class)
                 .get("revision")
                 .getAsString();
@@ -103,8 +97,7 @@ class ConfigApiRawIntegrationTest {
     }
 
     @Test
-    @DisplayName("a stale revision is refused with 409, and nothing is written")
-    void staleRevisionIs409() throws Exception {
+    void aStaleRevisionIsRefusedWith409AndNothingIsWritten() throws Exception {
         final Path file = configs.resolve("stale.properties");
         Files.writeString(file, "one=1\n", StandardCharsets.UTF_8);
         final JsonObject read = GSON.fromJson(get("/api/config/stale.properties"), JsonObject.class);
@@ -120,8 +113,7 @@ class ConfigApiRawIntegrationTest {
     }
 
     @Test
-    @DisplayName("a file that is not there at all is a 404, exactly like the parsed route")
-    void unknownFileIs404() throws Exception {
+    void aFileThatIsNotThereAtAllIsA404ExactlyLikeTheParsedRoute() throws Exception {
         assertEquals(
                 404,
                 raw("/api/config-raw/no-such-file.yml", body(null, "anything")).statusCode());

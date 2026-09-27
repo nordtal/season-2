@@ -28,47 +28,48 @@ public record Change(
         /** A newer file exists. This is the only status that makes a run worth pressing. */
         OUTDATED,
         /**
-         * Nothing with this artefact's filename prefix is installed. On a fresh volume that is
-         * every row and is entirely normal; on a running server it is either a first deployment of
-         * something new, or - the case worth catching - a publisher that has changed the jar's
-         * name, which makes the old jar an {@link UpdatePlan#unclaimed() unclaimed} one at the
-         * same time.
+         * Nothing with this artefact's filename prefix is installed.
+         *
+         * On a fresh volume that is every row and is entirely normal; on a running server it is either a first
+         * deployment of something new, or - the case worth catching - a publisher that has changed the jar's
+         * name, which makes the old jar an {@link UpdatePlan#unclaimed() unclaimed} one at the same time.
          */
         MISSING,
         /**
-         * The source could not be asked. The run reports and stops rather than treating an
-         * unreachable API as "unchanged": the difference between "up to date" and "unknown" is the
-         * whole value of the report.
+         * The source could not be asked.
+         *
+         * The run reports and stops rather than treating an unreachable API as "unchanged": the difference
+         * between "up to date" and "unknown" is the whole value of the report.
          */
         UNRESOLVED,
         /** The service's volume is not mounted in this container, so nothing can be said about it. */
         MOUNT_MISSING,
         /**
-         * The source answered and has no build of this artefact for the Minecraft version the
-         * network runs. Nothing is installed, nothing is skipped, and nothing failed.
+         * The source answered and has no build of this artefact for the Minecraft version the network runs.
          *
-         * <h2>Why this is not UNRESOLVED, which is where it used to land</h2>
-         * {@link #isFailure()} is what makes {@code Applier} skip a service <em>whole</em> - the
-         * all-or-nothing rule that keeps a server from coming up on half a set of plugins. A
-         * plugin that is simply behind the platform would therefore have blocked the season jar
-         * beside it on every run, for weeks, for a reason nobody here can act on.
+         * Nothing is installed, nothing is skipped, and nothing failed.
          *
-         * <h2>And it is not UP_TO_DATE either</h2>
-         * Nothing is installed, so there is nothing to be up to date. The point of carrying the row
-         * at all is that the artefact stays <b>named</b> in the report while it waits: the day its
-         * publisher ships a build for this version, the next run installs it and no code changes.
-         * An artefact quietly dropped from the plan is one somebody has to remember.
+         * Why this is not UNRESOLVED, which is where it used to land: {@link #isFailure()} is what makes
+         * {@code Applier} skip a service whole - the all-or-nothing rule that keeps a server from coming up on
+         * half a set of plugins. A plugin that is simply behind the platform would therefore have blocked the
+         * season jar beside it on every run, for weeks, for a reason nobody here can act on.
+         *
+         * And it is not UP_TO_DATE either: nothing is installed, so there is nothing to be up to date. The point
+         * of carrying the row at all is that the artefact stays named in the report while it waits: the day its
+         * publisher ships a build for this version, the next run installs it and no code changes. An artefact
+         * quietly dropped from the plan is one somebody has to remember.
          */
         UNSUPPORTED,
         /**
          * Our own release answered and carries no file for this jar, and a jar of it is installed.
+         *
          * {@link #installed()} names that jar, and it stays where it is.
          *
-         * <p>Not a failure: the source was asked and said so, and the jars beside it on the same
-         * server were compiled against the Minecraft version, not against this jar. Counting it as
-         * {@link #UNRESOLVED} held back every third-party plugin on the SMP for as long as a release
-         * shipped without an smp jar - while the run still stopped the server and called it done.
-         * With nothing installed it stays {@link #UNRESOLVED}: then there is nothing to keep.</p>
+         * Not a failure: the source was asked and said so, and the jars beside it on the same server were
+         * compiled against the Minecraft version, not against this jar. Counting it as {@link #UNRESOLVED} held
+         * back every third-party plugin on the SMP for as long as a release shipped without an smp jar - while
+         * the run still stopped the server and called it done. With nothing installed it stays
+         * {@link #UNRESOLVED}: then there is nothing to keep.
          */
         NOT_IN_RELEASE;
 
@@ -90,11 +91,10 @@ public record Change(
     /**
      * No build of this artefact exists for the Minecraft version the network runs.
      *
-     * <p>{@link #installed()} is always {@code null} here, and not because nothing can be lying
-     * there. Nothing was <em>resolved</em>, so there is no filename to match a jar against - and a
-     * jar somebody installed by hand comes out in {@link UpdatePlan#unclaimed()} instead, which is
-     * where every file this plan does not account for goes and is louder than a version comparison
-     * would be.</p>
+     * {@link #installed()} is always {@code null} here, and not because nothing can be lying there. Nothing was
+     * resolved, so there is no filename to match a jar against - and a jar somebody installed by hand comes out in
+     * {@link UpdatePlan#unclaimed()} instead, which is where every file this plan does not account for goes and is
+     * louder than a version comparison would be.
      */
     public static Change unsupported(final @Nullable String service, final String artifact, final String why) {
         return new Change(service, artifact, Status.UNSUPPORTED, null, null, why);

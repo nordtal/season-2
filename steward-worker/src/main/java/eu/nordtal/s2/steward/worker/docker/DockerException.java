@@ -5,9 +5,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * Anything the daemon answered that the caller cannot use.
  *
- * <p>It carries the status and the body because Docker's error bodies are short and say what is
- * actually wrong ({@code {"message":"No such container: smp"}}), and a stack trace that has thrown
- * that away leaves the reader guessing at a thing the daemon already explained.</p>
+ * It carries the status and the body because Docker's error bodies are short and say what is actually wrong (
+ * {@code {"message":"No such container: smp"}}), and a stack trace that has thrown that away leaves the reader
+ * guessing at a thing the daemon already explained.
  */
 public class DockerException extends RuntimeException {
 

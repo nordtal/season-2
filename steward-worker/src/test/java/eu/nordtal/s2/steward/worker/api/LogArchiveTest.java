@@ -13,7 +13,6 @@ import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -39,8 +38,7 @@ class LogArchiveTest {
     }
 
     @Test
-    @DisplayName("only what was rotated before Docker's oldest line, newest run nearest the live one")
-    void onlyTheRunsDockerDoesNotHave() throws IOException {
+    void onlyWhatWasRotatedBeforeDockersOldestLineNewestRunNearestTheLiveOne() throws IOException {
         archive("2026-09-21-1.log.gz", Instant.parse("2026-09-22T10:00:00Z"), "[08:00:00] [x/INFO]: a1", "a2");
         // Rotated seconds after the container started: holds the run before it.
         archive("2026-09-22-3.log.gz", OLDEST.plusSeconds(10), "[10:00:05] [x/INFO]: b1", "b2");
@@ -60,8 +58,7 @@ class LogArchiveTest {
     }
 
     @Test
-    @DisplayName("stops at the number asked for, keeps the newest lines of the last run and says there is more")
-    void stopsAtTheNumber() throws IOException {
+    void stopsAtTheNumberAskedForKeepsTheNewestLinesOfTheLastRunAndSaysThereIsMore() throws IOException {
         archive("2026-09-21-1.log.gz", Instant.parse("2026-09-22T10:00:00Z"), "[08:00:00] [x/INFO]: a1", "a2");
         archive("2026-09-22-1.log.gz", Instant.parse("2026-09-22T12:00:00Z"), "[10:00:00] [x/INFO]: b1", "b2", "b3");
 
@@ -73,8 +70,7 @@ class LogArchiveTest {
     }
 
     @Test
-    @DisplayName("a service with no logs in a volume here has no backlog and nothing older")
-    void noVolumeNoBacklog() {
+    void aServiceWithNoLogsInAVolumeHereHasNoBacklogAndNothingOlder() {
         final LogArchive.Backlog backlog = new LogArchive(root).before("postgres", OLDEST, 1000);
         assertTrue(backlog.runs().isEmpty());
         assertTrue(backlog.exhausted());

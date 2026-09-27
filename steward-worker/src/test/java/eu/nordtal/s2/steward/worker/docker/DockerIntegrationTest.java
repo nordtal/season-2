@@ -19,21 +19,19 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The docker client against a real daemon, because nothing else proves it.
  *
- * <h2>Why this is not a unit test with a canned response</h2>
- * Every bug this layer can have is a bug about what the daemon actually sends: a chunked body, an
- * eight-byte frame header that is there or is not, a stats sample whose {@code precpu} is zero, a
- * registry that answers a digest for one reference and nothing for another. A fixture proves that
- * the parser agrees with the fixture. So the assertions here compare this client with the
- * {@code docker} command line reading the same daemon - two independent readers of one truth.
+ * Why this is not a unit test with a canned response: Every bug this layer can have is a bug about what the daemon
+ * actually sends: a chunked body, an eight-byte frame header that is there or is not, a stats sample whose
+ * {@code precpu} is zero, a registry that answers a digest for one reference and nothing for another. A fixture
+ * proves that the parser agrees with the fixture. So the assertions here compare this client with the {@code docker}
+ * command line reading the same daemon - two independent readers of one truth.
  *
- * <p>It skips itself where there is no socket, which is every laptop and every CI runner without
- * one. On the dev server, where it was written, it runs.</p>
+ * It skips itself where there is no socket, which is every laptop and every CI runner without one. On the dev
+ * server, where it was written, it runs.
  */
 class DockerIntegrationTest {
 
@@ -51,8 +49,7 @@ class DockerIntegrationTest {
     }
 
     @Test
-    @DisplayName("the same containers the docker command line sees, by compose service name")
-    void seesTheSameContainers() throws Exception {
+    void theSameContainersTheDockerCommandLineSeesByComposeServiceName() throws Exception {
         final Set<String> mine = docker.containers(PROJECT).stream()
                 .map(Docker.Container::service)
                 .filter(java.util.Objects::nonNull)
@@ -71,15 +68,12 @@ class DockerIntegrationTest {
     }
 
     @Test
-    @DisplayName("running and healthy means the same thing here as in `docker ps`")
-    void agreesAboutHealth() throws Exception {
+    void runningAndHealthyMeansTheSameThingHereAsInDockerPs() throws Exception {
         final RuntimeResult runtime = ops.runtime();
         assertTrue(runtime.reached(), String.valueOf(runtime.message()));
         assumeTrue(!runtime.services().isEmpty(), "no services - skipping");
 
-        // `docker ps` prints the health in its status column, which is the sentence a person reads.
-        // Comparing against it is the point: isBack() is what an update run waits on, and if the two
-        // ever disagree the run waits for something nobody can see.
+        // `docker ps` prints the health a person reads; isBack() must agree, or an update run waits on nothing visible.
         for (final String line : cli(
                 "docker",
                 "ps",
@@ -88,38 +82,36 @@ class DockerIntegrationTest {
                 "label=com.docker.compose.project=" + PROJECT,
                 "--format",
                 "{{ .Label \"com.docker.compose.service\" }}\t{{ .Status }}")) {
-            final String[] parts = line.split("\t", 2);
-            final Optional<ServiceRuntime> service = runtime.service(parts[0]);
-            assertTrue(service.isPresent(), "runtime() is missing " + parts[0]);
+            final int tab = line.indexOf('\t');
+            final String name = tab < 0 ? line : line.substring(0, tab);
+            final Optional<ServiceRuntime> service = runtime.service(name);
+            assertTrue(service.isPresent(), "runtime() is missing " + name);
 
-            final String status = parts.length > 1 ? parts[1] : "";
+            final String status = tab < 0 ? "" : line.substring(tab + 1);
             final boolean cliSaysBack = status.startsWith("Up")
                     && !status.contains("(unhealthy)")
                     && !status.contains("(health: starting)");
             assertEquals(
                     cliSaysBack,
                     service.get().isBack(),
-                    parts[0] + ": `docker ps` says \"" + status + "\", runtime() says \""
+                    name + ": `docker ps` says \"" + status + "\", runtime() says \""
                             + service.get().describe() + "\"");
         }
     }
 
     @Test
-    @DisplayName("one stats sample has real memory and a CPU delta, not a zero from one-shot")
-    void readsStats() throws Exception {
+    void oneStatsSampleHasRealMemoryAndACpuDeltaNotAZeroFromOneShot() throws Exception {
         final Docker.Container running = someRunningContainer();
         final Docker.Stats stats = docker.stats(running.id());
 
         assertTrue(stats.memoryBytes() > 0, "memory came back as " + stats.memoryBytes());
-        // The limit is the host's memory, because no container in this stack sets one - measured
-        // 2026-09-12. If that ever changes this assertion is the thing that notices.
+        // The limit is the host's memory, since no container here sets one; this assertion notices if that changes.
         assertTrue(stats.memoryLimitBytes() >= stats.memoryBytes());
         assertTrue(stats.cpuPercent().isPresent(), "no CPU delta - is the request sending one-shot after all?");
     }
 
     @Test
-    @DisplayName("a log line from the stream is a log line `docker logs` shows")
-    void readsTheSameLog() throws Exception {
+    void aLogLineFromTheStreamIsALogLineDockerLogsShows() throws Exception {
         final Docker.Container running = someRunningContainer();
         final Docker.Inspection inspection = docker.inspect(running.id());
         final List<String> mine = docker.recentLines(running.id(), 5, !inspection.tty());
@@ -128,9 +120,7 @@ class DockerIntegrationTest {
         final List<String> theirs = cli("docker", "logs", "--timestamps", "--tail", "5", running.id());
         assumeTrue(!theirs.isEmpty(), "the command line shows no lines either - skipping");
 
-        // Not an equality of lists: the container keeps writing between the two reads. What has to
-        // hold is that a line this client produced is a line the daemon's own client produced -
-        // byte for byte, which is what catches a frame header read as text.
+        // Not list equality, since the container keeps writing: a line must match byte-for-byte, catching a bad header.
         final String candidate = mine.get(mine.size() - 1);
         assertTrue(
                 theirs.contains(candidate) || mine.stream().anyMatch(theirs::contains),
@@ -138,24 +128,20 @@ class DockerIntegrationTest {
     }
 
     @Test
-    @DisplayName("the console runs a command in a container and brings its output back")
-    void execRunsAndAnswers() throws Exception {
+    void theConsoleRunsACommandInAContainerAndBringsItsOutputBack() throws Exception {
         final Docker.Container running = someRunningContainer();
         final Docker.ExecResult answer = docker.exec(running.id(), List.of("echo", "steward was here"));
 
-        // Proves the whole hijacked-stream path: create, start, eight-byte frames, decode, and the
-        // second request that fetches the exit code.
+        // Proves the whole hijacked-stream path: create, start, eight-byte frames, decode, and the exit-code fetch.
         assertEquals("steward was here", answer.output().strip());
         assertEquals(0, answer.exitCode());
     }
 
     @Test
-    @DisplayName("a command that fails says so in its exit code, not only in its output")
-    void carriesTheExitCodeBack() {
+    void aCommandThatFailsSaysSoInItsExitCodeNotOnlyInItsOutput() {
         final Docker.Container running = someRunningContainer();
 
-        // Without the exit code a failed command is indistinguishable from a quiet one - which is
-        // how a partial backup file gets renamed over a good one.
+        // Without the exit code a failed command reads as a quiet one, which is how a partial backup file wins.
         final Docker.ExecResult answer = docker.exec(running.id(), List.of("sh", "-c", "echo nope >&2; exit 3"));
 
         assertEquals(3, answer.exitCode());
@@ -164,8 +150,7 @@ class DockerIntegrationTest {
     }
 
     @Test
-    @DisplayName("drift appears when a tag is bent by hand, and goes away when it is put back")
-    void seesDriftAppearAndGoAgain() throws Exception {
+    void driftAppearsWhenATagIsBentByHandAndGoesAwayWhenItIsPutBack() throws Exception {
         // Two images that exist, are small, and have nothing to do with this stack.
         cli("docker", "pull", "-q", "alpine:3.20");
         cli("docker", "pull", "-q", "alpine:3.19");
@@ -195,8 +180,7 @@ class DockerIntegrationTest {
     }
 
     @Test
-    @DisplayName("an image nobody can ask about is UNKNOWN and named, never `up to date`")
-    void doesNotCallTheUnknownCurrent() {
+    void anImageNobodyCanAskAboutIsUnknownAndNamedNeverUpToDate() {
         final DockerOps.ImageCheck check =
                 ops.check("ghcr.io/nordtal/does-not-exist:latest", "sha256:" + "0".repeat(64));
 
@@ -205,15 +189,13 @@ class DockerIntegrationTest {
     }
 
     @Test
-    @DisplayName("the daemon's disk usage is readable, which is half of `how full is the box`")
-    void readsDiskUsage() {
+    void theDaemonsDiskUsageIsReadableWhichIsHalfOfHowFullIsTheBox() {
         final Docker.DiskUsage usage = docker.diskUsage();
         assertTrue(usage.imagesBytes() > 0, "no images take any space, which cannot be true here");
     }
 
     @Test
-    @DisplayName("a container that does not exist is an error with the daemon's own words in it")
-    void saysWhatTheDaemonSaid() {
+    void aContainerThatDoesNotExistIsAnErrorWithTheDaemonsOwnWordsInIt() {
         final DockerException thrown = org.junit.jupiter.api.Assertions.assertThrows(
                 DockerException.class, () -> docker.inspect("nordtal-no-such-container"));
 

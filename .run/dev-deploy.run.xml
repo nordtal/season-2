@@ -1,24 +1,17 @@
 <!--
-  deploy/dev deploy
+  dev deploy
 
-  Rebuilds all four plugins and restarts their containers, as after a change in :common.
-
-  A jar swap only: a changed deploy/dev.env needs `dev up`.
+  Rebuilds all four plugins, replaces their jars and restarts those containers.
+  A restarted container keeps its environment; after editing deploy/dev.env use `dev up`.
 -->
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="dev deploy (all four)" type="ShConfigurationType" folderName="dev: build and deploy">
-    <option name="SCRIPT_TEXT" value="" />
-    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
-    <option name="SCRIPT_PATH" value="$PROJECT_DIR$/deploy/dev" />
-    <option name="SCRIPT_OPTIONS" value="deploy" />
-    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
-    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
-    <option name="INTERPRETER_PATH" value="/usr/bin/env" />
-    <option name="INTERPRETER_OPTIONS" value="bash" />
-    <option name="EXECUTE_IN_TERMINAL" value="true" />
-    <option name="EXECUTE_SCRIPT_FILE" value="true" />
-    <envs />
-    <method v="2" />
+  <configuration default="false" name="dev deploy (all four)" type="Application" factoryName="Application" folderName="dev: build and deploy">
+    <option name="MAIN_CLASS_NAME" value="eu.nordtal.s2.dev.Dev" />
+    <module name="season-2.dev.main" />
+    <option name="PROGRAM_PARAMETERS" value="deploy" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
   </configuration>
 </component>

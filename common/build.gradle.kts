@@ -1,5 +1,29 @@
+import eu.nordtal.s2.build.GenerateGlyphAdvances
+
 plugins {
     id("nordtal.java-base")
+}
+
+// The plugins size pills and menu rows from these glyph advance tables, derived from the assembled pack on
+// every build and never committed.
+val assembledPack = configurations.resolvable("packForAdvances") { extendsFrom(configurations["resourcePack"]) }
+
+val bossbarAdvances =
+    tasks.register<GenerateGlyphAdvances>("generateBossbarAdvances") {
+        pack.from(assembledPack)
+        font.set("nordtal/font/bossbar.json")
+        target.set(layout.buildDirectory.file("generated/advances/nordtal/hud/bossbar-advances.properties"))
+    }
+
+val menuAdvances =
+    tasks.register<GenerateGlyphAdvances>("generateMenuAdvances") {
+        pack.from(assembledPack)
+        font.set("nordtal/font/gui_r0.json")
+        target.set(layout.buildDirectory.file("generated/advances/nordtal/menu/gui-row-advances.properties"))
+    }
+
+sourceSets.main {
+    resources.srcDir(files(layout.buildDirectory.dir("generated/advances")).builtBy(bossbarAdvances, menuAdvances))
 }
 
 // Files outside this module that :common's tests read, so an edit to one reruns :common:test.
@@ -37,11 +61,6 @@ repositoryRootTestInputs {
 
     reads("smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java")
-    reads("resource-pack/src/assets/nordtal/font/bossbar.json")
-    reads("resource-pack/src/assets/nordtal/font/board.json")
-
-    // Whole trees, so a file added later is covered too.
-    readsTree("resource-pack/src/assets")
 
     reads("smp/src/main/resources/messages/smp/en.properties")
     reads("smp/src/main/resources/messages/smp/de.properties")
@@ -68,6 +87,9 @@ repositoryRootTestInputs {
 }
 
 dependencies {
+    // The assembled pack, which the tests read through the nordtal.pack system property.
+    "resourcePack"(project(":resource-pack", "pack"))
+
     // NullAway's annotations reference checker-qual at class-file level; this is the version NullAway pulls in.
     compileOnly("org.checkerframework:checker-qual:4.2.3")
     testCompileOnly("org.checkerframework:checker-qual:4.2.3")

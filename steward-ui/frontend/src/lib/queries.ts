@@ -953,6 +953,26 @@ export function useRevokeAdmin() {
   })
 }
 
+/** Lets one player through without the resource pack, from their next login on. */
+export function useExemptFromPack() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (discordId: string) =>
+      api<{ outcome: string }>("/api/pack-exemptions/exempt", { method: "POST", body: { discordId } }),
+    onSettled: () => client.invalidateQueries({ queryKey: keys.people }),
+  })
+}
+
+/** Makes the resource pack required for that player again, from their next login on. */
+export function useEnforcePack() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (discordId: string) =>
+      api<{ outcome: string }>("/api/pack-exemptions/enforce", { method: "POST", body: { discordId } }),
+    onSettled: () => client.invalidateQueries({ queryKey: keys.people }),
+  })
+}
+
 /** Books a payment by hand; `outcome` is `BOOKED`, `NOT_OPEN` (then `was` says what it is) or `UNKNOWN`. */
 export function useSettle() {
   const client = useQueryClient()

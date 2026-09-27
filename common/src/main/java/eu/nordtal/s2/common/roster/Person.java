@@ -16,6 +16,8 @@ import org.jspecify.annotations.Nullable;
  * @param playtimeSeconds total online time, {@code null} when the account has never been online
  * @param adminGrantedBy  the admin who granted this one, {@code null} for the root and for non-admins
  * @param adminGrantedAt  when this account became an admin, {@code null} unless it is one
+ * @param packExemptBy    the admin who let this account play without the resource pack, {@code null} unless one did
+ * @param packExemptAt    when that happened, {@code null} unless it did
  */
 public record Person(
         String discordId,
@@ -38,4 +40,6 @@ public record Person(
         @Nullable Instant mcNameUpdated,
         @Nullable Long playtimeSeconds,
         @Nullable String adminGrantedBy,
-        @Nullable Instant adminGrantedAt) {}
+        @Nullable Instant adminGrantedAt,
+        @Nullable String packExemptBy,
+        @Nullable Instant packExemptAt) {}

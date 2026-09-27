@@ -1,24 +1,18 @@
 <!--
-  deploy/dev ui
+  dev ui
 
-  The interface with hot reload: steward-ui on 127.0.0.1:8080 behind Vite on http://localhost:5173.
-
-  Ctrl-C stops Vite and leaves the containers up. Cannot run beside `steward-ui (Java, :8080)`.
+  Runs the stack, steward-ui on 127.0.0.1:8080 and the Vite dev server on http://localhost:5173.
+  Stopping it stops Vite only; `dev stop` stops the containers. It conflicts with `:steward-ui:run`
+  on port 8080.
 -->
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="dev ui" type="ShConfigurationType" folderName="dev: stack">
-    <option name="SCRIPT_TEXT" value="" />
-    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
-    <option name="SCRIPT_PATH" value="$PROJECT_DIR$/deploy/dev" />
-    <option name="SCRIPT_OPTIONS" value="ui" />
-    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
-    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
-    <option name="INTERPRETER_PATH" value="/usr/bin/env" />
-    <option name="INTERPRETER_OPTIONS" value="bash" />
-    <option name="EXECUTE_IN_TERMINAL" value="true" />
-    <option name="EXECUTE_SCRIPT_FILE" value="true" />
-    <envs />
-    <method v="2" />
+  <configuration default="false" name="dev ui" type="Application" factoryName="Application" folderName="dev: stack">
+    <option name="MAIN_CLASS_NAME" value="eu.nordtal.s2.dev.Dev" />
+    <module name="season-2.dev.main" />
+    <option name="PROGRAM_PARAMETERS" value="ui" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
   </configuration>
 </component>

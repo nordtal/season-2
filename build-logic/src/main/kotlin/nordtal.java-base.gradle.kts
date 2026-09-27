@@ -2,6 +2,7 @@
 
 import eu.nordtal.s2.build.CheckSourcesTracked
 import eu.nordtal.s2.build.RepositoryRootTestInputs
+import org.gradle.process.CommandLineArgumentProvider
 
 plugins {
     id("java")
@@ -33,12 +34,30 @@ dependencies {
 val repositoryRootTestInputs =
     extensions.create<RepositoryRootTestInputs>("repositoryRootTestInputs", rootProject.layout.projectDirectory)
 
+// The assembled pack, for modules that declare `resourcePack(project(":resource-pack", "pack"))`.
+// Tests find it through the system property `nordtal.pack`.
+val resourcePack = configurations.dependencyScope("resourcePack")
+val resourcePackFiles =
+    configurations.resolvable("resourcePackFiles") {
+        extendsFrom(resourcePack.get())
+    }
+
 tasks.named<Test>("test") {
     useJUnitPlatform()
     inputs
         .files(repositoryRootTestInputs.files)
         .withPropertyName("repositoryRootTestInputs")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    val pack = resourcePackFiles.map { it.incoming.files }
+    inputs
+        .files(pack)
+        .withPropertyName("resourcePack")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    jvmArgumentProviders.add(
+        CommandLineArgumentProvider {
+            pack.get().files.map { "-Dnordtal.pack=${it.absolutePath}" }
+        },
+    )
 }
 
 // Read outside the task block, where the<SourceSetContainer>() would resolve against the task.

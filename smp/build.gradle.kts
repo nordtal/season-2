@@ -33,6 +33,9 @@ repositories {
 }
 
 dependencies {
+    // The assembled resource pack, for PanelWalk: the chest-row fonts only exist there.
+    "resourcePack"(project(":resource-pack", "pack"))
+
     implementation(project(":paper-common"))
     // Flyway is excluded: this plugin never migrates, and flyway-core drags in Jackson 3.
     implementation(libs.jcore) {

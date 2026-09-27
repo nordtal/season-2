@@ -37,7 +37,9 @@ public final class PersonMapper implements RowMapper<Person> {
                 // getObject, since getLong answers 0 for NULL and zero is a real play time.
                 rs.getObject("playtime_seconds", Long.class),
                 rs.getString("admin_granted_by"),
-                instant(rs, "admin_granted_at"));
+                instant(rs, "admin_granted_at"),
+                rs.getString("pack_exempt_by"),
+                instant(rs, "pack_exempt_at"));
     }
 
     /** Converts a {@code timestamptz} column without the JVM's default time zone. */

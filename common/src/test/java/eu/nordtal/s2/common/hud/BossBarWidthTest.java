@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.common.RepositoryRoot;
 import eu.nordtal.s2.common.pack.PackAdvances;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -17,7 +18,7 @@ import org.junit.jupiter.api.Test;
 class BossBarWidthTest {
 
     private static final Map<Integer, Integer> ADVANCES =
-            PackAdvances.of("resource-pack/src/assets/nordtal/font/bossbar.json");
+            PackAdvances.of(RepositoryRoot.packAssets() + "/nordtal/font/bossbar.json");
 
     @Test
     void aPillAdvancesExactlyCapInnerCapForEveryInnerWidth() {

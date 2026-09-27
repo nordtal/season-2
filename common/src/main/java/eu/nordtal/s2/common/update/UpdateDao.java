@@ -111,6 +111,18 @@ interface UpdateDao {
             """)
     int progress(@Bind("id") long id, @Bind("result") String result);
 
+    /**
+     * Puts a running request back into the inbox, report and all, for the next worker to claim.
+     *
+     * A row settled meanwhile stays settled. {@code not_before} stays in the past, so no countdown shows.
+     */
+    @SqlUpdate("""
+            UPDATE update_request
+            SET status = 'PENDING', started = NULL, result = :result
+            WHERE id = :id AND status = 'RUNNING'
+            """)
+    int handOver(@Bind("id") long id, @Bind("result") String result);
+
     @SqlQuery("SELECT * FROM update_request WHERE id = :id")
     Optional<UpdateRequest> find(@Bind("id") long id);
 

@@ -30,8 +30,8 @@ import org.junit.jupiter.api.Test;
  */
 class BoardFrameTest {
 
-    private static final String FONT = "resource-pack/src/assets/nordtal/font/board.json";
-    private static final String ASSETS = "resource-pack/src/assets";
+    private static final String FONT = RepositoryRoot.packAssets() + "/nordtal/font/board.json";
+    private static final String ASSETS = RepositoryRoot.packAssets();
 
     /** Code point to how far the cursor moves after drawing it, the way the client computes it. */
     private static final Map<Integer, Integer> ADVANCES = advances();

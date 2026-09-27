@@ -116,6 +116,14 @@ val viteTest =
         // No declared output, so it runs on every `check`: a cached verdict could report a pass nobody ran.
     }
 
+// The Vite dev server on :5173, proxying /api and /auth to the container; `dev ui` starts it.
+tasks.register<NpmTask>("viteDev") {
+    group = "application"
+    description = "Runs the Steward frontend's Vite dev server."
+    dependsOn(tasks.named("npmInstall"))
+    npmCommand.set(listOf("run", "dev"))
+}
+
 // Formatting of the frontend and of every YAML, Markdown and JSON file in the repository; see .oxfmtrc.json.
 val oxfmtCheck =
     tasks.register<NodeTask>("oxfmtCheck") {
@@ -174,6 +182,7 @@ tasks.named<ProcessResources>("processResources") {
 }
 
 // `:steward-ui:run` takes its environment from the gitignored deploy/dev.env, if present, and never logs it.
+// It shares :8080 with `dev ui`. Read through a provider so the configuration cache sees the file change.
 val localEnvironment =
     providers
         .fileContents(

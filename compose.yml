@@ -160,8 +160,8 @@ services:
       - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/app/lib
     logging: *logging
 
-  # Serves a locally built resource pack; `devpack` is never selected in production.
-  # `deploy/dev pack` builds the zip into PACK_ROOT and writes url and sha1 into pack.yml.
+  # Serves a locally built resource pack on loopback; `devpack` is never selected in production.
+  # `dev pack` builds the zip into PACK_ROOT and writes url and sha1 into pack.yml.
   pack-host:
     profiles: ["devpack"]
     image: ${PACK_HOST_IMAGE:-nginx:alpine}

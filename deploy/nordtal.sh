@@ -111,7 +111,7 @@ DATA_DIRS=(
 
 # The name and the owner of one of those entries.
 dir_name()  { printf '%s' "${1%%:*}"; }
-dir_owner() { [[ "$1" == *:* ]] && printf '%s' "${1#*:}"; }
+dir_owner() { if [[ "$1" == *:* ]]; then printf '%s' "${1#*:}"; fi; }
 
 # Decisions without side effects, which deploy/nordtal-test.sh drives without Docker or a network.
 
@@ -456,8 +456,8 @@ looks_like_this_script() {
     bash -n "$file" 2>/dev/null
 }
 
-# Asking and writing answers, shared with `deploy/dev`. They read $ENV_FILE and $CHECK_ONLY, which
-# the caller sets.
+# Asking and writing answers. They read $ENV_FILE and $CHECK_ONLY, which the caller sets. `dev init`
+# asks some of QUESTIONS in the same words, and NordtalQuestionsTest holds the two together.
 
 # Asks once for one variable and writes it. `kind` is one of:
 #   plain            required, echoed while typing
@@ -960,7 +960,7 @@ fi
 
 # 2a · the questions
 # Asks once for each missing value. Secrets are read with echo off and never shown; a malformed
-# answer is refused at the prompt. The helpers sit above the seam because deploy/dev uses them.
+# answer is refused at the prompt.
 
 default_for COMPOSE_PROFILES     "db,bot,mc,backup,steward"
 default_for COMPOSE_PROJECT_NAME "$DEFAULT_PROJECT"

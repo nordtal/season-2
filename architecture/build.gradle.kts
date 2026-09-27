@@ -15,6 +15,7 @@ val checkedModules =
         ":steward-worker",
         ":steward-ui",
         ":steward-deployer",
+        ":dev",
     )
 
 dependencies {

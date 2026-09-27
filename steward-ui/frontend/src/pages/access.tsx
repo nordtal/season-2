@@ -6,6 +6,7 @@ import {
   HandCoinsIcon,
   HourglassIcon,
   LinkBreakIcon,
+  PackageIcon,
   MagnifyingGlassIcon,
   ShieldSlashIcon,
   UserPlusIcon,
@@ -22,6 +23,8 @@ import { count, date, dateTime, euros, playtime, relative, splitPlaytime } from 
 import { useNow } from "@/lib/use-now"
 import {
   useGrantAccess,
+  useEnforcePack,
+  useExemptFromPack,
   useGrantAdmin,
   useGrants,
   useJournal,
@@ -296,6 +299,7 @@ export function AccessPage() {
   const [playtimeFor, setPlaytimeFor] = useState<Person | null>(null)
   const [makingAdmin, setMakingAdmin] = useState<Person | null>(null)
   const [unmakingAdmin, setUnmakingAdmin] = useState<Person | null>(null)
+  const [packFor, setPackFor] = useState<Person | null>(null)
   // Which admins the signed-in one may revoke: their own branch, and nobody else's.
   const below = adminsBelow(people.data ?? [], me.data?.id)
   // One clock for the whole render, so that two badges in one row cannot disagree about "now".
@@ -434,7 +438,12 @@ export function AccessPage() {
                                 Admin
                               </StatusBadge>
                             ) : null}
-                            {!person.donor && !person.admin ? (
+                            {person.packExemptAt ? (
+                              <StatusBadge tone="warn" tipContent={packExemptText(person, list)}>
+                                No resource pack
+                              </StatusBadge>
+                            ) : null}
+                            {!person.donor && !person.admin && !person.packExemptAt ? (
                               <span className="text-xs text-muted-foreground">{"\u2013"}</span>
                             ) : null}
                           </div>
@@ -454,6 +463,7 @@ export function AccessPage() {
                               onUnlink: () => setUnlinking(person),
                               onMakeAdmin: () => setMakingAdmin(person),
                               onRevokeAdmin: below.has(person.discordId) ? () => setUnmakingAdmin(person) : undefined,
+                              onPack: () => setPackFor(person),
                             })}
                           />
                         </TableCell>
@@ -526,6 +536,10 @@ export function AccessPage() {
         <MakeAdminDialog person={makingAdmin} open onOpenChange={(open) => (open ? null : setMakingAdmin(null))} />
       ) : null}
 
+      {packFor ? (
+        <PackExemptionDialog person={packFor} open onOpenChange={(open) => (open ? null : setPackFor(null))} />
+      ) : null}
+
       {unmakingAdmin ? (
         <RevokeAdminDialog
           person={unmakingAdmin}
@@ -567,6 +581,7 @@ function rowActions(
     onMakeAdmin: () => void
     /** Absent unless this admin is below the signed-in one. */
     onRevokeAdmin?: () => void
+    onPack: () => void
   },
 ): RowAction[] {
   const actions: RowAction[] = []
@@ -651,7 +666,28 @@ function rowActions(
     })
   }
 
+  // Last on purpose: this is for whoever draws the pack, not a routine action.
+  if (person.packExemptAt || person.minecraftUuid) {
+    actions.push({
+      key: "pack",
+      node: (
+        <Button type="button" variant="ghost" size="sm" onClick={on.onPack}>
+          <PackageIcon aria-hidden />
+          {person.packExemptAt ? "Enforce resource pack" : "Skip resource pack"}
+        </Button>
+      ),
+    })
+  }
+
   return actions
+}
+
+/** The exemption badge's tooltip: who let them through without the pack, and when. */
+function packExemptText(person: Person, people: readonly Person[]): string {
+  const admin = people.find((other) => other.discordId === person.packExemptBy)
+  const by = admin ? personName(admin) : (person.packExemptBy ?? "an admin")
+  const at = person.packExemptAt ? ` on ${dateTime(person.packExemptAt)}` : ""
+  return `Plays without the resource pack from their next login on. Set by ${by}${at}.`
 }
 
 /** The admin badge's tooltip: who granted this one, by the name the roster knows them by. */
@@ -951,6 +987,60 @@ function UnlinkDialog({
             }}
           >
             Unlink
+          </ResponsiveAlertDialogAction>
+        </ResponsiveAlertDialogFooter>
+      </ResponsiveAlertDialogContent>
+    </ResponsiveAlertDialog>
+  )
+}
+
+/** Lets one player through without the resource pack, or takes that back. */
+function PackExemptionDialog({
+  person,
+  open,
+  onOpenChange,
+}: {
+  person: Person
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const exempt = useExemptFromPack()
+  const enforce = useEnforcePack()
+  const exempted = Boolean(person.packExemptAt)
+  const change = exempted ? enforce : exempt
+  return (
+    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveAlertDialogContent>
+        <ResponsiveAlertDialogHeader>
+          <ResponsiveAlertDialogTitle>
+            {exempted
+              ? `Require the resource pack for ${personName(person)} again?`
+              : `Let ${personName(person)} play without the resource pack?`}
+          </ResponsiveAlertDialogTitle>
+          <ResponsiveAlertDialogDescription>
+            {exempted
+              ? "From their next login on, they get the pack like everybody else."
+              : "From their next login on, the network sends them no pack, until an admin requires it again. Their own local pack then shows."}
+          </ResponsiveAlertDialogDescription>
+        </ResponsiveAlertDialogHeader>
+        <ResponsiveAlertDialogFooter>
+          <ResponsiveAlertDialogCancel disabled={change.isPending}>Cancel</ResponsiveAlertDialogCancel>
+          <ResponsiveAlertDialogAction
+            disabled={change.isPending}
+            onClick={() => {
+              change.mutate(person.discordId, {
+                onSuccess: () => {
+                  toast.success(
+                    personToast(exempted ? "Resource pack required" : "Resource pack skipped", person.discordId),
+                  )
+                },
+                onError: (error) => {
+                  toast.error("Nothing was changed", { description: String(error) })
+                },
+              })
+            }}
+          >
+            {exempted ? "Enforce resource pack" : "Skip resource pack"}
           </ResponsiveAlertDialogAction>
         </ResponsiveAlertDialogFooter>
       </ResponsiveAlertDialogContent>

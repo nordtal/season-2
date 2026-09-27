@@ -1,7 +1,7 @@
 package eu.nordtal.s2.common.menu;
 
 /**
- * Where a chest slot is, in the window's own pixels, mirroring {@code resource-pack/tools/generate_gui_panels.py}.
+ * Where a chest slot is, in the window's own pixels. The pack's panels are drawn on this grid.
  * A cell's origin is its top-left shadow pixel, one up and left of the item area.
  */
 public final class SlotGeometry {

@@ -1,7 +1,7 @@
 <!--
   gradlew checkSetup
 
-  `deploy/nordtal-test.sh`: the host comparison, the menu and secret masking of deploy/nordtal.sh.
+  Tests deploy/nordtal.sh's checks.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: checkSetup" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">

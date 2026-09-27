@@ -54,6 +54,30 @@ final class UpdateSequence {
         return new Preparation(holds, plan, planned, foreign);
     }
 
+    /** Places the newer steward-worker if needed and hands it the run; nothing is stopped. */
+    static Outcome handOver(
+            final Runner runner,
+            final Preparation prep,
+            final Handover.HandOver handOver,
+            final Consumer<UpdateReport> progress) {
+        UpdateReport report = prep.planned();
+        if (handOver.install()) {
+            final ApplyResult result =
+                    Runs.apply(runner.config, prep.plan().onlyServices(List.of(Topology.STEWARD_WORKER)));
+            if (result.hasFailures()) {
+                return Outcome.failed(UpdateReports.toJson(report.withStage(UpdateReport.Stage.FAILED)
+                        .withNote(Report.render(result))
+                        .withNote("NOTHING WAS STOPPED. The newer steward-worker could not be placed, and this"
+                                + " run is not carried out by an older worker than the release it installs.")));
+            }
+            report = report.with(report.line(Topology.STEWARD_WORKER).at(UpdateReport.State.INSTALLED));
+        }
+        report = report.withStage(UpdateReport.Stage.RESOLVING).withNote(Handover.note(handOver.version()));
+        progress.accept(report);
+        log.info("Handing the run to steward-worker {}", handOver.version());
+        return Outcome.handedOver(UpdateReports.toJson(report));
+    }
+
     /** A run with no server in it: nobody is stopped, so nobody needs a countdown. */
     static Outcome updateWithNoServer(
             final Runner runner, final UpdateRun run, final Preparation prep, final Consumer<UpdateReport> progress) {

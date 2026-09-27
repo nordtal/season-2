@@ -1,8 +1,10 @@
 # `.run/`: the run configurations
 
-JetBrains IDEs read the run configurations in this directory. The `dev:` folders run one
-`deploy/dev` subcommand each, with nothing added, so `deploy/dev help` stays the list; the `tests:`
-folders are Gradle configurations, so results land in the test tree.
+JetBrains IDEs read the run configurations in this directory. None needs bash.
+
+The `dev:` folders hold thirty-one configurations, each one `dev` command with nothing added, so
+`dev help` stays the list and `./gradlew -q :dev:run --args="<command>"` is the terminal equivalent.
+`RunConfigurationsTest` fails when one names a command the program lacks.
 
 | folder                      | what is in it                                                   |
 | --------------------------- | --------------------------------------------------------------- |
@@ -12,14 +14,12 @@ folders are Gradle configurations, so results land in the test tree.
 | `dev: console and database` | `console` per server, `mc`, `psql`                              |
 | `dev: reset (destructive)`  | `reset` per server                                              |
 
-## Settings
+Interactive commands read the Run window, where typed secrets are visible. The working directory is
+the repository root, so the relative paths in `deploy/dev.env` resolve.
 
-- **`INTERPRETER_PATH` is `/usr/bin/env bash`**, since macOS's `/bin/bash` is 3.2 and the scripts
-  need bash 4.
-- **`EXECUTE_IN_TERMINAL` is `true` everywhere**, since `init`, `psql`, `reset` and `console` need a
-  keyboard and `ui` and `logs` need Ctrl-C.
-- **`SCRIPT_WORKING_DIRECTORY` is `$PROJECT_DIR$`**, so the relative paths in `deploy/dev.env` read
-  the same in the terminal.
+The `resource pack` folder installs the pack into a Minecraft client; `resource-pack/README.md`
+explains it. The `tests:` folders are Gradle configurations, so results land in the test tree. The
+deploy script suites are skipped without bash 4 on the PATH; CI always runs them.
 
 There is one `mc` template rather than one configuration per console command, and none that wraps
 two commands.

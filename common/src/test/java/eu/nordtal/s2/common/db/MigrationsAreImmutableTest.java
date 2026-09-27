@@ -72,6 +72,7 @@ class MigrationsAreImmutableTest {
                 "V33__access_request_reload.sql", "fee93fb6fd3504b583f604aab46451dd8ccd228f088724edfb7128577dfad280");
         FROZEN.put("V32__access_request.sql", "9de3226481b89ab0d9f24cbc4c6188fd0388c0d0e50320fb069dacac2990afdb");
         FROZEN.put("V34__admin_tree.sql", "b0fdb96280a85020d604eb435b9053ecfc34229357ed3532024ae2d65e04d7f0");
+        FROZEN.put("V35__pack_exempt.sql", "ddbcdae5b8ba83546628d0c4cf4848c1681a8817aaf7539e94124e0f15c4b6e7");
     }
 
     @Test

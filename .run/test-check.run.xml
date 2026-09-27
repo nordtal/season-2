@@ -1,7 +1,7 @@
 <!--
   gradlew check
 
-  Every suite in the repository, as CI runs it. The folders beside this split it up.
+  Runs every test: the JVM suites, vitest and the deploy script suites. CI runs the same.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: check (everything)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: all">

@@ -130,10 +130,12 @@ Requires JDK 25.
 ./gradlew build
 ./gradlew releaseArtifacts          # exactly what a release ships
 ./gradlew :hunger-games:runServer   # a local Paper test server
-deploy/dev init && deploy/dev up    # the whole network on this machine
+./gradlew -q :dev:run --args="init" # then --args="up": the whole network here
 ```
 
-`deploy/dev deploy smp` rebuilds one module and restarts its container.
+`dev deploy smp` rebuilds one module and restarts its container. `dev` is a Java program in `:dev`,
+run from IntelliJ's _dev: stack_ folder or as `./gradlew -q :dev:run --args="<command>"`; it needs
+Java and Docker on any operating system.
 
 ## Releasing
 

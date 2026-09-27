@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.Gson;
 import eu.nordtal.s2.common.access.AdminTree;
+import eu.nordtal.s2.common.access.PackExemptions;
 import eu.nordtal.s2.steward.ui.auth.Credentials;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Gate;
@@ -97,6 +98,7 @@ public final class StewardUi {
 
     private final @Nullable AdminApi adminApi;
 
+    private final @Nullable PackExemptionApi packExemptionApi;
     private final AuthFlow authFlow;
 
     private final DeployerApi deployments;
@@ -157,6 +159,12 @@ public final class StewardUi {
                 ? null
                 : new AdminApi(
                         Objects.requireNonNull(localAdmins),
+                        data.audit(),
+                        ctx -> account(ctx).orElseThrow());
+        this.packExemptionApi = data == null
+                ? null
+                : new PackExemptionApi(
+                        PackExemptions.using(data.dataSource()),
                         data.audit(),
                         ctx -> account(ctx).orElseThrow());
         this.authFlow = new AuthFlow(config, discord, data, this.sessions, localAdmins);
@@ -231,6 +239,12 @@ public final class StewardUi {
     /** Fails the route when this instance has no database. */
     private AdminApi adminApi() {
         return Objects.requireNonNull(adminApi, "this route needs adminApi, which this instance has none of");
+    }
+
+    /** {@link #packExemptionApi}, for the routes that only exist once a database does. */
+    private PackExemptionApi packExemptionApi() {
+        return Objects.requireNonNull(
+                packExemptionApi, "this route needs packExemptionApi, which this instance has none of");
     }
 
     /**
@@ -487,6 +501,9 @@ public final class StewardUi {
         // Admin is decided here, not by the bot: AdminApi writes it directly.
         cfg.routes.post("/api/admins/grant", ctx -> adminApi().grant(ctx), Gate.KEY_FRESH);
         cfg.routes.post("/api/admins/revoke", ctx -> adminApi().revoke(ctx), Gate.KEY_FRESH);
+        cfg.routes.post("/api/pack-exemptions/exempt", ctx -> packExemptionApi().exempt(ctx), Gate.KEY_FRESH);
+        cfg.routes.post(
+                "/api/pack-exemptions/enforce", ctx -> packExemptionApi().enforce(ctx), Gate.KEY_FRESH);
     }
 
     private void registerSeasonPhaseRoute(final JavalinConfig cfg) {

@@ -1,7 +1,7 @@
 <!--
   gradlew checkEntrypoint
 
-  `deploy/minecraft/entrypoint-test.sh`: the Minecraft entrypoint against fixture directories.
+  Tests deploy/minecraft/entrypoint.sh against fixture directories.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: checkEntrypoint" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">

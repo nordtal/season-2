@@ -97,6 +97,38 @@ class WaitingBookTest {
                 "the release must not depend on which event Velocity dispatched first");
     }
 
+    // the exemption an admin sets in Steward
+
+    @Test
+    void anExemptPlayerIsReleasedWithoutAnyPack() {
+        final WaitingBook book = book();
+        book.entered(player);
+        assertTrue(book.packExempt(player), "the first pass of a login is the one that is logged");
+        assertFalse(book.packExempt(player), "and it is logged once, not on every re-check");
+        assertFalse(book.claimOffer(player), "an exempt player was sent the pack anyway");
+        book.ready(player);
+        assertEquals(Action.RELEASE, decide(book), "an exempt player waited for a pack nobody sent them");
+    }
+
+    @Test
+    void anExemptPlayerIsNeverTimedOutForAPackTheyWereNotSent() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.packExempt(player);
+        clock.advance(APPLY_TIMEOUT.plusMinutes(1));
+        book.ready(player);
+        assertEquals(Action.RELEASE, decide(book));
+    }
+
+    @Test
+    void withoutTheExemptionThePackIsStillWaitedFor() {
+        final WaitingBook book = book();
+        book.entered(player);
+        assertTrue(book.claimOffer(player));
+        book.ready(player);
+        assertEquals(Action.SHOW, decide(book), "a player nobody exempted was let through without the pack");
+    }
+
     @Test
     void readyAfterArrivalIsOrdinary() {
         final WaitingBook book = book();

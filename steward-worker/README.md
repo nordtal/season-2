@@ -42,6 +42,9 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 
 - **Updates.** `/update` in Discord and in game writes a row; `serve` listens on `nordtal_update` and
   polls every fifteen seconds. A restart is due sixty seconds out, and the proxy counts players down.
+- **Handover.** No process replaces the jar it runs, so an update that brings a newer worker places
+  only that jar, returns the request to the inbox and exits. The new worker migrates and finishes the
+  request, so a release's migrations are applied by that release.
 - **Containers.** It holds the Docker socket to read state, health and metrics, to stop and start
   containers and to write into the Minecraft consoles. It never creates a container; that is
   `steward-deployer`'s.

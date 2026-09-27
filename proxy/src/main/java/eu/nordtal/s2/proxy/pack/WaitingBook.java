@@ -35,6 +35,9 @@ public final class WaitingBook {
 
         private boolean applied;
 
+        /** Whether an admin let this player through without the pack, as of their login. */
+        private boolean exempt;
+
         /** Whether {@code limbo} has said {@code READY} at any point this session. */
         private boolean ready;
 
@@ -112,11 +115,26 @@ public final class WaitingBook {
     public boolean claimOffer(final UUID uuid) {
         final Session session = session(uuid);
         synchronized (session) {
-            if (session.offeredAt != null || session.applied) {
+            if (session.offeredAt != null || session.applied || session.exempt) {
                 return false;
             }
             session.offeredAt = clock.instant();
             return true;
+        }
+    }
+
+    /**
+     * Records that an admin exempted this player, so no pack is offered or awaited.
+     *
+     * @param uuid the player
+     * @return {@code true} the first time this session, so the caller logs the pass once
+     */
+    public boolean packExempt(final UUID uuid) {
+        final Session session = session(uuid);
+        synchronized (session) {
+            final boolean first = !session.exempt;
+            session.exempt = true;
+            return first;
         }
     }
 
@@ -217,7 +235,7 @@ public final class WaitingBook {
                 return WaitingDecision.idle();
             }
 
-            final boolean packSettled = !packOffered || session.applied;
+            final boolean packSettled = !packOffered || session.exempt || session.applied;
             if (!packSettled && timedOut(session)) {
                 session.waiting = false;
                 return WaitingDecision.timedOut();

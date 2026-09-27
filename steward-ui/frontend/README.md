@@ -6,9 +6,9 @@ which talks to steward-worker.
 
 ## Running it
 
-`deploy/dev ui` starts the stack and runs Vite on http://localhost:5173; see
-[`deploy/README.md`](../../deploy/README.md#the-interface). With the private Node from
-`steward-ui/build/nodejs/` on `PATH`:
+The run configuration **dev ui** (or `./gradlew -q :dev:run --args="ui"`) starts the stack and runs
+Vite on http://localhost:5173; see [`deploy/README.md`](../../deploy/README.md#the-interface). With
+the private Node from `steward-ui/build/nodejs/` on `PATH`, or through `./gradlew :steward-ui:viteTest`:
 
 ```sh
 npm run typecheck    # tsc -b --noEmit, as `npm run build` runs first

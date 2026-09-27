@@ -18,9 +18,9 @@ deploy/
     scripts/mc         send one console command, no TTY needed
   nordtal.sh           the host's installer and menu; renews itself from GitHub
   restore.sh           put one archive back: a volume, or a dump into a new database
-  dev                  the local stack; see Locally
-  dev.env.example      the local stack's settings
+  dev.env.example      the local stack's settings; see Locally
   *-test.sh            the scripts' checks, run on `check` without Docker
+  servers/, pack/      not in git: the local stack's plugin folders and resource pack
 ```
 
 ## First deployment, in order
@@ -179,15 +179,19 @@ which jar runs with `docker exec <container> cat /proc/1/cmdline | tr '\0' ' '`.
 
 The same `compose.yml` and images, with `deploy/dev.env` and jars from `build/libs`:
 
-```bash
-deploy/dev init          # write deploy/dev.env, generate the secrets, make the directories
-deploy/dev up            # build the jars and images, then start the stack
-deploy/dev deploy smp    # rebuild :smp, replace the jar, restart that container
-deploy/dev help          # every subcommand
+`dev` is the Java program in `:dev`; it needs Java and Docker on any operating system. Each command
+is a run configuration in IntelliJ's `dev:` folders, or `./gradlew -q :dev:run --args="<command>"`:
+
+```text
+dev init          # write deploy/dev.env, generate the secrets, make the directories
+dev up            # build the jars and images, then start the stack
+dev deploy smp    # rebuild :smp, replace the jar, restart that container
+dev help          # every command
 ```
 
-Then join `localhost`. On macOS install bash 4 or newer first (`brew install bash`). After editing
-`deploy/dev.env` run `deploy/dev up`: `deploy` restarts the old container with its old environment.
+Then join `localhost`. After editing `deploy/dev.env` run `dev up`: `deploy` restarts the old
+container with its old environment. `console` sends typed lines to a server from IntelliJ's Run
+window; in a terminal, `docker compose --env-file deploy/dev.env exec smp console` attaches instead.
 
 The local stack differs in: no `bot` profile by default, images built on a `:dev` tag, plugin
 folders as bind mounts under `deploy/servers/`, and small heaps. It has no hand-built world and no
@@ -195,25 +199,26 @@ Discord guild.
 
 ### The interface
 
-```bash
-deploy/dev ui
+```text
+dev ui
 ```
 
 starts the stack plus the three steward services, then Vite in the foreground on
-http://localhost:5173, which proxies `/api` and `/auth` to `127.0.0.1:8080`. Ctrl-C stops only
-Vite; `deploy/dev stop` stops the rest. Node is downloaded by Gradle under `steward-ui/build/nodejs/`.
+http://localhost:5173, which proxies `/api` and `/auth` to `127.0.0.1:8080`. Stopping it stops only
+Vite; `dev stop` stops the rest. Node is downloaded by Gradle under `steward-ui/build/nodejs/`.
 To run the Java half from Gradle (`:steward-ui:run`), stop the container first, since both want
 `:8080`. `STEWARD_UI_PUBLIC_URL` must be the browser's address, or Discord and WebAuthn sign-in fail.
 
 ### The resource pack
 
-```bash
-deploy/dev pack
+```text
+dev pack
 ```
 
 builds the pack, serves it through the `devpack` profile on `PACK_PORT`, and writes its URL and
 SHA-1 into the proxy's `pack.yml`. Rerun it after any change under `resource-pack/src/`; a
-`FAILED_DOWNLOAD` in the client is almost always a stale hash.
+`FAILED_DOWNLOAD` in the client is almost always a stale hash. To draw the pack, install it straight
+into a Minecraft instance instead; see [resource-pack/README.md](../resource-pack/README.md).
 
 ## Stopping
 

@@ -28,6 +28,21 @@ public final class RepositoryRoot {
         return at;
     }
 
+    /** Returns the pack as the client receives it, which Gradle assembles into {@code nordtal.pack}. */
+    public static Path pack() {
+        final String pack = System.getProperty("nordtal.pack");
+        if (pack == null) {
+            throw new IllegalStateException("nordtal.pack is not set: this module's build.gradle.kts needs"
+                    + " resourcePack(project(\":resource-pack\", \"pack\"))");
+        }
+        return Path.of(pack);
+    }
+
+    /** Returns the assembled pack's {@code assets} directory. */
+    public static String packAssets() {
+        return pack().resolve("assets").toString();
+    }
+
     /** Returns {@code relative}, resolved against the repository root. */
     public static Path resolve(final String relative) {
         return path().resolve(relative);

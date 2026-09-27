@@ -1,7 +1,7 @@
 <!--
   gradlew test
 
-  `test` in every module that has one, shown in the Run window's test tree.
+  Runs every module's JVM tests, without vitest or the shell suites.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: jvm (all modules)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: jvm">

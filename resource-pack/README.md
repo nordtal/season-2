@@ -3,13 +3,30 @@
 The nordtal.eu resource pack: glyphs in the Unicode private use area, HUD sprites, menu panels and a
 few vanilla overrides.
 
-**This file owns the code point allocation.** The font files under `src/assets/*/font/` and
-`:common`'s `Glyphs` mirror the tables below, so a change goes into all of them in one commit.
+**This file owns the code point allocation.** The font files under `src/assets/*/font/`,
+[`templates/gui_row.json`](templates/gui_row.json) and `:common`'s `Glyphs` mirror the tables below, so a change goes into all of them in one commit.
 `ResourcePackTest` holds them against each other.
 
 A glyph of `minecraft:default` also has a name, written as `<glyph:name>` in a message. The names
 are in `common/src/main/resources/eu/nordtal/s2/common/glyph-names.txt`, and `GlyphNamesTest` fails
 on a glyph without a name or a name without a glyph.
+
+## Editing the art
+
+Everything runs from IntelliJ's Run menu, folder **resource pack**, on any operating system. You
+need Minecraft 26.2.
+
+1. Run **pack: 1. choose Minecraft instance** once and pick the folder holding `options.txt` and
+   `resourcepacks`.
+2. Edit an image under `src/assets/nordtal/textures` and save it in place.
+3. Run **pack: 2. install into Minecraft**. It names every image it cannot use, copies the pack in
+   as `nordtal-dev` and enables it if the game is closed; otherwise enable it once under Options >
+   Resource Packs.
+4. Press **F3+T** in the game.
+
+A server's pack covers every local one. To see yours on the network, an admin chooses **Skip
+resource pack** on your row under Users in Steward; from your next login you get no pack, until
+**Enforce resource pack** on the same row.
 
 ## Building
 
@@ -18,8 +35,8 @@ on a glyph without a name or a name without a glyph.
 ```
 
 writes `resource-pack/build/distributions/nordtal-resource-pack-<version>.zip` and its `.sha1`. The
-zip's root is [`src/`](src/). `pack_format` is **88** (Minecraft 26.2). `deploy/dev pack` points a
-local stack at a fresh build.
+zip's root is the assembled pack in `build/pack`: [`src/`](src/) plus what the build derives.
+`pack_format` is **88** (Minecraft 26.2). `dev pack` points a local stack at a fresh build.
 
 ## Hosting
 
@@ -34,26 +51,20 @@ closed until they are set.
 - `sha1` is only checked to be 40 hex characters. A wrong hash shows in the client as
   `FAILED_DOWNLOAD`.
 
-## Generated art
+## What the build derives
 
-Most art is drawn by dependency-free Python scripts from the metrics in this file. Re-run the
-relevant script after changing a size, a shape or an allocation; each overwrites only its own files.
+Nothing derived from the art is committed.
 
-```bash
-python3 resource-pack/tools/generate_dummy_textures.py   # badges, crests, system icons, arrows, board frame
-python3 resource-pack/tools/generate_hud.py              # boss bar pills and the 10x10 status icons
-python3 resource-pack/tools/generate_gui_panels.py       # the chest panels and the travel panel
-python3 resource-pack/tools/generate_gui_rows.py         # row plates, row icons, the 5px sheet, the six row fonts
-python3 resource-pack/tools/export_bossbar_advances.py   # bossbar advances -> :common resource
-```
+- `generateRowFonts` writes the six row fonts `nordtal/font/gui_r0.json` to `gui_r5.json` from
+  [`templates/gui_row.json`](templates/gui_row.json), row 0, moving each bitmap 18 pixels per row.
+  `assemblePack` puts them beside `src/` in `build/pack`, which the zip, `installPack` and the tests
+  read.
+- `:common` derives the glyph widths the plugins need to compose pills and rows,
+  `nordtal/hud/bossbar-advances.properties` and `nordtal/menu/gui-row-advances.properties`, by the
+  client's rule. `BossBarAdvancesTest` and `MenuFontTest` derive them again independently.
 
-The plugins compose rows and pills, so they need glyph widths:
-`common/src/main/resources/nordtal/hud/bossbar-advances.properties` and
-`common/src/main/resources/nordtal/menu/gui-row-advances.properties` are generated too, and
-`BossBarAdvancesTest` and `MenuFontTest` fail `check` when either is stale.
-
-`generate_dummy_textures.py` also writes placeholders for the balloon's item model and the
-hunger-games lobby maps.
+The tables ship inside the plugin jars, so a changed width reaches a server with the next plugin
+rollout, not with the pack alone.
 
 # Code point allocation
 
@@ -65,7 +76,7 @@ A glyph only lines up where its `height` and `ascent` match the surface it is dr
 | `nordtal:bossbar`           | [`nordtal/font/bossbar.json`](src/assets/nordtal/font/bossbar.json)     | the boss bar HUDs only, with the vanilla bar made invisible                              | height 14 / ascent 6 for bar segments, height 10 / ascent 4 for icons, height 8 / ascent 3 for text |
 | `nordtal:board`             | [`nordtal/font/board.json`](src/assets/nordtal/font/board.json)         | the objective board and aura leaderboard's frame only: drawn by `:common`'s `BoardFrame` | height 9 / ascent 8                                                                                 |
 | `nordtal:gui`               | [`nordtal/font/gui.json`](src/assets/nordtal/font/gui.json)             | the menu panels, drawn out of a chest inventory's **title**                              | ascent 13, height = the window's own pixel height (132…222)                                         |
-| `nordtal:gui_r0` … `gui_r5` | [`nordtal/font/gui_r0.json`](src/assets/nordtal/font/gui_r0.json) …     | everything drawn **on a chest row**: a list entry's plate, its icon, its label           | six copies of one font, one per row; three ascents each (see below)                                 |
+| `nordtal:gui_r0` … `gui_r5` | [`templates/gui_row.json`](templates/gui_row.json), generated per row   | everything drawn **on a chest row**: a list entry's plate, its icon, its label           | six copies of one font, one per row; three ascents each (see below)                                 |
 
 The fonts allocate **independently**: `︀1` means something different in `minecraft:default`
 and in `nordtal:bossbar`. A component that names no font draws whatever `minecraft:default` holds at
@@ -83,8 +94,8 @@ Every code point is a surrogate pair in UTF-16. `Glyphs` writes them as `cp(0xFE
 files as escaped pairs, and no message bundle carries one (`TabListTest`); a glyph reaches a bundle
 as a `{parameter}`.
 
-**Status:** _keep_ is shipping art; _final candidate_ is generated art good enough to ship;
-_placeholder_ is generated art that exists for testing until the real design.
+**Status:** _keep_ is shipping art; _final candidate_ is drawn geometry good enough to ship;
+_placeholder_ exists for testing until the real design.
 
 ## `minecraft:default`
 
@@ -157,8 +168,8 @@ The frame of the objective board and the aura leaderboard, which are Text Displa
 The frame never draws after the content, because the client alone knows how wide a text line is. A
 row draws its left edge, walks right by the configured width (`boards[].width` in `smp`'s
 `config.yml`, 32 to 240 px), draws the right edge, and walks back. A line longer than that overdraws
-the edge. The frame uses the menu panels' `highlight` and `accent` colours from
-`generate_gui_panels.py`, since it hangs on a dark background.
+the edge. The frame uses the menu panels' `highlight` and `accent` colours, since it hangs on a dark
+background.
 
 | Char code              | File                                                          | Description                                                                      | Status          |
 | ---------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------- |
@@ -202,8 +213,7 @@ Never allocate an advance onto an assigned character: the client would replace i
 ### `︀0` to `︒8`, `️F`: bar background segments
 
 Height 14, ascent 6. A HUD line is one rounded pill per piece of information: `START`, a body of
-segments, `END`. The body is translucent with a lighter rim, drawn by
-[`tools/generate_hud.py`](tools/generate_hud.py). The client advances a bitmap glyph by its width
+segments, `END`. The body is translucent with a lighter rim. The client advances a bitmap glyph by its width
 plus one, so `BossBarWidth` steps back after each segment.
 
 | Char code | File                      | Width           |
@@ -219,9 +229,8 @@ plus one, so `BossBarWidth` steps back after each segment.
 | `\uFE064` | `ui/bossbar/bg/64.png`    | 64 px           |
 | `\uFE128` | `ui/bossbar/bg/128.png`   | 128 px          |
 
-The code points are named after the width in decimal. `export_bossbar_advances.py` derives every
-advance in this font the way the client does and writes it for the plugins; re-run it after
-redrawing anything here.
+The code points are named after the width in decimal. The build derives every advance in this font
+the way the client does, for the plugins.
 
 ### ASCII override
 
@@ -230,7 +239,7 @@ symbols on the bar's baseline. It carries the digits, so the HUD needs no digit 
 
 ### `ﻰ0` to `ﻰF`: status icons
 
-Height 10, ascent 4. The pixel maps in [`tools/generate_hud.py`](tools/generate_hud.py) are the art.
+Height 10, ascent 4.
 
 | Char code              | File                                                                      | Description                                                          | Status          |
 | ---------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------- |
@@ -332,10 +341,10 @@ once per card row with the ascent that lands it there (`13 − y`); the title wa
 x before drawing it. `MenuTitle.Canvas` in `:common` composes it and `MenuTitleTest` checks every
 overlay lands on its card.
 
-A chest window is `114 + 18 × rows` pixels tall, hence six panels. `generate_gui_panels.py` works
-from measurements, so a hand-drawn panel of the same size drops in; its palette is the design. The
-drawable cell starts at **(7, 17)**, not (8, 18), because `ChestScreen` draws the player rows one
-pixel higher than the texture (`PLAYER_MAIN_FROM_BOTTOM`). Re-measure at every version bump.
+A chest window is `114 + 18 × rows` pixels tall, hence six panels. A hand-drawn panel of the same
+size drops in without Java changes. The drawable cell starts at **(7, 17)**, not (8, 18), because
+`ChestScreen` draws the player rows one pixel higher than the texture. Re-measure at every version
+bump.
 
 ### `︠0` to `︯F`: menu surfaces
 
@@ -395,8 +404,8 @@ it. `0`, `O` and `8` are drawn apart:
 All three stay three pixels wide, so columns of numbers line up. `MenuFontTest` checks their
 distances and that no other two characters match, except the listed `U`/`V`.
 
-`generate_gui_rows.py` writes the advances to `gui-row-advances.properties` and the six font files;
-re-run it after redrawing anything in these fonts.
+The build generates the six font files from the template and the advances into
+`gui-row-advances.properties`.
 
 ### `︐0` to `︐7`: row plates
 

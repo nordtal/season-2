@@ -4,6 +4,13 @@ plugins {
 
 application.mainClass.set("eu.nordtal.s2.steward.worker.StewardWorker")
 
+// Handover compares this version with the one a run was handed to.
+tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+    manifest {
+        attributes["Implementation-Version"] = project.version.toString()
+    }
+}
+
 // Tests that read files as text declare them here, or editing one alone leaves the tests UP-TO-DATE.
 repositoryRootTestInputs {
     reads("compose.yml")

@@ -189,6 +189,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public boolean handOver(final long id, final String result) {
+        return dao.handOver(id, result) > 0;
+    }
+
+    @Override
     public boolean progress(final long id, final String result) {
         return dao.progress(id, result) > 0;
     }

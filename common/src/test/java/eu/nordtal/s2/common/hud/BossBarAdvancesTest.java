@@ -4,16 +4,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.common.RepositoryRoot;
 import eu.nordtal.s2.common.pack.PackAdvances;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Holds the generated {@code bossbar-advances.properties} against the pack, so a stale export fails the build. */
+/** Derives the advance table from the pack independently of the build and holds the shipped one to it. */
 class BossBarAdvancesTest {
 
-    private static final String FONT = "resource-pack/src/assets/nordtal/font/bossbar.json";
+    private static final String FONT = RepositoryRoot.packAssets() + "/nordtal/font/bossbar.json";
 
     @Test
     void theShippedTableIsWhatThePackSaysToday() {
@@ -39,8 +40,8 @@ class BossBarAdvancesTest {
         assertEquals(
                 List.of(),
                 differences,
-                "common/src/main/resources/nordtal/hud/bossbar-advances.properties is stale - run"
-                        + " resource-pack/tools/export_bossbar_advances.py");
+                "the generated bossbar-advances.properties disagrees with the client's rule applied"
+                        + " to the pack - GlyphAdvances in build-logic and PackAdvances here have drifted");
     }
 
     @Test

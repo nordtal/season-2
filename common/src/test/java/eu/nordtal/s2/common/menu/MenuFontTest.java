@@ -23,11 +23,12 @@ import org.junit.jupiter.api.Test;
 /**
  * Holds {@link MenuFont}'s advance table and the row fonts' ascents against the pack.
  *
- * A table one pixel out fails nowhere, so this derives the advances from the PNGs by the client's own rule.
+ * A table one pixel out fails nowhere, so this derives the advances from the PNGs by the client's own rule,
+ * independently of the build.
  */
 class MenuFontTest {
 
-    private static final String ASSETS = "resource-pack/src/assets";
+    private static final String ASSETS = RepositoryRoot.packAssets();
 
     /** The pill's inset inside its slot cell, the same two pixels a balloon card is inset by. */
     private static final int INSET = 2;
@@ -42,11 +43,9 @@ class MenuFontTest {
         assertEquals(
                 new TreeMap<>(derive()),
                 new TreeMap<>(MenuFont.table()),
-                "common/src/main/resources/nordtal/menu/gui-row-advances.properties disagrees with"
-                        + " the row fonts it was exported from. Re-run"
-                        + " resource-pack/tools/generate_gui_rows.py: a redrawn glyph whose"
-                        + " rightmost column moved is a row laid out on the old width, and nothing"
-                        + " about that fails anywhere but on a client");
+                "the generated gui-row-advances.properties disagrees with the client's rule applied"
+                        + " to the row fonts - GlyphAdvances in build-logic and this test have drifted,"
+                        + " and a row laid out on the wrong width fails nowhere but on a client");
     }
 
     @Test
@@ -152,8 +151,7 @@ class MenuFontTest {
                             + " three pixels in ui/gui/row_text.png. They stand next to each other"
                             + " in every distance, every coordinate and every progress number this"
                             + " font draws, so telling them apart cannot be a hunt for one pixel."
-                            + " Re-run resource-pack/tools/generate_gui_rows.py after changing"
-                            + " SMALL, and keep the difference in the outline");
+                            + " Keep the difference in the outline");
         }
     }
 

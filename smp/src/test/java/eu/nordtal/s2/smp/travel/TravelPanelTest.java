@@ -34,7 +34,7 @@ class TravelPanelTest {
     private static final Path ROOT = repositoryRoot();
     private static final Path ASSETS = ROOT.resolve("resource-pack/src/assets/nordtal");
 
-    /** The three cards' colours (fill, outline, highlight), verbatim from generate_gui_panels.py's TILES. */
+    /** The three cards' colours (fill, outline, highlight), as the panel PNG paints them. */
     private static final Map<WorldRole, List<Integer>> COLOURS = Map.of(
             WorldRole.NORDTAL, List.of(rgb(82, 168, 84), rgb(44, 108, 48), rgb(140, 210, 136)),
             WorldRole.NETHER, List.of(rgb(206, 66, 58), rgb(136, 34, 30), rgb(242, 140, 120)),

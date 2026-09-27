@@ -185,6 +185,7 @@ class PlaytimeWriterTest {
                         clock.instant().plus(Duration.ofDays(1)),
                         false,
                         false,
+                        false,
                         Locale.ENGLISH,
                         SeasonPhase.SMP,
                         null));

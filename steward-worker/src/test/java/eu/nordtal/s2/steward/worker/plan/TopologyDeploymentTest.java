@@ -275,7 +275,7 @@ class TopologyDeploymentTest {
                 List.of(),
                 missing.stream().distinct().sorted().toList(),
                 "deploy/dev.env.example does not answer every required variable in compose.yml."
-                        + " `deploy/dev up` would fail on the first of them, naming one variable"
+                        + " `dev up` would fail on the first of them, naming one variable"
                         + " and no others, however many are missing.");
     }
 

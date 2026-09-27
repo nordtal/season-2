@@ -539,6 +539,9 @@ export type Person = {
   /** Who granted this admin; absent for the root and for everybody who is no admin. */
   adminGrantedBy?: string | null
   adminGrantedAt?: string | null
+  /** The admin who let this account play without the resource pack; absent while the pack is enforced. */
+  packExemptBy?: string | null
+  packExemptAt?: string | null
   locale: string
   updated: string
   minecraftUuid?: string

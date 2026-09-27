@@ -12,7 +12,7 @@ import java.util.Properties;
 
 /**
  * How far every {@code nordtal:bossbar} glyph moves the cursor, so a HUD pill fits what it holds.
- * The table is generated from the pack, and an undeclared character advances {@link #MISSING}.
+ * The build derives the table from the pack, and an undeclared character advances {@link #MISSING}.
  */
 public final class BossBarAdvances {
 
@@ -49,8 +49,8 @@ public final class BossBarAdvances {
         final Properties properties = new Properties();
         try (InputStream stream = BossBarAdvances.class.getResourceAsStream(RESOURCE)) {
             if (stream == null) {
-                throw new IllegalStateException(RESOURCE + " is missing from the classpath - run"
-                        + " resource-pack/tools/export_bossbar_advances.py");
+                throw new IllegalStateException(RESOURCE + " is missing from the classpath - :common's"
+                        + " generateBossbarAdvances task writes it");
             }
             try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
                 properties.load(reader);

@@ -225,6 +225,7 @@ class PrivateMessagesTest {
                 Instant.now().plus(Duration.ofDays(1)),
                 false,
                 admin,
+                false,
                 locale,
                 SeasonPhase.SMP,
                 null);

@@ -1,22 +1,16 @@
 <!--
-  deploy/dev ps
+  dev ps
 
-  `docker compose ps` against deploy/dev.env.
+  Lists the containers of the local stack.
 -->
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="dev ps" type="ShConfigurationType" folderName="dev: stack">
-    <option name="SCRIPT_TEXT" value="" />
-    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
-    <option name="SCRIPT_PATH" value="$PROJECT_DIR$/deploy/dev" />
-    <option name="SCRIPT_OPTIONS" value="ps" />
-    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
-    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
-    <option name="INTERPRETER_PATH" value="/usr/bin/env" />
-    <option name="INTERPRETER_OPTIONS" value="bash" />
-    <option name="EXECUTE_IN_TERMINAL" value="true" />
-    <option name="EXECUTE_SCRIPT_FILE" value="true" />
-    <envs />
-    <method v="2" />
+  <configuration default="false" name="dev ps" type="Application" factoryName="Application" folderName="dev: stack">
+    <option name="MAIN_CLASS_NAME" value="eu.nordtal.s2.dev.Dev" />
+    <module name="season-2.dev.main" />
+    <option name="PROGRAM_PARAMETERS" value="ps" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
   </configuration>
 </component>

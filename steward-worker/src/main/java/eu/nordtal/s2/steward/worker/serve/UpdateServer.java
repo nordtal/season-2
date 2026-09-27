@@ -67,6 +67,10 @@ public final class UpdateServer implements AutoCloseable {
                 while (running) {
                     // Drain before waiting for anything: a notification received while disconnected is lost.
                     drain();
+                    if (!running) {
+                        // Handed over: returning ends the process, and Docker starts the new jar.
+                        return;
+                    }
                     notifications.awaitNotification(waitFor());
                 }
             } catch (final SQLException failure) {
@@ -116,6 +120,23 @@ public final class UpdateServer implements AutoCloseable {
                     log.warn("Could not record progress for request {}; the run continues", request.id(), failure);
                 }
             });
+
+            if (outcome.isHandedOver()) {
+                // Stopped first, so this loop cannot claim back the row it hands over.
+                running = false;
+                if (directory.handOver(request.id(), outcome.report())) {
+                    log.info(
+                            "Request {} is handed to the steward-worker this run installed; exiting so that it"
+                                    + " starts and finishes the request",
+                            request.id());
+                } else {
+                    log.info(
+                            "Request {} was settled by somebody else before it could be handed over; exiting"
+                                    + " anyway, so that the steward-worker this run installed starts",
+                            request.id());
+                }
+                return;
+            }
 
             // Empty when the row is no longer RUNNING, ordinarily a stopped countdown, so nothing is overwritten.
             if (directory

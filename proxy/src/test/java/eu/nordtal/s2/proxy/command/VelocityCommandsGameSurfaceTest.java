@@ -80,6 +80,7 @@ class VelocityCommandsGameSurfaceTest {
                         null,
                         false,
                         true,
+                        false,
                         Locale.ENGLISH,
                         SeasonPhase.SMP,
                         null));

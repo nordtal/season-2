@@ -135,6 +135,7 @@ class FallbackCacheTest {
                 clock.instant().plus(Duration.ofDays(1)),
                 false,
                 false,
+                false,
                 locale,
                 SeasonPhase.SMP,
                 null);
@@ -147,6 +148,7 @@ class FallbackCacheTest {
                 MemberState.MEMBER,
                 false,
                 null,
+                false,
                 false,
                 false,
                 Locale.ENGLISH,
@@ -162,6 +164,7 @@ class FallbackCacheTest {
                 MemberState.MEMBER,
                 false,
                 null,
+                false,
                 false,
                 false,
                 Locale.ENGLISH,

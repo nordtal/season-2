@@ -1,0 +1,30 @@
+<!--
+  gradlew :resource-pack:installPack
+
+  Checks the pack's images, copies resource-pack/src into the chosen instance as nordtal-dev and
+  enables it while the game is closed. Press F3+T in the game afterwards.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="pack: 2. install into Minecraft" type="GradleRunConfiguration" factoryName="Gradle" folderName="resource pack">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value=":resource-pack:installPack" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <ForceTestExec>false</ForceTestExec>
+    <method v="2" />
+  </configuration>
+</component>

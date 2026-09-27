@@ -107,6 +107,44 @@ class UpdateServerTest {
     }
 
     @Test
+    void aHandedOverRunGoesBackToTheInboxAndThisWorkerTakesNothingElse() {
+        // This worker is about to exit and must not start a second request.
+        final UpdateRequest update = directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        directory.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "b", Duration.ZERO);
+
+        final List<UpdateKind> ran = new ArrayList<>();
+        final UpdateServer server = server((request, progress) -> {
+            ran.add(request.kind());
+            // Once, or a loop claiming the handed-over row again never returns from drain().
+            return ran.size() == 1 ? Outcome.handedOver("{\"stage\":\"RESOLVING\"}") : Outcome.done("again");
+        });
+        server.drain();
+
+        assertEquals(List.of(UpdateKind.UPDATE), ran);
+        final UpdateRequest row = directory.find(update.id()).orElseThrow();
+        assertEquals(UpdateStatus.PENDING, row.status());
+        assertEquals("{\"stage\":\"RESOLVING\"}", row.result());
+        assertTrue(directory.finished().isEmpty(), "a handover is not a finish");
+    }
+
+    @Test
+    void serveReturnsOnceItHasHandedARunOver() throws Exception {
+        // Returning ends the process, and Docker restarts the container on the new jar.
+        directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateServer server = server((request, progress) -> Outcome.handedOver("{}"));
+
+        final Thread thread = new Thread(server::serve, "test-update-server");
+        // A daemon, so a hang fails the test instead of keeping the JVM alive.
+        thread.setDaemon(true);
+        thread.start();
+        thread.join(Duration.ofSeconds(5).toMillis());
+
+        final boolean stillServing = thread.isAlive();
+        server.close();
+        assertEquals(false, stillServing, "serve() is still waiting for requests after handing one over");
+    }
+
+    @Test
     void aListenerThatDiesIsReplacedAndTheTableIsDrainedOnEveryReconnect() throws Exception {
         // THE rule: a request written while disconnected produced a notification nobody received and none repeats it.
         directory.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);

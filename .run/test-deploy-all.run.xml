@@ -1,10 +1,11 @@
 <!--
-  gradlew checkDev checkSetup checkEntrypoint checkRestore checkPipeSafety
+  gradlew checkSetup checkEntrypoint checkRestore checkPipeSafety
 
-  All five shell suites. None needs Docker or a network; they need bash 4 or later.
+  Runs the four shell suites. They need bash 4 but no Docker or network; without bash they are
+  skipped.
 -->
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="tests: deploy scripts (all five)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">
+  <configuration default="false" name="tests: deploy scripts (all four)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">
     <ExternalSystemSettings>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -15,7 +16,6 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value="checkDev" />
           <option value="checkSetup" />
           <option value="checkEntrypoint" />
           <option value="checkRestore" />

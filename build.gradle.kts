@@ -56,28 +56,6 @@ val checkEntrypoint =
         }
     }
 
-// `deploy/dev reset` deletes a server's volume; this drives the guard that protects smp's world.
-val devScript = layout.projectDirectory.file("deploy/dev")
-val devTest = layout.projectDirectory.file("deploy/dev-test.sh")
-
-val checkDev =
-    tasks.register<Exec>("checkDev") {
-        group = "verification"
-        description = "Runs deploy/dev-test.sh against deploy/dev's reset guard."
-        commandLine("bash", devTest.asFile.absolutePath)
-        inputs.file(devScript).withPropertyName("dev")
-        inputs.file(devTest).withPropertyName("test")
-        val marker = layout.buildDirectory.file("checkDev/passed")
-        outputs.file(marker).withPropertyName("marker")
-        doLast {
-            marker
-                .get()
-                .asFile
-                .apply { parentFile.mkdirs() }
-                .writeText("passed\n")
-        }
-    }
-
 // nordtal.sh compares the domain's address with this host's; too lenient and no certificate is issued.
 val setupScript = layout.projectDirectory.file("deploy/nordtal.sh")
 val setupTest = layout.projectDirectory.file("deploy/nordtal-test.sh")
@@ -143,4 +121,14 @@ val checkPipeSafety =
         }
     }
 
-tasks.named("check") { dependsOn(checkEntrypoint, checkDev, checkSetup, checkRestore, checkPipeSafety) }
+// These four suites need bash 4; a machine without it, such as Windows or a stock Mac, skips them.
+listOf(checkEntrypoint, checkSetup, checkRestore, checkPipeSafety).forEach { suite ->
+    suite.configure {
+        onlyIf("bash 4 or later is on the PATH") {
+            eu.nordtal.s2.build.Bash
+                .atLeast4()
+        }
+    }
+}
+
+tasks.named("check") { dependsOn(checkEntrypoint, checkSetup, checkRestore, checkPipeSafety) }

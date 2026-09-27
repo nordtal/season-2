@@ -187,6 +187,15 @@ public final class Runner implements RequestRunner {
 
         try (RunLock held = lock.get()) {
             final UpdateSequence.Preparation prep = UpdateSequence.prepareUpdate(this, request, images);
+            // First, so a newer worker migrates and installs this release.
+            final Handover.Decision handover = Handover.decide(prep.plan(), Handover.ownVersion(), request.result());
+            if (handover instanceof final Handover.Refuse refuse) {
+                return Outcome.failed(UpdateReports.toJson(
+                        prep.planned().withStage(UpdateReport.Stage.FAILED).withNote(refuse.reason())));
+            }
+            if (handover instanceof final Handover.HandOver handOver) {
+                return UpdateSequence.handOver(this, prep, handOver, progress);
+            }
             if (!prep.planned().isWork() && !prep.foreign().isEmpty()) {
                 return UpdateSequence.updateWithNoServer(this, run, prep, progress);
             }

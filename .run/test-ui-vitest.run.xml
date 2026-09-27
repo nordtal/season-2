@@ -1,7 +1,8 @@
 <!--
   gradlew :steward-ui:viteTest
 
-  The frontend's vitest suite, through Gradle so it runs on the private Node.
+  Runs the frontend's vitest suite through Gradle's private Node; `npx vitest` without node on
+  PATH exits 0 having tested nothing.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: ui vitest" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: ui">

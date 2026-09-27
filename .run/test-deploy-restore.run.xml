@@ -1,7 +1,7 @@
 <!--
   gradlew checkRestore
 
-  `deploy/restore-test.sh`: the guards of deploy/restore.sh.
+  Tests deploy/restore.sh's guards.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: checkRestore" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">

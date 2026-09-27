@@ -33,7 +33,8 @@ import net.kyori.adventure.text.TextComponent;
 public final class PanelWalk {
 
     private static final Path ROOT = repositoryRoot();
-    private static final String ASSETS = "resource-pack/src/assets";
+    /** The assembled pack's assets, which the build names in {@code nordtal.pack}: the row fonts are generated. */
+    private static final String ASSETS = packAssets();
 
     /** The advances of {@code nordtal:gui}, derived from that font's own file and its PNGs. */
     private static final Map<Integer, Integer> GUI_ADVANCES = guiAdvances();
@@ -201,6 +202,15 @@ public final class PanelWalk {
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + path, e);
         }
+    }
+
+    private static String packAssets() {
+        final String pack = System.getProperty("nordtal.pack");
+        if (pack == null) {
+            throw new IllegalStateException("nordtal.pack is not set: smp/build.gradle.kts needs"
+                    + " resourcePack(project(\":resource-pack\", \"pack\"))");
+        }
+        return Path.of(pack).resolve("assets").toString();
     }
 
     private static Path repositoryRoot() {

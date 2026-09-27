@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.common.RepositoryRoot;
 import eu.nordtal.s2.common.hud.BossBarLine.Pill;
 import eu.nordtal.s2.common.pack.PackAdvances;
 import java.util.ArrayList;
@@ -24,7 +25,7 @@ import org.junit.jupiter.api.Test;
 class BossBarLineTest {
 
     private static final Map<Integer, Integer> ADVANCES =
-            PackAdvances.of("resource-pack/src/assets/nordtal/font/bossbar.json");
+            PackAdvances.of(RepositoryRoot.packAssets() + "/nordtal/font/bossbar.json");
 
     /** A drawn run of glyphs in line pixels; the last painted column is {@code cursor + advance - 2}. */
     private record Span(String what, int start, int end) {}

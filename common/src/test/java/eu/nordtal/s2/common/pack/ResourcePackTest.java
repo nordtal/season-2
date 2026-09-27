@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
  */
 class ResourcePackTest {
 
-    private static final String ASSETS = "resource-pack/src/assets";
+    private static final String ASSETS = RepositoryRoot.packAssets();
 
     private static final FontFile DEFAULT_FONT =
             FontFile.load("minecraft:default", ASSETS + "/minecraft/font/default.json");
@@ -191,7 +191,7 @@ class ResourcePackTest {
                 missing,
                 "nordtal:bossbar carries its own ascii sheet, so a character the vanilla font has"
                         + " is not a character this one has; every German HUD string is written"
-                        + " around the ones it lacks. resource-pack/tools/draw_ascii_extras.py draws them");
+                        + " around the ones it lacks. Draw them into nordtal/textures/font/ascii.png");
     }
 
     @Test

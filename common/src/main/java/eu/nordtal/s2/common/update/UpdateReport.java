@@ -6,19 +6,11 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What an update run has done so far, as data rather than as a paragraph.
- *
- * <b>Nothing is decided twice.</b> The updater is the only thing that resolves versions, compares
- * volumes and knows what happened; it says so in a shape each surface draws for itself - Discord as
- * one field per service, a console as {@link #render()}.
- *
- * The row carries this as JSON and is rewritten as the run moves through its stages, because
- * minutes of silence look exactly like a run that has hung.
+ * What an update run has done so far, as data each surface draws for itself.
  *
  * @param stage    where the run has got to
- * @param services one line per service the run touches, in the order a person should read them
- * @param notes    anything not attached to a service - the pack, the migration, why nothing
- *                 happened
+ * @param services one line per service the run touches, in reading order
+ * @param notes    anything not attached to a service
  */
 public record UpdateReport(Stage stage, List<ServiceLine> services, List<String> notes) {
 
@@ -28,7 +20,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         notes = List.copyOf(notes == null ? List.of() : notes);
     }
 
-    /** An empty report at a stage, for the first write of a run. */
+    /** Returns an empty report at a stage, for the first write of a run. */
     public static UpdateReport at(final Stage stage) {
         return new UpdateReport(stage, List.of(), List.of());
     }
@@ -61,14 +53,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         return new UpdateReport(stage, combined, notes);
     }
 
-    /**
-     * The same report without the lines for those services.
-     *
-     * The one caller is an update run dropping the services somebody is holding down. They are
-     * removed rather than marked, because a line in a report is a promise that the run did
-     * something to that service, and this run is deliberately doing nothing to it. What is said
-     * instead is a note, which is where "and here is what I left alone" belongs.
-     */
+    /** Returns the same report without the lines for those services, which a run is deliberately leaving alone. */
     public UpdateReport withoutLines(final List<String> gone) {
         if (gone.isEmpty()) {
             return this;
@@ -79,7 +64,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
                 notes);
     }
 
-    /** @return the line for that service, or a fresh {@link State#UNCHANGED} one */
+    /** Returns the line for that service, or a fresh {@link State#UNCHANGED} one. */
     public ServiceLine line(final String service) {
         return services.stream()
                 .filter(existing -> existing.service().equals(service))
@@ -87,41 +72,21 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
                 .orElseGet(() -> new ServiceLine(service, State.UNCHANGED, List.of(), null));
     }
 
-    /**
-     * @return whether anything at all is going to move - the difference between work and news. An
-     *         artefact with no build for this Minecraft version is news, so a run that found nothing
-     *         else ends at {@link Stage#NOTHING_TO_DO} and no server is stopped for it
-     */
+    /** Returns whether anything is going to move; an artefact with no build is news, not work. */
     public boolean isWork() {
         return services.stream().anyMatch(ServiceLine::isMoving);
     }
 
     /**
-     * @return whether this report shows at least one thing actually saved - one line in
-     *         {@link State#SAVED}.
+     * Returns whether at least one line is {@link State#SAVED}, which a run's status alone does not prove.
      *
-     * Separate from "the run succeeded", because those are two different facts and A23 is the
-     * proof: run 23 settled {@code DONE} having snapshotted <b>zero</b> volumes, and nothing about
-     * the row said so. A run's status answers "did any step report a failure"; this answers "is
-     * there a file", and only the second one is a backup.
-     *
-     * One line is enough on purpose, and the cost is stated rather than hidden: this cannot tell
-     * that the volume which failed was the one holding the world. It does not try to - the volume
-     * list lives in {@code steward.yml#backup.volumes} on the worker's side, and a second copy of
-     * it in a plugin's config is two lists that drift. What makes one line sufficient in practice
-     * is that the worker settles a run {@code FAILED} the moment any line is {@code FAILED}, so a
-     * {@code DONE} row with a {@code SAVED} line is a run in which nothing failed and something
-     * was written.
+     * It cannot tell which volume failed; the worker settles a run {@code FAILED} when any line is.
      */
     public boolean savedSomething() {
         return services.stream().anyMatch(line -> line.state() == State.SAVED);
     }
 
-    /**
-     * The whole report as plain text, for a console, a chat window and any surface with no fields.
-     * The only text rendering there is - nothing anywhere composes a sentence of its own about an
-     * update.
-     */
+    /** Returns the whole report as plain text, the only text rendering of an update there is. */
     public String render() {
         final StringBuilder text = new StringBuilder(stage.headline());
         for (final ServiceLine line : services) {
@@ -155,34 +120,27 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         }
 
         /**
-         * The same line with a sentence beside it, without touching the state.
+         * Returns the same line with a sentence beside it, without touching the state.
          *
-         * Separate from {@link #failed(String)}, which sets both: a step that is going to take
-         * minutes and can end this process - pulling an image and recreating the container - has to
-         * be able to say what it is doing <em>before</em> it does it, and saying it through
-         * {@code failed} would publish a failure that has not happened.
+         * A long step says what it is doing before it does it, without publishing a failure.
          */
         public ServiceLine withDetail(final @Nullable String what) {
             return new ServiceLine(service, state, changes, what);
         }
 
-        /** The same line with one more change on it, keeping the order they were added in. */
+        /** Returns the same line with one more change on it, keeping the order they were added in. */
         public ServiceLine with(final Change change) {
             final List<Change> combined = new ArrayList<>(changes);
             combined.add(change);
             return new ServiceLine(service, state, combined, detail);
         }
 
-        /**
-         * @return whether a run would stop this service and put a file into its volume - the one
-         *         place that is decided. A line carrying only {@link Change.State#UNSUPPORTED} rows
-         *         has something to say and nothing to do
-         */
+        /** Returns whether a run would stop this service and put a file into its volume. */
         public boolean isMoving() {
             return changes.stream().anyMatch(change -> change.state() == Change.State.MOVING);
         }
 
-        /** {@code smp: healthy - paper 26.2.121 -> 26.2.126, smp 0.6.0 -> 0.7.0} */
+        /** Renders as {@code smp: healthy - paper 26.2.121 -> 26.2.126, smp 0.6.0 -> 0.7.0}. */
         public String render() {
             final StringBuilder text = new StringBuilder(service).append(": ").append(state.label());
             if (!changes.isEmpty()) {
@@ -204,10 +162,8 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     /**
      * One artefact, and what is happening to it.
      *
-     * @param from  the version installed now, or {@code null} when nothing is installed - which is
-     *              a first deployment and reads as "install" rather than "upgrade"
-     * @param to    where it is going. The literal {@link #UNSUPPORTED} for an artefact that is
-     *              going nowhere, so that {@link #render()} and the codec have one shape to handle
+     * @param from  the version installed now, or {@code null} for a first install
+     * @param to    where it is going, or {@link #UNSUPPORTED}
      * @param state whether this row is a file moving or an artefact waiting for a build
      */
     public record Change(String artefact, @Nullable String from, String to, Change.State state) {
@@ -226,10 +182,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
             this(artefact, from, to, Change.State.MOVING);
         }
 
-        /**
-         * An artefact the network wants and its publisher has not built for this Minecraft version.
-         * It stays in the report so that it stays named while it waits.
-         */
+        /** An artefact the network wants that has no build for this Minecraft version yet. */
         public static Change unsupported(final String artefact) {
             return new Change(artefact, null, UNSUPPORTED, Change.State.UNSUPPORTED);
         }
@@ -243,25 +196,25 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
 
         /** What is happening to one artefact. */
         public enum State {
-            /** A file is being installed or replaced. {@code from} and {@code to} say which. */
+            /** A file is being installed or replaced; {@code from} and {@code to} say which. */
             MOVING,
-            /** The source has no build of this artefact for the network's Minecraft version; never work to stop for. */
+            /** The source has no build for the network's Minecraft version; never work to stop for. */
             UNSUPPORTED
         }
     }
 
-    /** Where a run has got to. Read by a person watching an embed change, so the order matters. */
+    /** Where a run has got to, in the order a person watching sees them. */
     public enum Stage {
 
-        /** Asking every source what the newest version is. Writes nothing. */
+        /** Asking every source what the newest version is; writes nothing. */
         RESOLVING("Working out what is new..."),
-        /** Resolved, nothing done. This is where a {@code REPORT} ends. */
+        /** Resolved, nothing done; where a {@code REPORT} ends. */
         PLANNED("What is new"),
-        /** The countdown is running and players can see it. Still cancellable. */
+        /** The countdown is running and players can see it; still cancellable. */
         COUNTDOWN("Updating shortly"),
         /** Servers are being stopped, in the order the report lists them. */
         STOPPING("Stopping the servers"),
-        /** The volumes are being saved, with nothing running on them. Only a {@code BACKUP} run. */
+        /** The volumes are being saved with nothing running on them; only a {@code BACKUP} run. */
         BACKING_UP("Saving the volumes"),
         /** The schema is current and the jars are being swapped, with nothing running on them. */
         INSTALLING("Installing"),
@@ -271,7 +224,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         VERIFYING("Waiting for the servers to come back"),
         /** Everything asked for happened and every service came back. */
         DONE("Update finished"),
-        /** Nothing needed doing - a third answer, not a quiet kind of "fine". */
+        /** Nothing needed doing, which is a third answer and not a quiet kind of fine. */
         NOTHING_TO_DO("Everything is already current"),
         /** Something went wrong; the notes and the failed service lines say what. */
         FAILED("The update failed"),
@@ -288,7 +241,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
             return headline;
         }
 
-        /** @return whether a run in this stage has stopped moving */
+        /** Returns whether a run in this stage has stopped moving. */
         public boolean isFinished() {
             return this == DONE || this == NOTHING_TO_DO || this == FAILED || this == CANCELLED;
         }
@@ -311,7 +264,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         STARTING("starting"),
         /** Back, and its own healthcheck says so. */
         HEALTHY("running"),
-        /** It did not come back, or something in its own step failed. The detail says which. */
+        /** It did not come back, or its own step failed; the detail says which. */
         FAILED("FAILED");
 
         private final String label;

@@ -24,23 +24,16 @@ import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link BoardFrame} held against the pack rather than against its own constants.
+ * Holds {@link BoardFrame} against the advances the client derives from the pack, walking each composed string.
  *
- * Everything here is derived from {@code nordtal/font/board.json} and the PNGs it names: the
- * advance of every code point is read the way the client reads it - a space provider's number, or a
- * bitmap's rightmost non-transparent column plus the two pixels Minecraft adds - and the composed
- * strings are then <em>walked</em> with a cursor. So this test can disagree with the code, which is
- * the only kind of test worth having about a pixel offset.
- *
- * What it cannot say is whether the result looks like a board. Nothing without a client can, and
- * the rehearsal item for it is in the owner's checklist.
+ * Whether it looks like a board needs a client.
  */
 class BoardFrameTest {
 
     private static final String FONT = "resource-pack/src/assets/nordtal/font/board.json";
     private static final String ASSETS = "resource-pack/src/assets";
 
-    /** Code point -> how far the cursor moves after drawing it, the way the client computes it. */
+    /** Code point to how far the cursor moves after drawing it, the way the client computes it. */
     private static final Map<Integer, Integer> ADVANCES = advances();
 
     private static final int[] WIDTHS = {BoardFrame.MIN_WIDTH, 100, 180, BoardFrame.MAX_WIDTH};
@@ -234,7 +227,7 @@ class BoardFrameTest {
     /** A composed string walked with a cursor, the way the client lays it out. */
     private record Walk(int cursor, int end, Map<Integer, Integer> firstDrawnAt, List<String> unknown) {
 
-        /** Where the first of these code points was drawn. */
+        /** Returns where the first of these code points was drawn. */
         int drawnAt(final int... codePoints) {
             for (final int codePoint : codePoints) {
                 final Integer at = firstDrawnAt.get(codePoint);
@@ -337,7 +330,7 @@ class BoardFrameTest {
         }
     }
 
-    /** Every line of a rendered board, as the frame text that opens it. */
+    /** Returns every line of a rendered board, as the frame text that opens it. */
     private static List<String> frameLines(final Component board) {
         final List<Component> parts = new ArrayList<>();
         flatten(board, parts);
@@ -361,7 +354,7 @@ class BoardFrameTest {
         return lines;
     }
 
-    /** The frame half of one row - everything that names {@code nordtal:board}. */
+    /** Returns the frame half of one row, everything that names {@code nordtal:board}. */
     private static String frameTextOf(final Component component) {
         final List<Component> parts = new ArrayList<>();
         flatten(component, parts);

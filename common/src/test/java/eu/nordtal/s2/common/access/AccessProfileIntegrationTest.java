@@ -78,8 +78,6 @@ class AccessProfileIntegrationTest {
         directory = AccessDirectory.using(dataSource);
     }
 
-    // the profile cache
-
     @Test
     void discordProfileOfAnUnknownAccountIsEmptyNotNull() {
         assertEquals(DiscordProfile.EMPTY, directory.discordProfile("999999999999999999"));
@@ -161,8 +159,6 @@ class AccessProfileIntegrationTest {
 
         assertFalse(written);
     }
-
-    // a name is not a key
 
     @Test
     void twoDiscordAccountsMayShareEveryObservedFieldWithoutBecomingOneIdentity() {
@@ -260,11 +256,7 @@ class AccessProfileIntegrationTest {
         assertEquals(86400, count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"));
     }
 
-    /**
-     * An admin may set play time outright, because the prestige tier is derived from it.
-     *
-     * An absolute write, unlike the proxy's {@code add}: "set this account to nine hours".
-     */
+    /** Checks that an admin may set play time outright, unlike the proxy's {@code add}. */
     @Test
     void playtimeCanBeSetOutright() {
         directory.ensureUser(DISCORD_ID);

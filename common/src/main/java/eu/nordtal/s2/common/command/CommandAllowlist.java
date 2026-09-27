@@ -10,44 +10,13 @@ import java.util.Set;
 
 /**
  * Which commands a player who is not an admin may type, anywhere on the network.
+ * A command is allowed when an entry, such as {@code smp status}, is a prefix of it or it of the entry.
  *
- * <b>Why there is a list at all</b>
- *
- * Velocity's own {@code /server} is open to every player: its permission check only refuses on an
- * explicit {@code FALSE}, and nothing in this network ever set one. So anybody could type
- * {@code /server hunger-games} during the SMP phase and land there, past every routing decision the
- * proxy takes. The Paper backends have the same shape of hole from the other side - a player sees
- * {@code /me}, {@code /help}, {@code /trigger}, {@code /list}, {@code /tell} and the whole vanilla
- * completion, none of which this season has an answer for.
- *
- * <b>What an entry is</b>
- *
- * A path, exactly as it is typed and without the slash: {@code smp status}, {@code hg ready},
- * {@code msg}. Not a permission node and not a regular expression - a path, because that is what a
- * player types and what both platforms hand a filter.
- *
- * <b>The matching rule, and why it works in both directions</b>
- *
- * A typed command is allowed when an entry is a prefix of it <em>or</em> it is a prefix of an entry:
- *
- * Entry {@code msg} allows {@code /msg Someone hello} - everything under an allowed path is
- * allowed, because an entry names a command and not one exact invocation. Entry {@code smp status}
- * allows a bare {@code /smp} - otherwise the one thing a player may ask the SMP could not be
- * discovered, because typing half a command is how our own help output is reached. The subcommands
- * they may <em>not</em> run are already refused by Brigadier's {@code requires}, which is the admin
- * gate proper; this list is about what is visible and typeable at all.
- *
- * <b>Case and namespaces are normalised away</b>
- *
- * A client can send {@code /minecraft:me} or {@code /Me}, and Bukkit resolves both. A filter that
- * compared the raw text would refuse the plain form and wave the namespaced one straight through,
- * which is the failure that looks exactly like working.
- *
- * @param entries one list of path segments per allowed command, in the order they were configured
+ * @param entries one list of path segments per allowed command, in configured order
  */
 public record CommandAllowlist(List<List<String>> entries) {
 
-    /** Nothing is allowed. Not a default anywhere - see {@code CommandFilter}. */
+    /** Nothing is allowed; never a default, see {@code CommandFilter}. */
     public static final CommandAllowlist NOTHING = new CommandAllowlist(List.of());
 
     public CommandAllowlist {
@@ -60,14 +29,7 @@ public record CommandAllowlist(List<List<String>> entries) {
         }
     }
 
-    /**
-     * Reads configured lines into a list.
-     *
-     * A leading slash, surrounding space, repeated spaces and letter case are all accepted and
-     * normalised: this is read from a YAML file an operator edits, and refusing {@code "/msg "}
-     * because of the slash would be a rule nobody can see the point of. A blank line is skipped
-     * rather than refused, for the same reason.
-     */
+    /** Reads configured lines into a list, normalising a leading slash, spacing and case and skipping blank lines. */
     public static CommandAllowlist parse(final Collection<String> lines) {
         Objects.requireNonNull(lines, "lines");
         final List<List<String>> parsed = new ArrayList<>();
@@ -80,13 +42,7 @@ public record CommandAllowlist(List<List<String>> entries) {
         return new CommandAllowlist(parsed);
     }
 
-    /**
-     * The list as one string, for the row the proxy publishes it in.
-     *
-     * One entry per line, because that is the one separator a command path can never contain and
-     * the one an operator reading the column by hand can see. It is deliberately not JSON:
-     * {@code :common} carries no JSON library and is not gaining one for a list of words.
-     */
+    /** Returns the list as one string, one entry per line, for the row the proxy publishes it in. */
     public String serialise() {
         return entries.stream()
                 .map(entry -> String.join(" ", entry))
@@ -100,7 +56,7 @@ public record CommandAllowlist(List<List<String>> entries) {
     }
 
     /**
-     * Whether a player may run this, with the leading slash optional.
+     * Returns whether a player may run this, with the leading slash optional.
      *
      * @param typed the whole line as the platform hands it over, arguments included
      */
@@ -120,12 +76,7 @@ public record CommandAllowlist(List<List<String>> entries) {
     }
 
     /**
-     * Whether anything at all under this first segment is allowed.
-     *
-     * This is the question the two completion filters ask, because both of them work on root
-     * labels: Paper's {@code PlayerCommandSendEvent} hands over the labels of whole commands, and
-     * the command tree Velocity sends a client has one child per root. Neither can hide a
-     * subcommand, which is why hiding one is not this list's job - {@code requires} does that.
+     * Returns whether anything at all under this first segment is allowed, which is what both completion filters ask.
      */
     public boolean allowsRoot(final String label) {
         final List<String> path = segments(label);
@@ -133,14 +84,14 @@ public record CommandAllowlist(List<List<String>> entries) {
                 && entries.stream().anyMatch(entry -> entry.getFirst().equals(path.getFirst()));
     }
 
-    /** Every distinct first segment, for a log line at startup. */
+    /** Returns every distinct first segment, for a log line at startup. */
     public Set<String> roots() {
         final Set<String> roots = new LinkedHashSet<>();
         entries.forEach(entry -> roots.add(entry.getFirst()));
         return roots;
     }
 
-    /** {@code /smp status, /msg, /r} - for a log line, never parsed back. */
+    /** Renders {@code /smp status, /msg, /r} for a log line; it is never parsed back. */
     @Override
     public String toString() {
         return entries.stream()
@@ -150,28 +101,14 @@ public record CommandAllowlist(List<List<String>> entries) {
     }
 
     /**
-     * Whether one written line names a command at all.
-     *
-     * Blank is not the only way to write nothing: {@code "/"} and {@code "minecraft:"} both
-     * normalise to the empty path, so they pass a blank check, match no command, and sit in
-     * {@code network.yml} looking like an entry that does something. The proxy refuses one at load
-     * rather than starting with a list that quietly has a hole in it.
-     *
-     * @param line one entry as an operator wrote it
-     * @return {@code true} when it survives normalisation
+     * Returns whether one written line names a command at all.
+     * {@code "/"} and {@code "minecraft:"} normalise to the empty path and so name nothing.
      */
     public static boolean names(final String line) {
         return !segments(line).isEmpty();
     }
 
-    /**
-     * {@code "/Minecraft:Me hello there"} to {@code ["me", "hello", "there"]}.
-     *
-     * The namespace is dropped from the <b>first</b> segment only. {@code minecraft:me} and
-     * {@code me} are one command and a list that spelled out both forms would be a list somebody
-     * has to remember to keep in step; an argument that happens to contain a colon is not a
-     * namespace and is left alone.
-     */
+    /** Splits a line into lowercase segments, dropping the namespace from the first segment only. */
     private static List<String> segments(final String line) {
         if (line == null) {
             return List.of();

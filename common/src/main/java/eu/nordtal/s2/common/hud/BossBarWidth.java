@@ -4,16 +4,14 @@ import eu.nordtal.s2.common.Glyphs;
 
 /**
  * Composes a HUD pill background of any inner width from {@code Glyphs.BOSSBAR_BG_*}.
- *
- * The client advances a bitmap glyph by its width plus one, so every glyph is followed by
- * {@link Glyphs#BOSSBAR_SPACE_MINUS_1}; {@link BossBarWidthTest} walks the pack's advances to hold it.
+ * Every glyph is followed by {@link Glyphs#BOSSBAR_SPACE_MINUS_1}, cancelling the client's one-pixel separator.
  */
 public final class BossBarWidth {
 
     /** The drawn width of {@code start.png} and {@code end.png}. */
     public static final int CAP = 4;
 
-    /** Segment widths this class can compose with, largest first - mirrors {@code Glyphs.BOSSBAR_BG_*}. */
+    /** Segment widths this class can compose with, largest first, mirroring {@code Glyphs.BOSSBAR_BG_*}. */
     private static final int[] SEGMENT_WIDTHS = {128, 64, 32, 16, 8, 4, 2, 1};
 
     private BossBarWidth() {}

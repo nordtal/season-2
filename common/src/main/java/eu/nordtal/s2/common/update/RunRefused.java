@@ -7,13 +7,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * A run that was not written, because the network already has one or the service is already down.
  *
- * Thrown by {@link UpdateDirectory#submit}, and only there, because that is where every source
- * submits: the interface, Discord, the game console and the nightly clock. A check in one client
- * would leave the other three free to start a second run beside the first - which is how pressing
- * Take down twice once counted down and stopped a server that was already held.
- *
- * Unchecked, like every other failure of the directory: a caller that does not translate it
- * still fails loudly rather than reporting a run that does not exist.
+ * Thrown only by {@link UpdateDirectory#submit}, which every source goes through.
  */
 public final class RunRefused extends RuntimeException {
 
@@ -60,12 +54,12 @@ public final class RunRefused extends RuntimeException {
         return reason;
     }
 
-    /** The run in the way, for {@link Reason#RUN_OPEN}; {@code null} otherwise. */
+    /** Returns the run in the way, for {@link Reason#RUN_OPEN}; {@code null} otherwise. */
     public @Nullable UpdateRequest open() {
         return open;
     }
 
-    /** The services already held, for {@link Reason#ALREADY_HELD}; empty otherwise. */
+    /** Returns the services already held, for {@link Reason#ALREADY_HELD}; empty otherwise. */
     public List<String> services() {
         return services;
     }

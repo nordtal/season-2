@@ -26,13 +26,7 @@ class BossBarLineTest {
     private static final Map<Integer, Integer> ADVANCES =
             PackAdvances.of("resource-pack/src/assets/nordtal/font/bossbar.json");
 
-    /**
-     * A drawn run of glyphs, in line pixels: the first column it paints and the last.
-     *
-     * A glyph paints {@code advance - 1} columns and the client adds one more of nothing, so the
-     * last painted column is {@code cursor + advance - 2} - the pixel a person sees, which is what
-     * the padding is measured against.
-     */
+    /** A drawn run of glyphs in line pixels; the last painted column is {@code cursor + advance - 2}. */
     private record Span(String what, int start, int end) {}
 
     @Test

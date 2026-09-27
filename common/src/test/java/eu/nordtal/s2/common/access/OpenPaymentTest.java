@@ -5,15 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
-/**
- * The one line of arithmetic in {@link OpenPayment}: cents to something a person reads.
- *
- * It is a small thing with a history. Money is integer cents in Java and in the database
- * everywhere in this repository, because season 1 used {@code Float.parseFloat} and {@code <} and
- * that is how a payment of 4.999999 was once not enough for a five euro tier. Anything that turns
- * cents back into a decimal is therefore worth pinning, particularly the case that looks right and
- * is not: a value under ten cents has to keep its leading zero.
- */
+/** Pins cents-to-euros in {@link OpenPayment}, including the leading zero under ten cents. */
 class OpenPaymentTest {
 
     private static OpenPayment of(final int cents) {

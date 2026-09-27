@@ -26,10 +26,7 @@ public record OnlinePlayer(UUID uuid, String name, String subject, Instant updat
         }
     }
 
-    /**
-     * @return the service this player is on, empty when the proxy has them but no backend does -
-     *         which is a player who is online, not one who is anywhere in particular
-     */
+    /** Returns the service this player is on, empty when the proxy has them but no backend does. */
     public Optional<String> on() {
         return Optional.ofNullable(subject);
     }

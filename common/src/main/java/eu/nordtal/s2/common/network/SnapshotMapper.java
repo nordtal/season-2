@@ -6,20 +6,8 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
 /**
- * Maps the single row {@link SnapshotDao#snapshot()} returns.
- *
- * Every column may be {@code SQL NULL} - no open game, no active milestone, an SMP nobody has
- * joined yet - and all of them read as zero or as an empty string, which is what a MOTD should
- * show. {@code getInt} already answers {@code 0} for a {@code NULL}, so only the two text columns
- * need saying out loud.
- *
- * {@code alive} is computed here rather than in SQL, from the two counts the query does return:
- * one fewer subquery over {@code hg_member}, and the invariant
- * {@code alive + eliminated == participants} is then true by construction instead of by two
- * queries agreeing. The subtraction cannot go negative, because the query counts eliminated
- * players over exactly the set it counts participants over; the clamp stays as the cheaper half of
- * a belt and braces, since the alternative to a wrong number here is a negative one in every
- * server browser on the list.
+ * Maps the single row {@link SnapshotDao#snapshot()} returns, reading every {@code NULL} as zero or empty.
+ * Alive is computed here from the two counts, so the invariant holds by construction.
  */
 public final class SnapshotMapper implements RowMapper<NetworkSnapshot> {
 

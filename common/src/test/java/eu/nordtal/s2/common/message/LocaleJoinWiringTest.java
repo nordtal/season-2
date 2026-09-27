@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
  */
 class LocaleJoinWiringTest {
 
-    /** Each backend's join/quit listener - the one file per module where the session begins. */
+    /** Each backend's join and quit listener, the one file per module where the session begins. */
     private static final List<String> PRESENCE_LISTENERS = List.of(
             "smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java",
             "limbo/src/main/java/eu/nordtal/s2/limbo/listener/PresenceListener.java",

@@ -10,16 +10,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Maps a row of {@link RosterDao#people(int)}.
- *
- * Written out rather than reached for with {@code ConstructorMapper}, for the reason
- * {@code AccessGrantMapper} gives: that mapper matches record components by parameter name, which
- * only survives compilation with {@code -parameters}, and this repository does not set it. It also
- * documents that every point in time comes back as {@code timestamptz} and is converted through
- * {@link OffsetDateTime} - the only way to get an {@link Instant} out of the PostgreSQL driver
- * without going through the JVM's default time zone.
- */
+/** Maps a row of {@link RosterDao#people(int)}, reading every point in time through {@link OffsetDateTime}. */
 public final class PersonMapper implements RowMapper<Person> {
 
     @Override
@@ -49,7 +40,7 @@ public final class PersonMapper implements RowMapper<Person> {
                 instant(rs, "admin_granted_at"));
     }
 
-    /** The one conversion every mapper in this package uses; see the class comment. */
+    /** Converts a {@code timestamptz} column without the JVM's default time zone. */
     static @Nullable Instant instant(final ResultSet rs, final String column) throws SQLException {
         final OffsetDateTime value = rs.getObject(column, OffsetDateTime.class);
         return value == null ? null : value.toInstant();

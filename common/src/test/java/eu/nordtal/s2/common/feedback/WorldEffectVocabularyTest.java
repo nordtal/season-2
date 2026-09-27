@@ -88,11 +88,7 @@ class WorldEffectVocabularyTest {
                         + " exception nobody is taking - delete it, so the list keeps meaning what it says");
     }
 
-    /**
-     * Every rocket the adapter launches is stamped, and the stamp is what {@code onDamage} reads.
-     * Catches a later {@code spawn(..., Firework.class, ...)} added without the stamp, after which
-     * the celebration damages the person it is celebrating.
-     */
+    /** Checks that every rocket the adapter launches is stamped, since {@code onDamage} reads the stamp. */
     @Test
     void aLaunchedFireworkIsStampedAndTheStampIsRefusedDamage() {
         final String adapter =

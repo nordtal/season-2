@@ -6,38 +6,19 @@ import javax.sql.DataSource;
 
 /**
  * The inbox every process shares: one admin command, addressed to the JVM that can carry it out.
- *
- * The processes share nothing but one PostgreSQL - there is no socket between them - so a command
- * is a row plus a {@code pg_notify} that the owning process listens for. A request therefore
- * survives a target that happens to be restarting.
- *
- * The asker writes the row, waits, and writes {@code EXPIRED} when it gives up; {@link #expire}
- * only touches a row still {@code PENDING}, so it can never cancel work already running. The target
- * claims atomically, refuses anything past its expiry, re-reads the admin flag, runs the command and
- * settles the row - it never writes {@code EXPIRED}, which is what makes that status mean exactly
- * "nothing ever picked this up".
- *
- * It does not know what a command is: {@link #submit} takes a path and an argument line as
- * strings, because {@code :common} is compiled against no platform and no command model.
+ * Only the asker writes {@code EXPIRED}, on a row still {@code PENDING}, so it means nothing picked the row up.
  */
 public interface CommandRequests extends AutoCloseable {
 
     /**
-     * Write a request and wake its target.
+     * Writes a request and wakes its target.
      *
      * @return the row's id, to read the outcome back with
      */
     long submit(NewCommandRequest request);
 
     /**
-     * Write a request, its journal line and the wake-up as one statement.
-     *
-     * For a surface that has to record who asked: the row and the line commit together or
-     * neither does. Writing the row first and the journal second is the ordinary rule everywhere
-     * else in this schema (see {@code AuditDirectory#record}), and it is the wrong rule here -
-     * this table is not a record of something that happened, it is work somebody is about to do.
-     * A committed row whose journal line failed is a command that runs while its asker is being
-     * told it did not, and what an operator does when told that is press the button again.
+     * Writes a request, its journal line and the wake-up as one statement, so they commit together or not at all.
      *
      * @param request the request, exactly as {@link #submit(NewCommandRequest)} takes it
      * @param journal the line to write beside it
@@ -46,16 +27,15 @@ public interface CommandRequests extends AutoCloseable {
     long submit(NewCommandRequest request, AuditLine journal);
 
     /**
-     * Take the oldest request addressed to {@code target} that has not expired, and mark it running.
-     * Call it in a loop until it answers empty: one notification can stand for several rows, and a
-     * notification can be missed altogether, which is why the inbox polls as well.
+     * Claims the oldest unexpired request addressed to {@code target} and marks it running.
+     * Call it until it answers empty: one notification can stand for several rows.
      *
-     * @param target the caller's own {@code Target#name()} - never anybody else's
+     * @param target the caller's own {@code Target#name()}, never anybody else's
      */
     Optional<CommandRequest> claim(String target);
 
     /**
-     * Settle a claimed request.
+     * Settles a claimed request.
      *
      * @param id      the row
      * @param ok      whether the command ran; {@code false} records it as {@code FAILED}
@@ -64,25 +44,18 @@ public interface CommandRequests extends AutoCloseable {
     void finish(long id, boolean ok, String result);
 
     /**
-     * Stop waiting for a request nothing has claimed.
+     * Stops waiting for a request nothing has claimed.
      *
-     * @return {@code true} when this call is what expired it - {@code false} means a target had
-     *         already claimed the row and the answer is still coming
+     * @return {@code true} when this call expired it; {@code false} means a target already claimed it
      */
     boolean expire(long id);
 
-    /** What became of a request, or empty if there is no such row. */
+    /** Returns what became of a request, or empty if there is no such row. */
     Optional<CommandOutcome> outcome(long id);
 
     /**
-     * Deletes every settled request older than {@code days}, and answers how many.
-     *
-     * Called once by steward-worker at the start of {@code serve}, where nothing else is running
-     * yet. Deliberately not on a timer, so a container that has not restarted keeps its rows longer
-     * than the window.
-     *
-     * @param days the retention window - a settled row older than this is deleted
-     * @return how many rows went
+     * Deletes every settled request older than {@code days} and answers how many.
+     * It runs once at the start of {@code serve}, not on a timer.
      */
     int deleteSettledOlderThan(int days);
 

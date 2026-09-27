@@ -13,25 +13,13 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * That every process which reports readiness reports it <em>late</em>.
+ * Checks that every process which reports readiness reports it last, after every refusal.
  *
- * <b>Why this is a text search and not a real test</b>
- *
- * For the same reason {@code FatalPathsStopTheServerTest} is one: the thing it protects cannot be
- * reached from a JVM with no server and no Discord gateway in it. {@link Readiness} itself is
- * covered properly by {@code ReadinessTest} - the arithmetic and the file handling are ordinary
- * code. What no unit test can reach is <b>where the call sits</b>, and that is the entire value of
- * the marker: a heartbeat started at the top of {@code onEnable} would prove that a JVM exists,
- * which is what the port already proved and is exactly the signal that reported a Paper server with
- * no season on it as healthy.
- *
- * A grep is a weak test. It is also the only one available here, and the regression it catches -
- * somebody moving the call up while refactoring, or adding a refusal below it - is silent
- * everywhere else until a deployment looks fine and is not.
+ * A text search, since where the call sits cannot be reached from a JVM without a server.
  */
 class ReadinessWiringTest {
 
-    /** The three Paper plugins. Their refusals all go through a {@code severe("...")} call. */
+    /** The three Paper plugins, whose refusals all go through a {@code severe("...")} call. */
     private static final List<String> PAPER_PLUGINS = List.of(
             "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java",
             "limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java",
@@ -149,7 +137,7 @@ class ReadinessWiringTest {
                         + " would keep reporting healthy while every scheduled duty this bot has was stuck.");
     }
 
-    /** The text of a method, from its declaration to the next private member. */
+    /** Returns the text of a method, from its declaration to the next private member. */
     private static String body(final String text, final String declaration) {
         final int from = text.indexOf(declaration);
         assertTrue(from >= 0, BOT + " has no " + declaration + "...) any more");
@@ -170,7 +158,7 @@ class ReadinessWiringTest {
         return joined(Files.readString(source, StandardCharsets.UTF_8));
     }
 
-    /** The method around a position: from the member declaration above it to the next one below it. */
+    /** Matches a method name after whitespace. */
     private static final Pattern METHOD_NAME = Pattern.compile("\\s(\\w+)\\(");
 
     private static String enclosingMethod(final String text, final int at) {
@@ -187,7 +175,9 @@ class ReadinessWiringTest {
         return text.substring(Math.max(from, 0), to);
     }
 
-    /** The last call, in {@code text}, to a method of {@code file} that itself refuses with {@code severe("...")}. */
+    /**
+     * Returns the last call in {@code text} to a method of {@code file} that itself refuses with {@code severe("...")}.
+     */
     private static int lastRefusingCall(final String file, final String text) {
         int last = -1;
         for (int at = lastRefusal(file); at >= 0; at = lastRefusal(file.substring(0, at))) {
@@ -200,13 +190,7 @@ class ReadinessWiringTest {
     }
 
     /**
-     * The last call to the plugin's own {@code severe(...)} refusal.
-     *
-     * Whitespace before it, which is the whole subtlety: {@code smp} also calls
-     * {@code getLogger().severe("...")} twice, far below {@code onEnable}, for a milestone track
-     * that failed to reload - and that is a warning, not a refusal. A plain
-     * {@code lastIndexOf("severe(\"")} finds one of those and this test passes on a plugin whose
-     * heartbeat is in the wrong place.
+     * Returns the last call to the plugin's own {@code severe(...)}, told apart from a logger's by leading whitespace.
      */
     private static int lastRefusal(final String text) {
         int last = -1;

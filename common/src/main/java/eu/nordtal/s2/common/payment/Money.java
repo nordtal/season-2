@@ -6,12 +6,7 @@ import java.util.Locale;
 
 /**
  * Integer cents in, decimal strings out, and back.
- *
- * Money is an {@code int} of cents everywhere in this module and an {@code int} of cents in the
- * database. bunq speaks decimal strings ({@code "3.00"}), so the conversion happens here and
- * nowhere else - and it goes through {@link BigDecimal}, never {@code double}. Season 1 parsed
- * amounts with {@code Float.parseFloat} and compared them with {@code <}, which is how you end up
- * deciding that 5.00 is not at least 5.
+ * The only conversion point, and it goes through {@link BigDecimal}, never {@code double}.
  */
 public final class Money {
 
@@ -19,10 +14,7 @@ public final class Money {
 
     private Money() {}
 
-    /**
-     * @param cents an amount in cents
-     * @return the amount as bunq wants it, e.g. {@code "3.00"}
-     */
+    /** Returns {@code cents} as bunq wants it, e.g. {@code "3.00"}. */
     public static String toDecimalString(final int cents) {
         return BigDecimal.valueOf(cents)
                 .divide(CENTS_PER_EURO, 2, RoundingMode.UNNECESSARY)
@@ -30,8 +22,8 @@ public final class Money {
     }
 
     /**
-     * @param value a decimal amount as bunq returns it
-     * @return the amount in cents
+     * Returns a decimal amount as bunq returns it, in cents.
+     *
      * @throws NumberFormatException if the value is not a decimal number
      */
     public static int toCents(final String value) {
@@ -41,10 +33,7 @@ public final class Money {
                 .intValueExact();
     }
 
-    /**
-     * @param cents an amount in cents
-     * @return the amount for a human, e.g. {@code "3.00 €"}
-     */
+    /** Returns {@code cents} for a human, e.g. {@code "3.00 €"}. */
     public static String format(final int cents) {
         return String.format(Locale.ROOT, "%d.%02d €", cents / 100, Math.abs(cents % 100));
     }

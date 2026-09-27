@@ -30,14 +30,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * Exercises {@link AccessRequests} against a real PostgreSQL running the real migrations.
  *
- * Nothing here has an in-memory stand-in, for the same reason {@code UpdateDirectoryIntegrationTest}
- * has none: the claim is {@code FOR UPDATE SKIP LOCKED} inside a data-modifying statement, the
- * patience is {@code now() + make_interval(...)} on the database clock, and the {@code NOTIFY}
- * rides in the same statement as the {@code INSERT} and either commits with it or not at all. All
- * three are PostgreSQL behaviour, not Java behaviour.
- *
- * Testcontainers is driven by hand from {@link BeforeAll}, like every other integration test in
- * this module, and these tests <b>skip themselves</b> when no Docker daemon is reachable.
+ * The claim, the patience and the {@code NOTIFY} are PostgreSQL behaviour; the tests skip themselves without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AccessRequestsIntegrationTest {
@@ -208,10 +201,7 @@ class AccessRequestsIntegrationTest {
     }
 
     /**
-     * The acceptance the ticket asks for: with no bot running at all, a row stops waiting.
-     *
-     * Nobody else can do this. The case is precisely "the bot is not there", so the expiry is
-     * written by whoever looks - {@link AccessRequests#outcome} sweeps before it reads.
+     * Checks that a row stops waiting with no bot running, since {@link AccessRequests#outcome} sweeps before it reads.
      */
     @Test
     void withNothingRunningARowExpiresRatherThanWaitingForEver() {

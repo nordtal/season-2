@@ -4,10 +4,8 @@ import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What discord-bot last observed a Discord account to be called and pictured as in the guild.
- *
- * A cache, not an identity: two accounts may carry identical values, so never resolve an account by name.
- * Each field is nullable and timestamped on its own, since each goes stale on its own.
+ * What the bot last observed a Discord account to be called and pictured as in the guild.
+ * A cache, not an identity: never resolve an account by name.
  *
  * @param username           the global Discord username, {@code null} if never observed
  * @param usernameUpdated    when {@code username} was last written, {@code null} together with it

@@ -11,11 +11,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-/**
- * The only implementation of {@link MetricDirectory}.
- *
- * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
- */
+/** The only implementation of {@link MetricDirectory}; it borrows its pool and owns nothing. */
 final class JdbiMetrics implements MetricDirectory {
 
     private final MetricDao dao;

@@ -8,8 +8,6 @@ import org.jspecify.annotations.Nullable;
 /**
  * One row of {@code payment_request}, the persisted state of one purchase flow.
  *
- * Written once the days are known and before a bunq tab exists, so the tab fields are null until then.
- *
  * @param reference       {@code NT-XXXXXX}, unique; the fallback matcher scrapes it from a description
  * @param days            the days ordered; the grant derives from the amount that arrives
  * @param amountCents     what the tab asks for: tier price plus the donation if chosen
@@ -46,12 +44,12 @@ public record PaymentRequest(
         @Nullable Integer matchedCents,
         @Nullable PaymentMatch matchedBy) {
 
-    /** @return the bunq.me tab, if one was created */
+    /** Returns the bunq.me tab, if one was created. */
     public Optional<Long> tab() {
         return Optional.ofNullable(bunqTabId);
     }
 
-    /** @return whether the user asked for the donation surcharge */
+    /** Returns whether the user asked for the donation surcharge. */
     public boolean donationRequested() {
         return donationCents > 0;
     }

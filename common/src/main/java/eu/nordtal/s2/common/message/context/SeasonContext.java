@@ -8,6 +8,6 @@ package eu.nordtal.s2.common.message.context;
 @ContextType(value = "season", name = "Season")
 public record SeasonContext(int number) implements MessageContext {
 
-    /** The season this code belongs to. Each season is its own repository, so this never changes in it. */
+    /** The season this code belongs to. */
     public static final SeasonContext CURRENT = new SeasonContext(2);
 }

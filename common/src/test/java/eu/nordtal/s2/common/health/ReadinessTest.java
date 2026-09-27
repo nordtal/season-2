@@ -9,20 +9,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * The freshness rule, driven by explicit timestamps.
- *
- * Not one case here sleeps. The whole reason {@link Readiness#fresh(Instant, Instant, Duration)}
- * takes both instants is that a heartbeat test which waits for real time to pass is a test that is
- * either slow or flaky, and usually both - and the arithmetic is the half that can be wrong.
- */
+/** Pins the freshness rule with explicit timestamps, so no case sleeps. */
 class ReadinessTest {
 
     private static final Instant BEAT = Instant.parse("2026-09-04T12:00:00Z");

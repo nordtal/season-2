@@ -11,15 +11,14 @@ import org.slf4j.Logger;
 /**
  * A thread on a dedicated {@code LISTEN} connection that re-reads on every signal and every reconnect.
  *
- * The caller's poll is the guarantee; a notification only makes a change feel instant and is never state.
- * Every refresh runs on every signal, the channel is never inspected, and a throwing refresh is logged.
+ * The caller's poll is the guarantee. Every refresh runs on every signal, and a throwing refresh is logged.
  */
 public final class NotificationListener implements AutoCloseable {
 
     /**
      * One thing to re-read on every signal.
      *
-     * @param what a name for the log line when it fails - "the season phase", "the admin roster"
+     * @param what a name for the log line when it fails, such as "the season phase"
      * @param task the re-read itself; must be safe to run repeatedly and from this thread
      */
     public record Refresh(String what, Runnable task) {
@@ -45,14 +44,11 @@ public final class NotificationListener implements AutoCloseable {
     private volatile @Nullable Thread thread;
 
     /**
-     * @param connector   how to open a {@code LISTEN} connection
-     * @param threadName  what the daemon thread calls itself; it outlives every stack trace it
-     *                    appears in, so it names the process and the job
+     * Creates a listener; nothing runs until {@link #start()}.
+     *
+     * @param threadName  the daemon thread's name, naming the process and the job
      * @param refreshes   what to re-read on every connect and every notification, in order
-     * @param logger      the process logger
-     * @param waitTimeout how long one {@code getNotifications} wait blocks for. Pass the poll
-     *                    interval: the Postgres implementation follows every timeout with a liveness
-     *                    check, so a shorter wait buys nothing but extra round trips
+     * @param waitTimeout how long one wait blocks; pass the poll interval, since each timeout costs a liveness check
      */
     public NotificationListener(
             final Notifications.Connector connector,
@@ -63,7 +59,6 @@ public final class NotificationListener implements AutoCloseable {
         this(connector, threadName, refreshes, logger, waitTimeout, RECONNECT_BACKOFF);
     }
 
-    /** Package-visible so a test can watch several reconnects without waiting seconds for each. */
     NotificationListener(
             final Notifications.Connector connector,
             final String threadName,
@@ -93,7 +88,7 @@ public final class NotificationListener implements AutoCloseable {
         listenerThread.start();
     }
 
-    /** Runs the connect, re-read and wait loop; package-visible so a test can drive it on its own thread. */
+    /** Runs the connect, re-read and wait loop. */
     void run() {
         while (running) {
             try (Notifications notifications = connector.listen()) {
@@ -152,7 +147,7 @@ public final class NotificationListener implements AutoCloseable {
         }
     }
 
-    /** @return {@code false} when the wait was interrupted, which means "stop" */
+    /** Returns {@code false} when the wait was interrupted, which means stop. */
     private boolean sleepBeforeRetry() {
         try {
             Thread.sleep(reconnectBackoff);

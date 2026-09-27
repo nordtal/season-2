@@ -9,16 +9,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Maps an {@code update_request} row.
- *
- * Written out rather than reached for with {@code ConstructorMapper}, for the reason
- * {@code AccessGrantMapper} and {@code PhaseChangeMapper} both give: that mapper matches record
- * components by parameter name, which only survives compilation with {@code -parameters}, and a
- * build flag is a bad thing for a query to depend on. Every instant goes through
- * {@link OffsetDateTime}, the only reliable way out of the PostgreSQL driver that does not pass
- * through the JVM's default time zone.
- */
+/** Maps an {@code update_request} row, reading every instant through {@link OffsetDateTime}. */
 public final class UpdateRequestMapper implements RowMapper<UpdateRequest> {
 
     @Override

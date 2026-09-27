@@ -12,26 +12,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Composes a chest menu's title so the window is drawn in Nordtal's own frame.
- *
- * A menu is an ordinary chest inventory whose title carries a bitmap glyph big enough to cover
- * the window, on a large positive {@code ascent}. The client renders labels after the background, so
- * the panel is painted on top of the vanilla texture rather than instead of it.
- *
- * The arithmetic lives here rather than at every call site. Vanilla draws the container title at
- * {@link #ANCHOR_X}, and a 176px bitmap glyph advances the cursor by {@link #PANEL_ADVANCE} - 177,
- * because every bitmap glyph gets one trailing pixel - so the readable title walks back 169. The net
- * displacement is zero: the title reads exactly where it would with no panel at all.
- *
- * A surface that varies per player gets one panel plus a small glyph per state, drawn on top by a
- * {@link Canvas}; vertical position is the glyph's own {@code ascent}, which is why a state that can
- * land on two rows is declared twice. For list menus the row is carried by the font
- * ({@link Glyphs#FONT_GUI_ROWS}) rather than by the code point, and a canvas draws in insertion
- * order, which needs the positive advances as well as the negative ones.
- *
- * Two traps: <b>the panel must be white</b>, because vanilla paints an inventory title in
- * hardcoded dark grey unless the component names a colour; and <b>the panel must name its font</b>,
- * because a panel code point left in {@code minecraft:default} draws whatever that font holds there.
- * The readable title names no font on purpose, so it renders where the letters are.
+ * The panel must be white and name its font; it walks back to {@link #ANCHOR_X}, so the title reads where it would
+ * without it.
  */
 public final class MenuTitle {
 
@@ -77,17 +59,7 @@ public final class MenuTitle {
         return Component.empty().append(panel(rows)).append(title);
     }
 
-    /**
-     * Just the panel half, for a caller that has to build the title component itself.
-     *
-     * It ends where it started, so anything appended after it sits at the title anchor exactly
-     * as if the panel were not there.
-     *
-     * <b>The panel carries no shadow</b>: vanilla draws every glyph a second time one pixel down
-     * and right, which on an opaque 176-pixel panel is a dark edge nothing in the pack drew.
-     * {@link #of} appends the readable title to {@code Component.empty()} rather than to this
-     * component, so the title stays a sibling and keeps its own shadow.
-     */
+    /** Returns just the panel half, which ends where it started and carries no shadow. */
     public static Component panel(final int rows) {
         return on(Glyphs.GUI_PANELS.get(rows - 1)).panel();
     }
@@ -97,7 +69,7 @@ public final class MenuTitle {
         return onPlain(rows).panel();
     }
 
-    /** A canvas on the recess-free panel for {@code rows} rows. */
+    /** Returns a canvas on the recess-free panel for {@code rows} rows. */
     public static Canvas onPlain(final int rows) {
         if (rows < 1 || rows > MAX_ROWS) {
             throw new IllegalArgumentException("a chest menu has 1 to " + MAX_ROWS + " rows, not " + rows);
@@ -114,12 +86,7 @@ public final class MenuTitle {
         return new Canvas(panelGlyph);
     }
 
-    /**
-     * The glyphs that move the cursor {@code pixels} to the left, largest advance first.
-     *
-     * The eight advances are powers of two, so this is the number's binary representation. Zero
-     * is the empty string rather than an error.
-     */
+    /** Returns the glyphs that move the cursor {@code pixels} left, largest advance first; zero is empty. */
     public static String shift(final int pixels) {
         if (pixels < 0 || pixels > MAX_SHIFT) {
             throw new IllegalArgumentException(
@@ -177,11 +144,7 @@ public final class MenuTitle {
     /**
      * A panel with things drawn on top of it, composed into one title.
      *
-     * Draw order is insertion order, so a pill added before its label is painted under it.
-     *
-     * A placement carries a font because a glyph's only vertical control is its font's
-     * {@code ascent}, so "on chest row 2" is a font and not a coordinate. A placement naming no font
-     * inherits the panel's {@code nordtal:gui}, and one naming no colour inherits the panel's white.
+     * Draw order is insertion order; a placement naming no font or colour inherits the panel's.
      */
     public static final class Canvas {
 
@@ -197,17 +160,14 @@ public final class MenuTitle {
          *
          * @param glyph a {@code nordtal:gui} glyph declared at the ascent of the row it lands on
          * @param x     the overlay's left edge in window pixels, 0 to {@code 176 - width}
-         * @param width the glyph's drawn width - its advance is one more
+         * @param width the glyph's drawn width; its advance is one more
          */
         public Canvas overlay(final String glyph, final int x, final int width) {
             return place(x, width + 1, glyph, null, null);
         }
 
         /**
-         * Draws one row glyph - a pill, a frame, a button plate, a pictogram - on a chest row.
-         *
-         * The row picks the font and the glyph picks the picture; the advance comes from
-         * {@link MenuFont}, which reads it out of the same export the pack was generated with.
+         * Draws one row glyph, such as a pill, a frame, a button plate or a pictogram, on a chest row.
          *
          * @param glyph  a {@code GUI_ROW_*} code point
          * @param row    the chest row, 0 to {@code MAX_ROWS - 1}
@@ -219,16 +179,12 @@ public final class MenuTitle {
         }
 
         /**
-         * Draws readable text on a chest row, in the pack's five-pixel capitals.
-         *
-         * The text is folded onto the sheet's alphabet by {@link MenuFont#fold(String)} first, so
-         * what is measured is what is drawn; a caller that needs it to fit should use
-         * {@link MenuFont#fit(String, int)}.
+         * Draws readable text on a chest row in the pack's five-pixel capitals, folding it first.
          *
          * @param text   any string; folded to capitals here
          * @param row    the chest row, 0 to {@code MAX_ROWS - 1}
          * @param x      the text's left edge in window pixels
-         * @param colour what to paint it - never null, because the panel's white is unreadable on it
+         * @param colour what to paint it, never null, because the panel's white is unreadable on it
          */
         public Canvas rowText(final String text, final int row, final int x, final TextColor colour) {
             final String folded = MenuFont.fold(text);
@@ -240,7 +196,7 @@ public final class MenuTitle {
             return place(x, MenuFont.width(folded), folded, rowFont(row), colour);
         }
 
-        /** The same, with the text's <em>right</em> edge at {@code xRight}. */
+        /** Draws the same with the text's <em>right</em> edge at {@code xRight}. */
         public Canvas rowTextRight(final String text, final int row, final int xRight, final TextColor colour) {
             final String folded = MenuFont.fold(text);
             return rowText(folded, row, xRight - MenuFont.width(folded), colour);
@@ -267,7 +223,7 @@ public final class MenuTitle {
             return this;
         }
 
-        /** The composed surface: panel and overlays, ending on the title anchor - no readable text. */
+        /** Returns the composed surface: panel and overlays, ending on the title anchor, with no readable text. */
         public Component panel() {
             Component surface = Component.text(shift(ANCHOR_X) + panelGlyph)
                     .font(Key.key(Glyphs.FONT_GUI))
@@ -290,7 +246,7 @@ public final class MenuTitle {
             return surface.append(Component.text(move(ANCHOR_X - cursor)));
         }
 
-        /** The title to hand {@code Bukkit.createInventory}: the surface, then {@code title}. */
+        /** Returns the title to hand {@code Bukkit.createInventory}: the surface, then {@code title}. */
         public Component build(final Component title) {
             return Component.empty().append(panel()).append(title);
         }

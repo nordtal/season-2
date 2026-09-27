@@ -12,10 +12,7 @@ import java.util.Optional;
 
 /**
  * The file beside a jcore config naming which dotted paths the environment currently overrides.
- *
- * A service calls {@link #write} with what {@code ConfigHandle.environmentOverrides()} returned. A missing
- * file means nobody reported, which differs from an empty list. One path per line, since {@code :common}
- * takes no JSON library.
+ * A missing file means the service never reported, which differs from an empty list.
  */
 public final class EnvOverrideFile {
 

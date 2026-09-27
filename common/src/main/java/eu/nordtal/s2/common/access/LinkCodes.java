@@ -4,10 +4,8 @@ import java.security.SecureRandom;
 
 /**
  * Generates the four-character codes shown on the login screen.
- *
- * 31 symbols without {@code 0/O} and {@code 1/I/L} give 923 521 codes, which is safe only together with
- * the bot's {@code RedemptionLimit} on failed redemptions; neither is enough without the other. Collisions
- * are retried by the caller. {@link SecureRandom}, because the code is a credential.
+ * The 31-symbol alphabet is safe only together with the bot's {@code RedemptionLimit}; collisions are retried by the
+ * caller.
  */
 final class LinkCodes {
 

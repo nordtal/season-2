@@ -5,18 +5,9 @@ import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Everything a staging needs one player's client to be able to do.
+ * Everything a staging needs one player's client to do, behind an interface so tests can record it.
  *
- * <b>Why this exists rather than a {@code Player} parameter</b>
- *
- * Four calls, and every one of them is a packet. {@code :common} is compiled against no platform, so
- * a runner living here cannot hold a {@code Player} - and that restriction turns out to be the
- * feature: with the surface behind an interface, {@link Cinematics} can be driven in a test that
- * records what was shown and when, which is the only way "the frames ran in order, spaced correctly,
- * and a cancel really cancelled" is answerable without a client.
- *
- * Every method is called on whatever thread the runner's scheduler uses. On Paper that is the
- * main thread, which is what all four of these need.
+ * Every method is called on the runner's scheduler thread, which on Paper is the main thread.
  */
 public interface CinematicStage {
 
@@ -25,8 +16,7 @@ public interface CinematicStage {
      *
      * @param image    the frame
      * @param subtitle the line under it, or {@code null}
-     * @param ticks    how long it stays. An implementation uses it to size the title's own timing,
-     *                 so that the frames replace each other rather than fading out between them
+     * @param ticks    how long it stays, so the title's timing replaces frames without fading
      */
     void show(Component image, @Nullable Component subtitle, int ticks);
 
@@ -34,24 +24,17 @@ public interface CinematicStage {
      * Applies the effect for the whole staging.
      *
      * @param effect what to apply
-     * @param ticks  the length of the whole staging, so the effect ends when the pictures do
+     * @param ticks  the length of the whole staging
      */
     void effect(Cinematic.Effect effect, int ticks);
 
-    /**
-     * Plays the opening sound.
-     *
-     * Through the module's own sound adapter, so a blank key in {@code sounds.yml} is silent and
-     * a broken one silences the category rather than throwing on a player's join path.
-     */
+    /** Plays the opening sound; a blank or broken key is silent rather than throwing. */
     void play(Feedback sound);
 
     /**
      * Takes the staging off the screen and removes what it applied.
      *
-     * Called exactly once per run, at the end <b>and</b> on a cancel - so an implementation has
-     * to be safe on a player who has already left. A staging that is interrupted must not leave
-     * somebody blind: that is the difference between a cancel and a crash.
+     * Called exactly once per run, at the end or on a cancel, so it must be safe for a player who has left.
      */
     void clear();
 }

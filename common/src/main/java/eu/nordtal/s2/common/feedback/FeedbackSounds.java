@@ -10,46 +10,14 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A module's whole sound configuration, parsed once and then answered from memory.
- *
- * This is the {@code :common} half of the sound vocabulary: it holds what each {@link Feedback}
- * category maps to, as plain values, and it holds the two rules that make a wrong value harmless.
- * The other half is a platform adapter - one per Paper module - which takes the answer from here and
- * turns it into a packet.
- *
- * <b>An empty key silences the category, and that is the escape hatch</b>
- *
- * A sound that turns out to be irritating with twenty people in a tavern is not worth a release to
- * fix. Blanking the key in {@code config.yml} switches that category off everywhere in the module at
- * once, which is also why call sites choose a category rather than a sound: silencing "the server
- * said no" has to mean silencing all of it, not thirteen edits.
- *
- * <b>A bad value is never an exception on a player path</b>
- *
- * Two things can be wrong and neither of them stops anything:
- *
- * <b>At load</b>: a key that is not a parseable namespaced key, or a volume or pitch that makes no
- * sense. Reported once, through the {@code problems} sink the caller passes in, and the category is
- * silenced or the number replaced. It deliberately does <em>not</em> stop the plugin the way a bad
- * world name does: a typo in a chime is not worth a season offline, and the console line says
- * exactly what was ignored. <b>At play</b>: the adapter calls {@link #failed} when the platform
- * threw. Reported once and the category silenced from then on, because a sound that throws once
- * throws every time and the alternative is that line in the log per click.
- *
- * A key that parses but names no sound the server knows is <b>not</b> an error here and must not
- * become one: that is precisely the shape of a custom sound shipped in the resource pack. The client
- * simply plays nothing, which Paper's own {@code playSound(Location, String, ...)} documents.
+ * A blank key silences a category, and a bad value is reported once and silenced or corrected, never thrown on a player
+ * path.
  */
 public final class FeedbackSounds {
 
     private final Map<Feedback, FeedbackSound> byCategory;
 
-    /**
-     * Categories whose sound threw when it was played, so the complaint is made once.
-     *
-     * Concurrent because {@link #failed} is called from wherever a sound is played. In this
-     * repository that is always the main thread, but a class in {@code :common} has no way to insist
-     * on that and the cost of being right anyway is one set.
-     */
+    /** Categories whose sound threw when played, so the complaint is made once. */
     private final Set<Feedback> broken = ConcurrentHashMap.newKeySet();
 
     private FeedbackSounds(final Map<Feedback, FeedbackSound> byCategory) {
@@ -57,12 +25,9 @@ public final class FeedbackSounds {
     }
 
     /**
-     * Parses a module's declarations.
+     * Parses a module's declarations; an absent or blank key is silent without complaint.
      *
-     * @param declared what {@code config.yml} said, per category. A category that is absent, or
-     *                 whose key is blank, is silent - deliberately and without a complaint
-     * @param problems where a value that had to be ignored or corrected is reported, once each.
-     *                 A plugin passes {@code getLogger()::warning}
+     * @param problems where each ignored or corrected value is reported once, such as {@code getLogger()::warning}
      */
     public static FeedbackSounds parse(final Map<Feedback, FeedbackSound> declared, final Consumer<String> problems) {
         final Map<Feedback, FeedbackSound> parsed = new EnumMap<>(Feedback.class);
@@ -89,31 +54,26 @@ public final class FeedbackSounds {
         return new FeedbackSounds(parsed);
     }
 
-    /** Everything silent - what a module gets before its config is read, and what tests use. */
+    /** Returns everything silent, for a module before its config is read and for tests. */
     public static FeedbackSounds silent() {
         return new FeedbackSounds(new EnumMap<>(Feedback.class));
     }
 
     /**
-     * What to play for {@code category}, or {@code null} when it is silent.
-     *
-     * Null rather than an {@link java.util.Optional} on purpose: this is called on every click of
-     * every menu of every player, and the adapter's whole body is a null check.
+     * Returns what to play for {@code category}, or {@code null} when it is silent.
+     * It is null rather than an Optional because it runs on every click.
      */
     public @Nullable FeedbackSound sound(final Feedback category) {
         return broken.contains(category) ? null : byCategory.get(category);
     }
 
-    /** Whether {@code category} will play nothing - because it is unset, wrong, or has failed. */
+    /** Returns whether {@code category} will play nothing, because it is unset, wrong or has failed. */
     public boolean isSilent(final Feedback category) {
         return sound(category) == null;
     }
 
     /**
-     * Called by a platform adapter when playing {@code category} actually threw.
-     *
-     * Silences it and complains once. The alternative - letting it throw - puts a stack trace on
-     * a player's click path, which is the one thing the whole of this class exists to prevent.
+     * Silences {@code category} after playing it threw, and complains once.
      *
      * @return true the first time, so the adapter can log the cause with it
      */

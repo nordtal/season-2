@@ -29,14 +29,14 @@ public final class Contexts {
         GLOBAL_VALUES.put("server", new ServiceContext(service));
     }
 
-    /** @return whether {@code type} is a context record */
+    /** Returns whether {@code type} is a context record. */
     public static boolean isContext(final Class<?> type) {
         return type.isRecord()
                 && MessageContext.class.isAssignableFrom(type)
                 && type.isAnnotationPresent(ContextType.class);
     }
 
-    /** @return the type's key, e.g. {@code player} */
+    /** Returns the type's key, e.g. {@code player}. */
     public static String type(final Class<?> type) {
         final ContextType annotation = type.getAnnotation(ContextType.class);
         if (annotation == null) {
@@ -45,12 +45,12 @@ public final class Contexts {
         return annotation.value();
     }
 
-    /** @return the name an admin reads for the type */
+    /** Returns the name an admin reads for the type. */
     public static String name(final Class<?> type) {
         return type.getAnnotation(ContextType.class).name();
     }
 
-    /** @return the type's placeholders, in component order */
+    /** Returns the type's placeholders, in component order. */
     public static List<String> properties(final Class<?> type) {
         final List<String> names = new ArrayList<>();
         for (final RecordComponent component : components(type)) {
@@ -60,9 +60,8 @@ public final class Contexts {
     }
 
     /**
-     * @param values placeholder name to value, as a message spec fills them
-     * @return the same values with every context replaced by one {@code role.property} entry per
-     *         component, and the global roles added where the message did not name them itself
+     * Returns {@code values} with each context replaced by one {@code role.property} entry per component.
+     * The global roles are added where the message did not name them.
      */
     public static Map<String, Object> flatten(final Map<String, ?> values) {
         final Map<String, Object> flat = new LinkedHashMap<>();

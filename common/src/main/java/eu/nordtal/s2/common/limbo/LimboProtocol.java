@@ -12,11 +12,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The {@code nordtal:limbo} plugin-message channel: its name, wire format, encoder and decoder.
- *
- * A message is {@code byte version} (1), {@code byte type} (1 {@code WAIT} proxy to limbo, 2 {@code READY}
- * limbo to proxy) and a body: {@code WAIT} carries the {@link WaitReason} name as a UTF string. A
- * {@code READY} can be lost, so the proxy releases after a grace period. On the proxy the caller must
- * reject messages from a player connection, since a forged {@code READY} would skip the resource pack.
+ * A message is a version byte, a type byte and a body; the proxy must reject one arriving from a player connection.
  */
 public final class LimboProtocol {
 
@@ -59,10 +55,7 @@ public final class LimboProtocol {
         }
     }
 
-    /**
-     * @param reason what the waiting room should say
-     * @return the bytes to send to the backend holding the player
-     */
+    /** Returns the bytes telling the backend holding the player what the waiting room should say. */
     public static byte[] wait(final WaitReason reason) {
         Objects.requireNonNull(reason, "reason");
         final ByteArrayOutputStream bytes = new ByteArrayOutputStream(16);
@@ -77,9 +70,7 @@ public final class LimboProtocol {
         return bytes.toByteArray();
     }
 
-    /**
-     * @return the bytes {@code limbo} sends once the player is in the waiting room and loaded
-     */
+    /** Returns the bytes {@code limbo} sends once the player is in the waiting room and loaded. */
     public static byte[] ready() {
         final ByteArrayOutputStream bytes = new ByteArrayOutputStream(2);
         try (DataOutputStream out = new DataOutputStream(bytes)) {

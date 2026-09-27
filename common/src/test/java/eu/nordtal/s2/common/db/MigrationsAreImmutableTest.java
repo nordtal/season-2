@@ -19,37 +19,13 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every migration that has been released is frozen, byte for byte, and this file is the freezer.
+ * Freezes every released migration byte for byte, since Flyway checksums the whole file, comments included.
  *
- * <b>Flyway checksums the whole file, comments included.</b> A migration that has run is recorded
- * in {@code flyway_schema_history} with that number, and on the next start every consumer compares
- * it: the worker before it migrates, the bot in {@code SchemaCheck.validate}. When they disagree the
- * bot does not start. It does not degrade, it does not warn - it refuses the database and exits, and
- * so does an update run.
- *
- * <b>This is not hypothetical; it is why the test exists.</b> The rename of {@code updater} to
- * {@code steward-worker} swept through the repository and changed one sentence of a comment inside
- * {@code V12__update_is_one_run.sql}, a migration v0.8.6 had already shipped. Nothing failed to
- * compile, no test went red, and every review of that commit read it as a rename. It surfaced weeks
- * later on a deployment, as {@code Migration checksum mismatch for migration version 12} out of a
- * bot that would not come up - and a search-and-replace is precisely the kind of change nobody
- * thinks to check a migration for.
- *
- * <b>Adding a migration means adding a line here.</b> That is the deliberate cost and it is one
- * line: the map is not generated, because a generated map records whatever the file says today and
- * would have recorded the broken V12 just as happily. Editing an existing line is the thing this
- * test is here to stop - if a released migration really has to change, the answer is a new
- * migration that alters what the old one created, never a corrected copy of the old one.
+ * Adding a migration means adding a line here; changing a released one means a new migration.
  */
 class MigrationsAreImmutableTest {
 
-    /**
-     * SHA-256 of every file in {@code db/migration}, in version order.
-     *
-     * SHA-256 rather than Flyway's own CRC32: the point is "this file has not changed", which any
-     * hash answers, and Flyway's number comes out of an internal class whose signature is not API.
-     * A mismatch here is a mismatch there for the same reason either way - the bytes moved.
-     */
+    /** SHA-256 of every file in {@code db/migration}, in version order. */
     private static final Map<String, String> FROZEN = new LinkedHashMap<>();
 
     static {
@@ -133,14 +109,7 @@ class MigrationsAreImmutableTest {
         }
     }
 
-    /**
-     * The directory as the test classpath sees it, which is the copy the jar would carry.
-     *
-     * Reached through the classpath rather than through {@code RepositoryRoot} on purpose: these
-     * files are this module's own resources, so the classpath answer is both the one Flyway reads at
-     * runtime and a dependency Gradle already tracks - no {@code repositoryRootTestInputs} entry to
-     * forget, and no way for the test to stay UP-TO-DATE across an edit.
-     */
+    /** Returns the directory as the test classpath sees it, which Gradle already tracks as an input. */
     private static Path migrations() {
         final var url = MigrationsAreImmutableTest.class.getResource("/db/migration");
         assertNotNull(url, "db/migration is not on the test classpath at all");

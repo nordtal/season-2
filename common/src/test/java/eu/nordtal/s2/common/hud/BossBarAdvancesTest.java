@@ -10,16 +10,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Holds the shipped advance table against the pack it was exported from.
- *
- * {@code nordtal/hud/bossbar-advances.properties} is a generated resource - the plugins size a
- * HUD pill from it, and they cannot read the pack themselves. The one way it goes wrong is
- * silently: an icon is redrawn, its rightmost column moves, nobody re-runs the export, and every
- * pill holding that icon is a pixel off. This test derives the table again from
- * {@code bossbar.json} and its PNGs with the client's own rule and fails if the resource is stale,
- * which turns "remember to re-run the script" into a red build.
- */
+/** Holds the generated {@code bossbar-advances.properties} against the pack, so a stale export fails the build. */
 class BossBarAdvancesTest {
 
     private static final String FONT = "resource-pack/src/assets/nordtal/font/bossbar.json";

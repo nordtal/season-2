@@ -16,18 +16,10 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 interface OnlineDao {
 
     /**
-     * Replaces the row for every subject given, as one JDBC batch.
+     * Replaces the row for every subject given, as one JDBC batch; unlike a metric, a count is meant to be overwritten.
      *
-     * <b>{@code DO UPDATE}, not {@code DO NOTHING}</b>
-     *
-     * The opposite choice from {@code MetricDao#record}, and for the opposite reason: a measurement
-     * at an instant is a fact and is never revised, but a player count is a snapshot of right now,
-     * and the whole point of writing it again is to replace the stale one. {@code online_count} has
-     * exactly one row per subject for this reason - see {@code V22__online_count.sql}.
-     *
-     * @param rows one per subject; empty is refused by JDBI itself, so {@link JdbiOnline#write}
-     *             never calls this with nothing in it
-     * @return one count per statement, always 1 - an UPSERT never fails to affect a row
+     * @param rows one per subject, never empty
+     * @return one count per statement, always 1
      */
     @SqlBatch("""
             INSERT INTO online_count (subject, players, updated)
@@ -38,9 +30,7 @@ interface OnlineDao {
             """)
     int[] write(@BindMethods Iterable<BoundCount> rows);
 
-    /**
-     * Every row there is, in no particular order that matters - the caller keys them by subject.
-     */
+    /** Returns every row, in no order that matters. */
     @SqlQuery("SELECT subject, players, updated FROM online_count")
     List<OnlineCount> current();
 

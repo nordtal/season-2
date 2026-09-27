@@ -11,11 +11,7 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The only implementation of {@link UpdateDirectory}.
- *
- * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
- */
+/** The only implementation of {@link UpdateDirectory}; it borrows the pool and owns nothing. */
 final class JdbiUpdateDirectory implements UpdateDirectory {
 
     /** The transaction advisory lock every submit takes before it looks for an open run. */
@@ -31,9 +27,9 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     /**
-     * Writes a request only when no other run is pending or running and none of its services is held.
+     * Writes a request only when no other run is open and none of its services is held.
      *
-     * The lock is its own statement so the following look is a fresh snapshot under READ COMMITTED.
+     * The lock is its own statement, so the check after it reads a fresh snapshot under READ COMMITTED.
      */
     private UpdateRequest guarded(
             final UpdateKind kind,
@@ -83,7 +79,6 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         Objects.requireNonNull(source, "source");
         final long seconds = delay == null ? 0L : Math.max(0L, delay.toSeconds());
         final String scope = scopeText(services);
-        // The unscoped statement, so a change to the scoped one cannot affect existing callers.
         return guarded(
                 kind,
                 services,
@@ -112,14 +107,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         dao.release(service);
     }
 
-    /**
-     * The services as the column holds them, or {@code null} for the whole network.
-     *
-     * Blanks are dropped and the order is kept. A list that is empty once the blanks are gone is
-     * {@code null} rather than {@code ""}: the CHECK in V27 would refuse the empty string anyway,
-     * and turning "the caller passed a list of nothing" into a row that names nothing would be a
-     * run that stops nothing while claiming to be scoped.
-     */
+    /** Returns the services as the column holds them, blanks dropped, or {@code null} for the whole network. */
     static @Nullable String scopeText(final java.util.@Nullable List<String> services) {
         if (services == null || services.isEmpty()) {
             return null;
@@ -133,7 +121,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         return joined.isEmpty() ? null : joined;
     }
 
-    /** The inverse. {@code null} and blank both mean the whole network - see {@code scopeOf}. */
+    /** Returns the services of a scope column; {@code null} and blank both mean the whole network. */
     static java.util.List<String> parseScope(final @Nullable String scope) {
         if (scope == null || scope.isBlank()) {
             return java.util.List.of();
@@ -173,21 +161,12 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     @Override
     public Optional<UpdateRequest> lastSuccessfulBackup(final Duration within) {
         Objects.requireNonNull(within, "within");
-        // Clamped: a negative window means nothing qualifies, not an exception.
         return dao.backupsDoneWithin(Math.max(0L, within.toSeconds())).stream()
                 .filter(JdbiUpdateDirectory::saved)
                 .findFirst();
     }
 
-    /**
-     * Whether this row's report shows a file, rather than merely a run that did not complain.
-     *
-     * {@link UpdateReports#parse} answers empty for anything it cannot read, and empty is
-     * treated as "no" here. That is the opposite of what every drawing surface does with the same
-     * text - they fall back to printing it raw - and deliberately so: a Discord embed failing to
-     * parse a report should still show something, while a caller deciding whether a world may be
-     * deleted must not accept text it cannot interpret as proof.
-     */
+    /** Returns whether this row's report proves a file was saved; an unreadable report counts as no. */
     private static boolean saved(final UpdateRequest request) {
         return UpdateReports.parse(request.result())
                 .filter(report -> report.stage() == UpdateReport.Stage.DONE)
@@ -204,7 +183,6 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     public Optional<UpdateRequest> finish(final long id, final UpdateStatus status, final String result) {
         Objects.requireNonNull(status, "status");
         if (!status.isFinished() || status == UpdateStatus.CANCELLED) {
-            // CANCELLED is only for a person withdrawing a countdown, never for work already started.
             throw new IllegalArgumentException("A claimed request finishes as DONE or FAILED, not as " + status);
         }
         return dao.finish(id, status.name(), result);
@@ -218,7 +196,6 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     @Override
     public Optional<UpdateRequest> startCountdown(final long id, final Duration length) {
         Objects.requireNonNull(length, "length");
-        // Clamped like submit's delay.
         return dao.startCountdown(id, Math.max(0L, length.toSeconds()));
     }
 

@@ -10,12 +10,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Maps the single row the two date writes in {@link PhaseDao} return.
- *
- * Written out by hand for the reason {@link PhaseChangeMapper} gives: {@code ConstructorMapper}
- * matches record components by parameter name, which only survives compilation with
- * {@code -parameters}. Both timestamps go through {@link OffsetDateTime}, the only reliable way to
- * get an {@link Instant} out of the PostgreSQL driver without passing through the JVM's default
- * time zone - which for these two columns would be the whole bug this feature exists to prevent.
+ * Written out, reading both timestamps through {@link OffsetDateTime} so the JVM's zone never enters.
  */
 public final class DateChangeMapper implements RowMapper<DateChange> {
 

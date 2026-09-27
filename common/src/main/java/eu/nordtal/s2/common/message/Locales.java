@@ -4,11 +4,9 @@ import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The one place that turns a stored language tag into a {@link Locale} and back.
+ * Turns a stored language tag into a {@link Locale} and back.
  *
- * Season 2 is DE/EN; English is the default and the fallback everywhere. Nothing here ever
- * throws - a language column that somehow holds nonsense must degrade to English, not break a
- * login.
+ * Nothing here throws: a language column holding nonsense degrades to English rather than breaking a login.
  */
 public final class Locales {
 

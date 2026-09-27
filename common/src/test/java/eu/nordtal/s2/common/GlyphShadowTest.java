@@ -17,26 +17,11 @@ import org.junit.jupiter.api.Test;
 /**
  * Asserts that nothing composed out of a {@code nordtal:} font is drawn with vanilla's text shadow.
  *
- * <b>What the shadow does to a composition.</b> The client draws every glyph a second time, one
- * pixel down and one right, in a darkened copy of its colour. On a line of text that is what text
- * is supposed to look like. On a surface tiled out of power-of-two glyphs butted against each other
- * - the boss bar background, the board's frame, the menu panel - the second copy of tile <i>n</i>
- * lands on top of tile <i>n+1</i>, so a surface the pack drew as one piece arrives with a dark seam
- * at every segment boundary and a dark edge along its bottom and right.
- *
- * <b>Why it needs a test rather than a comment.</b> The shadow costs no advance. Every offset in
- * {@link BoardFrame}, {@link MenuTitle} and {@code BossBarWidth} still comes out exactly right, and
- * {@code BoardFrameTest} - which walks the composition with a cursor derived from the pack itself -
- * cannot see the difference. The failure is purely what the pixels look like, which is the one
- * thing nothing in this repository can look at.
- *
- * The readable text is deliberately <em>not</em> covered by this rule: it keeps its shadow, and
- * {@link #aMenusReadableTitleKeepsItsOwnShadow()} is what pins that the panel does not swallow it. The boss bar
- * is the one exception, and it is an exception on purpose - see the note in the two renderers.
+ * The shadow costs no advance but seams every tile boundary, which only the pixels show; the boss bar is exempt.
  */
 class GlyphShadowTest {
 
-    /** Every source file in this repository that composes a boss bar name. Mirrors BossBarFontTest. */
+    /** Every source file that composes a boss bar name; mirrors {@code BossBarFontTest}. */
     private static final String[] BOSS_BAR_SOURCES = {
         "smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java",
         "hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java",
@@ -107,14 +92,7 @@ class GlyphShadowTest {
         assertNoShadowOnFont(surface, Glyphs.FONT_GUI, "MenuTitle.Canvas.build");
     }
 
-    /**
-     * Walks {@code root} and every descendant, and asserts that each component naming {@code font}
-     * sets {@link ShadowColor#none()}.
-     *
-     * It checks the component's <em>own</em> style rather than a resolved one on purpose: a
-     * shadow that is only absent because a parent happened to turn it off is one refactor away from
-     * coming back.
-     */
+    /** Asserts that each component naming {@code font} sets {@link ShadowColor#none()} in its own style. */
     private static void assertNoShadowOnFont(final Component root, final String font, final String what) {
         int seen = 0;
         for (final Component component : root.iterable(ComponentIteratorType.DEPTH_FIRST)) {

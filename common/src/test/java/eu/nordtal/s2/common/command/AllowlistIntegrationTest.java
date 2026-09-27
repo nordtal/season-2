@@ -20,22 +20,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Publishing the command allowlist, against a real PostgreSQL running the real migrations.
+ * Publishes the command allowlist against a real PostgreSQL running the real migrations.
  *
- * <b>Why this cannot be an in-memory test</b>
- *
- * Every claim worth making here is the database's. The upsert only writes when the value actually
- * moved, which is what keeps a proxy restart from waking three servers about a list nobody edited -
- * and that is expressed as {@code WHERE network_setting.value IS DISTINCT FROM EXCLUDED.value} on the
- * conflict branch, which no fake can evaluate. The notification is a bare {@code NOTIFY}, the one in
- * this repository issued as its own statement rather than riding inside a write; whether pgjdbc will
- * even run that through {@code executeUpdate} is a fact about the driver.
- *
- * It also pins the shape of what a backend reads back, because the row is text: a list published
- * on one version of the software is read by another, and the only thing keeping the two in step is
- * that {@code serialise} and {@code deserialise} are inverses through an actual column.
- *
- * Skips itself when no Docker daemon is reachable, like every other integration test here.
+ * The change-only upsert and the bare {@code NOTIFY} are the database's; the tests skip themselves without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AllowlistIntegrationTest {

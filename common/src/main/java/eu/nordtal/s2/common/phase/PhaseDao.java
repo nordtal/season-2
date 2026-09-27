@@ -10,31 +10,20 @@ import org.jspecify.annotations.Nullable;
 /** The SQL surface of the phase model; {@link PhaseDirectory} is the API. */
 interface PhaseDao {
 
-    /**
-     * @return the stored phase name, empty only if the singleton row has been deleted - {@code V4}
-     *         seeds it and nothing removes it
-     */
+    /** Returns the stored phase name, empty only if the singleton row has been deleted. */
     @SqlQuery("SELECT phase FROM season_phase WHERE id")
     Optional<String> currentPhase();
 
-    /**
-     * @return the announced opening instant, empty when the column is {@code NULL} or the singleton
-     *         row is gone - the caller cannot tell those apart and has no reason to
-     */
+    /** Returns the announced opening instant, empty when unset or the singleton row is gone. */
     @SqlQuery("SELECT launch FROM season_phase WHERE id")
     Optional<Instant> launch();
 
-    /**
-     * @return the announced instant paid access starts running, empty when the column is
-     *         {@code NULL} or the singleton row is gone
-     */
+    /** Returns the announced instant paid access starts running, empty when unset or the row is gone. */
     @SqlQuery("SELECT smp_start FROM season_phase WHERE id")
     Optional<Instant> smpStart();
 
     /**
-     * Switches the phase, writes the audit entry and notifies, as one statement.
-     *
-     * The notification carries no payload and is emitted only on commit; listeners re-read the row.
+     * Switches the phase, writes the audit entry and notifies with no payload, as one statement.
      *
      * @param actor  the Discord id of the admin who caused it, or {@code null}
      * @param reason free text appended to the audit detail in brackets, or {@code null}
@@ -108,11 +97,9 @@ interface PhaseDao {
 
     /**
      * Writes {@code smp_start} and moves the paid access anchored to it, with audit and notification.
+     * Per account, the earliest live grant at or after the old date lands on the new one; the rest keep their distance.
      *
-     * A live grant that began at or after the old date moves. The shift is per Discord account: its earliest
-     * moving grant lands on the new date and the rest keep their distance. Clearing the date moves nothing.
-     *
-     * @param at the new instant, or {@code null} to clear the date
+     * @param at the new instant, or {@code null} to clear the date, which moves nothing
      * @return the row's value before and after, and how much access moved with it
      */
     @SqlQuery("""

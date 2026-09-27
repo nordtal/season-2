@@ -24,12 +24,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Looks up every user-visible string of season 2 by language and key, with English as fallback.
- *
- * Bundles are UTF-8 {@code .properties} files per language ({@code messages/access/en.properties}) with
- * dotted lowercase keys and named parameters in braces. Lookup falls back from the language to English to
- * the key itself, and never throws. An operator directory {@code plugins/<name>/messages/} is merged over
- * the packaged bundle key by key, so an override holds only the changed lines; keys no bundle declares are
- * reported by {@link #unknownOverrideKeys()}. {@link #reload()} replaces the map wholesale, in place.
+ * Lookup falls back to English, then to the key, and never throws. An override directory is merged over the bundle key
+ * by key.
  */
 public final class Messages {
 
@@ -39,13 +35,11 @@ public final class Messages {
     private final ClassLoader classLoader;
     private final List<Locale> locales;
 
-    /** The operator's override directory, or {@code null} when this bundle has none. */
     private final @Nullable Path overrides;
 
     /** Language tag to key to template; volatile because {@link #reload()} swaps it from any thread. */
     private volatile Map<String, Map<String, String>> byLanguage;
 
-    /** Override keys no bundle declares. Replaced with the map above. */
     private volatile Set<String> unknownOverrideKeys;
 
     /** Keys already reported missing, so a hot loop logs once and not per call. */
@@ -67,11 +61,8 @@ public final class Messages {
      * Loads a bundle from the classpath of this class's own class loader.
      *
      * @param root    the resource directory, e.g. {@code messages/access}
-     * @param locales the languages to load; English is loaded whether or not it is listed,
-     *                because it is the fallback
-     * @return the loaded bundle
-     * @throws IllegalStateException if the English file is missing - a bundle without its fallback
-     *                               is a packaging mistake and is worth failing at startup for
+     * @param locales the languages to load; English is always loaded
+     * @throws IllegalStateException if the English file is missing
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
     public static Messages load(final String root, final Locale... locales) {
@@ -79,12 +70,10 @@ public final class Messages {
     }
 
     /**
-     * Loads a bundle from a specific class loader - a Paper plugin's, for instance.
+     * Loads a bundle from a specific class loader, such as a Paper plugin's.
      *
-     * @param classLoader the loader to read the resources from
-     * @param root        the resource directory, e.g. {@code messages/access}
-     * @param locales     the languages to load; English is always loaded
-     * @return the loaded bundle
+     * @param root    the resource directory, e.g. {@code messages/access}
+     * @param locales the languages to load; English is always loaded
      * @throws IllegalStateException if the English file is missing
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
@@ -93,17 +82,10 @@ public final class Messages {
     }
 
     /**
-     * Loads a bundle from a class loader and merges an operator's override directory over it.
+     * Loads a bundle and merges an operator's override directory over it, creating it with a README if absent.
      *
-     * The directory is created if it is not there, together with a {@code README.txt} that says
-     * what belongs in it - an empty folder in a data directory teaches nobody anything, and this is
-     * the only place an operator would look for the mechanism.
-     *
-     * @param classLoader the loader to read the packaged bundle from
-     * @param root        the resource directory, e.g. {@code messages/smp}
-     * @param overrides   {@code plugins/<name>/messages}, or {@code null} for no override layer
-     * @param locales     the languages to load; English is always loaded
-     * @return the loaded bundle
+     * @param overrides {@code plugins/<name>/messages}, or {@code null} for no override layer
+     * @param locales   the languages to load; English is always loaded
      * @throws IllegalStateException if English is in neither layer
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
@@ -113,9 +95,7 @@ public final class Messages {
     }
 
     /**
-     * Loads several bundles as one, layered in the order given, with the override directory on top.
-     *
-     * Later roots win, so the shared {@code :commands} bundle goes first and a process can reword a line.
+     * Loads several bundles as one, later roots winning, with the override directory on top.
      *
      * @param roots     the resource directories, least specific first, at least one
      * @param overrides {@code plugins/<name>/messages}, or {@code null} for no override layer
@@ -145,11 +125,7 @@ public final class Messages {
     }
 
     /**
-     * Re-reads the packaged bundle and the override directory, and swaps the result in.
-     *
-     * Every holder of this object keeps working against the same reference, which is the point:
-     * a {@code Messages} is handed to listeners, HUD renderers and commands at startup, and a
-     * reload that produced a new instance would reach none of them.
+     * Re-reads the packaged bundle and the override directory and swaps the result into this instance.
      *
      * @throws IllegalStateException if English is in neither layer
      * @throws UncheckedIOException  if a file exists but cannot be read
@@ -185,7 +161,7 @@ public final class Messages {
             if (operator != null) {
                 operator.forEach((key, value) -> {
                     merged.put(key, value);
-                    // An override for a key no bundle declares is a silent typo; collected so the module can log it.
+                    // An override for a key no bundle declares is a silent typo, collected so the module can log it.
                     if (!declaredAnywhere.contains(key)) {
                         unknown.add(language + "/" + key);
                     }
@@ -196,11 +172,9 @@ public final class Messages {
 
         byLanguage = Map.copyOf(loaded);
         unknownOverrideKeys = Set.copyOf(unknown);
-        // A key that was missing before a reload may exist after one; keep reporting honest.
         reportedMissing.clear();
     }
 
-    /** Reads every packaged bundle per language, layering the roots least specific first. */
     private Map<String, Map<String, String>> readPackaged() {
         final Map<String, Map<String, String>> packagedByLanguage = new LinkedHashMap<>();
         for (final Locale locale : locales) {
@@ -225,17 +199,12 @@ public final class Messages {
         return packagedByLanguage;
     }
 
-    /**
-     * @return {@code <language>/<key>} for every override entry that overrode nothing - a typo or a
-     *         key that has since been retired. <b>Not</b> an override of a key only another
-     *         language's packaged bundle declares: that one works, so reporting it would send the
-     *         operator hunting for a spelling mistake in a line they can watch taking effect
-     */
+    /** Returns {@code <language>/<key>} for every override that overrode nothing, a typo or a retired key. */
     public Set<String> unknownOverrideKeys() {
         return unknownOverrideKeys;
     }
 
-    /** @return the override directory this bundle merges, if it has one */
+    /** Returns the override directory this bundle merges, if it has one. */
     public java.util.Optional<Path> overrideDirectory() {
         return java.util.Optional.ofNullable(overrides);
     }
@@ -324,14 +293,7 @@ public final class Messages {
         }
     }
 
-    /**
-     * Looks a key up, with no parameter substitution.
-     *
-     * @param locale the language wanted; {@code null} means English
-     * @param key    the message key
-     * @return the message in that language, in English if it is not translated, or the key itself
-     *         if no bundle has it
-     */
+    /** Looks a key up without substitution, falling back to English and then to the key itself. */
     public String get(final Locale locale, final String key) {
         Objects.requireNonNull(key, "key");
 
@@ -357,10 +319,7 @@ public final class Messages {
     /**
      * Looks a key up and substitutes named parameters written as <code>{name}</code>.
      *
-     * @param locale     the language wanted; {@code null} means English
-     * @param key        the message key
-     * @param parameters name/value pairs, e.g. {@code format(locale, "greeting", "name", player)}
-     * @return the formatted message
+     * @param parameters name and value pairs, e.g. {@code format(locale, "greeting", "name", player)}
      * @throws IllegalArgumentException if {@code parameters} does not have an even length
      */
     public String format(final Locale locale, final String key, final Object... parameters) {
@@ -382,15 +341,7 @@ public final class Messages {
     /**
      * Looks a key up and substitutes named parameters written as <code>{name}</code>.
      *
-     * Substitution is a single left-to-right pass over the template, so a value that itself
-     * contains braces is never re-scanned - a player name of <code>{name}</code> cannot expand
-     * into anything. A placeholder with no matching parameter is left in the text rather than
-     * blanked, so it is visible in a screenshot.
-     *
-     * @param locale     the language wanted; {@code null} means English
-     * @param key        the message key
-     * @param parameters the parameters by name
-     * @return the formatted message
+     * One left-to-right pass, so a value holding braces is never expanded; an unmatched placeholder stays visible.
      */
     public String format(final Locale locale, final String key, final Map<String, ?> parameters) {
         final String template = get(locale, key);
@@ -425,33 +376,24 @@ public final class Messages {
         return out.toString();
     }
 
-    /**
-     * Renders a message a spec chose as plain text, with context and global placeholders substituted.
-     *
-     * @param locale the language wanted; {@code null} means English
-     */
+    /** Renders a message a spec chose as plain text, with context and global placeholders substituted. */
     public String format(final Locale locale, final MessageRef message) {
         return format(locale, message.key(), Contexts.flatten(message.args()));
     }
 
-    /**
-     * @param locale the language
-     * @param key    the message key
-     * @return whether that language has its own translation for the key - a fallback to English
-     *         counts as {@code false}
-     */
+    /** Returns whether that language has its own translation for the key, not counting the English fallback. */
     public boolean hasTranslation(final Locale locale, final String key) {
         final Map<String, String> bundle = byLanguage.get(Locales.tag(locale));
         return bundle != null && bundle.containsKey(key);
     }
 
-    /** @return the languages this bundle actually loaded a file for; always contains {@code en} */
+    /** Returns the languages this bundle loaded a file for, always including {@code en}. */
     public Set<String> languages() {
         return byLanguage.keySet();
     }
 
     private void reportMissing(final String key) {
-        // Once per key, ever. A missing key on the login path would otherwise log per join.
+        // Once per key, so a missing key on the login path does not log per join.
         if (reportedMissing.add(key)) {
             LOGGER.warn("Missing message key '{}' in bundle(s) {} - falling back to the key itself", key, roots);
         }

@@ -10,13 +10,9 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * The pill background, walked with the pack's own advances.
+ * Walks the pill background with the pack's own advances.
  *
- * The old assertions restated the composition ("128 then 64 then 8 then the end cap"), which is
- * exactly the kind of test that stays green while the bar has a seam at every boundary. What is
- * worth asserting is the cursor: after {@code pill(inner)} it has to sit exactly
- * {@code CAP + inner + CAP} to the right, with every tile's left edge on the previous tile's right
- * edge. That is only checkable with the real advances, so this reads them from the pack.
+ * After {@code pill(inner)} the cursor must sit exactly {@code CAP + inner + CAP} to the right.
  */
 class BossBarWidthTest {
 

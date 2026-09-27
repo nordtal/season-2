@@ -24,15 +24,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * Exercises {@link PluginDirectory} against a real PostgreSQL running the real migrations.
  *
- * Nothing here has an in-memory stand-in, for the reason {@code UpdateDirectoryIntegrationTest}
- * gives: the two behaviours worth holding are the composite primary key and the
- * {@code ON CONFLICT DO UPDATE} on top of it, and both are PostgreSQL's and not Java's. The one
- * that matters most is that a second press of Install <b>refreshes</b> the row instead of failing -
- * because the field it refreshes, {@code file_prefix}, is what makes the removal able to find the
- * jar.
- *
- * Testcontainers is driven by hand from {@link BeforeAll}, like every other integration test in
- * this module, and these tests <b>skip themselves</b> when no Docker daemon is reachable.
+ * A second Install must refresh {@code file_prefix} rather than fail; tests skip without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PluginDirectoryIntegrationTest {

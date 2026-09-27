@@ -21,36 +21,15 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds {@link MenuFont}'s advance table against the six row fonts it was exported from.
+ * Holds {@link MenuFont}'s advance table and the row fonts' ascents against the pack.
  *
- * <b>Why this is the check that matters</b>
- *
- * The server composes a menu row: it decides where a pill starts, where its label starts, and where
- * a right-aligned distance ends. Every one of those is arithmetic on the width of the glyphs the
- * <em>client</em> will draw, so a table one pixel out is a row one pixel out - and one pixel out is
- * not a failure anywhere. Nothing throws, nothing logs, the menu opens, and the number at the right
- * edge sits a hair inside or outside its pill for the rest of the season.
- *
- * The way that happens is somebody redrawing a glyph and not re-running
- * {@code resource-pack/tools/generate_gui_rows.py}. So this derives the whole table from the pack
- * again, by the client's own rule - a {@code space} provider's number, or the rightmost column of
- * the glyph's cell that carries any alpha, plus one for that column and one the client adds after
- * every glyph - and fails if the shipped resource disagrees. It is the same arrangement, and the
- * same reason, as {@code BossBarAdvancesTest}.
- *
- * <b>And the ascents, which nothing else can see</b>
- *
- * A row font's whole purpose is its three ascents. Getting one wrong draws the right picture on the
- * wrong row, or half a row off, which reads as a layout bug rather than as a font mistake - and no
- * test that only looks at widths would notice. So the second half of this class asserts each of the
- * eighteen ascents puts its glyph's top exactly where {@link SlotGeometry} says that row's slot
- * cell is, plus the inset the furniture is drawn at.
+ * A table one pixel out fails nowhere, so this derives the advances from the PNGs by the client's own rule.
  */
 class MenuFontTest {
 
     private static final String ASSETS = "resource-pack/src/assets";
 
-    /** The pill's inset inside its slot cell - the same two pixels a balloon card is inset by. */
+    /** The pill's inset inside its slot cell, the same two pixels a balloon card is inset by. */
     private static final int INSET = 2;
 
     private static final int FURNITURE_HEIGHT = SlotGeometry.PITCH - 2 * INSET;

@@ -27,8 +27,6 @@ public final class FontFile {
     /**
      * Resolves {@code namespace:path/to.png} to its file in the unpacked pack, as the client does.
      *
-     * An id without a colon is in the {@code minecraft} namespace.
-     *
      * @param textureId e.g. {@code nordtal:system/join.png}, or {@code font/ascii.png} for vanilla
      */
     public static Path texturePath(final String textureId) {
@@ -52,6 +50,8 @@ public final class FontFile {
     }
 
     /**
+     * Loads a font file.
+     *
      * @param id       the namespaced font id, e.g. {@code nordtal:bossbar}
      * @param relative the font file's path from the repository root
      */
@@ -90,7 +90,7 @@ public final class FontFile {
         return List.copyOf(bitmaps);
     }
 
-    /** @return true when this font draws or advances {@code codePoint} */
+    /** Returns whether this font draws or advances {@code codePoint}. */
     boolean covers(final int codePoint) {
         return spaced.contains(codePoint)
                 || bitmaps.stream().anyMatch(bitmap -> bitmap.cellOf(codePoint).isPresent());
@@ -103,7 +103,7 @@ public final class FontFile {
         return all;
     }
 
-    /** Every code point this font draws pixels for - the space providers are not in it. */
+    /** Every code point this font draws pixels for, without the space providers. */
     Set<Integer> drawn() {
         final Set<Integer> all = new LinkedHashSet<>();
         bitmaps.forEach(bitmap -> all.addAll(bitmap.characters()));
@@ -132,7 +132,7 @@ public final class FontFile {
             return new Bitmap(textureId, texturePath(textureId), List.copyOf(grid), grid.size(), columns);
         }
 
-        /** @return {@code {row, column}} of {@code codePoint} in this provider's grid */
+        /** Returns the {@code {row, column}} of {@code codePoint} in this provider's grid. */
         Optional<int[]> cellOf(final int codePoint) {
             for (int row = 0; row < grid.size(); row++) {
                 for (int column = 0; column < grid.get(row).length; column++) {
@@ -144,7 +144,7 @@ public final class FontFile {
             return Optional.empty();
         }
 
-        /** Every code point this provider declares - {@code U+0000} placeholders excluded. */
+        /** Every code point this provider declares, without {@code U+0000} placeholders. */
         Set<Integer> characters() {
             final Set<Integer> all = new LinkedHashSet<>();
             for (final int[] row : grid) {

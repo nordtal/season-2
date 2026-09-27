@@ -7,56 +7,39 @@ import javax.sql.DataSource;
 
 /**
  * Who is an admin, as a tree of grants decided in Steward.
- *
- * <b>The database is the source and the Discord admin role is its mirror.</b> Every admin but
- * one was granted by another admin; the one without a granter is the root, whoever completed
- * Steward's sign-in first while nobody was an admin. An admin revokes only somebody strictly below
- * them, and a revocation takes the revoked admin's whole branch with it. Nobody revokes themselves,
- * the root included.
- *
- * <b>Grants are limited, revocations are not.</b> {@value #GRANTS_PER_HOUR} grants an hour
- * across all admins together; the next one is refused at once rather than queued. A revocation is
- * the answer to a grant that should not have happened, and limiting it would protect the mistake.
- *
- * Every change notifies {@code nordtal_admin} inside the statement that makes it, so it reaches
- * connected sessions only once it committed. {@code discord_user.admin} stays the flag every other
- * reader uses; this interface is the only thing that writes it.
+ * An admin revokes only somebody strictly below them, with their whole branch; grants are rate limited, revocations are
+ * not.
  */
 public interface AdminTree {
 
     /** How many grants all admins together may make in one hour. */
     int GRANTS_PER_HOUR = 3;
 
-    /**
-     * @param dataSource a pool the caller owns
-     * @return a tree over that pool
-     */
+    /** Returns a tree over a pool the caller owns. */
     static AdminTree using(final DataSource dataSource) {
         return new JdbiAdminTree(dataSource);
     }
 
-    /** @return whether this account is an admin right now */
+    /** Returns whether this account is an admin right now. */
     boolean isAdmin(String discordId);
 
     /**
      * Makes this account the root, but only while nobody at all is an admin.
-     *
-     * This is the bootstrap and there is no other: the first sign-in into an empty tree wins,
-     * deliberately a race. Creates the {@code discord_user} row if the bot has not written it yet.
+     * The first sign-in into an empty tree wins, deliberately a race.
      *
      * @return whether this account is now the root; false when anybody already was an admin
      */
     boolean claimRootIfNobody(String discordId);
 
     /**
-     * {@code actor} makes {@code target} an admin below themselves.
+     * Makes {@code target} an admin below {@code actor}.
      *
      * @return what happened; nothing is written unless it is {@link Grant#GRANTED}
      */
     Grant grant(String actor, String target);
 
     /**
-     * {@code actor} takes admin from {@code target} and from everybody below {@code target}.
+     * Takes admin from {@code target} and from everybody below it, on behalf of {@code actor}.
      *
      * @return what happened; nothing is written unless it is {@link Revocation.Outcome#REVOKED}
      */
@@ -69,7 +52,7 @@ public interface AdminTree {
      */
     Set<String> dropWithBranch(String discordId);
 
-    /** @return every admin with their granter, root first, then in the order they were granted */
+    /** Returns every admin with their granter, root first, then in the order they were granted. */
     List<Admin> admins();
 
     /**
@@ -103,7 +86,7 @@ public interface AdminTree {
             ACTOR_NOT_ADMIN,
             /** Nobody revokes themselves, not even the root. */
             SELF,
-            /** The target is not strictly below the one revoking - or not an admin at all. */
+            /** The target is not strictly below the one revoking, or not an admin at all. */
             NOT_BELOW
         }
 

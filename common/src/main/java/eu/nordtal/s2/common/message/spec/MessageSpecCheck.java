@@ -13,12 +13,7 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Holds a {@link MessageSpec} and its bundle to each other, key by key and placeholder by placeholder.
- *
- * Every key has a method and a {@link Name}, and each text's placeholders match the method's arguments.
- * Each module runs it from a test, and the schema build refuses a spec that fails it.
- */
+/** Holds a {@link MessageSpec} and its bundle to each other, key by key and placeholder by placeholder. */
 public final class MessageSpecCheck {
 
     /** The same shape {@code Messages#format} substitutes. */
@@ -26,7 +21,7 @@ public final class MessageSpecCheck {
 
     private MessageSpecCheck() {}
 
-    /** @return one line per problem; empty when spec and bundle agree */
+    /** Returns one line per problem, empty when spec and bundle agree. */
     public static List<String> problems(final Class<?> spec) {
         final List<String> problems = new ArrayList<>();
         final List<MessageSchema.Entry> entries = MessageSchema.entries(spec);

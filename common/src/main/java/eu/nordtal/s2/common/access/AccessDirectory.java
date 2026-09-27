@@ -11,18 +11,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The season 2 access system, as seen by everything that is not the bot's Discord code.
  *
- * The database is the source of truth for access, donor status and language; Discord roles are a
- * projection of it. The proxy, the plugins and the bot all read it through here rather than each
- * writing their own SQL, so that the append rule
- * ({@link #grantAccess(String, int, AccessSource, UUID)}) and the login decision
- * ({@link #accessState(UUID)}, one round trip including the season phase) exist once.
- *
- * Nothing on this API refers to Paper, Velocity, Adventure, JDBI or HikariCP - the factories
- * take a {@link DataSource} or a JDBC URL, both JDK types.
- *
- * One instance per process. {@link #using(DataSource)} borrows a pool somebody else owns;
- * {@link #open(String, String, String)} creates and owns one, which {@link #close()} shuts down.
- * Closing a borrowed one does nothing.
+ * One instance per process; closing it shuts down a pool it opened and leaves a borrowed one alone.
  */
 public interface AccessDirectory extends AutoCloseable {
 
@@ -37,7 +26,7 @@ public interface AccessDirectory extends AutoCloseable {
     }
 
     /**
-     * Opens a connection pool of its own - what the proxy and the plugins use.
+     * Opens a connection pool of its own, as the proxy and the plugins do.
      *
      * @param jdbcUrl  a {@code jdbc:postgresql://...} URL
      * @param username the database user
@@ -48,16 +37,10 @@ public interface AccessDirectory extends AutoCloseable {
         return JdbiAccessDirectory.owning(jdbcUrl, username, password);
     }
 
-    /**
-     * @param discordId the Discord snowflake
-     * @return the Minecraft account linked to it, if any
-     */
+    /** Returns the Minecraft account linked to this Discord id, if any. */
     Optional<UUID> linkedMinecraftAccount(String discordId);
 
-    /**
-     * @param mcUuid the Minecraft account
-     * @return the Discord account linked to it, if any
-     */
+    /** Returns the Discord account linked to this Minecraft account, if any. */
     Optional<String> linkedDiscordAccount(UUID mcUuid);
 
     /**
@@ -75,10 +58,7 @@ public interface AccessDirectory extends AutoCloseable {
      */
     Locale locale(UUID mcUuid);
 
-    /**
-     * @param discordId the Discord snowflake
-     * @return whether the permanent donor flag is set; {@code false} for an unknown user
-     */
+    /** Returns whether the permanent donor flag is set, {@code false} for an unknown user. */
     boolean isDonor(String discordId);
 
     /**
@@ -91,45 +71,29 @@ public interface AccessDirectory extends AutoCloseable {
     /** Returns the Minecraft name last seen at login for this Discord id, or {@link MinecraftProfile#EMPTY}. */
     MinecraftProfile minecraftProfile(String discordId);
 
-    /**
-     * Every grant of one user, oldest window first. This is what {@code /access-status} prints.
-     *
-     * @param discordId the Discord snowflake
-     * @return the grants, including expired and revoked ones
-     */
+    /** Returns every grant of one user, oldest window first, expired and revoked ones included. */
     List<AccessGrant> grantsOf(String discordId);
 
     /** Ensures {@code discord_user} has a row for this account; every other write has a foreign key onto it. */
     void ensureUser(String discordId);
 
-    /**
-     * @param discordId   the Discord snowflake
-     * @param memberState guild membership as the bot just observed it
-     */
+    /** Records guild membership as the bot just observed it. */
     void setMemberState(String discordId, MemberState memberState);
 
     /**
-     * @param discordId the Discord snowflake
-     * @param locale    the language, mirrored from the Discord onboarding role; only the language
-     *                  is stored, so {@code de-AT} and {@code de-DE} are one value
+     * Stores the language mirrored from the Discord onboarding role.
+     * Only the language is kept, so {@code de-AT} and {@code de-DE} are one value.
      */
     void setLocale(String discordId, Locale locale);
 
-    /**
-     * @param discordId the Discord snowflake
-     * @param donor     the permanent donor flag; the bot only ever sets it to {@code true}
-     */
+    /** Sets the permanent donor flag; the bot only ever sets it to {@code true}. */
     void setDonor(String discordId, boolean donor);
 
     /**
-     * Sets this account's total play time, in seconds, to exactly {@code seconds}.
+     * Sets this account's total play time to exactly {@code seconds}, creating the row if it is missing.
+     * This is the one lever that moves the prestige tier.
      *
-     * The prestige tier is derived from play time on every render and stored nowhere, so this is
-     * the one lever that moves it. The write is absolute and the row is made if it is missing; see
-     * {@code AccessDao#setPlaytimeSeconds} for how it sits beside the proxy's own additions.
-     *
-     * @param seconds never negative - the column's own CHECK refuses it, and a caller taking a
-     *                number from a person should say so before the database does
+     * @param seconds never negative; the column's CHECK refuses it
      */
     void setPlaytimeSeconds(String discordId, long seconds);
 
@@ -155,9 +119,8 @@ public interface AccessDirectory extends AutoCloseable {
     java.util.Set<UUID> adminMinecraftAccounts();
 
     /**
-     * The purchase this Discord account has started and not finished, if any. Read-only.
-     *
-     * <b>Blocking.</b> Never call it on a main thread or on the login path.
+     * Returns the purchase this Discord account has started and not finished, if any.
+     * Blocking: never call it on a main thread or on the login path.
      *
      * @param discordId the Discord snowflake
      * @return the newest {@code OPEN} request, or empty
@@ -171,10 +134,7 @@ public interface AccessDirectory extends AutoCloseable {
      */
     boolean link(String discordId, UUID mcUuid);
 
-    /**
-     * @param discordId the Discord snowflake
-     * @return {@code true} when a link was removed
-     */
+    /** Removes the link of this Discord account and returns whether one existed. */
     boolean unlink(String discordId);
 
     /**
@@ -186,8 +146,6 @@ public interface AccessDirectory extends AutoCloseable {
 
     /**
      * Appends a period of access starting at {@code max(now, current valid_until)}.
-     *
-     * Renewing early never loses paid time; the rule is one SQL statement on PostgreSQL's clock.
      *
      * @param days             how many days were bought, must be positive
      * @param paymentRequestId the request that paid for it, {@code null} for an admin grant
@@ -209,8 +167,6 @@ public interface AccessDirectory extends AutoCloseable {
 
     /**
      * Issues a link code for a Minecraft account, or returns the one already live.
-     *
-     * A code for a linked account is never redeemable, because redemption enforces the 1:1.
      *
      * @param ttl how long a new code stays valid; ignored when a live code exists
      * @throws IllegalArgumentException if {@code ttl} is not positive

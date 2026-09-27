@@ -13,22 +13,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The one service allowed to create containers.
+ * The one service allowed to create containers, from the {@code compose.yml} baked into its image.
  *
- * It carries {@code compose.yml} inside its own image, so a change to the deployment is a new
- * image of this service rather than a file edited on the host.
- *
- * Two ways in, for two callers who are not alike: {@code deployer up} is the setup script on
- * the host, which runs before anything else exists and has no interface to click in, and waits for
- * the deployment and exits with its code. {@code deployer serve} is the small HTTP API steward-ui
- * calls; it never waits, because a deployment is a job and the caller reads its output as it
- * appears.
- *
- * <b>The serving process never recreates itself.</b> {@link Compose#SELF} is refused wherever
- * the API accepts a service name, and the whole-stack deployment names every service one by one so
- * that it can be left out - an empty list would mean "all of them" to compose and put it back.
- * Renewing this container is the setup script's job, which is why {@code deployer up} - and only
- * it, running as a throwaway container beside the stack - goes through {@link Compose#bootstrap}.
+ * {@code deployer up} is the setup script's blocking run; {@code deployer serve} is steward-ui's API.
  */
 public final class StewardDeployer {
 
@@ -56,14 +43,7 @@ public final class StewardDeployer {
         }
     }
 
-    /**
-     * Pull, then up.
-     *
-     * The order is the whole point of doing it here rather than leaving it to {@code up}: a pull
-     * that fails has to stop the deployment <b>before</b> anything is taken down, not halfway
-     * through with the servers already stopped. The one tolerated exception is documented on
-     * {@link Compose#pull}.
-     */
+    /** Pulls, then brings the services up, so a failed pull stops the deployment before anything is taken down. */
     static int deploy(
             final Compose compose, final List<String> requested, final java.util.function.Consumer<String> output)
             throws Exception {
@@ -71,9 +51,9 @@ public final class StewardDeployer {
     }
 
     /**
-     * @param bootstrap {@code true} only for {@code deployer up}: the throwaway container the setup
-     *                  script runs, which is allowed to create steward-deployer because it is not
-     *                  the compose-managed one. Every other caller is, and must not.
+     * Deploys, optionally allowing steward-deployer itself.
+     *
+     * @param bootstrap {@code true} only for {@code deployer up}, the throwaway container the setup script runs
      */
     static int deploy(
             final Compose compose,
@@ -94,14 +74,7 @@ public final class StewardDeployer {
         return bootstrap ? compose.bootstrap(services, output) : compose.up(services, output);
     }
 
-    /**
-     * Recreate one container from the image that is already here.
-     *
-     * <b>No pull.</b> A recreate must not be able to roll a deployment back without saying so by
-     * silently replacing a locally built image with a published one. Deploy fetches; recreate uses
-     * what is here. The cost is that a service with no local image cannot be recreated, which is why
-     * the refusal below names deploy rather than leaving compose to fail in its own words.
-     */
+    /** Recreates one container from the image already here, never pulling. */
     static int recreate(final Compose compose, final String service, final java.util.function.Consumer<String> output)
             throws Exception {
         if (!compose.hasLocalImage(service)) {
@@ -114,18 +87,9 @@ public final class StewardDeployer {
     }
 
     /**
-     * Which services one deployment touches, named one by one.
+     * Names each service one deployment touches, never an empty list.
      *
-     * <b>Never an empty list, and that is the point.</b> An empty list of service names means
-     * <i>every</i> service to {@code docker compose up}, which would put steward-deployer back into
-     * a whole-stack deployment right after it was taken out - the one service that must never
-     * recreate itself, on the most ordinary deployment there is.
-     *
-     * <b>A named request is refused rather than filtered.</b> Silently dropping
-     * {@code steward-deployer} from a named request would walk past {@link Compose#up}'s own
-     * refusal, because by the time it looks the name is no longer there. Asking for something this
-     * program will not do is an error with a sentence, not a request silently turned into a
-     * different one.
+     * An empty list would redeploy steward-deployer, and a named request for it is refused rather than filtered.
      */
     static List<String> servicesToDeploy(
             final java.util.Collection<String> all, final List<String> requested, final boolean bootstrap) {
@@ -143,7 +107,7 @@ public final class StewardDeployer {
 
     private static void serve(final Compose compose) throws java.io.IOException {
         final String token = requireToken();
-        // A container that starts with a stale env file says so in its own boot log, not on the first deploy.
+        // A stale env file shows in the boot log, not on the first deploy.
         compose.assertEnvFileFresh();
         final Jobs jobs = new Jobs();
 
@@ -155,7 +119,7 @@ public final class StewardDeployer {
     private static String requireToken() {
         final String token = System.getenv("NORDTAL_STEWARD_DEPLOYER_TOKEN");
         if (token == null || token.isBlank()) {
-            // An unauthenticated process that can recreate every container is a remote root shell with extra steps.
+            // An unauthenticated process that can recreate every container is a remote root shell.
             throw new IllegalStateException(
                     "NORDTAL_STEWARD_DEPLOYER_TOKEN is not set. steward-deployer creates containers "
                             + "and will not serve without a shared secret; the setup script writes one.");
@@ -179,7 +143,7 @@ public final class StewardDeployer {
 
         config.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
 
-        // The deployer's own answer to "did my deployment arrive", not steward-ui's worker-drawn service list.
+        // The deployer's own answer to "did my deployment arrive".
         config.routes.get(
                 "/api/state", ctx -> ctx.contentType("application/json").result(compose.state()));
 
@@ -192,7 +156,7 @@ public final class StewardDeployer {
                 ctx -> ctx.json(jobs.all().stream().map(Jobs.Job::summary).toList()));
         config.routes.get("/api/jobs/{id}", ctx -> jobRoute(ctx, jobs));
 
-        // SSE rather than a websocket: one direction, and it passes through a reverse proxy without a special rule.
+        // SSE: one direction, and no special reverse proxy rule.
         config.routes.sse("/api/jobs/{id}/stream", client -> streamRoute(client, jobs));
     }
 

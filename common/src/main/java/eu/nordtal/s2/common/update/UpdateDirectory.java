@@ -230,6 +230,21 @@ public interface UpdateDirectory {
     boolean progress(long id, String result);
 
     /**
+     * Puts a running request back into the inbox with its report, for the next worker to finish.
+     *
+     * <b>Only steward-worker calls this</b>, on its way out: a run that installs a newer steward-worker hands the rest
+     * of itself to that version rather than migrating and installing with code older than the release. The row goes
+     * back to {@code PENDING} with {@code started} cleared and {@code not_before} left in the past, so the worker that
+     * comes up claims it at once, no surface counts anybody down to it, and nothing else can be submitted meanwhile.
+     *
+     * @param result the report so far, as JSON - the next worker reads the handover from it
+     * @return whether a running row was handed over; {@code false} when it had been settled by then
+     */
+    default boolean handOver(final long id, final String result) {
+        throw new UnsupportedOperationException("this directory cannot hand a run over: " + id);
+    }
+
+    /**
      * Starts the countdown on a request this process has claimed. <b>Only the worker calls this.</b>
      *
      * The worker and not the submitter, because only the worker knows whether the plan has work

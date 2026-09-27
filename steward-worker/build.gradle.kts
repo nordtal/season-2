@@ -4,6 +4,14 @@ plugins {
 
 application.mainClass.set("eu.nordtal.s2.steward.worker.StewardWorker")
 
+// Handover reads it: an update is handed to the worker it installs, and only a version in the manifest lets the
+// worker that comes up check that it is the one the run was handed to.
+tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+    manifest {
+        attributes["Implementation-Version"] = project.version.toString()
+    }
+}
+
 // TopologyTest reads the real compose.yml; without declaring it, editing that file alone would
 // leave :steward-worker:test UP-TO-DATE.
 repositoryRootTestInputs {

@@ -84,7 +84,8 @@ final class FakeDirectory implements UpdateDirectory {
                             row.notBefore(),
                             now,
                             null,
-                            null);
+                            // Kept, as the real claim keeps it: a handed-over run is recognised by its report.
+                            row.result());
                     rows.put(row.id(), claimed);
                     return claimed;
                 });
@@ -110,6 +111,28 @@ final class FakeDirectory implements UpdateDirectory {
         rows.put(id, done);
         finished.add(done);
         return Optional.of(done);
+    }
+
+    @Override
+    public boolean handOver(final long id, final String result) {
+        final UpdateRequest row = rows.get(id);
+        if (row == null || row.status() != UpdateStatus.RUNNING) {
+            return false;
+        }
+        rows.put(
+                id,
+                new UpdateRequest(
+                        row.id(),
+                        row.kind(),
+                        UpdateStatus.PENDING,
+                        row.source(),
+                        row.requestedBy(),
+                        row.requested(),
+                        row.notBefore(),
+                        null,
+                        null,
+                        result));
+        return true;
     }
 
     @Override

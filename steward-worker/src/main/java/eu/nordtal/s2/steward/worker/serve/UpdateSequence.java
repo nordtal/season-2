@@ -55,6 +55,35 @@ final class UpdateSequence {
         return new Preparation(holds, plan, planned, foreign);
     }
 
+    /**
+     * Places the newer steward-worker, if it is not in the volume yet, and hands the run to it - see {@link Handover}.
+     *
+     * Nothing is stopped and nobody is warned: the worker's own jar is the one artefact no server runs, and the run
+     * that counts down and stops the servers is the one the newer worker makes of the same request.
+     */
+    static Outcome handOver(
+            final Runner runner,
+            final Preparation prep,
+            final Handover.HandOver handOver,
+            final Consumer<UpdateReport> progress) {
+        UpdateReport report = prep.planned();
+        if (handOver.install()) {
+            final ApplyResult result =
+                    Runs.apply(runner.config, prep.plan().onlyServices(List.of(Topology.STEWARD_WORKER)));
+            if (result.hasFailures()) {
+                return Outcome.failed(UpdateReports.toJson(report.withStage(UpdateReport.Stage.FAILED)
+                        .withNote(Report.render(result))
+                        .withNote("NOTHING WAS STOPPED. The newer steward-worker could not be placed, and this"
+                                + " run is not carried out by an older worker than the release it installs.")));
+            }
+            report = report.with(report.line(Topology.STEWARD_WORKER).at(UpdateReport.State.INSTALLED));
+        }
+        report = report.withStage(UpdateReport.Stage.RESOLVING).withNote(Handover.note(handOver.version()));
+        progress.accept(report);
+        log.info("Handing the run to steward-worker {}", handOver.version());
+        return Outcome.handedOver(UpdateReports.toJson(report));
+    }
+
     /** A RUN WITH NO SERVER IN IT: nobody is stopped, so nobody needs a countdown either. */
     static Outcome updateWithNoServer(
             final Runner runner, final UpdateRun run, final Preparation prep, final Consumer<UpdateReport> progress) {

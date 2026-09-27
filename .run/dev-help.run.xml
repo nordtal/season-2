@@ -1,8 +1,7 @@
 <!--
   dev help
 
-  The command list, printed by the program itself - so it cannot go stale the way a copy of it
-  here would.
+  Prints the command list.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev help" type="Application" factoryName="Application" folderName="dev: stack">

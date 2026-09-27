@@ -22,13 +22,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-/**
- * Exercises {@link OnlineDirectory} against a real PostgreSQL running the real migration.
- *
- * Testcontainers driven by hand from {@link BeforeAll}, like every other integration test in this
- * module - the {@code junit-jupiter} extension is built against JUnit 5 and this repo is on the
- * JUnit 6 BOM - and this class skips itself when no Docker daemon is reachable.
- */
+/** Exercises {@link OnlineDirectory} against a real PostgreSQL, skipping itself without Docker. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OnlineDirectoryIntegrationTest {
 

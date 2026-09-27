@@ -12,13 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * {@link ConfigFiles#writeRaw} - the raw editor's own save.
- *
- * Everything here is asserted on the bytes of the file, the same discipline {@code ConfigFilesWriteTest} and
- * {@code ConfigFilesRevisionTest} hold the parsed path to: a raw save that reformatted, re-encoded or otherwise
- * touched a byte it was not asked to touch would defeat the one thing this path exists for.
- */
+/** {@link ConfigFiles#writeRaw}, the raw editor's save, asserted on the bytes of the file. */
 class ConfigFilesRawWriteTest {
 
     @TempDir
@@ -55,7 +49,7 @@ class ConfigFilesRawWriteTest {
     @Test
     void theReturnedRevisionMatchesWhatAFreshReadNowSays() throws IOException {
         final String written = ConfigFiles.writeRaw(fixture, "one=uno\n", null);
-        // A .properties file has no ConfigFiles.read() of its own kind - revisionOf is format agnostic, asked directly.
+        // A .properties file has no ConfigFiles.read(); revisionOf is format agnostic, so it is asked directly.
         final String rereadRevision = ConfigFiles.revisionOf(Files.readString(fixture, StandardCharsets.UTF_8));
         assertEquals(rereadRevision, written);
     }
@@ -67,7 +61,7 @@ class ConfigFilesRawWriteTest {
         assertNotEquals(before, after);
     }
 
-    // The stale check - exactly the parsed path's own guarantee
+    // The stale check, the parsed path's own guarantee
 
     @Test
     void aSaveAgainstTheRevisionTheFileStillHasSucceeds() throws IOException {
@@ -86,7 +80,7 @@ class ConfigFilesRawWriteTest {
                 StaleConfigException.class, () -> ConfigFiles.writeRaw(fixture, "one=this-should-not-land\n", stale));
         assertEquals(stale, thrown.expected());
 
-        // Nothing this call asked for reached the file - the other admin's write is still there.
+        // Nothing this call asked for reached the file; the other admin's write is still there.
         assertEquals("one=somebody-else\ntwo=2\n", Files.readString(fixture, StandardCharsets.UTF_8));
     }
 

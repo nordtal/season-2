@@ -28,10 +28,7 @@ final class LogFollow {
     private static final Logger log = LoggerFactory.getLogger(LogFollow.class);
 
     /**
-     * How often an open log follow says something into the browser's connection.
-     *
-     * A disconnected browser is otherwise discovered only by a failing write, and the comment also
-     * keeps a reverse proxy from dropping an idle stream.
+     * How often an open follow sends a comment, which finds a gone browser and keeps a reverse proxy from idling out.
      */
     private static final Duration HEARTBEAT = Duration.ofSeconds(10);
 
@@ -60,7 +57,7 @@ final class LogFollow {
         this.heartbeats = heartbeats;
     }
 
-    /** The log follow, proxied line by line rather than redirected, so the browser never sees the worker. */
+    /** The log follow, proxied line by line so the browser never sees the worker. */
     void serve(final SseClient client) {
         if (accounts.apply(client.ctx()).isEmpty()) {
             client.close();
@@ -89,11 +86,11 @@ final class LogFollow {
             String event = "line";
             long checked = System.nanoTime() - SESSION_RECHECK_NANOS;
             while ((line = reader.readLine()) != null) {
-                // Javalin does not throw on a terminated client, so this end has to notice on its own.
+                // Javalin does not throw on a terminated client.
                 if (client.terminated()) {
                     return;
                 }
-                // Re-checked at most once a second, since a follow outlives the sign-in check at open.
+                // At most once a second, since a follow outlives the sign-in check at open.
                 final long now = System.nanoTime();
                 if (now - checked >= SESSION_RECHECK_NANOS) {
                     if (!stillSignedIn(client)) {
@@ -102,7 +99,7 @@ final class LogFollow {
                     }
                     checked = now;
                 }
-                // Re-emits the worker's own SSE events; only names this end knows are passed on.
+                // Only event names this end knows are passed on.
                 if (line.startsWith("event:")) {
                     final String named = line.substring(6).strip();
                     event = FORWARDED_EVENTS.contains(named) ? named : "line";
@@ -122,12 +119,7 @@ final class LogFollow {
         }
     }
 
-    /**
-     * Whoever is watching, still allowed to.
-     *
-     * Reads the row rather than a parked session, since a follow outlives the parking; a database
-     * failure answers no rather than throwing.
-     */
+    /** Whether whoever is watching is still signed in; a database failure answers no. */
     private boolean stillSignedIn(final SseClient client) {
         if (sessions == null) {
             return false;
@@ -140,11 +132,7 @@ final class LogFollow {
         }
     }
 
-    /**
-     * The worker's end of one log follow, held so whoever notices the browser has gone can close it.
-     *
-     * The two halves open on different threads, and either can finish first.
-     */
+    /** The worker's end of one follow, closed by whichever of the two threads notices the browser has gone first. */
     private static final class Upstream {
 
         private @Nullable InputStream stream;
@@ -173,7 +161,7 @@ final class LogFollow {
             try {
                 open.close();
             } catch (IOException ignored) {
-                // Closing to cancel a read; the read is what reports anything worth reporting.
+                // The read reports anything worth reporting.
             }
         }
     }

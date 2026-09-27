@@ -17,11 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * What {@code /aura} and {@code /smp status} say, without a server.
- *
- * The decisions that moved here from {@code :commands} when the two became native Brigadier.
- */
+/** What {@code /aura} and {@code /smp status} say, without a server. */
 class PlayerCommandsTest {
 
     private static final UUID SELF = UUID.fromString("11111111-2222-3333-4444-555555555555");

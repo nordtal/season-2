@@ -11,11 +11,9 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * {@link AlertLevelSource} over the wire: {@code GET /api/alert-level} on steward-worker.
+ * {@link AlertLevelSource} over {@code GET /api/alert-level} on steward-worker.
  *
- * Parsed by hand rather than into a shared DTO: the shape belongs to {@code AlertLevel} in
- * {@code :steward-worker}. An absent number stays absent - the three measurements arrive here as
- * null rather than as zero, since a disk nobody could read must not become a disk that is empty.
+ * An absent number stays null, since a disk nobody could read must not read as empty.
  */
 final class WorkerAlertLevelSource implements AlertLevelSource {
 

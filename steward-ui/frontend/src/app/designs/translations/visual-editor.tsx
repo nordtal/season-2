@@ -30,17 +30,6 @@ import {
 import { Glyph, MINECRAFT_FONT } from "@/app/designs/translations/preview"
 import type { Fill } from "@/app/designs/translations/preview"
 
-/**
- * A: the text as it looks, typed into directly. Colours, decorations and glyphs are drawn the way
- * the game or Discord draws them; placeholders are pills that move as one character. Selecting
- * text brings up the style row; the placeholder, glyph and line break buttons insert at the caret.
- *
- * The runs are the state, never the DOM: every edit the browser announces through `beforeinput`
- * is cancelled and applied to the runs instead, and the caret is put back from the model. The one
- * edit that cannot be cancelled - an input method composing a word, which is how a phone keyboard
- * types - is read back out of the DOM when it ends.
- */
-
 export type VisualEditorProps = {
   runs: Run[]
   onChange: (runs: Run[]) => void
@@ -56,6 +45,11 @@ export type VisualEditorProps = {
 
 type Range = { from: number; to: number }
 
+/**
+ * The text as it looks, typed into directly, with placeholders as pills that move as one character.
+ *
+ * The runs are the state: each `beforeinput` edit is applied to them instead; only a composition is read back.
+ */
 export function VisualEditor({
   runs,
   onChange,
@@ -485,7 +479,7 @@ function gradientSpan(runs: Run[], index: number): { start: number; total: numbe
   return { start, total }
 }
 
-/** E14: a hover's text is edited with this same editor, in a popover, without hover or click. */
+/** A hover's text, edited with this same editor in a popover, without hover or click. */
 function HoverMenu({
   hover,
   onChange,
@@ -565,7 +559,7 @@ function HoverMenu({
   )
 }
 
-// --- the DOM and the model
+// The DOM and the model
 
 function textRuns(text: string, breaks: boolean): Run[] {
   const lines = text.replace(/\r\n?/g, "\n").split("\n")

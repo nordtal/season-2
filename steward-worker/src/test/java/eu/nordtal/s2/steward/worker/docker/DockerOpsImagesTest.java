@@ -24,17 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Image drift against a hand-written daemon.
  *
- * This covers the one case a real daemon on this host cannot be asked to hold still for: a locally built image
- * that never went near a registry.
- *
- * Why this needs a fake daemon and not {@code DockerIntegrationTest}: the bug this file is red against is not "what
- * does dockerd send back" - {@code DockerIntegrationTest} already covers that ground and does it against the real
- * socket. It is "what does {@code DockerOps} do with a shape dockerd sends back on THIS host that the check never
- * expected": Docker Engine's containerd-backed image store ({@code driver-type: io.containerd.snapshotter.v1}) puts
- * a {@code RepoDigests} entry on a locally built, never-pushed image too - one equal to the image's own content id,
- * never confirmed by any registry round trip. {@code steward-ui} and {@code steward-worker} rebuilt that way come
- * back {@code OUTDATED}, the opposite of the truth: they are ahead of the registry, not behind it. A real daemon on
- * this host cannot be asked to hold that shape still across a build; a hand-written one can.
+ * A never-pushed local build still carries a {@code RepoDigests} entry under containerd; it is not outdated.
  */
 class DockerOpsImagesTest {
 
@@ -182,7 +172,7 @@ class DockerOpsImagesTest {
 
     @FunctionalInterface
     private interface Answer {
-        /** @return the JSON body, or {@code null} for a 404 - what a daemon sends for a gone image */
+        /** The JSON body for {@code request}, or {@code null} for a 404. */
         String to(String request);
     }
 }

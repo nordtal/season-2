@@ -13,7 +13,7 @@ final class RestartSequence {
 
     private RestartSequence() {}
 
-    /** NOTHING_TO_DO, worded for either "every service is held" or "the scope names no Minecraft service". */
+    /** NOTHING_TO_DO, worded for "every service is held" or "the scope names no Minecraft service". */
     static Outcome nothingToRestart(final List<String> scope) {
         return Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
                 .withNote(
@@ -25,7 +25,7 @@ final class RestartSequence {
                                         + " held down. Nothing was stopped.")));
     }
 
-    /** Every service a restart is for, PLANNED with no change - narrowed by holds and by scope - or empty. */
+    /** Every service a restart is for, PLANNED with no change and narrowed by holds and scope, or empty. */
     static UpdateReport prepareReport(final List<String> scope, final List<String> holds) {
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
         for (final String service : Runner.restarted(scope, holds)) {
@@ -58,7 +58,7 @@ final class RestartSequence {
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 .toList();
 
-        // The same choreography as an update and a backup: a restart stops the most, so it needs both standbys.
+        // The same choreography as an update; a restart stops the most, so it needs both standbys.
         final Choreography choreography = new Choreography(runner.containers, runner.occupancy(), runner.waiting);
         final Choreography.Window window = choreography.open(Runner.movingServices(planned));
         if (!window.opened()) {

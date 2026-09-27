@@ -4,13 +4,9 @@ import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What a push notification can be about - the unit an account switches on and off.
+ * What a push notification can be about, the unit an account switches on and off.
  *
- * Cut the way an admin would name them, not the way the code counts them: {@link #SERVICE} and
- * {@link #BACKUP} are on by default as the two critical cases, {@link #DISK} and {@link #MEMORY}
- * as the two configured percentages an admin would want separately, and {@link #DRIFT} off, since
- * a drifted image is an errand for later rather than something broken now. The default lives here
- * and in no row, since Steward has no accounts table to hang a written-in default on.
+ * {@link #DRIFT} is off by default, since a drifted image is an errand rather than a breakage.
  */
 public enum AlertType {
 
@@ -35,12 +31,12 @@ public enum AlertType {
         this.enabledByDefault = enabledByDefault;
     }
 
-    /** Whether an account that has never opened the dialog gets this one. See the class note. */
+    /** Whether an account that has never opened the dialog gets this one. */
     public boolean enabledByDefault() {
         return enabledByDefault;
     }
 
-    /** The name this type is stored and sent under - the enum constant, lowercased. */
+    /** The name this type is stored and sent under: the constant, lowercased. */
     public String key() {
         return name().toLowerCase(Locale.ROOT);
     }
@@ -48,8 +44,7 @@ public enum AlertType {
     /**
      * The type of a {@link #key()}, or null for a word this version does not know.
      *
-     * Null rather than an exception: a row naming a type a later release removed is data, not a
-     * fault, and a background poll that threw on it would stop pushing anything at all.
+     * Null rather than an exception, since a throwing background poll would stop pushing anything at all.
      */
     public static @Nullable AlertType of(final @Nullable String key) {
         if (key == null) {

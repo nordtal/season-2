@@ -14,13 +14,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
-/**
- * Clicks in the {@code /navigate} list, and remembering where somebody died.
- *
- * The last death location is one of the two built-in navigation targets, and it is the one that matters most: with
- * no {@code /back} and no teleport commands of any kind, walking to your grave is the whole of dying, and an arrow
- * pointing the way is the difference between a walk and a search.
- */
+/** Clicks in the {@code /navigate} list, and remembering where somebody died. */
 public final class NavigateListener implements Listener {
 
     private final Plugin plugin;
@@ -63,12 +57,7 @@ public final class NavigateListener implements Listener {
         }
     }
 
-    /**
-     * Records where a death happened.
-     *
-     * One row per player, overwritten by the next death: {@code /navigate death} is a way back to where you just died,
-     * not a history of every time you have.
-     */
+    /** Records where a death happened, one row per player, overwritten by the next. */
     @EventHandler(ignoreCancelled = true)
     public void onDeath(final PlayerDeathEvent event) {
         final Player player = event.getEntity();

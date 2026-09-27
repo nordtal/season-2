@@ -26,25 +26,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The list {@code /navigate} opens: the current world's spawn, the player's last death, and every public POI.
  *
- * POIs are public and unlimited - anyone may create one and everyone sees all of them - so this list is the same for
- * every player except for the last-death entry, which is their own. There is deliberately no entry for another
- * player: with PvP on everywhere, an arrow pointing at a person is a hunting tool.
- *
- * <b>What it looks like, and what that costs</b>
- *
- * The window is the {@code N1} design (owner decision): a painted panel with five destinations, each a full-width
- * pill carrying its kind icon, its name and how far away it is, and a control row with a stop button and two page
- * buttons. {@link NavigatePanel} draws it; every slot under the paint holds a {@link BlankItem}, because a painted
- * card with no item in it is a card nobody can hover or click.
- *
- * The price of painting the window is that <b>a page turn is a new inventory</b>. A chest's title is fixed when it
- * is opened, so there is no way to redraw the surface in place - the menu builds its sibling page and the listener
- * opens that. No database work happens on the way: the whole list was read once when the command ran, and
- * {@link #onPage} hands it on.
- *
- * The first control always turns navigation <em>off</em>. It is off by default, a player switched it on, and the way
- * back has to be as easy as the way in - and as visible, because an arrow nobody asked for any more is the kind of
- * thing that quietly annoys somebody for a week.
+ * There is no entry for another player, and a page turn opens a new inventory because a title cannot be redrawn.
  */
 public final class NavigateGui implements Surface {
 
@@ -126,11 +108,9 @@ public final class NavigateGui implements Surface {
     }
 
     /**
-     * The same list, drawn on another page - what a page button opens.
+     * The same list, drawn on another page: what a page button opens.
      *
-     * The player is a parameter rather than a field for the reason a menu should never hold one: this object outlives
-     * the window, and a {@code Player} kept in it is a logged-out player kept alive by a listener. A page turn happens
-     * inside a click, where the viewer is at hand.
+     * The viewer is a parameter, because a menu that holds a {@code Player} keeps a logged-out one alive.
      */
     public NavigateGui onPage(final int wanted, final Player viewer) {
         return new NavigateGui(messages, locale, navigation, targets, wanted, viewer);
@@ -182,7 +162,6 @@ public final class NavigateGui implements Surface {
                                 .format(locale, MESSAGES.smp().navigate().click())));
     }
 
-    /** What a click did: what to play, and whether to close the window or open another. */
     public record Click(
             @Nullable Feedback sound,
             boolean close,

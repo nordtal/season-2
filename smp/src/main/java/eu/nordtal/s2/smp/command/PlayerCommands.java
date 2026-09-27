@@ -23,24 +23,9 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 
 /**
- * {@code /aura} and {@code /smp status} - the two SMP commands a player types, as plain Paper Brigadier.
+ * {@code /aura} and {@code /smp status}, the two SMP commands a player types, as plain Paper Brigadier.
  *
- * <b>Why they are not declarations</b>
- *
- * The same reason the proxy's {@code /msg} and {@code /discord} are not: one server, no confirmation, no admin flag,
- * and no argument that ever travels through a request row. What the command framework bought them was an effects
- * interface, an adapter translation and a catalogue entry no other surface could reach.
- *
- * <b> {@code /aura} exists on the SMP only</b>
- *
- * As a declaration it was also registered on limbo and the hunger games, where typing it became a request row
- * answered by this server. It is not any more: the numbers are this server's, and a player asking about them is
- * standing on it.
- *
- * <b> {@code /smp status} still answers the console</b>
- *
- * The same three lines in English, through the console's own {@link NordtalUser}. There was never a separate console
- * wording, so there is nothing left for the catalogue to carry.
+ * One server, no confirmation and no request row, so they are not declarations.
  */
 public final class PlayerCommands {
 
@@ -49,9 +34,10 @@ public final class PlayerCommands {
     private final Function<CommandSender, NordtalUser> users;
 
     /**
-     * @param effects where the reads run - the plugin's async scheduler - and where a failed one is
-     *                logged
-     * @param users   whoever typed it, as a {@link NordtalUser}: a player or the console
+     * Creates the commands.
+     *
+     * @param effects where the reads run and where a failed one is logged
+     * @param users whoever typed it, as a {@link NordtalUser}: a player or the console
      */
     public PlayerCommands(
             final Standing standing, final CommandEffects effects, final Function<CommandSender, NordtalUser> users) {
@@ -72,11 +58,7 @@ public final class PlayerCommands {
                 .build();
     }
 
-    /**
-     * {@code status}, to be hung under {@code /smp} as an open subtree.
-     *
-     * A player or the console; never a command block, which is nobody.
-     */
+    /** {@code status}, to be hung under {@code /smp} as an open subtree, for a player or the console. */
     public LiteralArgumentBuilder<CommandSourceStack> status() {
         return Commands.literal("status")
                 .requires(source ->
@@ -87,13 +69,7 @@ public final class PlayerCommands {
                 });
     }
 
-    /**
-     * Where the asker stands, and the ten highest.
-     *
-     * Rank, total and the top ten come back in one read so they describe one instant: read separately, somebody's own
-     * line could disagree with the line about them in the list below it. The asker's own line is told apart by
-     * {@link Tone}, not by a second key with the same words in a different colour.
-     */
+    /** Where the asker stands, and the ten highest, from one read so the lines agree. */
     void showAura(final NordtalUser user, final UUID self) {
         effects.async(() -> {
             final Optional<Standing.AuraStanding> read;
@@ -123,7 +99,6 @@ public final class PlayerCommands {
         });
     }
 
-    /** The phase, the active milestone with its progress, and who is on. */
     void showStatus(final NordtalUser user) {
         effects.async(() -> {
             final Standing.Status status;
@@ -136,7 +111,7 @@ public final class PlayerCommands {
             }
             user.reply(CommandMessages.MESSAGES.phase().current(status.phase()), Tone.NEUTRAL);
             if (!status.read()) {
-                // The first second after enable: an empty milestone here would read as "finished".
+                // The first second after enable, when an empty milestone would read as finished.
                 user.reply(MESSAGES.smp().status().unread(), Tone.MUTED);
             } else if (status.milestone().isPresent()) {
                 user.reply(
@@ -146,7 +121,6 @@ public final class PlayerCommands {
                                         new MilestoneContext(status.milestone().get()), status.percent()),
                         Tone.NEUTRAL);
             } else {
-                // Every milestone in the season is done. That is the one line here that is news.
                 user.reply(MESSAGES.smp().status().finished(), Tone.GOOD);
             }
             user.reply(

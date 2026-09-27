@@ -9,18 +9,9 @@ import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The frame, actually drawn - both of its shapes.
+ * Renders both shapes of the frame through a real route tree, proving there is no header element.
  *
- * `shell.test.tsx` says in its own closing note that the signed-in branch is not reachable in a
- * test, because it needs a router with a route tree and a memory history. That note is why this
- * file exists: it builds exactly that - a route tree of the addresses `navigation.ts` links to,
- * and nothing behind them - so that the one thing no source rule can prove is proved by rendering.
- * **There is no header element in the document** - the first thing anybody would
- * put back.
- *
- * What it does not prove is what either shape looks like: jsdom has no layout, so a head spaced
- * unevenly from the list below it has the same boxes here as one that is not. That is looked at in
- * a browser, at 390 and at 1440 pixels.
+ * jsdom has no layout, so how either shape looks is checked in a browser.
  */
 const ME: Me = {
   signedIn: true,
@@ -33,7 +24,7 @@ const ME: Me = {
   keys: [{ id: "k1", label: "YubiKey", registeredAt: "2026-09-01T10:00:00Z" }],
 }
 
-/** Every address the navigation links to, with nothing behind it - this is about the shell. */
+/** Every address the navigation links to, with nothing behind it. */
 const PATHS = [
   "/services/$name",
   "/operations/updates",
@@ -126,10 +117,7 @@ describe("the frame on a desktop", () => {
   })
 
   it("folds the path away while the navigation is open, and keeps the mark", async () => {
-    /**
-     * Asked of the trail rather than of the document: "smp" is also a row in the navigation that
-     * is now standing open, so a document-wide search would pass no matter what the island does.
-     */
+    /** Asked of the trail, since "smp" is also an open navigation row and a document search would always pass. */
     drawAt("/services/smp", { open: true })
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
@@ -157,10 +145,7 @@ describe("the frame on a desktop", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true")
     fireEvent.click(toggle)
 
-    /**
-     * The state it reports has to change, because it is what a screen reader has instead of the
-     * animation.
-     */
+    /** The reported state must change, since a screen reader gets it instead of the animation. */
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("false"),
     )
@@ -168,11 +153,7 @@ describe("the frame on a desktop", () => {
 })
 
 describe("where the desktop's frame begins", () => {
-  /**
-   * At Tailwind's `sm`, not `md`: a tablet held upright and a small laptop window
-   * would otherwise get the phone's dock with room for the column to spare. The cookie says open, and
-   * only the desktop's column honours it, so the toggle's state tells the two frames apart.
-   */
+  /** At `sm`, not `md`, so an upright tablet gets the column; only the desktop column honours the open cookie. */
   it.each([
     [640, "true"],
     [700, "true"],

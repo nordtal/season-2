@@ -13,11 +13,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Granting and revoking admin, the only door there is for either.
+ * Granting and revoking admin, written to the tree directly and journalled here with the admin who clicked.
  *
- * Written here directly: the tree is one table, and the Discord admin role follows on its own
- * through {@code nordtal_admin}. This side journals a {@code GRANT_ADMIN} or {@code REVOKE_ADMIN}
- * line naming the admin who clicked, because nobody else will.
+ * The Discord admin role follows on its own through {@code nordtal_admin}.
  */
 final class AdminApi {
 
@@ -33,7 +31,7 @@ final class AdminApi {
         this.accounts = accounts;
     }
 
-    /** {@code POST /api/admins/grant} - {@code {discordId}}. */
+    /** {@code POST /api/admins/grant} with {@code {discordId}}. */
     void grant(final Context ctx) {
         final String target = discordId(ctx);
         final DiscordAuth.Account who = accounts.apply(ctx);
@@ -58,7 +56,7 @@ final class AdminApi {
         }
     }
 
-    /** {@code POST /api/admins/revoke} - {@code {discordId}}; takes everybody below them too. */
+    /** {@code POST /api/admins/revoke} with {@code {discordId}}; takes everybody below them too. */
     void revoke(final Context ctx) {
         final String target = discordId(ctx);
         final DiscordAuth.Account who = accounts.apply(ctx);

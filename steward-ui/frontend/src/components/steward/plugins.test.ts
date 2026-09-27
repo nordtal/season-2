@@ -4,10 +4,9 @@ import { groupPlugins, pluginStatus, removalSentence, versionOf } from "@/compon
 import type { AvailableChange, ServicePlugin } from "@/lib/api"
 
 /**
- * Removing a plugin deletes its data folder too, so the confirmation has to **name that folder**:
- * `plugins/<name>/` is the only hand-kept thing in the installation, and the folder's name cannot
- * be derived from the jar's - Chunky ships as `Chunky-Bukkit-<version>.jar` and makes
- * `plugins/Chunky/` - so a dialog that guessed it would be asking about the wrong directory.
+ * The removal confirmation names the plugin's data folder, which it deletes too.
+ *
+ * The folder cannot be derived from the jar: `Chunky-Bukkit-<version>.jar` makes `plugins/Chunky/`.
  */
 const plugin = (over: Partial<ServicePlugin> = {}): ServicePlugin => ({
   name: "Chunky",
@@ -30,12 +29,7 @@ describe("what the confirmation promises before a plugin is removed", () => {
   it("names no folder when the worker could not read one out of the jar", () => {
     const sentence = removalSentence(plugin({ dataFolder: undefined }))
 
-    /**
-     * What must be absent is a *named* directory - `plugins/undefined/`, or worse, a fallback to
-     * the artefact id, which would point the admin at a folder nobody verified exists. Saying the
-     * word `plugins/` while naming nothing under it is the honest sentence, so the assertion is
-     * the shape `plugins/<something>/` and not the bare prefix.
-     */
+    /** An unknown folder must not be named, not even by a fallback; `plugins/` alone is the honest sentence. */
     expect(sentence).not.toMatch(/plugins\/\S+\//)
     expect(sentence).toContain("could not be read")
     expect(sentence).toContain("Chunky-Bukkit-1.5.3.jar")

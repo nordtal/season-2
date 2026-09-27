@@ -33,13 +33,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The three commands that came out of {@code :commands}.
+ * The private message commands: the tree a client receives, the two lines of a message, and the reply partner.
  *
- * What is asserted here is what survived the move: the shape of the tree a client receives, the
- * two lines a message is drawn as, and the reply partner. The delivery itself is not - it needs two
- * Velocity {@code Player}s on a running proxy, which is the same limit {@code RestartGateTest}
- * states. The seams {@link PrivateMessages#line}, {@link PrivateMessages#remember} and
- * {@link PrivateMessages#forget} exist so that the part with a decision in it does not need one.
+ * Delivery needs two Velocity players on a running proxy and is not tested.
  */
 class PrivateMessagesTest {
 
@@ -173,7 +169,7 @@ class PrivateMessagesTest {
 
     @Test
     void theMovedSentencesArrived() {
-        // Moved out of messages/commands; Messages answers a missing key with the key itself, not a fallback.
+        // Messages answers a missing key with the key itself, not a fallback.
         for (final String key : List.of(
                 "chat.msg.sent",
                 "chat.msg.received",

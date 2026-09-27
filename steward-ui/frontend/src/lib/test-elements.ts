@@ -1,8 +1,7 @@
 /**
- * Narrowing an element Testing Library hands back, for the handful of properties only the concrete
- * subclass has (`disabled`, `value`, `style`). An `instanceof` check, not a cast: real jsdom elements
- * are the right subclass already, so this never throws in a passing test - it only gives the type
- * checker what it needs to see that.
+ * Narrows a Testing Library element for properties only its subclass has, such as `disabled`, `value` or `style`.
+ *
+ * An `instanceof` check, not a cast; it never throws in a passing test.
  */
 
 function narrow<T extends Element>(element: Element | null, ctor: new (...args: never[]) => T, label: string): T {
@@ -37,11 +36,7 @@ export function asElement(element: Element | null): HTMLElement {
   return narrow(element, HTMLElement, "HTMLElement")
 }
 
-/**
- * `dataset` alone, read off an element that may be an SVG one - the network diagram's `<path>`
- * and `<g>` elements carry `data-*` attributes too, and `dataset` is defined on `HTMLElement` and
- * `SVGElement` alike.
- */
+/** `dataset` off an element that may be SVG, since the network diagram's `<path>` and `<g>` carry `data-*` too. */
 export function datasetOf(element: Element | null): DOMStringMap {
   if (!(element instanceof HTMLElement) && !(element instanceof SVGElement)) {
     throw new Error(`expected an element, got ${element?.tagName ?? "nothing"}`)

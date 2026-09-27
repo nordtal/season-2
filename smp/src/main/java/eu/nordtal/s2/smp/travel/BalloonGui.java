@@ -32,20 +32,9 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * The travel GUI a balloon opens.
+ * The travel GUI a balloon opens: tooltips, clicks and the teleport around {@link BalloonMenu} and {@link TravelPanel}.
  *
- * The layout is {@link BalloonMenu} 's and is tested there without a server; the surface is {@link TravelPanel} 's
- * and is drawn into the inventory title; this class is the part that needs a server - the tooltips, the click and
- * the teleport.
- *
- * <b>Nothing visible sits in a slot.</b> The four cards are art in the title, and every slot a card covers holds a
- * {@link BlankItem}: an item that draws nothing and carries the card's name and caption as its tooltip, so hovering
- * anywhere on a card explains it and clicking anywhere on it travels. A vanilla item there would draw its icon over
- * the art.
- *
- * A destination that is not unlocked yet <b>keeps its place, shaded</b>, naming the milestone that will open it and
- * pointing at the objective board. Standing at the balloon is exactly when somebody wants to know why the Nether is
- * not available, and an entry that has simply vanished answers nothing.
+ * Every card slot holds a {@link BlankItem} whose tooltip names its card; locked destinations stay in place, shaded.
  */
 public final class BalloonGui implements Surface {
 
@@ -130,12 +119,7 @@ public final class BalloonGui implements Surface {
         return BlankItem.of(name, lore);
     }
 
-    /**
-     * The name of the milestone that opens a destination, for the shaded card's first lore line.
-     *
-     * Falls back to the raw key when the track has no name for it, which is what a milestone whose translation is
-     * missing should look like: unhelpful, but not blank.
-     */
+    /** The name of the milestone that opens a destination, or the raw key when the track has none. */
     private String milestoneName(final WorldRole role, final Locale locale) {
         final Unlock needed = role == WorldRole.NETHER ? Unlock.NETHER : Unlock.END;
         final Optional<Milestone> milestone = track.milestones().stream()
@@ -147,11 +131,7 @@ public final class BalloonGui implements Surface {
         return MilestoneNames.of(messages, locale, milestone.get().key());
     }
 
-    /**
-     * Handles a click on {@code slot}.
-     *
-     * @return true when the player was sent somewhere, false for the gap, "you are here" and locked
-     */
+    /** Handles a click on {@code slot}, returning whether the player was sent somewhere. */
     public boolean click(final Player player, final int slot) {
         final Locale locale = locales.of(player.getUniqueId());
         final Optional<BalloonMenu.Entry> clicked = BalloonMenu.at(entries, slot);
@@ -185,17 +165,10 @@ public final class BalloonGui implements Surface {
         return teleportToBalloon(player, locale, entry, destination);
     }
 
-    /**
-     * The actual jump, once every refusal above has passed.
-     *
-     * Through {@code LandingSite#findSafeAt}, which takes the configured point itself whenever a player actually
-     * fits there and searches outwards from that column when they do not - a hand-typed Y is not a promise that the
-     * block there is air. {@code findSafeAt} rather than {@code safeAt}: the latter falls back to the preferred point
-     * itself when its search finds nothing, and here that would announce an arrival nobody survived.
-     */
+    /** The jump itself, via {@code LandingSite#findSafeAt}, which never falls back to an unsafe point. */
     private boolean teleportToBalloon(
             final Player player, final Locale locale, final BalloonMenu.Entry entry, final World destination) {
-        // Read off before the teleport: to anybody left at the balloon this is the whole of what they see happen.
+        // Read before the teleport: it is all anybody left at the balloon sees.
         final org.bukkit.Location from = Objects.requireNonNull(player.getLocation());
         final SpawnPointSpec point = worlds.balloonSpawnPoint(entry.destination());
         final org.bukkit.Location target =

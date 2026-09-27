@@ -7,9 +7,7 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
  * The three statements behind {@link AllowlistDirectory}.
- *
- * The row lives in {@code network_setting}, the proxy's own table. The notification is a second statement
- * so it is sent only when the value moved; listeners re-read in full and the poll is the guarantee.
+ * The notification is a second statement, so it is sent only when the value moved.
  */
 interface AllowlistDao {
 
@@ -20,10 +18,7 @@ interface AllowlistDao {
     Optional<String> read(@Bind("key") String key);
 
     /**
-     * Writes the list, and answers whether it changed anything.
-     *
-     * {@code WHERE network_setting.value IS DISTINCT FROM EXCLUDED.value} on the conflict branch is
-     * what makes a proxy restart with an unchanged list cost one statement and wake nobody.
+     * Writes the list, and answers whether it changed anything; an unchanged list wakes nobody.
      *
      * @return 1 when the row was written, 0 when it already said this
      */
@@ -35,15 +30,7 @@ interface AllowlistDao {
             """)
     int write(@Bind("key") String key, @Bind("value") String value);
 
-    /**
-     * Wakes every backend.
-     *
-     * The bare {@code NOTIFY} rather than {@code SELECT pg_notify(...)}, because this is the one
-     * notification in the repository that is not part of a statement that returns something: a
-     * {@code SELECT} would have to be issued as a query and mapped to a type, and
-     * {@code pg_notify}'s type is {@code void}. There is no payload for the reason every channel
-     * here gives - the listener re-reads, because a notification is never the state.
-     */
+    /** Wakes every backend with a bare {@code NOTIFY}, since this statement returns nothing. */
     @SqlUpdate("NOTIFY nordtal_allowlist")
     void notifyChanged();
 }

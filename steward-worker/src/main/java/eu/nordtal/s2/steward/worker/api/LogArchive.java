@@ -27,22 +27,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The lines of earlier runs, out of the server's own rotated logs.
+ * The lines of earlier runs, out of the server's own rotated logs in its data volume.
  *
- * A Minecraft server writes {@code logs/latest.log} into its data volume and rotates it to a dated
- * {@code .log.gz} file when it starts again. The volume survives every recreate and the container's Docker log
- * does not, so this is where the console finds what came before.
- *
- * Which archives: the ones older than what Docker still holds. A rotation happens when the NEXT run starts, so an
- * archive's mtime is the start of the run after the one inside it. Anything rotated after the oldest line Docker has
- * is a run Docker has too - measured on smp, whose container held two runs, one and a restart later, and whose
- * newest archive held the first of them again. The {@link #SLACK} covers the few seconds between the container's
- * first line and Paper getting round to its rotation. {@code latest.log} is never read: it is the run Docker is
- * showing.
- *
- * Fast enough to read in full, measured on smp: all its archives, tens of thousands of lines, decompress in well
- * under a second. The ticket's fallback - only the newest archive - is still here, as a {@link #BUDGET} on the walk,
- * because a grown world is another matter.
+ * Only archives older than Docker's oldest line are read, and {@link #BUDGET} bounds the walk.
  */
 final class LogArchive {
 
@@ -79,11 +66,7 @@ final class LogArchive {
         this.clock = clock;
     }
 
-    /**
-     * Up to {@code wanted} lines from the runs before {@code oldest}.
-     *
-     * Newest run first while reading and oldest first in the answer.
-     */
+    /** Up to {@code wanted} lines from the runs before {@code oldest}, oldest run first. */
     Backlog before(final String service, final Instant oldest, final int wanted) {
         final List<Path> archives = archives(service, oldest);
         final Deque<Run> runs = new ArrayDeque<>();

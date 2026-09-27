@@ -12,7 +12,7 @@ import java.util.UUID;
  */
 public record LinkCode(String code, UUID mcUuid, Instant expires) {
 
-    /** @return whether this code can still be redeemed */
+    /** Returns whether this code can still be redeemed. */
     public boolean isValid() {
         return Instant.now().isBefore(expires);
     }

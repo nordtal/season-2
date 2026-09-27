@@ -26,17 +26,9 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.modals.Modal;
 
 /**
- * Account linking on the Discord side.
+ * Account linking on the Discord side: the link message's modal and {@code /unlink}.
  *
- * The managed link message's button opens a modal for the code, and {@code /unlink} removes the caller's own link.
- *
- * Nothing here validates the code beyond trimming and upper-casing it -
- * {@link AccessDirectory#redeemLinkCode(String, String)} owns expiry and the 1:1. The one thing the database cannot
- * see is how often somebody is guessing, which is what {@link RedemptionLimit} is for; it lives here because it
- * counts Discord accounts, and the proxy has none.
- *
- * {@code /unlink} is self-service and has no waiting period, so every unlink is written to the admin channel
- * unconditionally - that log is the only thing that makes a shared access visible.
+ * {@link RedemptionLimit} counts guesses per Discord account; every unlink is written to the admin channel.
  */
 @Slf4j
 public final class LinkFlow extends ListenerAdapter {
@@ -66,7 +58,7 @@ public final class LinkFlow extends ListenerAdapter {
         this.executor = executor;
     }
 
-    /** What the bot registers with Discord on startup - available to everyone, unlike the admin commands. */
+    /** Returns the commands the bot registers on startup, open to everyone. */
     public static List<CommandData> commands() {
         return List.of(Commands.slash("unlink", "Remove the Minecraft account linked to your Discord account."));
     }
@@ -160,7 +152,7 @@ public final class LinkFlow extends ListenerAdapter {
                                     messages.format(locale, MESSAGES.link().invalidCode()))
                             .queue();
                 }
-                // Not counted: the code was real, the account already has one. Charging an attempt would punish that.
+                // Not counted: the code was real and the account already has one.
                 case ALREADY_LINKED ->
                     event.getHook()
                             .editOriginal(
@@ -173,8 +165,6 @@ public final class LinkFlow extends ListenerAdapter {
             }
         }
     }
-
-    // /unlink.
 
     @Override
     public void onSlashCommandInteraction(final SlashCommandInteractionEvent event) {

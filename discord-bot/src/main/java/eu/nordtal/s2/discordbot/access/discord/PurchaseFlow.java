@@ -39,25 +39,7 @@ import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 /**
  * The buy-access flow: a button, a day selection, a summary, and a payment link.
  *
- * There is no cache of half-finished purchases. Every handler here looks the user's one open
- * {@code payment_request} up and works from that, so a restart in the middle of a purchase is
- * invisible: the next click reads the same row.
- *
- * Every database write here runs on {@code executor} after the interaction has been
- * acknowledged, because a JDA event thread that blocks stalls every other interaction in the
- * guild, and an interaction that is not acknowledged within three seconds is dead.
- *
- * Confirming writes {@code tab_requested} and the message says the link is being made, because
- * the bunq key lives in {@code steward-worker}, not here. {@link #fillIn()} is what finishes the
- * sentence: driven by {@code nordtal_payment} and by the bot's payment timer underneath it, it
- * re-reads every row somebody is waiting on and edits the ephemeral message into the link, into
- * the refusal ({@code tab_failed}), or - if neither ever comes - into a line naming the reference,
- * so that "your payment link is being created" is never the last thing a person is told.
- *
- * An {@link InteractionHook} cannot be stored: it is a token, valid for fifteen minutes, that
- * only this process holds. So the wait is in memory and a restart loses it - the request itself,
- * its reference and its tab all survive in the table, only the half-written message does not.
- * Nothing is lost by that which is not re-derivable from a row.
+ * State lives in the open {@code payment_request}; only the wait for a link is in memory.
  */
 @Slf4j
 public final class PurchaseFlow extends ListenerAdapter {
@@ -71,33 +53,13 @@ public final class PurchaseFlow extends ListenerAdapter {
     private final AdminLog admin;
     private final ExecutorService executor;
 
-    /**
-     * Ephemeral messages waiting for a link, by the request they are waiting for.
-     *
-     * One entry per request, not per message: somebody who confirms twice is looking at the newer message, and the
-     * older
-     * one keeps the sentence it already has.
-     */
+    /** Ephemeral messages waiting for a link, one per request, so a second confirm replaces the older one. */
     private final Map<UUID, Waiting> waiting = new ConcurrentHashMap<>();
 
-    /**
-     * Held across "read the row, then edit the message".
-     *
-     * Two threads reach that pair - the interaction's own executor and whatever drives {@link #fillIn()} - and without
-     * the lock the losing one can write "the link is being created" over a message that already shows the link. The
-     * work
-     * under it is a query and a {@code queue()}, so nothing here waits on Discord while holding it.
-     */
+    /** Held across reading the row and editing the message, so a stale "being created" never overwrites the link. */
     private final Object drawing = new Object();
 
-    /**
-     * How long a message is left saying the link is coming.
-     *
-     * Under the fifteen minutes an interaction hook lives, because the point of the limit is to be able to say
-     * something
-     * else while the message can still be edited. A tab that takes ten minutes is not coming: the worker's poll is
-     * thirty seconds and its queue is oldest-ask-first.
-     */
+    /** How long a message says the link is coming, under the fifteen minutes an interaction hook lives. */
     private static final Duration GIVE_UP = Duration.ofMinutes(10);
 
     /** One ephemeral message, and when it started waiting. */
@@ -153,7 +115,7 @@ public final class PurchaseFlow extends ListenerAdapter {
             return;
         }
 
-        // Whether the donation stays on across a tier change is decided by the row, not by the button, so it survives.
+        // The row, not the button, decides whether the donation stays on across a tier change.
         final boolean donation = requests.openOf(event.getUser().getId())
                 .map(PaymentRequest::donationRequested)
                 .orElse(false);
@@ -168,8 +130,6 @@ public final class PurchaseFlow extends ListenerAdapter {
             }
         });
     }
-
-    // Steps.
 
     private void chooseDays(final ButtonInteractionEvent event, final Locale locale) {
         final List<SelectOption> options = new ArrayList<>();
@@ -234,13 +194,13 @@ public final class PurchaseFlow extends ListenerAdapter {
         event.deferEdit().queue();
         executor.execute(() -> {
             try {
-                // Writes tab_requested and returns, unasked whether it wrote: the row read below says which case it is.
+                // Writes tab_requested and returns; the row read below says which case this is.
                 purchases.confirm(request);
 
                 synchronized (drawing) {
                     final PaymentRequest fresh = requests.byId(request.id()).orElse(request);
                     if (settled(event.getHook(), locale, fresh)) {
-                        // A second confirm on a row with a tab, or the request is gone - nothing to wait for.
+                        // A second confirm on a row with a tab, or the request is gone: nothing to wait for.
                         return;
                     }
                     // Registered before the message is drawn, so a tab arriving this instant is caught by fillIn().
@@ -259,11 +219,9 @@ public final class PurchaseFlow extends ListenerAdapter {
     }
 
     /**
-     * Finishes every message that can be finished.
+     * Finishes every waiting message whose row now has a link, a refusal, or has waited too long.
      *
-     * Called on {@code nordtal_payment} and by the bot's payment timer. It re-reads each awaited row in full rather
-     * than trusting the signal - the signal carries no payload and is not the state - and it is cheap when nobody
-     * is waiting, which is almost always.
+     * Called on {@code nordtal_payment} and by the payment timer; it re-reads each row in full.
      */
     public void fillIn() {
         if (waiting.isEmpty()) {
@@ -276,7 +234,7 @@ public final class PurchaseFlow extends ListenerAdapter {
                 final Map.Entry<UUID, Waiting> entry = entries.next();
                 final Optional<PaymentRequest> row = requests.byId(entry.getKey());
                 if (row.isEmpty()) {
-                    // Nothing deletes a payment_request, so this is unreachable, but dropping the entry is still sane.
+                    // Nothing deletes a payment_request, so this is unreachable; dropping the entry is still sane.
                     entries.remove();
                     continue;
                 }
@@ -284,7 +242,7 @@ public final class PurchaseFlow extends ListenerAdapter {
                 if (settled(waiter.hook(), waiter.locale(), row.get())) {
                     entries.remove();
                 } else if (Duration.between(waiter.since(), Instant.now()).compareTo(GIVE_UP) > 0) {
-                    // The last thing this message says. It names the reference, the one string an admin needs by hand.
+                    // The last thing this message says; it names the reference, which is what an admin needs.
                     waiter.hook()
                             .editOriginal(messages.format(
                                     waiter.locale(),
@@ -303,8 +261,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     /**
      * Draws the end of the wait, if it has come.
      *
-     * @return {@code true} when the message was edited into something final and nothing more is
-     *         owed to it; {@code false} while the row is still between the ask and the answer
+     * @return {@code true} when the message is final; {@code false} while the row is still waiting for an answer
      */
     private boolean settled(final InteractionHook hook, final Locale locale, final PaymentRequest request) {
         if (request.status() != PaymentRequestStatus.OPEN) {
@@ -329,7 +286,7 @@ public final class PurchaseFlow extends ListenerAdapter {
             return true;
         }
         if (request.tabFailed() != null) {
-            // What bunq said goes to the admin channel, not the buyer: it is a bank's error text and only worries them.
+            // bunq's error text goes to the admin channel, not the buyer.
             admin.alert("bunq refused a payment link for `" + request.reference() + "`: `" + request.tabFailed() + "`");
             edit(hook, messages.format(locale, MESSAGES.purchase().linkSection().refused()));
             return true;
@@ -387,18 +344,11 @@ public final class PurchaseFlow extends ListenerAdapter {
                 .queue();
     }
 
-    // Failure.
-
     private void reply(final IReplyCallback event, final String text) {
         event.reply(text).setEphemeral(true).queue();
     }
 
-    /**
-     * One place for "the bank or the database said no".
-     *
-     * The user gets a plain sentence and an admin gets the detail: a stack trace in a log nobody is watching is how
-     * season 1 lost failed role assignments.
-     */
+    /** Tells the user a plain sentence and the admin channel the detail. */
     private void fail(
             final IDeferrableCallback event, final Locale locale, final String what, final RuntimeException exception) {
         log.error("Purchase failed while {}", what, exception);

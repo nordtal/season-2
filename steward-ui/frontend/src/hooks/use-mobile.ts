@@ -3,11 +3,7 @@ import * as React from "react"
 const MOBILE_BREAKPOINT = 640
 
 export function useIsMobile() {
-  /**
-   * Answered on the first render rather than after it: the frame draws a different shape on each
-   * side of this line, and `undefined` until an effect has run was one frame of the desktop's
-   * island on every phone.
-   */
+  /** Answered on the first render, since `undefined` until an effect ran drew the desktop island for one frame. */
   const [isMobile, setIsMobile] = React.useState(() => window.innerWidth < MOBILE_BREAKPOINT)
 
   React.useEffect(() => {

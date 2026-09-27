@@ -1,20 +1,6 @@
 #!/bin/sh
-# Pick the jar to run: the one in the volume if there is one, the one baked into the image if
-# there is not.
-#
-# Why both: steward-worker owns this container's jar the same way it owns every plugin jar - it
-# downloads it, verifies it, puts it in the volume and deletes the one it supersedes. That is what
-# makes this module roll back the way everything else does.
-#
-# The baked jar is what makes a first deployment possible at all. The volume is empty before the
-# first `steward-worker bootstrap`, and a container that refused to start on an empty volume could
-# never be the thing that fills it (the worker) or the thing an operator needs in order to run the
-# bootstrap at all. So the image still carries a jar, and it is a floor and not a version: what
-# actually runs is printed on every start, and `docker compose run --rm steward-worker` reports it
-# too.
-#
-# The cost: the baked jar goes stale. It is not what is running once the volume has been filled
-# once, and it must not be read as what is running.
+# Runs the newest jar in the volume, or the jar baked into the image while the volume is empty.
+# steward-worker fills the volume; the baked jar only makes a first deployment possible.
 set -eu
 
 : "${JAR_DIR:?JAR_DIR must be set in the Dockerfile}"
@@ -24,12 +10,7 @@ BAKED=/app/app.jar
 jar=""
 
 if [ -d "$JAR_DIR" ]; then
-    # sort -V, not sort: 0.10.0 is newer than 0.9.0 and lexical order says otherwise.
-    #
-    # There should only ever be one. The worker deletes the jar it supersedes right after it
-    # places the new one, so two at once means either an apply caught mid-swap - a window of
-    # milliseconds - or somebody put one there by hand. Taking the newest is the right answer to
-    # both, and the warning is what makes the second one findable.
+    # sort -V, since 0.10.0 is newer than 0.9.0; more than one jar means a swap in progress or a hand edit.
     jar="$(ls -1 "$JAR_DIR/$JAR_PREFIX"-*.jar 2>/dev/null | sort -V | tail -n 1 || true)"
     count="$(ls -1 "$JAR_DIR/$JAR_PREFIX"-*.jar 2>/dev/null | wc -l | tr -d ' ')"
     if [ "${count:-0}" -gt 1 ]; then
@@ -51,6 +32,5 @@ else
     exit 1
 fi
 
-# exec, so the JVM is PID 1 and receives SIGTERM directly: a redeploy has to be able to shut this
-# down cleanly, and a shell in between would swallow the signal.
+# exec, so the JVM is PID 1 and receives SIGTERM directly.
 exec java ${JAVA_OPTS:-} -jar "$jar" "$@"

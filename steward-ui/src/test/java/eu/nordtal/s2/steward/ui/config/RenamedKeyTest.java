@@ -12,19 +12,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * What happens to a deployment whose {@code steward-ui.yml} was written before a key was renamed.
+ * What a {@code steward-ui.yml} written before a key was renamed loads as, asked of the real loader.
  *
- * Why this is worth a test of its own
- * jcore writes a config file once and then preserves it, so a changed {@code default} in a
- * {@code @ConfigSpec} never reaches a deployment that has already run. That is written down in this
- * workspace's guide as a rule of thumb, and it has already cost one thing: {@code stop-services}
- * still named {@code bot} after that service was renamed to {@code discord-bot}, and had to be
- * carried across by hand.
- *
- * A rename is not obviously the same case as a changed default, and the difference
- * decides whether {@code session-hours} → {@code session-days} is a deployment step or only a
- * commit. Guessing either way would be guessing about the live deployment, so it is asked here of
- * the real loader against a real file.
+ * jcore preserves a written file, so this decides whether a rename is a deployment step or only a commit.
  */
 class RenamedKeyTest {
 
@@ -57,7 +47,7 @@ class RenamedKeyTest {
                         + " the preserved file, so correcting it by hand is a deployment step and the"
                         + " comment in UiSpec has to say so. The file now reads:\n" + after);
 
-        // The chosen value is NOT carried over: 12 hours does not become 12 days or half a day.
+        // The chosen value is not carried over: 12 hours does not become 12 days or half a day.
         assertEquals(30, config.sessionDays());
     }
 }

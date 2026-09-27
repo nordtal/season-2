@@ -12,12 +12,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * The version jump in a report.
+ * The version jump in a report, held to the same table as {@code version-jump.test.ts}.
  *
- * The table below is the same table {@code version-jump.test.ts} holds for the Available card, case for case,
- * because the two implementations are one rule - that is what makes them copies rather than two opinions. The second
- * half of this file is the part only this side has: that {@link PlanReport} actually puts the pair into the report,
- * so that Discord, the chat follower and the run's own page all stop printing a filename against a version.
+ * The second half checks that {@link PlanReport} puts the pair into the report.
  */
 class VersionPairTest {
 

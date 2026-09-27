@@ -12,19 +12,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Turns a {@link MessageSpec} interface into an object whose methods return filled {@link MessageRef}s.
- *
- * {@code MessageSpecs.create(SmpMessages.class).duel().won(opponent)} resolves to key {@code smp.duel.won}
- * with the {@code opponent} parameter. A {@code default} method runs as written.
- */
+/** Turns a {@link MessageSpec} interface into an object whose methods return filled {@link MessageRef}s. */
 public final class MessageSpecs {
 
     private MessageSpecs() {}
 
     /**
-     * @param spec an interface annotated {@link MessageSpec}
-     * @return the spec's messages
+     * Returns the messages of {@code spec}, an interface annotated {@link MessageSpec}.
+     *
      * @throws IllegalArgumentException if {@code spec} is not such an interface
      */
     public static <T> T create(final Class<T> spec) {
@@ -40,13 +35,12 @@ public final class MessageSpecs {
         return type.cast(proxy);
     }
 
-    /** The key segment a method contributes: {@link Key}, or its name in kebab case. */
     static String segment(final Method method) {
         final Key key = method.getAnnotation(Key.class);
         return key != null ? key.value() : kebab(method.getName());
     }
 
-    /** {@code noSuchMember} to {@code no-such-member}; a digit run is its own word. */
+    /** Returns {@code noSuchMember} as {@code no-such-member}; a digit run is its own word. */
     static String kebab(final String name) {
         final StringBuilder out = new StringBuilder(name.length() + 8);
         for (int i = 0; i < name.length(); i++) {
@@ -61,12 +55,10 @@ public final class MessageSpecs {
         return out.toString().toLowerCase(Locale.ROOT);
     }
 
-    /** Whether a method is a key rather than a section or a helper. */
     static boolean isKey(final Method method) {
         return !method.isDefault() && method.getReturnType() == MessageRef.class;
     }
 
-    /** Whether a method opens a section. */
     static boolean isSection(final Method method) {
         return !method.isDefault()
                 && method.getParameterCount() == 0
@@ -74,7 +66,7 @@ public final class MessageSpecs {
                 && method.getReturnType() != MessageRef.class;
     }
 
-    /** The placeholder names of a key method, in parameter order. */
+    /** Returns the placeholder names of a key method, in parameter order. */
     static List<String> args(final Method method) {
         final List<String> names = new ArrayList<>();
         for (final Parameter parameter : method.getParameters()) {

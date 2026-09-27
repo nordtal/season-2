@@ -15,12 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * {@link PluginFolder} - the name of the directory a removal deletes.
+ * {@link PluginFolder}, the name of the directory a removal deletes.
  *
- * The reason this is worth a test of its own: the answer is used to delete a directory, and the wrong answer deletes
- * the wrong one. The two failures that matter are both here - guessing from the filename (which is wrong for every
- * plugin whose jar is not named after itself) and matching a nested {@code name:}, of which every plugin descriptor
- * has several.
+ * Neither the filename nor a nested {@code name:} may decide it, since the wrong answer deletes the wrong directory.
  */
 class PluginFolderTest {
 
@@ -42,7 +39,7 @@ class PluginFolderTest {
 
     @Test
     void theFolderIsTheDescriptorsNameNotTheJars() throws IOException {
-        // The jar is voicechat-bukkit-<version>.jar and the folder is plugins/voicechat/ - name, not filename.
+        // The jar is voicechat-bukkit-<version>.jar and the folder is plugins/voicechat/: name, not filename.
         final Path path = jar(
                 "voicechat-bukkit-2.6.24.jar",
                 Map.of("plugin.yml", "name: voicechat\nversion: 2.6.24\nmain: de.maxhenkel.voicechat.Voicechat\n"));

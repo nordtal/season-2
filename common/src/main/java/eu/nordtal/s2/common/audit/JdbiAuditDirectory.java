@@ -8,11 +8,7 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The only implementation of {@link AuditDirectory}.
- *
- * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
- */
+/** The only implementation of {@link AuditDirectory}; it borrows its pool and owns nothing. */
 final class JdbiAuditDirectory implements AuditDirectory {
 
     private final AuditDao dao;

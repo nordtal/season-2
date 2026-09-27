@@ -13,20 +13,9 @@ import org.jspecify.annotations.Nullable;
 interface AccessRequestDao {
 
     /**
-     * Writes a request and announces it, as <b>one statement</b>.
-     *
-     * <b>The notification rides in the select list</b>
-     *
-     * Exactly as {@code UpdateDao#submit} does it, and for the same reason: a notification then only
-     * ever exists for a row that actually committed. It carries <b>no payload</b> - a listener has
-     * to read the table anyway, because notifications are lost while a process is disconnected, and
-     * a payload invites somebody to trust the notification as state.
-     *
-     * <b>{@code make_interval(secs => ...)} and not an interval literal</b>
-     *
-     * The patience has to come from a bind parameter, and V4 forbids calendar arithmetic on a
-     * {@code timestamptz}: days are evaluated in the session's time zone and change length across a
-     * DST boundary. Seconds do not, so adding them is exact wherever the writing JVM thinks it is.
+     * Writes a request and announces it in one statement, so a notification only exists for a committed row.
+     * It carries no payload, and patience is added in seconds because day arithmetic on a {@code timestamptz} shifts
+     * across DST.
      */
     @SqlQuery("""
             WITH inserted AS (
@@ -48,9 +37,7 @@ interface AccessRequestDao {
 
     /**
      * Claims the oldest unexpired request and marks it {@code RUNNING} in the same statement.
-     *
-     * {@code FOR UPDATE SKIP LOCKED} keeps two bots from granting one request twice, and
-     * {@code expires > now()} keeps an abandoned request from being carried out late.
+     * {@code FOR UPDATE SKIP LOCKED} keeps two bots from granting one request twice.
      */
     @SqlQuery("""
             UPDATE access_request
@@ -68,11 +55,8 @@ interface AccessRequestDao {
     Optional<AccessRequest> claim();
 
     /**
-     * Settle a claimed request.
-     *
-     * {@code AND status = 'RUNNING'} so that a bot which somehow settles a row twice writes
-     * once. The second call updates nothing and says so through its row count, which
-     * {@link AccessRequests#finish} logs rather than swallows.
+     * Settles a claimed request.
+     * The {@code RUNNING} guard makes a second call update nothing, which its row count reports.
      */
     @SqlUpdate("""
             UPDATE access_request
@@ -86,14 +70,7 @@ interface AccessRequestDao {
 
     /**
      * Gives up on every pending row whose patience has run out.
-     *
-     * <b>Why anybody may run this, and why that is not a race</b>
-     *
-     * The bot cannot be the one that expires a row: the case this exists for is a bot that is not
-     * running. So the sweep belongs to whoever looks - {@link AccessRequests#outcome} runs it
-     * before it reads. {@code status = 'PENDING'} is the whole of the race: a row the bot claimed a
-     * millisecond ago keeps its claim, and the sweep does nothing rather than declaring abandoned a
-     * grant that is at that moment being carried out.
+     * Anybody may run it, since the bot may be down; a row the bot already claimed is left alone.
      *
      * @return how many rows this call expired
      */
@@ -106,16 +83,13 @@ interface AccessRequestDao {
             """)
     int expireDue();
 
-    /** One row, whatever state it is in. */
+    /** Returns one row, whatever state it is in. */
     @SqlQuery("SELECT * FROM access_request WHERE id = :id")
     Optional<AccessRequest> byId(@Bind("id") long id);
 
     /**
-     * Every row still waiting, oldest first.
-     *
-     * What a reconnecting listener reads: a notification is delivered once and is lost while a
-     * process is disconnected, so the first thing after {@code LISTEN} is a full read. The poll is
-     * the guarantee; the notification only makes it immediate.
+     * Returns every row still waiting, oldest first.
+     * A reconnecting listener reads it in full, because a notification is lost while disconnected.
      */
     @SqlQuery("""
             SELECT *
@@ -126,12 +100,7 @@ interface AccessRequestDao {
             """)
     List<AccessRequest> pending();
 
-    /**
-     * Deletes every settled request older than the retention window.
-     *
-     * One row per access change is not much, but nothing else ever deletes from this table and
-     * "not much, for ever" is still for ever. Settled only - a pending row is work, not history.
-     */
+    /** Deletes every settled request older than the retention window; a pending row is work, not history. */
     @SqlUpdate("""
             DELETE FROM access_request
             WHERE status IN ('DONE', 'FAILED', 'EXPIRED')

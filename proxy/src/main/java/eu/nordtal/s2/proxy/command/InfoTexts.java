@@ -21,25 +21,14 @@ import java.util.function.Function;
 /**
  * {@code /discord} and {@code /rules}: two commands that print one line each.
  *
- * Plain Brigadier rather than a {@code Declaration}: these two have one surface, one target, no
- * arguments and no confirmation, so a declaration, an effects interface, an adapter translation and
- * a catalogue test would buy nothing that a dozen lines of Brigadier does not already do here.
- *
- * The proxy owns them because they have to work in the waiting room: a player held there is
- * precisely the player who needs to be told where the Discord is, and a backend command cannot
- * answer somebody who is not on a backend. Being on the proxy also makes them one copy of one text
- * rather than three.
- *
- * The invite is the same string the login screens use, {@code gate.yml#discord-invite-url},
- * substituted as {@code {invite}}: an invite that has been re-issued is re-issued in exactly one
- * place, rather than leaving a second copy pointing at a dead link.
+ * The proxy owns them so they work in the waiting room; the invite is {@code gate.yml#discord-invite-url}.
  */
 public final class InfoTexts {
 
     /** What {@code /discord} prints. */
     public static final Function<Object, MessageRef> DISCORD_TEXT = ProxyMessages.MESSAGES.info()::discord;
 
-    /** What {@code /rules} prints. Ships as a marked placeholder until the rules are written. */
+    /** What {@code /rules} prints. */
     public static final Function<Object, MessageRef> RULES_TEXT = ProxyMessages.MESSAGES.info()::rules;
 
     private final Messages messages;
@@ -62,16 +51,10 @@ public final class InfoTexts {
                 BrigadierCommand.literalArgumentBuilder(literal).executes(context -> print(context, text)));
     }
 
-    /**
-     * The line itself.
-     *
-     * Rendered against this module's bundle rather than through {@code NordtalUser#reply}, because
-     * the value is MiniMessage with a clickable link in it and the shared bundle carries no markup
-     * at all.
-     */
+    /** Prints the line from this module's bundle, whose value carries a clickable link. */
     private int print(final CommandContext<CommandSource> context, final Function<Object, MessageRef> text) {
         if (!(context.getSource() instanceof Player player)) {
-            // GAME and not CONSOLE: a line with a clickable link is not what an operator wants from a console.
+            // GAME and not CONSOLE: a clickable link is not what an operator wants from a console.
             new ConsoleUser(messages, context.getSource())
                     .reply(MESSAGES.command().notFromConsole(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;

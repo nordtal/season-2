@@ -18,14 +18,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * {@link Teams} against a real PostgreSQL, running the real {@code V5__hunger_games.sql} migration.
+ * {@link Teams} against a real PostgreSQL and the real migrations, whose constraints are the rules under test.
  *
- * Every rule here - one active membership per player per game, one team name per game, at most one non-DECIDED game,
- * one partner maximum - is a schema constraint, the same reasoning {@code PaymentRequestIntegrationTest} gives for
- * why an in-memory stand-in would prove nothing. Skips itself when no Docker daemon is reachable.
- *
- * What this cannot prove: anything about Discord - buttons, modals, DMs and the managed Register message need a real
- * guild, and nothing here exercises {@code RegisterFlow} or {@code RegisterMessages}.
+ * Skipped when no Docker daemon is reachable.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TeamsIntegrationTest {
@@ -124,7 +119,7 @@ class TeamsIntegrationTest {
                 () -> assertEquals(AnswerResult.Status.ANSWERED, accepted.status()),
                 () -> assertEquals("Foxes", accepted.teamName()));
 
-        // The team is full now - a third, otherwise uninvolved account cannot be invited too.
+        // The team is full, so a third account cannot be invited.
         assertEquals(
                 InviteResult.Status.TEAM_FULL, teams.invite(OWNER, UNREGISTERED).status());
     }
@@ -196,7 +191,7 @@ class TeamsIntegrationTest {
         final UUID second = teams.openGame();
         assertTrue(!first.equals(second), "a DECIDED game must not be reused");
 
-        // The old game's team name is free again in the new game - rehearsal and the real event do not fight over it.
+        // An old game's team name is free again in the new game.
         database.jdbi()
                 .useHandle(
                         handle -> handle.createUpdate("INSERT INTO hg_team (game_id, name) VALUES (:gameId, 'Foxes')")

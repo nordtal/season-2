@@ -18,18 +18,7 @@ import org.junit.jupiter.api.Test;
 /**
  * {@link Target} and the {@code CHECK} on {@code command_request.target} are one fact in two places.
  *
- * The pairing needs a test rather than care, because the enum is in this module and the
- * constraint is in {@code :common}'s migration, and neither is visible from the other. A sixth
- * process added here writes rows the database refuses - a constraint violation inside whichever
- * adapter submitted it, at the moment somebody typed a command that has never worked. A constant
- * removed here leaves rows nothing will ever claim.
- *
- * The same pairing exists for {@code SeasonPhase} and {@code season_phase.phase}, for the same
- * reason. This is that rule applied to the second enum the schema pins.
- *
- * It reads the migration file off the classpath, not off a path: {@code :common}'s resources are
- * on this module's runtime classpath, so no {@code repositoryRootTestInputs} declaration is
- * needed, and the file this reads is the one that would actually be applied.
+ * The migration is read off the classpath, so this checks the file that would actually be applied.
  */
 class TargetSchemaTest {
 
@@ -72,7 +61,7 @@ class TargetSchemaTest {
 
     @Test
     void localIsDeliberatelyNotPermittedByTheCheck() throws IOException {
-        // The one target that is not an address, and the constraint is where that is enforced rather than merely.
+        // The one target that is not an address, and the database constraint enforces that.
         assertTrue(
                 !sql().contains("'LOCAL'"),
                 "command_request's CHECK permits LOCAL. It must not: a LOCAL command never"
@@ -82,7 +71,7 @@ class TargetSchemaTest {
 
     @Test
     void everyTargetNamesAMessageKeyThatBothBundlesCarry() throws IOException {
-        // The sentence "no answer within 30 seconds - {target} is either down" is where a process gets named.
+        // The timeout sentence names the target process, so every target needs a key.
         final String en = bundle("messages/commands/en.properties");
         final String de = bundle("messages/commands/de.properties");
 

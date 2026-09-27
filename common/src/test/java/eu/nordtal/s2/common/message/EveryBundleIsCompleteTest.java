@@ -23,36 +23,13 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every message bundle in the repository, in both languages, complete.
+ * Checks that every message bundle in the repository has every key in both languages.
  *
- * <b>Why here and not once per module.</b> Four of the seven modules that ship a bundle had a
- * parity guard of their own and three did not - {@code discord-bot}, {@code limbo} and
- * {@code paper-common}. The gap is invisible by construction: English is {@code Messages}'
- * fallback for everything, so a key with no German is answered <i>in English</i>. Nothing throws,
- * nothing is logged, no test fails - a German player simply gets one English line in the middle of
- * German text, which is the least likely kind of defect to be reported by anyone. Copying the same
- * ninety lines into three more modules would have closed today's gap and left the next module to
- * discover the rule by not having it. This walks the tree instead, so a module that gains a bundle
- * is covered the day it gains one, without anybody remembering anything.
- *
- * It does not replace the per-module tests. Those also check that every key <i>named in code</i>
- * exists, which needs the module's own sources and is a different question from parity.
- *
- * The files are declared in {@code common/build.gradle.kts} through
- * {@code repositoryRootTestInputs}. Without that Gradle cannot see them and an edit to a bundle
- * leaves {@code :common:test} UP-TO-DATE - the failure mode this whole mechanism exists for.
+ * A missing German key falls back to English silently, so the tree is walked to cover new modules without a line here.
  */
 class EveryBundleIsCompleteTest {
 
-    /**
-     * The bundles that existed when this test was written.
-     *
-     * It is a floor, never a ceiling: the walk below finds bundles on its own, so a new module
-     * needs no line here. What the list catches is the opposite and nastier case - a walk that
-     * silently finds nothing because somebody moved {@code messages/} or renamed
-     * {@code resources}. A green test over zero bundles looks exactly like a green test over
-     * seven.
-     */
+    /** The bundles known to exist, a floor that fails a walk which silently finds nothing. */
     private static final Set<String> KNOWN = Set.of(
             "commands/src/main/resources/messages/commands",
             "discord-bot/src/main/resources/messages/access",
@@ -176,13 +153,7 @@ class EveryBundleIsCompleteTest {
         return new TreeSet<>(load(bundle, language).stringPropertyNames());
     }
 
-    /**
-     * Read as UTF-8 through a {@link Reader}, never through the {@code InputStream} overload.
-     * {@code .properties} is historically Latin-1 and {@link Properties#load(java.io.InputStream)}
-     * still reads it that way, which turns every umlaut in the German half into two characters -
-     * and then reports the key as present, so the parity check above would stay green while the
-     * text was already wrong.
-     */
+    /** Reads a bundle as UTF-8 through a {@link Reader}, since the {@code InputStream} overload reads Latin-1. */
     private static Properties load(final String bundle, final String language) {
         final Properties properties = new Properties();
         final Path file = RepositoryRoot.resolve(bundle + "/" + language + ".properties");

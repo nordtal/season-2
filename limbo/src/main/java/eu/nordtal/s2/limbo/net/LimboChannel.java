@@ -12,18 +12,7 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
 /**
  * This module's end of {@code nordtal:limbo}: it listens for the proxy's {@code WAIT} and answers {@code READY}.
  *
- * READY repeats once a second from one tick after the join until the player is gone, because one message is
- * exactly what Velocity can lose. It means "this player has arrived and finished joining me," <b>not</b> "send them
- * to the SMP" and not anything about where they should go: a backend that could ask for a destination would put
- * the routing rules in two processes. The message carries no destination and no room for one; the proxy works out
- * where the player belongs from the phase.
- *
- * On this side of the connection a plugin message from the proxy and one from the player's own client are the same
- * thing, and neither is distinguishable from the other. What makes that safe is on the <em>proxy</em>: {@code
- * PackStation} consumes every {@code nordtal:limbo} message a client sends ({@code ForwardResult.handled()}) rather
- * than forwarding it, so nothing a client writes reaches this listener. The worst a forged {@code WAIT} could do
- * here anyway is put the wrong title on the forger's own screen - the release decision is not made in this process
- * at all.
+ * READY carries no destination, so routing stays in the proxy, which drops every client-sent message here.
  */
 public final class LimboChannel implements PluginMessageListener {
 
@@ -53,16 +42,7 @@ public final class LimboChannel implements PluginMessageListener {
     /**
      * Tells the proxy this player is ready to be routed on.
      *
-     * Sent one tick after the join rather than inside it, for two reasons: the player's connection
-     * is unambiguously established by then, and it puts a hard ordering between "this server has
-     * the player" and "the proxy may move them" that does not depend on how Bukkit happens to order
-     * two handlers of the same event. And then again every {@link #READY_REPEAT_TICKS}, because the
-     * first one is lost whenever Velocity decodes it in the same read batch as the join packet -
-     * the proxy then releases the player on a five-second grace period rather than on this message,
-     * and a black screen five seconds longer than necessary on most logins is the price of a
-     * message sent exactly once. The proxy records READY idempotently, so repeating it is free.
-     *
-     * @param player the player who has just arrived
+     * Sent a tick after the join and every {@link #READY_REPEAT_TICKS}, since Velocity can drop one; it is idempotent.
      */
     public void sendReady(final Player player) {
         player.sendPluginMessage(plugin, LimboProtocol.CHANNEL, LimboProtocol.ready());

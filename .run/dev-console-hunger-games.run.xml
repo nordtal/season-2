@@ -1,8 +1,7 @@
 <!--
   dev console hunger-games
 
-  hunger-games's log scrolls by, and every line typed into the Run window is sent as a console command.
-  End the input with Ctrl-D, or stop the configuration; the server keeps running either way.
+  Streams the server log and sends every typed line as a console command. Ctrl-D ends the input; the server keeps running.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev console hunger-games" type="Application" factoryName="Application" folderName="dev: console and database">

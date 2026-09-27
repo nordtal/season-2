@@ -12,12 +12,7 @@ import java.nio.file.Path;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/**
- * The two files this service reads, and what has to be true of them before it starts.
- *
- * Validation happens at load, not at first use, so a bad value names the key and the file at
- * startup rather than failing on the first click.
- */
+/** The two files this service reads, validated at load so a bad value names its key and file at startup. */
 public final class Configs {
 
     private Configs() {}
@@ -31,7 +26,7 @@ public final class Configs {
                 .validator(config -> {
                     requirePositive("port", config.port());
                     requirePositive("session-days", config.sessionDays());
-                    // A ceiling too: multiplied into seconds for a cookie's Max-Age, which is an int.
+                    // A ceiling too: it is multiplied into a cookie's Max-Age, which is an int.
                     if (config.sessionDays() > 365) {
                         throw new IllegalArgumentException("session-days is " + config.sessionDays()
                                 + " - a session lasting longer than a season is not a session");
@@ -88,11 +83,7 @@ public final class Configs {
         return handle;
     }
 
-    /**
-     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file.
-     *
-     * Best-effort: not a reason for a correctly loaded config to refuse to start the service.
-     */
+    /** Writes {@code handle}'s environment overrides next to its file, best effort. */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {
             EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
@@ -102,10 +93,7 @@ public final class Configs {
     }
 
     /**
-     * The one address this interface answers on, and Discord's redirect URI is built from it.
-     *
-     * Parsed rather than pattern-matched, since Discord compares the redirect URI as a string and
-     * refuses anything a query or a fragment would turn it into.
+     * The address this interface answers on, parsed since Discord compares the redirect URI built from it as a string.
      */
     static void requirePublicUrl(final String url) {
         if (url == null || url.isBlank()) {
@@ -137,14 +125,9 @@ public final class Configs {
         }
     }
 
-    /**
-     * The domain a security key is bound to, held against the address the browser actually uses.
-     *
-     * Checked at startup rather than left to the browser: a mismatched relying party id otherwise
-     * fails silently as a {@code SecurityError} the browser never reports back here.
-     */
     private static final String LOCALHOST = "localhost";
 
+    /** Holds the security keys' domain against public-url, since a browser refuses a mismatch in silence. */
     static void requireRelyingParty(final @Nullable String relyingPartyId, final String publicUrl) {
         if (relyingPartyId == null || relyingPartyId.isBlank()) {
             throw new IllegalArgumentException("webauthn.relying-party-id is empty - it is the"

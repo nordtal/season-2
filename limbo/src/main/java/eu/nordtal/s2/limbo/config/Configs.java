@@ -14,12 +14,9 @@ import java.util.Map;
 import org.slf4j.Logger;
 
 /**
- * Where {@code limbo}'s two config files live, and every rule about what a valid value is.
+ * Where {@code limbo}'s config files live, and every rule about what a valid value is.
  *
- * The same shape as {@code hunger-games}' and {@code proxy}'s own {@code Configs}: one environment namespace per
- * file, every check run once at startup rather than discovered mid-login. A failure here disables the plugin and
- * leaves the server running - which for this module means a waiting room that accepts players and shows them
- * nothing, so the log line is written to be found.
+ * Every check runs once at startup; a failure disables the plugin, leaving a waiting room that shows nothing.
  */
 public final class Configs {
 
@@ -54,11 +51,9 @@ public final class Configs {
     }
 
     /**
-     * Loads the tone colours.
+     * Loads the tone colours, read once at enable.
      *
-     * No validator: {@code ToneColours#parse} corrects a bad hex value where it parses it, so a
-     * typo here is never a reason to refuse a login. Read once at enable - see {@code ColoursSpec}'s
-     * own javadoc for why this file has no {@code /limbo reload} path yet.
+     * No validator: {@code ToneColours#parse} corrects a bad hex value, so a typo never refuses a login.
      */
     public static ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger) throws ConfigException {
         return load(dataFolder, logger, "colours", ColoursSpec.class, "NORDTAL_LIMBO_COLOURS", config -> {});
@@ -67,8 +62,7 @@ public final class Configs {
     /**
      * {@code ColoursSpec}'s five accessors, as the map {@code ToneColours} parses.
      *
-     * An exhaustive {@code switch} with no {@code default}, so a sixth {@link Tone} stops this
-     * compiling rather than silently leaving it unpainted.
+     * An exhaustive {@code switch}, so a sixth {@link Tone} stops this compiling.
      */
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
@@ -111,13 +105,7 @@ public final class Configs {
         return handle;
     }
 
-    /**
-     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} marker next to its file.
-     *
-     * That lets steward-worker warn that editing an overridden setting there has no effect until
-     * the variable is removed. Best-effort: this is a UI nicety, not a reason for a correctly
-     * loaded config to refuse to enable the plugin.
-     */
+    /** Writes the environment-override marker next to the file for steward-worker; best-effort, never fatal. */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {
             EnvOverrideFile.write(handle.file(), handle.environmentOverrides());

@@ -8,9 +8,7 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
  * Records whether steward-worker has bunq credentials, so the bot can tell before offering a purchase.
- *
- * Written at every worker start; the bot starts after the worker is healthy, so it reads this boot's value.
- * A missing row is {@link State#UNKNOWN}, not off.
+ * Written at every worker start; a missing row is {@link State#UNKNOWN}, not off.
  */
 public final class PaymentGateway {
 
@@ -23,7 +21,7 @@ public final class PaymentGateway {
         /** An API key and an account id are both set; the poll runs and a tab can be made. */
         ON,
 
-        /** Neither is set. The stack is healthy and nothing can be bought - deliberately. */
+        /** Neither is set. The stack is healthy and nothing can be bought, deliberately. */
         OFF,
 
         /** No steward-worker has written the row yet, which does not mean bunq is off. */
@@ -32,19 +30,12 @@ public final class PaymentGateway {
 
     private PaymentGateway() {}
 
-    /**
-     * Records what steward-worker found, overwriting the previous state.
-     *
-     * @param on whether the bunq credentials are both set
-     */
+    /** Records what steward-worker found, overwriting the previous state. */
     public static void announce(final Jdbi jdbi, final boolean on) {
         jdbi.onDemand(GatewayDao.class).upsert(KEY, (on ? State.ON : State.OFF).name());
     }
 
-    /**
-     * @param jdbi the database
-     * @return what steward-worker last said, or {@link State#UNKNOWN} when nothing has
-     */
+    /** Returns what steward-worker last said, or {@link State#UNKNOWN} when nothing has. */
     public static State state(final Jdbi jdbi) {
         final Optional<String> stored = jdbi.onDemand(GatewayDao.class).value(KEY);
         if (stored.isEmpty()) {
@@ -58,7 +49,6 @@ public final class PaymentGateway {
         }
     }
 
-    /** {@code bot_setting}, for the one key here that is rewritten on every start. */
     interface GatewayDao {
 
         @SqlUpdate("""

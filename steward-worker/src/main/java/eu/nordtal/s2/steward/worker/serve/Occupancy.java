@@ -11,48 +11,35 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * How many players are on a service right now, as a seam.
+ * How many players are on a service right now, where empty means no fresh row said, never zero.
  *
- * Why "nobody said" is a third answer and not a zero: The run waits for a service to be free of players before it
- * stops it, and then stops it anyway after ten seconds. Both halves of that need to tell "there is nobody on it"
- * apart from "nothing has told me for a while": the first is the outcome the wait exists for, the second is a proxy
- * that has stopped writing, and folding the two together would end the wait early on the exact run where waiting
- * mattered. So every answer here is an {@link OptionalInt}, empty means nobody said recently, and the caller has to
- * write down which of the two it acted on.
- *
- * Freshness is decided here, once: {@code OnlineDirectory} and {@code StandbyDirectory} both hand back a number with
- * the instant it was written and deliberately no opinion about it. This is where the opinion lives, and the two
- * cutoffs differ because the two cadences do: the proxy writes {@code online_count} every second while a run has
- * something moving (see {@code OnlineWriter}) and the standby writes its own row every two.
+ * Freshness is decided here once; the two cutoffs differ because the proxy and standby write at different rates.
  */
 interface Occupancy {
 
-    /**
-     * How stale an {@code online_count} row may be and still be acted on.
-     *
-     * Four seconds: three missed ticks of the one-second cadence the proxy switches to while a run is moving something.
-     * Wider than that and a ten-second wait would be deciding on a number from before the players were moved, which is
-     * the failure this whole seam exists to avoid.
-     */
+    /** How stale an {@code online_count} row may be and still be acted on: three missed one-second ticks. */
     Duration COUNT_FRESH_WITHIN = Duration.ofSeconds(4);
 
-    /** Four missed heartbeats of {@code StandbyReturn.INTERVAL}, for the same reasoning. */
+    /** Four missed heartbeats of {@code StandbyReturn.INTERVAL}. */
     Duration STANDBY_FRESH_WITHIN = Duration.ofSeconds(8);
 
     /**
+     * Reads one service's player count.
+     *
      * @param service a compose service name
-     * @param now     the run's clock
+     * @param now the run's clock
      * @return how many players are on it, or empty when no fresh row says
      */
     OptionalInt on(String service, Instant now);
 
     /**
-     * @return how many players the standby proxy is holding, or empty when it has never written a
-     *         row or has stopped writing. A standby nobody has heard from is not an empty one
+     * Reads the standby proxy's player count.
+     *
+     * @return how many players it holds, or empty when it has not written recently, which is not zero
      */
     OptionalInt onStandbyProxy(Instant now);
 
-    /** Nothing to read. Every answer is empty, which reads as "nobody said" everywhere. */
+    /** Nothing to read: every answer is empty, which reads as "nobody said". */
     Occupancy NONE = new Occupancy() {
 
         @Override
@@ -66,13 +53,7 @@ interface Occupancy {
         }
     };
 
-    /**
-     * The production reader, over the pool this process already owns.
-     *
-     * The two directories are built on first use rather than in this method, because a run that never opens a standby
-     * window never asks either of them, and a constructor that opened a connection would make every unit-level
-     * construction of {@code Runner} need a database.
-     */
+    /** The production reader, over the pool this process already owns, opening its directories on first use. */
     static Occupancy over(final DataSource dataSource) {
         return new Occupancy() {
 

@@ -15,8 +15,7 @@ import org.gradle.api.tasks.TaskAction
 /**
  * Writes one font's [GlyphAdvances] as a properties file the plugins read: hex code point to advance.
  *
- * The plugins compose a boss bar pill or a menu row and cannot read the pack, so they carry this
- * table. Deriving it here instead of committing it means a redrawn glyph cannot leave it stale.
+ * The plugins cannot read the pack, so they carry this table.
  */
 @CacheableTask
 abstract class GenerateGlyphAdvances : DefaultTask() {

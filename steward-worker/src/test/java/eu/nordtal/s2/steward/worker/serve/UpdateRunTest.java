@@ -16,16 +16,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Stop, swap, start, and prove it came back.
  *
- * Why this is tested against a fake and not rehearsed: Rehearsing this needs a live compose project and a
- * willingness to take the network down, and the cases worth testing are the ones a healthy stack will not produce on
- * demand: a daemon that has stopped answering, a stop that is refused, a container that comes back {@code running}
- * and sick. Every decision in the sequence is therefore held here: what it refuses to start, what it will not stop,
- * what it does when a stop fails, and above all what it calls "back".
- *
- * The failures it has to survive are the interesting cases: A container that is {@code running} with a dead plugin
- * inside it is the exact shape the first deployment produced - green healthcheck, open port, no season on it - and
- * it is why every process writes a readiness marker at all. A sequence that accepted {@code running} would report a
- * successful update over a network that is down.
+ * Back means healthy, never just {@code running}: a container with a dead plugin inside is running too.
  */
 class UpdateRunTest {
 
@@ -71,7 +62,7 @@ class UpdateRunTest {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 
-        // smp's only line has no build for this version: something to SAY, nothing to do - and it is not empty.
+        // smp's only line has no build for this version: something to say, nothing to do, and not empty.
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
                 .with(new UpdateReport.ServiceLine(
                         Topology.SMP,
@@ -330,7 +321,7 @@ class UpdateRunTest {
 
     @Test
     void aVolumeThatSavedNothingIsFailedNotASuccessfulLineWithNoBytes() {
-        // A past run once reported success having snapshotted zero volumes; this stops that happening again.
+        // A run that snapshotted zero volumes must not report success.
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls).savesNothing("mc-smp");
         final UpdateRun run = new UpdateRun(containers, snapshots, progress::add);
@@ -376,12 +367,7 @@ class UpdateRunTest {
                 service, UpdateReport.State.PLANNED, List.of(new UpdateReport.Change(service, "0.6.0", "0.7.0")), null);
     }
 
-    /**
-     * A clock well inside the window that lets the service come back while it is being waited for.
-     *
-     * The wait is driven rather than slept through: the sleep advances the instant and makes the container healthy,
-     * which is what a real start does one poll later.
-     */
+    /** A clock inside the window that lets the service come back on the second look. */
     private static UpdateRun.Waiting comesBackOnTheSecondLook(final FakeContainers containers, final String service) {
         return new UpdateRun.Waiting() {
             private Instant now = Instant.parse("2026-09-07T12:00:00Z");
@@ -473,7 +459,7 @@ class UpdateRunTest {
         final UpdateReport report =
                 run.start(run.stop(planned(Topology.SMP), containers.runtime()), containers.images());
 
-        // The server is BACK. This used to stop it and fail the line, leaving it off until somebody looked.
+        // The old container starts again after the refused recreate, and the line still fails.
         assertEquals(List.of("stop:smp-container", "recreate:smp", "start:smp-container"), containers.calls);
         assertEquals(
                 UpdateReport.State.FAILED,
@@ -527,7 +513,7 @@ class UpdateRunTest {
 
     @Test
     void aFallbackThatNeverCameBackSaysTheServiceIsDownNotThatItIsBack() {
-        // A container exiting on the first tick used to be reported as a service back on the old version.
+        // A container exiting on the first tick must not be reported as a service back on the old version.
         final FakeContainers containers = new FakeContainers()
                 .running(Topology.SMP)
                 .imageOutdated(Topology.SMP)

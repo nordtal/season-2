@@ -13,31 +13,16 @@ import java.util.regex.Pattern;
 /**
  * The PaperMC Fill v3 API: the newest {@code STABLE} build of a Paper or Velocity version.
  *
- * For Paper this follows builds within a version that never moves from here, because a new Minecraft version is a
- * season decision. For Velocity it also follows the version inside one of Fill's families (
- * {@link #newestStableVersion}), since Velocity's minors do not move the Minecraft protocol - only the API
- * {@code proxy} was compiled against, which the resolver reports.
- *
- * Following builds automatically has the widest blast radius of anything here: one build changes the platform under
- * all four servers at once and nothing in this repository tests against it. The report puts the build number in
- * front of a person before anything restarts.
- *
- * The filename comes from {@code downloads."server:default".name} and is never built by hand:
- * {@code deploy/minecraft/entrypoint.sh} reads the same field, and two programs constructing the name separately is
- * how a server comes to run one jar while something believes it installed another.
+ * The filename comes from {@code downloads."server:default".name}, never built by hand.
  */
 public final class PaperFill {
 
     private static final String API = "https://fill.papermc.io/v3/projects/";
 
-    /** The only channel a production network follows. Fill also publishes {@code ALPHA}. */
+    /** The only channel followed. Fill also publishes {@code ALPHA}. */
     private static final String STABLE = "STABLE";
 
-    /**
-     * A version this module is willing to install: digits and dots, nothing else.
-     *
-     * So no {@code 4.1.2-SNAPSHOT}, {@code 26.2-rc-2} or {@code 1.21.11-pre5} ever reaches a server.
-     */
+    /** A version this module is willing to install: digits and dots, so no snapshot, rc or pre-release. */
     private static final Pattern RELEASE_VERSION = Pattern.compile("[0-9]+(\\.[0-9]+)*");
 
     /** The download the servers run. Fill also publishes {@code mojang-mapped} builds. */
@@ -50,9 +35,10 @@ public final class PaperFill {
     }
 
     /**
-     * @param project {@code paper} or {@code velocity} - the same word {@code SERVER_KIND} takes
-     *                in the entrypoint, and the id used both as the artifact id and in the URL.
-     * @param version the pinned version, e.g. {@code 26.2} or {@code 4.1.1}.
+     * Creates a source for one project version.
+     *
+     * @param project {@code paper} or {@code velocity}, used as the artifact id and in the URL
+     * @param version the version, for example {@code 26.2} or {@code 4.1.1}
      */
     public RemoteFile newestStable(final String project, final String version) throws IOException {
 
@@ -60,7 +46,7 @@ public final class PaperFill {
         final String what = "PaperMC Fill " + project + " " + version;
         final JsonArray builds = Json.array(http.get(uri), what);
 
-        // The channel filter decides, not the position: the newest build can be EXPERIMENTAL, unlike builds[0].
+        // The channel filter decides, not the position: the newest build can be EXPERIMENTAL.
         for (final JsonElement element : builds) {
             final JsonObject build = element.getAsJsonObject();
             if (!STABLE.equals(Json.optionalString(build, "channel"))) {
@@ -92,16 +78,9 @@ public final class PaperFill {
     }
 
     /**
-     * The newest release version inside one of Fill's version families.
+     * The newest release version inside one of Fill's version families, compared as numbers.
      *
-     * Fill's own grouping, read off {@code GET /v3/projects/<project>}. A family name is not a version anybody runs -
-     * Velocity's whole 4.x line is called {@code 4.0.0} - so it is looked up rather than installed.
-     *
-     * Compared as numbers, never as text, and never by position in the response: {@code 4.10.0} is newer than
-     * {@code 4.9.0} and sorts below it lexicographically, and being wrong here quietly installs an older proxy.
-     *
-     * @throws IOException when the family is unknown or carries no release version at all - never a fallback onto
-     *     another family, which would move the network to a different Velocity major without anybody asking for it
+     * @throws IOException when the family is unknown or carries no release version, never falling back to another
      */
     public String newestStableVersion(final String project, final String family) throws IOException {
 

@@ -1,8 +1,7 @@
 <!--
   dev down
 
-  Removes the containers. The VOLUMES SURVIVE - worlds, the database and the jar caches are
-  untouched, and `dev up` recreates the containers around them. Only `dev reset` deletes a world.
+  Removes the containers and keeps the volumes. Only `dev reset` deletes a world.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev down" type="Application" factoryName="Application" folderName="dev: stack">

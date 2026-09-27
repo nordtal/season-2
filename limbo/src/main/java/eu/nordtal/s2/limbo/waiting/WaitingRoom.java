@@ -25,21 +25,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The waiting room's entire interface: one title per player, in that player's own language, saying what they wait for.
  *
- * Limbo shows nothing: black, no visible world, no other players and no chat. A title in the
- * player's language says what they are waiting for, and that is the entire interface. Three things
- * together make that black screen: an empty world (which is {@link WaitingWorld}'s job, since an
- * empty world alone is a sky, not black), infinite blindness with no particles or icon, and hidden
- * players, done by the listener rather than here, since two people waiting must not see each other.
- *
- * A Minecraft title expires. On a server whose only content is that title, an expired one is a
- * completely black screen with nothing on it - indistinguishable, to the person looking at it, from
- * a client that has hung. So it is refreshed on a timer, with no fade, which replaces the text in
- * place instead of re-animating it. A change of reason does fade in, because that is a real event
- * and the player should notice it.
- *
- * It does not decide which reason to show. The proxy sends that
- * ({@code eu.nordtal.s2.common.limbo.LimboProtocol}), and until it does, {@link WaitReason#UNKNOWN}
- * says so rather than leaving the screen empty.
+ * Refreshed on a timer with no fade, since an expired title leaves a black screen that looks hung.
  */
 public final class WaitingRoom {
 
@@ -68,8 +54,6 @@ public final class WaitingRoom {
 
     /**
      * Puts a player into the waiting room's held state: adventure, flying, invulnerable, fed, blind, holding nothing.
-     *
-     * @param player the player who has just joined
      */
     public void receive(final Player player) {
         player.setGameMode(GameMode.ADVENTURE);
@@ -95,12 +79,7 @@ public final class WaitingRoom {
         show(player, WaitReason.UNKNOWN, true);
     }
 
-    /**
-     * Shows a reason, fading it in only if it is different from the one already up.
-     *
-     * @param player the player
-     * @param reason what they are waiting for
-     */
+    /** Shows a reason, fading it in only if it is different from the one already up. */
     public void show(final Player player, final WaitReason reason) {
         show(player, reason, shown.get(player.getUniqueId()) != reason);
     }
@@ -122,13 +101,7 @@ public final class WaitingRoom {
                 times));
     }
 
-    /**
-     * Starts the refresh loop.
-     *
-     * One task for the whole server rather than one per player: the set is usually empty and never
-     * large, and a per-player task on a login path is a task created and cancelled thousands of
-     * times a day for no reason.
-     */
+    /** Starts the refresh loop, one task for the whole server rather than one per player. */
     public void start() {
         final long ticks = config.titleRefreshSeconds() * 20L;
         refresh = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tick, ticks, ticks);
@@ -146,11 +119,7 @@ public final class WaitingRoom {
     /**
      * Re-sends whatever this player already has on screen, without a fade.
      *
-     * Used when the player's language arrives after the title has already been drawn - the join
-     * path reads it off the main thread, so the first title of every session may be English. There
-     * is nothing to decide here: the reason has not changed, only the words it renders into.
-     *
-     * @param player the player
+     * Used when the player's language arrives after the first title was drawn in English.
      */
     public void redraw(final Player player) {
         show(player, shown.getOrDefault(player.getUniqueId(), WaitReason.UNKNOWN), false);
@@ -161,7 +130,7 @@ public final class WaitingRoom {
         shown.remove(uuid);
     }
 
-    /** @return which reason each waiting player currently has on screen, for tests and logging */
+    /** Returns which reason each waiting player currently has on screen. */
     public Map<UUID, WaitReason> shown() {
         return Map.copyOf(shown);
     }

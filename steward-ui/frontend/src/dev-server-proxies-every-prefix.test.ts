@@ -6,25 +6,6 @@ import { describe, expect, it } from "vitest"
 
 import config from "../vite.config"
 
-/**
- * Every prefix this interface calls is a prefix `npm run dev` hands to the backend.
- *
- * `vite.config.ts` proxied `/api` and nothing else, and the interface talks to **two** prefixes:
- * 33 calls under `/api` and seven under `/auth` - `POST /auth/logout`, the four WebAuthn steps and
- * the `<a href="/auth/login">` on the sign-in page. Under the dev server those seven landed in
- * Vite's SPA fallback, which answers `index.html` with a 200, so nothing looked broken and nothing
- * worked: `Gate` wants a held key for every read and a fresh one for every write, so a dev server
- * that cannot sign in and cannot hold a key has no usable page at all.
- *
- * That is why this is a test rather than one more line in the config. A third prefix - and the
- * `/auth` family was itself the second - would fail exactly as quietly as the second one did: no
- * error, no 404, a page of HTML where JSON was expected. This is the dev-server half of
- * `EveryCalledPathIsRoutedTest`, which asks the same question of the Java routes.
- *
- * It reads the real config object rather than the file's text, so a proxy written in any of Vite's
- * shapes counts.
- */
-
 const here = path.dirname(fileURLToPath(import.meta.url))
 
 /** A path handed to `api()`, which is the one function in this frontend that calls `fetch`. */
@@ -63,6 +44,7 @@ function called(): Map<string, string> {
   return found
 }
 
+/** `npm run dev` proxies every prefix the interface calls; a missing one gets Vite's HTML fallback with a 200. */
 describe("the dev server", () => {
   it("proxies every prefix the interface calls", () => {
     const proxy = config.server?.proxy ?? {}
@@ -76,10 +58,7 @@ describe("the dev server", () => {
   })
 
   it("finds both of the prefixes this interface has", () => {
-    /**
-     * Without this the test above passes on an empty scrape, which is the way a guard like this
-     * dies: a call written in a shape the regexes do not know reads as "nothing to proxy".
-     */
+    /** Without this, a call shape the regexes do not know passes as nothing to proxy. */
     expect([...called().keys()].toSorted()).toEqual(["/api", "/auth"])
   })
 })

@@ -21,7 +21,7 @@ final class JdbiSnapshotDirectory implements SnapshotDirectory {
 
     @Override
     public NetworkSnapshot snapshot() {
-        // The query always returns one row; the null guard answers an empty network for the impossible case.
+        // The query always returns one row; the guard answers an empty network for the impossible case.
         final NetworkSnapshot snapshot = dao.snapshot();
         return snapshot == null ? NetworkSnapshot.EMPTY : snapshot;
     }

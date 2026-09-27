@@ -12,19 +12,7 @@ import org.junit.jupiter.api.Test;
 /**
  * That this plugin actually wires the command layer up, and wires it up the one way that works.
  *
- * <b>Why a text search, again</b>
- *
- * The same reason every wiring test here is one: what it protects is <em>whether a call is made</em> during
- * {@code onEnable}, and reaching {@code onEnable} needs a server. The rules themselves are ordinary code and are
- * covered properly - the confirmations in {@code :commands} ' {@code ConfirmationsTest}, the six commands' decisions
- * in {@code SmpCommandsTest}, the inbox in {@code CommandInboxTest}.
- *
- * <b>The failure it exists for</b>
- *
- * {@code AdminOperators#refresh} was written, tested and called by nothing for a day, on the one question where
- * doing nothing looks identical to working. The command inbox has exactly that shape: a plugin that builds one and
- * never starts it answers no requests at all, and the only symptom is that {@code /smp} in Discord says "no answer
- * within 30 seconds" - which reads as the server being down.
+ * A text search, because the calls happen in {@code onEnable}; an inbox never started looks like a server that is down.
  */
 class SmpCommandWiringTest {
 

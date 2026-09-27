@@ -24,25 +24,9 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 
 /**
- * Turns money steward-worker has found into access.
+ * Books the payments steward-worker has matched and posts the notices that need a human.
  *
- * Finding a payment needs a bunq API key; booking it needs only Discord. The finding lives in {@code steward-worker}
- * - the only process that holds a bank credential - and what is left here is everything that has to happen in a
- * guild: booking what was matched, and saying what needs a human.
- *
- * Booking: a row that is still {@code OPEN} and carries {@code matched_cents} is money that arrived and nobody has
- * been given anything for. The tier is derived from what actually arrived, the grant is written, the role is set,
- * the DM is sent, a donation is thanked for in public, and the audit entry is recorded.
- *
- * Needs a human: {@code payment_notice} rows the worker wrote - an unmatchable payment, a payment on a reference
- * that is no longer open - posted to the admin channel exactly once each.
- *
- * A payment against a reference that is not open is not booked - not superseded, not expired, not already paid. It
- * arrives here as a notice with {@code /settle} named in it, because the alternative is handing out access for a tab
- * that had already been cancelled.
- *
- * This is driven by {@code nordtal_payment}, with the timer in {@code AccessBot} as the guarantee underneath it.
- * {@link #poll()} is safe to call from either, and re-reads both queues in full every time.
+ * Driven by {@code nordtal_payment}, with the timer in {@code AccessBot} as the guarantee.
  */
 @Slf4j
 public final class PaymentProcessor {
@@ -79,7 +63,7 @@ public final class PaymentProcessor {
         this.seasonStart = seasonStart;
     }
 
-    /** One pass. Never throws: a loop that dies on one bad row stops booking payments. */
+    /** Runs one pass; never throws, since a loop that dies on one bad row stops booking payments. */
     public void poll() {
         try {
             bookWhatWasMatched();
@@ -88,8 +72,6 @@ public final class PaymentProcessor {
             log.error("The payment pass failed", exception);
         }
     }
-
-    // Booking.
 
     private void bookWhatWasMatched() {
         for (final PaymentRequest request : requests.matchedAwaitingBooking()) {
@@ -104,15 +86,15 @@ public final class PaymentProcessor {
     /**
      * Books one payment against one request, applying the "pay what you get" rule.
      *
-     * @param request the open request steward-worker attributed money to
+     * @param request   the open request steward-worker attributed money to
      * @param paymentId the bunq payment
-     * @param cents   what actually arrived - not what the request asked for
+     * @param cents     what actually arrived, not what the request asked for
      */
     private void book(final PaymentRequest request, final long paymentId, final int cents) {
-        // The order first, the amount second: honoured when the money covers it, re-derived only when it falls short.
+        // The order first, the amount second: honoured when the money covers it, re-derived only when short.
         final Optional<Tiers.Settlement> resolved = tiers.resolve(cents, Tiers.Order.of(request));
         if (resolved.isEmpty()) {
-            // Leaves the request open: the money is real but not enough, and what to do about it is a human decision.
+            // Leaves the request open: the money is real but not enough, which is a human decision.
             raise(
                     paymentId,
                     "BELOW_MINIMUM",
@@ -148,7 +130,7 @@ public final class PaymentProcessor {
             final Tiers.Settlement settlement,
             final AccessGrant grant,
             final Locale locale) {
-        // "Downgraded" means the payer edited the amount down - a confusing purchase, said plainly, is an obvious one.
+        // "Downgraded" means the payer edited the amount down, which the DM says plainly.
         roles.dm(
                 request.discordId(),
                 settlement.downgraded()
@@ -189,16 +171,11 @@ public final class PaymentProcessor {
                 request.discordId());
     }
 
-    /**
-     * The one public message the bot writes.
-     *
-     * A plain access purchase stays private - somebody buying the right to play is not an announcement - while a
-     * donation is thanked in the open, in the channel of the donor's own language.
-     */
+    /** Thanks a donation in public, in the channel of the donor's language; a plain purchase stays private. */
     private void announceDonation(final String discordId, final int donationCents, final Locale locale) {
-        // An unconfigured language - a tag left behind by a removed access.yml entry - lands in the fallback channel.
+        // An unconfigured language tag lands in the fallback channel.
         final String channelId = languages.forLocale(locale).contributionChannelId();
-        // No contribution channel means no public thank-you; the donation is still booked, flagged and given the role.
+        // No contribution channel means no public thank-you; the donation is still booked.
         if (!Configured.isSet(channelId)) {
             return;
         }
@@ -215,32 +192,17 @@ public final class PaymentProcessor {
                 .queue(ok -> {}, failure -> log.error("Could not post the donation thank-you", failure));
     }
 
-    // The admin channel.
-
-    /**
-     * Posts what steward-worker found and could not act on.
-     *
-     * The row is claimed before the message is sent, and that order is the same one {@code noticeOnce} always had:
-     * Discord can accept a message and this process can then die, so the choice is between saying it twice and not
-     * saying it at all. Twice is noise; not at all is money nobody hears about.
-     */
+    /** Posts what steward-worker found and could not act on, claiming each row before it is sent. */
     private void postWhatNeedsAHuman() {
         for (final PaymentNotice notice : requests.unpostedNotices()) {
             if (requests.claimNotice(notice.bunqPaymentId())) {
-                // Falls back to the reason label on the rare notice built with no detail sentence.
+                // Falls back to the reason label on a notice built with no detail sentence.
                 admin.alert(Objects.requireNonNullElse(notice.detail(), notice.reason()));
             }
         }
     }
 
-    /**
-     * Raises a payment to the admin channel, once ever.
-     *
-     * Written and claimed in one breath here, because this process both found the problem and can say so - unlike the
-     * worker's notices, which travel through the table. The claim is what stops the next pass from repeating it: the
-     * row
-     * stays, the message does not.
-     */
+    /** Raises a payment to the admin channel once ever, writing and claiming the notice together. */
     private void raise(final long paymentId, final String reason, final String text) {
         if (requests.noticeOnce(paymentId, reason, text) && requests.claimNotice(paymentId)) {
             admin.alert(text);

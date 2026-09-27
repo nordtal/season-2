@@ -3,18 +3,12 @@ package eu.nordtal.s2.steward.worker.ops;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One service of the compose project, as the Docker daemon sees it right now.
+ * One service of the compose project as the Docker daemon sees it now, from its list and one inspect.
  *
- * Built by {@code DockerOps} from the daemon's own container list and one inspect each: the compose service name
- * comes from the {@code com.docker.compose.service} label, the rest from the inspect's {@code State}. Inspected
- * rather than parsed out of the list's {@code Status} string, because "Up 19 hours (healthy)" is a sentence written
- * for a person.
- *
- * @param service the compose service name - {@code smp}, {@code limbo}, and so on
+ * @param service the compose service name
  * @param containerId what the stop and start calls are addressed to
  * @param status Docker's container status, {@code running} when it is up
- * @param health Docker's health state, or {@code null} for a service that declares no healthcheck. Every one of ours
- *     does
+ * @param health Docker's health state, or {@code null} for a service without a healthcheck
  */
 public record ServiceRuntime(
         String service,
@@ -23,17 +17,9 @@ public record ServiceRuntime(
         @Nullable String health) {
 
     /**
-     * Whether this service is back for real.
+     * Whether this service is back for real: healthy, since a plugin failing in {@code onEnable} leaves it running.
      *
-     * Running is not enough, and that is the whole point of asking: A container whose plugin threw in {@code onEnable}
-     * is {@code running}: Paper disables the plugin and carries on, the port is open, and there is a server there with
-     * no season on it. That is not a hypothetical - it is what the first deployment did, and it is why every one of the
-     * five processes writes {@code /tmp/nordtal-ready} and refreshes it every 30 seconds, and why {@code compose.yml}
-     * checks that file's age. This method is the one place that evidence is finally read by something that can act on
-     * it.
-     *
-     * A service with no healthcheck at all - {@code health} null - is accepted on {@code running}, because the
-     * alternative is an update that can never finish against a compose file somebody edited.
+     * A service with no healthcheck is accepted on {@code running}.
      */
     public boolean isBack() {
         if (!"running".equalsIgnoreCase(status)) {

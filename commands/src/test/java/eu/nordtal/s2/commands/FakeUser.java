@@ -2,31 +2,19 @@ package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.Tone;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Somebody asking for a command, recorded rather than rendered.
- *
- * This class is the point of {@code :commands} in one file. Before it, "what does {@code /phase}
- * say back when the phase was already the one asked for?" could only be answered by a real Velocity
- * proxy with a real client, or a real Discord guild with a real admin - which is why the answer had
- * drifted into two different sentences on the two surfaces without anybody noticing.
- */
+/** Somebody asking for a command, recorded rather than rendered. */
 public final class FakeUser implements NordtalUser {
 
     /**
      * Everything this user was told, in order.
      *
-     * Concurrent, because it is not always written from the thread that reads it: {@code Outbox}
-     * answers from its own scheduler and again from the task that gives up waiting, and
-     * {@code OutboxTest} then reads {@code size()} from the test thread. An {@link ArrayList} there
-     * has no happens-before edge, so the wait could spin past a reply that had already been made
-     * and fail on the timeout instead.
+     * Concurrent, since {@code Outbox} answers from its own threads while the test thread reads.
      */
     public final List<Reply> replies = new java.util.concurrent.CopyOnWriteArrayList<>();
 
@@ -115,12 +103,7 @@ public final class FakeUser implements NordtalUser {
         replies.add(new Reply(message.key(), Map.copyOf(message.args()), tone == null ? Tone.NEUTRAL : tone));
     }
 
-    /**
-     * Answers the key itself, marked.
-     *
-     * A real adapter renders it against a bundle; what a test wants to know is <em>which</em> key
-     * a command asked for, which the marker makes visible in an assertion failure.
-     */
+    /** Answers the key itself, marked, so an assertion failure shows which key a command asked for. */
     @Override
     public String phrase(final MessageRef message) {
         return "<" + message.key() + ">";

@@ -13,19 +13,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * What happens to the deployment's {@code steward-ui.yml} when a whole SECTION is added to the spec.
+ * What a {@code steward-ui.yml} gains when a whole nested section is added to the spec.
  *
- * Why this is a second test and not a line in {@link RenamedKeyTest}
- * That one measured a scalar: a file with no {@code session-days} gains the key at its default.
- * {@code webauthn} is not a scalar, it is a nested block with a key inside it, and jcore's
- * behaviour for one does not follow from its behaviour for the other. The difference decides
- * something real: whether adding the second factor is a commit, or a commit plus somebody
- * editing a file inside the {@code nordtal-s2_steward-ui-config} volume before the container will
- * start at all - because {@code Configs.ui} refuses a null relying party.
- *
- * Guessing either way would be guessing about the live deployment, which is the mistake this
- * workspace's guide already records once ({@code backup.stop-services} still naming {@code bot}
- * after the rename). So it is asked of the real loader against a real file.
+ * {@code Configs.ui} refuses a null relying party, so this decides whether the file needs editing by hand.
  */
 class AddedSectionTest {
 
@@ -63,7 +53,7 @@ class AddedSectionTest {
                         + " by hand in the config volume is a DEPLOYMENT STEP and the comment in"
                         + " UiSpec has to say so. The file now reads:\n" + after);
 
-        // And what was already there is untouched - the reason a written file is preserved at all.
+        // What was already there is untouched.
         assertEquals(8080, config.port());
         assertEquals("http://steward-worker:8082", config.worker().baseUrl());
     }

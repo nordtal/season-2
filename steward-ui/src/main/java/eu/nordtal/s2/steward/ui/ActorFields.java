@@ -6,11 +6,9 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * {@code requested_by}, picked apart into what the frontend's {@code PersonIdentity} needs.
+ * {@code requested_by}, split into what the frontend's {@code PersonIdentity} needs.
  *
- * A Discord id to resolve through the roster, plain text when there is an actor but no id to
- * resolve it by, or a flag saying Steward itself is the one credited - a row with no requester, or
- * one prefixed {@code steward-worker}, is the nightly clock or an unattended sweep, never a person.
+ * No requester, or one prefixed {@code steward-worker}, is Steward itself; otherwise a Discord id or plain text.
  */
 record ActorFields(String discordId, String label, boolean system) {
 

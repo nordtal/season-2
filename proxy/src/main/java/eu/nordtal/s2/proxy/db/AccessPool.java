@@ -5,12 +5,9 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.proxy.config.DatabaseSpec;
 
 /**
- * Builds the proxy's own HikariCP pool.
+ * Builds the proxy's own HikariCP pool, with both timeouts bounded for the login path.
  *
- * Not {@code AccessDirectory.open(String, String, String)}: that factory gives a fixed pool with no
- * way to tune {@code connectionTimeout} or the driver's {@code socketTimeout}, and the login path
- * needs both bounded. The proxy owns and closes this pool itself, because a pool handed to
- * {@code AccessDirectory.using(DataSource)} is one {@code close()} treats as borrowed.
+ * The proxy owns and closes it: a pool handed to {@code AccessDirectory.using} is treated as borrowed.
  */
 public final class AccessPool {
 
@@ -24,10 +21,10 @@ public final class AccessPool {
         hikari.setPoolName("proxy-access");
         hikari.setMaximumPoolSize(config.maximumPoolSize());
         hikari.setConnectionTimeout(config.queryTimeoutSeconds() * 1000L);
-        // Without this, ServiceLoader discovery may miss drivers not visible to this plugin's own classloader.
+        // Without this, ServiceLoader may miss a driver this plugin's classloader cannot see.
         hikari.setDriverClassName("org.postgresql.Driver");
 
-        // Bounds a query already running: connectionTimeout alone misses a database that hangs after accepting.
+        // Bounds a running query: connectionTimeout alone misses a database that hangs after accepting.
         hikari.addDataSourceProperty("socketTimeout", String.valueOf(config.queryTimeoutSeconds()));
 
         return new HikariDataSource(hikari);

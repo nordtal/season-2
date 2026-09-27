@@ -19,12 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * {@code PUT /api/config-raw/<file>} served over real HTTP - the raw editor's own save.
- *
- * Follows {@code MessagesApiIntegrationTest} 's shape: the contract steward-ui and the frontend read is the HTTP
- * one, not the methods behind it.
- */
+/** {@code PUT /api/config-raw/<file>} served over real HTTP, the raw editor's own save. */
 class ConfigApiRawIntegrationTest {
 
     private static final Gson GSON = new Gson();

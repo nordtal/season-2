@@ -5,15 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Who is currently navigating where.
- *
- * {@code /navigate} is off by default and switched on by the player, so the absence of an entry here is the normal
- * state and not a missing value. HUD line 2 exists only while there is one.
- *
- * Deliberately not persisted: a navigation that survived a relog would point somebody at a place they had already
- * given up on.
- */
+/** Who is currently navigating where; not persisted, so a relog ends it. */
 public final class Navigation {
 
     private final Map<UUID, NavigationTarget> active = new ConcurrentHashMap<>();
@@ -34,11 +26,7 @@ public final class Navigation {
         return active.containsKey(player);
     }
 
-    /**
-     * Drops every navigation pointing into a world.
-     *
-     * Called when a POI is deleted: the arrow would otherwise point confidently at a target that no longer exists.
-     */
+    /** Drops every navigation pointing into a world, so no arrow points at a deleted POI. */
     public void clearWorld(final String world) {
         active.entrySet().removeIf(entry -> entry.getValue().isIn(world));
     }

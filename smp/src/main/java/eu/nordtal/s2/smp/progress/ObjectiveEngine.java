@@ -42,23 +42,13 @@ import org.jspecify.annotations.Nullable;
 /**
  * The spine of the season: crediting progress, finishing objectives, paying out and unlocking milestones.
  *
- * That includes the milestone waiting on a finished objective. Everything here runs off the main thread; only the
- * world border, the announcements and the surfaces hop back.
- *
- * Two players can finish the same objective in the same instant. What makes the payout happen once is a guard in
- * SQL, not a lock in Java: {@code UPDATE ... WHERE completed IS NULL} changes a row for exactly one of them. The
- * same shape guards the milestone itself.
+ * Runs off the main thread; a SQL guard, not a Java lock, makes each payout happen once.
  */
 public final class ObjectiveEngine {
 
     private final Plugin plugin;
     private final SmpDao dao;
-    /**
-     * The milestone track, <b>as a supplier</b>.
-     *
-     * {@code /smp reload} replaces the plugin's track with a new instance, so a reference captured at enable would
-     * silently go on reading the definitions the server started with.
-     */
+    /** The milestone track, as a supplier, because {@code /smp reload} replaces it. */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final SeasonState season;
@@ -71,11 +61,7 @@ public final class ObjectiveEngine {
     private final WorldEffects effects;
     private final eu.nordtal.s2.smp.announce.Announcer announcer;
 
-    /**
-     * How the milestone title sits on the screen: in fast, held long, out slowly.
-     *
-     * Held long because it arrives unannounced - nobody pressed anything.
-     */
+    /** How the milestone title sits on the screen: in fast, held long because it arrives unannounced, out slowly. */
     private static final Title.Times CEREMONY =
             Title.Times.times(Duration.ofMillis(400), Duration.ofSeconds(3), Duration.ofSeconds(1));
 
@@ -107,18 +93,13 @@ public final class ObjectiveEngine {
     }
 
     /**
-     * Credits {@code delta} towards an objective of the active milestone. <b>Blocking - call from an async task.</b>
-     *
-     * Only the active milestone accepts progress. Contributing to a locked one would mean the track could be
-     * finished out of order, and contributing to a completed one would mean a payout that has already happened
-     * being recalculated.
+     * Credits {@code delta} towards an objective of the active milestone; blocking, so call it from an async task.
      *
      * @param discordId who to credit
      * @param objectiveKey which objective of the active milestone
      * @param delta how much, in the objective's own unit
-     * @param completedBy the player this credit came from, or null for an admin's escape hatch; carried only so a
-     *     milestone finished by this credit sounds different to the person who finished it
-     * @return how much was actually credited, which is less than {@code delta} when the objective was finished by it
+     * @param completedBy the player the credit came from, or null for an admin; only changes the finishing sound
+     * @return how much was credited, less than {@code delta} when it finished the objective
      */
     public long credit(
             final String discordId, final String objectiveKey, final long delta, final @Nullable UUID completedBy) {
@@ -151,10 +132,9 @@ public final class ObjectiveEngine {
     }
 
     /**
-     * Finishes one objective and pays its pot out. <b>Async.</b>
+     * Finishes one objective and pays its pot out, off the main thread.
      *
-     * Called both by {@link #credit} and by the admin escape hatch, which is why the completion guard lives in SQL
-     * rather than in the caller.
+     * The admin escape hatch calls it too, which is why the completion guard is in SQL.
      */
     public void finishObjective(
             final String milestoneKey, final ObjectiveRow objective, final @Nullable UUID completedBy) {
@@ -179,14 +159,9 @@ public final class ObjectiveEngine {
     }
 
     /**
-     * Splits an objective's pot among everyone who qualified.
+     * Splits an objective's pot among everyone who qualified, by {@link AuraPayout}'s arithmetic.
      *
-     * The arithmetic is {@link AuraPayout} 's and is tested there: 30 % split equally among qualifiers, 70 % in
-     * proportion, a 2 % qualifying threshold and a one-aura minimum share. What is here is only the reading and the
-     * writing.
-     *
-     * <b>The pot is scaled when the objective did not actually reach its target</b> - an admin completion, or a target
-     * lowered below the collected amount - so the escape hatch is never worth more than doing the work.
+     * The pot is scaled down when the target was not reached, so the escape hatch never beats doing the work.
      */
     private void payOut(final ObjectiveRow objective, final int pot, final String milestoneKey) {
         if (pot <= 0) {
@@ -223,9 +198,7 @@ public final class ObjectiveEngine {
                 .info("objective " + ref + " paid " + shares.size() + " contributor(s) out of " + scaled + " aura");
     }
 
-    /**
-     * Unlocks the milestone if every one of its objectives is now finished. <b>Async.</b>
-     */
+    /** Unlocks the milestone if every one of its objectives is now finished, off the main thread. */
     public void checkMilestone(final String milestoneKey, final @Nullable UUID completedBy) {
         final List<ObjectiveRow> objectives = dao.objectivesOf(milestoneKey);
         if (objectives.isEmpty() || !objectives.stream().allMatch(ObjectiveRow::completed)) {
@@ -235,11 +208,9 @@ public final class ObjectiveEngine {
     }
 
     /**
-     * Completes a milestone, hands out what it unlocks, and activates the next. <b>Async.</b>
+     * Completes a milestone, hands out what it unlocks and activates the next, off the main thread.
      *
-     * The row and the {@code pg_notify} that tells Discord are one statement, so an announcement can never go out for
-     * an
-     * unlock the database does not hold.
+     * The row and its {@code pg_notify} are one statement, so no announcement goes out for an unlock not held.
      */
     public void unlockMilestone(final String milestoneKey, final @Nullable UUID completedBy) {
         if (dao.completeMilestone(milestoneKey).isEmpty()) {
@@ -261,14 +232,7 @@ public final class ObjectiveEngine {
         });
     }
 
-    /**
-     * One objective of the active milestone is finished, said to everybody - and said silently.
-     *
-     * The silence is the middle rung of a ladder: a hand-in is {@code SMALL_SUCCESS} for the one player, a milestone is
-     * {@code BIG_SUCCESS} and {@code NETWORK_EVENT}. There are several objectives per milestone, so a network-wide
-     * sound
-     * here would devalue the milestone's own.
-     */
+    /** Announces a finished objective to everybody, without a sound, so the milestone's own sound keeps its weight. */
     private void announceObjective(final String objectiveKey) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {
@@ -280,15 +244,9 @@ public final class ObjectiveEngine {
     }
 
     /**
-     * Tells everybody the milestone is finished - and tells the person who finished it differently.
+     * Tells everybody the milestone is finished, with a different sound for whoever finished it.
      *
-     * Same line, two sounds: {@code BIG_SUCCESS} for whoever's contribution closed the last objective and
-     * {@code NETWORK_EVENT} for the rest of the server. An admin's hand-completion passes null, so everybody hears the
-     * network event and nobody is congratulated for a command.
-     *
-     * The rockets go up around every player, wherever they are standing, because the season has no one place everybody
-     * is. Nothing here is scheduled or staggered: a milestone closes a handful of times a season and the whole ceremony
-     * is one tick's work per online player.
+     * An admin completion passes null, so nobody is congratulated for a command.
      */
     private void announceMilestone(final String milestoneKey, final @Nullable UUID completedBy, final Unlock unlock) {
         // Discord first, off this thread, one row per language.

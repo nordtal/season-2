@@ -14,22 +14,7 @@ import net.kyori.adventure.sound.Sound;
 /**
  * The one place in {@code proxy} that names a sound to Velocity.
  *
- * Lives here and not in {@code :common} for the same reason {@code SmpSounds} and
- * {@code HungerGamesSounds} live in their own modules: {@code :common} is compiled against neither
- * Paper nor Velocity, so the platform call ({@code Player#playSound}) has to sit next to whichever
- * plugin makes it. {@code SoundVocabularyTest} in {@code :common} fails the build if a second
- * sound-playing file appears anywhere in the four client-facing modules.
- *
- * Unlike {@code smp} and {@code hunger-games}, which each read a {@code sounds.yml} an operator can
- * retune by ear, this module has no such file: {@code CommandGate} only ever needs one category,
- * {@link Feedback#REFUSED}, and {@code network.yml} carries no sound configuration to read one
- * from. The declared table below is therefore a constant rather than a parsed config, using the
- * same {@code minecraft:block.note_block.bass} at pitch 0.7 that {@code smp} and
- * {@code hunger-games} already use for the same category. A future category only needs another
- * entry in the map below; a config file to retune them by ear is a separate change.
- *
- * Everything here must be called from Velocity's own event thread, the same thread
- * {@code CommandGate#onCommandExecute} already runs on - there is no second hop to get wrong.
+ * Call it from Velocity's event thread, the one {@code CommandGate#onCommandExecute} runs on.
  */
 public final class ProxySounds implements CommandGate.Chime {
 
@@ -42,12 +27,9 @@ public final class ProxySounds implements CommandGate.Chime {
     }
 
     /**
-     * The one sound this module plays today: {@link Feedback#REFUSED}.
+     * The one sound this module plays: {@link Feedback#REFUSED}, at the key and pitch smp's {@code sounds.yml} ships.
      *
-     * At the same key and pitch {@code smp} and {@code hunger-games} declare in their shipped {@code sounds.yml}.
-     *
-     * @param problems where a value that had to be ignored is reported, once each. A plugin passes
-     *                 {@code logger::warn}
+     * @param problems where a value that had to be ignored is reported, once each
      */
     public static ProxySounds defaults(final Consumer<String> problems) {
         final Map<Feedback, FeedbackSound> declared = new EnumMap<>(Feedback.class);
@@ -55,7 +37,6 @@ public final class ProxySounds implements CommandGate.Chime {
         return new ProxySounds(FeedbackSounds.parse(declared, problems), problems);
     }
 
-    /** Plays {@code category} for one player, wherever on the network they are standing. */
     @Override
     public void play(final Player player, final Feedback category) {
         final FeedbackSound sound = sounds.sound(category);
@@ -63,10 +44,10 @@ public final class ProxySounds implements CommandGate.Chime {
             return;
         }
         try {
-            // MASTER rather than a themed category: this is not the kind of ambience a client's sliders are for.
+            // MASTER: this is not ambience a client's sliders are meant for.
             player.playSound(Sound.sound(Key.key(sound.key()), Sound.Source.MASTER, sound.volume(), sound.pitch()));
         } catch (final RuntimeException exception) {
-            // A malformed key is refused at load, so reaching here means the platform disagreed about something.
+            // A malformed key is refused at load, so the platform disagreed about something.
             sounds.failed(category, exception, problems);
         }
     }

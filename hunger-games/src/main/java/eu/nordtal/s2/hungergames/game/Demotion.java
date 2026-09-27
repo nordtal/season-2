@@ -10,25 +10,15 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Computes the effective, post-demotion participant list at countdown time.
+ * Computes the effective participant list at countdown time, after demotion.
  *
- * A duo whose partner never linked an account becomes a solo team with full hearts, keeping its
- * name and colour. "Present" means has an {@code mc_uuid}, not "is online right now" - a
- * disconnected but linked player still gets a body on their tower. The count feeds
- * {@code BorderMath#deathStep} and {@code TeamColours#generatePalette}.
+ * A duo whose partner never linked an account becomes a solo team with full hearts, keeping its name and colour.
  */
 public final class Demotion {
 
     private Demotion() {}
 
-    /**
-     * @param roster every active membership of the game, as returned by
-     *               {@code HungerGamesDao#roster(UUID)}
-     * @return one {@link Participant} per member who has an {@code mc_uuid} (i.e. has linked their
-     *         account at least once) - a registered member who never linked cannot be teleported
-     *         or given a body at all, and is therefore not a participant in the arithmetic sense,
-     *         though it remains an {@code hg_member} row for history
-     */
+    /** One {@link Participant} per member with an {@code mc_uuid}; only they can be teleported or given a body. */
     public static List<Participant> resolve(final List<RosterEntry> roster) {
         final Map<UUID, List<RosterEntry>> byTeam = new LinkedHashMap<>();
         for (final RosterEntry entry : roster) {
@@ -47,7 +37,6 @@ public final class Demotion {
                         entry.teamId(),
                         entry.teamName(),
                         entry.discordId(),
-                        // linked is filtered to entries with a non-null mcUuid, just above.
                         Objects.requireNonNull(entry.mcUuid()),
                         true,
                         demoted));
@@ -56,7 +45,7 @@ public final class Demotion {
         return participants;
     }
 
-    /** @return how many distinct teams the resolved participants belong to - the colour count. */
+    /** How many distinct teams the resolved participants belong to, which is the colour count. */
     public static int effectiveTeamCount(final List<Participant> participants) {
         final Set<UUID> teams = new java.util.HashSet<>();
         for (final Participant participant : participants) {

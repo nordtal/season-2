@@ -29,13 +29,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.Test;
 
-/**
- * A root whose bare form is itself a command, such as {@code /update}, needs its own gate.
- *
- * A check only on first-level children would leave it open to any player. The tree is built here
- * without a server - {@code Commands.literal} is plain Brigadier - and the root's own requirement
- * is asked.
- */
+/** A root whose bare form is itself a command, such as {@code /update}, needs its own gate. */
 class PaperCommandsRootGateTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000002");

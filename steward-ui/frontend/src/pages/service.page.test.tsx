@@ -9,10 +9,7 @@ import { asButton } from "@/lib/test-elements"
 import { urlOf } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/**
- * Every service page has the same head and up to three tabs, and a tab with nothing
- * behind it is not there. The open tab lives in the URL, so a reload stays on it.
- */
+/** Every service page has one head and up to three tabs; an empty tab is not shown, and the open one is in the URL. */
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {

@@ -13,9 +13,7 @@ import java.nio.file.Files;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * The configuration editor: listing, reading, and saving a file behind an optimistic revision.
- */
+/** The configuration editor: listing, reading, and saving a file behind an optimistic revision. */
 class ConfigApiTest extends StewardUiTestSupport {
 
     @Test
@@ -87,7 +85,7 @@ class ConfigApiTest extends StewardUiTestSupport {
                         .getAsString());
         assertTrue(Files.readString(configRoot.resolve("steward-worker/steward.yml"))
                 .contains("port: 9099"));
-        // The comment above it is still there, which is why this reads the file instead of re-dumping it.
+        // The comment above it survives, which is why this reads the file instead of re-dumping it.
         assertTrue(Files.readString(configRoot.resolve("steward-worker/steward.yml"))
                 .contains("# The worker."));
     }
@@ -116,12 +114,7 @@ class ConfigApiTest extends StewardUiTestSupport {
         assertTrue(refused.body().contains("stop-services"), refused.body());
     }
 
-    /**
-     * The revision the interface just handed out for a file - which every save has to carry.
-     *
-     * Read through the API rather than hashed here on purpose: a test that computed the value
-     * itself would still pass if the route stopped sending one.
-     */
+    /** The revision the interface handed out for a file, read through the API so a missing one fails. */
     private String revisionOf(final String file) throws Exception {
         final JsonObject document = GSON.fromJson(get("/api/config/" + file).body(), JsonObject.class);
         return document.get("revision").getAsString();
@@ -129,7 +122,7 @@ class ConfigApiTest extends StewardUiTestSupport {
 
     @Test
     void aSaveHasToSayWhatItWasLastShown() throws Exception {
-        // Deliberately not optional-with-a-default: an omittable revision is one a client can forget.
+        // Not optional with a default: an omittable revision is one a client can forget.
         final byte[] before = Files.readAllBytes(configRoot.resolve("steward-worker/steward.yml"));
 
         final HttpResponse<String> refused =

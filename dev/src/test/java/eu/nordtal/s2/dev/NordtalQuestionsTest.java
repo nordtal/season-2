@@ -14,9 +14,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Holds the questions {@code init} asks against the installer's own table in {@code deploy/nordtal.sh}.
- *
- * A local setup asks the same things in the same words as a production install; a question renamed or
- * reworded there and not here is the drift this catches.
  */
 class NordtalQuestionsTest {
 

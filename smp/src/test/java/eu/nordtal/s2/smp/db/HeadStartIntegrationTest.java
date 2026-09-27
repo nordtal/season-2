@@ -26,20 +26,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * The start event winner's head start, against a real PostgreSQL running the real migrations.
  *
- * <b>Why this needs a container</b>
- *
- * Every part of it is SQL. The lookup is a join across two tables written by a different module; the claim is one
- * {@code INSERT ... ON CONFLICT DO UPDATE WHERE}, whose entire value is what PostgreSQL does with the second call -
- * it affects zero rows, which is how "already paid" is told apart from "just paid" without a read-then-write anybody
- * can race. And the payout is a transaction over two more tables. There is no seam here that an in-memory stand-in
- * could hold.
- *
- * What is being protected is not subtle: <b>this pays out once per season, to one person, and it cannot be taken
- * back.</b> A second join a second later must not produce a second elytra, and a practice game played months
- * afterwards must not move the prize to somebody else.
- *
- * It <b>skips itself</b> when no Docker daemon is reachable, so a green build on a machine without Docker proves
- * none of it.
+ * It pays once per season to one person and cannot be taken back; skips itself without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class HeadStartIntegrationTest {
@@ -198,13 +185,7 @@ class HeadStartIntegrationTest {
         }
     }
 
-    /**
-     * Read as a boolean rather than parsed out of text.
-     *
-     * PostgreSQL renders a {@code boolean} as {@code t} / {@code f}, and {@code Boolean.parseBoolean("t")} is
-     * {@code false} - so a text round trip here reports every successful claim as a failed one. Found by this test
-     * failing on a correct implementation.
-     */
+    /** Read as a boolean, because {@code Boolean.parseBoolean("t")} is false for PostgreSQL's text form. */
     private boolean granted(final String discordId) {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement();
@@ -238,7 +219,7 @@ class HeadStartIntegrationTest {
         }
     }
 
-    /** The first column of the first row, as text - enough for an id, a count or a boolean. */
+    /** The first column of the first row, as text: enough for an id, a count or a boolean. */
     private static String query(final String sql) {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement();

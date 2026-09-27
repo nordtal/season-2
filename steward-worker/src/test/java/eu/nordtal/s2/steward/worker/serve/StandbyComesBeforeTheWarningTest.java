@@ -12,22 +12,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The order of the choreography inside {@code Runner}, read as text.
  *
- * Why this cannot be a test that runs the thing: The same reason {@link CountdownComesAfterResolvingTest} gives, and
- * it applies harder here. Reaching these three statements for real means resolving a plan against GitHub, Modrinth
- * and the Fill API, taking a Postgres advisory lock and sitting through a countdown; what is being asserted is one
- * statement being above another, which no assertion about the outcome can see. A run whose standby came up after the
- * warning behaves identically in every green test and differs only on the day the standby does not come up - which
- * is the day this exists for.
- *
- * The two mutations it catches
- *
- * - Opening the window after the countdown, which reads like an improvement: the standby would boot while the
- *   players are being warned, so the run is a minute faster. What it costs is the abort: a standby that refuses to
- *   come up would then be discovered by a run that has already told every player on the network that the servers are
- *   going down.
- *
- * - Stopping on the tick instead of waiting - dropping {@code waitUntilEmpty} or putting it after the first stop.
- *   Both leave a green build and take the world away from whoever is standing in it.
+ * The standby opens before the countdown, and {@code waitUntilEmpty} comes before the first stop.
  */
 class StandbyComesBeforeTheWarningTest {
 
@@ -102,12 +87,7 @@ class StandbyComesBeforeTheWarningTest {
         return source.substring(start, end);
     }
 
-    /**
-     * Where {@code token} is, refusing {@code -1}.
-     *
-     * Not {@code indexOf} at the call site: a missing token answers -1, which is smaller than every real position - so
-     * an ordering assertion goes green the moment the call it protects is deleted.
-     */
+    /** Where {@code token} is, refusing {@code -1} so a deleted call cannot pass an ordering check. */
     private static int at(final String haystack, final String token) {
         final int index = haystack.indexOf(token);
         assertTrue(

@@ -18,24 +18,14 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The parser, fed a {@code /proc} that is a directory of captured text.
  *
- * Every fixture below is captured from a real host - {@code cat /proc/loadavg}, {@code head -20 /proc/meminfo} and
- * two {@code head -7 /proc/stat} two seconds apart - and pasted in unedited except where a test says it edited one
- * line. That matters more than it looks: an invented
- * {@code /proc/meminfo} agrees with whatever the parser happens to do, and the two kinds of line this file actually
- * contains (a size with a {@code kB} suffix, a counter with no unit at all) are exactly the distinction a made-up
- * fixture would smooth over.
+ * The fixtures are captured from a real host and unedited, so a size in kB and a bare counter stay distinct.
  */
 class HostMetricsTest {
 
     /** {@code cat /proc/loadavg} on a real host. */
     private static final String LOADAVG = "0.46 0.42 0.36 1/912 2757165\n";
 
-    /**
-     * {@code head -7 /proc/stat}: the aggregate line and this host's six cores.
-     *
-     * The rest of the real file ({@code intr}, {@code ctxt}, {@code btime}, ...) is left off because nothing here
-     * reads it, and the {@code intr} line alone is several kilobytes of zeroes.
-     */
+    /** {@code head -7 /proc/stat}: the aggregate line and this host's six cores. */
     private static final String STAT_FIRST = """
             cpu  2670895 785 1558887 65586703 309159 0 519579 86870 0 0
             cpu0 439987 169 262164 10970982 51279 0 157230 11847 0 0
@@ -46,7 +36,7 @@ class HostMetricsTest {
             cpu5 449740 0 258585 10963649 51683 0 10459 12087 0 0
             """;
 
-    /** The same file two seconds later. A mostly idle host, which is what this one was. */
+    /** The same file two seconds later, from a mostly idle host. */
     private static final String STAT_SECOND = """
             cpu  2670925 785 1558916 65587827 309160 0 519586 86871 0 0
             cpu0 439992 169 262171 10971169 51279 0 157230 11847 0 0
@@ -84,7 +74,7 @@ class HostMetricsTest {
     @TempDir
     Path proc;
 
-    /** The filesystem the temporary directory is on - a real one, so the disk half is not faked. */
+    /** The filesystem the temporary directory is on, a real one so the disk half is not faked. */
     @TempDir
     Path disk;
 
@@ -133,7 +123,7 @@ class HostMetricsTest {
 
     @Test
     void aKernelWithNoSwaptotalLineAtAllIsAlsoZeroSwapNotAnError() throws IOException {
-        // CONFIG_SWAP=n prints no Swap* lines at all - the one field where a missing line gets a default, not an error.
+        // CONFIG_SWAP=n prints no Swap* lines: the one missing line that gets a default, not an error.
         write(
                 "meminfo",
                 MEMINFO.lines().filter(line -> !line.startsWith("Swap")).reduce("", (a, b) -> a + b + "\n"));

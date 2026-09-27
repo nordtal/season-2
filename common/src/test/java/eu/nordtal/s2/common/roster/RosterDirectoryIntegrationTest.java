@@ -24,17 +24,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Exercises {@link RosterDirectory} against a real PostgreSQL instance running the real migrations.
+ * Exercises {@link RosterDirectory} against a real PostgreSQL running the real migrations.
  *
- * Nothing here can be done in memory. The whole point of {@code people} is one statement with two
- * {@code LEFT JOIN}s and a {@code LATERAL} aggregate evaluated against PostgreSQL's own clock -
- * {@code bool_or(...)} over no rows, {@code now()} inside the aggregate and the difference between
- * a revoked grant and an absent one have no in-JVM stand-in. Testcontainers is driven by hand from
- * {@link BeforeAll} because the {@code org.testcontainers:junit-jupiter} extension is built against
- * JUnit 5 and this repo is on the JUnit 6 BOM.
- *
- * These tests <b>skip themselves</b> when no Docker daemon is reachable. A green build on a machine
- * without Docker proves nothing about any of this.
+ * The joins and the aggregate on the database clock have no in-JVM stand-in; tests skip without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RosterDirectoryIntegrationTest {
@@ -411,10 +403,9 @@ class RosterDirectoryIntegrationTest {
     }
 
     /**
-     * Writes one {@code access_grant} row with a window stated relative to the database's clock.
-     * Deliberately raw SQL and not {@code AccessDirectory#grantAccess}: that method appends onto
-     * whatever is already there and anchors on {@code season_phase.smp_start}, so it cannot express
-     * "a window that ended yesterday", which is half of what is being tested here.
+     * Writes one {@code access_grant} row with a window relative to the database's clock.
+     *
+     * Raw SQL, since {@code AccessDirectory#grantAccess} appends and cannot express a window that already ended.
      */
     private static void grant(final String discordId, final String from, final String until, final boolean revoked) {
         execute("""

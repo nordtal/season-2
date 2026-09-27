@@ -11,41 +11,16 @@ import net.kyori.adventure.text.Component;
 /**
  * Draws the deposit screen: one tray to put things into, and one button that takes them.
  *
- * <b>What the picture is</b>
- *
- * Design {@code H2} (owner decision): <b>one large tray</b>, not a recess per slot. The three chest rows a player
- * fills are covered by a single sunken surface at the slot area's own origin, and the row under it carries a sample
- * of what is wanted, how much is still needed, and the confirm button.
- *
- * <b>Why this is a tray and the grave is not</b>
- *
- * <b>This difference is deliberate and it is not a tidying opportunity.</b> A tray is a thing you throw into: what
- * matters is that the whole area accepts items, and drawing nine separate cells would suggest the cell you drop into
- * means something, which it does not. A grave is an <em>inventory you take out of</em>, and there the separate cells
- * are the information - they say these are distinct stacks and any one of them may be taken. So {@code GravePanel}
- * draws a recess per slot and this draws one surface, and making the two the same would lose one of the two meanings
- * whichever way it went (owner decision).
- *
- * The cost of the tray is a ghost square: vanilla's 16 x 16 hover highlight still snaps to the 18-pixel grid the
- * surface is hiding, so moving the mouse over an empty part of the tray shows a square that is not drawn anywhere.
- * That was the owner's call with the drawing in front of them.
- *
- * <b>What is not here</b>
- *
- * The artifact's {@code H2} also draws a second button - "collect", which pulls matching items out of the player's
- * own inventory into the tray. That is question <b>E4</b> in the artifact and it is unanswered: it is a new action
- * rather than a new surface, and this pass repaints windows. The space it would occupy is left empty rather than
- * filled with something else, so adding it later is a plate and a slot map and nothing else.
+ * One tray rather than a recess per slot, unlike the grave: the cell a player drops into means nothing here.
  */
 public final class HandInPanel {
 
     /** Three rows to fill, and one row of controls under them. */
     public static final int ROWS = 4;
 
-    /** The chest rows a player may put items into - the tray covers exactly these. */
+    /** The chest rows a player may put items into, which the tray covers exactly. */
     public static final int DEPOSIT_ROWS = ROWS - 1;
 
-    /** How many slots that is. */
     public static final int DEPOSIT_SLOTS = DEPOSIT_ROWS * SlotGeometry.COLUMNS;
 
     /** The row the sample, the count and the button sit on. */
@@ -54,28 +29,16 @@ public final class HandInPanel {
     /** Pixels between a piece of furniture and the slot cells that make it clickable. */
     public static final int INSET = 2;
 
-    /**
-     * The tray is drawn from the slot <em>cell's</em> own corner and not inset.
-     *
-     * Because it is the cells: a tray inset two would leave a two-pixel margin of panel around an area whose whole
-     * claim is that it is one surface.
-     */
+    /** The tray is drawn from the slot cell's own corner, not inset, because it is the cells. */
     public static final int TRAY_X = SlotGeometry.ORIGIN_X;
 
     public static final int TRAY_WIDTH = SlotGeometry.COLUMNS * SlotGeometry.PITCH;
     public static final int TRAY_HEIGHT = DEPOSIT_ROWS * SlotGeometry.PITCH;
 
-    /** The slot holding a real item of the wanted material - a sample, and never takeable. */
+    /** The slot holding a real item of the wanted material: a sample, and never takeable. */
     public static final int SAMPLE_SLOT = SlotGeometry.slot(0, FOOTER_ROW);
 
-    /**
-     * Where "808 left" starts: two pixels into the cell after the sample's.
-     *
-     * The same x the grave's experience line uses, and that is the point - these two windows are the same footer with a
-     * different sentence on it, and a label starting eight pixels further right in one of them is the kind of
-     * difference
-     * nobody can name but everybody sees.
-     */
+    /** Where "808 left" starts: the same x as the grave's experience line, so the two footers match. */
     private static final int NEEDED_X = SlotGeometry.x(1) + INSET;
 
     public static final int CONFIRM_X = SlotGeometry.x(6) + INSET;

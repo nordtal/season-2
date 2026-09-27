@@ -10,12 +10,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * The contribution payout.
- *
- * Two invariants run through everything below: <b>the pot is never overspent</b>, and <b>the same inputs always
- * produce the same payout</b>.
- */
+/** The contribution payout: the pot is never overspent, and the same inputs always produce the same payout. */
 class AuraPayoutTest {
 
     @Test

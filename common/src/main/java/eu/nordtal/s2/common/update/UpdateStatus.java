@@ -7,13 +7,13 @@ package eu.nordtal.s2.common.update;
  */
 public enum UpdateStatus {
 
-    /** Written and waiting. Nothing has looked at it yet. */
+    /** Written and waiting. */
     PENDING,
 
-    /** Claimed by a worker. Exactly one process holds it. */
+    /** Claimed by a worker; exactly one process holds it. */
     RUNNING,
 
-    /** Finished. {@code result} holds the report. */
+    /** Finished; {@code result} holds the report. */
     DONE,
 
     /** Finished badly, with {@code result} saying how; also what a starting worker marks leftover running rows. */
@@ -22,7 +22,7 @@ public enum UpdateStatus {
     /** Withdrawn before it ran; only reachable from {@link #PENDING}. */
     CANCELLED;
 
-    /** Whether nothing more will happen to this row. */
+    /** Returns whether nothing more will happen to this row. */
     public boolean isFinished() {
         return this == DONE || this == FAILED || this == CANCELLED;
     }
@@ -31,8 +31,7 @@ public enum UpdateStatus {
      * Reads a value out of the database.
      *
      * @param value the column, may be {@code null}
-     * @return the status, or {@link #FAILED} for anything this build does not recognise - a row
-     *         nobody can interpret must not read as one that is still going to happen
+     * @return the status, or {@link #FAILED} for anything this build does not recognise
      */
     public static UpdateStatus fromDatabase(final String value) {
         if (value == null) {

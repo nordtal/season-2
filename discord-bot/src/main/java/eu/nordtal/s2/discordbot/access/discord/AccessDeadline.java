@@ -2,13 +2,5 @@ package eu.nordtal.s2.discordbot.access.discord;
 
 import java.time.Instant;
 
-/**
- * The end of one user's current run of access.
- *
- * "The run", not "one grant": grants are appended, so what matters to a reminder is the end of the whole chain. Two
- * rows that meet in the middle are not two reminders.
- *
- * @param discordId whose access it is.
- * @param validUntil when it ends.
- */
+/** The end of one user's current run of access, across every grant in the chain. */
 public record AccessDeadline(String discordId, Instant validUntil) {}

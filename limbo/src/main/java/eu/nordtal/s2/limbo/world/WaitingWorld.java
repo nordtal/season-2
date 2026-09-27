@@ -15,16 +15,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The empty world every player waits in, and the one location in it.
  *
- * A Paper server always has the world named by {@code level-name} in {@code server.properties},
- * and that world is whatever the server jar generated the first time it started - terrain, a sky, a
- * day/night cycle and mobs. The waiting room needs the opposite of all of it, and the cheapest way
- * to guarantee that is not to configure the server's world but to build one that has never had
- * anything in it. Players are moved here before they are spawned at all
- * ({@code AsyncPlayerSpawnLocationEvent}), so the server's own world is never seen for a frame.
- *
- * What is switched off below is mostly belt and braces, since the generator produces nothing - but
- * a gamerule left at its default is a thing that starts happening the moment somebody changes the
- * generator, and this is a server whose entire purpose is that nothing happens.
+ * Built rather than configured, so nothing is ever in it; players are placed here before spawning anywhere.
  */
 public final class WaitingWorld {
 
@@ -39,11 +30,7 @@ public final class WaitingWorld {
     /**
      * Loads the waiting world, creating it if this server has never had one.
      *
-     * @param plugin the plugin, for logging
-     * @param config the loaded {@code config.yml}
-     * @return the world and its spawn, or {@code null} if the server refused to create it - which
-     *         the caller must treat as fatal, because a waiting room with nowhere to wait would
-     *         drop every login into the server's own world instead
+     * Returns {@code null} if the server refused to create it, which the caller must treat as fatal.
      */
     public static @Nullable WaitingWorld loadOrCreate(final Plugin plugin, final LimboSpec config) {
         Objects.requireNonNull(plugin, "plugin");
@@ -65,11 +52,10 @@ public final class WaitingWorld {
         world.setTime(6000L);
         world.setStorm(false);
         world.setThundering(false);
-        // GameRules, not GameRule: the old constants are @Deprecated(forRemoval) since 1.21.11.
+        // GameRules, not GameRule: the old constants are deprecated for removal.
         setRule(world, GameRules.ADVANCE_TIME, false);
         setRule(world, GameRules.ADVANCE_WEATHER, false);
         setRule(world, GameRules.SPAWN_MOBS, false);
-        // do-fire-tick became a radius in blocks rather than staying a boolean.
         setRule(world, GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER, 0);
         setRule(world, GameRules.RANDOM_TICK_SPEED, 0);
         setRule(world, GameRules.SHOW_ADVANCEMENT_MESSAGES, false);
@@ -87,23 +73,17 @@ public final class WaitingWorld {
         return new WaitingWorld(world, new Location(world, 0.5, config.spawnY(), 0.5, 0.0f, 0.0f));
     }
 
-    /** @return the world itself */
+    /** Returns the world itself. */
     public World world() {
         return world;
     }
 
-    /** @return a fresh copy of the one place anybody stands */
+    /** Returns a fresh copy of the one place anybody stands. */
     public Location spawn() {
         return spawn.clone();
     }
 
-    /**
-     * @param location where a player is
-     * @return whether they have wandered far enough from {@link #spawn()} to be put back. Flying in
-     *         an empty world harms nothing, but a player who stops flying falls out of it, and a
-     *         player who falls forever is a player whose client is downloading a resource pack
-     *         while the server streams empty chunks after them
-     */
+    /** Returns whether a player has drifted far enough from {@link #spawn()} to be put back. */
     public boolean hasStrayed(final @Nullable Location location) {
         if (location == null || !world.equals(location.getWorld())) {
             return true;

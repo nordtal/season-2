@@ -39,22 +39,7 @@ import org.yaml.snakeyaml.nodes.Node;
 /**
  * Reads and writes the YAML jcore writes, without knowing the {@code @ConfigSpec} it came from.
  *
- * The file is the model. Steward shows every configuration in the stack, and those specs live in modules
- * steward-ui must not depend on - a reader of the file, and of the schema beside it ({@link Schemas}), can draw
- * the same form a reader of the class could, without a class to read.
- *
- * Writing is a line edit, never a re-dump. Handing the parsed tree back to SnakeYAML's dumper would produce a
- * valid file with every comment gone, blank lines moved and keys in some other order - which is to say it would
- * throw away the only documentation an operator has. So {@link #write} replaces the characters of one scalar on
- * one line and leaves every other byte of the file alone.
- *
- * Edits are applied from the bottom of the file upwards. A block rewrite changes how many lines there are, and
- * every position below it would otherwise be pointing one key too far up - which is the kind of corruption that
- * writes a greeting into a port number.
- *
- * The write is atomic: a temp file in the same directory, flushed, then moved over the destination, so a crash, a
- * kill or a full disk leaves the old config, never half of a new one. And nothing is moved into place until the
- * new content has been read back and found to say what it was asked to say.
+ * A write edits lines bottom up, never re-dumps, and moves an atomic temp file in only once it reads back right.
  */
 public final class ConfigFiles {
 
@@ -65,21 +50,13 @@ public final class ConfigFiles {
      *
      * @param file the file
      * @return its header, and every key in file order
-     * @throws IOException if the file cannot be read, or is not YAML, or is not a mapping at its
-     *                     root. The message names the file and the line
+     * @throws IOException if the file cannot be read, is not YAML, or has no mapping at its root
      */
     public static ConfigDocument read(final Path file) throws IOException {
         return ConfigFileReader.parse(file).document();
     }
 
-    /**
-     * What a file said, as a short string: the revision a save has to still be about.
-     *
-     * The content is hashed rather than the modification time or the size, because {@code mtime} on a container
-     * filesystem has a resolution a second write can land inside, and two edits of the same key are very often the
-     * same length. SHA-256, truncated to 16 hex characters, is not a security boundary - it is a way of noticing
-     * that two people had the same form open.
-     */
+    /** Returns what a file said as a short content hash, the revision a save has to still be about. */
     public static String revisionOf(final String content) {
         final MessageDigest sha256;
         try {
@@ -96,18 +73,12 @@ public final class ConfigFiles {
     }
 
     /**
-     * Applies changes in place and rewrites the file.
-     *
-     * Only what was named changes. Comments, blank lines, key order, indentation, the header, the line endings and
-     * any trailing comment on the same line are all still there afterwards, byte for byte - with one exception: a
-     * comment standing between the entries of a list does not survive that list being rewritten. jcore never
-     * writes one.
+     * Applies changes in place and rewrites the file, leaving every other byte alone.
      *
      * @param file the file to edit
      * @param changes dotted path to what that key should now say; an empty map rewrites nothing
      * @return the file as it now reads
-     * @throws IllegalArgumentException if a path is not in the file, is of a kind that cannot be rewritten, is
-     *     sent the wrong shape of change, or is given a value that is not of the type that key already has
+     * @throws IllegalArgumentException if a path is missing, not rewritable, sent the wrong shape or the wrong type
      * @throws IOException if the file cannot be read or written
      */
     static ConfigDocument write(final Path file, final Map<String, ConfigChange> changes) throws IOException {
@@ -115,16 +86,10 @@ public final class ConfigFiles {
     }
 
     /**
-     * The same write, but only if the file still says what the caller last read.
+     * Writes the same way, but only if the file still says what the caller last read.
      *
-     * This is the one the API uses, and the plain {@link #write(Path, Map)} beside it is package-private so it can
-     * only be reached from the tests in here. A config form stands open in a browser for as long as somebody is
-     * reading the comments in it, and two admins on the same file is not an exotic case. Without this, the second
-     * save reads the file, applies its own list of changes to what it finds and writes the result: the first
-     * admin's change is not conflicting, it is simply gone, and nothing anywhere says so.
-     *
-     * @param expectedRevision the {@link ConfigDocument#revision()} the caller was last shown, or {@code null} not
-     *     to check at all
+     * @param expectedRevision the {@link ConfigDocument#revision()} the caller was last shown, or {@code null} not to
+     *     check
      * @throws StaleConfigException if the file has been written since
      */
     public static ConfigDocument write(
@@ -162,13 +127,7 @@ public final class ConfigFiles {
     }
 
     /**
-     * The raw-save half of writing: the bytes an operator typed into the raw editor, written verbatim.
-     *
-     * There is no shape to check a change against here, and nothing ever refuses on content grounds; {@link
-     * RawSyntax} is what looks at the text for a warning, and it runs before this method is ever called. The same
-     * revision guard as the parsed save applies, comparing against whatever is on disk right now rather than a
-     * cached revision, so a file that started in one form and gets fixed and saved in the other still conflicts
-     * correctly.
+     * Writes the bytes an operator typed into the raw editor, verbatim, behind the same revision guard.
      *
      * @param file the file to overwrite
      * @param content the exact text to write
@@ -194,12 +153,7 @@ public final class ConfigFiles {
                 .orElseThrow(() -> new IllegalArgumentException("There is no setting called " + path + " in " + file));
     }
 
-    /**
-     * Rewrites one key, and answers with what that key should now read back as.
-     *
-     * A {@link String} for a scalar, a {@link List} for a sequence of scalars, a {@link List} of {@link Map}s for a
-     * {@link Kind#SECTIONS} entry.
-     */
+    /** Rewrites one key and returns what it should read back as: a string, a list, or a list of maps. */
     private static Object apply(
             final Parsed parsed,
             final List<String> lines,
@@ -211,7 +165,7 @@ public final class ConfigFiles {
                     + ") and has no value of its own - change the keys under it");
         }
         if (!entry.editable()) {
-            // The one remaining shape here is a sequence mixing scalars and mappings; a uniform one always editable.
+            // A uniform sequence is always editable, so this one mixes scalars and mappings.
             throw new IllegalArgumentException(entry.path() + " is a list whose entries are not all"
                     + " the same shape (line " + entry.line() + "): this editor cannot describe it"
                     + " field by field, so it leaves it alone - edit it by hand");
@@ -233,7 +187,7 @@ public final class ConfigFiles {
                     yield ScalarWriter.sequence(lines, entry, span, items.items());
                 }
                 if (entry.kind() == Kind.SECTIONS && items.items().isEmpty()) {
-                    // `[]` is ambiguous; this one is a list of sections with its last entry removed.
+                    // `[]` is ambiguous; this is a list of sections with its last entry removed.
                     yield SectionWriter.sections(parsed, lines, entry, span, List.of());
                 }
                 if (entry.kind() == Kind.SECTIONS) {
@@ -254,12 +208,7 @@ public final class ConfigFiles {
         };
     }
 
-    /**
-     * Reads the content back before it is written, and fails if a changed key does not read as it was asked to.
-     *
-     * This is the guard that makes a quoting bug a refused save instead of a config an operator has to repair by
-     * hand, and a service that will not start.
-     */
+    /** Reads the content back before it is written, and fails if a changed key does not read as asked. */
     private static void verify(final Path file, final String content, final Map<String, Object> expected) {
         final Node root;
         try {
@@ -314,7 +263,7 @@ public final class ConfigFiles {
             try {
                 Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             } catch (final AtomicMoveNotSupportedException e) {
-                // Some network filesystems refuse it; a plain replace is still better than writing in place.
+                // Some network filesystems refuse it; a plain replace still beats writing in place.
                 Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
             }
             temp = null;
@@ -330,22 +279,14 @@ public final class ConfigFiles {
     }
 
     /**
-     * Gives {@code temp} the owner, group and permissions {@code file} already has.
+     * Gives {@code temp} the owner, group and permissions of {@code file}, failing the save if it cannot.
      *
-     * {@link Files#createTempFile} makes an owner-only file owned by whichever process is writing, which is the
-     * right default for a temporary file but not for the file it is about to become: the worker edits every other
-     * service's config through a shared mount, as root, while every one of those services runs as its own uid.
-     * Carrying the mode across but leaving the owner at root is a save that looks fine until the service it
-     * belongs to is next re-created and finds its own configuration unreadable, silently, because the container
-     * that already has the file open never notices.
-     *
-     * A failure here is not swallowed: reporting a saved file whose owner, group or permissions changed is exactly
-     * the failure this method exists to prevent, so it fails the save instead.
+     * The worker writes as root, and a root-owned config would be unreadable to the service it belongs to.
      */
     private static void keepTheOwnerAndMode(final Path file, final Path temp) throws IOException {
         final PosixFileAttributeView destination = Files.getFileAttributeView(file, PosixFileAttributeView.class);
         if (destination == null) {
-            // Not a POSIX filesystem. There is nothing to carry across and nothing to report.
+            // Not a POSIX filesystem, so there is nothing to carry across.
             return;
         }
         final PosixFileAttributes attributes;
@@ -362,9 +303,9 @@ public final class ConfigFiles {
     }
 
     /**
-     * Every config file under the mount, one directory per service.
+     * Returns every config file under the mount, one directory per service.
      *
-     * @return every text file beneath it, by service then name. Empty if the root does not exist
+     * @return every text file beneath it, by service then name; empty if the root does not exist
      * @throws UncheckedIOException if the root exists but cannot be walked
      */
     public static List<ConfigLocation> discover(final Path root) {

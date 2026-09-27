@@ -16,8 +16,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The three outcomes a save must not blur together, and where "needs a restart" is recorded.
  *
- * Driven entirely through {@link ConfigApi.ConsoleLine}, a lambda rather than a real {@code Docker} socket - which
- * is what lets {@code NO_ANSWER} be exercised deterministically instead of by hoping a container is not running.
+ * A lambda console instead of a real Docker socket makes {@code NO_ANSWER} deterministic.
  */
 class ConfigApiReloadTest {
 

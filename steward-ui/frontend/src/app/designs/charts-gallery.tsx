@@ -18,16 +18,13 @@ import {
 } from "@/app/designs/chart-variants"
 import type { Range } from "@/app/designs/chart-variants"
 
-/**
- * The comparison page for the CPU and RAM curves in a service page's head.
- *
- * Today's head first, then every proposal in the same row with the same state column beside it, all
- * reading smp's real series - so a proposal is judged in the place it would stand, at the width the
- * device gives it. Deleted with the rest of `app/designs/` once one is picked.
- */
-
 const NAME = "smp"
 
+/**
+ * The comparison page for the CPU and RAM curves in a service page's head, all on smp's real series.
+ *
+ * Each proposal stands beside the same state column as today's head. Deleted with `app/designs/` once one is picked.
+ */
 export function ChartsGalleryPage() {
   const service = useService(NAME).data
   const six = useRangeMetrics(NAME, 6)
@@ -128,7 +125,7 @@ function Head({
             service.startedAt ? (
               since(service.startedAt)
             ) : (
-              "–"
+              "\u2013"
             )
           ) : (
             <SkeletonText width="short" className="h-[1lh]" />

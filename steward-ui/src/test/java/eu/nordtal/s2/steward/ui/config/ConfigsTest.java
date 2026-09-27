@@ -7,13 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 /**
- * The one value in this configuration that leaves the process: {@code public-url}.
+ * {@code public-url}, the one value that leaves the process, as Discord's redirect URI.
  *
- * Everything else here is checked where it is used and fails in this container. This one is
- * handed to Discord as the redirect URI, so a value that is wrong in a way this process accepts
- * comes back as {@code invalid_request} from somebody else's server - a message that points at the
- * Discord application rather than at a line of YAML on this host. That is the whole reason the
- * check is stricter than "starts with http".
+ * A wrong value comes back as Discord's {@code invalid_request}, so the check is stricter than a prefix.
  */
 class ConfigsTest {
 
@@ -92,7 +88,7 @@ class ConfigsTest {
         Configs.requireRelyingParty("localhost", "https://localhost");
         Configs.requireRelyingParty("LocalHost", "http://LOCALHOST:8080");
 
-        // And it widens nothing: the exception is one value against one host, not "single labels are fine now".
+        // It widens nothing: the exception is one value against one host, not every single label.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> Configs.requireRelyingParty("eu", "https://steward.dev.nordtal.eu"));

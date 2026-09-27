@@ -11,14 +11,8 @@ import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Maps a {@code payment_request} row.
- *
- * Written out rather than reached for with {@code ConstructorMapper}, for the same reason as
- * {@code AccessGrantMapper} in {@code :common}: that mapper matches record components by parameter
- * name, which only survives compilation with {@code -parameters}, and a query should not depend on
- * a build flag. It also makes the {@code timestamptz} handling explicit - every point in time is
- * read through {@link OffsetDateTime}, which is the only way to get an {@link Instant} out of the
- * PostgreSQL driver without going through the JVM's default time zone.
+ * Maps a {@code payment_request} row, reading every {@code timestamptz} through {@link OffsetDateTime}.
+ * Written out, for the reason {@code MetricPointMapper} gives.
  */
 public final class PaymentRequestMapper implements RowMapper<PaymentRequest> {
 

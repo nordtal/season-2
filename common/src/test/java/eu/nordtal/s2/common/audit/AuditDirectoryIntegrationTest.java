@@ -22,16 +22,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Exercises {@link AuditDirectory} against a real PostgreSQL instance running the real migrations.
+ * Exercises {@link AuditDirectory} against a real PostgreSQL running the real migrations.
  *
- * The filter is the reason this is an integration test and not a unit one: {@code search} is a
- * single statement whose predicates switch themselves off when a parameter is null, and whether
- * PostgreSQL will even accept {@code cast(:action AS varchar) IS NULL} is not a question a mock can
- * answer. Testcontainers is driven by hand from {@link BeforeAll} because the
- * {@code org.testcontainers:junit-jupiter} extension is built against JUnit 5 and this repo is on
- * the JUnit 6 BOM.
- *
- * These tests <b>skip themselves</b> when no Docker daemon is reachable.
+ * Only PostgreSQL can say whether it accepts the null-switched predicates; the tests skip themselves without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AuditDirectoryIntegrationTest {
@@ -205,11 +198,7 @@ class AuditDirectoryIntegrationTest {
         return entries.stream().map(AuditEntry::detail).toList();
     }
 
-    /**
-     * Writes one {@code audit_log} row; {@code mcUuid} and {@code detail} arrive quoted or as {@code NULL}.
-     *
-     * {@code occurred} is set explicitly, so the asserted order does not rest on the {@code id} tiebreak.
-     */
+    /** Writes one {@code audit_log} row; {@code mcUuid} and {@code detail} arrive quoted or as {@code NULL}. */
     private static void entry(
             final String occurred,
             final String action,

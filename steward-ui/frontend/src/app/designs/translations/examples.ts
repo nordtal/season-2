@@ -1,9 +1,9 @@
 import type { MessageArg, MessageExamples } from "@/lib/api"
 
 /**
- * The value a placeholder is previewed with. A typed one (`winner.name`, type `player`) reads the
- * server's example for that type and property - real data, the admin first; an untyped one falls
- * back to a fixed word that reads like what the code passes, and failing that to its own name.
+ * The value a placeholder is previewed with.
+ *
+ * A typed one reads the server's example for its type, an untyped one a fixed word, and failing that its own name.
  */
 export function exampleOf(name: string, args: MessageArg[], examples: MessageExamples | undefined): string {
   const arg = args.find((candidate) => candidate.name === name)

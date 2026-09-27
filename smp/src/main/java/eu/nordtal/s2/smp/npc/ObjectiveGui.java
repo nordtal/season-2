@@ -25,27 +25,9 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * What the spawn NPC opens: the current milestone's objectives.
+ * What the spawn NPC opens: the current milestone's objectives, with the player's own share.
  *
- * Each with what is needed and how much is already there, and what the player themselves has put in.
- *
- * <b>What it looks like</b>
- *
- * The window is design {@code O3} (owner decision), drawn by {@link ObjectivePanel}: a heading plate naming the
- * milestone, four painted cards, and a share line along the bottom. Every slot under the paint holds a
- * {@link BlankItem}, because a painted card with no item in it is a card nobody can hover or click - and the tooltip
- * is where the exact numbers, the wanted items and the per-objective share live, since a 68-pixel card holds a name
- * and nothing else.
- *
- * A {@code HAND_IN} objective is clickable and opens the deposit screen; the other two types are shown and are not,
- * because there is nothing to click - a statistic counts itself and an advancement is earned somewhere else
- * entirely.
- *
- * <b>A page is a new inventory</b>
- *
- * Same as {@code NavigateGui}, and for the same reason: a chest's title is fixed when it is opened, so a surface
- * that changes is a second inventory. No database work happens on a page turn - the whole milestone was read once
- * when the NPC was clicked.
+ * Only a {@code HAND_IN} card opens the deposit screen, and a page turn opens a new inventory.
  */
 public final class ObjectiveGui implements Surface {
 
@@ -57,7 +39,7 @@ public final class ObjectiveGui implements Surface {
     private final int page;
     private final Inventory inventory;
 
-    /** The entries on <em>this</em> page, in card order. */
+    /** The entries on this page, in card order. */
     private final List<Entry> entries = new ArrayList<>();
 
     /** One card: the definition, its stored progress, and which card of the page it is. */
@@ -129,7 +111,7 @@ public final class ObjectiveGui implements Surface {
         return inventory;
     }
 
-    /** The same milestone on another page - what a page button opens. */
+    /** The same milestone on another page: what a page button opens. */
     public ObjectiveGui onPage(final int wanted) {
         return new ObjectiveGui(messages, locale, milestone, rows, share, wanted);
     }
@@ -183,13 +165,7 @@ public final class ObjectiveGui implements Surface {
         return definition.key();
     }
 
-    /**
-     * The sentence on the bottom row.
-     *
-     * Drawn by {@link eu.nordtal.s2.common.menu.MenuFont}, so it is the plain bundle value and never a rendered
-     * component: MiniMessage in either of these two keys would be printed character for character, and the five-pixel
-     * sheet has no angle brackets.
-     */
+    /** The sentence on the bottom row, as the plain bundle value because {@code MenuFont} draws it. */
     private String shareLine() {
         if (share.empty()) {
             return messages.format(locale, MESSAGES.smp().objectives().shareNone());

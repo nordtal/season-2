@@ -39,35 +39,17 @@ import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /**
- * {@code /update} - what is new, install it, restart the network.
+ * {@code /update}: writes a row into {@code update_request} and draws steward-worker's answer.
  *
- * The bot updates nothing and could not: steward-worker is a different container with the volumes mounted. This
- * class writes a row into {@code update_request} and reads the answer back, so every fact an admin sees is the
- * worker's own report rather than a second opinion.
- *
- * Two clicks: {@code /update check} changes nothing, and Update now is the confirmation. Behind it is one run - the
- * worker resolves what is new, and only if there is anything does a countdown begin, after which the affected
- * servers are stopped, moved and started again. There is deliberately no button that swaps jars into running
- * servers.
- *
- * The report is drawn as one field per service, and every word around it comes from the message bundle - the keys
- * are {@code :commands} ' own, so a run reads the same here and in chat.
- *
- * Nothing here blocks: an install takes minutes, so the answer is waited for by re-reading one indexed row on the
- * bot's existing timer. The wait gives up short of Discord's fifteen-minute interaction token, so the last thing the
- * admin sees is a sentence rather than a message that stopped changing.
+ * Nothing blocks: the row is re-read on the bot's timer, giving up short of the fifteen-minute interaction token.
  */
 @Slf4j
 public final class UpdateCommand extends ListenerAdapter {
 
-    /** How often the answer row is re-read. One indexed lookup; a person is watching. */
+    /** How often the answer row is re-read. */
     private static final Duration CHECK_INTERVAL = Duration.ofSeconds(2);
 
-    /**
-     * How long to wait for steward-worker before saying so.
-     *
-     * Short of Discord's fifteen-minute interaction token, so the message is still editable when the wait gives up.
-     */
+    /** How long to wait for steward-worker, short of Discord's fifteen-minute interaction token. */
     private static final Duration PATIENCE = Duration.ofMinutes(12);
 
     private final UpdateDirectory updates;
@@ -78,8 +60,9 @@ public final class UpdateCommand extends ListenerAdapter {
     private final ScheduledExecutorService timers;
 
     /**
-     * @param messages the bot's layered bundle - {@code :commands}' shared file underneath this
-     *                 module's own, which is what every {@code update.*} key below is declared in
+     * Creates the command over the bot's layered bundle.
+     *
+     * @param messages the bot's layered bundle, in which every {@code update.*} key is declared
      */
     public UpdateCommand(
             final UpdateDirectory updates,
@@ -97,17 +80,14 @@ public final class UpdateCommand extends ListenerAdapter {
     }
 
     /**
-     * Follow a request a command has just written, and draw it.
-     *
-     * {@code /update} itself is declared in {@code :commands}, so who may run it and what is said back are decided
-     * once; what is left here is Discord's half - the polling, the embed and the buttons.
+     * Follows a request a command has just written, and draws it.
      *
      * @param user the asker, which on this surface always carries the interaction to edit
-     * @param id   the request to follow
+     * @param id the request to follow
      */
     public void follow(final eu.nordtal.s2.commands.NordtalUser user, final long id) {
         if (!(user instanceof DiscordUser discord)) {
-            // A NordtalUser that is not a Discord one has no interaction to draw on; only a wiring bug reaches here.
+            // Only a wiring bug reaches here: a non-Discord user has no interaction to draw on.
             log.warn(
                     "An update was asked for through the Discord effects by a {}, which carries no"
                             + " interaction to draw on. Request {} still ran.",
@@ -120,8 +100,6 @@ public final class UpdateCommand extends ListenerAdapter {
                         discord.hook(), discord.locale(), request, Instant.now().plus(PATIENCE)));
     }
 
-    // The buttons.
-
     @Override
     public void onButtonInteraction(final ButtonInteractionEvent event) {
         final String id = event.getComponentId();
@@ -132,7 +110,7 @@ public final class UpdateCommand extends ListenerAdapter {
 
         event.deferEdit().queue();
         worker.execute(() -> {
-            // The language of whoever clicked, not of whoever put the button there: a colleague may have opened it.
+            // The language of whoever clicked, who may not be whoever opened it.
             final Locale locale = localeOf(event.getUser().getId());
             if (Ids.UPDATE_CANCEL.equals(id)) {
                 cancel(event.getHook(), locale, event.getUser());
@@ -146,17 +124,15 @@ public final class UpdateCommand extends ListenerAdapter {
         });
     }
 
-    // Writing the row.
-
     private void submit(final InteractionHook hook, final Locale locale, final String userId, final UpdateKind kind) {
         try {
-            // Checked on every click, not only on the command: a confirmation can sit on screen after the role is gone.
+            // Checked on every click: a confirmation can outlive the role.
             if (!dao.isAdmin(userId).orElse(false)) {
                 plain(hook, say(locale, MESSAGES.command().notAdmin()));
                 return;
             }
 
-            // Due immediately: steward-worker starts the countdown once it knows there is work, not before.
+            // Due immediately: steward-worker starts the countdown once it knows there is work.
             final UpdateRequest request = updates.submit(kind, UpdateSource.DISCORD, userId, Duration.ZERO);
 
             if (kind.stopsServers()) {
@@ -173,21 +149,13 @@ public final class UpdateCommand extends ListenerAdapter {
         }
     }
 
-    /**
-     * What an admin sees before anything moves.
-     *
-     * The sentence says if there is anything to install, because steward-worker resolves first and a run that finds
-     * nothing takes nothing down.
-     *
-     * The admin-channel line beside it stays hardcoded English, like every {@code AdminLog} line: that channel is an
-     * operational record read by whoever is on, not one reader's surface.
-     */
+    /** Tells the admin what happens before anything moves, and notes it in English in the admin channel. */
     private void announceCountdown(
             final InteractionHook hook, final Locale locale, final String userId, final UpdateRequest request) {
         final long seconds = UpdateDirectory.UPDATE_COUNTDOWN.toSeconds();
         final String what = request.kind() == UpdateKind.RESTART ? "restart" : "update";
 
-        // Data, like the embeds: who, what, and the one number that matters to anybody online.
+        // Who, what, and the one number that matters to anybody online.
         admin.note("<@" + userId + "> → **" + what + "**, " + seconds + " s countdown if there is work");
 
         hook.editOriginal(new MessageEditBuilder()
@@ -210,7 +178,7 @@ public final class UpdateCommand extends ListenerAdapter {
                     updates.cancelCountdown("Cancelled in Discord by " + user.getName());
 
             if (cancelled.isPresent()) {
-                // Named from the row, not the button: one cancel serves both kinds and outlives the click.
+                // Named from the row, not the button: one cancel serves both kinds.
                 final String what = cancelled.get().kind() == UpdateKind.UPDATE ? "update" : "restart";
                 admin.note(user.getAsMention() + " → **" + what + " cancelled**");
                 plain(hook, say(locale, MESSAGES.update().cancelled()));
@@ -222,24 +190,16 @@ public final class UpdateCommand extends ListenerAdapter {
         }
     }
 
-    // Reading the answer back.
-
-    /**
-     * Re-reads the row until it reaches a terminal state, then edits the message.
-     *
-     * A rescheduled task on the shared timer rather than a loop, so nothing is held while an install downloads.
-     */
+    /** Re-reads the row on the shared timer until it is terminal, then edits the message. */
     private void watch(
             final InteractionHook hook, final Locale locale, final UpdateRequest request, final Instant deadline) {
         watch(hook, locale, request, deadline, null);
     }
 
     /**
-     * @param drawn the report text this message is currently showing, so that the embed is only
-     *              edited when it has something new to say. Discord rate-limits message edits, and
-     *              a run writes a stage at a time while this polls every two seconds - re-sending
-     *              an identical embed twenty times between two stages would spend that budget on
-     *              nothing
+     * Re-reads the row, editing the embed only when the report changed.
+     *
+     * @param drawn the report text this message is currently showing
      */
     private void watch(
             final InteractionHook hook,
@@ -247,7 +207,7 @@ public final class UpdateCommand extends ListenerAdapter {
             final UpdateRequest request,
             final Instant deadline,
             final @Nullable String drawn) {
-        // The runnable catches every exception itself, so the future's own result carries nothing new.
+        // The runnable catches every exception itself.
         var _ = timers.schedule(
                 () -> {
                     try {
@@ -266,7 +226,7 @@ public final class UpdateCommand extends ListenerAdapter {
                             return;
                         }
 
-                        // The run rewrites its own report as it goes; redrawing turns silence into something to watch.
+                        // The run rewrites its own report as it goes.
                         String showing = drawn;
                         final String progress = current.result();
                         if (progress != null && !progress.equals(drawn)) {
@@ -288,9 +248,7 @@ public final class UpdateCommand extends ListenerAdapter {
                 TimeUnit.MILLISECONDS);
     }
 
-    // What an admin sees.
-
-    /** One line, no embed, no buttons - the shape every terminal sentence here uses. */
+    /** Answers with one line, no embed and no buttons. */
     private static void plain(final InteractionHook hook, final String text) {
         hook.editOriginal(text).setEmbeds(List.of()).setComponents(List.of()).queue();
     }
@@ -299,23 +257,14 @@ public final class UpdateCommand extends ListenerAdapter {
         return messages.format(locale, message);
     }
 
-    /**
-     * The language recorded for a Discord account, defaulting to English.
-     *
-     * Never Discord's own client locale: {@code discord_user.locale} is the one place a person's language lives.
-     */
+    /** Returns the language recorded for a Discord account, never Discord's client locale. */
     private Locale localeOf(final String discordId) {
         return Locales.parse(dao.localeOf(discordId).orElse(null));
     }
 
-    /**
-     * The finished request, as an embed with steward-worker's own report in it.
-     *
-     * Only a report that found work offers a button; a finished update has nothing to follow it, and a failure
-     * leads nowhere because the next thing to do is read what it says.
-     */
+    /** Draws the finished request; only a report that found work offers a button. */
     private MessageEditData finished(final UpdateRequest request, final Locale locale) {
-        // A cancelled restart is not a failure - red would make a deliberate act look like something that went wrong.
+        // A cancelled restart is deliberate, not a failure.
         final boolean failed = request.status() == UpdateStatus.FAILED;
         final MessageEditBuilder message =
                 new MessageEditBuilder().setContent("").setEmbeds(embed(request, failed, locale));
@@ -323,7 +272,7 @@ public final class UpdateCommand extends ListenerAdapter {
         if (request.status() != UpdateStatus.DONE || request.kind() != UpdateKind.REPORT) {
             return message.setComponents(List.of()).build();
         }
-        // A report that found nothing gets no button: "Update now" under a fully current list invites a needless run.
+        // "Update now" under a fully current list would invite a needless run.
         final boolean worth =
                 UpdateReports.parse(request.result()).map(UpdateReport::isWork).orElse(true);
         return worth
@@ -342,19 +291,12 @@ public final class UpdateCommand extends ListenerAdapter {
                         say(locale, MESSAGES.update().button().restart()));
     }
 
-    /**
-     * steward-worker's report, drawn as an embed.
-     *
-     * One inline field per service, with the description carrying only what belongs to no service.
-     *
-     * Older rows in the deployed database hold plain text instead. {@link UpdateReports#parse} answers empty for those
-     * and the code-fence rendering is used. Nothing is migrated - a finished request is never read twice.
-     */
+    /** Draws steward-worker's report, falling back to text for a row whose report is not structured. */
     private List<MessageEmbed> embed(final UpdateRequest request, final boolean failed, final Locale locale) {
         final String result = request.result();
         final Optional<UpdateReport> report = UpdateReports.parse(result);
         if (report.isEmpty()) {
-            // A row from before the report became structured, drawn as text rather than a code block nobody copies.
+            // A row whose report is not structured, drawn as text.
             final Card card = Card.of(title(request, locale), failed ? Card.Accent.BAD : Card.Accent.NEUTRAL)
                     .timestamp(request.finished() == null ? Instant.now() : request.finished());
             if (result != null && !result.isBlank()) {
@@ -365,23 +307,15 @@ public final class UpdateCommand extends ListenerAdapter {
         return List.of(fields(report.get(), request, messages, locale));
     }
 
-    // Package-private so EmbedBudgetTest can build and measure one: Discord's 6000 limits the whole embed.
     static MessageEmbed fields(
             final UpdateReport report, final UpdateRequest request, final Messages messages, final Locale locale) {
         return fields(report, request, messages, locale, false);
     }
 
     /**
-     * One run, drawn as data.
+     * Draws one run as data: the stage as title, the outcome as colour, one line per service.
      *
-     * The stage is the title, the outcome the colour, one line per service under one heading, and what went wrong
-     * under another. One line per service in one block, not one field per service: a run with ten services and
-     * three artefacts
-     * each is the case Discord's 25 fields and 6000 characters were hit by, and {@link Card#block} counts what
-     * does not fit rather than cutting it off.
-     *
-     * @param context whether to say who asked, and from where. Only the admin channel's feed does; the asker's own
-     *                embed is theirs already.
+     * @param context whether to say who asked, and from where; only the admin channel's feed does
      */
     static MessageEmbed fields(
             final UpdateReport report,
@@ -412,7 +346,7 @@ public final class UpdateCommand extends ListenerAdapter {
                     Card.duration(Duration.between(request.requested(), request.finished())));
         }
 
-        // The services get the budget first and the notes what is left: which server failed matters more than why.
+        // The services get the budget first: which server failed matters more than why.
         final java.util.List<String> lines = new java.util.ArrayList<>();
         final java.util.List<String> notes = new java.util.ArrayList<>();
         for (final UpdateReport.ServiceLine line : report.services()) {
@@ -422,7 +356,7 @@ public final class UpdateCommand extends ListenerAdapter {
             }
         }
         for (final String note : report.notes()) {
-            // A multi-line note is a terminal page that only reads in monospace and repeats the service lines above.
+            // A multi-line note only reads in monospace and repeats the service lines.
             if (!note.isBlank() && note.strip().indexOf('\n') < 0) {
                 notes.add(Card.escape(note.strip()));
             }
@@ -432,12 +366,7 @@ public final class UpdateCommand extends ListenerAdapter {
         return card.build();
     }
 
-    /**
-     * {@code ✔ smp running  smp 0.9.3 → 0.9.4}: the marker so a run reads at a glance.
-     *
-     * The service is bold because it is what a reader scans for, the state italic because the marker has already
-     * said it, and every artefact that moves is a transition.
-     */
+    /** Renders a service line such as {@code ✔ smp running  smp 0.9.3 → 0.9.4}. */
     private static String line(final UpdateReport.ServiceLine line, final Messages messages, final Locale locale) {
         final StringBuilder text = new StringBuilder(marker(line.state()))
                 .append(' ')
@@ -450,7 +379,7 @@ public final class UpdateCommand extends ListenerAdapter {
                     .append(' ')
                     .append(
                             switch (change.state()) {
-                                // No build for this Minecraft version. Not a failure: no server is stopped for it.
+                                // No build for this Minecraft version, which stops no server.
                                 case UNSUPPORTED ->
                                     Card.italic(messages.format(
                                             locale, MESSAGES.update().embed().noBuild()));
@@ -463,29 +392,19 @@ public final class UpdateCommand extends ListenerAdapter {
         return text.toString();
     }
 
-    /**
-     * One character in front of a state, so a run can be read at a glance.
-     *
-     * The embed's colour is the run's outcome; this is each service's, because the interesting case is three
-     * services fine and the fourth not.
-     */
+    /** Returns the marker of one service's state. */
     private static String marker(final UpdateReport.State state) {
         return switch (state) {
-            case UNCHANGED -> "–";
+            case UNCHANGED -> "\u2013";
             case PLANNED -> "○";
             case STOPPED, INSTALLED, STARTING -> "◑";
-            // A finished snapshot and a service that came back are the same news to a reader.
+            // A finished snapshot and a service that came back are the same news.
             case HEALTHY, SAVED -> "✔";
             case FAILED -> "✖";
         };
     }
 
-    /**
-     * Red for a failure, green for a run that did what it was asked.
-     *
-     * Grey for everything still moving or with nothing to say - "an update is available" is neither good nor bad
-     * news.
-     */
+    /** Returns red for a failure, green for success, and grey for everything else. */
     private static Card.Accent accent(final UpdateReport.Stage stage) {
         return switch (stage) {
             case FAILED -> Card.Accent.BAD;
@@ -494,23 +413,15 @@ public final class UpdateCommand extends ListenerAdapter {
         };
     }
 
-    /**
-     * The heading for a row this class cannot parse into a report.
-     *
-     * A parsed report titles itself from its own stage, which moves as the run works.
-     */
+    /** Returns the heading for a row that cannot be parsed into a report. */
     private String title(final UpdateRequest request, final Locale locale) {
         return request.status() == UpdateStatus.CANCELLED
                 ? say(locale, MESSAGES.update().stage().cancelled())
-                // Retired kinds still need a heading: their old rows are still readable.
+                // Retired kinds still have readable rows.
                 : say(locale, MESSAGES.update().title(request.kind()));
     }
 
-    /**
-     * One place for "that did not work": the admin gets a plain sentence, the admin channel gets the detail.
-     *
-     * This surface moves jars on every server, so a failure nobody sees is the one thing it must not produce.
-     */
+    /** Tells the admin in one sentence and the admin channel in detail that something failed. */
     private void fail(
             final InteractionHook hook, final Locale locale, final String what, final RuntimeException failure) {
         log.error("An update interaction failed while {}", what, failure);

@@ -1,7 +1,7 @@
 <!--
   dev deploy limbo
 
-  Rebuild :limbo, replace the jar, restart that one container.
+  Rebuilds :limbo, replaces its jar and restarts that container.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev deploy limbo" type="Application" factoryName="Application" folderName="dev: build and deploy">

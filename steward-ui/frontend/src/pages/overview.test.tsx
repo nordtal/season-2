@@ -7,20 +7,9 @@ import { OverviewPage } from "@/pages/overview"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The Issues tile, which is not the same thing as {@link summarise}.
+ * The Issues tile: what the page says about how complete the {@link summarise} verdict is.
  *
- * `health.test.ts` proves what the function decides. This file proves what the page *says* about
- * how complete that decision is - the half that lives in `overview.tsx` and that no unit test can
- * see, because the tile's text is drawn from `waiting` and `failed` rather than from the level.
- *
- * The tile is in the number row, in the same shape as `Behind` - a count, and beneath it the names.
- * The loading state only fires while there is NOTHING to report yet, so with one trigger already
- * found - an image behind, say - the tile must not look as settled as it would once every query has
- * actually answered.
- *
- * The page is rendered inside a real memory router rather than behind a stubbed `Link`: the
- * triggers carry `to` and `params`, and a stub would happily draw a link to a route that does not
- * exist. The tree below therefore has the four routes the page links into, and nothing else.
+ * Rendered in a real memory router, so a trigger's link to a missing route fails.
  */
 
 function json(status: number, body: unknown): Response {
@@ -65,12 +54,7 @@ function backup(hoursAgo: number) {
   }
 }
 
-/**
- * The other file in `/backups`, which has to be there too.
- *
- * A fixture that carries only archives is a stack whose database has never been dumped, and the
- * tile is red about it - correctly. Every test here is about something else, so they all get one.
- */
+/** The database dump, so the tile has no missing dump to be red about. */
 function dump(hoursAgo: number) {
   return {
     name: "nordtal-20260912T024500Z.dump",
@@ -81,12 +65,7 @@ function dump(hoursAgo: number) {
   }
 }
 
-/**
- * Everything the start page asks for.
- *
- * `settings` is a function so that a test can hold `/api/settings` open and let it answer in the
- * middle - which is the whole state under test and cannot be reached with a fixed answer.
- */
+/** Everything the start page asks for; `settings` is a function so a test can hold it open. */
 function backend(over: {
   services?: unknown[]
   backups?: unknown[]
@@ -105,12 +84,7 @@ function backend(over: {
     if (url === "/api/settings") {
       return json(200, await (over.settings?.() ?? Promise.resolve({ disk: 85, memory: 90, backupAgeHours: 36 })))
     }
-    /**
-     * The other tiles in the row. None of them feeds `waiting` or `failed`; they answer emptily so
-     * that nothing else on the page can be the reason a test passes or fails.
-     * The network picture's nodes each carry a recreate button, which asks whether the deployer is
-     * reachable at all before it decides to be disabled.
-     */
+    /** The other tiles answer emptily, so nothing else can be why a test passes or fails. */
     if (url === "/api/deployer") return json(200, { available: true })
     if (url.startsWith("/api/metrics")) return json(200, { points: [] })
     if (url.startsWith("/api/updates")) return json(200, [])
@@ -122,18 +96,13 @@ function backend(over: {
   })
 }
 
-/**
- * The page under a router whose tree is only what it links into.
- *
- * `/` carries the page itself, so `useRouterState` and every `Link` resolve against a real router
- * - including `/services/$name`, which a trigger builds with `params`.
- */
 /** A route this test never draws, only routes to. */
 const nothing = () => null
 
-/** The default a held promise's resolver starts as, before a test decides to settle it. */
+/** The default a held promise's resolver starts as. */
 const noop = () => undefined
 
+/** The page under a router holding only the routes it links into. */
 function draw() {
   const root = createRootRoute()
   const routeTree = root.addChildren([
@@ -150,11 +119,7 @@ function draw() {
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-  /**
-   * The provider the Shell normally supplies: the service table's badges are Radix tooltips and
-   * throw without one, which the router turns into its error boundary rather than into a failure
-   * anybody could read.
-   */
+  /** The tooltip provider the Shell normally supplies, which the table's badges need. */
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -164,19 +129,13 @@ function draw() {
   )
 }
 
-/**
- * The Issues tile itself, re-queried on every call.
- *
- * There is exactly one tile labelled "Issues" in the number row - `Stat` renders the label as its
- * own element, and this walks up to the div that also holds the value and the hint beneath it, the
- * same div `Stat` wraps all three in.
- */
+/** The Issues tile, walked up from its label to the div holding value and hint. */
 function issuesTile(): HTMLElement | null {
   const label = screen.queryByText("Issues")
   return label?.closest("div") ?? null
 }
 
-/** What the tile says altogether, or "" while it has not rendered at all. */
+/** What the tile says altogether, or "" before it renders. */
 const said = () => issuesTile()?.textContent ?? ""
 
 const STILL_READING = /still reading/
@@ -189,10 +148,7 @@ afterEach(() => {
 
 describe("OverviewPage - the Issues tile while /api/settings is still on its way", () => {
   it("says so beside a tile that already has something to report", async () => {
-    /**
-     * The defect, in one render: an image is behind, so the tile already has a count to show, and
-     * it must not look as settled as it would once every query has actually answered.
-     */
+    /** An image is behind, so the tile has a count, yet must not look settled while a query is open. */
     vi.stubGlobal(
       "fetch",
       backend({
@@ -202,10 +158,7 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
     )
     draw()
 
-    /**
-     * The tile does not print the full sentence for a trigger, only its subject ("bot" rather
-     * than "bot is running an older image..."), so this test follows suit.
-     */
+    /** The tile prints a trigger's subject, not its sentence. */
     await waitFor(() => expect(said()).toContain("bot"))
     expect(said()).toMatch(STILL_READING)
     // And not the other sentence: nothing failed, it is simply not finished.
@@ -213,11 +166,7 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
   })
 
   it("keeps the tile empty while there is nothing to report at all", async () => {
-    /**
-     * The branch that already worked, kept here so that the fix cannot be a sentence that is now
-     * printed twice, or one that replaced the quiet first render. A settled "0" must never appear
-     * before every query has actually answered. The assertion that matters is the second one.
-     */
+    /** A settled "0" must never appear before every query has answered. */
     vi.stubGlobal("fetch", backend({ settings: () => new Promise(() => {}) }))
     draw()
 
@@ -235,11 +184,7 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
   })
 
   it("is judging over less than it should, and the sentence is the only warning of it", async () => {
-    /**
-     * End to end, and the reason the sentence is worth anything: while /api/settings is open the
-     * tile is YELLOW over one trigger, and the answer adds a second, RED one - a backup older than
-     * the threshold that had not arrived yet. Same stack, same moment, two verdicts.
-     */
+    /** While /api/settings is open the tile is yellow over one trigger; the answer adds a red one. */
     let answer: (value: unknown) => void = noop
     const held = new Promise<unknown>((resolve) => {
       answer = resolve
@@ -269,10 +214,7 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
   })
 
   it("still says which of the two it is when a query actually failed", async () => {
-    /**
-     * `failed` and `waiting` are different sentences and the tile must not collapse them: one is
-     * "not finished", the other is "will not be finished".
-     */
+    /** `failed` and `waiting` are different sentences, "will not be finished" and "not finished". */
     vi.stubGlobal("fetch", async (url: string) => {
       if (url === "/api/settings") return json(503, { error: "Broken." })
       return backend({ services: [service({ service: "bot", drift: "OUTDATED" })] })(url)
@@ -285,12 +227,7 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
 })
 
 describe("OverviewPage - the tile that replaced the old banner", () => {
-  /**
-   * The tile is never absent (it is built in the same shape as `Behind`, which always shows a
-   * number) so the distinction between "ok" and "nothing read yet" has to live in the VALUE: a
-   * placeholder while waiting, and only once settled the "0" that means evidenced and fine. Those
-   * two must never read alike.
-   */
+  /** The value tells "nothing read yet" from an evidenced "0". */
   it("shows a placeholder while reading, and a settled zero only once a healthy stack answers", async () => {
     let answerSettings: (value: unknown) => void = noop
     const held = new Promise<unknown>((resolve) => {
@@ -307,10 +244,7 @@ describe("OverviewPage - the tile that replaced the old banner", () => {
       answerSettings({ disk: 85, memory: 90, backupAgeHours: 36 })
     })
 
-    /**
-     * Settled, and every reading is fine: the tile now shows the evidenced zero, and nothing about
-     * it reads as "still reading" or "could not be read".
-     */
+    /** Settled and fine: the evidenced zero, and nothing reading as waiting or failed. */
     await waitFor(() => expect(said()).toContain("0"))
     expect(said()).not.toMatch(STILL_READING)
     expect(said()).not.toMatch(COULD_NOT_READ)
@@ -318,21 +252,9 @@ describe("OverviewPage - the tile that replaced the old banner", () => {
 })
 
 /**
- * CPU is the only tile of the six that carries both a bar and a sparkline beneath its number, which
- * makes it taller than every other tile in every state, whether the sparkline is drawing a real
- * curve or the placeholder it shows while empty, because `Sparkline` reserves the same height
- * either way. A CSS grid row is as tall as its tallest item, and every other item in that row
- * stretches to match by default, so whichever tile happens to share a row with CPU inherits blank
- * space nothing of its own explains. No `items-*` alignment fixes this: track sizing is
- * content-based regardless of alignment.
+ * CPU is the tallest tile, so below `lg` it spans its row rather than stretching a neighbour.
  *
- * The fix, and the rule this test holds: **the tile that is taller than every sibling must never
- * share a row-track with one of them.** Below `lg`, where the six tiles are never all in one row
- * together, CPU spans the whole row instead of sharing it with whatever the column count happens
- * to put beside it - the cell it leaves next to its neighbour is empty, not stretched, and an empty
- * grid cell costs nothing to look at. At `lg`, all six already sit in one row regardless of order,
- * so CPU returns to a single column there - which this test also holds, because a `col-span` left
- * on past `lg` would silently break the "one row of six" desktop layout instead.
+ * At `lg` it returns to one column, keeping all six tiles in one row.
  */
 describe("OverviewPage - the CPU tile never shares a row with a shorter one", () => {
   it("spans the whole row below `lg`, where it would otherwise stretch a shorter neighbour", async () => {
@@ -340,10 +262,7 @@ describe("OverviewPage - the CPU tile never shares a row with a shorter one", ()
     draw()
 
     await waitFor(() => expect(screen.getByText("CPU")).toBeTruthy())
-    /**
-     * CPU's own label sits inside `Stat`'s wrapping div; the grid item - the one carrying the
-     * column span - is that div's parent, the div `MetricTile` renders.
-     */
+    /** The grid item carrying the span is the parent of `Stat`'s div. */
     const tile = screen.getByText("CPU").closest("div")?.parentElement
     expect(tile?.className).toContain("col-span-2")
     expect(tile?.className).toContain("min-[26rem]:col-span-3")
@@ -351,14 +270,7 @@ describe("OverviewPage - the CPU tile never shares a row with a shorter one", ()
   })
 })
 
-/**
- * The tile order is a fixed sequence: CPU, Memory, Disk, Latest backup, Behind, and Issues last -
- * the resources first, because they are the reason the page is opened on a phone at all, and the
- * two counts that are normally zero last.
- *
- * The labels are read out of the grid in DOM order rather than looked up one by one, because the
- * defect this guards against is an order, and six `getByText` calls pass in any order at all.
- */
+/** The tile order, read in DOM order since the defect is an order: CPU, Memory, Disk, Latest backup, Behind, Issues. */
 function metricLabels(): string[] {
   const grid = screen.getByText("CPU").closest("div")?.parentElement?.parentElement
   return Array.from(grid?.children ?? []).map((tile) => tile.querySelector("span")?.textContent ?? "")
@@ -374,18 +286,7 @@ describe("OverviewPage - the order of the number row", () => {
   })
 })
 
-/**
- * What stands where a page title would otherwise go is how many people are in the game. The count
- * is `proxy`'s own row - the proxy sees every player exactly once, where a sum over the three
- * backends silently drops a server whose row is stale.
- *
- * The dash matters as much as the number: `players` is optional on purpose (see `Service` in
- * `api.ts`), and "nobody has said" must never settle into a confident `0`.
- */
-/**
- * The tile links to `/operations/backups`, which holds the full archive list; the tile itself
- * shows only the latest entry.
- */
+/** The Latest backup tile links to `/operations/backups`, which holds the full list. */
 describe("OverviewPage - the Latest backup tile links to the page that holds the detail", () => {
   it("points the tile at /operations/backups", async () => {
     vi.stubGlobal("fetch", backend({ backups: [backup(2), dump(2)] }))
@@ -398,6 +299,7 @@ describe("OverviewPage - the Latest backup tile links to the page that holds the
   })
 })
 
+/** The heading is the proxy's player count, and a dash while no row carries one. */
 describe("OverviewPage - the heading is how many are in the game", () => {
   it("says the count instead of the page's own name", async () => {
     vi.stubGlobal(
@@ -417,21 +319,15 @@ describe("OverviewPage - the heading is how many are in the game", () => {
     draw()
 
     const line = await screen.findByText("players online")
-    expect(line.closest("p")?.textContent).toContain("–")
+    expect(line.closest("p")?.textContent).toContain("\u2013")
     expect(line.closest("p")?.textContent).not.toContain("0")
   })
 })
 
 /**
- * The bottom section is the network picture and, beside it, the actions; there is no service
- * table alongside it.
+ * The bottom section is the network picture and the actions, with no service table beside it.
  *
- * Two assertions, because both halves matter: the picture is drawn, and no table is drawn beside
- * it - a page that gained the picture but kept the table would look finished on a screenshot while
- * drawing the same ten services twice.
- *
- * Positions are not asserted here and cannot be: jsdom has no layout, so `order-last` and
- * `lg:grid-cols-2` are class names in the DOM rather than a measured arrangement.
+ * jsdom has no layout, so only presence is asserted, not position.
  */
 describe("OverviewPage - the bottom section", () => {
   it("draws the network picture and no longer draws the service table", async () => {
@@ -449,17 +345,10 @@ describe("OverviewPage - the bottom section", () => {
 
     await waitFor(() => expect(document.querySelector('[data-node="smp"]')).not.toBeNull())
     expect(screen.getByRole("heading", { name: "Network" })).toBeTruthy()
-    /**
-     * Every service the arrangement names is drawn, including the seven this stub does not carry -
-     * a box with no container behind it is still a box (the picture is the stack's shape, not its
-     * answer), which is why this counts nodes rather than rows.
-     */
+    /** Every service the arrangement names is drawn, with or without a container behind it. */
     expect(document.querySelector('[data-node="postgres"]')).not.toBeNull()
 
-    /**
-     * No disclosure element remains: the summary line it once carried was the one string only
-     * ever on this page.
-     */
+    /** No disclosure element remains. */
     expect(document.querySelector("details")).toBeNull()
     expect(screen.queryByText(/of 3 healthy/)).toBeNull()
   })

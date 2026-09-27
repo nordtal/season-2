@@ -17,11 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.yaml.snakeyaml.Yaml;
 
-/**
- * The standby-pair half of {@link TopologyTest}, split out to keep both files under the line limit.
- *
- * It reads compose.yml itself rather than sharing TopologyTest's fixture, because the two run as separate classes.
- */
+/** The standby-pair half of {@link TopologyTest}, which reads compose.yml on its own. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyStandbyTest {
 
@@ -29,11 +25,7 @@ class TopologyStandbyTest {
 
     private final Map<String, Object> services = readComposeServices();
 
-    /**
-     * Environment keys a standby is allowed, and required, to set differently from its model, with the reason why.
-     *
-     * Typed and never empty by accident: an exemption without a reason is how the rule above erodes one key at a time.
-     */
+    /** Environment keys a standby must set differently from its model, each with its reason. */
     private static final Map<String, String> TELLS_THE_PAIR_APART = Map.of(
             "NORDTAL_PROXY_NETWORK_STANDBY",
             "It is the only thing that tells the two proxies apart, and a proxy cannot work it out" + " for itself.");
@@ -274,7 +266,7 @@ class TopologyStandbyTest {
         return matcher.group(1);
     }
 
-    /** The host side of a compose mount - everything before the last colon-separated field pair. */
+    /** The host side of a compose mount, everything before the last colon-separated field pair. */
     private static String sourceOf(final String mount) {
         final int split = mount.lastIndexOf(':');
         return mount.substring(0, split);

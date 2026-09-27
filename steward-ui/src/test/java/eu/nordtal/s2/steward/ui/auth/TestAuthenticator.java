@@ -17,30 +17,9 @@ import java.security.spec.ECGenParameterSpec;
 import java.util.Base64;
 
 /**
- * A security key, in software, for the tests.
+ * A software security key that produces real {@code none} attestations and signed assertions for the tests.
  *
- * Why this exists rather than a mock
- * The thing under test is whether a browser's answer is accepted or refused, and every interesting
- * case is a malformed or mismatched answer: a challenge that was never issued, an origin
- * that is not this service, a credential that belongs to somebody else. A mock of the library
- * would prove that the mock agrees with itself; what is needed is real bytes in the real shape, so
- * that the real verification has something to refuse.
- *
- * So this produces exactly what an authenticator produces: CBOR inside base64url inside JSON.
- * It is about eighty lines because that is genuinely all an authenticator's registration answer is
- * when the attestation format is {@code none} - which is the format every platform authenticator
- * and every self-attesting key uses, and the one this service accepts.
- *
- * What it deliberately does not do
- * Registration signs nothing. An {@code fmt: "none"} attestation carries no signature at all -
- * the public key is asserted, not attested - so it needs no private key. An assertion does, and
- * {@link #assertion(String, String)} is where the pair generated in the constructor is finally
- * used.
- *
- * It is also happy to lie. Every one of the four methods takes the origin and the challenge as
- * parameters precisely so a test can hand over ones that are wrong, and
- * {@link #assertion(String, String, String, long)} takes the signature counter too - a counter
- * that has gone backwards is what a cloned authenticator looks like.
+ * Every method takes the origin and the challenge, so a test can hand over wrong ones for the verifier to refuse.
  */
 public final class TestAuthenticator {
 
@@ -82,11 +61,7 @@ public final class TestAuthenticator {
         return register(creationOptions, origin, publicKey.get("challenge").getAsString());
     }
 
-    /**
-     * The same, with the challenge chosen by the caller.
-     *
-     * So that a test can answer a question nobody asked.
-     */
+    /** The same, with a challenge the caller chooses, so a test can answer a question nobody asked. */
     public String register(final String creationOptions, final String origin, final String challenge) {
         final JsonObject publicKey =
                 GSON.fromJson(creationOptions, JsonObject.class).getAsJsonObject("publicKey");
@@ -123,13 +98,7 @@ public final class TestAuthenticator {
         return assertion(requestOptions, origin, publicKey.get("challenge").getAsString(), 0);
     }
 
-    /**
-     * The same, with the challenge and the signature counter chosen by the caller.
-     *
-     * Both are here so a test can lie about them: a challenge nobody issued, and a counter that
-     * has gone backwards - which is what a cloned authenticator looks like and the one thing the
-     * counter exists to catch.
-     */
+    /** The same, with a challenge and a signature counter the caller chooses; a counter going back is a clone. */
     public String assertion(
             final String requestOptions, final String origin, final String challenge, final long signCount) {
         final JsonObject publicKey =
@@ -174,9 +143,7 @@ public final class TestAuthenticator {
         return GSON.toJson(credential);
     }
 
-    /**
-     * {@code {fmt: "none", attStmt: {}, authData: …}} - the whole of a self-asserted registration.
-     */
+    /** {@code {fmt: "none", attStmt: {}, authData: …}}, the whole of a self-asserted registration. */
     private byte[] attestationObject(final String relyingPartyId) {
         return CBORObject.NewMap()
                 .Add("fmt", "none")
@@ -185,12 +152,7 @@ public final class TestAuthenticator {
                 .EncodeToBytes();
     }
 
-    /**
-     * rpIdHash ‖ flags ‖ signCount ‖ aaguid ‖ credentialIdLength ‖ credentialId ‖ COSE public key.
-     *
-     * The AAGUID is sixteen zero bytes, which is what an authenticator that declines to say what
-     * model it is reports - and what every {@code none} attestation carries.
-     */
+    /** rpIdHash, flags, signCount, a zero aaguid, credentialIdLength, credentialId and the COSE public key. */
     private byte[] authenticatorData(final String relyingPartyId) {
         final byte[] cose = coseKey();
         final ByteBuffer data = ByteBuffer.allocate(32 + 1 + 4 + 16 + 2 + credentialId.length + cose.length);
@@ -216,14 +178,7 @@ public final class TestAuthenticator {
                 .EncodeToBytes();
     }
 
-    /**
-     * A coordinate as exactly 32 bytes.
-     *
-     * {@code BigInteger.toByteArray()} is two's complement: it prepends a zero byte whenever the
-     * top bit is set, and drops leading zeroes otherwise - so a perfectly valid key produces 31 or
-     * 33 bytes about half the time, and a COSE key of the wrong length is refused by the library
-     * with a message about the curve. Left-padded and trimmed here rather than debugged there.
-     */
+    /** A coordinate as exactly 32 bytes, since {@code BigInteger.toByteArray()} yields 31 or 33 about half the time. */
     private static byte[] coordinate(final BigInteger value) {
         final byte[] raw = value.toByteArray();
         final byte[] padded = new byte[32];

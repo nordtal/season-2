@@ -5,20 +5,13 @@ import java.util.List;
 /**
  * Code points of the characters the resource pack defines, grouped by font.
  *
- * This class and the pack's font files mirror one allocation, and {@code ResourcePackTest} fails
- * when they drift. The fonts allocate independently, so a code point means a different glyph in
- * each font a component names - see {@link #FONT_BOSSBAR}.
+ * {@code ResourcePackTest} holds them against the font files; each font allocates on its own.
  */
 public final class Glyphs {
 
     private Glyphs() {}
 
-    /**
-     * Returns a code point as a string, so the constants below read as hex rather than surrogates.
-     *
-     * Every glyph lives in Supplementary Private Use Area-A, {@code U+F0000..U+FFFFD}: glyph plugins
-     * auto-assign from {@code U+E000} upward, and Minecraft's {@code unifont_pua} covers that range.
-     */
+    /** Returns a code point as a string; every glyph here lies in Supplementary Private Use Area-A. */
     private static String cp(final int codePoint) {
         return Character.toString(codePoint);
     }
@@ -26,48 +19,43 @@ public final class Glyphs {
     // === Font keys ===
 
     /**
-     * The font a component names for the {@code nordtal:bossbar} code points below to resolve.
+     * The font a component names for the {@code nordtal:bossbar} code points to resolve.
      *
-     * A bossbar code point left in {@code minecraft:default} draws whatever that font has there
-     * ({@link #BOSSBAR_BG_4} and {@link #TAG_ADMIN} are both {@code U+FE004}).
+     * In {@code minecraft:default} the same code point draws another glyph.
      */
     public static final String FONT_BOSSBAR = "nordtal:bossbar";
 
-    /** The font the {@code BOARD_*} code points below resolve in - same rule as {@link #FONT_BOSSBAR}. */
+    /** The font the {@code BOARD_*} code points resolve in, by the same rule as {@link #FONT_BOSSBAR}. */
     public static final String FONT_BOARD = "nordtal:board";
 
-    /** The font the {@code GUI_*} code points below resolve in - same rule as {@link #FONT_BOSSBAR}. */
+    /** The font the {@code GUI_*} code points resolve in, by the same rule as {@link #FONT_BOSSBAR}. */
     public static final String FONT_GUI = "nordtal:gui";
 
     /**
      * The six row fonts, indexed by chest row from the top, in which every {@code GUI_ROW_*} resolves.
-     *
-     * A glyph's only vertical control is its font's {@code ascent}, so the row is carried in the font:
-     * all six declare the same characters at that row's ascents.
+     * A glyph's only vertical control is its font's {@code ascent}, so each row font declares the same characters at
+     * its own ascent.
      */
     public static final List<String> FONT_GUI_ROWS = List.of(
             "nordtal:gui_r0", "nordtal:gui_r1", "nordtal:gui_r2", "nordtal:gui_r3", "nordtal:gui_r4", "nordtal:gui_r5");
 
     // === minecraft:default ===
 
-    // Player badges - U+FE000..U+FE00F
+    // Player badges, U+FE000..U+FE00F
     public static final String BADGE_DONOR_STAR = cp(0xFE000);
     public static final String TAG_ADMIN = cp(0xFE004);
 
-    // Region flags - U+FE010..U+FE01F
+    // Region flags, U+FE010..U+FE01F
     public static final String FLAG_OTHER = cp(0xFE010);
     public static final String FLAG_GERMANY = cp(0xFE011);
     public static final String FLAG_NETHERLANDS = cp(0xFE012);
     public static final String FLAG_UNITED_KINGDOM = cp(0xFE013);
     public static final String FLAG_UNITED_STATES = cp(0xFE014);
 
-    // Logo assets - U+FE020..U+FE02F
     /**
-     * The flag glyph for a language, which is the one every surface draws beside a player's name.
-     *
-     * It maps a language, not a country, so the mapping is a choice: {@code en} without a
-     * country falls to the United Kingdom because the server is a European one, and anything
-     * unmapped (a null locale included) gets the neutral flag rather than a missing glyph.
+     * Returns the flag drawn beside a player's name for a language.
+     * {@code en} without a country maps to the United Kingdom, and anything unmapped, null included, to the neutral
+     * flag.
      */
     public static String flagFor(final java.util.Locale locale) {
         if (locale == null) {
@@ -86,10 +74,11 @@ public final class Glyphs {
         return FLAG_OTHER;
     }
 
+    // Logo assets, U+FE020..U+FE02F
     public static final String LOGO_HEIGHT_24 = cp(0xFE020);
     public static final String LOGO_HEIGHT_32 = cp(0xFE021);
 
-    // Prestige crests - U+FE030..U+FE03C, height 9 / ascent 8, tiers 1-13 in order.
+    // Prestige crests, U+FE030..U+FE03C, height 9 and ascent 8, tiers 1 to 13 in order.
     public static final String PRESTIGE_CREST_01 = cp(0xFE030);
     public static final String PRESTIGE_CREST_02 = cp(0xFE031);
     public static final String PRESTIGE_CREST_03 = cp(0xFE032);
@@ -122,7 +111,7 @@ public final class Glyphs {
 
     // System-line icons, U+FE080..U+FE085: white, because a glyph is multiplied by the text colour.
 
-    /** The rule between a player's name and what they said. Not a character - 3 px wide. */
+    /** The rule between a player's name and what they said, 3 px wide. */
     public static final String SEPARATOR = cp(0xFE080);
 
     public static final String ICON_JOIN = cp(0xFE081);
@@ -187,13 +176,13 @@ public final class Glyphs {
     public static final String BOARD_SPACE_PLUS_16 = cp(0xFFF16);
     public static final String BOARD_SPACE_PLUS_32 = cp(0xFFF32);
 
-    // Corners - U+FE040..U+FE043, height 9 / ascent 8
+    // Corners, U+FE040..U+FE043, height 9 and ascent 8
     public static final String BOARD_CORNER_TOP_LEFT = cp(0xFE040);
     public static final String BOARD_CORNER_TOP_RIGHT = cp(0xFE041);
     public static final String BOARD_CORNER_BOTTOM_LEFT = cp(0xFE042);
     public static final String BOARD_CORNER_BOTTOM_RIGHT = cp(0xFE043);
 
-    // Horizontal edge, tiled in powers of two - U+FE044..U+FE04B
+    // Horizontal edge, tiled in powers of two, U+FE044..U+FE04B
     public static final String BOARD_EDGE_H_1 = cp(0xFE044);
     public static final String BOARD_EDGE_H_2 = cp(0xFE045);
     public static final String BOARD_EDGE_H_4 = cp(0xFE046);
@@ -203,7 +192,7 @@ public final class Glyphs {
     public static final String BOARD_EDGE_H_64 = cp(0xFE04A);
     public static final String BOARD_EDGE_H_128 = cp(0xFE04B);
 
-    // Vertical edge - U+FE04C..U+FE04D
+    // Vertical edge, U+FE04C..U+FE04D
     public static final String BOARD_EDGE_V_LEFT = cp(0xFE04C);
     public static final String BOARD_EDGE_V_RIGHT = cp(0xFE04D);
 
@@ -216,11 +205,11 @@ public final class Glyphs {
     public static final String BOARD_DIVIDER_32 = cp(0xFE053);
     public static final String BOARD_DIVIDER_64 = cp(0xFE054);
     public static final String BOARD_DIVIDER_128 = cp(0xFE055);
-    // U+FE056..U+FE05F reserved for this font's own future growth.
+    // U+FE056..U+FE05F is this font's room to grow.
 
     // === nordtal:bossbar ===
 
-    // Space advances - negative, U+FF001..U+FF128
+    // Negative space advances, U+FF001..U+FF128
     public static final String BOSSBAR_SPACE_MINUS_1 = cp(0xFF001);
     public static final String BOSSBAR_SPACE_MINUS_2 = cp(0xFF002);
     public static final String BOSSBAR_SPACE_MINUS_4 = cp(0xFF004);
@@ -230,7 +219,7 @@ public final class Glyphs {
     public static final String BOSSBAR_SPACE_MINUS_64 = cp(0xFF064);
     public static final String BOSSBAR_SPACE_MINUS_128 = cp(0xFF128);
 
-    // Space advances - positive, U+FFF01..U+FFF32 plus the ordinary space.
+    // Positive space advances, U+FFF01..U+FFF32, plus the ordinary space
     public static final String BOSSBAR_SPACE_PLUS_1 = cp(0xFFF01);
     public static final String BOSSBAR_SPACE_PLUS_2 = cp(0xFFF02);
     public static final String BOSSBAR_SPACE_PLUS_3 = " ";
@@ -251,7 +240,7 @@ public final class Glyphs {
     public static final String BOSSBAR_BG_64 = cp(0xFE064);
     public static final String BOSSBAR_BG_128 = cp(0xFE128);
 
-    // Status icons - U+FEF00..U+FEF0F, height 10 / ascent 4
+    // Status icons, U+FEF00..U+FEF0F, height 10 and ascent 4
     public static final String BOSSBAR_ICON_COMPASS = cp(0xFEF00);
     // Land-indicator pennants: blue preserved, green permanent, red reset zone, white spawn.
     public static final String BOSSBAR_ICON_FBLUE = cp(0xFEF01);
@@ -262,7 +251,7 @@ public final class Glyphs {
     public static final String BOSSBAR_ICON_DIM_OVERWORLD = cp(0xFEF05);
     public static final String BOSSBAR_ICON_DIM_NETHER = cp(0xFEF07);
     public static final String BOSSBAR_ICON_DIM_END = cp(0xFEF08);
-    // The hunger games HUD's own icons - a heart, a skull, a chest, a dashed border.
+    // The hunger games HUD's icons: a heart, a skull, a chest and a dashed border.
     public static final String BOSSBAR_ICON_ALIVE = cp(0xFEF09);
     public static final String BOSSBAR_ICON_DEATHS = cp(0xFEF0A);
     public static final String BOSSBAR_ICON_LOOT_POINT = cp(0xFEF0B);
@@ -369,19 +358,19 @@ public final class Glyphs {
 
     // Row furniture, declared in all six row fonts; advances come from the PNGs via MenuFont.
 
-    /** A list entry's plate, 158 px wide and 14 tall - the width of the slot area inset 2. */
+    /** A list entry's plate, 158 by 14 px: the width of the slot area inset 2. */
     public static final String GUI_ROW_PILL = cp(0xFE100);
 
     /** The white 2 px frame that marks the one entry a player is currently navigating to. */
     public static final String GUI_ROW_FRAME = cp(0xFE101);
 
-    /** A 52 px button plate in the refusing style - {@code /navigate}'s "stop". */
+    /** A 52 px button plate in the refusing style, as in {@code /navigate}'s "stop". */
     public static final String GUI_ROW_BUTTON_WIDE = cp(0xFE102);
 
     /** A 14 px square button plate, one slot cell inset 2. */
     public static final String GUI_ROW_BUTTON_SMALL = cp(0xFE103);
 
-    /** The same square plate, greyed - a page button with no page on the other side of it. */
+    /** The same square plate, greyed, for a page button with no page behind it. */
     public static final String GUI_ROW_BUTTON_SMALL_OFF = cp(0xFE104);
 
     /** The 158 px plate in a darker grey, for a heading row that is not clickable. */
@@ -390,13 +379,13 @@ public final class Glyphs {
     /** A 50 px gold button plate, for the hand-in's confirm, which a second click cannot undo. */
     public static final String GUI_ROW_BUTTON_CONFIRM = cp(0xFE106);
 
-    /** A 68 px button plate in the affirming style - the grave's "take everything". */
+    /** A 68 px button plate in the affirming style, as in the grave's "take everything". */
     public static final String GUI_ROW_BUTTON_TAKE = cp(0xFE107);
 
     /** The entry plate at 122 px, for a row that carries controls on its right. */
     public static final String GUI_ROW_PILL_SHORT = cp(0xFE108);
 
-    // Row icons - U+FE110..U+FE11A, 8 x 8, drawn white so a component's colour can tint them.
+    // Row icons, U+FE110..U+FE11A, 8 by 8, drawn white so a component's colour can tint them.
     public static final String GUI_ROW_ICON_SPAWN = cp(0xFE110);
     public static final String GUI_ROW_ICON_DEATH = cp(0xFE111);
     public static final String GUI_ROW_ICON_POI = cp(0xFE112);
@@ -410,7 +399,7 @@ public final class Glyphs {
     public static final String GUI_ROW_ICON_ADVANCEMENT = cp(0xFE118);
     public static final String GUI_ROW_ICON_DONE = cp(0xFE119);
 
-    /** An experience orb - what the objective menu's share line is about. */
+    /** An experience orb, the subject of the objective menu's share line. */
     public static final String GUI_ROW_ICON_AURA = cp(0xFE11A);
     // U+FE11B..U+FE1FF is this block's room to grow.
 

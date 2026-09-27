@@ -18,7 +18,7 @@ final class LineEdits {
         final int end = Math.min(Math.max(span.end(), start), body.length());
 
         if (start == end) {
-            // `token:` with nothing after it: the span sits right after the colon, so a space is inserted.
+            // `token:` with nothing after it: a space is inserted after the colon.
             final String before = body.substring(0, start);
             final String after = body.substring(start);
             return before + (before.endsWith(" ") ? "" : " ") + rendered + after + ending;
@@ -26,12 +26,7 @@ final class LineEdits {
         return body.substring(0, start) + rendered + body.substring(end) + ending;
     }
 
-    /**
-     * The colon that ends the key.
-     *
-     * Found by searching from the end of the key rather than the start of the line: a key may contain one, as in
-     * {@code 12:00: something}.
-     */
+    /** The colon that ends the key, searched from the key's end since a key may contain one ({@code 12:00: x}). */
     static int colonOf(final String keyBody, final Span span, final ConfigEntry entry) {
         final int colon = keyBody.indexOf(':', Math.min(span.keyEndColumn(), keyBody.length()));
         if (colon < 0) {
@@ -41,12 +36,7 @@ final class LineEdits {
         return colon;
     }
 
-    /**
-     * Whatever comment sits on the key's line after the value begins, so a rewrite does not eat it.
-     *
-     * Where the value begins depends on the shape: past the block header for {@code motd: |- # why}, past the value
-     * for {@code port: 8080 # why}, and past the colon when the value is on a later line altogether.
-     */
+    /** The comment on the key's line after the value begins, so a rewrite keeps it. */
     static String trailingComment(final String keyBody, final Span span, final int colon) {
         final int from;
         if (!span.onKeyLine()) {
@@ -71,10 +61,7 @@ final class LineEdits {
     /**
      * The last line belonging to a key, measured by indentation.
      *
-     * SnakeYAML's end mark for a block sits on the line after it, and how far after depends on what follows, so it
-     * cannot be used to decide which lines to replace. Indentation can: everything under a key is indented past it,
-     * a blank line belongs to the block only when something deeper follows it, and the first line back at the key's
-     * own column ends it.
+     * SnakeYAML's end mark cannot decide this; a blank line belongs to the block only when something deeper follows it.
      */
     static int blockExtent(final List<String> lines, final int keyLine, final int keyColumn) {
         int last = keyLine;
@@ -92,12 +79,9 @@ final class LineEdits {
     }
 
     /**
-     * The last line belonging to a block sequence.
+     * The last line of a block sequence, which may sit at its key's own column so {@link #blockExtent} cannot find it.
      *
-     * {@link #blockExtent} cannot answer this one: a block sequence is allowed to sit at its key's own column, so
-     * "deeper than the key" finds nothing and a rewrite that trusted it would insert new entries above the old ones.
-     *
-     * @param itemIndent the column the first {@code -} sits at
+     * @param itemIndent the column the first entry marker sits at
      */
     static int sequenceExtent(final List<String> lines, final int keyLine, final int itemIndent) {
         int last = keyLine;
@@ -161,7 +145,7 @@ final class LineEdits {
             final String last = lines.get(index);
             final String withoutEnding = withoutLineEnding(last);
             if (withoutEnding.length() == last.length() && !withoutEnding.isEmpty()) {
-                // The old last line had no trailing newline; it needs one now that it is no longer last.
+                // The old last line had no newline; it needs one now.
                 lines.set(index, withoutEnding + dominantEnding(lines));
                 final String newLast = newLines.get(newLines.size() - 1);
                 newLines.set(newLines.size() - 1, withoutLineEnding(newLast));
@@ -170,12 +154,7 @@ final class LineEdits {
         lines.addAll(index + 1, newLines);
     }
 
-    /**
-     * Splits into lines that still carry their own {@code \n} or {@code \r\n}.
-     *
-     * {@code String.lines()} throws the endings away, and joining with one of them afterwards is how a CRLF file
-     * silently becomes an LF file and a whole config shows up in a diff.
-     */
+    /** Splits into lines that keep their own {@code \n} or {@code \r\n}, so a CRLF file stays CRLF. */
     static List<String> splitKeepingLineEndings(final String content) {
         final List<String> lines = new ArrayList<>();
         int start = 0;

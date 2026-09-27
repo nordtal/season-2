@@ -3,9 +3,7 @@ package eu.nordtal.s2.commands;
 import eu.nordtal.s2.common.message.spec.MessageSpec;
 import eu.nordtal.s2.common.message.spec.MessageSpecs;
 
-/**
- * Every message of the commands bundle, one method per key.
- */
+/** Every message of the commands bundle, one method per key. */
 @MessageSpec("commands")
 public interface CommandMessages {
 

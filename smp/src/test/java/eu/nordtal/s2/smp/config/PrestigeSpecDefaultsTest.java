@@ -13,29 +13,15 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * The crest ladder this plugin ships - fourteen colours and thirteen hours - is held here, and nowhere else.
+ * The crest ladder this plugin ships, fourteen colours and thirteen hours, is held here.
  *
- * <b>Why this test exists.</b> A test that builds its own palette by hand never touches {@link PrestigeSpec} 's
- * shipped defaults, so a regression there - {@code tier13()} set to {@code tier01()} 's colour, or {@code NEUTRAL}
- * and {@code MUTED} both {@code GRAY} - would leave the build green with thirteen colours instead of two, the harder
- * version of the same problem.
- *
- * <b>Why a distance and not an inequality.</b> Two values being different is not the same as two colours being
- * tellable apart, and an inequality would pass happily on {@code #5fbfae} against {@code #5fbfaf}. The floor is
- * deliberately low, because these thirteen are a <i>gradient</i> and neighbouring tiers are supposed to be similar -
- * the measured closest pair today is tier-11 against tier-12 at 38.9, so a floor of 20 leaves nearly double the
- * margin and still catches a colour that was pasted twice.
+ * Colours are compared by distance, not inequality; the floor of 20 is about half the closest shipped pair.
  */
 class PrestigeSpecDefaultsTest {
 
     private static final Pattern HEX = Pattern.compile("^#[0-9a-fA-F]{6}$");
 
-    /**
-     * The floor, in the units of {@link #distance}.
-     *
-     * See the class javadoc for where it comes from: it is half of the closest pair actually shipped, not a number
-     * picked to make this pass.
-     */
+    /** The floor, in the units of {@link #distance}. */
     private static final double MINIMUM_DISTANCE = 20;
 
     private final PrestigeSpec spec = Specs.createDefault(PrestigeSpec.class);
@@ -75,13 +61,7 @@ class PrestigeSpecDefaultsTest {
                         + " in chat, in the tab list and above a player's head: " + tooClose);
     }
 
-    /**
-     * The contract the file's own header states, checked rather than trusted.
-     *
-     * The two blocks are one ladder written twice, and every reader of either walks {@code tier01..tier13}. A key added
-     * to one and not the other is the failure that put these two lists in one file in the first place - tier 7's colour
-     * against tier 8's hour - and it is invisible in both files and in the interface that draws them.
-     */
+    /** The two tier blocks carry the same keys, as the file's own header states. */
     @Test
     void bothBlocksDeclareTheSameLadder() {
         assertEquals(
@@ -117,11 +97,9 @@ class PrestigeSpecDefaultsTest {
     }
 
     /**
-     * The "redmean" approximation - a cheap weighted RGB distance that tracks what an eye does.
+     * The "redmean" approximation, a cheap weighted RGB distance that tracks what an eye does.
      *
-     * Better than a plain Euclidean one, and needs no colour-space conversion to compute. Source: the formula
-     * documented at <a href="https://www.compuphase.com/cmetric.htm">compuphase</a>. Exact agreement with CIE Lab
-     * is not the point here; catching two colours that are the same is.
+     * Source: <a href="https://www.compuphase.com/cmetric.htm">compuphase</a>.
      */
     private static double distance(final String first, final String second) {
         final int[] a = rgb(first);

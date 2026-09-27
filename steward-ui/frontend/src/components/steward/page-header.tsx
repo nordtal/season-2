@@ -1,11 +1,9 @@
 import type { ReactNode } from "react"
 
 /**
- * The top of every page: what it is, and the actions that belong to it.
+ * The top of every page: its title and its actions.
  *
- * **There is no note, and there is no prop for one.** A line under
- * the title saying what the page is for, to somebody already standing on it, is not here, and
- * the prop is not either, so the next one has to be argued for rather than filled in.
+ * There is deliberately no prop for a note under the title.
  */
 export function PageHeader({ title, actions }: { title: ReactNode; actions?: ReactNode }) {
   return (

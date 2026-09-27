@@ -12,14 +12,7 @@ import java.time.Instant;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
-/**
- * What the status channel is called, in every phase and at every distance from the opening.
- *
- * Against the real message bundles, not a stub: half of what is asserted here is that the placeholders in
- * {@code en.properties} are the ones the renderer passes, which a stub bundle would hide. The other half is the
- * granularity, which is the Discord rate limit - a name that changed more often than these tests allow would spend a
- * budget of two renames per ten minutes in the first minute of every hour.
- */
+/** The status channel name in every phase and at every distance from the opening, against the real bundles. */
 class StatusNameTest {
 
     private static final Messages MESSAGES = Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN);
@@ -32,8 +25,6 @@ class StatusNameTest {
         return StatusName.render(
                 MESSAGES, Locale.ENGLISH, SeasonPhase.PRE_LAUNCH, NetworkSnapshot.EMPTY, NOW.plus(untilLaunch), NOW);
     }
-
-    // The countdown.
 
     @Test
     void moreThanADayOutShowsDaysAndWholeHours() {
@@ -56,7 +47,7 @@ class StatusNameTest {
 
     @Test
     void roundingIsDownSoTheCountdownNeverClaimsMoreTimeThanThereIs() {
-        // 49 minutes reads as 40, not as 50: somebody who leaves on this number arrives early.
+        // 49 minutes reads as 40, so people arrive early.
         assertEquals("Opens in 40 min", at(Duration.ofMinutes(49)));
     }
 
@@ -68,7 +59,7 @@ class StatusNameTest {
 
     @Test
     void aDateThatHasPassedIsNotANegativeNumber() {
-        // Nothing switches the phase when the date passes - that stays an admin's decision, so the gap is normal.
+        // A passed date is normal until an admin switches the phase.
         assertEquals("Opens any moment", at(Duration.ofHours(-6)));
     }
 
@@ -79,8 +70,6 @@ class StatusNameTest {
                 StatusName.render(MESSAGES, Locale.ENGLISH, SeasonPhase.PRE_LAUNCH, NetworkSnapshot.EMPTY, null, NOW));
     }
 
-    // The phase table.
-
     @Test
     void preEventShowsWhoHasRegistered() {
         assertEquals("8 teams registered", render(SeasonPhase.PRE_EVENT));
@@ -88,13 +77,12 @@ class StatusNameTest {
 
     @Test
     void theEventShowsWhoIsLeft() {
-        // The surviving teams and the surviving players - hgTeamsAlive and hgAlive, not the totals.
         assertEquals("3 teams left | 7 alive", render(SeasonPhase.START_EVENT));
     }
 
     @Test
     void theSmpShowsRegisteredPlayersDeliberatelyNotTheMilestone() {
-        // Chosen over the active milestone: its percentage moves on every hand-in, past the channel's rename budget.
+        // Chosen over the milestone percentage, which moves faster than the rename budget.
         assertEquals("31 players", render(SeasonPhase.SMP));
     }
 

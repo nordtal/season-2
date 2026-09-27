@@ -21,27 +21,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Granting, revoking, play time, settling and unlinking - asked of the bot, never done here.
+ * Grants, revocations, play time, settling and unlinking, each written as an {@code access_request} row for the bot.
  *
- * A grant is four things at once (row, Discord role, a message, an admin-channel line), and only
- * the bot can do all four - so every write here is one {@code access_request} row for the bot to
- * carry out, the same shape {@link CommandApi} uses. No journal line is written here; the bot
- * journals what it carries out.
+ * Only the bot can carry out all parts of a grant, and it journals what it carries out.
  */
 final class AccessApi {
 
     private static final Logger log = LoggerFactory.getLogger(AccessApi.class);
 
-    /** The longest access one grant may give, in days - a season; a longer period is two grants. */
+    /** The longest access one grant may give, in days; a longer period is two grants. */
     static final int MOST_DAYS = 365;
 
     /** The ceiling on a play time somebody may type: ten years of wall clock. */
     static final long MOST_PLAYTIME_SECONDS = 10L * 365 * 24 * 3600;
 
-    /** Null only in a test that never calls a route on this class. */
     private final @Nullable Data data;
 
-    /** Who is asking. The same seam {@code StewardUi} uses, so a test can stand in front of it. */
     private final Function<Context, DiscordAuth.Account> accounts;
 
     AccessApi(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
@@ -49,12 +44,11 @@ final class AccessApi {
         this.accounts = accounts;
     }
 
-    /** The database, for a route that cannot be reached without one. */
     private Data data() {
         return Objects.requireNonNull(data, "no database - this route is not available without one");
     }
 
-    /** {@code POST /api/access/grant} - {@code {discordId, days}}. */
+    /** {@code POST /api/access/grant} with {@code {discordId, days}}. */
     void grant(final Context ctx) {
         final Body ask = bodyOf(ctx);
         final String discordId = discordId(ask);
@@ -65,17 +59,17 @@ final class AccessApi {
         submit(ctx, AccessRequestKind.GRANT, discordId, (long) ask.days);
     }
 
-    /** {@code POST /api/access/revoke} - {@code {discordId}}. */
+    /** {@code POST /api/access/revoke} with {@code {discordId}}. */
     void revoke(final Context ctx) {
         submit(ctx, AccessRequestKind.REVOKE, discordId(bodyOf(ctx)), null);
     }
 
-    /** {@code POST /api/access/unlink} - {@code {discordId}}. */
+    /** {@code POST /api/access/unlink} with {@code {discordId}}. */
     void unlink(final Context ctx) {
         submit(ctx, AccessRequestKind.UNLINK, discordId(bodyOf(ctx)), null);
     }
 
-    /** {@code POST /api/access/settle} - {@code {reference}}, a payment reference. */
+    /** {@code POST /api/access/settle} with {@code {reference}}, a payment reference. */
     void settle(final Context ctx) {
         final Body ask = bodyOf(ctx);
         if (ask.reference == null || ask.reference.isBlank()) {
@@ -84,20 +78,19 @@ final class AccessApi {
         submit(ctx, AccessRequestKind.SETTLE, ask.reference.trim(), null);
     }
 
-    /** {@code POST /api/people/{id}/playtime} - {@code {seconds}}, the new total. */
+    /** {@code POST /api/people/{id}/playtime} with {@code {seconds}}, the new total. */
     void playtime(final Context ctx) {
         final Body ask = bodyOf(ctx);
         if (ask.seconds == null || ask.seconds < 0) {
             throw new BadRequestResponse("seconds is the new total, and is never negative");
         }
         if (ask.seconds > MOST_PLAYTIME_SECONDS) {
-            // A century of play time is a typo the bigint column would otherwise accept.
             throw new BadRequestResponse("seconds is at most " + MOST_PLAYTIME_SECONDS);
         }
         submit(ctx, AccessRequestKind.SET_PLAYTIME, ctx.pathParam("id"), ask.seconds);
     }
 
-    /** {@code GET /api/access/requests/{id}} - what became of it. */
+    /** {@code GET /api/access/requests/{id}}: what became of it. */
     void outcome(final Context ctx) {
         final long id;
         try {
@@ -133,7 +126,7 @@ final class AccessApi {
         ctx.status(202).json(answer);
     }
 
-    /** The bot's answer as an object, not a string inside one; a row that does not parse is shown as text. */
+    /** The bot's answer as an object; a row that does not parse is shown as text. */
     private static Object parsed(final String result) {
         try {
             final JsonElement element = JsonParser.parseString(result);
@@ -161,7 +154,6 @@ final class AccessApi {
         return ask.discordId.trim();
     }
 
-    /** Every field any of the five takes. Each route reads the ones it needs. */
     private static final class Body {
         private @Nullable String discordId;
         private @Nullable Integer days;

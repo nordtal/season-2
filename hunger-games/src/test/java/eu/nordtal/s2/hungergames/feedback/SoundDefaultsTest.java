@@ -20,25 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * That the ten sounds a fresh {@code sounds.yml} ships actually exist, on this module's copy.
+ * Checks that the ten sounds a fresh {@code sounds.yml} ships exist, on this module's copy.
  *
- * Why the same test twice, in two modules: because the two files are two files. {@code smp}'s copy
- * proves {@code smp}'s defaults resolve, and a key mistyped here would be silent on the event server
- * with nothing in any log to say so - which is the single hardest kind of regression to notice,
- * because there is nothing to see. The values are deliberately identical to {@code smp}'s today;
- * nothing enforces that and nothing should, since a config file that cannot diverge is not a config
- * file.
- *
- * How it resolves a key without a server: {@code org.bukkit.Sound} is an interface of constants
- * generated from the registry, each named after its key with every {@code .} replaced by
- * {@code _} and upper-cased - {@code entity.experience_orb.pickup} is
- * {@code ENTITY_EXPERIENCE_ORB_PICKUP}. Asking for the field is enough, and it is deliberately
- * {@code getField} rather than reading the value: reading one initialises the class, which does a
- * registry lookup, which needs the running server this test does not have.
- *
- * Only {@code minecraft:} keys are checked. A key in our own namespace is a resource pack sound
- * the server has never heard of and never will, which is the whole reason the config carries keys
- * rather than constants.
+ * Only {@code minecraft:} keys are checked, by {@code getField} on {@code org.bukkit.Sound}.
  */
 class SoundDefaultsTest {
 
@@ -79,7 +63,7 @@ class SoundDefaultsTest {
             }
             final String field = key.value().replace('.', '_').toUpperCase(Locale.ROOT);
             try {
-                // The field itself is unused - reaching here without a NoSuchFieldException is the check.
+                // Reaching here without a NoSuchFieldException is the check.
                 final var _ = org.bukkit.Sound.class.getField(field);
             } catch (final NoSuchFieldException missing) {
                 problems.add(category + " ships '" + sound.key() + "', which this Paper API has no"
@@ -92,7 +76,7 @@ class SoundDefaultsTest {
         assertEquals(List.of(), problems);
     }
 
-    /** The values survive being written to a file and read back, nesting and floats included. */
+    /** Checks that the values survive being written to a file and read back, nesting and floats included. */
     @Test
     void theSoundsRoundTripThroughSoundsYml() throws Exception {
         final SoundsSpec written = Configs.sounds(directory, LOGGER).get();
@@ -107,7 +91,7 @@ class SoundDefaultsTest {
         }
     }
 
-    /** And the parsed form the plugin actually uses answers for all ten. */
+    /** Checks that the parsed form answers for all ten. */
     @Test
     void theParsedVocabularyHasNoSilentCategoryByDefault() throws Exception {
         final List<String> problems = new ArrayList<>();
@@ -120,7 +104,7 @@ class SoundDefaultsTest {
                 "a shipped default that the parser has to correct is a default that was never" + " checked");
         for (final Feedback category : Feedback.values()) {
             if (category == Feedback.STAGING) {
-                // Silent on purpose - see the exception in the test above.
+                // Silent on purpose, see the exception in the test above.
                 assertTrue(
                         sounds.isSilent(category),
                         "STAGING is no longer silent out of the box, which is a decision and not a" + " tidy-up");
@@ -130,19 +114,7 @@ class SoundDefaultsTest {
         }
     }
 
-    /**
-     * The escape hatch, driven through the real file rather than through the parser alone.
-     *
-     * {@code FeedbackSoundsTest} proves that a blank key silences a category. What it cannot
-     * prove is that a blank key <em>survives the config system</em>: jcore's loader is strict, and
-     * "the operator blanked a value" has to come back as an empty string rather than as a refused
-     * load or a default quietly written back over the top. That is the difference between an escape
-     * hatch and a promise.
-     *
-     * {@code LOSS} is the one blanked here rather than an arbitrary category, because it is the
-     * sound this module plays most and therefore the first one anybody would reach for the hatch
-     * over - on a server where twenty people are eliminated inside an hour.
-     */
+    /** Checks that a blanked key survives the real file as an empty string, rather than a refused load or a default. */
     @Test
     void blankingAKeyInTheFileReallyDoesSilenceThatCategory() throws Exception {
         Configs.sounds(directory, LOGGER);
@@ -160,19 +132,7 @@ class SoundDefaultsTest {
         assertEquals(List.of(), problems, "silencing a category on purpose must not read as a misconfiguration");
     }
 
-    /**
-     * And a reload picks the blanking up, on the instance every listener is already holding.
-     *
-     * This is the whole reason {@code sounds.yml} is a file of its own rather than a block in
-     * {@code config.yml}, and the reason is sharper here than on the SMP: {@code /hg reload}
-     * re-reads no game parameter at all, because a border schedule must not move while players are
-     * running from it. Without a separate file there would be no way at all to silence a chime
-     * during the one hour a year this server is used.
-     *
-     * The assertion that matters is the last one: the plugin hands <em>one</em>
-     * {@code HungerGamesSounds} to every listener at enable and never hands out another, so a reload
-     * that returned a new object would change nothing a player can hear.
-     */
+    /** Checks that a reload picks the blanking up on the instance every listener already holds. */
     @Test
     void aReloadSilencesACategoryOnTheInstanceTheListenersAlreadyHold() throws Exception {
         final ConfigHandle<SoundsSpec> handle = Configs.sounds(directory, LOGGER);
@@ -192,14 +152,7 @@ class SoundDefaultsTest {
         assertFalse(running.isSilent(Feedback.COUNTDOWN_TICK), "only the blanked category goes quiet");
     }
 
-    /**
-     * The two categories this module plays closest together have to be tellable apart.
-     *
-     * An elimination books {@code LOSS} for the victim and, in the same tick, a border shrink
-     * announces {@code COUNTDOWN_TICK} to everybody standing in the world - the victim included.
-     * Identical key and pitch would make "you are out" and "the wall is moving" one noise, in the
-     * one moment of the game where a player most needs to know which of the two just happened.
-     */
+    /** Checks that {@code LOSS} and {@code COUNTDOWN_TICK}, which can play in the same tick, sound different. */
     @Test
     void theTwoCategoriesADeathPlaysAtOnceDoNotShipAsTheSameNoise() throws Exception {
         final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
@@ -210,10 +163,7 @@ class SoundDefaultsTest {
     }
 
     /**
-     * Same exhaustive switch as the adapter's, and here for the same reason.
-     *
-     * A category added to {@link Feedback} has to stop this test compiling until somebody has
-     * given it a default.
+     * Mirrors the adapter's exhaustive switch, so a new {@link Feedback} category fails to compile without a default.
      */
     private static SoundsSpec.SoundSpec entryOf(final Feedback category, final SoundsSpec spec) {
         return switch (category) {

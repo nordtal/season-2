@@ -10,19 +10,9 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The GitHub releases API, for the two repositories that publish jars we run.
+ * The GitHub releases API, for {@code nordtal/season-2} and {@code nordtal/papermc-display-tags}.
  *
- * Our own {@code nordtal/season-2} and our fork {@code nordtal/papermc-display-tags}.
- *
- * What {@code latest} means here: {@code /releases/latest} is GitHub's own definition, and it is the one we want:
- * drafts and pre-releases are excluded. The trap is the same sentence read the other way - a release left as a
- * draft does not exist for this module, so "the update did not arrive" and "nobody pressed Publish" look identical
- * from inside the container. The report names the tag it resolved, which is what makes them distinguishable to a
- * person.
- *
- * No checksums: a release asset carries a name, a size and a download URL, no digest of any kind - see
- * {@link Checksum} for what follows from that. The one exception is our own resource pack, which ships its SHA-1 as
- * a separate asset because the Minecraft client demands one; that file is 41 bytes and is read, not computed.
+ * An asset carries no digest; the pack's SHA-1 is its own 41-byte asset, read rather than computed.
  */
 public final class GitHubReleases {
 
@@ -40,13 +30,8 @@ public final class GitHubReleases {
     /**
      * One published release and everything hanging off it.
      *
-     * @param tag        the tag as GitHub reports it - {@code v0.2.0} for season-2, {@code 2.0.0}
-     *                   for display-tags. Reported rather than assumed, because the two
-     *                   repositories disagree about the leading {@code v} and always have.
-     * @param prerelease read off the payload rather than assumed. {@code /releases/latest}, the only endpoint this
-     *                   class asks, is documented not to return one, so this should always be {@code false}. It is
-     *                   still reported, because "GitHub said something we did not expect" belongs in a report and
-     *                   not in a comment claiming it cannot happen.
+     * @param tag the tag as GitHub reports it, since only season-2 has a leading {@code v}
+     * @param prerelease read off the payload, and expected to be {@code false} for {@code /releases/latest}
      */
     public record Release(String tag, boolean prerelease, List<Asset> assets) {
 
@@ -62,18 +47,9 @@ public final class GitHubReleases {
     public record Asset(String name, URI url, long size) {}
 
     /**
-     * The newest published release of a repository.
+     * The newest published release of a repository; there is no fetch by tag, since nothing pins a release.
      *
-     * There is no way to ask for a particular tag, and that is the decision: a fetch-by-tag exists only to serve a
-     * pin, and a pin is a version number kept somewhere other than {@code gradle.properties}. Every one this
-     * project kept went stale. A bad release is corrected by publishing a better one, and the cost - there is no
-     * way back except forward - is the same one already accepted for the Paper build.
-     *
-     * {@code /releases/latest} SKIPS DRAFTS AND PRE-RELEASES by GitHub's own definition. That is wanted, and it is also
-     * the trap that replaces the old one: a release left as a draft is invisible here, so an update that "did not
-     * arrive" is usually a release nobody published.
-     *
-     * @param repo {@code owner/name}.
+     * @param repo {@code owner/name}; a draft or pre-release is invisible here
      */
     public Release latest(final String repo) throws IOException {
         final URI uri = URI.create(API + repo + "/releases/latest");
@@ -98,12 +74,7 @@ public final class GitHubReleases {
     }
 
     /**
-     * Reads the content of a small text asset - which in practice is one file, the pack's {@code .sha1}.
-     *
-     * The URL is the {@code github.com/.../releases/download/...} one, which answers a 302 to a signed
-     * {@code release-assets.githubusercontent.com} address that expires within the hour. That redirect is followed here
-     * and the resolved address is never kept: it is exactly the URL that must not end up in {@code pack.yml}, and a
-     * value that works this afternoon and fails tonight is the worst kind.
+     * Reads a small text asset, the pack's {@code .sha1}, following GitHub's redirect without keeping the signed URL.
      */
     public String readText(final Asset asset) throws IOException {
         return http.get(asset.url()).strip();

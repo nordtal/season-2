@@ -31,47 +31,14 @@ import org.slf4j.Logger;
 /**
  * Tells every player on the network that it is about to go down, and how long they have.
  *
- * This runs on the proxy and not an SMP plugin because a run takes servers down and the proxy is
- * the only process that sees everybody - a backend sees its own slice, and a player waiting in
- * {@code limbo} or playing Hunger Games would otherwise be disconnected with no warning at all. It
- * also means a run asked for in Discord is announced in game, which is the more common case and
- * one a countdown attached to {@code /update} on a backend would have missed entirely.
- *
- * The instant comes from the row, never from a clock here: {@code update_request.not_before} is
- * written by steward-worker when it has resolved a plan with work in it, as an absolute instant on
- * the database's clock. This class counts towards that instant and the worker waits it out, so the
- * two cannot disagree - which is the whole reason the countdown length is not a setting in two
- * config files.
- *
- * The countdown is scheduled rather than spoken from a poll: the row is seen once and the whole
- * countdown is scheduled, one task per beat, each on the exact millisecond its number becomes true
- * ({@link Countdown}). The poll is still here and still every five seconds, but its only remaining
- * job is the other direction - noticing that a countdown has been withdrawn, cancelling the tasks
- * and saying so.
- *
- * The {@code nordtal_update} listener is what makes the first sighting immediate. On a
- * thirty-second countdown, up to five seconds of poll latency is a sixth of the warning spent before
- * it is shown - and the beats that had already passed in that window would be dropped, so the
- * players would lose the "30 seconds" line entirely. The poll remains the guarantee: a lost
- * notification costs latency, never the countdown.
- *
- * What it does not do: it does not stop anybody logging in during the last seconds, and it does
- * not move players to limbo first. Both were considered; both are more machinery running at
- * exactly the moment the network is already going down, and neither makes the outage better for
- * anybody already connected.
+ * Counts towards the row's {@code not_before}; the poll only catches withdrawals, the notification makes it prompt.
  */
 public final class RestartWatch {
 
     /** How often the counting-down row is looked for. */
     public static final Duration INTERVAL = Duration.ofSeconds(5);
 
-    /**
-     * How long a tick's subtitle stays up.
-     *
-     * Longer than the second between two ticks, deliberately: the client fades a title out when
-     * the next one replaces it, and a stay shorter than the gap leaves the screen blank for a moment
-     * every second, which reads as flicker rather than as a counter.
-     */
+    /** How long a tick's subtitle stays up; longer than a second, so the counter does not flicker between ticks. */
     private static final Title.Times TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
 
@@ -84,57 +51,24 @@ public final class RestartWatch {
     private final PhaseServers servers;
     private final Clock clock;
 
-    /**
-     * Whether a standby proxy is answering, asked once per countdown.
-     *
-     * Defaults to no, which is the honest default: a proxy wired without this has no standby,
-     * and a player told they will see a loading screen and then thrown out is worse off than one
-     * who was told the truth.
-     */
+    /** Whether a standby proxy is answering, asked once per countdown; defaults to no. */
     private volatile BooleanSupplier standbyProxy = () -> false;
 
-    /**
-     * What the run being counted down actually is, worked out once when its beats are planned.
-     *
-     * Held rather than recomputed per beat because it costs a report parse and a socket probe,
-     * and because every beat of one countdown has to say the same thing. Kept after the countdown
-     * ends so that {@link #vanished()} can name the right thing when it says it was called off.
-     */
+    /** What the run being counted down is, fixed once per countdown and kept so {@link #vanished()} can name it. */
     private volatile RunShape shape = RunShape.of(UpdateKind.RESTART, Set.of(), true, false);
 
-    /**
-     * Whether the one sentence about voice chat has been said for this countdown.
-     *
-     * Once and on the first chat line, not on every one: it is a note about a side effect, and a
-     * note repeated four times reads as the main event.
-     */
+    /** Whether the voice chat sentence has been said for this countdown; it goes on the first chat line only. */
     private volatile boolean saidVoice;
 
-    /** When to speak and what to say. All the rules are in there; none of them are here. */
+    /** When to speak and what to say. */
     private final Countdown countdown = new Countdown();
 
-    /** The beats still to fire, so a withdrawal can take them all back. */
     private final List<ScheduledTask> scheduled = new ArrayList<>();
 
-    /**
-     * Whether the network has already been told the outage is happening.
-     *
-     * Two paths can reach that sentence - the scheduled zero beat, and a poll landing in the few
-     * milliseconds between the countdown running out and that beat firing - and saying it twice is
-     * the one duplicate a player would definitely notice.
-     */
+    /** Whether the network has already been told the outage is happening; two paths reach that sentence. */
     private boolean saidNow;
 
-    /**
-     * What else happens at zero, besides saying so.
-     *
-     * The evacuation, in practice. This class already knows the exact instant the counter reaches
-     * zero, because it schedules a task on it; handing that instant to the one other thing that
-     * needs it is cheaper than a second mechanism for finding it, and it is the only way the two
-     * can agree to the millisecond.
-     *
-     * Defaults to doing nothing, so a proxy wired without it still counts down.
-     */
+    /** What else runs at zero besides the announcement, the evacuation in practice; defaults to nothing. */
     private volatile Runnable atZero = () -> {};
 
     public RestartWatch(
@@ -159,9 +93,7 @@ public final class RestartWatch {
     /**
      * How to find out whether a standby proxy is there to catch the network.
      *
-     * @param answers {@code ProxySwap#canPark} in the deployment. A setter rather than a
-     *                constructor argument because the swap is built after this watch and needs it -
-     *                the same shape {@link #whenZeroReached} has, and for the same reason
+     * @param answers {@code ProxySwap#canPark} in the deployment; a setter, since the swap is built after this watch
      */
     public void standbyProxyAnswers(final BooleanSupplier answers) {
         this.standbyProxy = Objects.requireNonNull(answers, "answers");
@@ -170,8 +102,7 @@ public final class RestartWatch {
     /**
      * What to run at the instant the counter reaches zero, beside the announcement.
      *
-     * @param action never throws on its own account - it is called inside a scheduled task, and a
-     *               task that throws is a task Velocity stops running
+     * @param action must not throw, since Velocity stops running a scheduled task that throws
      */
     public void whenZeroReached(final Runnable action) {
         this.atZero = Objects.requireNonNull(action, "action");
@@ -180,32 +111,19 @@ public final class RestartWatch {
     /**
      * Whether a countdown is running right now.
      *
-     * Read by {@code OnlineWriter}, and it is load-bearing: the player counts are written every
-     * ten seconds ordinarily and every second while a run needs them, and "needs them" starts here
-     * rather than at zero, since steward-worker's first read happens the instant the counter runs
-     * out and a count written up to ten seconds earlier cannot answer it.
-     *
-     * The extra rows a run costs are what buys a run that waits for the right reason instead of
-     * running its ten-second cap out every time.
+     * {@code OnlineWriter} writes counts every second from here on, so steward-worker reads fresh ones at zero.
      */
     public synchronized boolean isCountingDown() {
         return countdown.watching() != null;
     }
 
-    /**
-     * One pass. Scheduled every {@link #INTERVAL}, and run again on every {@code nordtal_update}
-     * notification.
-     *
-     * Never throws: it runs on the proxy's scheduler, and a task that throws is a task Velocity
-     * stops running - the failure mode of which is a network that goes down one day with nobody
-     * warned and nothing in the log saying why.
-     */
+    /** One pass, every {@link #INTERVAL} and on every {@code nordtal_update} notification; never throws. */
     public synchronized void check() {
         final Optional<UpdateRequest> pending;
         try {
             pending = updates.countingDown();
         } catch (final RuntimeException failure) {
-            // Not a reason to announce anything, nor to take back a countdown already scheduled and measured.
+            // Not a reason to announce anything, nor to take back a countdown already scheduled.
             logger.warn("Could not read the countdown; nobody was told anything this pass", failure);
             return;
         }
@@ -217,7 +135,7 @@ public final class RestartWatch {
 
         final UpdateRequest request = pending.get();
         countdown.beats(request.id(), request.untilDue(clock.instant())).ifPresent(beats -> {
-            // Once per countdown and not per beat: it parses a report and opens a socket, so it stays fixed.
+            // Once per countdown: it parses a report and opens a socket.
             shape = shapeOf(request);
             saidVoice = false;
             logger.info(
@@ -240,16 +158,9 @@ public final class RestartWatch {
     }
 
     /**
-     * What this run is, from the four things that already decided it.
+     * What this run is, from the report, {@link Evacuation#roomFor} and {@code ProxySwap}'s probe.
      *
-     * Nothing here is worked out twice: the services come out of the report steward-worker wrote
-     * into the row before the countdown started, through the same parser {@link Evacuation} uses;
-     * the waiting room is {@link Evacuation#roomFor}, asked of this run rather than of the running
-     * one; and the standby proxy is {@code ProxySwap}'s own probe.
-     *
-     * Never throws. A report that cannot be read gives no services, which reads as a run that
-     * touches nobody - the same safe direction {@link Evacuation#backends} takes, and the countdown
-     * is still spoken.
+     * Never throws; an unreadable report gives no services, and the countdown is still spoken.
      */
     private RunShape shapeOf(final UpdateRequest request) {
         final Set<String> moving;
@@ -281,13 +192,7 @@ public final class RestartWatch {
         return RunShape.of(request.kind(), moving, room, standby);
     }
 
-    /**
-     * Puts one beat on the proxy's scheduler.
-     *
-     * A zero delay is scheduled rather than run inline: Velocity accepts one, and running it here
-     * would put a broadcast on whatever thread the notification listener happens to be, in the
-     * middle of a method holding this object's monitor.
-     */
+    /** Puts one beat on the proxy's scheduler, even at zero delay, so no broadcast runs under this monitor. */
     private void schedule(final Countdown.Beat beat) {
         scheduled.add(proxy.getScheduler()
                 .buildTask(plugin, () -> {
@@ -299,7 +204,7 @@ public final class RestartWatch {
                             saidNow = true;
                             countdown.zeroReached();
                         }
-                        // Before the sentence rather than after: a failure here must not swallow the announcement.
+                        // Before the sentence: a failure here must not swallow the announcement.
                         try {
                             atZero.run();
                         } catch (final RuntimeException failure) {
@@ -315,20 +220,12 @@ public final class RestartWatch {
                 .schedule());
     }
 
-    /** Takes back every beat that has not fired. */
     private void cancelScheduled() {
         scheduled.forEach(ScheduledTask::cancel);
         scheduled.clear();
     }
 
-    /**
-     * The row being counted down is no longer counting down. Looks up what became of it.
-     *
-     * The extra query matters because a row leaving the set is far more often the countdown
-     * running out than a person withdrawing it, and those two are opposite things to tell
-     * a player. It costs one indexed lookup by primary key, on the single pass where a countdown
-     * ends - not on the poll, which is the common case and still one query.
-     */
+    /** Looks up what became of a row that is no longer counting down: ran out or withdrawn. */
     private void vanished() {
         final Long watched = countdown.watching();
         if (watched == null) {
@@ -341,7 +238,7 @@ public final class RestartWatch {
         try {
             status = updates.find(watched).map(UpdateRequest::status).orElse(null);
         } catch (final RuntimeException failure) {
-            // Not a reason to guess: the countdown is left standing so the next pass asks again.
+            // The countdown is left standing so the next pass asks again.
             logger.warn(
                     "Countdown {} stopped and could not be read back; nobody was told anything" + " this pass",
                     watched,
@@ -365,7 +262,7 @@ public final class RestartWatch {
     private void say(final Announcement announcement) {
         final RunShape current = shape;
         switch (announcement.kind()) {
-            // Chat and a title: chat is where a warning is read, the title reaches a player mining with chat closed.
+            // Chat is where a warning is read; the title reaches a player mining with chat closed.
             case COUNTDOWN -> {
                 each((player, locale) -> player.sendMessage(line(
                         locale,
@@ -403,15 +300,9 @@ public final class RestartWatch {
     }
 
     /**
-     * One announcement, addressed: what is happening, and then what happens to you.
+     * One chat line: the occasion and service, then in grey what happens to the reader.
      *
-     * Two keys rather than one: the first names the occasion and the service; the second names
-     * the outcome for the player reading it. Joined with a space into one chat line - a coloured
-     * sentence and a grey one - since two separate messages in the box would read as the network
-     * repeating itself.
-     *
-     * {@link RunShape.Fate#NOTHING} adds no second half at all. There is nothing to tell
-     * somebody whose server is not in the run and who is not going anywhere.
+     * {@link RunShape.Fate#NOTHING} adds no second half.
      */
     private Component line(final Locale locale, final MessageRef announcement, final RunShape.Fate fate) {
         final Component head = MessageRenderer.of(messages).format(locale, announcement);
@@ -430,7 +321,6 @@ public final class RestartWatch {
         };
     }
 
-    /** The warning ahead of a run, by what the run is. */
     private static MessageRef countdown(final RunShape.Occasion occasion, final Component what, final long seconds) {
         final ProxyMessages.Restart.RestartCountdown lines = MESSAGES.restart().countdown();
         return switch (occasion) {
@@ -442,7 +332,6 @@ public final class RestartWatch {
         };
     }
 
-    /** The line when a run starts, by what the run is. */
     private static MessageRef now(final RunShape.Occasion occasion, final Component what) {
         final ProxyMessages.Restart.Now lines = MESSAGES.restart().now();
         return switch (occasion) {
@@ -454,11 +343,7 @@ public final class RestartWatch {
         };
     }
 
-    /**
-     * Whether this player is about to lose voice chat - the rule is {@link RunShape#losesVoice}.
-     *
-     * This is the half of it that needs a Velocity connection to answer.
-     */
+    /** Whether this player is about to lose voice chat, by {@link RunShape#losesVoice}. */
     private boolean losesVoice(final RunShape current, final Player player) {
         final String on = player.getCurrentServer()
                 .map(connection -> connection.getServerInfo().getName())
@@ -466,21 +351,13 @@ public final class RestartWatch {
         return RunShape.losesVoice(current.fateFor(on), servers.isWaitingRoom(on));
     }
 
-    /** What is about to happen to this player, from where they are standing right now. */
     private static RunShape.Fate fateOf(final RunShape current, final Player player) {
         return current.fateFor(player.getCurrentServer()
                 .map(connection -> connection.getServerInfo().getName())
                 .orElse(null));
     }
 
-    /**
-     * What the run is about, as a name a player would use.
-     *
-     * One service gets its own name; anything else is "the network". The fallback when a service
-     * has no name of its own is the compose name itself, which is ugly and correct - a missing
-     * translation must not turn the sentence into one about the whole network, because that is a
-     * different and much larger promise.
-     */
+    /** The service a run is about as a player would name it, or "the network" for more than one. */
     private Component what(final Locale locale, final RunShape current) {
         final String only = current.onlyService();
         if (only == null) {
@@ -490,7 +367,7 @@ public final class RestartWatch {
         return Homecoming.serviceName(messages, locale, only);
     }
 
-    /** The occasion as a noun, for the two lines that say it is off rather than that it is coming. */
+    /** The occasion as a noun, for the lines that say it is off. */
     private Component occasion(final Locale locale, final RunShape current) {
         final ProxyMessages.Restart.Occasion occasions = MESSAGES.restart().occasion();
         return MessageRenderer.of(messages)
@@ -505,13 +382,7 @@ public final class RestartWatch {
                         });
     }
 
-    /**
-     * To everybody, in their own language.
-     *
-     * The locale comes from {@link LoginRoster}, which holds it from the login query, and falls
-     * back to English for anybody the roster has no session for - which on this path is nobody, but
-     * a broadcast must not be the thing that throws.
-     */
+    /** Renders a line for everybody in their own locale from {@link LoginRoster}, English when it has none. */
     private void broadcast(final java.util.function.Function<Locale, Component> render) {
         each((player, locale) -> player.sendMessage(render.apply(locale)));
     }

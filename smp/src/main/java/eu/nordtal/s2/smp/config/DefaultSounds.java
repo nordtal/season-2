@@ -4,27 +4,18 @@ import eu.nordtal.jcore.config.spec.Specs;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * The ten sounds a fresh {@code sounds.yml} is written with.
- *
- * Same mechanism and same caveat as {@link DefaultSmp}: a nested spec is served by a reflective proxy and
- * {@code Specs.createUnsafe} does <b>not</b> apply defaults, so every key of the spec has to appear in the map or it
- * comes out null.
- *
- * Everything here is a proposal that nobody has heard next to anything else. {@code SoundsSpec} carries the
- * reasoning; this class is only the values.
- */
+/** The ten sounds a fresh {@code sounds.yml} is written with; every key has to appear in the map. */
 final class DefaultSounds {
 
-    // Ten vanilla sounds, one per Feedback category; SoundDefaultsTest re-resolves all ten every build.
+    // One vanilla sound per {@code Feedback} category; {@code SoundDefaultsTest} resolves all ten.
 
     /** A pickup, pitched up so it reads as lighter than the level-up. */
     static final SoundsSpec.SoundSpec SMALL_SUCCESS = sound("minecraft:entity.experience_orb.pickup", 1.4f);
 
-    /** The level-up chime - the game's own sound for "that took a while". */
+    /** The level-up chime, the game's own sound for "that took a while". */
     static final SoundsSpec.SoundSpec BIG_SUCCESS = sound("minecraft:entity.player.levelup", 1.0f);
 
-    /** A low note block. Short, unmistakably negative, and not the villager's groan. */
+    /** A low note block: short, negative, and not the villager's groan. */
     static final SoundsSpec.SoundSpec REFUSED = sound("minecraft:block.note_block.bass", 0.7f);
 
     /** The villager's "no", which everybody already reads as having lost something. */
@@ -45,20 +36,10 @@ final class DefaultSounds {
     /** The advancement toast, which is the one sound vanilla itself uses to mean "look". */
     static final SoundsSpec.SoundSpec NETWORK_EVENT = sound("minecraft:ui.toast.challenge_complete", 1.0f);
 
-    /**
-     * The one category with no sound. See {@code Feedback.STAGING}: the blank is the decision.
-     *
-     * Written through the same map as the others so the key still appears in a fresh file with its comment - an absent
-     * key would leave nobody anything to fill in.
-     */
+    /** No sound, deliberately (see {@code Feedback.STAGING}); written anyway so the key appears in a fresh file. */
     static final SoundsSpec.SoundSpec STAGING = sound("", 1.0f);
 
-    /**
-     * A monster's death, for a grave settling.
-     *
-     * Not a fixed choice: one line plus {@code /smp reload} changes it, to {@code entity.zombie.death} or a
-     * dampened {@code entity.wither.spawn} if this one turns out wrong in the game.
-     */
+    /** A monster's death, for a grave settling. */
     static final SoundsSpec.SoundSpec RECLAIMED = sound("minecraft:entity.skeleton.death", 1.0f);
 
     private DefaultSounds() {}

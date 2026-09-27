@@ -9,14 +9,7 @@ import org.bukkit.generator.WorldInfo;
 /**
  * A chunk generator that generates nothing at all.
  *
- * Every {@code shouldGenerate*} hook is answered {@code false}, which is what turns off vanilla's own generation
- * rather than generating over the top of it: no noise, no surface, no bedrock, no caves, no decorations, no
- * structures and no mobs. The {@code generate*} methods are left as the base class's empty implementations, because
- * there is nothing to write into the chunk.
- *
- * The result is a world that costs almost nothing to keep loaded - which matters here, because the waiting room is
- * on the path of every login and its chunks are generated for a player who is looking at a black screen and will be
- * gone in a few seconds.
+ * Every {@code shouldGenerate*} hook answers {@code false}, switching vanilla generation off.
  */
 public final class VoidChunkGenerator extends ChunkGenerator {
 

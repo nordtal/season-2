@@ -14,15 +14,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Everything a duel borrows from a player, so that all of it can be given back.
  *
- * The arena's inventory, health, effects and experience are the duel's own; the player's real state must come back
- * untouched, so it is taken in one place and restored in one place.
- *
- * Deliberately not persisted: a saved state that outlived a restart would be a second copy of somebody's inventory
- * sitting in a file, which is worse than an interrupted duel.
- *
- * Not a record: {@code inventory} and {@code armour} are {@code ItemStack[]}, and a record component may never be
- * one - a record's canonical accessor hands back the field itself, so anyone holding the state could mutate the
- * player's own saved gear. A plain class with cloning accessors keeps the saved state itself immutable.
+ * Not persisted, and not a record: a record would hand out the saved arrays themselves.
  */
 public final class SavedState {
 
@@ -75,10 +67,7 @@ public final class SavedState {
     }
 
     /**
-     * Puts a player back exactly as they were, somewhere other than where they were standing.
-     *
-     * The duel ends at the spawn rather than on the platform, so the location is the one thing this restore does
-     * <em>not</em> put back.
+     * Puts a player back as they were, except at {@code where} instead of where they stood.
      *
      * @param player the fighter
      * @param where where to put them

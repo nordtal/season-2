@@ -35,12 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * {@link MessagesApi} served over real HTTP - the contract steward-ui reads, not the methods behind it.
- *
- * {@code GET /api/config} lists no bundle at all: a bundle is answered by its own route, {@code /api/messages},
- * which is the one this class asserts against (see {@link MessagesApi} 's javadoc for why the two stay apart).
- */
+/** {@link MessagesApi} served over real HTTP, the contract steward-ui reads. */
 class MessagesApiIntegrationTest {
 
     private static final Gson GSON = new Gson();
@@ -326,8 +321,7 @@ class MessagesApiIntegrationTest {
     /**
      * An inbox nobody polls, answering whatever the test decided the bot would have done.
      *
-     * A fake rather than Testcontainers because what is under test here is the route's three answers, not the SQL -
-     * {@code AccessRequestsIntegrationTest} in {@code :common} is where the table is held against a real PostgreSQL.
+     * A fake, because the SQL is held against PostgreSQL by {@code AccessRequestsIntegrationTest} in {@code :common}.
      */
     private static final class Inbox implements AccessRequests {
 

@@ -31,44 +31,20 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * The Paper half of the command allowlist: written once, run by all three backends.
+ * The Paper half of the command allowlist: it hides what the proxy refuses from each player's command tree.
  *
- * The proxy refuses a command before it reaches a backend at all, which is the enforcement that
- * matters. This is the half the proxy cannot do: what the <em>server</em> tells a client exists.
- * {@link PlayerCommandSendEvent} is fired while Paper builds the command tree for one player, and it
- * is the only place a vanilla command can be taken out of it before it is sent. Without it a player
- * still sees {@code /me}, {@code /help}, {@code /trigger} and {@code /list} in their completion, and
- * finds out they are refused only by typing one.
- *
- * The list is published by the proxy into the database and read here. If nothing has ever been
- * published - a fresh deployment, or a backend that started before the proxy - this filter does
- * <b>nothing at all</b> and warns once per read. The alternative, refusing everything until a list
- * arrives, would take every command on the server away for a reason nobody watching could see, and
- * would do it on exactly the day a network is being brought up for the first time. The proxy's own
- * enforcement is neither delayed nor optional, so failing open here loses the completion filter for
- * a few seconds and loses no enforcement.
- *
- * The same arrangement as the admin roster, and for the same reasons: {@link #refresh()} re-reads
- * the <em>whole</em> list on the poll, on every notification and on every reconnect, so a lost
- * notification costs latency rather than correctness. The channel is never inspected. Register
- * {@link #refreshes()} and {@link #channels()} with the admin watcher's listener rather than opening
- * a second connection - one connection carrying two channels is cheaper than two and no worse.
- *
- * The admin check is a cache, {@code AdminWatch#isAdmin}, handed in as a predicate. Not
- * {@code FullServerAdmission}, which only fills its flag when a server is near its cap and would
- * answer "nobody is an admin" for ever on {@code limbo}; and never a query, because
- * {@link PlayerCommandSendEvent} is on the join path.
+ * Until the proxy has published a list it does nothing and warns, since the proxy's own enforcement stands.
  */
 public final class CommandFilter implements Listener {
 
-    /** Where the published list is read from. An interface so a test needs no database. */
+    /** Where the published list is read from. */
     @FunctionalInterface
     public interface Source {
 
-        /** The current list, or empty when no proxy has ever published one. */
+        /** Returns the current list, or empty when no proxy has ever published one. */
         Optional<CommandAllowlist> read();
 
-        /** The ordinary one: {@code AllowlistDirectory} over the plugin's own pool. */
+        /** Returns the ordinary one: {@code AllowlistDirectory} over the plugin's own pool. */
         static Source of(final AllowlistDirectory directory) {
             Objects.requireNonNull(directory, "directory");
             return directory::published;
@@ -84,24 +60,13 @@ public final class CommandFilter implements Listener {
     private final PaperUser.Chime chime;
     private final java.util.function.Supplier<ToneColours> colours;
 
-    /**
-     * The list as of the last successful read, or {@code null} while none has arrived.
-     *
-     * Volatile because it is written from the poll thread and the listener thread and read on the
-     * main thread, once per command and once per join.
-     */
+    /** The list as of the last successful read, or {@code null} while none has arrived. */
     private volatile @Nullable CommandAllowlist active;
 
-    /** So that "nothing has been published" is one warning and not one per poll for a season. */
+    /** So that "nothing has been published" warns once, not once per poll. */
     private volatile boolean warnedAboutMissingList;
 
-    /**
-     * Without a {@link PaperUser.Chime}: the refusal plays no sound.
-     *
-     * {@code limbo} uses this overload because it has no sound adapter, no {@code sounds.yml},
-     * and no player-facing command at all - {@code /limbo reload} is console-only, so there is no
-     * realistic refusal for a chime to announce.
-     */
+    /** Creates one without a {@link PaperUser.Chime}, so the refusal plays no sound. */
     public CommandFilter(
             final Plugin plugin,
             final Source source,
@@ -114,12 +79,8 @@ public final class CommandFilter implements Listener {
     }
 
     /**
-     * @param colours the tone palette this plugin is configured with right now - a supplier, so a
-     *                {@code /smp reload} that replaces it is picked up by the very next refusal
-     *                rather than only by a freshly built {@code CommandFilter}, which this one is
-     *                not: it is registered once at enable and outlives every reload
-     * @param chime   how the refusal sounds - {@link PaperUser.Chime#silent()} for a module with no
-     *                sounds file, same as every other {@code Chime} parameter in this package
+     * @param colours the current tone palette, a supplier so a reload reaches the next refusal
+     * @param chime   how the refusal sounds; {@link PaperUser.Chime#silent()} for a module with no sounds
      */
     public CommandFilter(
             final Plugin plugin,
@@ -140,34 +101,26 @@ public final class CommandFilter implements Listener {
         this.chime = Objects.requireNonNull(chime, "chime");
     }
 
-    /**
-     * Starts the poll that is the guarantee.
-     *
-     * Asynchronous, because it is a round trip; and first on the next tick rather than after a
-     * whole interval, for the reason {@code AdminWatch#start} gives - the first players through the
-     * door would otherwise be handed an unfiltered tree.
-     */
+    /** Starts the poll that is the guarantee, async and first on the next tick. */
     public void start(final Duration pollInterval) {
         final long ticks = Math.max(20L, pollInterval.toSeconds() * 20L);
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::refresh, 1L, ticks);
     }
 
-    /** Hand these to {@code AdminWatch#start}, so the instant path shares its one connection. */
+    /** Returns the refreshes to hand to {@code AdminWatch#start}, so the instant path shares its connection. */
     public List<NotificationListener.Refresh> refreshes() {
         return List.of(new NotificationListener.Refresh("the command allowlist", this::refresh));
     }
 
-    /** Hand these to {@code AdminWatch#start} alongside {@link #refreshes()}. */
+    /** Returns the channels to hand to {@code AdminWatch#start} alongside {@link #refreshes()}. */
     public List<String> channels() {
         return List.of(Channels.ALLOWLIST);
     }
 
     /**
-     * Re-reads the whole list. <b>Never call this on the main thread.</b>
+     * Re-reads the whole list; never call this on the main thread.
      *
-     * A failure leaves the previous list in place rather than clearing it: an unreachable
-     * database must not silently open the server up, and it must not close it either. The next tick
-     * asks again.
+     * A failure keeps the previous list, so an unreachable database neither opens nor closes the server.
      */
     public void refresh() {
         final Optional<CommandAllowlist> read;
@@ -196,13 +149,7 @@ public final class CommandFilter implements Listener {
         }
     }
 
-    /**
-     * Refuses a command the list does not carry.
-     *
-     * {@link EventPriority#LOWEST} so the decision is taken before anything else acts on the
-     * line, and the event is cancelled rather than rewritten - a rewritten command is a command
-     * somebody else's listener has already seen.
-     */
+    /** Refuses a command the list does not carry, first and by cancelling rather than rewriting. */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onCommand(final PlayerCommandPreprocessEvent event) {
         final CommandAllowlist current = active;
@@ -215,25 +162,9 @@ public final class CommandFilter implements Listener {
     }
 
     /**
-     * Answers a command that does not exist with the same line a refused one gets.
+     * Answers an unknown command with the same line a refused one gets, so a player cannot tell which exists.
      *
-     * <b>There is exactly one sentence for "that does not exist" and "you may not type that."</b>
-     * That is the whole point of the allowlist's wording: a player who learns which of the two they
-     * hit has learned what exists on this server, which is what the list is keeping from them. Two
-     * sentences saying one thing is also the kind of seam nobody notices - both are correct, both
-     * are translated, and they only ever appear one at a time.
-     *
-     * It is said twice because two different things produce it. {@link #onCommand} answers a
-     * command that <em>does</em> exist and is not on the list. This answers one Paper cannot find at
-     * all - which is what a genuine typo is, what an <b>admin</b> gets (they skip the filter
-     * entirely), and what <b>everybody</b> gets while no allowlist has been published yet. Without
-     * this handler each of those reads vanilla's "Unknown or incomplete command, see below for
-     * error" with a red caret under the offending character, in the server's language.
-     *
-     * The console keeps vanilla's, deliberately: Paper's default text carries the parse position,
-     * which is diagnosis rather than decoration, and the console is an operator reading a log next
-     * to a stack trace - not somebody who has to be kept from enumerating the command tree. They
-     * already have the whole of it.
+     * The console keeps vanilla's text, since the parse position is diagnosis.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onUnknownCommand(final UnknownCommandEvent event) {
@@ -244,13 +175,7 @@ public final class CommandFilter implements Listener {
         chime.play(player, Feedback.REFUSED);
     }
 
-    /**
-     * The one refusal line, in that player's own language.
-     *
-     * {@code discord_user.locale} through {@link PlayerLocales}, never the client's setting;
-     * {@code of(...)} answers English until the join lookup lands, which is the whole reason it
-     * exists.
-     */
+    /** Returns the one refusal line, in that player's {@code discord_user.locale}. */
     private net.kyori.adventure.text.Component refusal(final UUID player) {
         return Tones.paint(
                 MessageRenderer.of(messages)
@@ -262,10 +187,7 @@ public final class CommandFilter implements Listener {
     /**
      * Takes every command the list does not carry out of the tree this player is sent.
      *
-     * {@code getCommands()} is a mutable collection of the labels Paper is about to send,
-     * namespaced forms included. Removing a label removes it from tab completion and from the
-     * client's syntax hints; it does not stop the command being typed, which is what
-     * {@link #onCommand} is for.
+     * It hides the command from completion; {@link #onCommand} is what stops it being typed.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCommandSend(final PlayerCommandSendEvent event) {

@@ -11,11 +11,9 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 /**
- * Renders a {@link Messages} bundle's values as MiniMessage.
+ * Renders a {@link Messages} bundle's values as MiniMessage, escaping every placeholder value.
  *
- * Separate from {@code Messages} because {@code discord-bot} has no Adventure at runtime. Placeholder
- * values are escaped before parsing, since they are arbitrary text such as player names. A bundle
- * without tags renders as its own text; legacy section codes are not supported.
+ * Separate from {@code Messages} because {@code discord-bot} has no Adventure at runtime.
  */
 public final class MessageRenderer {
 
@@ -26,40 +24,26 @@ public final class MessageRenderer {
     }
 
     /**
-     * A renderer over {@code messages}, for a call site that has a bundle and wants a component.
-     *
-     * <b>It allocates rather than caching, and that is deliberate.</b> The object holds one
-     * reference and nothing else; the work is in MiniMessage's parser, which is a cached singleton.
-     * A cache keyed on {@code Messages} identity would buy nothing measurable and would be one more
-     * thing that has to be right. What this exists for is the call sites - some ninety of them -
-     * that hold a {@code Messages} and would otherwise each need a second field threaded through a
-     * constructor to say the same thing.
-     *
-     * The one place not to use it is a loop that runs every tick. Nothing in this repository
-     * does: the two boss bar HUDs compose {@code String}s and wrap them once.
-     *
-     * @param messages the bundle to render
-     * @return a renderer over it
+     * Returns a renderer over {@code messages}.
+     * It allocates rather than caching, since MiniMessage's parser is already a cached singleton.
      */
     public static MessageRenderer of(final Messages messages) {
         return new MessageRenderer(messages);
     }
 
-    /** The raw bundle behind this renderer, for the callers that genuinely want a {@code String}. */
+    /** Returns the raw bundle behind this renderer. */
     public Messages raw() {
         return messages;
     }
 
-    /** @return the message at {@code key}, parsed as MiniMessage */
+    /** Returns the message at {@code key}, parsed as MiniMessage. */
     public Component get(final Locale locale, final String key) {
         return parse(messages.get(locale, key));
     }
 
     /**
      * Formats a bundle message as MiniMessage, with every placeholder value escaped.
-     *
-     * A {@link Map} passed as {@code parameters} compiles and is refused at runtime; flatten it or call
-     * {@link Messages#format(Locale, String, Map)}.
+     * A {@link Map} as {@code parameters} is refused at runtime.
      *
      * @param parameters alternating name and value, as {@link Messages#format(Locale, String, Object...)} takes them
      */
@@ -68,30 +52,11 @@ public final class MessageRenderer {
     }
 
     /**
-     * The same, plus values that are already {@link Component}s.
-     *
-     * <b>Why there are two kinds of value at all</b>
-     *
-     * A {@code {name}} placeholder is substituted into the raw string before MiniMessage sees it,
-     * which is exactly what makes escaping possible - and exactly what makes it useless for a value
-     * that is already styled. Three things in this network are components before they are anything
-     * else and cannot survive a trip through {@code String}:
-     *
-     * <b>Vanilla's death message.</b> It is a {@code TranslatableComponent}, so every reader's own
-     * client renders it in their own language, with the mob's name and the killer's weapon in it.
-     * Nothing in a bundle here can do that, and flattening it to text would throw the per-viewer
-     * translation away. <b>An advancement's title</b>, for the same reason. <b>A player's
-     * composition</b> - flag, name, crest - which is glyphs in a specific font and specific colours.
-     *
-     * These arrive as MiniMessage <em>tags</em> ({@code <sender>}) rather than as braces, so the
-     * bundle still decides where they sit and what is around them, and the two kinds cannot be
-     * confused by whoever edits the file. A component value is not escaped and does not need to be:
-     * it never passes through the parser at all.
+     * Formats the same, plus values that are already {@link Component}s and fill MiniMessage tags unescaped.
+     * For a death message, an advancement title or a player's composition, which cannot survive a {@code String}.
      *
      * @param components tag name to component, e.g. {@code Map.of("death", event.deathMessage())}
-     *                   for a bundle value containing {@code <death>}
-     * @param parameters the ordinary alternating name/value pairs, escaped as always
-     * @return the formatted message, parsed as MiniMessage
+     * @param parameters the ordinary alternating name and value pairs, escaped as always
      */
     public Component format(
             final Locale locale,

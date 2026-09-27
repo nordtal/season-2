@@ -14,21 +14,7 @@ import org.junit.jupiter.api.Test;
 /**
  * One grave is one window, however many people are standing in it.
  *
- * <b>The failure it exists for</b>
- *
- * A grave is open to anybody - that is a decision and it is written into {@code Graves} ' class comment - so two
- * people can right-click the same one in the same second. While each viewer got an inventory of their own, both were
- * filled from the same stored contents and each close serialised its <em>own</em> whole snapshot back: both looters
- * took the lot and the grave paid out everything the dead player was carrying, twice. Nothing about that is visible
- * in the game; both windows look exactly like a grave being emptied (CodeRabbit, PR #8).
- *
- * One shared inventory needs no rule of its own, because it is what a vanilla chest does: both looters watch the
- * same slots empty, and taking an item is a main-thread click on one object.
- *
- * <b>Why a text search</b>
- *
- * Two viewers on one inventory is a server, two clients and a corpse. What this protects is the shape - a window
- * looked up by grave id rather than built per viewer, and a write-back that waits until the last person has left it.
+ * A window per viewer let two looters each take the lot; a text search, since that needs two clients.
  */
 class OneGraveOneWindowTest {
 

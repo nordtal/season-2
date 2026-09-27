@@ -6,15 +6,4 @@ author: nordtal
 website: https://nordtal.eu
 api-version: "26.2"
 
-# NO PERMISSIONS, and this repository now owns none at all.
-#
-# `limbo.admin` was declared here until 2026-09-05 as "the only permission node this repository
-# owns", justified by: the database is exactly what a broken limbo may not be able to reach, and the
-# console holds an op-default permission unconditionally. The console half of that is untouched -
-# PaperCommands accepts a ConsoleCommandSender by type and asks nothing else, so a shell on the host
-# still reloads the wording with no database at all. The in-game half is now the same admin flag as
-# every other command in the network, which is what the node granted anyway: `default: op`, and
-# since 2026-09-04 an admin IS an operator on all three backends.
-#
-# It is deleted rather than left in place, because a node nothing reads is a second answer to
-# "who may run this" that only looks like it still works.
+# No permissions: every command is gated by the admin flag, and the console needs none.

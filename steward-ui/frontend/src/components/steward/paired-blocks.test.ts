@@ -3,15 +3,6 @@ import { describe, expect, it } from "vitest"
 import { pairedBlocks, pairedPaths } from "@/components/steward/paired-blocks"
 import type { ConfigEntry } from "@/lib/api"
 
-/**
- * The rule this file exists for: two sibling blocks with the same
- * keys are one list, so they are drawn as one row per key.
- *
- * Everything here is about the *refusals*. Pairing two blocks that only look alike is worse than
- * not pairing at all: the interface would then draw tier 7's hour beside tier 8's colour, which is
- * exactly the invisible mistake this exists to prevent - only now with the form's authority behind
- * it.
- */
 function field(over: Partial<ConfigEntry> & { key: string; path: string }): ConfigEntry {
   return {
     label: over.key,
@@ -45,6 +36,7 @@ const LADDER = [
   ...block("colours", ["tier-01", "tier-02", "tier-03"], ["#5fbfae", "#5ea9d6", "#6f93e0"]),
 ]
 
+/** Mostly refusals, since pairing blocks that only look alike would put one tier's hour beside another's colour. */
 describe("pairedBlocks", () => {
   it("pairs two sibling blocks that carry the same keys, one row per key", () => {
     const pairs = pairedBlocks(LADDER)
@@ -53,10 +45,7 @@ describe("pairedBlocks", () => {
     expect(pairs[0].left.path).toBe("hours")
     expect(pairs[0].right.path).toBe("colours")
     expect(pairs[0].rows.map((row) => row.key)).toEqual(["tier-01", "tier-02", "tier-03"])
-    /**
-     * Left is the left block's key and right is the right block's - not the other way round, and
-     * not the same one twice.
-     */
+    /** Left is the left block's key and right the right block's. */
     expect(pairs[0].rows[1].left.path).toBe("hours.tier-02")
     expect(pairs[0].rows[1].right.path).toBe("colours.tier-02")
   })
@@ -68,10 +57,7 @@ describe("pairedBlocks", () => {
   })
 
   it("refuses two blocks whose keys are the same but in a different order", () => {
-    /**
-     * The whole failure this rule exists to prevent, stated as a test: same keys, same count,
-     * and row two would pair tier-03's hour with tier-02's colour.
-     */
+    /** Same keys and count but shuffled, which would pair tier-03's hour with tier-02's colour. */
     const shuffled = [
       ...block("hours", ["tier-01", "tier-02", "tier-03"]),
       ...block("colours", ["tier-01", "tier-03", "tier-02"]),

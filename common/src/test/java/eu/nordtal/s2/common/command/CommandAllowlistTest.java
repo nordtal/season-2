@@ -8,14 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * The matching rule the whole command gate rests on.
- *
- * Every one of these cases is a way past a filter that only compared strings, and none of them is
- * hypothetical: a client can send {@code /minecraft:me}, Bukkit resolves {@code /Me}, and a player
- * types {@code /msg} with arguments after it. The rule is small enough to hold in one class, which
- * is the point of keeping it out of the two adapters.
- */
+/** Pins the matching rule the command gate rests on; each case is a real way past a string comparison. */
 class CommandAllowlistTest {
 
     private static final CommandAllowlist LIST = CommandAllowlist.parse(List.of("smp status", "msg", "hg ready"));

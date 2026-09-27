@@ -33,14 +33,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 /**
  * The four spawns, protected by a handful of event handlers over a list of boxes.
  *
- * Blocked: placing, breaking, explosions, fire, fluid flow, and hanging things. Free: doors, trapdoors, fence gates,
- * buttons, levers and pressure plates.
- *
- * The line is drawn at {@link Container} rather than at a list of materials, so a Minecraft update that adds a
- * storage block cannot quietly turn the spawn into the community warehouse.
- *
- * Admins are exempt, from {@link Identities} ' cache rather than from a query: this listener asks on every block
- * interaction, and a round trip per click would be a main-thread query.
+ * Building, fire, fluids and every {@link Container} are blocked; doors and switches stay free, and admins are exempt.
  */
 public final class ProtectionListener implements Listener {
 
@@ -165,7 +158,7 @@ public final class ProtectionListener implements Listener {
                 location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 
-    /** Whether this player must be stopped here - and tells them why, once, when they are. */
+    /** Whether this player must be stopped here, telling them why once when they are. */
     private boolean deny(final Player player, final Block block) {
         if (!inside(Objects.requireNonNull(block.getLocation()))
                 || identities.of(player.getUniqueId()).admin()) {

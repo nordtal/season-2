@@ -34,9 +34,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * Tests that a command request and its journal line are written as one statement or not at all.
  *
- * Against a real PostgreSQL: the property is that no {@code command_request} row exists when the
- * journal line fails, and only the database's handling of the two CTEs decides it. A request left
- * behind would run while the operator is shown an error and presses the button again.
+ * A request left behind by a failed journal line would run while the operator sees an error.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CommandRequestJournalIntegrationTest {
@@ -345,7 +343,7 @@ class CommandRequestJournalIntegrationTest {
         return Long.parseLong(rowOf(sql).getFirst());
     }
 
-    /** One row as text, nulls kept as nulls - which is half of what these tests assert. */
+    /** Returns one row as text, nulls kept as nulls. */
     private List<String> rowOf(final String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement();

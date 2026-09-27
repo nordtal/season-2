@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.junit.jupiter.api.Test;
 
-/** Discord's limits, answered once - and measured here, because JDA refuses what breaks them. */
+/** Discord's limits, checked here because JDA refuses what breaks them. */
 class CardTest {
 
     @Test

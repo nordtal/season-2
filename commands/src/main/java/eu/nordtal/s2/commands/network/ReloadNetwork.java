@@ -9,7 +9,7 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-/** {@code /network reload} - re-read the MOTD and every disconnect screen without dropping anybody. */
+/** {@code /network reload}: re-reads the MOTD and every disconnect screen without dropping anybody. */
 public final class ReloadNetwork implements NordtalCommand<NetworkEffects> {
 
     @Override

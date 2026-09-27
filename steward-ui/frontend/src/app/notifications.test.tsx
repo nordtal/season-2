@@ -8,20 +8,9 @@ import { asButton, asElement, asInput } from "@/lib/test-elements"
 import { stringChangesOf } from "@/lib/query-fixtures"
 
 /**
- * The dialog behind the round picture.
+ * The notifications dialog: one switch writes its own type, and the test send carries the chosen device and type.
  *
- * What is worth holding here is not that four sections render - it is the four things that are
- * easy to get subtly wrong and impossible to see on screen:
- *
- * - **one switch writes one type**, and the type it writes is its own;
- * - **the test send carries the device that was tapped and the type that was chosen**, not the
- *   first device or the default type;
- * - **the browser holding the dialog is named as such** in a list where two entries can otherwise
- *   read identically ("Linux, Chrome" twice is the normal case, not the odd one);
- *
- * `@/lib/push` is mocked rather than a fake `navigator.serviceWorker` built: `push.test.ts` already
- * holds that boundary against a fake service worker, and a second copy of it here would be testing
- * the same four functions twice while this file is about what the dialog does with their answers.
+ * `@/lib/push` is mocked, since `push.test.ts` already holds it against a fake service worker.
  */
 vi.mock("@/lib/push", () => ({
   pushSupported: () => supported,
@@ -36,10 +25,7 @@ let thisBrowser: string | null = null
 const PHONE = "https://push.example/phone"
 const LAPTOP = "https://push.example/laptop"
 
-/**
- * jsdom has neither method, and radix calls all three on pointer down - the same gap
- * `snowflake-picker.test.tsx` patches. The Popover beside "Devices" sits on the same primitives.
- */
+/** jsdom lacks the pointer capture methods Radix calls on pointer down. */
 beforeAll(() => {
   if (!Element.prototype.hasPointerCapture) Element.prototype.hasPointerCapture = () => false
   if (!Element.prototype.setPointerCapture) Element.prototype.setPointerCapture = () => {}
@@ -106,7 +92,7 @@ function backend(
   over: {
     devices?: unknown[]
     preferences?: Record<string, boolean>
-    /** No `steward-ui.yml` in the listing at all - the read-only shape. */
+    /** No `steward-ui.yml` in the listing at all, the read only shape. */
     noAlertsFile?: boolean
     writable?: boolean
   } = {},
@@ -164,12 +150,7 @@ function backend(
   return { calls, fetcher }
 }
 
-/**
- * The dialog, opened - which is how it is reached in the interface too.
- *
- * Opening it is what the two queries wait for (`useWebPushDevices(open)`), so a harness that drew
- * it open from the start would prove nothing about the thing the popover actually does.
- */
+/** The dialog, opened, since opening is what the two queries wait for. */
 function Harness() {
   const state = useNotificationActions()
   return (
@@ -182,11 +163,7 @@ function Harness() {
   )
 }
 
-/**
- * A memory router around it: the read-only shape of the thresholds section
- * carries a `<Link>` to the service page, and a `Link` outside a `RouterProvider` throws rather
- * than degrading - `Cannot read properties of null (reading 'isServer')`, from every test at once.
- */
+/** Opens it inside a memory router, since the read only thresholds carry a `<Link>` that throws without one. */
 async function open() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const root = createRootRoute({ component: Harness })
@@ -208,10 +185,7 @@ describe("the types, one switch each", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    /**
-     * One wait for the list to be there at all, then a plain `get` per type: a `findBy` per label
-     * would turn a missing type into a five-second timeout instead of a sentence naming it.
-     */
+    /** One wait for the list, then a plain `get` per type, so a missing type is named rather than timed out. */
     await screen.findByRole("switch", { name: "Services" })
     for (const label of ["Services", "Backups", "Disk", "Memory", "Images"]) {
       assert.isOk(screen.getByRole("switch", { name: label }), label)
@@ -222,11 +196,7 @@ describe("the types, one switch each", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    /**
-     * Waited on a type that is ON, so that the wait means "the answer arrived" and the assertion
-     * below means "it was read" - waiting on the off one would pass by timing out into a switch
-     * that is off because nothing has loaded yet.
-     */
+    /** Waits on a type that is on, so the wait means the answer arrived. */
     const disk = await screen.findByRole("switch", { name: "Disk" })
     await waitFor(() => expect(disk.getAttribute("aria-checked")).toBe("true"))
     expect(screen.getByRole("switch", { name: "Images" }).getAttribute("aria-checked")).toBe("false")
@@ -241,11 +211,7 @@ describe("the types, one switch each", () => {
     await waitFor(() => expect(disk.getAttribute("aria-checked")).toBe("true"))
     fireEvent.click(disk)
 
-    /**
-     * Waited for on "something was written", asserted on "what was written" - a `waitFor` around
-     * the equality itself would report a timeout rather than the wrong body, which is the one
-     * thing this test is for.
-     */
+    /** Waits for a write, then asserts its body, so a wrong body is reported as such. */
     await waitFor(() => expect(calls.some((call) => call.method === "PUT")).toBe(true))
     expect(calls.filter((call) => call.method === "PUT")).toEqual([
       {
@@ -323,18 +289,8 @@ describe("the devices of this account", () => {
   })
 })
 
-/**
- * The control beside the word "Devices" is a popover on the button
- * that does the sending, and its rows say what will arrive rather than what the switch above is
- * called.
- */
 describe("nothing in it scrolls sideways", () => {
-  /**
-   * Measured rather than asserted, everywhere except here: `/home/dev/ui-shots/tool/notify.mjs`
-   * opens this dialog at 390px and reports every box past the edge. jsdom has no layout and can
-   * therefore only hold the one rule that made it fit - the scroller cannot scroll in x, so a
-   * control that refuses to shrink is a clipped control rather than a sheet that slides.
-   */
+  /** jsdom has no layout, so only the rule that the scroller cannot scroll in x is held here. */
   it("keeps the scroller from being scrollable sideways at all", async () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
@@ -345,6 +301,7 @@ describe("nothing in it scrolls sideways", () => {
   })
 })
 
+/** The test send is a popover on the send button, its rows saying what will arrive. */
 describe("the test send hangs off the paper plane", () => {
   it("says what each row will actually put on a lock screen, not the name of the switch", async () => {
     vi.stubGlobal("fetch", backend().fetcher)
@@ -353,10 +310,7 @@ describe("the test send hangs off the paper plane", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }))
 
     expect(await screen.findByText("Test notifications")).toBeTruthy()
-    /**
-     * Every one of the five, in the words `AlertWatch#sample` really sends. "Services" is the
-     * switch; "Service down" is the notification.
-     */
+    /** Every type, in the words `AlertWatch#sample` sends. */
     for (const label of [
       "Service down",
       "Backup missing",
@@ -384,18 +338,12 @@ describe("the test send hangs off the paper plane", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send a test notification to iPhone, Safari" }))
     const popover = asElement((await screen.findByText("Test notifications")).parentElement)
 
-    /**
-     * One row per switch: a type that cannot be tested honestly would be a button that sends
-     * nothing, and a type with no switch would be a test for something nobody can receive.
-     */
+    /** One row per switch, so no test sends nothing and no switch goes untested. */
     expect(within(popover).getAllByRole("button")).toHaveLength(switches.length)
   })
 })
 
-/**
- * The three numbers are keys of `steward-ui/steward-ui.yml`, and the same PUT the
- * configuration form uses writes them - revision and all, so two open forms still collide loudly.
- */
+/** Keys of `steward-ui/steward-ui.yml`, written by the configuration form's PUT with its revision. */
 describe("the thresholds the notifications fire on", () => {
   it("draws the numbers the file says, not the ones the light happens to hold", async () => {
     vi.stubGlobal("fetch", backend().fetcher)

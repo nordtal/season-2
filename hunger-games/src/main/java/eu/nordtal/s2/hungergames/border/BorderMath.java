@@ -1,28 +1,15 @@
 package eu.nordtal.s2.hungergames.border;
 
-/**
- * The border's pure arithmetic: the death step and the target-composition rules.
- *
- * No Bukkit type appears here on purpose, so it is exercised by plain unit tests rather than a
- * running server.
- */
+/** The border's pure arithmetic: the death step and the target rules, free of Bukkit for unit tests. */
 public final class BorderMath {
 
     private BorderMath() {}
 
     /**
-     * The fixed amount of diameter every death removes.
+     * Returns the diameter every death removes: the diameter range divided by one fewer than the participants.
      *
-     * {@code step = (start - end) / (participants - 1)}. It divides by zero at one participant,
-     * which is why a game can never start with fewer than two.
-     *
-     * @param startDiameter        the border's diameter at the start of the game
-     * @param endDiameter          the floor the border never passes
-     * @param effectiveParticipants the participant count AFTER countdown-time demotions, computed
-     *                              once at start and fixed for the rest of the game
-     * @return the step, a positive number of blocks of diameter
-     * @throws IllegalArgumentException if {@code effectiveParticipants} is fewer than 2, or the
-     *                                   diameters are not a valid start/end pair
+     * @param effectiveParticipants the count after countdown-time demotions, fixed for the game
+     * @throws IllegalArgumentException if fewer than two participants, or the diameters are not a valid start/end pair
      */
     public static double deathStep(
             final double startDiameter, final double endDiameter, final int effectiveParticipants) {
@@ -37,31 +24,18 @@ public final class BorderMath {
     }
 
     /**
-     * Where a death-triggered shrink should target next.
+     * Returns where a death-triggered shrink should target next, clamped to {@code floor}.
      *
-     * A running shrink is extended rather than restarted; the idle case falls out of the same
-     * formula by passing the border's actual size.
-     *
-     * @param currentTarget the border's current target diameter (its actual current size, if idle;
-     *                      its in-flight target, if already shrinking)
-     * @param step          the death step from {@link #deathStep(double, double, int)}
-     * @param floor         the border's minimum diameter, never passed
-     * @return the new target, clamped to {@code floor}
+     * @param currentTarget the in-flight target if shrinking, otherwise the border's actual size
      */
     public static double nextShrinkTarget(final double currentTarget, final double step, final double floor) {
         return Math.max(floor, currentTarget - step);
     }
 
     /**
-     * How long a death-triggered shrink takes at the configured wall speed, in milliseconds.
+     * Returns how long a death-triggered shrink takes, in milliseconds, at least 0.
      *
-     * The configured wall speed is already a diameter-change rate, so it is applied directly to
-     * the diameter delta with no halving or doubling.
-     *
-     * @param fromDiameter               the diameter the shrink starts from
-     * @param toDiameter                 the diameter the shrink targets
-     * @param wallSpeedDiameterPerSecond diameter-blocks per second, always positive
-     * @return duration in milliseconds, at least 0
+     * The wall speed is already a diameter rate, so it applies to the diameter delta directly.
      */
     public static long shrinkDurationMillis(
             final double fromDiameter, final double toDiameter, final double wallSpeedDiameterPerSecond) {
@@ -72,15 +46,7 @@ public final class BorderMath {
         return Math.round((delta / wallSpeedDiameterPerSecond) * 1000.0);
     }
 
-    /**
-     * How long, in milliseconds, a passive shrink from {@code fromDiameter} to {@code toDiameter}
-     * takes at the configured passive rate.
-     *
-     * @param fromDiameter                  the diameter the passive shrink starts from
-     * @param toDiameter                    the floor it targets
-     * @param passiveShrinkDiameterPerHour   diameter-blocks per hour, always positive
-     * @return duration in milliseconds, at least 0
-     */
+    /** Returns how long a passive shrink takes, in milliseconds, at least 0. */
     public static long passiveShrinkDurationMillis(
             final double fromDiameter, final double toDiameter, final double passiveShrinkDiameterPerHour) {
         if (passiveShrinkDiameterPerHour <= 0) {

@@ -19,15 +19,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * A {@code <name>.schema.json} beside a config file is the first choice for a key's plain-language name.
+ * A {@code <name>.schema.json} beside a config file is the first choice for a key's name, explanation and values.
  *
- * Its short explanation, its allowed values and its secrecy too - the mechanical {@link Labels#of(String)} and the
- * file's own comments are the second choice, for a file with no schema.
- *
- * The schema fixtures here are {@link SchemaNode} trees built by hand and written out with a plain {@link Gson}, not
- * JSON typed into a text block: {@link Schemas} has to read exactly the shape
- * {@code eu.nordtal.jcore.config.schema.SchemaWriter} writes, and jcore's own record is that shape, so building one
- * and serialising it is the only way to test against it that cannot drift from a guess at what the JSON looks like.
+ * Without one, {@link Labels#of(String)} and the file's own comments are the fallback.
  */
 class ConfigFilesSchemaTest {
 
@@ -45,7 +39,7 @@ class ConfigFilesSchemaTest {
 
         final ConfigDocument document = ConfigFiles.read(directory.resolve("service.yml"));
 
-        // Labels.of("port") would have said "Port" - both names appear here so a failure says which one won.
+        // Labels.of("port") would have said "Port"; both names appear so a failure says which one won.
         assertEquals(
                 "TCP port",
                 entry(document, "port").label(),
@@ -192,7 +186,7 @@ class ConfigFilesSchemaTest {
 
         assertTrue(entry(document, "port").inSchema());
         assertFalse(entry(document, "legacy-flag").inSchema());
-        // Never hidden, and it still gets the mechanical label - the schema said nothing about it.
+        // Never hidden, and it still gets the mechanical label; the schema said nothing about it.
         assertEquals("Legacy flag", entry(document, "legacy-flag").label());
     }
 
@@ -284,7 +278,7 @@ class ConfigFilesSchemaTest {
                                 Map.of("tag", scalar("Tag", "", false, false, SettingType.STRING, null)),
                                 new SchemaNode.ProtectedEntry("tag", "en"))));
 
-        // "de" removed, "en" kept - the same shape an ordinary removal already lets an operator send.
+        // "de" removed, "en" kept: the same shape an ordinary removal already sends.
         final Map<String, ConfigChange> removeEnglish =
                 Map.of("languages", ConfigChange.sections(List.of(Map.of("tag", "de"))));
 
@@ -296,7 +290,7 @@ class ConfigFilesSchemaTest {
         assertFalse(error.getMessage().contains("\n"), "the refusal has to stay one line: " + error.getMessage());
         assertTrue(error.getMessage().length() < 160, "the refusal has to stay short: " + error.getMessage());
 
-        // Refused BEFORE a single line moves - not written, then rejected on the way back out.
+        // Refused before a single line moves, not written and then rejected on the way out.
         assertEquals(original, Files.readString(directory.resolve("service.yml")));
     }
 
@@ -404,7 +398,7 @@ class ConfigFilesSchemaTest {
                 SettingKind.SCALAR, label, explanation, noExplanationNeeded, secret, type, choices, Map.of(), null);
     }
 
-    /** A {@link SettingKind#LIST} of nested settings - {@code languages} and {@code tiers}' own shape. */
+    /** A {@link SettingKind#LIST} of nested settings, the shape of {@code languages} and {@code tiers}. */
     private static SchemaNode sections(
             final String label,
             final String explanation,

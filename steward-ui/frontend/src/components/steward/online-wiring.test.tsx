@@ -7,12 +7,9 @@ import { useServices } from "@/lib/queries"
 import { queryResult } from "@/lib/query-fixtures"
 
 /**
- * **Being the only player online must show a face, not just `+1`.**
+ * Being the only player online shows a face, not just `+1`.
  *
- * The roster is never the problem - proxy writes it every ten seconds and the worker puts
- * it on the `proxy` row as `roster`. The interface has to actually read it: `useOnline` takes
- * the list as a parameter defaulting to `[]`, and its one caller (`pages/overview.tsx`) has to call
- * it with the real roster rather than nothing, or the stack always has a count and never a face.
+ * `pages/overview.tsx` must pass the `proxy` row's roster to `useOnline`, whose default is `[]`.
  */
 vi.mock("@/lib/queries", () => ({ useServices: vi.fn<typeof useServices>(), useAvatarBaseUrl: () => undefined }))
 

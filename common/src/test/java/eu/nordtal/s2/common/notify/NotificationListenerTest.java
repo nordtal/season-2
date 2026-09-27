@@ -18,15 +18,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The reconnect loop in {@link NotificationListener}, against a fake {@link Notifications}.
+ * Tests the reconnect loop in {@link NotificationListener} against a fake {@link Notifications}.
  *
- * <b>None of this proves anything about a real dropped socket.</b> A fake that throws on demand
- * is not a network partition, and {@code getNotifications} answering {@code null} forever on a
- * silently dead connection cannot be reproduced in a JVM at all - that needs a drill against a real
- * PostgreSQL with the connection killed underneath the process.
- *
- * What these tests do pin is the rule that is a coding mistake rather than an environmental one:
- * every reconnect re-reads unconditionally.
+ * It proves nothing about a real dropped socket; it pins that every reconnect re-reads unconditionally.
  */
 class NotificationListenerTest {
 

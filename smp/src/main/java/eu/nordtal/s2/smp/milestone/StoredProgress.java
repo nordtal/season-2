@@ -4,15 +4,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * What the database currently holds about the track: the rows of {@code smp_milestone} and {@code smp_objective}.
- *
- * As values with no JDBI on them. They exist so {@link TrackValidation} can be a pure function of "the file" and
- * "the rows". The validation is the
- * one piece of the milestone engine that is easy to get subtly wrong and expensive to get wrong in production - it
- * is what stands between a config edit and a finished milestone quietly disappearing - so it is worth being able to
- * assert it without a database.
- */
+/** What the database holds about the track, as plain values, so {@link TrackValidation} is testable without one. */
 public final class StoredProgress {
 
     /**
@@ -36,9 +28,7 @@ public final class StoredProgress {
      * @param key          its own key within that milestone
      * @param type         how its progress was measured when it was created
      * @param amount       what has been collected so far
-     * @param target       what was asked for. Copied out of the file when the objective was created,
-     *                     which is why lowering the target in the file has to update this column
-     *                     rather than only the file - that is the first escape hatch
+     * @param target       what was asked for, copied from the file, so a lowered target updates this column
      * @param completed    whether it has completed and paid out
      */
     public record StoredObjective(
@@ -59,31 +49,27 @@ public final class StoredProgress {
         this.objectives = List.copyOf(Objects.requireNonNull(objectives, "objectives"));
     }
 
-    /** @return an empty progress, which is what a fresh season looks like */
+    /** Returns an empty progress, which is what a fresh season looks like. */
     public static StoredProgress none() {
         return new StoredProgress(List.of(), List.of());
     }
 
-    /** @return every {@code smp_milestone} row */
+    /** Returns every {@code smp_milestone} row. */
     public List<StoredMilestone> milestones() {
         return milestones;
     }
 
-    /** @return every {@code smp_objective} row */
+    /** Returns every {@code smp_objective} row. */
     public List<StoredObjective> objectives() {
         return objectives;
     }
 
-    /** @return whether nothing has been written yet */
+    /** Returns whether nothing has been written yet. */
     public boolean isEmpty() {
         return milestones.isEmpty() && objectives.isEmpty();
     }
 
-    /**
-     * @param milestoneKey a milestone key
-     * @param objectiveKey an objective key
-     * @return the stored row, if there is one
-     */
+    /** Returns the stored objective row, if there is one. */
     public Optional<StoredObjective> objective(final String milestoneKey, final String objectiveKey) {
         return objectives.stream()
                 .filter(objective -> objective.milestoneKey().equals(milestoneKey)
@@ -91,10 +77,7 @@ public final class StoredProgress {
                 .findFirst();
     }
 
-    /**
-     * @param key a milestone key
-     * @return the stored row, if there is one
-     */
+    /** Returns the stored milestone row, if there is one. */
     public Optional<StoredMilestone> milestone(final String key) {
         return milestones.stream()
                 .filter(milestone -> milestone.key().equals(key))

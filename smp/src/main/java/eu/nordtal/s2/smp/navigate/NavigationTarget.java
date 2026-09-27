@@ -7,12 +7,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Somewhere {@code /navigate} can point at.
- *
- * The kind decides how the entry is labelled and whether it can be deleted: - {@link Kind#WORLD_SPAWN} - the current
- * world's spawn, built in and always present - {@link Kind#LAST_DEATH} - built in, and absent until there has been
- * one - {@link Kind#POI} - created by players, public, unlimited. <b>There is deliberately no navigation to
- * players</b>: with PvP enabled everywhere an arrow pointing at a person is a hunting tool.
+ * Somewhere {@code /navigate} can point at: the world spawn, the last death, or a public POI, never a player.
  *
  * @param id the POI's id, or null for the two built-in kinds
  * @param label a POI's name, or {@code null} for the built-in kinds, which are named by {@link #name()}

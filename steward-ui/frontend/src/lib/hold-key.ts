@@ -1,14 +1,3 @@
-/**
- * Holding the security key, as one call.
- *
- * Two round trips with a browser dialog between them, exactly like registration - and kept apart
- * from `lib/api.ts` on purpose: that file is the door every request goes through and must not
- * import a ceremony, or the ceremony's own two requests would go round in a circle.
- *
- * **The challenge is single-use and lives ten minutes.** That is why this is one function and not
- * a start hook and a finish hook: a component holding a half-finished ceremony across a re-render
- * is holding a spent challenge, and the half that is spent is the half nobody can see.
- */
 import { api } from "@/lib/api"
 import type { RequestOptionsJson } from "@/lib/webauthn"
 import { browserHasSecurityKeys, useSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
@@ -19,6 +8,11 @@ export type Held = {
   userVerified: boolean
 }
 
+/**
+ * Holds the security key in one call: two round trips with a browser dialog between them.
+ *
+ * One function, not two hooks, since the challenge is single use; outside `lib/api.ts` to avoid an import cycle.
+ */
 export async function holdTheKey(): Promise<Held> {
   if (!browserHasSecurityKeys()) {
     throw new Error(
@@ -26,7 +20,7 @@ export async function holdTheKey(): Promise<Held> {
         " Every current browser can; one in a private window or an old WebView may not.",
     )
   }
-  // The server's answer is handed to the browser untouched, since this end has no opinion about its contents.
+  // The server's answer goes to the browser untouched.
   const started = await api<RequestOptionsJson>("/auth/webauthn/authenticate/start", { method: "POST" })
   let credential: string
   try {

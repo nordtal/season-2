@@ -3,9 +3,7 @@ package eu.nordtal.s2.build
 /**
  * Whether a Minecraft client appears to be running on this machine.
  *
- * A guess from the process table, because no launcher leaves a lock file behind. Windows does not
- * reveal another process's arguments, so there it goes by the path of the Java executable, which
- * the vanilla launcher, Modrinth and NoRisk all keep under their own folder.
+ * A guess from the process table; on Windows, which hides arguments, from the Java executable's path.
  */
 object MinecraftProcesses {
     private val JAVA = setOf("java", "javaw", "java.exe", "javaw.exe")

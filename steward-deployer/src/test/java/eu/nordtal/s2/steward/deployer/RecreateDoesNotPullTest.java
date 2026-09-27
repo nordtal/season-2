@@ -10,16 +10,7 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Recreate uses the image that is here; deploy is the button that fetches.
- *
- * A recreate that pulls can silently replace a locally built image with the published one: the
- * job still answers 202, the container still comes up healthy, and nothing downstream can tell a
- * deployment was rolled back.
- *
- * No docker daemon here, by design: the command line is assembled before anything runs, and the
- * decision not to pull is visible at exactly that point.
- */
+/** Recreate uses the image that is here; deploy is the button that fetches. */
 class RecreateDoesNotPullTest {
 
     private final Compose compose =
@@ -31,24 +22,17 @@ class RecreateDoesNotPullTest {
 
         assertTrue(command.containsAll(List.of("up", "--detach", "--no-deps", "--force-recreate")), command.toString());
         assertTrue(command.contains("steward-ui"), command.toString());
-        // Not `contains("pull")`: `docker compose up` fetches through `--pull always` too, so every token is checked.
+        // `docker compose up` fetches through `--pull always` too, so every token is checked.
         for (final String token : command) {
             assertFalse(token.contains("pull"), "recreate must not fetch, and this does: " + command);
         }
     }
 
-    /**
-     * The other half, which cannot be asked of {@link Compose} alone.
-     *
-     * The route calling it could fetch on its own, one call above {@code compose.recreate}, so the
-     * subject here is the source of the route's own method - read as text, the way
-     * {@code OomLightningRodTest} reads compose.yml, because the alternative is a docker daemon and
-     * a registry in a unit test.
-     */
+    /** The recreate route itself does not pull, read from its source text. */
     @Test
     void andTheRouteDoesNotPullOneLineAboveItEither() throws IOException {
         final String recreate = methodBody("static int recreate(final Compose compose, final String service,");
-        // The LAST one: `deploy` is overloaded, and the short one that only forwards comes first.
+        // The last one: the short overload that only forwards comes first.
         final String deploy = lastMethodBody("static int deploy(final Compose compose, final List<String> requested,");
 
         assertFalse(recreate.contains("compose.pull("), "recreate must not pull:\n" + recreate);
@@ -56,18 +40,18 @@ class RecreateDoesNotPullTest {
         assertTrue(
                 recreate.contains("hasLocalImage"),
                 "recreate has to say why it cannot, instead of letting compose fail:\n" + recreate);
-        // The counterweight: deploy is the one of the two that has to keep pulling.
+        // Deploy is the one that has to keep pulling.
         assertTrue(
                 deploy.contains("compose.pull("),
                 "deploy is the button that fetches, and it no longer does:\n" + deploy);
     }
 
-    /** From the line that starts with {@code signature} to the matching closing brace. */
+    /** Returns the method from the line starting with {@code signature} to its closing brace. */
     private static String methodBody(final String signature) throws IOException {
         return body(signature, false);
     }
 
-    /** The same, for a signature that several overloads share; the last one carries the work. */
+    /** Returns the last method matching {@code signature}, for overloads. */
     private static String lastMethodBody(final String signature) throws IOException {
         return body(signature, true);
     }
@@ -104,7 +88,7 @@ class RecreateDoesNotPullTest {
         return candidate;
     }
 
-    // palantir-java-format wraps a long signature anywhere; the checks read it as one line.
+    // palantir-java-format wraps signatures anywhere; the checks read them as one line.
     private static String joined(final String source) {
         return source.replaceAll("\\(\\s*\\n\\s*", "(")
                 .replaceAll("\\s*\\n\\s*\\.", ".")

@@ -13,16 +13,10 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
 import java.time.Duration;
 
-/**
- * The database, opened once, read through the directories {@code :common} already owns.
- *
- * It never migrates: steward-worker owns the schema and is the only process that applies one.
- * Triggering an update or a backup is a row in {@code update_request}, the same row {@code /update}
- * in Discord writes, which is why this service needs no permission over containers to ask for one.
- */
+/** The database, opened once and read through the directories {@code :common} owns; it never migrates. */
 public final class Data implements AutoCloseable {
 
-    /** How far back a chart asks by default, when the caller names no window. */
+    /** How far back a chart looks when the caller names no window. */
     public static final Duration DEFAULT_WINDOW = Duration.ofHours(6);
 
     private final Database database;
@@ -53,12 +47,7 @@ public final class Data implements AutoCloseable {
         this.accessRequests = AccessRequests.on(database.dataSource());
     }
 
-    /**
-     * The pool itself, for the one table this service owns rather than borrows.
-     *
-     * {@code steward_session} is not shared with the bot, plugins or updater, so its SQL lives in
-     * {@code :steward-ui} beside the sign-in it belongs to; the migration is still in {@code :common}.
-     */
+    /** The pool itself, for {@code steward_session}, the one table this service owns rather than borrows. */
     public javax.sql.DataSource dataSource() {
         return database.dataSource();
     }
@@ -83,23 +72,12 @@ public final class Data implements AutoCloseable {
         return audit;
     }
 
-    /**
-     * Granting and revoking access.
-     *
-     * The only writing this interface does that is not an {@code update_request} row. Two doors
-     * into the same room - here and {@code /access} in Discord - so every grant and revocation
-     * from here writes an {@code audit_log} row naming the admin who clicked.
-     */
+    /** Granting and revoking access, each writing an {@code audit_log} row naming the admin who clicked. */
     public AccessDirectory access() {
         return access;
     }
 
-    /**
-     * The command transport - the same table {@code /access grant} in Discord travels on.
-     *
-     * A row addressed to the process that owns the command, claimed by its inbox, with the answer
-     * written back into the same row; there is no RCON here and no tmux.
-     */
+    /** The command transport, the same table {@code /access grant} in Discord travels on. */
     public CommandRequests commands() {
         return commands;
     }

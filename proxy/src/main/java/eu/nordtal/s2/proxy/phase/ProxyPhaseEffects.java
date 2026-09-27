@@ -13,17 +13,7 @@ import org.slf4j.Logger;
 /**
  * {@code /phase}, as the proxy carries it out.
  *
- * Four small answers to the four questions {@link PhaseEffects} asks, and every one of them is
- * something the bot answers differently:
- *
- * The proxy <b>holds</b> the phase, in {@link PhaseWatch}, so {@code /phase} can answer while
- * the database is unreachable - which is the state somebody runs it in. It therefore has to
- * <b>refresh</b> after its own write, rather than wait for its own {@code NOTIFY} to come back
- * around, or the reply and the log line disagree for a moment. It files admin actions as a
- * {@code WARN} line - there is no admin channel here: if Discord were reachable, this command
- * would not be the one being used. And blocking work goes to the proxy scheduler: Brigadier
- * hands us a thread that must not wait, and this command is most likely to be run at the exact
- * moment the database is slow.
+ * It refreshes after its own write, logs admin actions as {@code WARN}, and runs blocking work on the scheduler.
  */
 public final class ProxyPhaseEffects implements PhaseEffects {
 

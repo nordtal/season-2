@@ -20,11 +20,7 @@ import java.util.Optional;
 import java.util.function.LongFunction;
 import org.junit.jupiter.api.Test;
 
-/**
- * One decision about a row, made once for the proxy and the three Paper consoles.
- *
- * Neither the proxy nor {@code :paper-common} alone can see both, so the decision lives where both do.
- */
+/** One decision about a row, made once for the proxy and the three Paper consoles. */
 class UpdateFollowerTest {
 
     private static final Instant NOW = Instant.parse("2026-09-08T20:00:00Z");

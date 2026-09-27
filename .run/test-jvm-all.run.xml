@@ -1,8 +1,7 @@
 <!--
   gradlew test
 
-  Runs `test` in every module that has one. No frontend, no shell suites - those are
-  `tests: ui vitest` and `tests: deploy scripts (all four)`.
+  Runs every module's JVM tests, without vitest or the shell suites.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: jvm (all modules)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: jvm">

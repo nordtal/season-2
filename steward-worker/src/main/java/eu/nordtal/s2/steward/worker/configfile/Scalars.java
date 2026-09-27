@@ -15,24 +15,15 @@ import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
 /**
- * What a scalar is, and how to write one back.
+ * What a scalar is and how to write one back, answered by asking SnakeYAML rather than a regular expression.
  *
- * Every question here is answered by asking YAML, not by a regular expression of my own. The type of a value is the
- * tag SnakeYAML's resolver gave it while reading the file, so {@code weird-string: '12'} is a string and
- * {@code port: 8080} is an integer without this class having an opinion. Whether a value needs quotes is decided by
- * writing it out plain, reading that back, and seeing whether the same string came back - the parser's answer to the
- * parser's question. A hand-written list of "characters that need quoting" is a list that is missing one.
+ * A value needs quotes when writing it plain and reading it back does not return the same string.
  */
 final class Scalars {
 
     private Scalars() {}
 
-    /**
-     * The type of a scalar, from the tag the resolver gave it.
-     *
-     * A quoted scalar resolves to {@code str} whatever it contains, which is exactly right: a value jcore wrote as
-     * {@code '12'} came out of a {@code String} method and has to go back into one.
-     */
+    /** The type of a scalar, from the tag the resolver gave it; a quoted scalar is always {@code str}. */
     static ConfigEntry.Type typeOf(final ScalarNode node) {
         final Tag tag = node.getTag();
         if (Tag.INT.equals(tag)) {
@@ -51,9 +42,9 @@ final class Scalars {
     /**
      * The exact characters to put after the colon for {@code value}, quoted only if it has to be.
      *
-     * @param type  the type the key already has in the file
+     * @param type the type the key already has in the file
      * @param value what the form sent
-     * @param path  the dotted path, for the message
+     * @param path the dotted path, for the message
      * @return the rendered scalar
      * @throws IllegalArgumentException if {@code value} is not of {@code type}
      */
@@ -64,7 +55,7 @@ final class Scalars {
     /**
      * One entry of a sequence.
      *
-     * @param type the type the list already holds - see {@link ConfigEntry#type()}
+     * @param type the type the list already holds (see {@link ConfigEntry#type()})
      * @param flow whether the list is written {@code [a, b]} rather than as a block
      */
     static String renderItem(final ConfigEntry.Type type, final String value, final String path, final boolean flow) {
@@ -77,7 +68,7 @@ final class Scalars {
             return quote(value, path, where);
         }
 
-        // Numbers and booleans are written exactly as typed; canonicalising (1.50 to 1.5) rewrites an unasked diff.
+        // Numbers and booleans are written as typed; canonicalising (1.50 to 1.5) would be an unasked diff.
         final String trimmed = value.strip();
         final Object parsed = parse(trimmed);
         final boolean ok = switch (type) {
@@ -91,7 +82,7 @@ final class Scalars {
             throw new IllegalArgumentException(path + " is " + type.name().toLowerCase(java.util.Locale.ROOT)
                     + " in this file" + ", and \"" + value + "\" is not one" + expected(type));
         }
-        // Asking the type is not enough: `8080 # oops` resolves to 8080, but writing it would keep the comment too.
+        // `8080 # oops` resolves to 8080, but writing it would keep the comment too.
         if (!trimmed.equals(lexically(trimmed, where))) {
             throw new IllegalArgumentException(
                     path + " is " + type.name().toLowerCase(java.util.Locale.ROOT) + " in this file"
@@ -102,13 +93,9 @@ final class Scalars {
     }
 
     /**
-     * What YAML would read as the scalar itself, out of {@code rendered} put where it is going.
+     * The scalar's own text as YAML reads it at its destination, without a trailing comment.
      *
-     * This is the text of the node, not the value it resolves to: {@code 1.50} comes back {@code 1.50} rather than
-     * {@code 1.5}, because canonicalising a number the operator did not ask for is a line they did not ask to have
-     * rewritten. What it does drop is everything that is not the scalar - a trailing {@code # comment} above all.
-     *
-     * @return the node's own text, or {@code null} if that position does not hold one plain scalar
+     * @return the node's text, not its resolved value, or {@code null} if that position does not hold one plain scalar
      */
     private static @Nullable String lexically(final String rendered, final Where where) {
         final Node root;
@@ -146,16 +133,9 @@ final class Scalars {
         };
     }
 
-    /**
-     * Quotes {@code value} exactly when leaving it bare would change it.
-     *
-     * Plain first, because a diff of a config file is read by a person and {@code public-url: https://…} is easier
-     * to read than {@code public-url: 'https://…'}. Single quotes next, which is what jcore's own writer uses.
-     * Double quotes last, for the values that carry a newline or a control character and cannot be written any
-     * other way.
-     */
+    /** Quotes {@code value} only when leaving it bare would change it: plain first, then single, then double quotes. */
     private static String quote(final String value, final String path, final Where where) {
-        // A tab or newline in a plain scalar reads back correctly but is never written that way: it is a trap.
+        // A tab or newline in a plain scalar reads back correctly but is a trap, so it is never written that way.
         if (!hasControlCharacter(value) && readsBackAs(value, value, where)) {
             return value;
         }
@@ -167,7 +147,7 @@ final class Scalars {
         if (readsBackAs(doubled, value, where)) {
             return doubled;
         }
-        // Unreachable for any string a browser can send; a bug here must not be a corrupt config.
+        // Unreachable for any string a browser can send; a bug here must not corrupt a config.
         throw new IllegalArgumentException(path + ": this value cannot be written to a YAML file - " + describe(value));
     }
 
@@ -191,18 +171,13 @@ final class Scalars {
         try {
             parsed = parse(rendered, where);
         } catch (final RuntimeException e) {
-            // Not even valid YAML in that position - `a: b`, a lone `[`. Quote it.
+            // Not valid YAML in that position (`a: b`, a lone `[`), so quote it.
             return false;
         }
         return parsed instanceof String s && s.equals(expected);
     }
 
-    /**
-     * Reads {@code rendered} as the value of a key, in isolation.
-     *
-     * Isolation is a fair test of the real line: a plain scalar ends at a {@code #} or a {@code : } here for the
-     * same reason it would end there in the file.
-     */
+    /** Reads {@code rendered} as the value of a key, in isolation, which ends a plain scalar where the file would. */
     private static Object parse(final String rendered) {
         return parse(rendered, Where.VALUE);
     }
@@ -211,14 +186,14 @@ final class Scalars {
         final Yaml yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
         final Object root = yaml.load(where.document(rendered));
         if (!(root instanceof Map<?, ?> map) || map.size() != 1 || !map.containsKey("k")) {
-            // `rendered` did not stay inside the value position, e.g. a newline followed by another key.
+            // `rendered` left the value position, for example a newline followed by another key.
             throw new IllegalArgumentException("not a single scalar");
         }
         final Object value = map.get("k");
         if (where == Where.VALUE) {
             return value;
         }
-        // A list entry has to stay ONE entry: `a,b` reads as one string after a colon, two entries inside brackets.
+        // A list entry has to stay one entry: `a,b` is one string after a colon but two inside brackets.
         if (!(value instanceof List<?> list) || list.size() != 1) {
             throw new IllegalArgumentException("not a single entry");
         }
@@ -247,12 +222,7 @@ final class Scalars {
         return out.append('"').toString();
     }
 
-    /**
-     * Where a rendered scalar is going, which decides what "reads back correctly" means.
-     *
-     * The same characters mean different things in the three places a value can sit, and asking the parser the
-     * wrong one of these questions is how a correct-looking quote rule corrupts a list.
-     */
+    /** Where a rendered scalar is going, which decides what "reads back correctly" means. */
     private enum Where {
         /** After a colon: {@code k: <it>}. */
         VALUE,
@@ -273,31 +243,15 @@ final class Scalars {
     /**
      * A value written as a literal block.
      *
-     * @param header the {@code |}, {@code |-}, {@code |+} or {@code |2-} that follows the colon
-     * @param lines  the content, each line already indented two columns past the key. An empty
-     *               line is empty rather than two spaces, because trailing whitespace in a config
-     *               file is noise in every future diff
+     * @param header the {@code |}, {@code |-}, {@code |+} or {@code |2-} after the colon
+     * @param lines the content, indented two columns past the key, with empty lines left empty
      */
     record Block(String header, List<String> lines) {}
 
     /**
-     * Writes {@code value} as a literal block, if it can be written as one.
+     * Writes {@code value} as a literal block when it can, never as {@code |+} (it grows on every save) or folded.
      *
-     * The chomping indicator is chosen from how the value ends, which is the only way a block can carry that fact:
-     * {@code |-} for a value that ends mid-line, {@code |} for one that ends with a single newline. A value ending
-     * in more than one newline is not written as a block at all - {@code |+} is the indicator for that, and it
-     * swallows the blank lines that follow the block, which in a jcore-written file is the separator before the
-     * next key. A block written that way grows a newline every time somebody saves the page. A first line that
-     * begins with a space needs the indentation stated outright ( {@code |2-}), because YAML would otherwise
-     * measure the indentation from that line and eat the space.
-     *
-     * Folded blocks ( {@code >}) are never written, only read. Folding turns a newline into a space on the way
-     * back in, so a value that survives the round trip is a coincidence and one that does not is a config nobody
-     * can see the mistake in.
-     *
-     * @return the block, or empty when the value cannot be one - an empty value, a value that is nothing but
-     *     newlines, one ending in several of them, or anything that did not read back as itself. The caller then
-     *     writes a double-quoted single line, which is uglier and always correct
+     * @return the block, or empty when the value cannot be one and the caller writes a double-quoted line
      */
     static Optional<Block> block(final String value) {
         String core = value;
@@ -311,7 +265,7 @@ final class Scalars {
         }
 
         if (trailing > 1) {
-            // `|+` reads blank lines after the block as part of the value, growing one on every save; quote instead.
+            // `|+` reads blank lines after the block as part of the value, so quote instead.
             return Optional.empty();
         }
         final String chomp = trailing == 0 ? "-" : "";
@@ -323,7 +277,7 @@ final class Scalars {
             lines.add(line.isEmpty() ? "" : "  " + line);
         }
 
-        // The probe has the same geometry as the real thing, so an answer here is an answer about the file.
+        // The probe has the same geometry as the file, so its answer holds for the file.
         final String probe = "k: " + header + "\n" + String.join("\n", lines) + "\n";
         final Object parsed;
         try {

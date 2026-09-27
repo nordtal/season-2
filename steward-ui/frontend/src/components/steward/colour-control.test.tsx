@@ -6,16 +6,7 @@ import { colourValue } from "@/components/steward/config-controls"
 import type { ConfigEntry } from "@/lib/api"
 import { asInput } from "@/lib/test-elements"
 
-/**
- * The colour picker, and the heuristic (`colourValue`, `config-controls.tsx`) and grouping
- * (`colourRuns`) that decide when it is drawn at all and whether several of them stand in a row.
- *
- * The escape hatch is a heuristic on the VALUE, not the key - the interface recognises that a value
- * looks like `#rrggbb` and shows the picker - deliberately instead of a schema "colour" kind, which
- * needs a jcore change out of scope tonight. `colourValue`'s own comment in `config-controls.tsx`
- * explains why it reads `entry.value` and not a live keystroke; the tests below are what proves that
- * choice rather than merely asserting it.
- */
+/** The colour picker, `colourValue`, which offers it by the value's shape, and `colourRuns`, which rows them. */
 
 /** The preview starts hidden, so every test about it opens it first. */
 const showPreview = () => fireEvent.click(screen.getByRole("button", { name: /preview/i }))
@@ -44,28 +35,18 @@ afterEach(cleanup)
 describe("colourValue", () => {
   it("recognises a stored value shaped like #rrggbb", () => {
     expect(colourValue(field({ key: "good", path: "good", value: "#8ba888" }))).toBe("#8ba888")
-    // Case-insensitive - jcore writes lower-case, but a hand-edited file is not required to.
+    // Case insensitive: jcore writes lower case, a hand edited file need not.
     expect(colourValue(field({ key: "good", path: "good", value: "#8BA888" }))).toBe("#8BA888")
   })
 
   it("never mistakes an empty value for a colour", () => {
-    /**
-     * RED, first: before this guard the naive regex `#[0-9a-f]{6}$` test against "" is simply
-     * false already, so this looks like it would pass by accident - the case that actually needs
-     * the explicit early return is a value of undefined, which `entry.value` is for a kind this
-     * heuristic must never touch (see the next test). Both are asserted here so a later refactor
-     * that inlines the regex cannot quietly drop either guard.
-     */
+    /** Both "" and undefined are asserted, so inlining the regex cannot quietly drop the early return. */
     expect(colourValue(field({ key: "good", path: "good", value: "" }))).toBeNull()
   })
 
   it("rejects an ordinary text value, including one that starts with #", () => {
     expect(colourValue(field({ key: "note", path: "note", value: "just text" }))).toBeNull()
-    /**
-     * The named failure mode from the code comment: a value that merely starts with a hash and six
-     * hex-looking characters is not enough more than that to be worth a false positive over - but
-     * "#1234567" (seven digits) and "#12345" (five) both still have to be rejected.
-     */
+    /** Seven and five digits are rejected, as well as six. */
     expect(colourValue(field({ key: "note", path: "note", value: "#1234567" }))).toBeNull()
     expect(colourValue(field({ key: "note", path: "note", value: "#12345" }))).toBeNull()
   })
@@ -82,11 +63,7 @@ describe("ColourControl", () => {
     const onChange = vi.fn<(value: string) => void>()
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={onChange} />)
 
-    /**
-     * Not `getByDisplayValue` - the native swatch's own value is "#8ba888" too, so that query
-     * matches both inputs. `getByRole("textbox")` only matches the plain text field: an
-     * `input[type="color"]` has no such role.
-     */
+    /** `getByRole("textbox")`, since the native swatch holds the same display value but has no such role. */
     const text = asInput(screen.getByRole("textbox"))
     fireEvent.change(text, { target: { value: "#123456" } })
 
@@ -112,20 +89,11 @@ describe("ColourControl", () => {
     expect(preview.style.backgroundColor).toBe(MINECRAFT_CHAT_BACKGROUND)
 
     const sample = screen.getByText(SAMPLE_TEXT)
-    /**
-     * jsdom normalises an inline `color` style to `rgb(...)` regardless of how it was written -
-     * "#8ba888" is (139, 168, 136) in decimal.
-     */
+    /** jsdom normalises an inline `color` to `rgb(...)`; "#8ba888" is (139, 168, 136). */
     expect(sample.style.color).toBe("rgb(139, 168, 136)")
   })
 
-  /**
-   * A sample that wraps breaks the comparison a row of colours exists for: five tones in a row are
-   * only comparable when the row is a row of equal heights, and a wrapped, multi-line sample makes
-   * one taller than the rest.
-   *
-   * One word cannot wrap, and `truncate` is what holds that when a column is narrower still.
-   */
+  /** A wrapped sample would make one colour in a row taller than the rest. */
   it("keeps the sample to one line, so a row of colours is a row of equal heights", () => {
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
@@ -135,11 +103,7 @@ describe("ColourControl", () => {
     expect(sample.className).toContain("truncate")
   })
 
-  /**
-   * The preview spans the whole width of the field, but starts hidden - an eye in the hex field is
-   * what brings it out. A preview nobody asked for is a band of colour on every row of a settings
-   * page; asked for, it is worth the full width.
-   */
+  /** The preview spans the field's width but starts hidden behind the eye. */
   it("draws no preview until it is asked for", () => {
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
 
@@ -168,12 +132,7 @@ describe("ColourControl", () => {
   })
 
   it("shows the sample dimmed, and no instructions, while the value is not a colour yet", () => {
-    /**
-     * Typing "#8ba" (still incomplete) must not crash the native colour input, which refuses
-     * anything that is not exactly seven characters - the swatch falls back to a placeholder. The
-     * preview, once open, keeps its place and its height rather than swapping in a sentence: the
-     * box is the same size either way, so nothing below it moves while somebody retypes six digits.
-     */
+    /** An incomplete value must not crash the native input, and the preview keeps its size meanwhile. */
     render(<ColourControl id="good" value="#8ba" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
 
@@ -241,11 +200,7 @@ describe("colourRuns", () => {
   })
 
   it("groups the thirteen prestige tiers into one row and leaves admin out of it", () => {
-    /**
-     * The exact shape smp/smp/prestige-colours.yml reads back as: `admin` is a sibling scalar at
-     * the top level - not a fourteenth tier - and the thirteen tiers sit under `prestige`,
-     * consecutive and nothing else between them.
-     */
+    /** The shape of `smp/smp/prestige-colours.yml`: `admin` at the top, thirteen tiers under `prestige`. */
     const entries = [
       field({ key: "admin", path: "admin", value: "#ff5555" }),
       field({ key: "tier-01", path: "prestige.tier-01", value: "#5fbfae" }),
@@ -286,11 +241,7 @@ describe("colourRuns", () => {
   })
 
   it("drops a blank member out of the run rather than guessing it is a colour too", () => {
-    /**
-     * The documented cost of deciding by value: a colour saved blank splits the run exactly the
-     * way an unrelated field would. A schema "colour" kind would fix it; this function guessing
-     * harder would not.
-     */
+    /** A colour saved blank splits the run like an unrelated field would, the cost of deciding by value. */
     const entries = [
       field({ key: "good", path: "good", value: "#8ba888" }),
       field({ key: "bad", path: "bad", value: "" }),

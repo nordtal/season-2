@@ -19,23 +19,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The proxy console can answer at all.
  *
- * <b>Why this test exists, and it is not a hypothetical.</b>
- * {@code mc update} on {@code nordtal-s2-proxy-1} threw
- * {@code IllegalArgumentException: parameters must alternate name and value, got 1},
- * from {@code MessageRenderer.format} by way of this class. {@code format} takes
- * {@code (Locale, String, Object...)} and {@link ConsoleUser} handed it the placeholder
- * {@code Map} as a single vararg - which compiles, because a {@code Map} is an {@code Object}, and
- * which is wrong for every call including one with an empty map. The proxy console could therefore
- * answer <em>no</em> command at all.
- *
- * Its two siblings, {@code PaperUser} and - in this very package - {@link VelocityUser}, each
- * flatten the map into alternating name and value first. This class was the third and the only one
- * without it.
- *
- * <b>Why the empty map is its own case.</b>
- * Because it is the one that made the bug reach everything. {@code update.asked} carries no
- * placeholder at all, and it was still the line that threw - so a test that only checked
- * substitution would have passed on a console that could not say "Asking Steward what is new."
+ * The placeholder map must be flattened into alternating name and value, even when it is empty.
  */
 class ConsoleUserTest {
 
@@ -70,7 +54,7 @@ class ConsoleUserTest {
 
     @Test
     void severalPlaceholdersAllArrive() {
-        // A flattening that loses the name/value pairing cannot produce this line by accident, by design.
+        // A flattening that loses the name and value pairing cannot produce this line by accident.
         final Spy spy = new Spy();
         new ConsoleUser(MESSAGES, spy).reply(UPDATE.change("velocity", "4.1.1", "4.2.0"));
         assertEquals(List.of("velocity 4.1.1 -> 4.2.0"), spy.lines);

@@ -10,15 +10,9 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * The marker that keeps a stopped standby out of the fault count.
+ * The standby marker keeps a stopped standby out of the fault count.
  *
- * Both standbys are stopped for all but a minute of the season, so without this marker the start page would report
- * two faults on a healthy stack every single day - which is how a fault counter stops being read.
- *
- * This is asserted on this side of the wire on purpose. The frontend cannot decide it: to Docker a stopped standby
- * and a crashed backend are the same container state, and a name match in the browser would silently exempt any
- * future service somebody happens to name {@code something-standby}. {@link Topology#standbyNames()} is the only
- * thing that knows.
+ * Docker cannot tell a stopped standby from a crashed backend; only {@link Topology#standbyNames()} knows.
  */
 class ServiceRowStandbyFieldTest {
 
@@ -44,7 +38,7 @@ class ServiceRowStandbyFieldTest {
 
     @Test
     void theLiveServiceAStandbyBelongsToIsNotMarked() {
-        // proxy/proxy-standby and limbo/limbo-standby: a substring match here would let a dead proxy go quiet.
+        // A substring match would let a dead proxy pass as its standby.
         for (final String standby : Topology.standbyNames()) {
             final String live = standby.substring(0, standby.lastIndexOf('-'));
             assertFalse(row(live).containsKey("standby"), live + " being down is an outage, not a standby at rest");

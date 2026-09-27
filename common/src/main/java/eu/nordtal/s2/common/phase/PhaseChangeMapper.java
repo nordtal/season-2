@@ -3,7 +3,6 @@ package eu.nordtal.s2.common.phase;
 import eu.nordtal.s2.common.SeasonPhase;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Instant;
 import java.time.OffsetDateTime;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
@@ -11,12 +10,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Maps the single row {@link PhaseDao#switchPhase(String, String, String)} returns.
- *
- * Written out rather than reached for with {@code ConstructorMapper} for the same reason
- * {@code AccessGrantMapper} is: that mapper matches record components by parameter name, which only
- * survives compilation with {@code -parameters}, and a build flag is a bad thing for a query to
- * depend on. The timestamp goes through {@link OffsetDateTime}, the only reliable way to get an
- * {@link Instant} out of the PostgreSQL driver without passing through the JVM's default time zone.
+ * Written out, reading the timestamp through {@link OffsetDateTime} so the JVM's zone never enters.
  */
 public final class PhaseChangeMapper implements RowMapper<PhaseChange> {
 

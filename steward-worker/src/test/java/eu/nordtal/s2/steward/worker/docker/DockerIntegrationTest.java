@@ -22,16 +22,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * The docker client against a real daemon, because nothing else proves it.
+ * The docker client against a real daemon, checked against the {@code docker} CLI reading the same one.
  *
- * Why this is not a unit test with a canned response: Every bug this layer can have is a bug about what the daemon
- * actually sends: a chunked body, an eight-byte frame header that is there or is not, a stats sample whose
- * {@code precpu} is zero, a registry that answers a digest for one reference and nothing for another. A fixture
- * proves that the parser agrees with the fixture. So the assertions here compare this client with the {@code docker}
- * command line reading the same daemon - two independent readers of one truth.
- *
- * It skips itself where there is no socket, which is every laptop and every CI runner without one. On the dev
- * server, where it was written, it runs.
+ * It skips itself where there is no socket.
  */
 class DockerIntegrationTest {
 
@@ -162,7 +155,7 @@ class DockerIntegrationTest {
                 "a freshly pulled tag should agree with its registry");
 
         try {
-            // Exactly the situation A24 hid: what runs is not what the tag means any more.
+            // What runs is no longer what the tag means.
             cli("docker", "tag", "alpine:3.19", "alpine:3.20");
             final DockerOps.ImageCheck bent = ops.check("alpine:3.20", imageIdOf("alpine:3.20"));
             assertEquals(

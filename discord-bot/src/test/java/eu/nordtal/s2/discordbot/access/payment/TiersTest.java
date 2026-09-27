@@ -10,34 +10,21 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/**
- * The settlement rule, in memory.
- *
- * This is the one piece of money logic that is neither in SQL nor at bunq, and it decides what somebody gets for an
- * amount they were able to edit before paying. Every case below is one a support ticket could be about.
- *
- * The rule is asymmetric on purpose: an order that the money covers is honoured exactly, and only a payment that
- * falls short is re-derived from the amount. Deriving both directions from the amount would let the asked-for 10 €
- * on a 60-days-plus-donation order buy 90 days and no donor role instead.
- * {@link #anOrderTheMoneyExactlyCoversIsGrantedExactly()} is that case.
- */
+/** The settlement rule: an order the money covers is honoured exactly, and only a shortfall is re-derived. */
 class TiersTest {
 
     /** The agreed product: 30/60/90 days at 3/5/7 EUR, with a 5 EUR donation surcharge. */
     private final Tiers tiers = Tiers.of(List.of(new Tier(30, 300), new Tier(60, 500), new Tier(90, 700)), 500);
 
-    /** 60 days at 5 EUR with the donation added: the order that used to be mis-settled. */
+    /** 60 days at 5 EUR with the donation added. */
     private static final Tiers.Order SIXTY_WITH_DONATION = new Tiers.Order(60, 500, 500);
 
-    /** 60 days at 5 EUR, no donation. */
     private static final Tiers.Order SIXTY_PLAIN = new Tiers.Order(60, 500, 0);
 
     @Test
     void thePriceListIsOfferedCheapestFirst() {
         assertEquals(List.of(30, 60, 90), tiers.all().stream().map(Tier::days).toList());
     }
-
-    // The order wins.
 
     @Test
     void anOrderTheMoneyExactlyCoversIsGrantedExactly() {
@@ -102,8 +89,6 @@ class TiersTest {
                                 + "the public thank-you names"));
     }
 
-    // A shortfall is downgraded.
-
     @Test
     void aPaymentShortOfTheOrderFallsBackToTheTierItDoesCover() {
         // Ordered 90 days at 7 EUR, edited the amount down to 4 EUR on the bunq.me page.
@@ -135,11 +120,9 @@ class TiersTest {
                 () -> assertEquals(Optional.empty(), tiers.resolve(299)));
     }
 
-    // No order behind it.
-
     @Test
     void withNoOrderTheAmountAloneDecidesHighestTierFirst() {
-        // Kept for a payment with no request to honour: the fallback matcher raises an unknown reference instead.
+        // Kept for a payment with no request; the fallback matcher raises an unknown reference instead.
         assertAll(
                 () -> assertEquals(90, tiers.resolve(1000).orElseThrow().days()),
                 () -> assertFalse(tiers.resolve(1000).orElseThrow().donation()),
@@ -190,8 +173,6 @@ class TiersTest {
         assertAll(() -> assertEquals(45, settlement.days()), () -> assertFalse(settlement.downgraded()));
     }
 
-    // Money.
-
     @Test
     void moneyRoundTripsThroughBunqsDecimalStringsExactly() {
         assertAll(
@@ -199,7 +180,7 @@ class TiersTest {
                 () -> assertEquals("12.05", Money.toDecimalString(1205)),
                 () -> assertEquals(300, Money.toCents("3.00")),
                 () -> assertEquals(500, Money.toCents("5")),
-                // A float comparison with < is how an exact 5.00 could fail an "at least 5" check.
+                // A float comparison could fail an exact 5.00 on an "at least 5" check.
                 () -> assertEquals(1205, Money.toCents("12.05")));
     }
 }

@@ -32,23 +32,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * The season's opening moment happens exactly once per player, against a real PostgreSQL.
  *
- * <b>Why this needs a container</b>
- *
- * The whole of "exactly once" is one statement, and its entire value is what PostgreSQL does with the
- * <em>second</em> call: {@code INSERT ... ON CONFLICT DO UPDATE ... WHERE NOT welcome_shown} affects zero rows,
- * which is how "already welcomed" is told apart from "just welcomed" without a read-then-write that two sessions can
- * race. There is no in-memory stand-in for that, and the defaulted column added by {@code V16} is part of what is
- * being checked - the moment has to be available to every account that already exists.
- *
- * <b>Why "once" is the part worth a test at all</b>
- *
- * Nothing else in the network could notice this going wrong. A welcome shown twice is something one person mentions
- * once and nobody writes down; a welcome shown never is invisible by definition, because the only person who could
- * report it does not know it was meant to happen. Every other part of the moment - the frames, the blindness, the
- * cancel - is at least visible to somebody standing there.
- *
- * It <b>skips itself</b> when no Docker daemon is reachable, so a green build on a machine without Docker proves
- * none of it.
+ * "Once" is one {@code INSERT ... ON CONFLICT} whose second call affects no rows; skips itself without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WelcomeIsOnceIntegrationTest {

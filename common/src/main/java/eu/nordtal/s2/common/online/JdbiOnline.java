@@ -11,11 +11,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-/**
- * The only implementation of {@link OnlineDirectory}.
- *
- * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
- */
+/** The only implementation of {@link OnlineDirectory}; it borrows the pool it is given and owns nothing. */
 final class JdbiOnline implements OnlineDirectory {
 
     private final OnlineDao dao;

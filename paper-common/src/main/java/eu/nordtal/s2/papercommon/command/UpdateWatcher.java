@@ -11,18 +11,11 @@ import org.bukkit.scheduler.BukkitTask;
 /**
  * Follows an update request on a Paper server and prints its answer when it lands.
  *
- * Reaches the Paper console and nobody else: Velocity executes {@code /update} itself and never
- * hands it to a backend, so this is what a person at {@code docker exec ... mc} gets, while a
- * player typing it is answered by the proxy's own watcher instead.
- *
- * What is left of this class is a Bukkit timer. What to say, when a row is finished, gone or
- * overdue, and how much of a report fits are {@link UpdateFollower}'s, decided once in
- * {@code :commands} for every chat surface. This class needs a Bukkit scheduler, which is exactly
- * the rule for living here: code belongs in {@code :paper-common} only if it needs a Paper type.
+ * Only the Paper console reaches it; what to say is {@link UpdateFollower}'s, and this is its Bukkit timer.
  */
 public final class UpdateWatcher {
 
-    /** How often the answer row is re-read, in ticks. Two seconds; a person is waiting. */
+    /** How often the answer row is re-read, in ticks. */
     private static final long CHECK_TICKS = 40L;
 
     private final Plugin plugin;
@@ -33,7 +26,7 @@ public final class UpdateWatcher {
         this.updates = updates;
     }
 
-    /** The directory this watcher reads, so the commands write through the same pool. */
+    /** Returns the directory this watcher reads, so the commands write through the same pool. */
     public UpdateDirectory directory() {
         return updates;
     }
@@ -42,10 +35,7 @@ public final class UpdateWatcher {
      * Follows one request and prints its answer when it lands.
      *
      * @param id   the request to follow
-     * @param user who to print it to. Lines reach the user through {@link NordtalUser#reply} and
-     *             {@link NordtalUser#replyLiteral}, and {@link PaperUser} hops onto the server
-     *             thread for both - so the timer below may stay asynchronous, where a database read
-     *             belongs
+     * @param user who to print it to; {@link PaperUser} hops onto the server thread, so the timer stays async
      */
     public void watch(final long id, final NordtalUser user) {
         final UpdateFollower follower = UpdateFollower.of(id, updates::find, Instant.now());

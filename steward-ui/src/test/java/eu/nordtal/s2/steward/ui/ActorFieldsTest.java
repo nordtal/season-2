@@ -6,11 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * {@code requested_by} picked apart for the Runs table.
- *
- * Mirrors {@code ActionEntry.of(UpdateRequest)} on steward-worker's side rather than sharing it.
- */
+/** {@code requested_by} picked apart for the Runs table, mirroring steward-worker's {@code ActionEntry.of}. */
 class ActorFieldsTest {
 
     @Test
@@ -33,7 +29,7 @@ class ActorFieldsTest {
 
     @Test
     void aShortNumberInParenthesesIsNotMistakenForASnowflake() {
-        // Proof the regex needs 17 to 20 digits and does not reach for anything shorter.
+        // The regex needs 17 to 20 digits and reaches for nothing shorter.
         final ActorFields fields = ActorFields.of("Ally (1)");
 
         assertEquals("", fields.discordId());

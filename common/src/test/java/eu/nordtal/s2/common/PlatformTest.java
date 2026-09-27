@@ -14,10 +14,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds {@link Platform} and {@code gradle/libs.versions.toml} and the other mirrors to the same versions.
+ * Holds {@link Platform}, {@code gradle/libs.versions.toml} and the other mirrors to the same versions.
  *
- * The catalog is what modules compile against and {@link Platform} is what the worker installs. The mirrors
- * are declared through {@code repositoryRootTestInputs}, without which this test would stay up to date.
+ * The mirrors are declared through {@code repositoryRootTestInputs}, without which this test would stay up to date.
  */
 class PlatformTest {
 
@@ -30,7 +29,7 @@ class PlatformTest {
 
     @Test
     void minecraftIsTheVersionThePaperApiCoordinateIsBuiltFrom() {
-        // Only the part in front of `.build.` is a Minecraft version, and the only part Fill and Modrinth understand.
+        // Only the part before `.build.` is a Minecraft version, and the only part Fill and Modrinth understand.
         final String paper = version("paper");
         final int build = paper.indexOf(".build.");
         assertTrue(
@@ -74,7 +73,6 @@ class PlatformTest {
         return dot < 0 ? version : version.substring(0, dot);
     }
 
-    /** One {@code name = "value"} out of the catalog's {@code [versions]} table. */
     @Test
     void packFormatIsTheNumberTheShippedPackMcmetaCarries() throws IOException {
         // A client accepts an older pack format with only a warning, so drift would go unnoticed.
@@ -112,6 +110,7 @@ class PlatformTest {
                         + " so say so here rather than letting the two drift apart by accident.");
     }
 
+    /** Reads one {@code name = "value"} out of the catalog's {@code [versions]} table. */
     private static String version(final String key) {
         final Matcher matcher =
                 Pattern.compile("(?m)^" + key + "\\s*=\\s*\"([^\"]+)\"").matcher(catalog);

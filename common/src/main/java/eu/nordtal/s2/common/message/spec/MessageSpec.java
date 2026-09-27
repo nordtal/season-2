@@ -8,14 +8,8 @@ import java.lang.annotation.Target;
 
 /**
  * Marks the interface that describes one message bundle, {@code messages/<bundle>/}.
- *
- * A method returning {@link eu.nordtal.s2.common.message.MessageRef} is one key; a method
- * returning another interface is a section, and its segment prefixes every key inside it. A
- * segment is the method name in kebab case unless {@link Key} says otherwise, and every parameter
- * carries {@link Arg}. A parameter whose type is a {@link eu.nordtal.s2.common.message.context.MessageContext}
- * is a role: its {@code Arg} names the role, and the text reads the context's properties as
- * <code>{role.property}</code>. {@link MessageSpecCheck} holds a spec and its {@code en}/{@code de} files to
- * each other, key for key and placeholder for placeholder.
+ * A method returning {@link eu.nordtal.s2.common.message.MessageRef} is a key, one returning an interface a section,
+ * and a context parameter a role.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

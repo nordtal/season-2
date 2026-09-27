@@ -1,15 +1,7 @@
 /**
- * The browser's half of a WebAuthn ceremony.
+ * Converts a WebAuthn ceremony between the server's base64url JSON and the browser's `ArrayBuffer`s.
  *
- * The server speaks JSON with base64url strings in it, because that is what travels; the browser's
- * API speaks `ArrayBuffer`. This file is the conversion and nothing else - it makes no decisions,
- * and every sentence a person reads about a failure is composed by the caller.
- *
- * **Why not `PublicKeyCredential.parseCreationOptionsFromJSON`.** Browsers grew that method
- * exactly for this, and it would replace half of this file. It is also the one piece of a sign-in
- * that would then be untestable here: jsdom has no `PublicKeyCredential` at all, so a feature test
- * would either be skipped or mocked into meaninglessness, and the fallback path - the code below -
- * would be the part that actually runs and the part nothing covers. One path, written out, tested.
+ * It decides nothing. `parseCreationOptionsFromJSON` is avoided because jsdom has no `PublicKeyCredential`.
  */
 
 /** Whether this browser can do WebAuthn at all. An old browser is a sentence, not a crash. */
@@ -19,11 +11,7 @@ export function browserHasSecurityKeys(): boolean {
 
 export function fromBase64Url(value: string): Uint8Array {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/")
-  /**
-   * `atob` accepts an unpadded string - deleting the `"=".repeat(...)` below
-   * leaves the whole suite green. It is written out anyway, because "it happens to work
-   * without" is not the same as "it is correct", and the next reader should not have to re-measure.
-   */
+  /** `atob` accepts it unpadded, but the padding is written out as correct rather than lucky. */
   const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4))
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
@@ -33,11 +21,7 @@ export function fromBase64Url(value: string): Uint8Array {
 export function toBase64Url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   let binary = ""
-  /**
-   * Not `String.fromCharCode(...bytes)`: an attestation object is a few hundred bytes today and
-   * a spread of one of those is a few hundred arguments, which is fine - until somebody registers
-   * a key whose attestation carries a certificate chain and the call stack decides otherwise.
-   */
+  /** A loop, not a spread: a certificate chain would make the spread's argument list overflow the stack. */
   for (const byte of bytes) binary += String.fromCharCode(byte)
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
 }
@@ -45,9 +29,7 @@ export function toBase64Url(buffer: ArrayBuffer): string {
 /**
  * What `/auth/webauthn/register/start` answers, with its byte fields still base64url.
  *
- * Only the fields this file touches are named. Everything else - `rp`, `pubKeyCredParams`,
- * `authenticatorSelection`, `timeout`, `attestation` - is passed through untouched, because the
- * server decides them and a second opinion here would be a second place to change them.
+ * Only the fields this file touches are named; the rest passes through as the server decided.
  */
 export type CreationOptionsJson = {
   publicKey: Record<string, unknown> & {
@@ -58,11 +40,9 @@ export type CreationOptionsJson = {
 }
 
 /**
- * The subset of `PublicKeyCredential` this file actually reads, one per ceremony since the two
- * responses carry different fields.
+ * The parts of `PublicKeyCredential` this file reads, one type per ceremony.
  *
- * A real credential from the browser satisfies both structurally, so production code needs no cast
- * to either; a test fixture can build one as a plain object literal, for the same reason.
+ * A real credential satisfies both structurally, and a test can build one as a plain object.
  */
 export type AttestationCredentialLike = {
   type: string
@@ -91,14 +71,7 @@ export type AssertionCredentialLike = {
   getClientExtensionResults: () => Record<string, unknown>
 }
 
-/**
- * `CreationOptionsJson`'s `publicKey`, with its byte fields converted.
- *
- * `rp`, `pubKeyCredParams` and the rest of the server's fields pass through untyped - this file never
- * reads them, only the browser does - which is why the return type says so honestly instead of
- * claiming to be `PublicKeyCredentialCreationOptions`. That claim is made exactly once, at the one
- * place this crosses into the browser's own API.
- */
+/** `CreationOptionsJson`'s `publicKey` with its byte fields converted; the rest stays untyped. */
 export type ConvertedCreationOptions = Record<string, unknown> & {
   challenge: Uint8Array
   user: Record<string, unknown> & { id: Uint8Array }
@@ -122,10 +95,7 @@ export function toCreationOptions(answer: CreationOptionsJson): ConvertedCreatio
 /**
  * The credential as the server's library reads it.
  *
- * Written out by hand rather than with the browser's own `toJSON()`, for the same reason as above -
- * and because the two are not quite the same: `toJSON()` omits `transports`, which is what lets an
- * authentication dialog later say "hold it to the top of the phone" instead of offering every
- * method the browser has.
+ * Written by hand since `toJSON()` omits `transports`, which lets a later sign-in offer the right method.
  */
 export function fromCredential(credential: AttestationCredentialLike): string {
   const response = credential.response
@@ -150,9 +120,7 @@ export function fromCredential(credential: AttestationCredentialLike): string {
 /**
  * Holds the dialog open and hands back what the key said.
  *
- * Throws whatever the browser threw. The two worth telling apart are `NotAllowedError` - which is
- * "cancelled, or timed out", and the browser will not say which - and `InvalidStateError`, which
- * means this authenticator is already registered on this account. Neither is a fault.
+ * Throws what the browser threw: `NotAllowedError` is cancelled or timed out, `InvalidStateError` a known key.
  */
 export async function createSecurityKey(startAnswer: CreationOptionsJson): Promise<string> {
   const publicKey = toCreationOptions(startAnswer)
@@ -166,13 +134,7 @@ export async function createSecurityKey(startAnswer: CreationOptionsJson): Promi
   return fromCredential(credential)
 }
 
-/**
- * Whether {@link toCreationOptions} actually converted the fields it is responsible for.
- *
- * Not a full structural check of `PublicKeyCredentialCreationOptions` - `rp` and
- * `pubKeyCredParams` pass through untouched from the server and are trusted the way every other
- * untyped field here is - only the bytes this file itself builds are checked.
- */
+/** Whether {@link toCreationOptions} converted its byte fields; the rest is trusted as the server sent it. */
 function isCreationOptions(
   value: ConvertedCreationOptions,
 ): value is ConvertedCreationOptions & PublicKeyCredentialCreationOptions {
@@ -191,13 +153,7 @@ function isAttestationCredential(credential: Credential | null): credential is A
   )
 }
 
-/**
- * What went wrong, as a sentence rather than a DOMException name.
- *
- * A person who has just touched their key and seen nothing happen needs to know which of two very
- * different things occurred: their key refused, or this service did. The browser's own message is
- * usually empty and its `name` is jargon.
- */
+/** What went wrong as a sentence rather than a DOMException name: the key refused, or this service did. */
 export function whyTheKeyFailed(error: unknown): string {
   const name = error instanceof Error ? error.name : ""
   switch (name) {
@@ -230,9 +186,7 @@ export function whyTheKeyFailed(error: unknown): string {
 /**
  * What `/auth/webauthn/authenticate/start` answers, with its byte fields still base64url.
  *
- * The same shape as the registration options and a different set of fields, which is why it is a
- * second type rather than a widened one: `allowCredentials` is the account's own keys and is the
- * whole reason this sign-in is never usernameless.
+ * `allowCredentials` is the account's own keys, so this sign-in is never usernameless.
  */
 export type RequestOptionsJson = {
   publicKey: Record<string, unknown> & {
@@ -263,10 +217,7 @@ export function toRequestOptions(answer: RequestOptionsJson): ConvertedRequestOp
 /**
  * The assertion as the server's library reads it.
  *
- * `userHandle` is the one field that is genuinely optional on the wire: a non-discoverable
- * credential - which is every key this service registers, because `residentKey` is DISCOURAGED -
- * does not return one. Sending `null` and omitting it are different to a strict parser, so it is
- * omitted.
+ * `userHandle` is omitted when absent: keys here are not discoverable, and a strict parser rejects `null`.
  */
 export function fromAssertion(credential: AssertionCredentialLike): string {
   const response = credential.response
@@ -289,12 +240,7 @@ export function fromAssertion(credential: AssertionCredentialLike): string {
   return JSON.stringify(answer)
 }
 
-/**
- * Holds the dialog open and hands back the signature.
- *
- * Throws whatever the browser threw - see {@link whyTheKeyFailed}, which is shared with
- * registration because the two fail in the same ways and a person reads the same sentences.
- */
+/** Holds the dialog open and hands back the signature; throws what the browser threw. */
 export async function useSecurityKey(startAnswer: RequestOptionsJson): Promise<string> {
   const publicKey = toRequestOptions(startAnswer)
   if (!isRequestOptions(publicKey)) {
@@ -307,12 +253,7 @@ export async function useSecurityKey(startAnswer: RequestOptionsJson): Promise<s
   return fromAssertion(credential)
 }
 
-/**
- * Whether {@link toRequestOptions}'s answer carries what `navigator.credentials.get` requires.
- *
- * Not a full structural check of `PublicKeyCredentialRequestOptions` - only that the challenge
- * this file itself converted actually arrived as bytes; every other field passes through untyped.
- */
+/** Whether {@link toRequestOptions}'s challenge arrived as bytes; every other field passes through untyped. */
 function isRequestOptions(
   value: ConvertedRequestOptions,
 ): value is ConvertedRequestOptions & PublicKeyCredentialRequestOptions {

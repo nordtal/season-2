@@ -13,14 +13,7 @@ import org.bukkit.inventory.Inventory;
 /**
  * {@code SURFACE_OPEN} and {@code SURFACE_CLOSE} for every menu this plugin opens.
  *
- * One listener rather than a call beside each {@code openInventory}: "every GUI makes this sound" is then a property
- * of {@link Surface} instead of a habit ten call sites have to keep.
- *
- * It runs at {@code MONITOR} and cancels nothing - it only reacts to a surface that has actually opened or closed.
- *
- * <b>A player's own chest is not a surface.</b> The check is deliberately our marker interface and not "any
- * inventory", because on an SMP whose whole concept is bases and chests, chiming at every barrel would be the single
- * most irritating thing on the server.
+ * Only a {@link Surface} chimes, never a player's own chest, and it cancels nothing.
  */
 public final class SurfaceListener implements Listener {
 
@@ -28,8 +21,9 @@ public final class SurfaceListener implements Listener {
     private final Predicate<Inventory> alsoASurface;
 
     /**
-     * @param alsoASurface for the surfaces that cannot carry {@link Surface} - the grave inventory,
-     *                     which has a null holder and is recognised by identity in {@code Graves}
+     * Creates the listener.
+     *
+     * @param alsoASurface recognises the surfaces that cannot carry {@link Surface}, such as the grave inventory
      */
     public SurfaceListener(final SmpSounds sounds, final Predicate<Inventory> alsoASurface) {
         this.sounds = sounds;
@@ -43,16 +37,7 @@ public final class SurfaceListener implements Listener {
         }
     }
 
-    /**
-     * {@code LOWEST}, and it was load-bearing rather than tidy.
-     *
-     * {@code GraveListener} runs at the default priority and handed the close to {@code Graves#onClosed}, which forgot
-     * that inventory there and then; asking afterwards whether it had been a grave answered no, so this observer had to
-     * run first. Since the grave window became one window with several viewers it is forgotten a tick later instead,
-     * which makes the order stop mattering - the priority stays because a close sound that depends on nothing is
-     * cheaper
-     * to keep than to re-derive.
-     */
+    /** Plays the close sound before any other listener handles the close. */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onClose(final InventoryCloseEvent event) {
         if (event.getPlayer() instanceof Player player && isSurface(event.getInventory())) {

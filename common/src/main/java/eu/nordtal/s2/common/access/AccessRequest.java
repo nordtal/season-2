@@ -29,16 +29,10 @@ public record AccessRequest(
         @Nullable String result) {
 
     /**
-     * The argument as a number.
+     * Returns the argument parsed as a long.
      *
-     * The column is text because it holds days in one row and seconds in the next, and a numeric
-     * column that means two units is a column that means nothing. This is the one place that
-     * conversion happens, so a malformed argument is one failure rather than one per caller.
-     *
-     * @return the argument parsed as a long
-     * @throws IllegalStateException when there is no argument, or it is not a number - either is a
-     *                               row that should never have been written, and carrying on with a
-     *                               zero would grant nobody anything and look like it worked
+     * @throws IllegalStateException when there is no argument or it is not a number, rather than carrying on with a
+     *     zero
      */
     public long number() {
         if (argument == null || argument.isBlank()) {

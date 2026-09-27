@@ -29,36 +29,17 @@ import org.bukkit.plugin.Plugin;
 /**
  * The SMP's Brigadier trees: its own commands, plus everything another process runs.
  *
- * <b>What is left of this class</b>
- *
- * Almost nothing, and that is the point. It used to be three hundred lines holding a tree, an admin gate, a
- * confirmation window, five handlers and the decisions inside them - all of which existed only here, on one surface,
- * and none of which could be asserted without a running server. The decisions are in {@code :commands} now and the
- * tree-building is in {@code :paper-common}; what is left is the wiring that says which commands this server owns
- * and where the rest live.
- *
- * <b>Why the other backends' commands are registered here at all</b>
- *
- * So an admin standing on the SMP can run {@code /hg start} or {@code /limbo reload} without switching servers -
- * and, more to the point, so that an admin can reach a backend that is the reason they cannot get to it. Those
- * become {@code command_request} rows.
- *
- * {@code /phase} and {@code /network} are deliberately absent: Velocity answers a command it knows before the packet
- * reaches a backend, so both are already available here from the proxy's single registration. Registering copies
- * would shadow nothing and be shadowed by everything.
+ * {@code /phase} and {@code /network} are absent, since Velocity answers them before a backend sees them.
  */
 public final class SmpCommand {
 
     private SmpCommand() {}
 
     /**
-     * @param effects the chat instance - built with the plugin's async scheduler. The inbox gets a
-     *                second one built with {@code Runnable::run}; see {@link BukkitSmpEffects}
-     * @param track   a <b>supplier</b> of the current track, not the track. The command tree is
-     *                built once at enable and {@code /smp reload} replaces the plugin's track with
-     *                a new instance, so a captured one would go on suggesting the milestone keys
-     *                that were in the file at startup - offering keys that have been removed and
-     *                omitting the ones that were added, until a restart
+     * Builds the trees.
+     *
+     * @param effects the chat instance, on the plugin's async scheduler
+     * @param track a supplier of the current track, since {@code /smp reload} replaces it after the tree is built
      */
     public static List<LiteralCommandNode<CommandSourceStack>> build(
             final Plugin plugin,
@@ -98,12 +79,7 @@ public final class SmpCommand {
         return List.copyOf(roots);
     }
 
-    /**
-     * The two arguments a person cannot be expected to remember.
-     *
-     * Both sources are already in memory for the boards, so a keystroke costs a list walk rather than a query -
-     * which is the rule a suggestion source has to meet, because Brigadier asks once per keystroke per client.
-     */
+    /** Suggests milestone and objective keys from memory, since Brigadier asks once per keystroke per client. */
     private static void registerSuggestions(
             final PaperCommands commands,
             final java.util.function.Supplier<MilestoneTrack> track,
@@ -112,18 +88,13 @@ public final class SmpCommand {
         commands.suggest(
                 SmpCommands.COMPLETE_OBJECTIVE,
                 "key",
-                // The ACTIVE milestone's objectives; the whole track would suggest keys that are always refused.
+                // The active milestone's objectives only; any other key is always refused.
                 () -> season.active().objectives().stream()
                         .map(ObjectiveRow::key)
                         .toList());
     }
 
-    /**
-     * /update, declared once and served like any other command.
-     *
-     * Target.LOCAL, since the effect is a row in a table this plugin already has a pool for, and an update is what
-     * somebody asks for when the network is misbehaving.
-     */
+    /** Declares {@code /update}, locally, since its effect is a row this plugin already has a pool for. */
     private static void registerUpdateCommands(
             final PaperCommands commands, final Plugin plugin, final UpdateWatcher updates) {
         final UpdateEffects updateEffects = new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
@@ -137,11 +108,7 @@ public final class SmpCommand {
         }
     }
 
-    /**
-     * /aura and /smp status: what a player types here, native rather than declared - see {@link PlayerCommands}.
-     * status hangs under the declared /smp root as an open subtree, which is also what keeps that root in a player's
-     * tree now that everything else under it is the console's.
-     */
+    /** Registers {@code /aura} and {@code /smp status}, whose node keeps the {@code /smp} root in a player's tree. */
     private static PlayerCommands registerPlayerCommands(
             final PaperCommands commands,
             final BukkitSmpEffects effects,

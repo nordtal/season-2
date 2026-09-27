@@ -8,17 +8,11 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
-/**
- * {@code config/database.yml} - this plugin's own connection to the shared PostgreSQL database.
- *
- * A separate pool from every other process's - the bot's, the proxy's - even though all of them eventually point at
- * the same instance. This plugin never migrates anything: the schema is owned and applied by {@code discord-bot},
- * and this pool only reads and writes rows in tables that already exist.
- */
+/** {@code config/database.yml}: this plugin's own pool to the shared PostgreSQL database, which it never migrates. */
 @ConfigSpec(
         header = {
             "-------------------------------------------------------------------",
-            "  smp - PostgreSQL connection",
+            "  smp: PostgreSQL connection",
             "-------------------------------------------------------------------",
             "In production the password belongs in the environment, not in this",
             "file. Every setting can be overridden with",
@@ -73,15 +67,11 @@ public interface DatabaseSpec {
     @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
     @Comment({
-        "How long this plugin waits for the database before giving up - applied BOTH to",
-        "acquiring a connection from the pool and, through the PostgreSQL driver's own",
-        "socketTimeout, to a query that is already running. Without the second one a database",
-        "that accepts a connection and then hangs is not caught by the first at all.",
-        "",
-        "Kept short so a struggling database fails fast rather than queueing joins behind",
-        "itself."
+        "How long this plugin waits for the database before giving up. Applies BOTH to acquiring",
+        "a connection and, through the driver's socketTimeout, to a query already running.",
+        "Kept short so a struggling database fails fast rather than queueing joins behind itself."
     })
-    @Explain("Limits both waiting for a free connection and a query already running - not only the query.")
+    @Explain("Limits both waiting for a free connection and a query already running, not only the query.")
     default int queryTimeoutSeconds() {
         return 3;
     }

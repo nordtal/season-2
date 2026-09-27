@@ -23,8 +23,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * What a {@link MessageSpec} says about its bundle, as data, for steward-worker.
  *
- * Written into the jar as {@code messages/<bundle>/schema.json} at build time by {@link #main(String[])},
- * in the order of the English file.
+ * Written into the jar as {@code messages/<bundle>/schema.json} at build time, in the order of the English file.
  */
 public final class MessageSchema {
 
@@ -67,7 +66,7 @@ public final class MessageSchema {
             TextFormat format,
             Display shown) {}
 
-    /** @return the bundle a spec describes */
+    /** Returns the bundle a spec describes. */
     public static String bundle(final Class<?> spec) {
         final MessageSpec annotation = spec.getAnnotation(MessageSpec.class);
         if (annotation == null) {
@@ -76,7 +75,7 @@ public final class MessageSchema {
         return annotation.value();
     }
 
-    /** @return every key the spec declares, in the order of its English file */
+    /** Returns every key the spec declares, in the order of its English file. */
     public static List<Entry> entries(final Class<?> spec) {
         final List<Entry> entries = new ArrayList<>();
         final MessageSpec annotation = spec.getAnnotation(MessageSpec.class);
@@ -156,10 +155,7 @@ public final class MessageSchema {
         return method != null ? method.value() : type != null ? type.value() : outer;
     }
 
-    /**
-     * The context types a spec's messages name, plus those of the global roles: key to record.
-     * Read from the spec's parameters, so a type nothing uses is not written.
-     */
+    /** Returns the context types a spec's messages name, plus those of the global roles, by key. */
     static Map<String, Class<?>> contextTypes(final Class<?> spec) {
         final Map<String, Class<?>> types = new TreeMap<>();
         collect(spec, types, 0);
@@ -247,7 +243,7 @@ public final class MessageSchema {
         return line.length();
     }
 
-    /** @return the schema as the JSON steward-worker reads */
+    /** Returns the schema as the JSON steward-worker reads. */
     public static String json(final Class<?> spec) {
         final StringBuilder out = new StringBuilder(4096);
         out.append("{\n  \"bundle\": ").append(quote(bundle(spec))).append(",\n  \"messages\": [");
@@ -347,9 +343,7 @@ public final class MessageSchema {
     }
 
     /**
-     * Writes {@code <output directory>/messages/<bundle>/schema.json} for {@code <spec class> <output directory>}.
-     *
-     * Refuses a spec that {@link MessageSpecCheck} finds fault with.
+     * Writes {@code <output directory>/messages/<bundle>/schema.json}, refusing a spec {@link MessageSpecCheck} faults.
      */
     public static void main(final String[] args) throws Exception {
         if (args.length != 2) {

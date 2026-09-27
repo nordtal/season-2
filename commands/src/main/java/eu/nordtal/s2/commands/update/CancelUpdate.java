@@ -10,12 +10,9 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
 /**
- * {@code /update cancel} - stop the countdown, for as long as one is running.
+ * {@code /update cancel}: stops the countdown, for as long as one is running.
  *
- * "Too late" is an answer and not a failure.
- * The cancel races a steward-worker that may be claiming the very same row this millisecond, and the
- * statement behind it is guarded rather than read-then-written for exactly that reason. An empty
- * answer means the run has already begun - which is the sentence the asker needs, not an error.
+ * The statement is guarded against a racing steward-worker; an empty answer means the run already began.
  */
 public final class CancelUpdate implements NordtalCommand<UpdateEffects> {
 

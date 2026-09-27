@@ -11,25 +11,17 @@ import java.util.List;
 /**
  * Changes exactly two lines of the proxy's {@code pack.yml}: {@code url} and {@code sha1}.
  *
- * Editing two lines rather than loading the file through jcore avoids depending on {@code PackSpec}, which belongs
- * to {@code :proxy}, and keeps steward-worker unable to touch {@code enabled}, {@code force} or
- * {@code apply-timeout-seconds} by accident.
- *
- * A key missing from a file that exists is an error rather than something to append: appending would leave YAML the
- * proxy refuses at the worst moment. A file that is not there at all is created with just these two keys, because a
- * fresh volume is otherwise deadlocked - the proxy writes {@code pack.yml} on first start, and a proxy with no jar
- * in {@code plugins/} never starts. jcore normalises on load, so the proxy's first start fills in the rest.
- *
- * A file already carrying the wanted values is left untouched byte for byte, so a modification time still means the
- * worker changed something.
+ * A missing file is created with just those keys; a file missing a key is an error; an equal file stays untouched.
  */
 public final class PackWriter {
 
     private PackWriter() {}
 
     /**
-     * @return {@code true} if the file was written, {@code false} if it already said this.
-     * @throws IOException if the file is missing, or does not carry both keys exactly once.
+     * Writes the two values.
+     *
+     * @return {@code true} if the file was written, {@code false} if it already said this
+     * @throws IOException if the file does not carry both keys exactly once
      */
     public static boolean write(final Path packYml, final String url, final String sha1) throws IOException {
         if (!Files.isRegularFile(packYml)) {
@@ -63,7 +55,7 @@ public final class PackWriter {
             return false;
         }
 
-        // Atomic within the volume: written beside the file and renamed over it, so a crash leaves one whole file.
+        // Written beside the file and renamed over it, so a crash leaves one whole file.
         final Path temporary = packYml.resolveSibling(packYml.getFileName() + ".steward-worker-tmp");
         Files.write(temporary, written, StandardCharsets.UTF_8);
         try {
@@ -78,7 +70,7 @@ public final class PackWriter {
     /**
      * Writes a two-key {@code pack.yml} into a volume the proxy has never started against.
      *
-     * The proxy rewrites the header and adds the other three settings on its first load.
+     * The proxy adds the other settings on its first load.
      */
     private static boolean create(final Path packYml, final String url, final String sha1) throws IOException {
         Files.createDirectories(packYml.getParent());
@@ -94,11 +86,7 @@ public final class PackWriter {
         return true;
     }
 
-    /**
-     * A top-level key line: no indentation, so a {@code url:} nested under something else is not touched.
-     *
-     * {@code pack.yml} is flat, which is what makes this safe.
-     */
+    /** A top-level key line; nested keys are never touched, and {@code pack.yml} is flat. */
     private static boolean isKey(final String line, final String key) {
         return line.startsWith(key + ":")
                 && (line.length() == key.length() + 1 || line.charAt(key.length() + 1) == ' ');

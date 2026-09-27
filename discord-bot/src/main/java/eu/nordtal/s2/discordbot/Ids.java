@@ -1,23 +1,16 @@
 package eu.nordtal.s2.discordbot;
 
 /**
- * Every component id the bot listens for, in one place.
+ * Every component id the bot listens for, all prefixed {@code access:}.
  *
- * All of them are prefixed {@code access:} so a listener can tell at a glance whether an interaction is its
- * business, and so a second bot in the same guild cannot collide with these. One of them carries a value:
- * {@link #DAYS_SELECT} 's is a number of days rather than the name of a tier - the tiers come from configuration and
- * have no stable identity, but the number of days a user clicked on is exactly what has to be looked up again.
- *  The ids a command confirmation uses are not here. They are minted by {@code DiscordCommands} from the
- * command's own path and carry the prefix {@code nordtal:cmd:}, which is deliberately not {@code access:} - the two
- * sets are read by different listeners, and a shared prefix is how one of them would come to answer for the other.
- *
+ * Command confirmations use {@code nordtal:cmd:} ids from {@code DiscordCommands}, read by a different listener.
  */
 public final class Ids {
 
     /** The button on the managed contribution message. */
     public static final String BUY = "access:buy";
 
-    /** The select menu offering the tiers. Its values are day counts. */
+    /** The select menu offering the tiers; its values are day counts. */
     public static final String DAYS_SELECT = "access:days";
 
     /** Creates the bunq.me tab and shows the link. */
@@ -29,7 +22,7 @@ public final class Ids {
     /** Toggles the donation surcharge on the open request. */
     public static final String DONATION = "access:donation";
 
-    /** The button on the managed link message. Opens {@link #LINK_MODAL}. */
+    /** The button on the managed link message; opens {@link #LINK_MODAL}. */
     public static final String LINK = "access:link";
 
     /** The modal a code is typed into. */
@@ -38,14 +31,7 @@ public final class Ids {
     /** The text input inside {@link #LINK_MODAL} carrying the code itself. */
     public static final String LINK_CODE_INPUT = "access:link-code";
 
-    /**
-     * Asks steward-worker to install what {@code /update} just reported.
-     *
-     * Carries no value. Unlike the phase buttons there is nothing to remember between the command and the click: the
-     * request row the worker answers is written when the button is pressed, and "install whatever is newest right now"
-     * is what it means. A plan that has moved on since the report was rendered is a plan the report will show again -
-     * the worker resolves afresh.
-     */
+    /** Asks steward-worker to install whatever is newest when pressed; it carries no value. */
     public static final String UPDATE_INSTALL = "access:update-install";
 
     /** Asks for the restart, which starts the countdown rather than restarting anything. */

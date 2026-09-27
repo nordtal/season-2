@@ -8,17 +8,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
 /**
- * {@link AdminOperators.Ops} against the running server - the two Bukkit calls {@code :common}
- * cannot make itself, because it is compiled against no platform.
+ * {@link AdminOperators.Ops} against the running server, the two Bukkit calls {@code :common} cannot make.
  *
- * One class rather than one lambda per Paper plugin: {@code :common} deliberately knows no
- * platform, so anything the plugins do identically <em>with</em> a Paper type belongs here instead
- * of being duplicated in each plugin's own source tree.
- *
- * {@code getOfflinePlayer(UUID)} rather than {@code getPlayer(UUID)}: a de-op has to work for
- * somebody who has already left, which is exactly what the quit handler asks for, and
- * {@code getPlayer} answers {@code null} for them - the operator would otherwise survive the
- * session that granted it and wait in {@code ops.json} for the enable sweep to find it.
+ * Uses {@code getOfflinePlayer}, since the quit handler de-ops somebody who has already left.
  */
 public final class BukkitOps implements AdminOperators.Ops {
 
@@ -32,7 +24,7 @@ public final class BukkitOps implements AdminOperators.Ops {
         return Bukkit.getOperators().stream().map(OfflinePlayer::getUniqueId).collect(Collectors.toUnmodifiableSet());
     }
 
-    /** The applier every Paper plugin builds at enable, over the running server. */
+    /** Returns the applier every Paper plugin builds at enable. */
     public static AdminOperators create() {
         return new AdminOperators(new BukkitOps());
     }

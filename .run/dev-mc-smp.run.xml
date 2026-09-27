@@ -1,10 +1,8 @@
 <!--
   dev mc smp list
 
-  ONE console command, sent and answered - no attaching, no detaching.
-
-  THIS ONE IS A TEMPLATE AND `list` IS ONLY AN EXAMPLE. The shape is `mc <service> <command>`;
-  edit the program arguments, or copy this configuration, to send something else.
+  Sends one console command and prints the answer. A template: edit the program arguments,
+  `mc <service> <command>`, to send something else.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev mc smp list" type="Application" factoryName="Application" folderName="dev: console and database">

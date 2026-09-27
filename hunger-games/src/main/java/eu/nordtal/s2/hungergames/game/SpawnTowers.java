@@ -3,22 +3,14 @@ package eu.nordtal.s2.hungergames.game;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Procedural spawn tower positions.
- *
- * {@code count} points arranged in a circle around the centre at equal distance. Pure X/Z math, so
- * the caller builds the Location.
- */
+/** Spawn tower positions: {@code count} points evenly spaced on a circle, as X/Z pairs. */
 public final class SpawnTowers {
 
     private SpawnTowers() {}
 
     /**
-     * @param count      how many towers are needed; must be positive
-     * @param centreX    the circle's centre
-     * @param centreZ    the circle's centre
-     * @param radius     distance from the centre to each tower; must be positive
-     * @return {@code count} {@code [x, z]} pairs, evenly spaced starting at angle 0 (positive X axis)
+     * {@code count} {@code [x, z]} pairs, evenly spaced from angle 0 on the positive X axis.
+     *
      * @throws IllegalArgumentException if {@code count} or {@code radius} is not positive
      */
     public static List<double[]> positions(

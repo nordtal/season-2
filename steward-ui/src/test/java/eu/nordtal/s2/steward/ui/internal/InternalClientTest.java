@@ -20,9 +20,7 @@ import org.junit.jupiter.api.TestInstance;
 /**
  * The two decisions {@link InternalClient} makes before and after the wire.
  *
- * A real socket for the second half rather than testing {@code isNotSuccess} directly: what is
- * actually asserted is that the JDK's client, built the way this class builds it, hands a
- * {@code 307} back to be refused rather than following it.
+ * A real socket shows the JDK client, built as this class builds it, hands a {@code 307} back rather than following it.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class InternalClientTest {
@@ -132,7 +130,7 @@ class InternalClientTest {
 
     @Test
     void aRedirectIsNotASuccess() {
-        // If the client ever followed redirects, this would answer 200 or hang - louder than the old `>= 400` bug.
+        // A client that followed redirects would answer 200 or hang here.
         final InternalClient.Failure refused = assertThrows(InternalClient.Failure.class, () -> client.get("/api/307"));
 
         assertEquals(307, refused.status());

@@ -13,14 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * The "type it again" confirmation, driven by a settable clock rather than by sleeping.
- *
- * Every case here is about a way the mechanism could look like it works and not: confirming a
- * different command, confirming somebody else's, confirming twice, or confirming after the window
- * has passed. None of them is visible from the class's own source, and the command it guards is the
- * one that disconnects every player without access.
- */
+/** The "type it again" confirmation, driven by a settable clock rather than by sleeping. */
 class ConfirmationsTest {
 
     private Instant now = Instant.parse("2026-09-04T12:00:00Z");
@@ -54,7 +47,7 @@ class ConfirmationsTest {
 
     @Test
     void aConfirmationIsConsumedSoTheThirdInvocationAsksAgain() {
-        // Otherwise the window would be a period during which the command is unguarded rather than one confirmation.
+        // Otherwise the window would leave the command unguarded instead of covering one confirmation.
         confirmations.confirm(TILL, "/phase set SMP");
         assertTrue(confirmations.confirm(TILL, "/phase set SMP"));
         assertFalse(
@@ -64,7 +57,7 @@ class ConfirmationsTest {
 
     @Test
     void aPendingConfirmationConfirmsOnlyTheCommandItWasAskedAbout() {
-        // The case this exists for: /phase set MAINTENANCE lets only admins in.
+        // /phase set MAINTENANCE lets only admins in, so confirming SMP must not confirm it.
         assertFalse(confirmations.confirm(TILL, "/phase set MAINTENANCE"));
         assertFalse(
                 confirmations.confirm(TILL, "/phase set SMP"),
@@ -116,7 +109,7 @@ class ConfirmationsTest {
 
     @Test
     void consumeNeverArmsSoTheSecondStepOfATwoCommandFlowCannotArmItself() {
-        // The bug this method exists to make impossible: /hg start warns and /hg start confirm goes through.
+        // /hg start warns, and only /hg start confirm may go through.
         assertFalse(confirmations.consume(TILL, "/hg start"));
         assertFalse(
                 confirmations.consume(TILL, "/hg start"),

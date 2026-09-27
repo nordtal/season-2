@@ -4,8 +4,7 @@
 #   mc list
 #   mc "say the server restarts in 5 minutes"
 #
-# Output is not returned here - it goes to the console and therefore to `docker logs`. This is the
-# fallback for any environment where attaching an interactive session does not work.
+# The output goes to the console, so read it with `docker logs`.
 set -euo pipefail
 if [ "$#" -eq 0 ]; then
     echo "usage: mc <command...>" >&2

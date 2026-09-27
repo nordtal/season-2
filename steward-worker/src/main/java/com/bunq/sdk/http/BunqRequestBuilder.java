@@ -13,41 +13,9 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 
 /**
- * A patched copy of {@code com.bunq.sdk.http.BunqRequestBuilder}, from {@code com.github.bunq:sdk_java}.
+ * A patched copy of the bunq SDK's request builder, in the library's own package so it wins on the classpath.
  *
- * It sits in the library's own package so it wins on the classpath.
- *
- * Why it exists: JDA pulls OkHttp 5 and the bunq SDK is written against OkHttp 3. Two things broke, and both are in
- * this one class upstream:
- *
- * - {@code Request.Builder.delete()} - the no-argument overload - is {@code final} in OkHttp 5, and the SDK's
- * original class overrides exactly that method. That is a {@code VerifyError} at class load, not a compile error you
- * would notice.
- *
- * - {@code okhttp3.internal.Util} no longer exists, and the original used it.
- *
- * This version does not override {@code delete()} - it delegates to the superclass - and does not touch OkHttp
- * internals.
- *
- * Where it lives now, and what that changed: bunq lives in {@code steward-worker}, and there is no JDA here:
- * {@code :steward-worker:dependencies --configuration runtimeClasspath} resolves
- * {@code com.squareup.okhttp3:okhttp:3.14.9}, brought by the SDK itself and by nothing else. So the conflict this
- * class was written for does not exist in this module today.
- *
- * It is kept anyway, deliberately. It is compatible with both majors - every method it overrides is non-final and
- * identically shaped in 3.14.9 - so what it costs is a file and what it buys is that the module does not depend on
- * nothing ever putting OkHttp 5 on this classpath. A shim that only matters under a condition that is currently
- * false is still cheaper than the {@code VerifyError} at class load that its absence produced once.
- *
- * The one behavioural consequence, written down rather than discovered: on OkHttp 3 the inherited no-argument
- * {@code delete()} calls {@code delete(Util.EMPTY_REQUEST)}, whose body is not a {@link BunqRequestBody}, so
- * {@link #method(String, RequestBody)} below throws {@code BunqException}. Nothing in this repository reaches it -
- * {@code BunqGateway} makes exactly four kinds of call (create, get, list, update: POST, GET, PUT) and never a
- * DELETE - but a fifth one that did would fail here rather than at bunq.
- *
- * Rules: Do not delete this file. Re-check it against the SDK's own sources on any bunq SDK or OkHttp bump: it is a
- * copy, so a fix upstream does not reach us, and a change upstream that we do not mirror silently reverts to old
- * behaviour.
+ * It leaves the final {@code delete()} of OkHttp 5 alone; re-check it on every SDK or OkHttp bump.
  */
 @Getter
 @Setter
@@ -151,7 +119,7 @@ public class BunqRequestBuilder extends Request.Builder {
         return (BunqRequestBuilder) super.delete(body);
     }
 
-    // delete() with no parameters is final in OkHttp 5; callers fall back to super, which passes a null body.
+    // delete() is final in OkHttp 5; callers fall back to super, which passes a null body.
 
     @Override
     public BunqRequestBuilder put(final RequestBody body) {

@@ -12,11 +12,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Every browser's Web Push subscription - one row per endpoint, in {@code steward_push_subscription}.
- *
- * Rows only, no protocol - the VAPID and aes128gcm envelope work lives in {@code WebPushSender}.
- */
+/** Every browser's Web Push subscription, one row per endpoint in {@code steward_push_subscription}. */
 public final class PushSubscriptions {
 
     private static final Logger log = LoggerFactory.getLogger(PushSubscriptions.class);
@@ -36,12 +32,7 @@ public final class PushSubscriptions {
         subscribe(discordId, endpoint, p256dh, auth, null);
     }
 
-    /**
-     * The same, told what the subscribing request said about itself.
-     *
-     * The User-Agent is turned into a name here; the raw string is never stored. A request
-     * without one leaves the column null.
-     */
+    /** Records a subscription, naming the browser from its User-Agent; the raw string is never stored. */
     public void subscribe(
             final String discordId,
             final String endpoint,
@@ -55,12 +46,12 @@ public final class PushSubscriptions {
                 dao.forAccount(discordId).size());
     }
 
-    /** Every subscription there is, for {@link AlertWatch} - whose account it is does not matter. */
+    /** Every subscription there is, for {@link AlertWatch}. */
     public List<Subscription> all() {
         return dao.all();
     }
 
-    /** One account's own subscriptions, oldest first - the notifications dialog's own list. */
+    /** One account's own subscriptions, oldest first. */
     public List<Subscription> of(final String discordId) {
         return dao.forAccount(discordId);
     }
@@ -71,7 +62,7 @@ public final class PushSubscriptions {
     }
 
     /**
-     * Removes one subscription of one account - the settings page's own unsubscribe.
+     * Removes one subscription of one account, the settings page's unsubscribe.
      *
      * @return whether a subscription of that endpoint was on that account
      */
@@ -79,7 +70,7 @@ public final class PushSubscriptions {
         return dao.remove(endpoint, discordId) == 1;
     }
 
-    /** Removes one subscription outright because its push service just said 404 or 410; no account check. */
+    /** Removes a subscription whose push service just said 404 or 410; no account check. */
     public void expired(final String endpoint) {
         if (dao.expired(endpoint) == 1) {
             log.info("a push subscription answered 404/410 and was removed: {}", endpoint);

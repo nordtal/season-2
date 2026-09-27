@@ -21,12 +21,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
 
-/**
- * The HTTP and database helpers every steward-ui integration test drives the fixture through.
- *
- * Signing in, holding the key, journal lookups and the raw request methods - the vocabulary the
- * feature-specific test classes are written in, so a test method reads as what it asks and asserts.
- */
+/** The HTTP and database helpers every steward-ui integration test drives the fixture through. */
 abstract class StewardUiTestSupport extends StewardUiFixture {
 
     @BeforeAll
@@ -56,14 +51,14 @@ abstract class StewardUiTestSupport extends StewardUiFixture {
         }
     }
 
-    /** The newest journal row of this action: written by that id, and naming the person in its detail. */
+    /** The newest journal row of this action, written by that id and naming the person in its detail. */
     static void journalledBy(final String id, final String action, final String name) throws Exception {
         final JsonObject row = newestJournalRow(action);
         assertEquals(
                 id,
                 row.get("actor").getAsString(),
                 action + " was journalled as something other than the bare Discord id: " + row);
-        // The name is not lost, it moved: `detail` is `text` and has room for it.
+        // The name moved to `detail`, which is `text` and has room for it.
         assertTrue(
                 row.get("detail").getAsString().contains(name),
                 action + " lost the name entirely instead of moving it into the detail: " + row);
@@ -94,14 +89,7 @@ abstract class StewardUiTestSupport extends StewardUiFixture {
         return post(browser, "/auth/webauthn/authenticate/finish", GSON.toJson(envelope));
     }
 
-    /**
-     * Moves this browser's key ceremony back out of the five-minute window.
-     *
-     * A column and not a clock. The alternative - waiting - would put five minutes into every
-     * run of this suite, and injecting a clock into the service would mean the thing under test is
-     * not the thing that is deployed. The row is what the service reads, so the row is what is
-     * moved.
-     */
+    /** Moves this browser's key ceremony back out of the five-minute window, by the row rather than a clock. */
     static void heldLongAgo(final HttpClient browser) throws Exception {
         final String csrf = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
                 .get("csrf")
@@ -135,7 +123,7 @@ abstract class StewardUiTestSupport extends StewardUiFixture {
                 HttpResponse.BodyHandlers.ofString());
     }
 
-    /** The whole registration, driven the way the browser drives it. Nothing is stood in for. */
+    /** The whole registration, driven the way the browser drives it. */
     static void registerAKey(final HttpClient browser, final TestAuthenticator key, final String label)
             throws Exception {
         final HttpResponse<String> started = post(browser, "/auth/webauthn/register/start", "");
@@ -144,14 +132,7 @@ abstract class StewardUiTestSupport extends StewardUiFixture {
         assertEquals(200, finished.statusCode(), finished.body());
     }
 
-    /**
-     * The finish, with the credential carried as a STRING inside the envelope.
-     *
-     * That is the shape the route takes and it is not an accident: the envelope is this
-     * service's JSON and Gson parses it, the credential is the library's JSON and only the library
-     * may parse it. Written out here rather than hidden, because a test that quietly nested the
-     * object would be testing a route that does not exist.
-     */
+    /** The finish, with the credential as a string inside the envelope, since only the library may parse it. */
     static HttpResponse<String> finishRegistration(
             final HttpClient browser, final String credential, final String label) throws Exception {
         final JsonObject envelope = new JsonObject();
@@ -160,18 +141,15 @@ abstract class StewardUiTestSupport extends StewardUiFixture {
         return post(browser, "/auth/webauthn/register/finish", GSON.toJson(envelope));
     }
 
-    /** One browser: its own cookie jar, and no following of redirects - a test reads them. */
+    /** One browser: its own cookie jar, and no following of redirects, which a test reads. */
     static HttpClient browser() {
         return HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
     }
 
     /**
-     * The whole sign-in, driven the way a browser drives it. Nothing here is stood in for.
+     * The whole sign-in, driven the way a browser drives it, for an account made an admin first.
      *
-     * Only an admin gets in, and the first sign-in of the class - {@code "1"}, in
-     * {@link #start()} - claims the root of the empty tree. Any other account a test signs in as
-     * is made an admin below it first, by SQL rather than {@link AdminTree#grant}: the grant is
-     * limited to three an hour, and this class signs in more accounts than that.
+     * The first sign-in claims the root; others are made admins by SQL, since a grant is limited to three an hour.
      */
     static void signIn(final HttpClient browser) throws Exception {
         if (!"1".equals(memberId.get())) {
@@ -221,13 +199,9 @@ abstract class StewardUiTestSupport extends StewardUiFixture {
     }
 
     /**
-     * Stops the interface and starts a new one against the same database.
+     * Stops the interface and starts a new one against the same database, sharing nothing but the rows.
      *
-     * As close to {@code docker restart steward-ui} as a test in one JVM gets: a new
-     * {@code StewardUi}, a new {@code Data} and therefore a new connection pool, sharing nothing
-     * with the old one but the rows. {@code Data} is deliberately NOT closed - {@code http} and
-     * every other test in this class still hold sessions in the old one, and closing a Hikari pool
-     * out from under them would fail the next test rather than this one.
+     * The old {@code Data} stays open, since other tests still hold sessions in its pool.
      */
     static void restartTheInterface() throws Exception {
         ui.stop();

@@ -13,16 +13,9 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Turns a loaded {@link MilestonesSpec} into a {@link MilestoneTrack}.
+ * Turns a loaded {@link MilestonesSpec} into a {@link MilestoneTrack} of plain records the engine can test.
  *
- * The seam between the config system and the engine, and it exists so the engine never sees a jcore proxy:
- * {@code milestone} is a package of plain records with no annotations on them, which is what makes the validation
- * and the payout testable without writing a YAML file first.
- *
- * Two kinds of failure meet here and are deliberately kept apart. An unreadable enum - a {@code type} of
- * {@code HANDIN}, an {@code unlocks} of {@code BOARDER} - is a <b>parse</b> problem and is reported with the value
- * that was written, because "HANDIN is not one of HAND_IN, STATISTIC, ADVANCEMENT" is a sentence somebody can act
- * on. Everything else - a missing item list, two participation gates, a duplicate key - is {@link TrackShape} 's.
+ * An unreadable enum is reported here with the value written; every other shape problem is {@link TrackShape}'s.
  */
 public final class Milestones {
 
@@ -31,7 +24,7 @@ public final class Milestones {
     /**
      * The outcome of reading the file.
      *
-     * @param track    the track, or {@code null} when it could not be parsed at all
+     * @param track the track, or {@code null} when it could not be parsed at all
      * @param problems everything wrong with it; empty means {@code track} is usable
      */
     public record Result(@Nullable MilestoneTrack track, List<TrackValidation.Problem> problems) {
@@ -40,21 +33,18 @@ public final class Milestones {
             problems = List.copyOf(Objects.requireNonNull(problems, "problems"));
         }
 
-        /** @return whether the file is a usable track */
+        /** Returns whether the file is a usable track. */
         public boolean ok() {
             return track != null && problems.isEmpty();
         }
 
-        /** @return the problems as one message, one per line, for a log or a command reply */
+        /** Returns the problems as one message, one per line. */
         public String describe() {
             return String.join("\n", problems.stream().map(Object::toString).toList());
         }
     }
 
-    /**
-     * @param spec the loaded {@code milestones.yml}
-     * @return the track and everything wrong with it
-     */
+    /** Reads the track from {@code milestones.yml}, and everything wrong with it. */
     public static Result read(final MilestonesSpec spec) {
         Objects.requireNonNull(spec, "spec");
 
@@ -128,7 +118,7 @@ public final class Milestones {
         try {
             return new MilestoneTrack(milestones);
         } catch (final IllegalArgumentException duplicateKey) {
-            // TrackShape already reported the duplicate; this only keeps the exception from escaping read().
+            // Only keeps the exception from escaping; {@link TrackShape} already reported the duplicate.
             problems.add(new TrackValidation.Problem(
                     null,
                     null,

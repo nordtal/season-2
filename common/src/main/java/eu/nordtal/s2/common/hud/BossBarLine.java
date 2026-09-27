@@ -11,30 +11,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * One HUD line: a row of pills, each drawn as wide as what it holds, in {@code nordtal:bossbar}.
  *
- * <b>What a pill is</b>
- *
- * A rounded, dark, translucent background sized to its content, with a lighter rim - one per
- * piece of information, separated by a gap, in the manner of Origin Realms. The SMP's status line
- * is {@code [icon world] [milestone 42 %]}; the hunger games'
- * players line is {@code [icon 3 alive · 2 dead ↗]}. A bearing arrow rides inside the pill of the
- * text it belongs to, not in one of its own.
- *
- * <b>How one is drawn</b>
- *
- * The background first ({@link BossBarWidth#pill}), which leaves the cursor at the pill's right
- * edge; then the cursor walks back to the content column, draws the content, and walks forward
- * to the right edge again. That is only possible because every advance in this font is known
- * ({@link BossBarAdvances}) - the client centres a boss bar name by its total width, and a line
- * whose total width is exact is a line that sits where it should.
- *
- * <b>The component</b>
- *
- * The whole line is <b>one</b> text component naming {@link Glyphs#FONT_BOSSBAR}: the font carries
- * its own ascii sheet, so the readable text is drawn by it too rather than falling out of the
- * styling. And it carries <b>no shadow</b>: the client draws every glyph a second time one pixel
- * down and right, and on a background composed of tiles butted against each other that second
- * copy bleeds out of each tile into the next. The readable text loses its shadow with it, which is
- * the deliberate trade for keeping the line un-split.
+ * The whole line is one shadowless component, since a shadow bleeds between background tiles.
  */
 public final class BossBarLine {
 
@@ -44,7 +21,7 @@ public final class BossBarLine {
     /** Pixels between two pills. */
     public static final int GAP = 4;
 
-    /** Between an icon and the text after it - the ordinary space, which this font draws 3 wide. */
+    /** Between an icon and the text after it: the ordinary space, which this font draws 3 wide. */
     public static final String ICON_GAP = Glyphs.BOSSBAR_SPACE_PLUS_3;
 
     private BossBarLine() {}
@@ -78,12 +55,12 @@ public final class BossBarLine {
         }
     }
 
-    /** @return the line as the component a {@code BossBar#name} takes */
+    /** Returns the line as the component a {@code BossBar#name} takes. */
     public static Component render(final List<Pill> pills) {
         return Component.text(compose(pills)).font(Key.key(Glyphs.FONT_BOSSBAR)).shadowColor(ShadowColor.none());
     }
 
-    /** The same, as the raw glyph string - for a test to walk with a cursor. */
+    /** Returns the same as the raw glyph string, for a test to walk with a cursor. */
     public static String compose(final List<Pill> pills) {
         final StringBuilder out = new StringBuilder();
         for (int index = 0; index < pills.size(); index++) {
@@ -105,12 +82,7 @@ public final class BossBarLine {
         return out.toString();
     }
 
-    /**
-     * Moves the cursor {@code pixels} to the left, out of the font's eight negative advances.
-     *
-     * Unlike {@code MenuTitle.shift} this repeats the largest advance rather than refusing past
-     * 255, because a pill is as wide as a translated milestone name and nothing bounds that.
-     */
+    /** Moves the cursor {@code pixels} to the left, repeating the largest advance past 255. */
     public static String left(final int pixels) {
         return shift(pixels, LEFT_WIDTHS, LEFT_GLYPHS);
     }

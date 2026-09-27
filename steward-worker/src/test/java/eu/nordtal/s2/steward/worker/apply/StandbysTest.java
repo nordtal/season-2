@@ -16,9 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * What a standby's {@code plugins/} holds after a run.
  *
- * The thing being protected is not "files were copied" - it is that a replacement instance comes up on the same jars
- * and the same {@code pack.yml} as the service it replaces. Every case here is one way that can stop being true
- * without anything saying so.
+ * A replacement must come up on the same jars and the same {@code pack.yml} as the service it replaces.
  */
 class StandbysTest {
 

@@ -13,12 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * {@link ActionsApi#recent(int)} merges two tables into one sorted list.
- *
- * That merge is the whole reason this class exists rather than the frontend combining {@code /api/journal} with a
- * second call of its own.
- */
+/** {@link ActionsApi#recent(int)} merges two tables into one sorted list. */
 class ActionsApiTest {
 
     private static UpdateRequest run(final long id, final Instant finished, final UpdateKind kind) {

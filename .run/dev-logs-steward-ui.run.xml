@@ -1,8 +1,7 @@
 <!--
   dev logs steward-ui
 
-  Only running once `dev ui` has named it - it is behind the `steward` profile, which the local
-  COMPOSE_PROFILES does not select.
+  Follows steward-ui, which runs only under `dev ui`.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev logs steward-ui" type="Application" factoryName="Application" folderName="dev: logs">

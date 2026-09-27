@@ -1,9 +1,8 @@
 <!--
   dev init
 
-  Writes deploy/dev.env: generates the four secrets, then ASKS - the EULA, the address the
-  interface will be opened on, and five skippable Discord ids. Answer in the Run window; a secret
-  typed there is visible, because only a real terminal can hide it.
+  Writes deploy/dev.env: generates the secrets, then asks for the EULA, the interface address and the
+  optional Discord ids. A secret typed in the Run window is visible.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev init" type="Application" factoryName="Application" folderName="dev: stack">

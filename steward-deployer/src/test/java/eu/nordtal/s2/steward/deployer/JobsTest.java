@@ -29,7 +29,7 @@ class JobsTest {
         final List<String> seen = new CopyOnWriteArrayList<>();
         job.follow(seen::add);
 
-        // Everything, in order, including the closing line, so a reconnect never sees a run appear to begin mid-way.
+        // Everything in order, closing line included.
         assertEquals("Pulling smp", seen.get(0));
         assertEquals("Container nordtal-s2-smp-1  Started", seen.get(1));
         assertTrue(seen.get(2).startsWith("--- DONE"), seen.get(2));
@@ -87,7 +87,7 @@ class JobsTest {
 
         job.follow(line -> {
             seen.add(line);
-            // Give the deployment a chance to write its next line before this listener is registered.
+            // Give the deployment a chance to write before this listener registers.
             replaying.countDown();
             sleep(150);
         });
@@ -114,11 +114,11 @@ class JobsTest {
         }
         final Jobs.Job refused = jobs.start("deploy", List.of(), blocked);
 
-        // Assert before releasing: the moment the first job returns, the queued ones stop waiting.
+        // Assert before releasing: once the first job returns, the queued ones stop waiting.
         assertTrue(
                 waiting.stream().allMatch(job -> job.state() == Jobs.State.RUNNING),
                 "five waiting deployments is not too many");
-        // Not silently dropped and not queued behind the others: a job the caller can read.
+        // A refusal the caller can read, not a silent drop.
         assertEquals(Jobs.State.FAILED, refused.state());
         assertTrue(
                 refused.lines().stream().anyMatch(line -> line.contains("refused")),

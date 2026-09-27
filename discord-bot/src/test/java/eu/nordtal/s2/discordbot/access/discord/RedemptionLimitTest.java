@@ -16,12 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-/**
- * The cap that makes a four-character link code safe, against a clock that can be moved.
- *
- * Everything here is the arithmetic of a sliding window. What it protects is stated in {@code LinkCodes}: 923 521
- * possibilities, and this is the only thing between them and somebody with a modal.
- */
+/** The sliding-window cap that makes a four-character link code safe, against a movable clock. */
 class RedemptionLimitTest {
 
     private static final String SOMEBODY = "111111111111111111";
@@ -72,7 +67,7 @@ class RedemptionLimitTest {
 
     @Test
     void anAttemptThatWasNotAWrongGuessIsGivenBack() {
-        // Right code, real code on an already-linked account, or a throwing database - none is evidence of guessing.
+        // Right code, a linked account or a throwing database: none is evidence of guessing.
         final RedemptionLimit limit = new RedemptionLimit(2, new Movable());
 
         limit.acquire(SOMEBODY);
@@ -85,7 +80,7 @@ class RedemptionLimitTest {
 
     @Test
     void releasingWithNothingRecordedIsHarmless() {
-        // The normal path after a successful redemption: clear() already emptied the account, and finally still runs.
+        // After a successful redemption clear() already emptied the account, and finally still runs.
         final RedemptionLimit limit = new RedemptionLimit(1, new Movable());
 
         limit.release(SOMEBODY);
@@ -95,7 +90,7 @@ class RedemptionLimitTest {
 
     @Test
     void concurrentModalsCannotGetMoreAttemptsThanTheCap() throws Exception {
-        // The bot hands interactions to a pool of four workers, so a racing check-then-record really can happen.
+        // Interactions run on a pool of four workers, so check-then-record can race.
         final int cap = 5;
         final int threads = 32;
         final RedemptionLimit limit = new RedemptionLimit(cap, new Movable());
@@ -137,10 +132,8 @@ class RedemptionLimitTest {
         limit.acquire(SOMEBODY);
         assertEquals(-1, limit.acquire(SOMEBODY));
 
-        // Just past an hour after the first one, and only the first one has aged out.
         clock.advance(Duration.ofMinutes(30).plusSeconds(1));
 
-        // The second is still inside the window, so one more attempt closes the door again.
         assertEquals(0, limit.acquire(SOMEBODY));
         assertEquals(-1, limit.acquire(SOMEBODY));
     }
@@ -157,7 +150,6 @@ class RedemptionLimitTest {
 
     @Test
     void redeemingARealCodeForgetsTheStrikes() {
-        // Somebody who has just proved they hold a real code is not the case this defends against.
         final RedemptionLimit limit = new RedemptionLimit(2, new Movable());
         limit.acquire(SOMEBODY);
         limit.acquire(SOMEBODY);

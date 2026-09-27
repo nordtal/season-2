@@ -1,7 +1,7 @@
 <!--
   dev logs limbo
 
-  Follows one service. Stopping it stops following and nothing else.
+  Follows one service. Stopping it only stops following.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev logs limbo" type="Application" factoryName="Application" folderName="dev: logs">

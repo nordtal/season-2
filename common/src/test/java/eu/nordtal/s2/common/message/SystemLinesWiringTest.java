@@ -22,26 +22,9 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * That both Paper servers with players on them actually write the five system lines.
+ * Checks that both Paper servers with players on them build {@code SystemLines} and register it.
  *
- * <b>The failure this exists for, which lasted the whole of the build</b>
- *
- * {@code SystemLines} was written for {@code smp} and lived in {@code smp}, so the hunger games -
- * the season's flagship event, the one every player on the network attends at the same moment - had
- * vanilla chat, vanilla join and leave and vanilla death messages: yellow, in the server's language
- * rather than the reader's, with no flag on anybody (finding 149). Nothing could see it. Both
- * modules compiled, both had complete bundles, both had green tests, and the difference was one
- * class one of them did not construct.
- *
- * That is exactly the shape {@code AdminWatchWiringTest} was written for and for the same
- * reason: a mechanism that exists, is tested, and has no caller looks identical to one that works.
- * So this is a text search over the two plugins' main classes, like that one.
- *
- * <b>What it deliberately does not check</b>
- *
- * That the lines look right. Nothing in a JVM with no server in it can: a chat renderer is called by
- * Paper per recipient, a death message is a component off a packet, and an icon is a code point in a
- * font. What a rehearsal has to answer is in the report and in the owner's checklist.
+ * A text search over the plugins' main classes, since a mechanism with no caller looks identical to one that works.
  */
 class SystemLinesWiringTest {
 
@@ -49,13 +32,7 @@ class SystemLinesWiringTest {
     private static final Pattern REGISTERS_SYSTEM_LINES =
             Pattern.compile("registerEvents\\((?:\\w+\\.)?systemLines\\b");
 
-    /**
-     * The two servers a player stands on and talks on, and the class each has to build.
-     *
-     * {@code limbo} is deliberately not here: nobody speaks there, everybody is hidden from
-     * everybody else, and the whole interface is one title on a black screen. A join line in the
-     * waiting room would be a line about a player nobody can see, addressed to nobody.
-     */
+    /** The servers a player talks on, and the class each builds; limbo is absent, as nobody there is visible. */
     private static final List<String> PLUGINS = List.of(
             "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java");
@@ -66,10 +43,10 @@ class SystemLinesWiringTest {
     private static final List<String> KEYS =
             List.of("system.chat.line", "system.join", "system.leave", "system.death", "system.advancement");
 
-    /** {@code {name}} - a value substituted before the MiniMessage is parsed, and escaped. */
+    /** {@code {name}}: a value substituted before the MiniMessage is parsed, and escaped. */
     private static final Pattern PARAMETER = Pattern.compile("\\{([a-zA-Z][a-zA-Z0-9]*)}");
 
-    /** {@code <_name>} - a slot for something that is already a component. */
+    /** {@code <_name>}: a slot for something that is already a component. */
     private static final Pattern SLOT = Pattern.compile("<(_[a-zA-Z][a-zA-Z0-9]*)>");
 
     @Test

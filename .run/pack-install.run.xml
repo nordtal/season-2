@@ -1,9 +1,8 @@
 <!--
   gradlew :resource-pack:installPack
 
-  Checks the pack's images, then copies resource-pack/src into the chosen instance as the folder
-  pack nordtal-dev, replacing what was there, and enables it in options.txt while the game is
-  closed. Press F3+T in the game afterwards.
+  Checks the pack's images, copies resource-pack/src into the chosen instance as nordtal-dev and
+  enables it while the game is closed. Press F3+T in the game afterwards.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="pack: 2. install into Minecraft" type="GradleRunConfiguration" factoryName="Gradle" folderName="resource pack">

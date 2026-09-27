@@ -35,20 +35,9 @@ import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/
 import { StatusBadge } from "@/components/steward/status"
 
 /**
- * The plugins on one Minecraft server, in three lists, and the Modrinth search that adds one.
+ * The plugins on one Minecraft server in three lists by origin, and the Modrinth search that adds one.
  *
- * **The groups are where a plugin comes from**, because that decides what can be done to it: a
- * Nordtal jar is built by this repository, a preinstalled one is given by the network, and only an
- * added one has a row somebody can delete. The trash button follows from the group, not from a
- * second rule.
- *
- * **A plugin is running or not installed, and the badge is the difference.** Installing writes the
- * row and the next update run that can fetch the jar brings it; a plugin the network gives that is
- * not on the disk is the same case from the other side. The worker lists both, and the badge says
- * "No 26.2 build" instead when the update check finds nothing to install.
- *
- * **Check for updates writes nothing.** It asks every source again and shows the answer on the rows;
- * installing it is an update run, which is the Update button in the header.
+ * Only an added plugin can be removed. Check for updates writes nothing; installing is an update run.
  */
 export function ServicePlugins({ service }: { service: string }) {
   const plugins = usePlugins(service)
@@ -56,11 +45,7 @@ export function ServicePlugins({ service }: { service: string }) {
   const refresh = useRefreshAvailable()
   const [adding, setAdding] = useState(false)
 
-  /**
-   * A service with no plugins folder - the bot, postgres, caddy - answers 404, and the honest
-   * thing to draw for it is nothing at all. The worker owns that judgement (it is Topology), so
-   * this asks rather than keeping a second list of which services have plugins.
-   */
+  /** A service with no plugins folder answers 404 and draws nothing; the worker decides which have one. */
   if (plugins.error instanceof ApiError && plugins.error.status === 404) return null
 
   // Unknown is not "up to date": when the reading failed, no row says anything about updates.
@@ -122,8 +107,7 @@ export function ServicePlugins({ service }: { service: string }) {
       </QueryState>
 
       <ResponsiveDialog open={adding} onOpenChange={setAdding}>
-        {/* The search stays put and only the results scroll, flush to the dialog's edge with the
-            padding inside, so the bar sits on the border rather than against the rows. */}
+        {/* The search stays put and only the results scroll, flush to the dialog's edge. */}
         <ResponsiveDialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg" data-testid="add-plugin">
           <ResponsiveDialogHeader className="px-4 pt-4 pb-3">
             <ResponsiveDialogTitle>Add plugin</ResponsiveDialogTitle>
@@ -135,8 +119,6 @@ export function ServicePlugins({ service }: { service: string }) {
     </div>
   )
 }
-
-// --- what is on the server
 
 type Group = NonNullable<ServicePlugin["group"]>
 
@@ -151,14 +133,12 @@ const GROUP_TITLES: Record<Group, string> = {
 /** Three absent rows: the count an ordinary Paper service here settles at. */
 const WAITING_PLUGINS = [undefined, undefined, undefined]
 
-/**
- * The plugins in their three lists, empty ones left out. Each is alphabetical, except that a
- * Nordtal plugin the worker ranks comes first in its rank's order.
- */
+/** Sort key within a list: a Nordtal plugin the worker ranks comes first, in rank order. */
 function rank(plugin: ServicePlugin): number {
   return plugin.rank ?? Number.MAX_SAFE_INTEGER
 }
 
+/** The plugins in their three lists, empty ones left out; each alphabetical after the ranked ones. */
 export function groupPlugins(plugins: ServicePlugin[]): [Group, ServicePlugin[]][] {
   return GROUP_ORDER.map((group): [Group, ServicePlugin[]] => [
     group,
@@ -168,10 +148,7 @@ export function groupPlugins(plugins: ServicePlugin[]): [Group, ServicePlugin[]]
   ]).filter(([, rows]) => rows.length > 0)
 }
 
-/**
- * The badge on a plugin that is not on the disk: no build for this Minecraft version when the update
- * check says nothing resolves, and otherwise simply that it is not installed.
- */
+/** The badge on a plugin not on the disk: no build for this version, or simply not installed. */
 export function absence(
   service: string,
   plugin: ServicePlugin,
@@ -193,11 +170,7 @@ export function versionOf(fileName?: string): string | undefined {
 
 export type PluginStatus = { tone: "idle" | "warn"; text: string }
 
-/**
- * What the update check says about one running plugin, or nothing. Nothing is also the answer when
- * the check has not answered, and when it could not tell - a plugin it does not track is not "up to
- * date", it is simply not something this line talks about.
- */
+/** What the update check says about one running plugin, or nothing when it has no answer for it. */
 export function pluginStatus(
   service: string,
   plugin: ServicePlugin,
@@ -270,10 +243,7 @@ function PluginRow({
   )
 }
 
-/**
- * The picture in front of a row: the mark for a Nordtal jar, Modrinth's icon for a Modrinth plugin,
- * and nothing for a jar from anywhere else - but the room for it stays, so the names line up.
- */
+/** The mark for a Nordtal jar, Modrinth's icon, or an empty slot of the same size so names line up. */
 function Tile({ plugin }: { plugin?: ServicePlugin }) {
   if (!plugin) return <Skeleton className="size-9 shrink-0 rounded-md" />
   if (plugin.group === "nordtal") return <StewardMark className="size-9 shrink-0" />
@@ -281,15 +251,7 @@ function Tile({ plugin }: { plugin?: ServicePlugin }) {
   return <div className="size-9 shrink-0" aria-hidden />
 }
 
-/**
- * Removing, with the folder named in the dialog.
- *
- * Removal deletes the data folder as well, even though
- * `plugins/<name>/` is the only hand-kept thing in the whole installation - and the confirmation
- * is the other half of that decision, not a softening of it. So the name of the directory is what
- * the dialog is about, and when the worker could not read it out of the jar the dialog says that
- * instead of inventing one.
- */
+/** Removes a plugin after a dialog naming the data folder it deletes as well. */
 function RemoveButton({ service, plugin, artifact }: { service: string; plugin: ServicePlugin; artifact: string }) {
   const [open, setOpen] = useState(false)
   const remove = useRemovePlugin(service)
@@ -342,14 +304,9 @@ function RemoveButton({ service, plugin, artifact }: { service: string; plugin: 
 }
 
 /**
- * What the confirmation says, as a function, because it is the part of this feature that must not
- * be got wrong and a sentence inside JSX cannot be tested.
+ * What the removal confirmation says, testable outside JSX.
  *
- * Three cases and they are three different promises. A running plugin whose data folder the worker
- * read: both names appear, and `plugins/<name>/` is the one that matters - it is the only
- * hand-edited directory in the whole installation. A running plugin whose jar carried no readable
- * descriptor: the folder is **not** named, because nobody verified it, and the sentence says so
- * rather than inventing one. A plugin that is not installed: there is no jar and no folder, only the row.
+ * The data folder is named only when the worker read it from the jar; an absent plugin loses only its row.
  */
 export function removalSentence(plugin: ServicePlugin): string {
   if (!plugin.running) {
@@ -362,27 +319,16 @@ export function removalSentence(plugin: ServicePlugin): string {
   return `${jar} and plugins/${plugin.dataFolder}/ are deleted. That folder holds this plugin's configuration and its data.`
 }
 
-// --- finding one
-
-/**
- * The Modrinth search, filtered to this service's loader and Minecraft version.
- *
- * The filter is not a convenience: a list somebody installs from must not contain a plugin that
- * cannot run here. The proxy therefore sees a much shorter list than the backends do, which is the
- * intended answer rather than a shortcoming.
- */
-/** Three absent hits - the first screenful of a Modrinth answer, and nothing said about it. */
+/** Three absent hits, the first screenful of a Modrinth answer. */
 const WAITING_HITS: (PluginHit | undefined)[] = [undefined, undefined, undefined]
 
+/** The Modrinth search, filtered to this service's loader and Minecraft version so every hit can run here. */
 function Search({ service, loader, version }: { service: string; loader?: string; version?: string }) {
   const [typed, setTyped] = useState("")
   const [query, setQuery] = useState("")
   const install = useInstallPlugin(service)
 
-  /**
-   * Typing is not a request. Modrinth is somebody else's API and every keystroke would be a call
-   * to it; a third of a second is under the time it takes to reach for the mouse.
-   */
+  /** Debounced a third of a second, so typing does not call Modrinth on every keystroke. */
   useEffect(() => {
     const timer = setTimeout(() => setQuery(typed.trim()), 300)
     return () => clearTimeout(timer)
@@ -453,11 +399,7 @@ function Search({ service, loader, version }: { service: string; loader?: string
 }
 
 function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<typeof useInstallPlugin> }) {
-  /**
-   * Two reasons a plugin cannot be added and they are not the same sentence, so they are not the
-   * same badge: one is already here because somebody added it, the other is here because the
-   * network gives it and nothing may take it away.
-   */
+  /** Already added and given by the network are different reasons, so they get different badges. */
   if (hit.fixed) {
     return (
       <StatusBadge tone="ok" tipContent="The network gives this plugin. It cannot be removed.">
@@ -494,15 +436,10 @@ function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<t
   )
 }
 
-// --- the two small things both lists use
-
 /**
- * The thumbnail, straight from `cdn.modrinth.com`.
+ * The thumbnail, loaded straight from `cdn.modrinth.com`.
  *
- * The browser loads it from Modrinth rather than this host proxying it.
- * The consequence worth knowing is that any Content-Security-Policy in front of steward-ui has to
- * allow that host, or these stay blank and only whoever opens the console finds out why. The worker
- * refuses to store a URL pointing anywhere else, so what arrives here is always that one host.
+ * A Content-Security-Policy in front of steward-ui must allow that host; the worker stores no other.
  */
 function Thumbnail({
   url,
@@ -515,10 +452,7 @@ function Thumbnail({
   waiting?: boolean
   className?: string
 }) {
-  /**
-   * Two different blanks, deliberately: a project with no icon is a flat square, and a row that
-   * has not been told yet shimmers. They used to be the same square.
-   */
+  /** No icon is a flat square; a row still waiting shimmers. */
   if (waiting) {
     return <Skeleton className={`${className} shrink-0`} />
   }
@@ -531,10 +465,7 @@ function Thumbnail({
       alt={alt}
       loading="lazy"
       className={`${className} shrink-0 object-cover`}
-      /**
-       * A project that pulls its icon breaks the row's alignment otherwise, and a broken image
-       * icon says nothing a blank square does not.
-       */
+      /** A broken icon is hidden, keeping its space so the row stays aligned. */
       onError={(event) => {
         event.currentTarget.style.visibility = "hidden"
       }}

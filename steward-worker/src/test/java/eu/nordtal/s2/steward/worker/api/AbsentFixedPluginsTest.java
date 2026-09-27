@@ -12,11 +12,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Which of a service's fixed plugins the plugins tab lists as not installed.
- *
- * And which jars it counts as Nordtal's own.
- */
+/** Which of a service's fixed plugins the plugins tab lists as not installed, and which jars count as Nordtal's. */
 class AbsentFixedPluginsTest {
 
     private static final Map<String, String> PROJECTS = Map.of(

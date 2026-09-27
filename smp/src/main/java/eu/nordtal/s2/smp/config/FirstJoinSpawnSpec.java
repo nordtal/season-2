@@ -16,8 +16,7 @@ public interface FirstJoinSpawnSpec {
     @Name("World")
     @Key("world")
     @Comment("Which world. Normally the same name as `world-nordtal` at the top of this file.")
-    @Explain(
-            "Normally the same name as world-nordtal above - a second place that world name is written down, so a rename there has to be repeated here.")
+    @Explain("Normally the same name as world-nordtal above, so a rename there has to be repeated here.")
     default String world() {
         return "nordtal";
     }

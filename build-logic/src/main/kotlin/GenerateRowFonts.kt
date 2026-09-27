@@ -17,9 +17,7 @@ import org.gradle.api.tasks.TaskAction
 /**
  * Writes `nordtal:gui_r0` … `gui_r<rows - 1>` from one template: the same font, every bitmap one row lower.
  *
- * A glyph's only vertical control is its font's ascent, so a picture wanted on any chest row is
- * declared once per row. The template is row 0; row `r` subtracts `r * pitch` from every bitmap
- * provider's ascent and changes nothing else. `MenuFontTest` holds the result against `SlotGeometry`.
+ * A glyph's height is set only by its font's ascent, so row `r` subtracts `r * pitch` from every bitmap ascent.
  */
 @CacheableTask
 abstract class GenerateRowFonts : DefaultTask() {

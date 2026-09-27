@@ -14,14 +14,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Everything {@code /hg} decides, without a server, a lobby or twenty people on towers.
- *
- * The command this is really about is {@code /hg start}: it decides the whole event and would
- * otherwise need enough real accounts for a real game to exercise. Every branch below - the wrong
- * state, the arithmetic floor, the warning, the expired confirmation, the stale one - is reasoned
- * about here instead of run against one.
- */
+/** Everything {@code /hg} decides, without a server, a lobby or twenty people on towers. */
 class HungerGamesCommandsTest {
 
     private final FakeHungerGames hg = new FakeHungerGames();
@@ -34,7 +27,7 @@ class HungerGamesCommandsTest {
         return user;
     }
 
-    /** {@code /hg start confirm} - the same command, with its optional word supplied. */
+    /** {@code /hg start confirm}: the same command, with its optional word supplied. */
     private FakeUser confirm(final FakeUser user) {
         start.run(user, new Values(start.declaration(), Map.of("confirm", "confirm")), hg);
         return user;
@@ -57,7 +50,7 @@ class HungerGamesCommandsTest {
 
     @Test
     void allFourAreAdminOnlyConsoleReachableAndOffGameAndDiscord() {
-        // Every admin command lost Surface.GAME and Surface.DISCORD. /hg start keeps Surface.WEB too.
+        // Admin commands are off GAME and DISCORD; /hg start keeps WEB too.
         for (final Declaration declaration : HungerGamesCommands.declarations()) {
             assertTrue(declaration.adminOnly(), declaration.name());
             assertTrue(
@@ -88,7 +81,7 @@ class HungerGamesCommandsTest {
 
     @Test
     void belowTheArithmeticFloorItRefusesOutrightAndNeverArmsAConfirmation() {
-        // The border step divides by the participant count. Below two there is no game to shrink a border around.
+        // The border step divides by the participant count, so below two there is no game.
         hg.registration = FakeHungerGames.registered(1);
 
         final FakeUser first = run(start);
@@ -138,7 +131,7 @@ class HungerGamesCommandsTest {
 
     @Test
     void aBareConfirmTypedTwiceNeverStartsAGameWhichTheFirstVersionDid() {
-        // The bug this exists for: Confirmations#confirm arms on a miss.
+        // Confirmations#confirm arms on a miss, so a second bare confirm must not start the game.
         hg.registration = FakeHungerGames.registered(4);
         final FakeUser user = FakeUser.inGame();
 
@@ -163,7 +156,7 @@ class HungerGamesCommandsTest {
 
     @Test
     void aStartThatThrowsIsSaidSoAndNotAfterTheEventIsStarting() {
-        // Guards against a reply sent before effects.start(...), which would claim a game that never started.
+        // A reply sent before effects.start(...) would claim a game that never started.
         hg.registration = FakeHungerGames.registered(20);
         hg.startFailure = new IllegalStateException("the world is not loaded");
 
@@ -203,7 +196,7 @@ class HungerGamesCommandsTest {
 
     @Test
     void aDatabaseThatDoesNotAnswerIsSaidOutLoudRatherThanReadAsNoGame() {
-        // Folding the two would tell an admin there is no event registered at the moment the event is about to start.
+        // Folding the two would claim there is no event at the moment it is about to start.
         hg.failure = new IllegalStateException("connection refused");
 
         assertEquals(List.of("hg.start.read-failed"), run(start).keys());
@@ -230,7 +223,7 @@ class HungerGamesCommandsTest {
 
     @Test
     void theSoundsAreReloadedFirstAndAFailureInEitherIsOneSentence() {
-        // Sounds first because they are the cheapest thing to get wrong and the only one an operator notices at all.
+        // Sounds first, since they are what an operator notices.
         assertEquals(List.of("hg.admin.reloaded"), run(new ReloadHungerGames()).keys());
         assertEquals(List.of("reload sounds", "reload messages"), hg.did);
 
@@ -243,7 +236,7 @@ class HungerGamesCommandsTest {
                 hg.did,
                 "a broken sounds.yml must not stop a corrected message from being re-read");
 
-        // And the other way round, which the sentence above claimed and no case checked until now.
+        // And the other way round.
         hg.did.clear();
         hg.messagesReload = true;
         hg.soundsReload = false;

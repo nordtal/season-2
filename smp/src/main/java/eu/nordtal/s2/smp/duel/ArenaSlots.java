@@ -7,12 +7,7 @@ import java.util.Set;
 /**
  * Which height an arena gets, and which are free.
  *
- * Arenas stack above the spawn area - the first at the configured base, each further one a fixed distance higher -
- * up to the concurrent limit, and anyone beyond that waits in a queue. Slots are handed out lowest-first and
- * returned when a duel ends, so a busy evening does not push the fourth duel into the build limit while slots one
- * and two stand empty.
- *
- * Pure, so the arithmetic that decides where blocks get placed is asserted without placing any.
+ * Arenas stack upwards from the configured base, handed out lowest first and returned when a duel ends.
  */
 public final class ArenaSlots {
 

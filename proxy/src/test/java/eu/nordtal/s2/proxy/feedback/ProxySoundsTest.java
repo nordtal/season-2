@@ -13,18 +13,9 @@ import net.kyori.adventure.sound.Sound;
 import org.junit.jupiter.api.Test;
 
 /**
- * The mapping table {@link ProxySounds} adds.
+ * {@link Feedback#REFUSED} plays a real {@link Sound} and every other category stays silent.
  *
- * {@link Feedback#REFUSED} plays a real Adventure {@link Sound} and every other category stays silent, the same
- * shape {@code FeedbackSoundsTest} already holds {@code smp} and {@code hunger-games} to.
- *
- * <b>Why a dynamic proxy can observe this without a real client.</b>
- * {@code Player#playSound(Sound)} is a default method inherited from Adventure's
- * {@code Audience}, but a {@link java.lang.reflect.Proxy}'s {@link java.lang.reflect.InvocationHandler}
- * is consulted for every interface method Velocity's {@code Player} declares or inherits, default or
- * not - it does not run the real default body unless the handler chooses to. That is exactly what
- * this test needs: it is not asserting that Adventure's own {@code playSound} does anything, only
- * that {@code ProxySounds} calls it with the sound this table says {@code REFUSED} means.
+ * A dynamic proxy intercepts {@code Player#playSound} even though it is a default method.
  */
 class ProxySoundsTest {
 

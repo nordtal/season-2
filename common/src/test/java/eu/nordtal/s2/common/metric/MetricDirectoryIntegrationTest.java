@@ -25,16 +25,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * Exercises {@link MetricDirectory} against a real PostgreSQL running the real migrations.
  *
- * Nothing here has an in-memory stand-in, and the list of things that only a real database can
- * answer is longer for this table than for any other in the module: the idempotence is
- * {@code ON CONFLICT DO NOTHING} on a four-column primary key; the hourly bucket is
- * {@code to_timestamp(floor(epoch / 3600) * 3600)} evaluated by PostgreSQL and held by a CHECK
- * written the same way; {@code avg()} is PostgreSQL's; and the seam between the two resolutions is
- * a scalar {@code min()} inside a UNION ALL. All of it is database behaviour.
- *
- * Testcontainers is driven by hand from {@link BeforeAll}, like every other integration test in
- * this module - the {@code junit-jupiter} extension is built against JUnit 5 and this repo is on
- * the JUnit 6 BOM - and these tests <b>skip themselves</b> when no Docker daemon is reachable.
+ * Bucketing, averages and the resolution seam are database behaviour; the tests skip without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MetricDirectoryIntegrationTest {

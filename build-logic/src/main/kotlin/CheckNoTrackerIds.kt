@@ -34,15 +34,7 @@ abstract class CheckNoTrackerIds : DefaultTask() {
     fun check() {
         val root = repositoryRoot.get().asFile
         if (!root.resolve(".git").exists()) return
-        val process = ProcessBuilder(listOf("git", "ls-files", "-z", "--") + pathspecs.get()).directory(root).start()
-        process.outputStream.close()
-        val files =
-            process.inputStream
-                .bufferedReader()
-                .use { it.readText() }
-                .split('\u0000')
-                .filter { it.isNotBlank() }
-        if (process.waitFor() != 0) throw GradleException("git ls-files failed in $root")
+        val files = trackedFiles(root, pathspecs.get())
 
         val hits = files.flatMap { path -> hitsIn(root.resolve(path)).map { "    $path:$it" } }
         if (hits.isEmpty()) return
@@ -53,9 +45,7 @@ abstract class CheckNoTrackerIds : DefaultTask() {
     }
 
     private fun hitsIn(file: java.io.File): List<String> {
-        if (!file.isFile || file.length() > 1_000_000) return emptyList()
-        val text = file.readText()
-        if ('\u0000' in text) return emptyList()
+        val text = readText(file) ?: return emptyList()
         return text
             .lineSequence()
             .withIndex()

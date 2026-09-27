@@ -22,11 +22,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * What this client does when the thing on the other end of the socket stops talking.
+ * What this client does when the other end of the socket stops talking.
  *
- * No docker daemon: a unix socket is a unix socket, so these bind one and answer it by hand - which is the only way
- * to produce a daemon that accepts a connection and then says nothing, the case the timeout exists for and the one a
- * real daemon will not perform on request.
+ * These bind a socket and answer by hand, since a real daemon will not accept and then fall silent on request.
  */
 class DockerSocketTest {
 
@@ -50,7 +48,7 @@ class DockerSocketTest {
 
     @Test
     void aStreamWhoseDaemonNeverAnswersGivesUpInsteadOfHangingWhoeverAsked() throws IOException {
-        // Accepted then silence - a daemon mid-restart or wedged on its own lock - must not hang the request thread.
+        // Accepted, then silence (a daemon mid-restart or wedged) must not hang the request thread.
         final Path socket = listening(client -> {});
 
         final long before = System.nanoTime();

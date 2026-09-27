@@ -20,13 +20,10 @@ import org.bukkit.event.player.PlayerQuitEvent;
 /**
  * Stepping onto a platform, and the three ways a duel ends.
  *
- * A defeat is a defeat however it arrives: killed, or disconnected. <b>Logging out has to count as losing</b>, or it
- * becomes a free escape from losing - which is the sort of thing one person discovers and everybody else then has to
- * live with.
+ * Logging out counts as losing, or it becomes a free escape from losing.
  */
 public final class DuelListener implements Listener {
 
-    /** The configured platforms, resolved once: a box and the loadout it hands out. */
     private final List<Map.Entry<Box, DuelType>> platforms = new ArrayList<>();
 
     private final Duels duels;
@@ -49,11 +46,7 @@ public final class DuelListener implements Listener {
     /**
      * A teleport is a move, and Bukkit does not think so.
      *
-     * {@code PlayerTeleportEvent} extends {@code PlayerMoveEvent} but declares its own handler list, so a handler
-     * registered for the move never sees it. On the local stack that meant a player teleported onto a platform was not
-     * registered as waiting - and, the half that matters, a player teleported <em>away</em> from one stayed registered,
-     * so the next arrival would have been put in an arena against somebody who had taken the balloon somewhere else.
-     * Every travel path on this server is a teleport.
+     * PlayerTeleportEvent has its own handler list, and every travel path on this server is a teleport.
      */
     @EventHandler(ignoreCancelled = true)
     public void onTeleport(final org.bukkit.event.player.PlayerTeleportEvent event) {
@@ -80,16 +73,9 @@ public final class DuelListener implements Listener {
     }
 
     /**
-     * A death inside the arena ends the duel, and nothing else about it is ordinary.
+     * A death inside the arena ends the duel.
      *
-     * {@code setCancelled} is not available on a death, so the drops are emptied here instead: the loadout was the
-     * arena's, not the player's, and letting it fall on the floor would turn every duel into a source of free iron.
-     *
-     * The death message is cleared for the same reason the drops are: a duel costs nobody anything, both people are
-     * told the outcome by {@link Duels}, and a server-wide "was slain by" for a consequence-free sparring match would
-     * make the real death line mean less. Clearing it here rather than teaching {@code SystemLines} about duels is
-     * deliberate - a null death message already means "somebody decided this is not news", which is the same thing
-     * {@code showDeathMessages} says, and it needs no agreement about event priorities.
+     * Drops and the death message are cleared: the loadout was the arena's, and a duel is not news.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(final PlayerDeathEvent event) {
@@ -105,16 +91,9 @@ public final class DuelListener implements Listener {
     }
 
     /**
-     * The blow that would have killed a fighter ends the duel instead.
+     * The blow that would have killed a fighter ends the duel instead, so a duel never shows a death screen.
      *
-     * By owner decision, a duel ends with both fighters at the spawn and a title saying who won, and no death screen.
-     * A sparring match that costs nothing should not put somebody through the same red screen as a real death, and
-     * cancelling the lethal blow is the only way to avoid it: there is no way to skip the screen once the death has
-     * happened.
-     *
-     * {@code HIGHEST} and {@code ignoreCancelled}, so anything that would have stopped the damage anyway still does.
-     * The wind-down runs on the next tick for the same reason the rest of this class does - and the death path below
-     * stays, because {@code /kill}, the void and a plugin calling {@code setHealth(0)} fire no damage event at all.
+     * The death path still runs for /kill, the void and setHealth(0), which fire no damage event.
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDamage(final org.bukkit.event.entity.EntityDamageEvent event) {

@@ -8,14 +8,13 @@ import java.util.Locale;
 /**
  * What a milestone is called, for a player.
  *
- * The track is config, so a milestone the bundle ships no name for is shown under its config key. Objectives have no
- * shipped names at all and always show their key.
+ * A milestone without a shipped name, and every objective, shows its config key.
  */
 public final class MilestoneNames {
 
     private MilestoneNames() {}
 
-    /** @return the milestone's name in {@code locale}, or {@code key} itself */
+    /** Returns the milestone's name in {@code locale}, or {@code key} itself. */
     public static String of(final Messages messages, final Locale locale, final String key) {
         return MESSAGES.smp()
                 .milestoneName(key)

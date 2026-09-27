@@ -13,19 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The head start has a caller.
  *
- * <b>Why this is worth a test of its own</b>
- *
- * This module has been bitten twice by the same shape in one week. {@code AdminOperators#refresh} was written for a
- * live revocation and then had no caller at all for a day (which is why {@code AdminWatchWiringTest} exists), and
- * the hunger games HUD's two counters were fed by setters nothing anywhere called, so every participant read
- * <em>Alive 0, Dead 0</em> for the whole of every game.
- *
- * The head start is worse than either, because <b>nothing can ever notice</b>. It fires once per season, for one
- * person, on one join. There is no second chance to spot it missing, no screen that looks wrong in the meantime, and
- * the class can be complete, tested against a real database and entirely dead. It was: {@code hg-winner-aura},
- * {@code hg-winner-items}, {@code AuraReason.HG_WINNER} and {@code smp_player.hg_winner_reward_granted} were all
- * written and had <b>no reader at all</b> for a while - a whole configured, migrated, documented
- * feature that did nothing, and no test in 1305 said a word.
+ * It fires once per season for one person, so a missing caller is something nothing else would ever notice.
  */
 class HeadStartIsWiredTest {
 

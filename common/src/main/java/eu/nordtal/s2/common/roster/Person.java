@@ -5,10 +5,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One person as a list shows them, with access figures computed in the same statement.
- *
- * {@code accessUntil} counts revoked grants and {@code accessActive} does not, so a revoked person shows a
- * date with an inactive flag and someone who never bought shows nothing. Serialised straight to JSON.
+ * One person as a list shows them; {@code accessUntil} counts revoked grants and {@code accessActive} does not.
  *
  * @param memberState     {@code MEMBER}, {@code LEFT} or {@code BANNED}; text, so a hand-written value shows
  * @param updated         when the row last changed, what {@link RosterDirectory#people(int)} orders by

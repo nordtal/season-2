@@ -16,65 +16,23 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Feeds {@code /api/services} player counts and names.
+ * Feeds {@code /api/services} player counts and names, keyed by compose service name.
  *
- * {@code smp}, {@code hunger-games} and {@code limbo} each their own, {@code proxy} the network's total and the
- * network's whole list.
- *
- * The contract with whoever assembles a row: {@link #read()} returns exactly the subjects it currently trusts, keyed
- * by compose service name. A subject missing from those maps means "unknown", never {@code 0} and never an empty
- * list - whoever builds the JSON row for {@code /api/services} must omit the field entirely for a missing key rather
- * than default it. This is the same rule {@link eu.nordtal.s2.steward.worker.ops.ImageResult.State#UNKNOWN} already
- * enforces for image drift and {@code steward-ui/frontend/src/lib/health.ts} enforces for the traffic light, applied
- * here to a player count and a player list instead.
- *
- * Why the whole answer can go missing at once, not just one entry: proxy is the only writer of every row in
- * {@code online_count} and {@code online_player} - not just its own. A stopped {@code smp} container legitimately
- * reads {@code 0} (nobody can be connected to it, and the proxy is still there to say so); proxy itself being down
- * or still starting is a different fact, and it takes every subject's freshness with it at once, {@code proxy} 's
- * own included. {@link #STALE_AFTER} is what tells the two apart - a row older than that is treated exactly like no
- * row at all, for a count and for a player alike.
- *
- * Both halves are read at one moment, and in one place: {@link #read()} takes the clock once and applies it to both
- * tables, and {@code WorkerApi} calls it once per response rather than once per row. Two rows of one answer must not
- * be able to disagree about the same instant - which is the same promise {@code OnlineWriter} makes at the other end
- * by writing both tables from one pass over the proxy.
- *
- * An empty roster is not the same claim as a missing count: Nobody online is the normal case on a dev host:
- * {@code online_player} is then simply empty, no subject has a list, and no row carries a {@code roster} field. That
- * is not a claim that nobody is playing - the count is what says that, and it says it with a real {@code 0}. The
- * list only ever enriches a number that is already there, which is why its absence needs no marker of its own: the
- * {@code +N} is the general case, a face is the enrichment.
+ * A missing key means unknown, never zero; a row older than {@link #STALE_AFTER} counts as missing.
  */
 public final class ServicesApi {
 
     /**
-     * How old a row may be before it is no longer trusted and is treated as absent.
+     * How old a row may be before it is treated as absent.
      *
-     * Three times {@link OnlineDirectory#WRITE_INTERVAL}: one missed write is noise - a slow GC pause on the proxy,
-     * one tick that raced a database hiccup, exactly the case {@code OnlineWriter} already logs and moves past
-     * without retrying out of turn. Three in a row is proxy no longer writing at all, which is the state this
-     * cutoff exists to catch before a stale number sits on the dashboard looking like a live one.
+     * Three write intervals: one missed write is noise, three mean the proxy has stopped writing.
      */
     static final Duration STALE_AFTER = OnlineDirectory.WRITE_INTERVAL.multipliedBy(3);
 
-    /**
-     * The proxy's own subject.
-     *
-     * The network total in {@code online_count}, and here also the key under which the network's whole player
-     * list is offered.
-     *
-     * Written out rather than imported: {@code OnlineCounts.PROXY} lives in proxy, which steward-worker neither
-     * depends on nor should. The string is the compose service name, and the service list is keyed by compose
-     * service names throughout.
-     */
+    /** The proxy's own subject: the network total, and the key for the network's whole player list. */
     static final String PROXY = "proxy";
 
-    /**
-     * Two people called {@code Ada} and {@code ada} still have to come back in the same order twice running.
-     *
-     * That is why the uuid is the tie-break rather than nothing at all.
-     */
+    /** By name, then uuid, so {@code Ada} and {@code ada} keep their order between reads. */
     private static final Comparator<OnlinePlayer> BY_NAME = Comparator.comparing(
                     (OnlinePlayer player) -> player.name().toLowerCase(Locale.ROOT))
             .thenComparing(player -> player.uuid().toString());
@@ -87,7 +45,7 @@ public final class ServicesApi {
         this(online, roster, Clock.systemUTC());
     }
 
-    /** Package-visible so a test can hold time still instead of racing {@link #STALE_AFTER}. */
+    /** Package-visible so a test can hold time still. */
     ServicesApi(final OnlineDirectory online, final OnlineRoster roster, final Clock clock) {
         this.online = Objects.requireNonNull(online, "online");
         this.roster = Objects.requireNonNull(roster, "roster");
@@ -97,9 +55,7 @@ public final class ServicesApi {
     /**
      * Both tables, judged against one instant.
      *
-     * @return the counts and the lists for every subject with a fresh enough row, and nothing for
-     *         any subject without one. Never contains a key it does not vouch for; see the class
-     *         documentation for what a caller must do with that absence
+     * @return the counts and lists for every subject with a fresh row, and no key for any other
      */
     public Online read() {
         final Instant now = clock.instant();
@@ -118,16 +74,9 @@ public final class ServicesApi {
     }
 
     /**
-     * The fresh players, grouped the way the service table is keyed.
+     * The fresh players, under {@value #PROXY} and under the backend they are on, sorted by name.
      *
-     * Every fresh player appears under {@value #PROXY}, because that row is the network, and additionally under the
-     * backend they are on when the writer knew one. A player the proxy has and no backend does yet (mid-transfer, one
-     * step past login) therefore counts towards the network's list and towards no server's - the same way the proxy's
-     * own count already has them and no backend's count does.
-     *
-     * Sorted by name within each subject, and not left in whatever order the query returned: the interface draws
-     * the first three faces and collapses the rest into a {@code +N}, so an arbitrary order would reshuffle which
-     * three people are shown on every refresh for no reason anybody could see.
+     * Sorted, so the first three faces the interface draws do not reshuffle on every refresh.
      */
     private Map<String, List<OnlinePlayer>> freshRoster(final Instant now) {
         final Map<String, List<OnlinePlayer>> bySubject = new LinkedHashMap<>();
@@ -154,16 +103,14 @@ public final class ServicesApi {
     }
 
     /**
-     * One reading of both tables - what {@code /api/services} folds into its rows.
+     * One reading of both tables.
      *
-     * @param counts  subject to player count, for the subjects with a fresh row. A key that is not
-     *                here is unknown, not zero
-     * @param roster  subject to the players on it, for the subjects that have any. A key that is not
-     *                here has no list - which is not a claim that nobody is on it
+     * @param counts subject to player count; a missing key is unknown, not zero
+     * @param roster subject to the players on it; a missing key has no list, which does not mean nobody is on
      */
     public record Online(Map<String, Integer> counts, Map<String, List<OnlinePlayer>> roster) {
 
-        /** What a deployment with no database behind the API answers - absence, not zeroes. */
+        /** The answer without a database: absence, not zeroes. */
         public static final Online NONE = new Online(Map.of(), Map.of());
 
         public Online {

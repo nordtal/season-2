@@ -19,25 +19,9 @@ import { DATABASE_CLIENTS, EDGES, layoutFaults } from "./topology"
 import { type Box, bundle, curve, inside, overlaps, resolvedSources, samplePath } from "./wires"
 
 /**
- * The picture, checked without a browser.
+ * The network picture as numbers, since the plan's placement is a pure function and jsdom has no layout.
  *
- * Laying the cards out with CSS grids and reading their positions back out of the
- * DOM would not work here: jsdom has no layout, so every rectangle would be zero and nothing about
- * the drawing could be asserted - a line running through the middle of a card would only be found
- * by photographing it. Cards are instead placed at points a plan names, so
- * the geometry is a pure function of that plan and these are ordinary assertions about numbers.
- *
- * <h2>Every assertion runs at several widths</h2>
- * What this runs against is a list of **widths** - because a plan in lanes is
- * only correct if it is correct at every width it can be given, and the failures live at the ends:
- * the narrowest is where two lanes are closest to touching, the widest is where a line that took a
- * shortcut has the most room to show it.
- *
- * The four widths below are not decoration. 372 is `minWidth`, measured off the real panel at a
- * 1024px viewport. 720 is `maxWidth`. 410 and 560 are two in between, and one of them - 410 - is
- * what the panel actually is on a 1100px screen.
- *
- * What this still cannot say is whether the result is nice to look at. That needs an eye.
+ * Every assertion runs at `minWidth`, `maxWidth` and two widths between, where the failures live.
  */
 const WIDTHS = [372, 410, 560, 720] as const
 
@@ -74,11 +58,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
   })
 
   it("never lets two cards or group frames touch", () => {
-    /**
-     * A member's own box sits inside its group's frame on purpose - that is not a collision, it is
-     * what the frame is for - so this checks the picture's top-level shapes (`regionsOf`, one per
-     * lone card and one per group) rather than every individual box.
-     */
+    /** Top level shapes only, since a member's box sits inside its group's frame on purpose. */
     const regions = regionsOf(placed)
     const ids = Object.keys(regions)
     for (let a = 0; a < ids.length; a++) {
@@ -90,11 +70,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
   })
 
   it("draws no traffic line through a card or group it does not belong to", () => {
-    /**
-     * Resolved the same way `wires.tsx` resolves an edge: a member's `from`/`to` becomes its
-     * group's own key, and two edges that resolve to the same pair are the same drawn line, so
-     * only the first is checked - checking it twice would just repeat the same assertion.
-     */
+    /** Resolved as `wires.tsx` does, so two edges drawn as one line are checked once. */
     const geometry = geometryOf(placed)
     const regions = regionsOf(placed)
     const seen = new Set<string>()
@@ -113,16 +89,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     }
   })
 
-  /**
-   * The database bundle, and **`postgres` is not excused from this check**.
-   *
-   * Excusing it on the argument that a foot is heading for the sink anyway and may pass close to
-   * it would let through a real fault: a source above
-   * `postgres` leaving through its own side and cutting diagonally across it, or a trunk running from
-   * the junction underneath the card to the *far* edge of it. Both are lines drawn behind a
-   * service, which is exactly what must not happen, and both would be invisible here if the
-   * only box that could catch them were the one being skipped.
-   */
+  /** The database bundle, with `postgres` itself not excused, since a line may cut behind the sink too. */
   it("keeps the database bundle clear of every card and group, the sink included", () => {
     const geometry = geometryOf(placed)
     const regions = regionsOf(placed)
@@ -145,10 +112,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
       expect(`${key} foot through ${through.join(", ")}`).toBe(`${key} foot through `)
     })
 
-    /**
-     * The trunk is the line that was wrong, and until `samplePath` learned to read `M … L …` it was
-     * read as an empty path and could not be checked at all.
-     */
+    /** The trunk must be read as a real path, or it could not be checked at all. */
     expect(samplePath(merged.trunk).length).toBeGreaterThan(1)
     const throughTrunk = crossings(merged.trunk, regions, [])
     expect(`trunk through ${throughTrunk.join(", ")}`).toBe("trunk through ")
@@ -204,11 +168,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     for (const group of placed.groups) {
       const members = groupMemberSpots(group)
       for (let i = 1; i < members.length; i++) {
-        /**
-         * The vertical distance between two stacked centres is one card's own height plus the gap
-         * between them - restated as a gap rather than a centre distance so the assertion reads
-         * as "4px apart" the way the ticket does, not as an unexplained 80.
-         */
+        /** Restated as a gap between stacked cards rather than a distance between centres. */
         expect(members[i].y - members[i - 1].y - NODE.height).toBe(GROUP_GAP)
       }
 
@@ -260,14 +220,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
   })
 })
 
-/**
- * The drawing stretches, and the cards do not.
- *
- * Growing the canvas proportionally is fine, but the boxes must not grow with it - only the
- * arrows stretch. That has two halves and they need two different
- * assertions - one that something grows, one that something does not - because a change that got
- * either half alone would look right in exactly one screenshot.
- */
+/** The drawing stretches while the cards keep their size, each half asserted on its own. */
 describe("stretching", () => {
   it("leaves every card the same size at every width", () => {
     for (const [, placed] of LAYOUTS) {
@@ -284,10 +237,7 @@ describe("stretching", () => {
         `at ${WIDTHS[i]}px the lanes are ${Math.max(gaps[i], gaps[i - 1] + 1)}px apart`,
       )
     }
-    /**
-     * And by exactly the extra room, not by some fraction of it: everything a wider canvas gains
-     * goes into the one gap between lane 0 and lane 1.
-     */
+    /** By exactly the extra room, all of which goes into the gap between lane 0 and lane 1. */
     expect(gaps[gaps.length - 1] - gaps[0]).toBe(WIDTHS[WIDTHS.length - 1] - WIDTHS[0])
   })
 
@@ -301,11 +251,7 @@ describe("stretching", () => {
   })
 
   it("puts nothing in the middle lane level with anything in a side lane", () => {
-    /**
-     * The one rule that makes a single arrangement survive being squeezed: at `minWidth` a centre
-     * card and a side card share 30px of x, so they must never share a row. Checked against the
-     * spots rather than against the drawn result, because it is a fact about the plan.
-     */
+    /** At `minWidth` a centre card and a side card share x, so no two may share a row. */
     const placed = place(PLAN, PLAN.minWidth)
     const middle = placed.spots.filter((spot) => spot.x === placed.width / 2)
     const sides = allSpots(placed).filter((spot) => spot.x !== placed.width / 2)

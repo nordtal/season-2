@@ -10,26 +10,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * The real {@link Http}: {@code java.net.http}, no dependency, redirects followed.
+ * The real {@link Http}: {@code java.net.http}, following redirects except HTTPS to HTTP.
  *
- * The User-Agent is not decoration: The PaperMC Fill API requires a User-Agent that identifies the project and gives
- * a contact, and refuses requests without one; Modrinth asks for the same in its documentation and throttles
- * anonymous traffic harder. {@code deploy/minecraft/entrypoint.sh} already sends exactly this string, so the two
- * halves of this deployment identify themselves as one thing.
- *
- * Redirects: {@link HttpClient.Redirect#NORMAL} follows them, and it has to: a GitHub release asset - which is how
- * the pack's {@code .sha1} is read - answers with a 302 to a signed {@code release-assets.githubusercontent.com}
- * URL. {@code NORMAL} does not follow HTTPS to HTTP, which is the one redirect we would want to refuse anyway.
+ * Fill requires an identifying User-Agent, and GitHub release assets answer with a redirect.
  */
 public final class JdkHttp implements Http {
 
-    /**
-     * How this process identifies itself to GitHub, Modrinth and the Fill API.
-     *
-     * Same shape as the one {@code deploy/minecraft/entrypoint.sh} sends, not the same string: that one says
-     * {@code nordtal-season-2/deploy}, because a server container's request and the worker's are worth telling
-     * apart in somebody else's log.
-     */
+    /** How this process identifies itself to GitHub, Modrinth and the Fill API. */
     public static final String USER_AGENT = "nordtal-season-2/steward-worker (+https://github.com/nordtal/season-2)";
 
     private final HttpClient client;
@@ -37,9 +24,9 @@ public final class JdkHttp implements Http {
     private final Map<String, String> headers;
 
     /**
-     * @param token an optional GitHub token. Empty for none - it is sent on every request, which is
-     *              safe because the only hosts this module talks to are GitHub, Modrinth and
-     *              PaperMC, and unhelpful nowhere.
+     * Builds the client.
+     *
+     * @param token an optional GitHub token, empty for none, sent on every request
      */
     public JdkHttp(final Duration timeout, final String token) {
         this.timeout = timeout;

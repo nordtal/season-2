@@ -20,10 +20,9 @@ final class Cli {
 
     private Cli() {}
 
-    /** The container's entry point: read two files, build three things, serve. */
+    /** Reads the configuration, builds the clients and serves. */
     static void run(final String[] args) {
         final Path directory = Path.of(System.getenv().getOrDefault("NORDTAL_STEWARD_UI_CONFIG_DIR", "config"));
-        // One program with a subcommand: forget-factors needs this jar's own database wiring.
         if (args.length > 0 && StewardUi.FORGET.equals(args[0])) {
             System.exit(forgetFactors(directory, args));
             return;
@@ -45,7 +44,7 @@ final class Cli {
         final Data data;
         try {
             config = Configs.ui(directory, log).get();
-            // Opened here rather than on the first request, so a bad config fails at startup.
+            // Opened here, so a bad config fails at startup.
             data = new Data(Configs.database(directory, log).get());
         } catch (ConfigException failure) {
             log.error(
@@ -86,16 +85,9 @@ final class Cli {
     }
 
     /**
-     * {@code forget-factors <discord-id>} - the way back in after a lost authenticator.
+     * {@code forget-factors <discord-id>}: the way back in after a lost authenticator, run from a host shell.
      *
-     * Run as {@code docker exec nordtal-s2-steward-ui-1 steward-ui forget-factors <discord-id>} on
-     * the host, so only somebody who already has a shell reads the command past the second factor.
-     * Removes the account's keys and its sessions together, since clearing only the keys would
-     * leave an already signed-in browser inside with no key at all. Writes a journal row with the
-     * actor {@code host}, since that is exactly what is known. Silently answers "nothing to forget"
-     * for an account that has none, since that is already the state that was asked for.
-     *
-     * @return the process exit status
+     * Removes keys and sessions together, so no signed-in browser stays inside; returns the exit status.
      */
     private static int forgetFactors(final Path directory, final String[] args) {
         if (args.length != 2 || args[1].isBlank()) {
@@ -105,7 +97,7 @@ final class Cli {
             return 2;
         }
         final String discordId = args[1].trim();
-        // A Discord id is decimal digits; anything else would run a DELETE matching nothing.
+        // Anything but digits would run a DELETE matching nothing.
         if (!discordId.chars().allMatch(Character::isDigit)) {
             System.err.println("`" + discordId + "` is not a Discord id - those are digits only."
                     + " Take it from the journal or from the account list.");
@@ -121,7 +113,7 @@ final class Cli {
                         + " no session. Its next sign-in already starts at the setup page.");
                 return 0;
             }
-            // Written after the deletes, so a row can never claim something that did not happen.
+            // Written after the deletes, so a row never claims something that did not happen.
             data.audit()
                     .record(
                             "FORGET_FACTORS",

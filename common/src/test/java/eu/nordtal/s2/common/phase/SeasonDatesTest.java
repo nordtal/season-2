@@ -7,13 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
-/**
- * The date format both {@code /phase} commands share.
- *
- * The cases that matter here are the ones a human gets wrong by hand: the offset is not typed, so
- * it has to be derived from the date, and it is not the same offset all year. Everything else is a
- * guard against a typo being read as a date.
- */
+/** Tests the date format both {@code /phase} commands share, whose offset is derived from the date. */
 class SeasonDatesTest {
 
     @Test

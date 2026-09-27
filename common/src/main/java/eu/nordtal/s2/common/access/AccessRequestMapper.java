@@ -9,13 +9,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/**
- * {@code access_request} row to {@link AccessRequest}.
- *
- * Hand-written rather than a constructor mapper for the same reason {@code UpdateRequestMapper}
- * is: three of the five instants are nullable, and {@code getTimestamp} answers {@code null} for a
- * SQL NULL while {@code toInstant} would throw on it.
- */
+/** Maps an {@code access_request} row by hand, because three of its five instants are nullable. */
 public final class AccessRequestMapper implements RowMapper<AccessRequest> {
 
     @Override

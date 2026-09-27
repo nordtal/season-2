@@ -6,49 +6,22 @@ import { fileURLToPath } from "node:url"
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /**
- * A test that goes red when an identifier is drawn anywhere else.
+ * Goes red when a Discord id or Minecraft uuid is drawn outside the identity popover.
  *
- * `pages/access.test.tsx` already renders the access table and asserts no raw id appears in it -
- * that is the same rule for one page, proven the better way, by rendering. This file is the other
- * half: it cannot render every page, so it reads the source instead and asks a narrower question
- * that needs no fixtures and no mocks.
- *
- * **The question is: does a Discord id or a Minecraft uuid get written into the page?** Not
- * "is the field mentioned" - filtering a search over `person.discordId`, keying a row by it, or
- * passing it to `PersonIdentity` are all correct and common. What is forbidden is putting the
- * value where a human reads it: as JSX text, or as a `title` tooltip, which is a page the browser
- * draws on hover and no less visible for being late.
- *
- * `identity.tsx` is exempt because it IS the popover - the one place the ticket puts them, behind
- * a click, next to a copy button.
+ * Reads the source, so it covers pages with no render test; `pages/access.test.tsx` proves the rule by rendering.
  */
 const IDENTIFIER_FIELDS = ["discordId", "minecraftUuid", "mcUuid", "actorDiscordId", "requestedBy"]
 
-/** The component that is allowed to draw them, and nothing else. */
 const ALLOWED = ["components/steward/identity.tsx"]
 
-/**
- * One component that recognises an entity and draws it, app-wide. `Entity`
- * decides whether an identifier is a person, a service or unknown; a page that reaches past it for
- * `PersonIdentity` is a page that has decided for itself again, which is the habit this replaces.
- */
+/** Only `Entity` decides whether an identifier is a person, so only it may import `PersonIdentity`. */
 const MAY_IMPORT_PERSON_IDENTITY = ["components/steward/entity.tsx"]
 const PERSON_IDENTITY_IMPORT = /import\s*\{[^}]*\bPersonIdentity\b[^}]*\}\s*from\s*"@\/components\/steward\/identity"/
 
 /**
- * Where an expression ends up in front of a person: as a JSX child, or as a `title` tooltip - a
- * page the browser draws on hover, no less read for being late.
+ * An expression a person reads: a JSX child, preceded by `>` or indentation, or a `title` tooltip.
  *
- * A JSX child is recognised by what precedes the brace: `>` or nothing but indentation. That is
- * what separates it from the two shapes that mention the same field for good reasons - an object
- * literal (`{ discordId: id.trim() }`, a request body) and an `import`/`export` list.
- *
- * <h2>What this cannot see, stated rather than hidden</h2>
- * It reads one line at a time, so a JSX child whose expression is wrapped over several lines is
- * invisible to it - `{person.minecraftUuid ?? (` opens a brace this pattern never closes. That is
- * a real hole and the reason `pages/access.test.tsx` exists: rendering the page is the better
- * proof and this file does not replace it. What this one buys is the pages that have no render
- * test at all, and the day somebody adds a table to one of them.
+ * One line at a time, so a JSX child wrapped over several lines is invisible to it.
  */
 const JSX_CHILD = /(?:>|^\s*)\{([^{}:]*)\}/
 const TOOLTIP = /title=\{([^{}]*)\}/
@@ -116,10 +89,7 @@ describe("an identifier is drawn in one place and nowhere else", () => {
   })
 
   it("actually reads the sources, so an empty result means something", () => {
-    /**
-     * Without this, a broken path or a changed extension makes the rule above pass by finding
-     * nothing at all - the failure mode that leaves a green build and a guard nobody can trust.
-     */
+    /** Without this, a broken path or extension makes the rule above pass by finding nothing. */
     const files = sourceFiles(source)
     expect(files.length).toBeGreaterThan(30)
     expect(files.some((f) => f.endsWith("pages/access.tsx"))).toBe(true)

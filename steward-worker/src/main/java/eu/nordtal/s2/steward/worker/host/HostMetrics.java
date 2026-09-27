@@ -10,68 +10,24 @@ import java.util.OptionalDouble;
 import java.util.regex.Pattern;
 
 /**
- * Reads {@link HostSnapshot} out of {@code /proc} and one {@code statvfs}.
+ * Reads {@link HostSnapshot} out of {@code /proc} and one {@code statvfs}, which needs no privilege; Linux only.
  *
- * Cheap enough to call on a timer, and it holds exactly one piece of state: the previous CPU counters.
- *
- * Why files and not a library: Because the four files below are the same four files {@code uptime}, {@code free} and
- * {@code top} read, they are present in every container on this host without being mounted, and reading them needs
- * no privilege inside {@code nordtal-s2-updater-1}, which has no added capabilities and no Docker socket. An
- * OSHI-sized dependency would buy portability to a platform this project does not deploy to:
- * production is one {@code docker compose} stack on one Linux box.
- *
- * The cost is that this is Linux-only and silently so. On a machine without {@code /proc/meminfo} every call throws
- * {@link java.nio.file.NoSuchFileException}, which is at least loud; it is not, however, a fallback.
- *
- * The CPU percentage is a delta, and that shapes the whole class: {@code /proc/stat} counts jiffies since boot, so a
- * single reading says how busy the machine has been since it was switched on - a number that is true, useless and
- * changes by nothing. The percentage anybody wants is the difference between two readings divided by the time
- * between them, which means this object has to remember the last one. Two consequences worth knowing before calling
- * it:
- *
- * - {@link HostSnapshot#cpuPercent()} is {@linkplain OptionalDouble#empty() empty} on the first call, and on any
- * call that follows the previous one too closely to have accumulated a single jiffy. The alternative - reporting
- * {@code 0.0} - is a measurement nobody made.
- *
- * - The interval is whatever the caller's interval is. Sampling every 5 s gives a 5 s average; sampling twice in a
- * row gives the load of that microsecond, which is noise. This class does not own a clock and deliberately does not
- * schedule itself.
- *
- * {@link #read()} is {@code synchronized} for that state alone: two threads reading at once would each consume half
- * of the other's interval and both report something that never happened.
+ * CPU is a delta against the previous reading, so {@link #read()} is synchronized and its interval is the caller's.
  */
 public final class HostMetrics {
 
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
-    /**
-     * Where the kernel's own numbers are.
-     *
-     * A constructor parameter rather than a constant because the tests feed a captured copy - see
-     * {@code HostMetricsTest}.
-     */
+    /** Where the kernel's own numbers are; the tests pass a captured copy. */
     private static final String PROC = "/proc";
 
-    /**
-     * The filesystem measured by default.
-     *
-     * {@code /} inside a container is the right answer here, measured rather than assumed: the container's root is
-     * an overlay whose {@code statvfs} reports the backing filesystem, so {@code df -B1 /} inside
-     * {@code nordtal-s2-updater-1} printed the host's {@code /dev/sda1} figures, byte for byte identical to
-     * {@code df -B1 /} on the host itself. The mounted volumes live on that same filesystem, so pointing this at
-     * {@code /volumes} answers the same numbers; the second constructor exists for the day that stops being true (a
-     * separate disk for world data would be exactly that day).
-     */
+    /** The filesystem measured by default; inside a container {@code /} reports the host's backing filesystem. */
     private static final String DISK = "/";
 
     private final Path procRoot;
     private final Path diskPath;
 
-    /**
-     * The previous {@code /proc/stat} totals, or {@code -1} when there has not been a reading yet.
-     * {@code -1} rather than a boolean flag because it is one field to keep consistent instead of
-     * three.
-     */
+    /** The previous {@code /proc/stat} totals, or {@code -1} before the first reading. */
     private long previousTotalJiffies = -1;
 
     private long previousIdleJiffies = -1;
@@ -82,9 +38,10 @@ public final class HostMetrics {
     }
 
     /**
-     * @param procRoot a directory holding {@code loadavg}, {@code stat} and {@code meminfo} in the
-     *                 kernel's format. The tests point this at captured text.
-     * @param diskPath any path on the filesystem to measure.
+     * Reads the given files instead of the real ones.
+     *
+     * @param procRoot a directory holding {@code loadavg}, {@code stat} and {@code meminfo} in the kernel's format
+     * @param diskPath any path on the filesystem to measure
      */
     public HostMetrics(final Path procRoot, final Path diskPath) {
         this.procRoot = procRoot;
@@ -95,10 +52,7 @@ public final class HostMetrics {
      * One reading of everything.
      *
      * @return the snapshot, whose {@link HostSnapshot#cpuPercent()} is absent on the first call
-     * @throws IOException if a file is missing, or holds something this parser will not guess at -
-     *                     a field that is not there, a unit that is not {@code kB}. Both messages
-     *                     name the file and the line, because "NumberFormatException: null" from a
-     *                     background sampler is a morning spent grepping.
+     * @throws IOException if a file is missing, or holds a missing field or a unit other than {@code kB}
      */
     public synchronized HostSnapshot read() throws IOException {
         final Load load = readLoad();
@@ -133,12 +87,7 @@ public final class HostMetrics {
 
     private record Load(double one, double five, double fifteen) {}
 
-    /**
-     * Parses one line of {@code loadavg}.
-     *
-     * {@code 0.27 0.31 0.32 1/914 2752038} - three averages, then runnable/total tasks and the last PID, neither of
-     * which anybody is asking about on a "how full is the box" page.
-     */
+    /** Parses the three averages of one {@code loadavg} line. */
     private Load readLoad() throws IOException {
         final Path file = procRoot.resolve("loadavg");
         final String line = Files.readString(file, StandardCharsets.UTF_8).strip();
@@ -160,15 +109,7 @@ public final class HostMetrics {
     /**
      * The aggregate {@code cpu} line, plus a count of the per-core ones.
      *
-     * Fields are, in order, {@code user nice system idle iowait irq softirq steal guest guest_nice}. Only the first
-     * eight are summed: the kernel already counts guest time inside {@code user} and {@code guest_nice} inside
-     * {@code nice}, so adding them again inflates the total and quietly depresses every percentage on a host that runs
-     * VMs.
-     *
-     * {@code iowait} counts as idle here, which is a decision and not an oversight: a CPU waiting for the disk is a CPU
-     * doing nothing, and counting it as busy would paint the nightly {@code postgres-backup} as a pegged machine. It is
-     * the same convention {@code htop} uses. The cost is that a box thrashing its disk looks idle on this page - which
-     * is what the load average next to it is for, because iowait does raise that.
+     * Guest time is already inside user and nice, so only eight fields are summed; iowait counts as idle, as in htop.
      */
     private Cpu readCpu() throws IOException {
         final Path file = procRoot.resolve("stat");
@@ -213,14 +154,7 @@ public final class HostMetrics {
         }
     }
 
-    /**
-     * The busy share of the interval between the previous reading and this one.
-     *
-     * Empty in three cases, and they are one case: there is nothing to subtract. No previous reading; no jiffy elapsed
-     * since it (two reads inside one 10 ms tick, which a caller sampling on a timer will never hit and a test can); or
-     * counters that went backwards, which a real kernel does not do but a CPU going offline and a re-pointed
-     * {@code procRoot} both can.
-     */
+    /** The busy share since the previous reading; empty when there is nothing to subtract. */
     private OptionalDouble percentSince(final Cpu cpu) {
         if (previousTotalJiffies < 0) {
             return OptionalDouble.empty();
@@ -235,7 +169,7 @@ public final class HostMetrics {
 
     private record Memory(long total, long available, long free, long swapTotal, long swapFree) {}
 
-    /** Kernel "kB" is KiB. {@code 16372536 * 1024} is {@code free -b}'s 16765476864 exactly. */
+    /** Kernel "kB" is KiB. */
     private static final long KIB = 1024L;
 
     private static final String MEM_TOTAL = "MemTotal";
@@ -244,17 +178,7 @@ public final class HostMetrics {
     private static final String SWAP_TOTAL = "SwapTotal";
     private static final String SWAP_FREE = "SwapFree";
 
-    /**
-     * Five of the fifty-odd lines of {@code /proc/meminfo}, in bytes.
-     *
-     * A missing memory field throws rather than defaulting, because {@link HostSnapshot} 's fields are {@code long} and
-     * there is no honest value to put there - {@code MemAvailable} in particular has existed since Linux 3.14 and its
-     * absence means this is not the file we think it is, not that the host has no available memory.
-     *
-     * A missing SWAP field is zero, and that is not the same compromise: a kernel built without {@code CONFIG_SWAP}
-     * prints no {@code SwapTotal} line at all, and "no swap" is precisely and only what zero bytes of swap means. This
-     * host prints the lines and they say {@code 0 kB}, so both spellings of swapless land on the same answer.
-     */
+    /** Five lines of {@code /proc/meminfo}, in bytes: a missing memory field throws, a missing swap field is zero. */
     private Memory readMemory() throws IOException {
         final Path file = procRoot.resolve("meminfo");
         long total = -1;
@@ -275,9 +199,7 @@ public final class HostMetrics {
                 case MEM_FREE -> free = bytes(file, line);
                 case SWAP_TOTAL -> swapTotal = bytes(file, line);
                 case SWAP_FREE -> swapFree = bytes(file, line);
-                default -> {
-                    // Forty-odd lines nobody on this page is asking about.
-                }
+                default -> {}
             }
         }
 
@@ -293,13 +215,7 @@ public final class HostMetrics {
         }
     }
 
-    /**
-     * {@code MemTotal: 16372536 kB} to bytes.
-     *
-     * The unit is checked and not assumed. Every line of this file that carries a size says {@code kB} today, but a few
-     * (the {@code HugePages_*} counters) carry no unit at all, and a parser that skips the check would read a future
-     * line in some other unit as kilobytes and be wrong by a factor nobody would spot on a dashboard.
-     */
+    /** {@code MemTotal: 16372536 kB} to bytes, refusing any unit other than {@code kB}. */
     private static long bytes(final Path file, final String line) throws IOException {
         final String[] fields = WHITESPACE
                 .splitAsStream(line.substring(line.indexOf(':') + 1).strip())

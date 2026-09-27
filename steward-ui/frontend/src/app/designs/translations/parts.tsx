@@ -31,11 +31,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Glyph } from "@/app/designs/translations/preview"
 import type { Fill } from "@/app/designs/translations/preview"
 
-/**
- * What the three editors share: the placeholder and glyph menus, the colour menu with its
- * gradient, click and link, and the row of style buttons that uses them. Built once; each editor
- * only decides where the row stands and what a press applies to.
- */
+/** What the three editors share: the placeholder, glyph and colour menus, and the style buttons that use them. */
 
 /** Minecraft's sixteen colours in the order of their old section codes, 0 to f. */
 export const COLOUR_ORDER = [
@@ -522,8 +518,9 @@ const DECORATION_ICONS: Record<Decoration, [string, ReactNode]> = {
 }
 
 /**
- * The style buttons for a format, acting on whatever the editor says is selected. `hover` is the
- * editor's own hover control, left out inside a hover: a hover text has no hover and no click.
+ * The style buttons for a format, acting on the editor's selection.
+ *
+ * `hover` is the editor's own hover control, left out inside a hover, which has neither hover nor click.
  */
 export function StyleButtons({
   format,

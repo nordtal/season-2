@@ -20,21 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * That {@code smp} 's three config files can be written into an empty directory and read back.
- *
- * <b>Why this file exists at all</b>
- *
- * It did not, and {@code smp} was the only module with configs and no {@code ConfigsTest}. What
- * that cost was the whole plugin: four nested interfaces in {@link SmpSpec} carried no {@code @ConfigSpec}, so
- * writing a fresh {@code config.yml} fell through to Gson's reflective adapter over the interface proxy and died on
- * {@code java.lang.reflect.Proxy#h} - {@code onEnable} threw on the first load, on every start, and Paper disabled
- * the plugin while the server carried on. 135 green tests said nothing about it, because not one of them had ever
- * called {@link Configs#load}.
- *
- * {@link MilestonesTest} covered {@code milestones.yml} alone, which is the one file of the three whose nested
- * interfaces <em>were</em> annotated.
- */
+/** That the {@code smp} config files can be written into an empty directory and read back. */
 class ConfigsTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigsTest.class);
@@ -43,11 +29,7 @@ class ConfigsTest {
     Path directory;
 
     /**
-     * The failure B1 actually was: every handle, an empty directory, and nothing else.
-     *
-     * Loading is what writes the file, and writing is what serialises every nested spec - so a missing
-     * {@code @ConfigSpec} anywhere below these roots stops here rather than in {@code onEnable}. It was three files
-     * until the sounds became the fourth.
+     * Loads every handle into an empty directory, so a missing {@code @ConfigSpec} fails here, not in {@code onEnable}.
      */
     @Test
     void aFreshDirectoryGetsAllFourFiles() throws Exception {
@@ -68,17 +50,9 @@ class ConfigsTest {
     }
 
     /**
-     * {@code config.yml} does not carry the sounds.
+     * {@code config.yml} does not carry the sounds: a {@code sounds:} block there is dropped on load.
      *
-     * A config that still does loses the block rather than keeping something that looks like a working setting.
-     * They used to live under a {@code sounds:} key there before moving to their own file, for
-     * the reason {@link SoundsSpec} gives. This is asserted by name because the <em>reason</em> it has to stay true is
-     * invisible from {@code SmpSpec}: a sounds block back in {@code config.yml} would be read once at enable and never
-     * again, and the escape hatch of blanking a key would silently need a restart of the season.
-     *
-     * Until jcore 3.1.0 the block stopped the plugin and this test asserted that. What it pins now is the half that was
-     * always the point: the key does not survive the load, so nobody can re-declare it in {@code SmpSpec} and quietly
-     * get an unreloadable second source of sounds.
+     * Sounds in {@code config.yml} would never reload, so nobody may re-declare them in {@code SmpSpec}.
      */
     @Test
     void configYmlDropsASoundsBlock() throws Exception {
@@ -98,17 +72,7 @@ class ConfigsTest {
                 "a sounds block in config.yml has to be gone after one load, not merely ignored");
     }
 
-    /**
-     * {@code admin-permissions} is retired.
-     *
-     * A deployed {@code config.yml} that still carries it loses the block instead of keeping one that reads like a
-     * working setting. It was retired when an admin became a server operator instead
-     * ({@link eu.nordtal.s2.common.access.AdminOperators}). This key is in a file that already exists in a
-     * production volume, and the only thing an operator could ever do about it is delete the line - so as of jcore
-     * 3.1.0 the loader deletes it, names it in a warning and leaves the old file in {@code config.yml.bak}. This
-     * test used to assert the plugin stopped instead. What it pins either way is that nobody re-declares the key as
-     * a deprecated no-op to make an upgrade quieter.
-     */
+    /** {@code admin-permissions} is retired: the loader drops it, so nobody re-declares it as a no-op. */
     @Test
     void configYmlDropsRetiredAdminPermissions() throws Exception {
         Configs.load(directory, LOGGER);
@@ -181,12 +145,7 @@ class ConfigsTest {
     }
 
     /**
-     * The same rule stated directly, so that it holds whatever the test JVM has open.
-     *
-     * The round trip above only fails because {@code java.lang.reflect} is closed to the test worker, which is a
-     * property of the JVM the build happens to start and not of the code. A future toolchain that opened it would make
-     * the round trip pass on a plugin that still dies on a real server. This walks the same interfaces and asks the
-     * question outright.
+     * The same rule stated directly, so it holds even on a JVM that opens {@code java.lang.reflect} to the test worker.
      */
     @Test
     void everyNestedSpecInterfaceCarriesTheAnnotation() {

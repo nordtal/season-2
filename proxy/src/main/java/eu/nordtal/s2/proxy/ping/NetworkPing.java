@@ -6,7 +6,6 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.ServerPing;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.network.NetworkSnapshot;
 import eu.nordtal.s2.proxy.config.NetworkSpec;
 import eu.nordtal.s2.proxy.launch.LaunchCountdown;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
@@ -17,27 +16,9 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
 /**
- * What the server browser shows: the MOTD for the current phase, and the player limit the network actually enforces.
+ * What the server browser shows: the MOTD for the current phase and the player limit the gate enforces.
  *
- * <b>Why the plugin owns this and {@code velocity.toml} does not.</b>
- * The MOTD used to be seeded into {@code velocity.toml} on a fresh volume and owned by the operator
- * afterwards, which meant changing it on a network that had ever started required editing a file
- * inside a Docker volume - and setting {@code VELOCITY_MOTD} in {@code .env} silently did nothing.
- * The entrypoint no longer writes {@code motd} or {@code show-max-players} at all; both live in
- * {@code network.yml} and are answered here. The proxy refuses to start without this plugin
- * ({@code EXPECTED_PLUGINS}), so there is no configuration in which that leaves the browser showing
- * Velocity's own default.
- *
- * <b>Nothing on this path blocks.</b>
- * A ping is unauthenticated, arrives in bursts from every client with the server in its list, and
- * Velocity waits on this event before answering ({@code @AwaitingEvent}). So: no database call, no
- * lock, no I/O. The phase comes from {@link PhaseWatch}'s last known value, the counts from the
- * proxy's own view, and everything else from a {@link NetworkSnapshot} a timer refreshed - all of
- * them field reads.
- *
- * <b>The maximum is the real one.</b>
- * {@code maximumPlayers} here is the same number {@code LoginGate} enforces, from the same config
- * key. The two numbers could not disagree if they wanted to, because there is only one.
+ * Nothing on this path blocks: Velocity awaits this event, so every value is a field read.
  */
 public final class NetworkPing {
 
@@ -62,8 +43,9 @@ public final class NetworkPing {
     }
 
     /**
-     * @param favicon the 64 x 64 icon for the server browser, or empty for a ping without one -
-     *                see {@link ServerIcon}
+     * Takes the icon for every ping.
+     *
+     * @param favicon the 64 x 64 icon, or empty for a ping without one
      */
     public NetworkPing(
             final ProxyServer proxy,
@@ -93,11 +75,11 @@ public final class NetworkPing {
     }
 
     private Component description() {
-        // One read, not two: a ping caught mid-refresh could otherwise pair a stale phase with a new instant.
+        // One read, not two: a ping mid-refresh could otherwise pair a stale phase with a new instant.
         final PhaseWatch.Known known = phases.known();
         final SeasonPhase phase = known.phase();
         final String template = motdFor(phase);
-        // English: a ping carries no player, so there is nobody whose language could be looked up.
+        // English: a ping carries no player whose language could be looked up.
         final String countdown = LaunchCountdown.render(messages, Locale.ENGLISH, known.launch(), clock.instant());
         final String substituted =
                 Placeholders.apply(template, proxy, phase, config.maxPlayers(), snapshots.current(), countdown);
@@ -105,7 +87,7 @@ public final class NetworkPing {
         try {
             return MiniMessage.miniMessage().deserialize(substituted);
         } catch (final RuntimeException malformed) {
-            // A mistyped tag must not take the ping down and show the network as unreachable; unparsed still reads.
+            // A mistyped tag must not take the ping down; the unparsed text still reads.
             logger.warn("network.yml's MOTD for {} is not valid MiniMessage; showing it unparsed", phase, malformed);
             return Component.text(substituted);
         }

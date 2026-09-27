@@ -34,11 +34,7 @@ import org.yaml.snakeyaml.nodes.SequenceNode;
 /**
  * Reads a config file as a form, matching each key against the schema beside it when there is one.
  *
- * The schema is the first choice, never the only one. A file with no schema, or one nothing ever described, reads
- * exactly as it always has: a mechanical {@link Labels#of(String)} label and whatever comment block sits above the
- * key. And whichever source wins, the file is still the truth about what keys exist: a key the schema does not
- * mention is delivered anyway, never hidden, and a schema entry with nothing behind it in the file is silently
- * ignored rather than invented as an entry.
+ * The file decides which keys exist: an undeclared key is shown and a schema entry with no key is ignored.
  */
 final class ConfigFileReader {
 
@@ -60,7 +56,7 @@ final class ConfigFileReader {
         }
 
         if (root == null) {
-            // An empty file, or one that is nothing but comments: everything in it is the header.
+            // An empty file, or one of nothing but comments, is all header.
             return new Parsed(
                     new ConfigDocument(
                             file, ConfigFiles.revisionOf(content), headerOf(lines, Integer.MAX_VALUE), List.of()),
@@ -77,7 +73,7 @@ final class ConfigFileReader {
         final List<ConfigEntry> entries = new ArrayList<>();
         final Map<String, Span> spans = new HashMap<>();
         final Optional<Map<String, SchemaNode>> schema = Schemas.read(file).map(SchemaNode::children);
-        // Flat, unlike schema: an overridden path is already dotted, so the same Set works at every nesting level.
+        // Flat: an overridden path is already dotted, so one Set works at every level.
         final Optional<Set<String>> overridden = EnvOverrides.read(file);
         collect(file, mapping, "", lines, entries, spans, schema, overridden);
 
@@ -92,9 +88,8 @@ final class ConfigFileReader {
     /**
      * Walks one mapping level, matching each key against {@code schemaLevel} when there is one.
      *
-     * @param schemaLevel the schema's children at this level, keyed the same way the file is, or empty when there
-     *     is nothing here to compare against - every key at this level is then vacuously
-     *     {@link ConfigEntry#inSchema()}, since there is nothing for it to be missing from
+     * @param schemaLevel the schema's children at this level, or empty, which makes every key here count as in the
+     *     schema
      */
     static void collect(
             final Path file,
@@ -166,7 +161,7 @@ final class ConfigFileReader {
         final Set<String> extra = new TreeSet<>(schemaLevel.get().keySet());
         extra.removeAll(matchedKeys);
         if (!extra.isEmpty()) {
-            // The file is the truth: a schema entry with nothing behind it is a dropped setting, not an error.
+            // The file is the truth: a schema entry with nothing behind it is a dropped setting.
             LOG.warn(
                     "{}: the schema names {} setting(s) the file does not have: {}. The file wins; they are"
                             + " ignored.",
@@ -196,7 +191,7 @@ final class ConfigFileReader {
             final Optional<Set<String>> overridden)
             throws IOException {
         if (valueNode instanceof MappingNode) {
-            // A section is a heading, not a value: there is nothing here to change that is not one of its keys.
+            // A section is a heading with nothing to change but its keys.
             return new Classified(Kind.MAP, ConfigEntry.Type.STRING, "", List.of(), List.of(), List.of(), false);
         }
         if (valueNode instanceof SequenceNode sequence
@@ -212,13 +207,7 @@ final class ConfigFileReader {
                 Kind.SCALAR, Scalars.typeOf(scalar), scalar.getValue(), List.of(), List.of(), List.of(), true);
     }
 
-    /**
-     * A sequence of mappings, the shape {@code languages} and {@code tiers} are written as.
-     *
-     * Reading and writing are split on purpose: writing only ever replaces a scalar already on a line, so an
-     * existing entry's own field can change, but inserting or deleting a whole entry needs its own logic, in
-     * {@code SectionWriter}.
-     */
+    /** Classifies a sequence of mappings; inserting or deleting a whole entry is {@code SectionWriter}'s job. */
     private static Classified classifySections(
             final Path file,
             final SequenceNode sequence,
@@ -238,7 +227,7 @@ final class ConfigFileReader {
             collect(file, element, path + "[" + index + "]", lines, fields, spans, elementSchema, overridden);
             collected.add(List.copyOf(fields));
         }
-        // The card's shape comes from the schema: a nested map is the one field a card still has no place for.
+        // A nested map is the one field a card has no place for.
         final List<ConfigEntry> template = elementSchema
                 .filter(ConfigFileReader::isCardShaped)
                 .map(ConfigFileReader::templateOf)
@@ -259,7 +248,7 @@ final class ConfigFileReader {
         }
         final List<String> items = scalars.stream().map(ScalarNode::getValue).toList();
         final ConfigEntry.Type type = plain ? sharedType(scalars) : ConfigEntry.Type.STRING;
-        // A sequence mixing scalars and mappings is left exactly as before: raw and not editable.
+        // A sequence mixing scalars and mappings stays raw and not editable.
         return new Classified(Kind.LIST, type, "", items, List.of(), List.of(), plain);
     }
 
@@ -302,7 +291,7 @@ final class ConfigFileReader {
                 classified.type(),
                 keyLine + 1,
                 classified.editable(),
-                // A schema saying secret=true always wins; secret=false or no schema entry never turns it off.
+                // A schema's secret=true wins; nothing turns the name heuristic off.
                 ConfigEntry.isSecretKey(key) || (schemaChild != null && schemaChild.secret()),
                 inSchema,
                 overridden.map(paths -> paths.contains(path)).orElse(null),
@@ -310,7 +299,7 @@ final class ConfigFileReader {
                 protectedEntryOf(schemaChild));
     }
 
-    /** {@link ConfigEntry.Choices}, from a schema entry's own {@link SchemaNode.Choices}, or {@code null}. */
+    /** Returns {@link ConfigEntry.Choices} from a schema entry's own {@link SchemaNode.Choices}, or {@code null}. */
     static ConfigEntry.@Nullable Choices choicesOf(final @Nullable SchemaNode schemaChild) {
         if (schemaChild == null || schemaChild.choices() == null) {
             return null;
@@ -320,8 +309,7 @@ final class ConfigFileReader {
     }
 
     /**
-     * {@link ConfigEntry.Protected}, from a schema entry's own {@link SchemaNode.ProtectedEntry}, or {@code null}
-     * when there is no schema for this key or its property carries no {@code @Protected}.
+     * Returns {@link ConfigEntry.Protected} from a schema entry's {@link SchemaNode.ProtectedEntry}, or {@code null}.
      */
     static ConfigEntry.@Nullable Protected protectedEntryOf(final @Nullable SchemaNode schemaChild) {
         if (schemaChild == null || schemaChild.protectedEntry() == null) {
@@ -332,20 +320,14 @@ final class ConfigFileReader {
                 schemaChild.protectedEntry().value());
     }
 
-    /** Whether a schema entry is a list whose elements are sections: it describes their fields. */
+    /** Returns whether a schema entry is a list whose elements are sections. */
     static boolean describesSections(final @Nullable SchemaNode schema) {
         return schema != null
                 && schema.kind() == SettingKind.LIST
                 && !schema.children().isEmpty();
     }
 
-    /**
-     * Whether a {@link Kind#SECTIONS} element's schema can be drawn as a card.
-     *
-     * Every field must be a value, a list of values, or a list of sections that is itself card-shaped. A nested map
-     * inside an element is the one shape left out: neither the card nor the writer has a place for a heading inside
-     * an entry.
-     */
+    /** Returns whether a {@link Kind#SECTIONS} element's schema can be drawn as a card, which no nested map can. */
     private static boolean isCardShaped(final Map<String, SchemaNode> elementSchema) {
         return elementSchema.values().stream().allMatch(field -> switch (field.kind()) {
             case SCALAR -> true;
@@ -355,12 +337,9 @@ final class ConfigFileReader {
     }
 
     /**
-     * The blank card an "Add entry" starts from.
+     * Returns the blank card an "Add entry" starts from, one entry per field in schema order.
      *
-     * One {@link ConfigEntry} per field the schema describes for one element, in schema order.
-     *
-     * @param elementSchema the schema's own shape of one element; see {@link SchemaNode#children()}'s doc for a
-     *     {@link SettingKind#LIST}
+     * @param elementSchema the schema's own shape of one element
      */
     static List<ConfigEntry> templateOf(final Map<String, SchemaNode> elementSchema) {
         final List<ConfigEntry> fields = new ArrayList<>();
@@ -388,20 +367,19 @@ final class ConfigFileReader {
                     true,
                     ConfigEntry.isSecretKey(key) || schema.secret(),
                     true,
-                    // A template field is a blank shape, never a value an environment variable could have overridden.
+                    // A template field is a blank shape, never environment-overridden.
                     null,
                     choicesOf(schema),
-                    // @Protected names a section by one field's value; only a nested list of sections has entries.
+                    // Only a nested list of sections has entries to protect.
                     sections ? protectedEntryOf(schema) : null));
         }
         return List.copyOf(fields);
     }
 
     /**
-     * The type every entry of a list shares, or {@link ConfigEntry.Type#STRING} when they differ.
+     * Returns the type every entry of a list shares, or {@link ConfigEntry.Type#STRING} when they differ.
      *
-     * It decides how a new entry is written back: without it a list of ports would come back from a form as a list
-     * of quoted strings, a file that still parses but no longer loads as a config.
+     * It decides how a new entry is written back, so a list of ports stays numeric.
      */
     private static ConfigEntry.Type sharedType(final List<ScalarNode> items) {
         ConfigEntry.Type shared = null;
@@ -416,12 +394,7 @@ final class ConfigFileReader {
         return shared == null ? ConfigEntry.Type.STRING : shared;
     }
 
-    /**
-     * The comment block directly above a key.
-     *
-     * Indentation is no part of this: the line is stripped before it is looked at, since a hand-edited file may not
-     * indent a nested key's comment to that key's column. A blank line ends the block.
-     */
+    /** Returns the comment block directly above a key, ignoring indentation and ending at a blank line. */
     static List<String> commentsAbove(final List<String> lines, final int keyLine) {
         final List<String> block = new ArrayList<>();
         for (int i = commentBlockStartLine(lines, keyLine); i < keyLine; i++) {
@@ -432,11 +405,9 @@ final class ConfigFileReader {
     }
 
     /**
-     * The first line of the contiguous {@code #} comment block directly above {@code keyLine}, or {@code keyLine}
-     * itself when there is none directly above it.
+     * Returns the first line of the {@code #} comment block directly above {@code keyLine}, or {@code keyLine}.
      *
-     * The section-removal writer is the other caller: deleting an entry has to delete the comment lines that
-     * belong to it, and stop before the comment that belongs to the entry above.
+     * The section-removal writer uses it to delete an entry's own comment lines.
      */
     static int commentBlockStartLine(final List<String> lines, final int keyLine) {
         int start = keyLine;
@@ -450,11 +421,7 @@ final class ConfigFileReader {
         return start;
     }
 
-    /**
-     * The header block: the comments at the very top of the file, if a blank line separates them from the first key.
-     *
-     * Without that blank line they are the first key's comment and not a header.
-     */
+    /** Returns the comments at the top of the file, when a blank line separates them from the first key. */
     private static List<String> headerOf(final List<String> lines, final int firstKeyLine) {
         int i = 0;
         final List<String> header = new ArrayList<>();
@@ -469,7 +436,7 @@ final class ConfigFileReader {
         if (header.isEmpty()) {
             return List.of();
         }
-        // Not merely "is not blank": a file starting with comments then `---` still has a header and no key there.
+        // A file starting with comments then `---` still has a header and no key there.
         final boolean attachedToAKey =
                 i < lines.size() && !LineEdits.withoutLineEnding(lines.get(i)).isBlank() && i >= firstKeyLine;
         return attachedToAKey ? List.of() : List.copyOf(header);

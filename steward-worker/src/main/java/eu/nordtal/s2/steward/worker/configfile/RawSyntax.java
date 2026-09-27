@@ -19,26 +19,9 @@ import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
 
 /**
- * The raw editor's save-time syntax check.
+ * The raw editor's save-time syntax check, which warns beside a save and never blocks it.
  *
- * A best-effort look at whether the text an operator just typed still parses as the format its file name says it
- * is, named by the line it went wrong on when one can be found at all.
- *
- * Never authoritative. {@link ConfigFiles#writeRaw} writes exactly what it is given whether or not this finds
- * anything: an editor which refuses to save a file is one an operator has
- * to work around. This class only ever produces a sentence for the interface to show beside a save that already
- * happened.
- *
- * TOML gets no check, on purpose. Nothing else in this module or its dependencies parses TOML - jcore, this worker
- * and Paper all read YAML - and adding a parsing library for one warning message is exactly the "too expensive" case
- * the ticket names: no check at all is the honest answer, because a hand-rolled one that disagrees with the real
- * reason a TOML file fails would be worse than none - the ticket's own preference is no warning at all over a wrong
- * one.
- *
- * Properties gets one check, not a parser. {@link Properties#load} is forgiving almost to a fault - most text is a
- * legal {@code .properties} file - so the one thing it can actually still reject, a malformed unicode escape (a
- * backslash-u not followed by four hex digits), is the one thing checked here. The JDK does not say which line it
- * was on, so this class finds it again by hand once {@code load} has already thrown, purely to be able to name one.
+ * TOML is not checked; properties only for a malformed unicode escape, the one thing it rejects.
  */
 public final class RawSyntax {
 
@@ -53,7 +36,7 @@ public final class RawSyntax {
         }
     }
 
-    /** The four formats the ticket names, plus the fallback everything else gets. */
+    /** The formats a raw editor knows, plus the fallback everything else gets. */
     public enum Format {
         YAML,
         JSON,
@@ -66,9 +49,7 @@ public final class RawSyntax {
     private static final Pattern LINE_FROM_GSON = Pattern.compile("line (\\d+)");
 
     /**
-     * The format a raw editor draws for a file, decided the same way everywhere it is asked.
-     *
-     * By the last extension on the file's own name, never by sniffing its content.
+     * The format a raw editor draws for a file, decided by the last extension of its name.
      *
      * @param fileName the file's name or path, as {@link ConfigLocation#name()} carries it
      */
@@ -92,10 +73,11 @@ public final class RawSyntax {
     }
 
     /**
-     * @param fileName the file's own name, used only to decide which format to check it as
-     * @param content  the text as the operator has it right now, before it is written anywhere
-     * @return a warning naming what looks wrong, or empty when the format is not checked
-     *         ({@link Format#TOML}, {@link Format#TEXT}) or nothing was found
+     * Checks text against the format its file name says.
+     *
+     * @param fileName the file's own name, which picks the format
+     * @param content the text as the operator has it, before it is written
+     * @return a warning naming what looks wrong, or empty when nothing was found or the format is not checked
      */
     public static Optional<Warning> check(final String fileName, final String content) {
         return switch (formatOf(fileName)) {
@@ -107,10 +89,7 @@ public final class RawSyntax {
     }
 
     /**
-     * The same two failure shapes {@link ConfigFiles#read} itself reports.
-     *
-     * Text SnakeYAML refuses to compose at all, and a document that composes but is not a mapping at its root - the
-     * two ways a {@code .yml} most often lands an operator in the raw editor to begin with.
+     * The two failures {@link ConfigFiles#read} reports: text that does not compose, and a root that is not a mapping.
      */
     private static Optional<Warning> checkYaml(final String content) {
         final Node root;
@@ -125,7 +104,7 @@ public final class RawSyntax {
             return Optional.of(new Warning(0, "not valid YAML: " + e.getMessage()));
         }
         if (root == null) {
-            // Empty, or nothing but comments - the same as an empty config file, not an error.
+            // Empty or only comments, the same as an empty config file.
             return Optional.empty();
         }
         if (!(root instanceof MappingNode)) {
@@ -138,7 +117,7 @@ public final class RawSyntax {
 
     private static Optional<Warning> checkJson(final String content) {
         if (content.isBlank()) {
-            // Nothing typed is not a syntax error - the same call ConfigFiles.parse makes for an empty YAML file.
+            // Nothing typed is not a syntax error, as in ConfigFiles.parse.
             return Optional.empty();
         }
         try {
@@ -152,11 +131,7 @@ public final class RawSyntax {
         }
     }
 
-    /**
-     * Gson's own message, with a troubleshooting URL after a line break trimmed off.
-     *
-     * That URL is not something to hand an operator as if this class wrote it.
-     */
+    /** Gson's message without the troubleshooting URL it appends after a line break. */
     private static String firstLineOf(final String message) {
         final int newline = message.indexOf('\n');
         return newline < 0 ? message : message.substring(0, newline);
@@ -173,7 +148,7 @@ public final class RawSyntax {
                     return Optional.of(new Warning(i + 1, "not valid properties: malformed \\uXXXX encoding"));
                 }
             }
-            // Properties.load threw for a reason this loop found no line for - name none rather than guess wrong.
+            // No line found for the failure, so none is named rather than a wrong one.
             final String message = e.getMessage() == null ? e.toString() : e.getMessage();
             return Optional.of(new Warning(0, "not valid properties: " + message));
         }

@@ -24,26 +24,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * {@link HungerGamesDao#killCounts} against a real PostgreSQL running the real migrations.
+ * Runs {@link HungerGamesDao#killCounts} against a real PostgreSQL with the real migrations.
  *
- * Why this needs a container: the whole of what {@code killCounts} does is SQL and JDBI column
- * mapping, and no in-memory test can say anything about either - the same argument
- * {@code PlaytimeStoreIntegrationTest} makes for its upsert. Two specific things here compile, pass
- * every unit test in this module, and would throw on the busiest tick of the event: PostgreSQL's
- * {@code count(*)} is {@code bigint} while the method answers {@code Map<UUID, Integer>}, and
- * {@code @KeyColumn} / {@code @ValueColumn} name columns as strings that nothing checks.
- *
- * Why the method exists at all: the ceremony used to ask {@link HungerGamesDao#killCount} once per
- * member, inside a loop over every player, <b>on the main thread</b> - forty participants in front
- * of forty players is 1 600 blocking queries at the moment the whole event ends, and every one of
- * them returns the same answer, because the tally does not depend on who is being told.
- *
- * It is also the standing proof that the tally and the tiebreak agree: {@code killCount} decides
- * who wins a tie and {@code killCounts} is what players are shown, so two different answers would
- * be a scoreboard that contradicts the result announced above it.
- *
- * This test <b>skips itself</b> when no Docker daemon is reachable, so a green build on a
- * machine without Docker proves nothing about any of it.
+ * It checks the {@code bigint} mapping and the column names, and skips itself without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class KillCountsIntegrationTest {
@@ -74,7 +57,7 @@ class KillCountsIntegrationTest {
         dataSource.setUser(postgres.getUsername());
         dataSource.setPassword(postgres.getPassword());
 
-        // The real migrations off the classpath - :common is shaded in, so this is where a server finds them too.
+        // The real migrations off the classpath; :common is shaded in, so a server finds them here too.
         Flyway.configure(KillCountsIntegrationTest.class.getClassLoader())
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
@@ -169,8 +152,6 @@ class KillCountsIntegrationTest {
                 "the ceremony iterates this; null would be an exception in front"
                         + " of everybody at the end of the event");
     }
-
-    // helpers
 
     private UUID member(final UUID teamId, final String discordId) {
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')");

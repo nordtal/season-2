@@ -12,12 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Saving volumes, without a disk.
- *
- * It shares its call list with {@link FakeContainers} on purpose: what a backup run has to get right is the order of
- * stopping, saving and starting, and an ordering split across two recorders is an ordering nothing asserts.
- */
+/** Saving volumes, without a disk, recorded in the call list it shares with {@link FakeContainers}. */
 final class FakeSnapshots implements Snapshots {
 
     private final List<String> calls;
@@ -38,7 +33,7 @@ final class FakeSnapshots implements Snapshots {
         return this;
     }
 
-    /** A volume that "saves" but produces nothing - the A23 shape, as a fixture. */
+    /** A volume that saves but produces nothing. */
     FakeSnapshots savesNothing(final String volume) {
         empty.add(volume);
         return this;
@@ -67,13 +62,7 @@ final class FakeSnapshots implements Snapshots {
         return archive.substring(archive.lastIndexOf('/') + 1) + ".unverified";
     }
 
-    /**
-     * What was marked, and with which sentence, in the order the marks were made.
-     *
-     * Copies the {@link LinkedHashMap} field directly, never through {@code Map.copyOf}: that call randomises
-     * iteration order per JVM, which would make an order assertion pass intermittently. Whether order is a claim
-     * worth asserting is decided against the shared call list, which is where ordering lives in these doubles.
-     */
+    /** What was marked, with which sentence, in the order the marks were made. */
     Map<String, String> marks() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(marks));
     }

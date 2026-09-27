@@ -19,8 +19,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Signing in against the stand-in Discord, the session it leaves behind, and admin grants.
  *
- * The sign-in itself is the real flow end to end - state parameter, role check, session, cookie
- * and CSRF token - against a stand-in for {@code discord.com} only.
+ * The flow is real end to end, from state parameter to CSRF token; only {@code discord.com} is stood in for.
  */
 class SignInAndSessionTest extends StewardUiTestSupport {
 
@@ -123,7 +122,7 @@ class SignInAndSessionTest extends StewardUiTestSupport {
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         assertTrue(me.get("signedIn").getAsBoolean(), me.toString());
         assertEquals("1", me.get("id").getAsString());
-        // The nickname from the guild, not the username - the name the other admins know them by.
+        // The nickname from the guild, not the username: the name the other admins know them by.
         assertEquals("Ally", me.get("name").getAsString());
         assertEquals(
                 "a-client-secret",
@@ -196,7 +195,7 @@ class SignInAndSessionTest extends StewardUiTestSupport {
                 cookie.contains("Secure"),
                 cookie + " is marked Secure on a plain http request, so a local sign-in cannot finish");
 
-        // And the other half of the same decision, which is the one the deployment actually runs.
+        // The other half of the same decision, which is the one the deployment runs.
         final HttpClient throughCaddy = browser();
         final HttpResponse<String> behindTls = throughCaddy.send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/auth/login"))
@@ -250,7 +249,7 @@ class SignInAndSessionTest extends StewardUiTestSupport {
                 after,
                 "the id that was in the browser before anybody proved who they were is now a " + "signed-in session");
 
-        // The old one is not merely unused - it is gone, so it can no longer be a valid cookie for anybody.
+        // The old one is gone, so it can no longer be a valid cookie for anybody.
         final HttpClient planted = browser();
         final HttpResponse<String> withTheOldId = planted.send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + UI_PORT + "/api/me"))

@@ -13,23 +13,9 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * A world spawn is a coordinate, not a promise.
+ * A world spawn is a coordinate, not a promise: every teleport to one goes through {@link LandingSite}.
  *
- * <b>Why this is a rule and not a habit</b>
- *
- * A duel ending "at the spawn" can teleport a fighter into solid rock, out of the world, or into lava. A
- * player-built portal can need carrying someone out by hand, to somewhere survivable. The balloon's whole design is
- * "always the world spawn, so that a world spawn is a landmark everybody knows" - which fails exactly when the spawn
- * itself is not landable, dropping a player inside netherrack instead.
- *
- * {@link LandingSite#safeAt} costs nothing where the spot is already good - it takes the preferred location whenever
- * a player actually fits there - so a built world keeps its landmark exactly. It only does anything at all in the
- * case that used to be a death.
- *
- * <b>The allowlist</b>
- *
- * One file, and it is not a teleport: {@code NavigateGui} prints the spawn's three numbers into a line of text.
- * Anything added here has to be something that does not <em>move</em> a player.
+ * The allowlist names only files that never move a player.
  */
 class LandingIsCheckedTest {
 
@@ -72,14 +58,7 @@ class LandingIsCheckedTest {
                         + " findSafeAt instead and uses its own \"not available\" branch");
     }
 
-    /**
-     * Either helper counts, and the difference between them is what the caller does with nothing.
-     *
-     * {@code safeAt} ends with the preferred spot when its search comes back empty, which is right for a duel that has
-     * to end. {@code findSafeAt} hands the emptiness back, which is right for the balloon: it can say the destination
-     * is
-     * unavailable instead of announcing an arrival nobody survives.
-     */
+    /** Either helper counts: {@code safeAt} falls back to the spot, {@code findSafeAt} hands back empty. */
     private static boolean checked(final String line) {
         return line.contains("LandingSite.safeAt(") || line.contains("findSafeAt(");
     }

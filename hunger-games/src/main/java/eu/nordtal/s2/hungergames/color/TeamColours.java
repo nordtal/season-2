@@ -10,8 +10,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Generates a palette of {@code n} evenly spaced hues, and maps any RGB colour to its nearest one.
  *
- * Fixed saturation and brightness is the arrangement that separates n colours best. No Bukkit or
- * Adventure type appears here on purpose, so it is unit-testable.
+ * Fixed saturation and brightness separate n colours best; no platform type appears, so it is unit-testable.
  */
 public final class TeamColours {
 
@@ -19,12 +18,7 @@ public final class TeamColours {
 
     public static final float BRIGHTNESS = 0.95f;
 
-    /**
-     * The sixteen named Minecraft chat colours.
-     *
-     * Hardcoded rather than read off Adventure: they are part of the protocol, and this keeps the
-     * class free of any platform dependency.
-     */
+    /** The sixteen named Minecraft chat colours, hardcoded since they are part of the protocol. */
     private static final Map<String, Integer> NAMED_COLOURS = Map.ofEntries(
             Map.entry("BLACK", 0x000000),
             Map.entry("DARK_BLUE", 0x0000AA),
@@ -46,10 +40,8 @@ public final class TeamColours {
     private TeamColours() {}
 
     /**
-     * Generates {@code count} evenly spaced hues, in order, at {@link #SATURATION}/{@link #BRIGHTNESS}.
+     * Returns {@code count} evenly spaced hues as packed {@code 0xRRGGBB}, starting at hue 0.
      *
-     * @param count how many teams need a colour; must be positive
-     * @return {@code count} RGB colours as packed {@code 0xRRGGBB} ints, starting at hue 0
      * @throws IllegalArgumentException if {@code count} is not positive
      */
     public static List<Integer> generatePalette(final int count) {
@@ -67,13 +59,9 @@ public final class TeamColours {
     }
 
     /**
-     * The nearest of the sixteen named Minecraft colours to an exact RGB colour, by Euclidean distance.
+     * Returns the name of the nearest named Minecraft colour, as written to {@code hg_team.colour_named}.
      *
-     * For the vanilla surfaces (scoreboard team, tab list) that cannot take an exact one.
-     *
-     * @param rgb a packed {@code 0xRRGGBB} colour
-     * @return the matching {@code NamedTextColor}/{@code ChatColor} constant name, e.g.
-     *         {@code "DARK_AQUA"} - matches what this plugin writes to {@code hg_team.colour_named}
+     * For the vanilla surfaces (scoreboard team, tab list) that cannot take an exact colour.
      */
     public static String nearestNamedColour(final int rgb) {
         final int r = (rgb >> 16) & 0xFF;

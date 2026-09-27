@@ -1,14 +1,9 @@
 package eu.nordtal.s2.smp.db;
 
 /**
- * One objective's stored progress: how much has been collected against how much is wanted.
+ * One objective's stored progress; its definition lives in {@code milestones.yml}.
  *
- * The <em>definition</em> - what is being counted, and by which of the three types - lives in
- * {@code milestones.yml}. Only the numbers are here, which is what makes the track editable mid-season without a
- * migration.
- *
- * @param completed whether it is finished; a target that was later lowered below the collected amount completes on
- * the next reload, which is the escape hatch the concept keeps
+ * @param completed whether it is finished; a target lowered below the collected amount completes on the next reload
  */
 public record ObjectiveRow(java.util.UUID id, String key, long amount, long target, boolean completed) {
 

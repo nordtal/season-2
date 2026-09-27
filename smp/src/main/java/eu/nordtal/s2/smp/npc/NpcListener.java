@@ -27,39 +27,21 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Clicking the NPC, and everything that follows from it.
+ * Clicking the NPC: the objective list, the deposit screen, and the confirmation where items change hands.
  *
- * Three things live here because they are one conversation: opening the objective list, opening a deposit screen
- * from it, and the confirmation that is the only moment items change hands.
- *
- * <b>Closing a deposit screen always gives everything back.</b> A plugin inventory that is simply closed drops its
- * contents into nothing, so the handler below is not a courtesy - it is what stands between somebody backing out of
- * a screen and somebody losing a stack of diamonds.
+ * Closing a deposit screen always gives everything back.
  */
 public final class NpcListener implements Listener {
 
     private final Plugin plugin;
     private final SmpDao dao;
     private final SpawnNpc npc;
-    /**
-     * The milestone track, <b>as a supplier</b>.
-     *
-     * {@code /smp reload} replaces the plugin's track with a new instance - that is the whole reason
-     * {@code milestones.yml} is a separate reloadable file, because a milestone is appended and a target lowered
-     * mid-season. A reference captured at enable would go on reading the definitions the server started with, for the
-     * rest of the season, and nothing would say so.
-     */
+    /** The milestone track, as a supplier, because {@code /smp reload} replaces it mid-season. */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final ObjectiveEngine engine;
     private final Identities identities;
-    /**
-     * {@code config.yml#wheel-extra-spin-percents}, <b>as a supplier</b>, for the same reason the track is one.
-     *
-     * The share line projects how many extra spins a contribution is on track for, and it has to project them
-     * against the thresholds {@code ObjectiveEngine} will actually pay out on rather than the ones the server
-     * started with.
-     */
+    /** {@code config.yml#wheel-extra-spin-percents}, as a supplier for the same reason as the track. */
     private final java.util.function.Supplier<List<Integer>> extraSpinPercents;
 
     private final Messages messages;
@@ -188,12 +170,7 @@ public final class NpcListener implements Listener {
         }
     }
 
-    /**
-     * The one moment items change hands.
-     *
-     * What is taken is decided by {@link HandIn}, which knows nothing about a server and is unit tested; this only
-     * applies the answer and credits it. Everything not taken stays in the screen and comes back when it closes.
-     */
+    /** The one moment items change hands, applying what {@link HandIn} decided and crediting it. */
     private void confirm(final Player player, final HandInGui gui) {
         final Locale locale = locales.of(player.getUniqueId());
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
@@ -276,19 +253,14 @@ public final class NpcListener implements Listener {
         }
     }
 
-    /** {@code 12x DIAMOND, 3x EMERALD} - for a log line an admin has to act on. */
+    /** {@code 12x DIAMOND, 3x EMERALD}, for a log line an admin has to act on. */
     private static String describe(final java.util.List<org.bukkit.inventory.ItemStack> stacks) {
         return stacks.stream()
                 .map(stack -> stack.getAmount() + "x " + stack.getType().name())
                 .collect(java.util.stream.Collectors.joining(", "));
     }
 
-    /**
-     * Sends a message and its sound, both in the one hop back to the main thread.
-     *
-     * A menu that does not open is a refusal the player asked for, and the line and its sound belong to the same
-     * moment.
-     */
+    /** Sends a message and its sound, both in the one hop back to the main thread. */
     private void tell(final Player player, final Component message, final Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline()) {

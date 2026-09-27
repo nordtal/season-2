@@ -14,12 +14,9 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * That no Paper plugin's {@code onDisable} has a step that can take the rest down with it.
+ * Checks that every zero-argument field call in a Paper plugin's {@code onDisable} goes through {@code quietly(...)}.
  *
- * A text search, like {@code ReadinessWiringTest}: the failure it guards ({@link Shutdown})
- * needs a jar replaced under a running JVM, which no test here can arrange. What it can see is the
- * shape - every zero-argument call on a field inside {@code onDisable} goes through
- * {@code quietly(...)}, and none is bare.
+ * A text search, since the failure needs a jar replaced under a running JVM.
  */
 class DisableStepsAreIsolatedTest {
 
@@ -28,7 +25,7 @@ class DisableStepsAreIsolatedTest {
             "limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java");
 
-    /** {@code    field.method();} on its own line - a disable step that is not wrapped. */
+    /** {@code field.method();} on its own line, a disable step that is not wrapped. */
     private static final Pattern BARE_STEP = Pattern.compile("^\\s+(\\w+)\\.(\\w+)\\(\\);\\s*$", Pattern.MULTILINE);
 
     @Test

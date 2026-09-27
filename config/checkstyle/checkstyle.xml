@@ -20,6 +20,15 @@
         <property name="message" value="The first sentence of a doc comment fits on its first line."/>
     </module>
     <module name="RegexpMultiline">
+        <property name="id" value="docLength"/>
+        <property name="format" value="/\*\*[^\r\n]*\r?\n(?:[ \t]*\*(?![ \t]*@|/)[^\r\n]*\r?\n){4}"/>
+        <property name="message" value="A doc comment in main code has at most four lines, its opening included, before its tags."/>
+    </module>
+    <module name="SuppressionSingleFilter">
+        <property name="id" value="docLength"/>
+        <property name="files" value="[/\\]src[/\\]test[/\\]"/>
+    </module>
+    <module name="RegexpMultiline">
         <property name="id" value="inlineOneLine"/>
         <property name="format" value="^[ \t]*//[^\r\n]*\r?\n[ \t]*//"/>
         <property name="message" value="An inline comment is one line."/>

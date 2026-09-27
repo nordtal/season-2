@@ -32,23 +32,7 @@ function TooltipContent({
         {...props}
       >
         {children}
-        {/*
-          THE ARROW CARRIES THE SAME SURFACE AS THE BODY, and it is a fix rather than a preference:
-          darkening only the tooltip body would leave the surface itself dark while the little
-          arrow on the tooltip stays white.
-
-          The reason it would only half work is that a caller can only reach the body: `className` on
-          `TooltipContent` lands on the content element, and the arrow was a sibling nailed to
-          `bg-foreground fill-foreground`. On a light theme `--foreground` is near-black and that
-          default is a dark chip; this interface is dark-only, so the same default is a white
-          rectangle with a white spike - which is why every dark tooltip in the network view had to
-          be re-tinted by hand, and why the spike stayed white however often that was done.
-
-          Both properties are set because Radix renders the arrow as an `<svg>` whose polygon takes
-          `fill`, while the rotated-square treatment shadcn puts on top of it is a `background`.
-          One of the two is doing the work depending on which of them survives; setting both is what
-          makes the arrow follow the body regardless.
-        */}
+        {/* The arrow takes the body's surface as `fill` for Radix's svg and `background` for shadcn's square. */}
         <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px] bg-popover fill-popover" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>

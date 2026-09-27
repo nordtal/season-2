@@ -2,14 +2,9 @@ import { useSyncExternalStore } from "react"
 import { shapedAs } from "@/lib/api"
 
 /**
- * What has been typed into the Settings & Translations tab and not saved yet, one record per file.
+ * Unsaved edits in the Settings & Translations tab, one record per file, and which tree branches are open.
  *
- * Module level on purpose: a draft outlives switching to another file or another tab (the tab's
- * content unmounts), and nothing outlives a reload. Which branches of a file's tree are open lives
- * here too, under the same rule.
- *
- * A record only ever holds real changes - whoever writes into it drops a value that equals what is
- * saved - so "this file has a draft" is simply "its record is not empty".
+ * Module level, so a draft survives a tab switch but not a reload; a non-empty record means a draft.
  */
 const drafts = new Map<string, Record<string, unknown>>()
 const opened = new Map<string, Record<string, boolean>>()

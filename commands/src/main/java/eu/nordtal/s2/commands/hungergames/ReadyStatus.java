@@ -13,11 +13,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * {@code /hg ready-status} - which teams have said they are ready.
+ * {@code /hg ready-status}: which teams are ready, by name.
  *
- * A team is ready when every one of its members is, which is the merge the lobby already does
- * for the "{ready}/{total} teams ready" line everybody can see. This is the version that names
- * them.
+ * A team is ready when every member is, the same merge as the lobby's "{ready}/{total} teams ready" line.
  */
 public final class ReadyStatus implements NordtalCommand<HungerGamesEffects> {
 
@@ -38,13 +36,13 @@ public final class ReadyStatus implements NordtalCommand<HungerGamesEffects> {
             final List<HungerGamesEffects.TeamReady> teams =
                     effects.readyStatus(registration.get().gameId());
             user.reply(MESSAGES.hg().readyStatus().header(), Tone.NEUTRAL);
-            // The tone is the whole point of this list: the admin is looking for who is NOT ready yet.
+            // The admin is looking for who is NOT ready yet, so the tone carries the answer.
             teams.forEach(team -> user.reply(
                     MESSAGES.hg()
                             .readyStatus()
                             .line(
                                     new TeamContext(team.team()),
-                                    // A nested message, resolved in the reader's own language: this is what.
+                                    // A nested message, resolved in the reader's own language.
                                     user.phrase(
                                             team.ready()
                                                     ? MESSAGES.hg()

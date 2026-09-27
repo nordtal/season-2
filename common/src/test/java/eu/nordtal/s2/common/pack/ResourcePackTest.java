@@ -28,27 +28,9 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds {@link Glyphs}, the four font files and the pack's PNGs to each other.
+ * Holds {@link Glyphs}, the font files and the pack's PNGs to each other.
  *
- * <b>Why a test and not a look</b>
- *
- * The four are mirrors of one allocation - {@code resource-pack/README.md}'s code point table says
- * so - and every way they can drift is invisible until a client renders it. A constant the font
- * does not declare draws a missing-glyph box; a font entry pointing at a texture that is not there
- * draws nothing; a cell the sheet never filled in draws a blank the same width as the glyph. None
- * of those fail a build, none of them log anything, and the one that actually happened - a boss bar
- * drawing the admin nametag, because the component named no font - sat in a screenshot for four
- * days before anybody read it as a bug rather than as missing art.
- *
- * This is the check that would have caught the next one cheaply. It runs on {@code check}, needs
- * no server and no Docker, and every file it reads is declared in {@code common/build.gradle.kts}
- * so that editing the pack actually re-runs it.
- *
- * <b>What it cannot say</b>
- *
- * That the art is any good. Almost all of it is placeholder-quality; "has pixels in the right cell" is the
- * whole claim. Which placeholders deserve real art is a decision for the owner, and it is on the
- * checklist outside this repository.
+ * Every way they drift is invisible until a client renders it; whether the art is any good is not checked.
  */
 class ResourcePackTest {
 
@@ -61,12 +43,7 @@ class ResourcePackTest {
             FontFile.load(Glyphs.FONT_BOSSBAR, ASSETS + "/nordtal/font/bossbar.json");
     private static final FontFile GUI_FONT = FontFile.load(Glyphs.FONT_GUI, ASSETS + "/nordtal/font/gui.json");
 
-    /**
-     * The six row fonts, which declare exactly the same characters at six different ascents.
-     *
-     * Each is loaded on its own, and
-     * {@link #theSixRowFontsDeclareTheSameCharactersOneRowApart} asserts they still agree.
-     */
+    /** The six row fonts, which declare the same characters at six different ascents. */
     private static final List<FontFile> GUI_ROW_FONTS = java.util.stream.IntStream.range(0, 6)
             .mapToObj(
                     row -> FontFile.load(Glyphs.FONT_GUI_ROWS.get(row), ASSETS + "/nordtal/font/gui_r" + row + ".json"))
@@ -301,15 +278,7 @@ class ResourcePackTest {
                         + " forgot or dead weight in the pack zip; both are worth knowing about");
     }
 
-    /**
-     * The vanilla screens the pack rewords, and the one of them that draws a glyph.
-     *
-     * {@code minecraft/lang/*.json} is the single place in this repository where the
-     * <b>client's own</b> language setting decides what somebody reads - docs/i18n.md accepts that,
-     * because a JSON file in a zip cannot consult {@code discord_user.locale}. It is accepted only
-     * because what lives there is three cosmetic strings; this is the check that they stay three
-     * cosmetic strings that actually render.
-     */
+    /** The vanilla screens the pack rewords, the only text the client's own language decides. */
     private static final List<String> LANG_FILES =
             List.of(ASSETS + "/minecraft/lang/en_us.json", ASSETS + "/minecraft/lang/de_de.json");
 
@@ -389,7 +358,7 @@ class ResourcePackTest {
         }
     }
 
-    /** The font a constant belongs to, taken from its name - the grouping {@link Glyphs} uses. */
+    /** The font a constant belongs to, taken from its name as {@link Glyphs} groups them. */
     private static FontFile fontFor(final String constant) {
         if (constant.startsWith("BOSSBAR_")) {
             return BOSSBAR_FONT;
@@ -431,7 +400,7 @@ class ResourcePackTest {
         }
     }
 
-    /** Reads a bundle the way {@code Messages} does - UTF-8, never the platform default. */
+    /** Reads a bundle the way {@code Messages} does, as UTF-8. */
     private static Properties properties(final String relative) {
         final Properties properties = new Properties();
         try (Reader reader =

@@ -21,22 +21,13 @@ import java.util.function.BiConsumer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
- * The SMP's line into the Discord announcement channels.
+ * Sends the SMP's lines into the Discord announcement channels, one {@code command_request} row per language.
  *
- * Nothing here talks to Discord. A moment worth announcing is rendered once per language as plain text, and each
- * rendering becomes one {@code command_request} row for the bot, which posts it into that language's channel.
- *
- * Fire and forget: the ceremony in game must not wait for Discord, and a bot that is down for ten minutes posts when
- * it is back because the row keeps for an hour. The database call is on the plugin's async executor, never the
- * server thread.
+ * Fire and forget on the async executor: the row keeps for an hour, so a bot that was down posts when it is back.
  */
 public final class Announcer {
 
-    /**
-     * The languages a line is rendered in: this module's two bundles.
-     *
-     * A third needs a bundle, a tag here, and an announcement channel on the bot's side.
-     */
+    /** The languages a line is rendered in: this module's two bundles. */
     public static final List<String> LANGUAGES = List.of("de", "en");
 
     /** How long a row waits for the bot before it is abandoned: a restart, not an outage. */
@@ -63,9 +54,8 @@ public final class Announcer {
 
     /**
      * Renders {@code message} in every language and sends one row per language.
-     *
-     * @param message a message from this module's spec, plain text once rendered - a glyph in it
-     *                would reach Discord as a box, so the announcement keys carry none
+     * @param message a message from this module's spec; the announcement keys carry no glyph, which Discord would draw
+     * as a box
      */
     public void announce(final MessageRef message) {
         Objects.requireNonNull(message, "message");
@@ -73,8 +63,7 @@ public final class Announcer {
     }
 
     /**
-     * The same, with a message whose values depend on the language - a milestone's name is one.
-     *
+     * Renders a message whose values depend on the language, such as a milestone's name, and sends it.
      * @param message what to send, asked once per language
      */
     public void announce(final java.util.function.Function<Locale, MessageRef> message) {
@@ -95,7 +84,7 @@ public final class Announcer {
         });
     }
 
-    /** The row for one language, visible for the test that pins its shape. */
+    /** The row for one language, visible for the test. */
     static NewCommandRequest row(final String tag, final String text) {
         final Values values = new Values(AnnounceCommands.ANNOUNCE, Map.of("language", tag, "text", text));
         return new NewCommandRequest(

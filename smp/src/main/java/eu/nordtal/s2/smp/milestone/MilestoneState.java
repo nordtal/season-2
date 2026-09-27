@@ -3,11 +3,9 @@ package eu.nordtal.s2.smp.milestone;
 import java.util.Optional;
 
 /**
- * Where one milestone stands, mirroring {@code smp_milestone.state} 's CHECK constraint.
+ * Where one milestone stands, mirroring {@code smp_milestone.state}'s CHECK constraint.
  *
- * Exactly one milestone is {@link #ACTIVE} at a time. That is a rule of the engine rather than of the schema -
- * {@code V6__smp.sql} says so in its own comment - because a partial unique index would also have to survive the
- * moment between unlocking one milestone and activating the next.
+ * Exactly one milestone is {@link #ACTIVE} at a time; the engine enforces that, not the schema.
  */
 public enum MilestoneState {
 
@@ -21,10 +19,7 @@ public enum MilestoneState {
     UNLOCKED;
 
     /**
-     * @param name a value from {@code smp_milestone.state}
-     * @return the state, or {@link #LOCKED} for anything unreadable - the state that assumes the
-     *         least is the safe one to guess, the same way {@code SeasonPhase} falls back to
-     *         {@code MAINTENANCE}
+     * Parses a {@code smp_milestone.state} value, falling back to {@link #LOCKED}, the state that assumes the least.
      */
     public static MilestoneState fromDatabase(final String name) {
         return parse(name).orElse(LOCKED);

@@ -37,18 +37,16 @@ import org.slf4j.LoggerFactory;
 /**
  * The WebAuthn ceremonies, and the only class in this repository that speaks Jackson.
  *
- * Everything that crosses this class's surface is a {@code String}: the library serialises its own
- * structures with its own mapper, Javalin elsewhere is wired to Gson, and the two must never meet
- * the same object.
+ * Everything crossing its surface is a {@code String}, so the library's mapper and Gson never meet one object.
  */
 public final class WebAuthn {
 
     private static final Logger log = LoggerFactory.getLogger(WebAuthn.class);
 
-    /** What the browser prints in its own dialog and stores beside the key forever. */
+    /** What the browser shows in its dialog and stores beside the key. */
     private static final String DISPLAY_NAME = "Nordtal Steward";
 
-    /** How long the browser is told to keep its dialog open. Advisory; a browser may ignore it. */
+    /** How long the browser is told to keep its dialog open; advisory only. */
     private static final Duration DIALOG = Duration.ofMinutes(2);
 
     private final RelyingPartyV2<Credentials.Key> relyingParty;
@@ -83,11 +81,7 @@ public final class WebAuthn {
         return relyingPartyId;
     }
 
-    /**
-     * Starts a registration.
-     *
-     * @return the request in two forms - one to park, one to hand the browser
-     */
+    /** Starts a registration, answered as one request to park and one to hand the browser. */
     public Ceremony startRegistration(final String discordId, final String displayName) {
         final PublicKeyCredentialCreationOptions request =
                 relyingParty.startRegistration(StartRegistrationOptions.builder()
@@ -119,14 +113,12 @@ public final class WebAuthn {
     /**
      * Finishes a registration and writes the key down.
      *
-     * @param parked   what {@link #startRegistration} said to park, back out of the session
-     * @param answer   the browser's {@code PublicKeyCredential}, as it serialised it
-     * @param label    what the person calls this key
-     * @param discordId whose account this is - checked against the parked request, not trusted
+     * @param parked what {@link #startRegistration} said to park
+     * @param answer the browser's {@code PublicKeyCredential}, as it serialised it
+     * @param label what the person calls this key
+     * @param discordId whose account this is, checked against the parked request
      * @return the key as it was stored
-     * @throws Refused with a sentence that is safe to show, for every way this can legitimately go
-     *                 wrong: a replayed challenge, a key already registered, a signature that does
-     *                 not verify, a browser on the wrong origin
+     * @throws Refused with a sentence safe to show: a replayed challenge, a known key, a bad signature or origin
      */
     public Registered finishRegistration(
             final String parked, final String answer, final String label, final String discordId) throws Refused {
@@ -178,11 +170,9 @@ public final class WebAuthn {
     }
 
     /**
-     * Starts an authentication for one account.
+     * Starts an authentication for one account, answered as one request to park and one to hand the browser.
      *
-     * @return the request in two forms - one to park, one to hand the browser
-     * @throws Refused when the account has no key at all, which is a state the caller has to turn
-     *                 into the setup page rather than into a dialog with nothing in it
+     * @throws Refused when the account has no key, which the caller turns into the setup page
      */
     public Ceremony startAssertion(final String discordId) throws Refused {
         if (credentials.of(discordId).isEmpty()) {
@@ -208,13 +198,11 @@ public final class WebAuthn {
     /**
      * Finishes an authentication: verifies the signature and moves the counter on.
      *
-     * @param parked    what {@link #startAssertion} said to park
-     * @param answer    the browser's {@code PublicKeyCredential}, as it serialised it
-     * @param discordId whose session this is - checked against the parked request, not trusted
+     * @param parked what {@link #startAssertion} said to park
+     * @param answer the browser's {@code PublicKeyCredential}, as it serialised it
+     * @param discordId whose session this is, checked against the parked request
      * @return the key that answered
-     * @throws Refused for every way this can legitimately fail: a replayed or unknown challenge, a
-     *                 key belonging to somebody else, a signature that does not verify, a browser
-     *                 on the wrong origin
+     * @throws Refused with a sentence safe to show: a replayed challenge, another's key, a bad signature or origin
      */
     public Held finishAssertion(final String parked, final String answer, final String discordId) throws Refused {
         final AssertionRequest request;
@@ -260,12 +248,7 @@ public final class WebAuthn {
     /** The key that just answered, for the journal and for the sentence on screen. */
     public record Held(String label, boolean userVerified) {}
 
-    /**
-     * One request, in the two forms it is needed in.
-     *
-     * @param parked     the library's own JSON, for {@code steward_session.webauthn_request}
-     * @param forBrowser the same thing wrapped for {@code navigator.credentials}, opaque to this side
-     */
+    /** One request in two forms: the library's JSON to park, and the same wrapped for {@code navigator.credentials}. */
     public record Ceremony(String parked, String forBrowser) {}
 
     /** What was written down, for the answer the browser gets back. */

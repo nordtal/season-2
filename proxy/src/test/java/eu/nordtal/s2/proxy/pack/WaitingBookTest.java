@@ -20,23 +20,14 @@ import org.junit.jupiter.api.Test;
 /**
  * The waiting room's release rule, asserted in every order the three facts can arrive in.
  *
- * <b>This test exists because of finding 38</b>, and the first case below is that finding
- * exactly: {@code limbo}'s {@code READY} reaching the proxy before the arrival event did. The old
- * code dropped it, {@code limbo} never sent another, and the player sat on a black screen for the
- * rest of the session with a title that had stopped being true. Nothing logged, nothing timed out,
- * and the sweep re-asked a question whose answer could no longer change.
- *
- * What makes it assertable at all is that none of it is a Velocity type. The ordering is decided
- * by Velocity's event dispatch and cannot be pinned from here - so the rule is written so that
- * <em>every</em> order produces the same answer, and that is what these cases check: not that one
- * sequence works, but that all six do.
+ * Velocity decides the order, so every order must produce the same answer.
  */
 class WaitingBookTest {
 
     private static final Duration APPLY_TIMEOUT = Duration.ofMinutes(3);
     private static final Duration READY_GRACE = Duration.ofSeconds(5);
     private static final SeasonPhase PLAYABLE = SeasonPhase.PRE_EVENT;
-    /** The backend the phase points at; a retry window belongs to one of these and not to a player. */
+    /** The phase's backend; a retry window belongs to a backend, not to a player. */
     private static final String DESTINATION = "hunger-games";
 
     private final MutableClock clock = new MutableClock(Instant.parse("2026-09-03T00:09:58Z"));
@@ -51,7 +42,7 @@ class WaitingBookTest {
                 .action();
     }
 
-    // finding 38
+    // READY before the arrival
 
     @Test
     void readyBeforeArrivalIsRemembered() {
@@ -68,7 +59,7 @@ class WaitingBookTest {
 
     @Test
     void aLateReadyIsNotEarly() {
-        // limbo repeats READY every second; a repeat after release must not print the "before the proxy finished" line.
+        // limbo repeats READY every second; a repeat after release must not log the early line.
         final WaitingBook book = book();
         book.entered(player);
         book.claimOffer(player);
@@ -320,7 +311,7 @@ class WaitingBookTest {
 
     @Test
     void anAdminLeavesDuringMaintenance() {
-        // An admin must not be held under "maintenance" or, worse, released back into the room they were standing in.
+        // An admin must not be held under maintenance or released back into the room they stand in.
         final WaitingBook book = book();
         book.entered(player);
         book.claimOffer(player);
@@ -353,7 +344,7 @@ class WaitingBookTest {
 
     @Test
     void aFailedReleaseHoldsAndRetries() {
-        // A backend that is registered but not answering must hold the player, not release into a failed connection.
+        // A registered backend that does not answer must hold the player, not release them into a failed connection.
         final WaitingBook book = book();
         book.entered(player);
         book.claimOffer(player);
@@ -375,7 +366,7 @@ class WaitingBookTest {
 
     @Test
     void aRetryWindowBelongsToTheBackendThatRefused() {
-        // The window says "this server did not take them", not "this player waits" (finding 107).
+        // The window says the server did not take them, not that this player waits.
         final WaitingBook book = book();
         book.entered(player);
         book.claimOffer(player);

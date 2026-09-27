@@ -38,16 +38,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 /**
- * {@code /navigate} and {@code /poi}.
+ * {@code /navigate} and {@code /poi}; every database call runs off the main thread.
  *
- * <b>Every database call in here runs off the main thread</b> and hops back only to open an inventory or send a
- * line. That rule was written into this repository after {@code /hg start} was found doing the
- * opposite, and a command is exactly where it is easiest to forget: it is typed rarely, so a slow query there looks
- * like nothing until the day the database is slow and the whole server stutters with it.
- *
- * POIs are public and unlimited: anyone may create one and everyone sees all of them. Deleting is the one asymmetry
- * - <b>your own, or anybody's if you are an admin</b> - which is the narrowest rule that still lets a mistake be
- * cleaned up without letting anybody erase somebody else's work.
+ * POIs are public and unlimited; only the creator or an admin may delete one.
  */
 public final class NavigateCommand {
 
@@ -91,16 +84,14 @@ public final class NavigateCommand {
     public LiteralCommandNode<CommandSourceStack> poi() {
         return Commands.literal("poi")
                 .requires(source -> source.getSender() instanceof Player)
-                // Every node below is reachable by typing exactly it, and every one answers.
+                // Every node below answers when typed on its own.
                 .executes(this::poiHelp)
                 .then(subcommand(Sub.ADD, this::addPoi))
                 .then(subcommand(Sub.REMOVE, this::removePoi))
                 .build();
     }
 
-    /**
-     * One {@code /poi} subcommand: the literal, its name argument, and the usage line it answers with on its own.
-     */
+    /** One {@code /poi} subcommand: the literal, its name argument, and its own usage line. */
     private LiteralArgumentBuilder<CommandSourceStack> subcommand(
             final Sub sub, final Command<CommandSourceStack> action) {
         return Commands.literal(sub.literal)
@@ -109,13 +100,7 @@ public final class NavigateCommand {
                         .executes(action));
     }
 
-    /**
-     * What {@code /poi} takes, and the one place it is written down.
-     *
-     * The tree is built from this and so is the help, for the reason {@code Declaration#usage} gives: a usage line kept
-     * by hand next to a command is the first thing to go stale when an argument is added, and the way it goes stale is
-     * that it keeps telling people to type something that no longer parses.
-     */
+    /** What {@code /poi} takes; both the tree and the help are built from this, so the usage cannot go stale. */
     private enum Sub {
         ADD("add"),
         REMOVE("remove");
@@ -126,7 +111,7 @@ public final class NavigateCommand {
             this.literal = literal;
         }
 
-        /** {@code /poi add <name>} - the same convention {@code Declaration#usage} uses. */
+        /** Returns the usage, as in {@code /poi add <name>}. */
         String usage() {
             return "/poi " + literal + " <name>";
         }
@@ -139,13 +124,7 @@ public final class NavigateCommand {
         }
     }
 
-    /**
-     * What can be typed here, and what each one is for.
-     *
-     * {@code PaperCommands} supplies this answer for every {@link eu.nordtal.s2.commands.Declaration} tree, but this is
-     * one of the two trees built by hand, so it carries the answer itself. It uses the adapter's own four message keys,
-     * so the wording stays one decision and an operator's override reaches both.
-     */
+    /** Answers {@code /poi} typed alone, with the adapter's own help keys, since this tree is built by hand. */
     private int poiHelp(final CommandContext<CommandSourceStack> context) {
         final NordtalUser user = user(context);
         user.reply(CommandMessages.MESSAGES.command().help().header("/poi"), Tone.NEUTRAL);
@@ -157,7 +136,6 @@ public final class NavigateCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** The usage of one subcommand, plus the sentence saying what it is for. */
     private int usage(final CommandContext<CommandSourceStack> context, final Sub sub) {
         final NordtalUser user = user(context);
         user.reply(CommandMessages.MESSAGES.command().help().usage(sub.usage()), Feedback.REFUSED, Tone.NEUTRAL);
@@ -165,12 +143,7 @@ public final class NavigateCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    /**
-     * Whoever typed it - always a player, since the root's {@code requires} refuses the console.
-     *
-     * The admin flag comes from the cache and not a query: this runs on the main thread, inside a Brigadier handler, on
-     * a command any player can type.
-     */
+    /** Returns whoever typed it, with the admin flag from the cache, since this runs on the main thread. */
     private NordtalUser user(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
         return PaperUser.of(
@@ -281,7 +254,6 @@ public final class NavigateCommand {
             }
             dao.deletePoi(poi.id());
             Bukkit.getScheduler().runTask(plugin, () -> navigation.clearWorld(poi.world()));
-            // The counterpart of smp.poi.added, and it gets the counterpart's sound.
             tell(
                     player,
                     MessageRenderer.of(messages)
@@ -291,12 +263,7 @@ public final class NavigateCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    /**
-     * Sends a message and its sound, both in the one hop back to the main thread.
-     *
-     * The message and its sound belong to the same moment, and scheduling them separately is how they end up a
-     * tick apart.
-     */
+    /** Sends a message and its sound in one hop to the main thread, so they never land a tick apart. */
     private void tell(final Player player, final Component message, final Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline()) {

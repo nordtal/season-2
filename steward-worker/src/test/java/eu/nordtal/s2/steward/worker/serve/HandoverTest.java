@@ -18,10 +18,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Whether an update is run by this process or handed to the steward-worker it is about to install.
- *
- * The failure it exists for: a 0.9.6 worker ran the update to 0.9.7, migrated with the 34 migrations it carried, and
- * installed a bot built against 35. The bot refused the schema and restarted in a loop, and the run sat in
- * VERIFYING waiting for it - while the jar that knew migration 35 lay unused in the worker's own volume.
  */
 class HandoverTest {
 
@@ -37,7 +33,7 @@ class HandoverTest {
 
     @Test
     void aWorkerAlreadyInTheVolumeButNotRunningIsHandedTheRunWithoutInstallingAnything() {
-        // The state this deployment was left in by hand: 0.9.7 in the volume, 0.9.6 answering the request.
+        // 0.9.7 in the volume, 0.9.6 answering the request.
         final Handover.Decision decision =
                 Handover.decide(plan(worker(Change.Status.UP_TO_DATE, "0.9.7", "0.9.7")), "0.9.6", null);
 
@@ -61,7 +57,7 @@ class HandoverTest {
 
     @Test
     void aWorkerThatDoesNotKnowItsOwnVersionNeverHandsOver() {
-        // Run from an IDE or a test: nothing could later tell whether the right process picked the request up.
+        // From an IDE or a test there is no version to check a handover against.
         assertInstanceOf(
                 Handover.Proceed.class,
                 Handover.decide(plan(worker(Change.Status.OUTDATED, "0.9.7", "0.9.8")), null, null));
@@ -78,7 +74,7 @@ class HandoverTest {
 
     @Test
     void aWorkerThatIsNotTheOneTheRunWasHandedToRefusesInsteadOfHandingItOverAgain() {
-        // The loop this guards against: the entrypoint started something other than the jar that was placed.
+        // The entrypoint started something other than the jar that was placed.
         final String handedOver = handedOverTo("0.9.8");
 
         final Handover.Decision decision =

@@ -2,18 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ApiError, api, onSecondFactorRequired, rememberCsrf } from "@/lib/api"
 
-/**
- * The browser half of package D: one tap, not two.
- *
- * The server half is covered by `WebAuthnKeyTest` - that a writing route refuses a stale
- * ceremony with `403 SECOND_FACTOR_REQUIRED`, and that reading stays open. What no Java test can
- * see is what this end does with that refusal, and the promise made on screen lives here: the
- * person taps Update, the key dialog opens, and the SAME request goes again by itself.
- *
- * The two dangerous shapes are both pinned below, because both are silent failures rather than
- * errors: a retry that never stops is a dialog that reopens for ever, and a retry of the ceremony
- * itself is that same loop one level down.
- */
+/** The browser half of the step-up: a stale key's 403 opens the dialog and the same request goes again, once. */
 
 function headerRecord(headers: RequestInit["headers"]): Record<string, string> {
   if (headers === undefined || headers instanceof Headers || Array.isArray(headers)) {
@@ -22,7 +11,6 @@ function headerRecord(headers: RequestInit["headers"]): Record<string, string> {
   return headers
 }
 
-/** Runs `promise`, expecting it to reject with an `ApiError`, and hands that error back typed. */
 async function rejectionOf(promise: Promise<unknown>): Promise<ApiError> {
   try {
     await promise
@@ -38,7 +26,7 @@ const REFUSED = {
   body: { error: "Hold your security key again.", code: "SECOND_FACTOR_REQUIRED" },
 }
 
-/** The two refusals that are NOT this one, and must never open the dialog. */
+/** The two refusals that are not a stale key and must never open the dialog. */
 const NO_KEY_AT_ALL = {
   status: 403,
   body: { error: "This account has no security key.", code: "SECOND_FACTOR_MISSING" },
@@ -47,12 +35,7 @@ const SIGNED_OUT = { status: 401, body: { error: "Sign in." } }
 
 type Answer = { status: number; body: unknown }
 
-/**
- * A fetch that answers a prepared list in order, and records what it was asked.
- *
- * Deliberately not a mock that always answers the same thing: every assertion here is about the
- * SECOND request - whether it happened, and whether it carried what the first one carried.
- */
+/** A fetch answering a prepared list in order and recording each request, since every assertion is about the second. */
 function fetchAnswering(...answers: Answer[]) {
   const calls: Array<{ path: string; init: RequestInit }> = []
   const spy = vi.fn<(path: string, init?: RequestInit) => Promise<Response>>(
@@ -96,11 +79,7 @@ describe("the step-up retry", () => {
     expect(held).toHaveBeenCalledTimes(1)
     expect(calls).toHaveLength(2)
 
-    /**
-     * THE SAME REQUEST, not a fresh GET of the same path: the method, the body and the CSRF token
-     * all have to survive the ceremony, or the second attempt is a different thing that happens to
-     * hit the same route.
-     */
+    /** The same request, method, body and CSRF token, not a fresh GET of the same path. */
     expect(calls[1].path).toBe("/api/commands")
     expect(calls[1].init.method).toBe("POST")
     expect(calls[1].init.body).toBe(JSON.stringify({ command: "season phase" }))
@@ -114,11 +93,7 @@ describe("the step-up retry", () => {
 
     await expect(api("/api/commands", { method: "POST", body: {} })).rejects.toBeInstanceOf(ApiError)
 
-    /**
-     * A refusal that survives a successful ceremony is something else entirely - a clock, a
-     * session that was taken away - and a third attempt would hide it behind a dialog that keeps
-     * reopening.
-     */
+    /** A refusal surviving a successful ceremony is something else, and a third attempt would hide it. */
     expect(held).toHaveBeenCalledTimes(1)
     expect(calls).toHaveLength(2)
   })
@@ -146,10 +121,7 @@ describe("the step-up retry", () => {
   it("is a plain 403 when nothing has installed a handler", async () => {
     const calls = fetchAnswering(REFUSED)
 
-    /**
-     * The honest default, and the one every other test in this frontend runs under: without a way
-     * to hold a key, a 403 is a 403.
-     */
+    /** Without a way to hold a key, a 403 stays a 403, which is what every other test runs under. */
     const refusal = await rejectionOf(api("/api/commands", { method: "POST", body: {} }))
     expect(refusal.needsTheKeyAgain).toBe(true)
     expect(calls).toHaveLength(1)
@@ -169,10 +141,7 @@ describe("the step-up retry", () => {
     expect(second.isSignedOut).toBe(true)
     expect(signedOut).toHaveLength(1)
 
-    /**
-     * Neither is a stale window: one needs a registration page, the other needs Discord. Opening
-     * the key dialog for either is a dialog nobody can answer.
-     */
+    /** One needs registration and the other Discord, so a key dialog could not answer either. */
     expect(held).not.toHaveBeenCalled()
   })
 })

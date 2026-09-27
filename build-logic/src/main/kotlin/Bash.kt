@@ -5,8 +5,7 @@ import java.util.concurrent.TimeUnit
 /** Whether this machine can run the deploy scripts' test suites, which need bash 4 or later. */
 object Bash {
     /**
-     * @return true when `bash` on the PATH is version 4 or later; always false on Windows, whose
-     *         `bash.exe` is WSL's and cannot see the checkout's paths the way the scripts expect
+     * @return true when `bash` on the PATH is version 4 or later; always false on Windows, where it is WSL's
      */
     fun atLeast4(): Boolean {
         if (System.getProperty("os.name").lowercase().contains("windows")) return false

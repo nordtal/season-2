@@ -22,39 +22,11 @@ import org.jspecify.annotations.Nullable;
 /**
  * Follows one {@code update_request} row and decides what to tell the person who asked.
  *
- * The deciding lives here and the timer does not, because three processes show the answer in chat
- * - the proxy for everybody playing, the Paper servers for their consoles - and each has its own
- * scheduler and its own way of sending a line. What they must not have is their own opinion about
- * when a request is finished, what "gone" means, or how much of a report fits.
- *
- * So this class reads the row and answers with {@link Step}: the lines to say, and whether to
- * stop asking. A surface calls {@link #poll} on whatever timer it has and hands each line to its
- * user. Nothing here names a scheduler, a thread or a platform.
- *
- * The report is drawn from keys rather than printed as {@link UpdateReport#render()} verbatim,
- * because a rendered wall of text is not translatable and is the longest answer any command gives.
- * Nothing is <em>decided</em> twice: every version, every state and every outcome below is read
- * straight off the steward-worker's report, and what is chosen here is which message key names it.
- *
- * The values that go into those keys - version strings, filenames, a daemon failure - are
- * substituted as placeholders and are therefore escaped by {@code MessageRenderer}. That is what
- * makes it safe to stop printing them as literals: a version containing {@code <} arrives as text
- * rather than as a MiniMessage tag.
- *
- * What still goes out as a literal: a {@code result} written before the structured report existed
- * is plain text and nothing can be said about its structure, so it is printed as it is. A
- * cancellation's {@code result} is the reason somebody typed, which is text too and is wrapped in
- * {@code update.stopped-by} rather than translated.
+ * Surfaces call {@link #poll} on their own timers; values are placeholders, so {@code MessageRenderer} escapes them.
  */
 public final class UpdateFollower {
 
-    /**
-     * How long to wait for steward-worker before giving up on it.
-     *
-     * An update stops servers, swaps jars and waits up to five minutes for each to report
-     * healthy - minutes, not seconds. What this bounds is the case where nothing is listening at
-     * all, which looks exactly the same from here until it is said out loud.
-     */
+    /** How long to wait for steward-worker before giving up on it; a run takes minutes, not seconds. */
     public static final Duration PATIENCE = Duration.ofMinutes(12);
 
     /** How much of the report goes into chat before it is cut short. */
@@ -90,10 +62,8 @@ public final class UpdateFollower {
      * What one poll decided.
      *
      * @param says     the lines to send, in order; often none
-     * @param finished whether the surface should stop polling - the row is settled, gone, unread
-     *                 or overdue
-     * @param failure  the exception reading the row threw, for the surface's own log; {@code null}
-     *                 otherwise
+     * @param finished whether the surface should stop polling: the row is settled, gone, unread or overdue
+     * @param failure  the exception reading the row threw, for the surface's own log; {@code null} otherwise
      */
     public record Step(
             List<Say> says, boolean finished, @Nullable RuntimeException failure) {
@@ -102,7 +72,7 @@ public final class UpdateFollower {
             says = List.copyOf(says);
         }
 
-        /** Lines to say, and the row is not settled - which is every pass while a run works. */
+        /** Lines to say while the row is not settled, which is every pass while a run works. */
         static Step saying(final List<Say> says) {
             return new Step(says, false, null);
         }
@@ -121,24 +91,12 @@ public final class UpdateFollower {
     private final LongFunction<Optional<UpdateRequest>> reader;
     private final Instant deadline;
 
-    /**
-     * The last stage this follower announced, so a stage is spoken once.
-     *
-     * A run rewrites its report every few seconds and this polls every two, so without it a
-     * player would be told "Stopping the servers" a dozen times. Only the transitions are
-     * interesting, which is also the whole of what chat can usefully show while a run works -
-     * Discord redraws a field per service instead, because it can edit one message.
-     *
-     * Read and written only inside {@code synchronized} {@link #stageChange}. Both platforms
-     * dispatch a repeating task through a worker pool, so two polls of one follower can overlap and
-     * a plain field would let both see the same old stage and both announce it. {@code volatile}
-     * would fix the visibility and not the race - the check and the write have to be one step.
-     */
+    /** The last stage announced; only touched inside {@code synchronized} {@link #stageChange}, as polls overlap. */
     private UpdateReport.@Nullable Stage lastStage;
 
     /**
      * @param id       the request to follow
-     * @param reader   how to read a row back - {@code UpdateDirectory#find}, or a fake
+     * @param reader   how to read a row back, {@code UpdateDirectory#find} or a fake
      * @param deadline when to stop waiting for an answer that is not coming
      */
     public UpdateFollower(final long id, final LongFunction<Optional<UpdateRequest>> reader, final Instant deadline) {
@@ -147,7 +105,7 @@ public final class UpdateFollower {
         this.deadline = Objects.requireNonNull(deadline, "deadline");
     }
 
-    /** A follower that gives up {@link #PATIENCE} after {@code now}. */
+    /** Returns a follower that gives up {@link #PATIENCE} after {@code now}. */
     public static UpdateFollower of(
             final long id, final LongFunction<Optional<UpdateRequest>> reader, final Instant now) {
         return new UpdateFollower(id, reader, now.plus(PATIENCE));
@@ -184,12 +142,7 @@ public final class UpdateFollower {
         return Step.saying(stageChange(request));
     }
 
-    /**
-     * One line when the run moves to a stage this follower has not announced yet.
-     *
-     * Silent for a row with no parsable report - a {@code PENDING} row waiting out its countdown
-     * has written nothing at all, and the proxy is already counting that down to everybody.
-     */
+    /** One line when the run reaches a stage not yet announced; silent for a row with no parsable report. */
     private synchronized List<Say> stageChange(final UpdateRequest request) {
         final Optional<UpdateReport> report = UpdateReports.parse(request.result());
         if (report.isEmpty() || report.get().stage() == lastStage) {
@@ -199,14 +152,7 @@ public final class UpdateFollower {
         return List.of(headline(lastStage));
     }
 
-    /**
-     * steward-worker's answer, as lines.
-     *
-     * The row carries an {@link UpdateReport} as JSON. A row written before that format existed
-     * is plain text and is printed as it is, which is why the fallback exists - and a
-     * cancellation is plain text by design, because its {@code result} is the reason somebody
-     * typed.
-     */
+    /** steward-worker's answer as lines, falling back to plain text for a result that is not a report. */
     private static List<Say> report(final UpdateRequest request) {
         final Optional<UpdateReport> parsed = UpdateReports.parse(request.result());
         final List<Say> says = parsed.isPresent() ? structured(parsed.get()) : plain(request);
@@ -240,12 +186,7 @@ public final class UpdateFollower {
         return says;
     }
 
-    /**
-     * A {@code result} that is not a report: a cancellation reason, or a row from before V12.
-     *
-     * CANCELLED is deliberately not given the failure line: a stopped countdown is somebody
-     * using the way out, and its {@code result} names who did it.
-     */
+    /** A {@code result} that is not a report, such as a cancellation reason; CANCELLED gets no failure line. */
     private static List<Say> plain(final UpdateRequest request) {
         final String stored = request.result();
         if (request.status() == UpdateStatus.CANCELLED) {
@@ -262,14 +203,7 @@ public final class UpdateFollower {
         return says;
     }
 
-    /**
-     * One artefact, as a key.
-     *
-     * Which of the three it is comes off {@link UpdateReport.Change#state()} and off whether
-     * anything was installed before - both decided by the worker. Every one is {@code MUTED}: a
-     * version number under a service line is detail, including the one saying an artefact is still
-     * waiting for a build. Nothing here has gone wrong.
-     */
+    /** One artefact as a key, always {@code MUTED}: a version under a service line is detail. */
     private static Say sayChange(final UpdateReport.Change change) {
         return switch (change.state()) {
             case UNSUPPORTED -> Say.key(MESSAGES.update().changeSection().unsupported(change.artefact()), Tone.MUTED);
@@ -286,12 +220,7 @@ public final class UpdateFollower {
         return Say.key(MESSAGES.update().stage(stage), toneOf(stage));
     }
 
-    /**
-     * What a stage is, as news.
-     *
-     * Only the four terminal stages carry one: everything else is a run in progress, which is
-     * neither good nor bad news, it is just where it has got to.
-     */
+    /** What a stage is as news; only the four terminal stages carry a tone. */
     private static Tone toneOf(final UpdateReport.Stage stage) {
         return switch (stage) {
             case DONE -> Tone.GOOD;

@@ -4,11 +4,9 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One row of the game's roster.
+ * One roster row: an {@code hg_member} joined to its Minecraft account.
  *
- * An {@code hg_member} joined through {@code account_link} to the Minecraft account it belongs to.
- * {@code mcUuid} is {@code null} for a registered player who has never linked or never logged in -
- * the roster still lists them, but they have no body to teleport.
+ * {@code mcUuid} is null for a player who never linked, who therefore has no body to teleport.
  */
 public record RosterEntry(
         UUID memberId,

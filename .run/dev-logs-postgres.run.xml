@@ -1,8 +1,7 @@
 <!--
   dev logs postgres
 
-  Follows the database. It is where an authentication failure is stated in full, naming the
-  user and the pg_hba.conf line that matched.
+  Follows the database, which states authentication failures in full.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev logs postgres" type="Application" factoryName="Application" folderName="dev: logs">

@@ -12,15 +12,14 @@ import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
 /**
- * How the interface reaches the two services behind it: steward-worker and steward-deployer.
+ * Reaches steward-worker and steward-deployer: JSON both ways, the shared secret in {@code X-Steward-Token}.
  *
- * Both speak JSON in, JSON out, with the shared secret in {@code X-Steward-Token}, and both answer
- * with the other service's own JSON, unparsed; only a failure is turned into something to show.
+ * An answer passes through unparsed; only a failure is turned into something to show.
  */
 public final class InternalClient {
 
     private final HttpClient http;
-    /** What a log follow may take: it is supposed to sit there saying nothing for hours. */
+    /** The deadline of a log follow, which may sit silent for hours. */
     public static final Duration FOLLOW_DEADLINE = Duration.ofHours(12);
 
     private final String name;
@@ -28,14 +27,7 @@ public final class InternalClient {
     private final String token;
     private final Duration timeout;
 
-    /**
-     * @param name    the compose service this talks to, as it will appear in a failure message
-     * @param baseUrl its address on the internal network, with or without a trailing slash
-     * @param token   the shared secret, sent as {@code X-Steward-Token}
-     * @param timeout how long to wait, both for the connection and for an ordinary answer. A
-     *                stream is the exception and carries {@link #FOLLOW_DEADLINE} instead, because
-     *                a log follow is allowed to take hours over saying nothing
-     */
+    /** Talks to the compose service {@code name} at {@code baseUrl}, waiting at most {@code timeout} for an answer. */
     public InternalClient(final String name, final String baseUrl, final String token, final Duration timeout) {
         this.name = name;
         final String trimmed = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
@@ -45,12 +37,7 @@ public final class InternalClient {
         this.http = HttpClient.newBuilder().connectTimeout(timeout).build();
     }
 
-    /**
-     * Refuses to send a token in clear to an address that is not inside this deployment.
-     *
-     * Plain {@code http} is allowed to a compose service name or to loopback; anything else must be
-     * {@code https}, so an editable {@code base-url} cannot leak the token to a public address.
-     */
+    /** Refuses plain {@code http} to anything but a compose service name or loopback, so the token cannot leak. */
     private static String plaintextOnlyInside(final String name, final String baseUrl) {
         final URI uri = URI.create(baseUrl);
         if ("https".equalsIgnoreCase(uri.getScheme())) {
@@ -67,10 +54,9 @@ public final class InternalClient {
     }
 
     /**
-     * Whether a host is somewhere this network can still be called internal.
+     * Whether {@code host} is a compose service name or loopback.
      *
-     * {@code URI.getHost()} keeps the brackets on an IPv6 literal, so it is checked here rather
-     * than falling through to the dotless-name rule, which would wave any such literal through.
+     * {@code URI.getHost()} keeps the brackets on an IPv6 literal, which the dotless name rule would wave through.
      */
     private static boolean isInside(final String host) {
         if (host.startsWith("[")) {
@@ -85,7 +71,7 @@ public final class InternalClient {
         return name;
     }
 
-    /** Whether it is there at all - asked so the start page can say which half is down. */
+    /** Whether the service answers at all, so the start page can say which half is down. */
     public boolean isReachable() {
         try {
             return http.send(request("/api/health").GET().build(), HttpResponse.BodyHandlers.discarding())
@@ -103,12 +89,7 @@ public final class InternalClient {
         return get(path, timeout);
     }
 
-    /**
-     * The same, for the one kind of read whose work is the waiting.
-     *
-     * The deadline is an argument rather than a field, since a call like a forced cache refresh is
-     * legitimately slower than the configured timeout, which is sized for an answer out of memory.
-     */
+    /** Reads {@code path} with its own deadline, for a read legitimately slower than the configured timeout. */
     public String get(final String path, final Duration deadline) {
         try {
             final HttpResponse<String> response =
@@ -158,7 +139,7 @@ public final class InternalClient {
         }
     }
 
-    /** The same, as a {@code DELETE}, and with no body in either direction. */
+    /** Sends a {@code DELETE}, with no body in either direction. */
     public String delete(final String path) {
         try {
             final HttpResponse<String> response =
@@ -181,7 +162,7 @@ public final class InternalClient {
         }
     }
 
-    /** The same, as a {@code PUT}. */
+    /** Sends {@code json} as a {@code PUT}. */
     public String put(final String path, final String json) {
         try {
             final HttpResponse<String> response = http.send(
@@ -209,7 +190,7 @@ public final class InternalClient {
     }
 
     /**
-     * Opens a stream for the log follow, a proxy rather than a redirect.
+     * Opens a stream for the log follow, proxied rather than redirected.
      *
      * Closing it does not close the connection until traffic next moves on it.
      */
@@ -254,9 +235,9 @@ public final class InternalClient {
     }
 
     /**
-     * A timeout's own sentence, told apart from an unreachable service: too slow is not down.
+     * Says the service was too slow, which is not the same as down.
      *
-     * {@link HttpTimeoutException} extends {@link IOException}, so the two must be caught in order.
+     * {@link HttpTimeoutException} extends {@link IOException}, so the two must be caught in that order.
      */
     private String tooSlow(final String path, final Duration deadline) {
         return name + " did not answer " + path + " within " + deadline.toSeconds() + "s";
@@ -266,12 +247,7 @@ public final class InternalClient {
         return name + " could not be reached at " + baseUrl + " for " + path;
     }
 
-    /**
-     * A request that has to be answered within the configured timeout.
-     *
-     * {@code connectTimeout} bounds only the TCP handshake, not the answer, hence the explicit
-     * per-request {@code deadline} passed here.
-     */
+    /** A request bounded by the configured timeout, since {@code connectTimeout} bounds only the handshake. */
     private HttpRequest.Builder request(final String path) {
         return request(path, timeout);
     }
@@ -296,7 +272,7 @@ public final class InternalClient {
             this.body = body;
         }
 
-        /** Which service did not answer. The interface shows it, so it must not be a guess. */
+        /** Which service did not answer; the interface shows it, so it must not be a guess. */
         public String where() {
             return where;
         }

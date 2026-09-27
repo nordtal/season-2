@@ -10,13 +10,9 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
- * The one thing about the portal gate that only a running server could otherwise answer.
+ * A refused portal ignition puts out the fire the flint and steel already placed.
  *
- * Cancelling {@code PortalCreateEvent} stops the portal and nothing else: the flint and steel has already placed a
- * fire block, and vanilla leaves it standing. So a refused ignition burns the player who just read the refusal.
- *
- * A text search, because raising a real {@code PortalCreateEvent} needs a world, a frame and an ignition. What it
- * protects is one call next to the cancel, which a later edit can drop with no visible symptom.
+ * A text search, because a real {@code PortalCreateEvent} needs a world, a frame and an ignition.
  */
 class PortalGateWiringTest {
 

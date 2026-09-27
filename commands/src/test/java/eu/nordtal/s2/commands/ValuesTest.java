@@ -11,11 +11,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * What {@link Values} does when a command and its declaration disagree.
- *
- * The only way it can be wrong, because a user's mistake never reaches it.
- */
+/** What {@link Values} does when a command and its declaration disagree, the only way it can be wrong. */
 class ValuesTest {
 
     private static final Declaration AURA = new Declaration(
@@ -47,7 +43,7 @@ class ValuesTest {
 
     @Test
     void anArgumentReadAsTheWrongKindSaysWhichTwoKindsDisagreed() {
-        // The adapter parsed a player as a name instead of resolving it - without this the command reads it wrong.
+        // The adapter passed a player name instead of resolving it; the command must not misread it.
         final Values values = new Values(AURA, Map.of("player", "Till", "delta", 1));
 
         final IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> values.player("player"));

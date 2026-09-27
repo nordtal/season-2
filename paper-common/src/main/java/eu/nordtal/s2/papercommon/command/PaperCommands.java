@@ -42,22 +42,9 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A {@link Declaration} turned into a real Brigadier tree, once, for all three Paper plugins.
+ * Builds the Brigadier tree of every {@link Declaration}, once, for all three Paper plugins.
  *
- * So that three hand-built trees cannot answer the same question differently.
- *
- * Local and remote look identical to whoever typed it: a command whose
- * {@link Declaration#target()} is this process runs here, anything else becomes a
- * {@code command_request} row and the answer comes back into the same chat.
- *
- * Commands targeting {@link Target#PROXY} are deliberately <b>not</b> registered here. Velocity
- * intercepts a command it knows before the packet reaches a backend, so a copy here would be
- * shadowed by it - dead code that looks live.
- *
- * {@link Declaration#irreversible()} is honoured by retyping the whole command line inside
- * {@link Confirmations#WINDOW}. For a command that travels, that happens <em>before</em> the row is
- * written: confirming on the far side would put a pending confirmation in a process the asker
- * cannot see.
+ * A command for another process becomes a {@code command_request} row; {@link Target#PROXY} is never registered.
  */
 public final class PaperCommands {
 
@@ -84,19 +71,13 @@ public final class PaperCommands {
             new LinkedHashMap<>();
 
     /**
-     * @param here        which process this is, so a command can tell its own from somebody else's
-     * @param outbox      how a command reaches another process, or {@code null} to register only
-     *                    local ones - which is what a plugin with no database connection would do
-     * @param localeOf    the player's language, from the plugin's own cache and never a query
-     * @param isAdmin     the admin flag, from the plugin's own cache and never a query: this is
-     *                    called from Brigadier's {@code requires}, which runs while a client's
-     *                    command tree is being built
-     * @param discordIdOf the linked Discord account, for a command that travels and has to say who
-     *                    asked
+     * @param here        which process this is
+     * @param outbox      how a command reaches another process, or {@code null} to register only local ones
+     * @param localeOf    the player's language, from the plugin's own cache
+     * @param isAdmin     the admin flag, from the plugin's own cache, since Brigadier's {@code requires} calls it
+     * @param discordIdOf the linked Discord account, for a command that travels
      * @param chime       the sound a reply makes, or {@link PaperUser.Chime#silent()}
-     * @param colours     the tone palette this plugin is configured with right now - a supplier, so
-     *                    the {@link PaperUser} built for the next command typed sees a reload that
-     *                    happened after this tree was built
+     * @param colours     the current tone palette, a supplier so a reload reaches the next command
      */
     public PaperCommands(
             final Plugin plugin,
@@ -119,7 +100,7 @@ public final class PaperCommands {
         this.colours = Objects.requireNonNull(colours, "colours");
     }
 
-    /** A command this process runs itself. */
+    /** Registers a command this process runs itself. */
     public <E extends CommandEffects> PaperCommands local(final NordtalCommand<E> command, final E effects) {
         Objects.requireNonNull(command, "command");
         Objects.requireNonNull(effects, "effects");
@@ -133,19 +114,17 @@ public final class PaperCommands {
     }
 
     /**
-     * A command another process runs, reachable from here.
+     * Registers a command another process runs, reachable from here.
      *
-     * Silently skipped for {@link Target#PROXY} and for this process's own target: the first is
-     * already served everywhere by Velocity, and the second would be a round trip to ourselves.
-     * Skipping rather than throwing is what lets a caller hand over the whole catalogue.
+     * Skips {@link Target#PROXY} and this process's own target, so a caller can hand over the whole catalogue.
      */
     public PaperCommands remote(final Declaration declaration) {
         Objects.requireNonNull(declaration, "declaration");
-        // isRemoteOn rather than `target != here`: only it knows Target.LOCAL is never remote anywhere.
+        // isRemoteOn rather than `target != here`: only it knows Target.LOCAL is never remote.
         if (!declaration.isRemoteOn(here) || declaration.target() == Target.PROXY) {
             return this;
         }
-        // GAME or CONSOLE, not GAME alone: dropping GAME must not silently drop console reach elsewhere too.
+        // GAME or CONSOLE, not GAME alone: dropping GAME must not drop console reach.
         if (!declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.GAME)
                 && !declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.CONSOLE)) {
             return this;
@@ -162,20 +141,16 @@ public final class PaperCommands {
         return this;
     }
 
-    /** Every declaration that is not this process's own, in one call. */
+    /** Registers every declaration that is not this process's own. */
     public PaperCommands remoteAll(final List<Declaration> declarations) {
         declarations.forEach(this::remote);
         return this;
     }
 
     /**
-     * What to offer for one argument while somebody is still typing it.
+     * Sets what to offer for one argument while somebody is still typing it.
      *
-     * The values come from the caller because they are not fixed - the declaration says
-     * <em>that</em> the argument is a word and the plugin says <em>which</em> words.
-     *
-     * <b>Must not block and must not query.</b> Brigadier asks once per keystroke, for every
-     * client with the command in its tree, so only an in-memory source belongs here.
+     * Brigadier asks once per keystroke, so the source must be in memory and must not block.
      */
     public PaperCommands suggest(
             final Declaration declaration,
@@ -198,12 +173,7 @@ public final class PaperCommands {
     }
 
     /**
-     * A subtree this adapter did not build, hung under one of its roots.
-     *
-     * For the commands that are not {@link NordtalCommand}s and should not become ones.
-     * {@code /smp update} is the case it exists for: it already travels through
-     * {@code update_request} to a container that is not a command target, and its answer is
-     * steward-worker's own report, which must not be rendered twice.
+     * Hangs a subtree this adapter did not build, admin-only, under one of its roots.
      *
      * @param root the first path segment it belongs under, which must be one a command here uses
      */
@@ -213,13 +183,7 @@ public final class PaperCommands {
         return this;
     }
 
-    /**
-     * The same, for a subtree that is <b>not</b> admin-only.
-     *
-     * The default is closed because the failure is asymmetric: {@code build()} puts no
-     * {@code requires} on a root - gating {@code /hg} would hide {@code /hg ready} from every
-     * player - so an extra hung on one is ungated unless this adapter gates it.
-     */
+    /** Hangs a subtree that is not admin-only, since {@code build()} puts no {@code requires} on a root. */
     public PaperCommands extraOpen(final String root, final LiteralArgumentBuilder<CommandSourceStack> node) {
         openExtras
                 .computeIfAbsent(Objects.requireNonNull(root, "root"), name -> new ArrayList<>())
@@ -228,13 +192,9 @@ public final class PaperCommands {
     }
 
     /**
-     * The trees, one per distinct first path segment.
+     * Builds the trees, one per distinct first path segment.
      *
-     * <b>Assembled bottom-up, and it has to be.</b> Brigadier's
-     * {@code ArgumentBuilder.then(ArgumentBuilder)} builds its argument on the spot, so a tree grown
-     * as the paths are walked loses everything added to a node after its parent took it - and the
-     * command then parses as unknown with nothing saying why. The paths are therefore collected into
-     * a plain tree of {@link Node} first and materialised depth-first.
+     * Brigadier's {@code then} builds its argument at once, so the paths are materialised bottom-up.
      */
     public List<LiteralCommandNode<CommandSourceStack>> build() {
         final Map<String, Node> roots = new LinkedHashMap<>();
@@ -288,13 +248,7 @@ public final class PaperCommands {
         }
     }
 
-    /**
-     * Whether everything runnable at or below this node is admin-only.
-     *
-     * One open command anywhere below opens the whole subtree's {@code requires}, and it stays the
-     * only thing a non-admin can run because every admin-only node deeper down carries its own
-     * check.
-     */
+    /** Returns whether everything runnable at or below this node is admin-only. */
     private static boolean adminOnly(final Node node) {
         if (node.command != null && !node.command.declaration().adminOnly()) {
             return false;
@@ -302,13 +256,7 @@ public final class PaperCommands {
         return node.children.values().stream().allMatch(PaperCommands::adminOnly);
     }
 
-    /**
-     * Whether nothing runnable at or below this node carries {@link eu.nordtal.s2.commands.Surface#GAME}.
-     *
-     * The same shape as {@link #adminOnly(Node)}, and asked for the same reason: one command below
-     * that a player may type keeps the whole subtree in their tree, because {@code requires} is
-     * inherited downwards.
-     */
+    /** Returns whether nothing runnable at or below this node carries {@link eu.nordtal.s2.commands.Surface#GAME}. */
     private static boolean offGame(final Node node) {
         if (node.command != null
                 && node.command.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.GAME)) {
@@ -318,18 +266,9 @@ public final class PaperCommands {
     }
 
     /**
-     * What has to be true of a source for this node to exist, or {@code null} when it is open.
+     * Returns what a source needs for this node to exist, or {@code null} when it is open.
      *
-     * A command taken off {@link eu.nordtal.s2.commands.Surface#GAME} must <b>disappear</b>
-     * from the game rather than answer with "that command moved". There is one Brigadier tree per
-     * server and not one per audience, so the only place that question can be answered is here: a
-     * node whose requirement no {@link Player} passes is left out of the tree sent to every
-     * client, is refused by the server's own parse, and reads to the person typing as Brigadier's
-     * "Unknown command".
-     *
-     * The console is never gated out: {@link #mayUse(CommandSender, Predicate)} already lets
-     * only a {@link ConsoleCommandSender} through for a non-player, so the off-game gate is that
-     * one plus "not a player".
+     * An off-game node fails every {@link Player}, so the game reads it as "Unknown command".
      */
     private @Nullable Predicate<CommandSourceStack> gate(final Node node) {
         if (offGame(node)) {
@@ -349,17 +288,16 @@ public final class PaperCommands {
 
         final boolean runnableHere = node.command != null && arguments(builder, node.command);
         if (!runnableHere) {
-            // Brigadier's own red caret says nothing about what was wanted; answer with what runs underneath.
+            // Brigadier's caret says nothing about what was wanted; answer with what runs underneath.
             builder.executes(context -> help(context, node));
         }
         return builder;
     }
 
     /**
-     * Hang a command's arguments off the last literal of its path.
+     * Hangs a command's arguments off the last literal of its path.
      *
-     * @return whether the literal itself became runnable - which it does only when every required
-     *         argument can be left out
+     * @return whether the literal itself became runnable, which it does only when no argument is required
      */
     private boolean arguments(final LiteralArgumentBuilder<CommandSourceStack> parent, final Entry entry) {
         final List<eu.nordtal.s2.commands.Argument> arguments =
@@ -394,7 +332,7 @@ public final class PaperCommands {
         return true;
     }
 
-    /** Whether a command given its first {@code count} arguments has everything it needs. */
+    /** Returns whether a command given its first {@code count} arguments has everything it needs. */
     private static boolean satisfied(final List<eu.nordtal.s2.commands.Argument> arguments, final int count) {
         for (int at = count; at < arguments.size(); at++) {
             if (arguments.get(at).required()) {
@@ -404,15 +342,7 @@ public final class PaperCommands {
         return true;
     }
 
-    /**
-     * What can be typed here, and what each one is for.
-     *
-     * Replaces Brigadier's own message, which is an answer about the parser rather than about the
-     * command.
-     *
-     * One line per command underneath, derived from the declaration so it cannot go stale, and
-     * sorted, because a list ordered by registration reads as random.
-     */
+    /** Answers with what can be typed here and what each one is for, sorted, instead of Brigadier's parser error. */
     private int help(final CommandContext<CommandSourceStack> context, final Node node) {
         // A root with a declared default runs it, admin flag included: this path bypasses the child's requires.
         final java.util.Optional<Declaration> preset =
@@ -430,7 +360,7 @@ public final class PaperCommands {
         final List<Declaration> below = new ArrayList<>();
         collect(node, below);
 
-        // Only what this person could actually run: the root carries no requires, so a non-admin reaches this too.
+        // Only what this person could run: the root carries no requires, so a non-admin reaches this too.
         if (!mayUse(context.getSource())) {
             below.removeIf(Declaration::adminOnly);
             if (below.isEmpty()) {
@@ -438,7 +368,7 @@ public final class PaperCommands {
                 return Command.SINGLE_SUCCESS;
             }
         }
-        // The same rule for the surface: a command outside this player's tree must not be listed either.
+        // The same rule for the surface: a command outside this player's tree is not listed either.
         if (user.origin() == NordtalUser.Origin.GAME) {
             below.removeIf(declaration -> !declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.GAME));
             if (below.isEmpty()) {
@@ -456,7 +386,7 @@ public final class PaperCommands {
             return usage(context, below.getFirst());
         }
 
-        // REFUSED once, on the header line only, not once per line below.
+        // REFUSED once, on the header line only.
         user.reply(MESSAGES.command().help().header("/" + node.literal), Feedback.REFUSED, Tone.NEUTRAL);
         below.stream()
                 .sorted(java.util.Comparator.comparing(Declaration::name))
@@ -466,7 +396,7 @@ public final class PaperCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** The usage of one command, plus the sentence saying what it is for. */
+    /** Answers with the usage of one command, plus the sentence saying what it is for. */
     private int usage(final CommandContext<CommandSourceStack> context, final Declaration declaration) {
         final NordtalUser user = user(context.getSource().getSender());
         user.reply(MESSAGES.command().help().usage(declaration.usage()), Feedback.REFUSED, Tone.NEUTRAL);
@@ -517,16 +447,14 @@ public final class PaperCommands {
     }
 
     /**
-     * Everything Brigadier parsed, in the shapes {@link Values} hands out.
+     * Everything Brigadier parsed, plus the accounts still to look up.
      *
-     * Separately carries the accounts that still have to be looked up.
-     *
-     * @param values   what is already known, on the main thread, without touching a database
+     * @param values   what is already known, without touching a database
      * @param accounts argument name to the UUID whose {@code account_link} row has to be read
      */
     private record Parsed(Map<String, Object> values, Map<String, UUID> accounts) {}
 
-    /** Everything Brigadier parsed, in the shapes {@link Values} hands out. */
+    /** Reads everything Brigadier parsed, in the shapes {@link Values} hands out. */
     private Parsed read(
             final CommandContext<CommandSourceStack> context,
             final List<eu.nordtal.s2.commands.Argument> arguments,
@@ -557,14 +485,9 @@ public final class PaperCommands {
     }
 
     /**
-     * The step between Brigadier and {@link #run}: read the account links, if there are any.
+     * Reads the account links off the main thread, if there are any, then runs the command back on it.
      *
-     * {@code account_link} is a database read and must not happen on the main thread, so the
-     * lookup hops off and the command hops back - everything after it is main-thread work. A command
-     * with no {@code ACCOUNT} argument never leaves the thread it was typed on.
-     *
-     * An account that does not resolve is left out of the values, which is what makes
-     * {@code command.account-unreachable} the one answer for "not online" and "not linked" alike.
+     * An account that does not resolve is left out, so "not online" and "not linked" get one answer.
      */
     private int dispatch(final CommandContext<CommandSourceStack> context, final Entry entry, final Parsed parsed) {
         final CommandSender sender = context.getSource().getSender();
@@ -576,7 +499,7 @@ public final class PaperCommands {
         try {
             offThread(sender, input, entry, parsed);
         } catch (final IllegalPluginAccessException disabled) {
-            // Without the guard, the plugin going down here leaves a stack trace on the console instead.
+            // Without the guard, a plugin going down here leaves a stack trace on the console.
             plugin.getLogger().fine("Dropped a command because the plugin is no longer enabled");
         }
         return Command.SINGLE_SUCCESS;
@@ -607,7 +530,7 @@ public final class PaperCommands {
         });
     }
 
-    /** Back onto the server thread, or nowhere at all if the plugin went away while we were off it. */
+    /** Runs the work on the server thread, or not at all if the plugin has been disabled. */
     private void back(final Runnable work) {
         try {
             Bukkit.getScheduler().runTask(plugin, work);
@@ -627,14 +550,14 @@ public final class PaperCommands {
             return Command.SINGLE_SUCCESS;
         }
 
-        // The lock behind gate()'s requires: answers "Unknown command", not a hint the command exists elsewhere.
+        // The lock behind gate()'s requires: answers "Unknown command", not a hint it exists elsewhere.
         if (user.origin() == NordtalUser.Origin.GAME
                 && !entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.GAME)) {
             user.reply(MESSAGES.command().unknown(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
-        // The tree's requires is the gate; this is the lock behind it, so the check survives any shape of tree.
+        // The tree's requires is the gate; this is the lock behind it, whatever the shape of the tree.
         if (entry.declaration().adminOnly() && !mayUse(sender, isAdmin)) {
             user.reply(MESSAGES.command().notAdmin(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
@@ -651,13 +574,13 @@ public final class PaperCommands {
                 return Command.SINGLE_SUCCESS;
             }
             if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.ACCOUNT) {
-                // Either not online or not linked: one answer from where the admin stands.
+                // Either not online or not linked: one answer.
                 user.reply(MESSAGES.command().accountUnreachable(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
 
-        // Before the confirmation, deliberately: an invalid argument must not be confirmed first.
+        // Before the confirmation: an invalid argument must not be confirmed first.
         final var problem = entry.problem().apply(new Values(entry.declaration(), values));
         if (problem.isPresent()) {
             user.reply(problem.get(), Feedback.REFUSED, Tone.BAD);
@@ -671,11 +594,7 @@ public final class PaperCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    /**
-     * "Type it again", keyed on the exact line including its arguments.
-     *
-     * A pending confirmation cannot be spent on a different argument typed seconds later.
-     */
+    /** Returns whether this exact line, arguments included, was typed again in time. */
     private boolean confirmed(final NordtalUser user, final String input) {
         final String what = input.startsWith("/") ? input : "/" + input;
         if (confirmations.confirm(user, what)) {
@@ -688,22 +607,15 @@ public final class PaperCommands {
         return false;
     }
 
-    /**
-     * Whether the sender may use any of this.
-     *
-     * "Not a player" is not the same as "the console": a command block, a
-     * {@code ProxiedCommandSender} and a datapack function are none of either, so the console is
-     * asked for <em>by type</em>.
-     */
+    /** Returns whether the sender may use any of this. */
     private boolean mayUse(final CommandSourceStack source) {
         return mayUse(source.getSender(), isAdmin);
     }
 
     /**
-     * The decision on its own: a player who is flagged admin, or the console. Nothing else.
+     * Returns whether the sender is a player flagged admin, or the console, and nothing else.
      *
-     * Public and static so it can be asserted without a server, which is the only part of a command
-     * tree that ever can be.
+     * A command block or a datapack function is neither, so the console is asked for by type.
      */
     public static boolean mayUse(final CommandSender sender, final Predicate<UUID> isAdmin) {
         if (sender instanceof Player player) {
@@ -714,7 +626,7 @@ public final class PaperCommands {
 
     private NordtalUser user(final CommandSender sender) {
         if (sender instanceof Player player) {
-            // admin=true: already gated by mayUse. A supplier: an eager read would query the main thread.
+            // admin=true: already gated by mayUse. A supplier: an eager read would query on the main thread.
             return PaperUser.of(
                     plugin,
                     player,

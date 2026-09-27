@@ -8,12 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * The box arithmetic behind both the spawn protection and the balloons.
- *
- * Worth its own test for one reason: an off-by-one on an inclusive corner is invisible in review and shows up as a
- * player able to break exactly one block of the tavern wall.
- */
+/** The box arithmetic behind both the spawn protection and the balloons, inclusive corners above all. */
 class BoxesTest {
 
     private static final String WORLD = "nordtal";
@@ -76,12 +71,7 @@ class BoxesTest {
         assertEquals(0, boxes.in("nordtal_the_end").size());
     }
 
-    /**
-     * The one number in this file that is not arbitrary.
-     *
-     * Nordtal's balloon has to sit outside radius 10 and inside 21.5 of the border centre, or border 20 does not
-     * withhold the farm world and the opening expansion to 43 hands over nothing.
-     */
+    /** The one number in this file that is not arbitrary: the balloon's distance from the border centre. */
     @Test
     void horizontalDistanceIgnoresHeightAndMeasuresFromTheCentre() {
         final Box balloon = new Box(WORLD, 119, 64, 86, 123, 68, 90);

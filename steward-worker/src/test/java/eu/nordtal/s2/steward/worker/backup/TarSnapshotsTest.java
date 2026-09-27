@@ -23,18 +23,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Real directories, a real {@code tar}, a real {@code zstd} - and an extraction.
+ * Real directories, a real {@code tar} and a real {@code zstd}, checked by extracting the archive again.
  *
- * Nothing here is a stub. An archive that no test ever unpacks is an archive nobody has proved is an archive, which
- * is one step short of run 23: a green suite, a file on disk, and no evidence that anything could ever be restored
- * from it. So the first test writes bytes, saves them and reads the same bytes back out of a second directory.
- *
- * The clock is fixed in every test that looks at a file name, because the name is a promise ( {@code prune} sorts by
- * it) and a promise measured against {@code Instant.now()} tests nothing.
+ * The clock is fixed wherever a file name is checked, because {@code prune} sorts by that name.
  */
 class TarSnapshotsTest {
 
-    /** 04:45 UTC, which is when the nightly run of §9a actually happens. */
+    /** 04:45 UTC, when the nightly run happens. */
     private static final Instant NIGHT = Instant.parse("2026-09-13T04:45:07Z");
 
     private static final String VOLUME = "nordtal-s2_mc-smp";
@@ -62,7 +57,7 @@ class TarSnapshotsTest {
         assertTrue(Files.exists(archive));
         assertFalse(Files.exists(Path.of(result.file() + ".partial")), "a finished save leaves no partial behind");
 
-        // The point of the whole class. Unpack it somewhere else and compare the bytes.
+        // Unpack it somewhere else and compare the bytes.
         final Path restored = Files.createDirectories(root.resolve("restored"));
         assertEquals(
                 0,
@@ -168,7 +163,7 @@ class TarSnapshotsTest {
                 StandardOpenOption.TRUNCATE_EXISTING);
         assertNotNull(snapshots.unreadable(truncated), "half an archive must not pass as one");
 
-        // And an archive of nothing - the 45-byte file that run 23 would have called a success.
+        // And an archive of nothing, the 45-byte file a broken save would call a success.
         final Path empty = outputRoot().resolve("empty.tar.zst.partial");
         assertEquals(
                 0,
@@ -416,16 +411,7 @@ class TarSnapshotsTest {
         return ProcessBuilder.startPipeline(builders);
     }
 
-    /**
-     * The flat retention these tests were written against: N days, nothing weekly, nothing monthly, and no grace.
-     *
-     * They are about the files rather than about the schedule's own
-     * arithmetic - which volume a name belongs to, that a mark goes with its archive, that a stamp nobody can parse
-     * stops one file and not the sweep. With one archive per day in every fixture, "keep N days" is exactly the "keep N
-     * files" they asked for, so the expectations are unchanged rather than adjusted. The schedule itself is checked in
-     * {@link RetentionTest}, without a disk, and the refusal of an all-zero policy moved there with it - it is the
-     * record's own constructor now, not this method's first line.
-     */
+    /** The flat retention these tests were written against: N days, nothing weekly or monthly, no grace. */
     private static Retention days(final int daily) {
         return new Retention(daily, 0, 0, 0);
     }

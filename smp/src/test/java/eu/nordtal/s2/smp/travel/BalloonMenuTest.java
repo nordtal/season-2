@@ -11,15 +11,7 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/**
- * The balloon's grid as a table, which is what it is.
- *
- * Every world has the same card at every balloon, and the world the player stands in is marked rather than moved.
- * This is the test that says so, and that the twelve slots under a card are the twelve the panel draws it over.
- *
- * The grid has a hole at the bottom right: a click there has to hit nothing, exactly like a click into the gap
- * column, and nothing else proves it.
- */
+/** The balloon's grid as a table: fixed cards, a marked current world, and a hole that hits nothing. */
 class BalloonMenuTest {
 
     private static final Set<Unlock> NOTHING = EnumSet.noneOf(Unlock.class);
@@ -73,7 +65,7 @@ class BalloonMenuTest {
         }
     }
 
-    /** Locked destinations keep their place rather than disappearing - that is the whole point. */
+    /** Locked destinations keep their place rather than disappearing. */
     @Test
     void aLockedDestinationStaysInTheGrid() {
         final List<BalloonMenu.Entry> entries = BalloonMenu.of(WorldRole.NORDTAL, NOTHING);

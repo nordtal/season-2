@@ -46,13 +46,8 @@ interface AccessDao {
 
     /**
      * Sets total play time to an absolute number of seconds.
-     *
-     * Deliberately not the addition {@code PlaytimeDao#add} performs on the proxy: this is an
-     * admin saying what the number <em>is</em>, which is the only way to reach a prestige tier on
-     * purpose - the tier is derived from this column and stored nowhere. The two writers do not
-     * conflict, they disagree: a flush that lands while somebody is online adds to whatever this
-     * wrote, so an override on an account that is playing right now keeps ticking up from the new
-     * value.
+     * Unlike the proxy's additive flush this overrides the value, so an account online right now keeps ticking up from
+     * it.
      */
     @SqlUpdate("""
             INSERT INTO player_playtime (discord_id, seconds, updated)
@@ -66,12 +61,7 @@ interface AccessDao {
     @SqlQuery("SELECT donor FROM discord_user WHERE discord_id = :discordId")
     Optional<Boolean> donor(@Bind("discordId") String discordId);
 
-    /**
-     * Writes all three Discord-observed fields at once, each with its own {@code now()} timestamp.
-     * Called from {@code GuildState}'s reconcile pass and its join handler, which already visit one
-     * member at a time and already know the row exists - there is deliberately no separate loop for
-     * this.
-     */
+    /** Writes all three Discord-observed fields at once, each with its own {@code now()} timestamp. */
     @SqlUpdate("""
             INSERT INTO discord_user (discord_id, discord_username, discord_username_updated,
                                        discord_display_name, discord_display_name_updated,
@@ -106,7 +96,7 @@ interface AccessDao {
             """)
     void clearGuildProfile(@Bind("discordId") String discordId);
 
-    /** @return what was last observed about this account's Discord profile; empty for no such row */
+    /** Returns what was last observed about this account's Discord profile, empty for no such row. */
     @SqlQuery("""
             SELECT discord_username, discord_username_updated,
                    discord_display_name, discord_display_name_updated,
@@ -149,8 +139,6 @@ interface AccessDao {
     /**
      * Writes the 1:1 link, or does nothing if either side is already taken.
      *
-     * The untargeted {@code ON CONFLICT DO NOTHING} covers both unique constraints in one statement.
-     *
      * @return 1 when the link was written, 0 otherwise
      */
     @SqlUpdate("""
@@ -175,30 +163,14 @@ interface AccessDao {
             """)
     int setMinecraftName(@Bind("mcUuid") java.util.UUID mcUuid, @Bind("name") String name);
 
-    /** @return what was last observed about the Minecraft account linked to this Discord id */
+    /** Returns what was last observed about the Minecraft account linked to this Discord id. */
     @SqlQuery("SELECT mc_name, mc_name_updated FROM account_link WHERE discord_id = :discordId")
     @RegisterRowMapper(MinecraftProfileMapper.class)
     Optional<MinecraftProfile> minecraftProfile(@Bind("discordId") String discordId);
 
     /**
-     * The append rule, as one statement.
-     *
-     * {@code valid_from} is {@code max(now(), season_phase.smp_start, current valid_until)}:
-     * renewing early never loses paid time, buying with no access running starts now, and buying
-     * before the SMP has opened starts on the day it opens. PostgreSQL computes it inside the
-     * insert, from its own clock, so there is no read-then-write window two purchases could share.
-     *
-     * Revoked and expired grants are ignored, so <b>periods are never summed</b>: somebody who
-     * lapsed for a week and buys again starts today, not a week ago.
-     *
-     * It anchors on {@code smp_start} and not on {@code launch} because access is only asked for
-     * in the {@code SMP} phase; a {@code NULL} {@code smp_start} means no date has been announced
-     * and the period starts now.
-     *
-     * <b>A day here is exactly 24 hours</b>, which is why the interval is built from hours.
-     * {@code interval 'N days'} on a {@code timestamptz} is calendar arithmetic in the session's
-     * time zone, which the JDBC driver takes from the JVM default - so a 30-day purchase spanning a
-     * summer-time change would not be 30 days, and would differ between hosts.
+     * Appends a grant starting at {@code max(now(), smp_start, current valid_until)}, computed on PostgreSQL's clock.
+     * Periods are never summed, and a day is exactly 24 hours whatever the session's time zone.
      */
     @SqlQuery("""
             INSERT INTO access_grant (discord_id, valid_from, valid_until, source, payment_request_id)
@@ -225,9 +197,7 @@ interface AccessDao {
             @Bind("paymentRequestId") @Nullable UUID paymentRequestId);
 
     /**
-     * Revokes the whole remaining run of access, not one grant.
-     *
-     * That keeps the live grants contiguous, which {@link #accessState(UUID)} relies on for {@code max(valid_until)}.
+     * Revokes the whole remaining run of access, not one grant, which keeps the live grants contiguous.
      *
      * @return how many grants were revoked
      */
@@ -251,9 +221,7 @@ interface AccessDao {
 
     /**
      * Returns the proxy's whole login state in one statement.
-     *
-     * Anchored on {@code (VALUES (1))} so it returns exactly one row: an unlinked account is a row of nulls,
-     * and a missing phase is a null that {@code SeasonPhase.fromDatabase} maps to {@code MAINTENANCE}.
+     * It always returns one row: an unlinked account is a row of nulls.
      */
     @SqlQuery("""
             SELECT cast(:mcUuid AS uuid)                                    AS mc_uuid,
@@ -295,9 +263,7 @@ interface AccessDao {
 
     /**
      * Issues a code for one Minecraft account, or returns the one already live.
-     *
-     * One statement, so racing logins cannot both mint a code. A collision with another account's code
-     * violates the primary key, which this {@code ON CONFLICT} does not catch; the caller retries.
+     * A collision with another account's code violates the primary key; the caller retries.
      */
     @SqlQuery("""
             WITH upsert AS (
@@ -316,7 +282,7 @@ interface AccessDao {
     @RegisterRowMapper(LinkCodeMapper.class)
     LinkCode upsertLinkCode(@Bind("code") String code, @Bind("mcUuid") UUID mcUuid, @Bind("expires") Instant expires);
 
-    /** @return the Minecraft account the code was issued for, empty when unknown or expired */
+    /** Returns the Minecraft account the code was issued for, empty when unknown or expired. */
     @SqlQuery("SELECT mc_uuid FROM link_code WHERE code = :code AND expires > now()")
     Optional<UUID> mcUuidForActiveCode(@Bind("code") String code);
 

@@ -70,37 +70,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
- * The three pages of the access half (concept §10a.7): who may join, what they paid, and what an
- * admin did about it.
+ * The access pages: who may join, what they paid, and what an admin did about it.
  *
- * They are one file because they are one chain, read left to right: **request → tab → paid →
- * access**. Payments is the first three links, Users the fourth, and Journal is the record of
- * every hand that reached into either of them. Splitting them into separate files would put the
- * vocabulary that has to agree - what "active" means, what a revoked period looks like - in
- * several places.
- *
- * There is no separate accounts page: its roster table would be the same `usePeople()`
- * list Users already draws, with fewer columns and no actions, and its "signing in to this
- * interface" card is about the signed-in admin's own session, not about anybody in the roster -
- * exactly the kind of content that belongs in the profile popover instead of a dedicated
- * `/settings` page.
- *
- * **Nothing here is computed that the database does not answer.** Where a number would be a guess
- * the page says so in a sentence instead of printing it: the amount of a paid request is what the
- * tab asked for and not what arrived, and a person whose access is inactive while their latest
- * period still runs may have been revoked *or* may be waiting for the SMP to open. Both are written
- * out below rather than quietly rounded into a badge.
+ * One file, since Payments, Users and Journal share one vocabulary for the chain request, tab, paid, access.
  */
 
-// --- the vocabulary the four pages share
-
-/**
- * Guild membership.
- *
- * `MEMBER` is deliberately the quiet one. Green would spend a status colour on the ordinary case
- * and leave nothing louder for the two cases an admin is actually scanning for - and a ban does not
- * stop a paid period running down, it only refuses the login right now.
- */
+/** Guild membership; `MEMBER` is the quiet one, so LEFT and BANNED stand out. */
 const MEMBER_STATES: Record<string, { label: string; tone: Tone; title: string }> = {
   MEMBER: { label: "Member", tone: "idle", title: "In the guild, as the bot last saw it." },
   LEFT: {
@@ -117,10 +92,7 @@ const MEMBER_STATES: Record<string, { label: string; tone: Tone; title: string }
 
 function MemberBadge({ state }: { state: string }) {
   const known = MEMBER_STATES[state]
-  /**
-   * An unknown value is shown, not swallowed: `member_state` has a CHECK constraint today, and a
-   * page that printed nothing for a value added tomorrow would look empty rather than new.
-   */
+  /** An unknown value is shown, not swallowed, so a state added later reads as new rather than empty. */
   if (!known) {
     return (
       <StatusBadge tone="idle" tipContent="This interface does not know this membership state.">
@@ -136,17 +108,9 @@ function MemberBadge({ state }: { state: string }) {
 }
 
 /**
- * Access, from the two fields that are deliberately not one.
+ * Access, from `accessActive` (the login decision) and `accessUntil` (the latest period on record).
  *
- * `accessActive` is the login decision - a revoked grant never counts, not even inside its own
- * window. `accessUntil` is the end of the latest period *on record*, revoked ones included. Keeping
- * both is what makes "their access was taken away" visible at all: without the date, somebody
- * whose access was taken away would look exactly like somebody who never bought any.
- *
- * The third case - inactive, but the latest period still lies in the future - has two possible
- * causes and this badge does not pretend to know which: revoked, or bought before the SMP opened
- * and therefore not yet started. Both are named in the tooltip, and the per-person dialog answers
- * it for certain, because a grant carries its own `revoked`.
+ * Inactive with a future period is revoked or not yet started; the tooltip names both.
  */
 function AccessBadge({ person, now }: { person: Person; now: number }) {
   const until = person.accessUntil ? new Date(person.accessUntil).getTime() : null
@@ -189,14 +153,7 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
   )
 }
 
-/**
- * The fifth link of the chain, for the one state that has no face to draw.
- *
- * Paid but unlinked is the one combination worth a warning colour: that person has spent money and
- * still cannot join, because the proxy knows Minecraft accounts and not Discord ones. The linked
- * case never reaches this component any more - the table draws the `Entity`
- * directly for it, name and head, so this badge only has one state left to speak for.
- */
+/** Warns about the one state with no face to draw: paid but no Minecraft account linked. */
 function LinkBadge({ person }: { person: Person }) {
   return (
     <StatusBadge
@@ -212,7 +169,7 @@ function LinkBadge({ person }: { person: Person }) {
   )
 }
 
-/** Three rows of nothing while a person's periods are read. Most accounts have one or two. */
+/** Three rows of nothing while a person's periods are read. */
 const WAITING_GRANTS = [0, 1, 2]
 
 const GRANT_SOURCES: Record<string, string> = {
@@ -259,22 +216,13 @@ function personToast(label: string, discordId: string): ReactNode {
   )
 }
 
-/** The longest grant, in days - `AccessApi.MOST_DAYS`, which refuses anything above it. */
+/** The longest grant in days, as `AccessApi.MOST_DAYS`. */
 const MOST_DAYS = 365
 
-/** Rows per page of the People table - the whole roster is filtered first, always. */
+/** Rows per page of the People table, paged after filtering. */
 const PEOPLE_PAGE_SIZE = 20
 
-// --- 1. /access
-
-/**
- * The roster's frame - the header row and, with it, the six column widths.
- *
- * It is a component rather than markup inside the table because it is drawn twice: once around the
- * real rows and once around the waiting ones. Two copies of six `w-[Nrem]` classes
- * is one copy that drifts, and the drift is visible - every heading would shift sideways the
- * moment the roster lands.
- */
+/** The roster's header row and column widths, shared by the real rows and the waiting ones. */
 function PeopleTable({ children }: { children: ReactNode }) {
   return (
     <Table className="steward-table">
@@ -286,9 +234,7 @@ function PeopleTable({ children }: { children: ReactNode }) {
           </TableHead>
           <TableHead className="w-[9rem]">Minecraft</TableHead>
           <TableHead className="w-[9rem]">Roles</TableHead>
-          {/* The prestige tier is derived from this number and stored nowhere, so it
-              is the only thing an admin can look at - and, through the row action beside it, the
-              only thing they can move. */}
+          {/* The prestige tier is derived from this number, so it is the one lever an admin has. */}
           <TableHead className="w-[7rem]">Playtime</TableHead>
           <TableHead className="w-[15rem]" />
         </TableRow>
@@ -298,24 +244,14 @@ function PeopleTable({ children }: { children: ReactNode }) {
   )
 }
 
-/** How many rows are drawn before the roster is there. A page of the real thing is twenty. */
+/** How many rows are drawn before the roster is there. */
 const WAITING_PEOPLE = [0, 1, 2, 3, 4, 5, 6, 7]
 
-/**
- * One person before there is one: the avatar, the name, the access badge and the rest, in the
- * shapes the real row puts in those cells. The row action stays empty - a menu with nothing behind
- * it is worse than a gap.
- */
+/** One person before there is one, in the shapes of the real row; the row action stays empty. */
 function WaitingPersonRow() {
   return (
     <TableRow>
-      {/*
-        The widths aim at the column, not at a plausible name. `steward-table` is `table-layout:
-        auto`, so a cell narrower than its `w-[Nrem]` lets the column collapse below it and every
-        heading to its right slides - which is the jump this whole ticket is against. Drawn at the
-        declared width the waiting table IS the declared layout; a name longer than 16rem still
-        nudges it when it lands, and that is a property of the real table, not of this row.
-      */}
+      {/* Drawn at the declared widths, so the headings do not slide when the roster lands. */}
       <TableCell data-label="Person" className="font-medium">
         <div className="flex items-center gap-2">
           <Skeleton className="size-6 shrink-0 rounded-full" />
@@ -345,9 +281,7 @@ function WaitingPersonRow() {
 /**
  * The roster: everyone the bot knows, and what they may.
  *
- * Every write on this page - grant, revoke, play time, unlink - is a request the bot carries out,
- * the same as `/access` in Discord: the bot applies the role, sends the direct message, posts the
- * admin note and writes the journal line naming the admin. This page only asks and waits.
+ * Every write here is a request the bot carries out, as `/access` in Discord does.
  */
 export function AccessPage() {
   const people = usePeople()
@@ -356,18 +290,9 @@ export function AccessPage() {
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState<Person | null>(null)
-  /**
-   * The person whose access is being revoked. Separate from `selected` on purpose: opening this
-   * one closes the other, so there is never a dialog inside a dialog.
-   */
+  /** The person being revoked; separate from `selected`, so there is never a dialog inside a dialog. */
   const [revoking, setRevoking] = useState<Person | null>(null)
-  /**
-   * And the same for the other two writes, for a second reason on top of that one:
-   * a row's actions live in a popover once there are more than two of them, and a Radix popover
-   * closes on any interaction outside itself - which a dialog's overlay is. A dialog rendered
-   * inside the popover is therefore unmounted by the click that opened it. So every dialog on this
-   * page is rendered here, beside the table, and the row holds nothing but buttons.
-   */
+  /** Every dialog is rendered beside the table, since a Radix popover unmounts one opened from inside it. */
   const [unlinking, setUnlinking] = useState<Person | null>(null)
   const [granting, setGranting] = useState<Person | null>(null)
   // Not `playtime`: that name is the formatter this page draws the column with.
@@ -380,11 +305,7 @@ export function AccessPage() {
   // One clock for the whole render, so that two badges in one row cannot disagree about "now".
   const now = useNow()
 
-  /**
-   * A filter or the switch changing the result set is exactly when a page number from before it
-   * stops meaning anything - kept on the table itself rather than clamped only where it is read,
-   * so a stale "page 3" never flashes before the roster shrinks under it.
-   */
+  /** Resets the page whenever the filter changes, so a stale page number never flashes. */
   function changeNeedle(value: string) {
     setNeedle(value)
     setPage(0)
@@ -403,27 +324,14 @@ export function AccessPage() {
           <CardTitle className="text-sm font-medium">People</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {/*
-            A plain `flex flex-wrap` row with the field `w-full flex-1` fails at narrow widths:
-            `flex-1` sets `flex-basis: 0%`, which beats `w-full`, so the two
-            never wrap onto separate lines - they share one line too narrow for
-            them. The field cannot shrink out of the way either, because an `<input>` has an
-            intrinsic minimum width, so `min-w-0` has to sit on the input itself rather than the
-            wrapper, or the switch gets pushed against the card edge
-            and the placeholder gets cut.
-
-            Two lines below `sm`, one above, and `min-w-0` on the input where it belongs.
-          */}
+          {/* Stacked below `sm`, one row above, with `min-w-0` on the input so it can shrink. */}
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
             <div className="flex w-full min-w-0 items-center gap-2 sm:min-w-64 sm:flex-1">
               <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <Input
                 value={needle}
                 onChange={(event) => changeNeedle(event.target.value)}
-                /**
-                 * Short enough to be readable at 390px rather than cut mid-word. The long sentence
-                 * it replaces is now the accessible name, where nothing clips it.
-                 */
+                /** Short enough for 390px; the long sentence is the accessible name. */
                 placeholder="Filter by name or id"
                 aria-label="Filter people by name, Discord id, or Minecraft account"
                 className="min-w-0"
@@ -446,11 +354,7 @@ export function AccessPage() {
           >
             {(list) => {
               if (list === undefined) {
-                /**
-                 * The search field, the filter and the six column headings above are all on screen
-                 * already - they are written into the page, not fetched. What is missing is eight
-                 * rows, so eight rows is what is drawn.
-                 */
+                /** Everything above the rows is already on screen, so only eight rows wait. */
                 return (
                   <>
                     <PeopleTable>
@@ -466,11 +370,7 @@ export function AccessPage() {
               }
               const trimmed = needle.trim().toLowerCase()
               /**
-               * Four things, even though it reads as five fields: a Discord name
-               * (guild nickname or username - whichever this account has), a Minecraft name, and
-               * both ids. The ids stay searchable although this table no longer draws them (see
-               * `identity.tsx`) - somebody holding an id out of a log has to be able to find the
-               * person behind it.
+               * Matches the Discord name, the Minecraft name and both ids, so an id from a log still finds the person.
                */
               const rows = list.filter(
                 (person) =>
@@ -494,11 +394,7 @@ export function AccessPage() {
                   />
                 )
               }
-              /**
-               * Paged AFTER filtering, over the whole roster - a
-               * search that only reaches the visible page would look like it works right up
-               * until the 21st match.
-               */
+              /** Paged after filtering, so a search reaches the whole roster. */
               const pageCount = Math.max(1, Math.ceil(rows.length / PEOPLE_PAGE_SIZE))
               const clampedPage = Math.min(page, pageCount - 1)
               const paged = rows.slice(
@@ -513,10 +409,7 @@ export function AccessPage() {
                         <TableCell data-label="Person" className="font-medium">
                           <div className="flex flex-wrap items-center gap-2">
                             <Entity id={person.discordId} kind="discord" />
-                            {/* "Member" is the ordinary case and is left unsaid -
-                             * LEFT and BANNED are exactly the two states worth a glance, and
-                             * they still get one, right next to the name rather than in a
-                             * column of their own. */}
+                            {/* "Member" is left unsaid; LEFT and BANNED get a badge beside the name. */}
                             {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
                           </div>
                         </TableCell>
@@ -551,15 +444,12 @@ export function AccessPage() {
                               </StatusBadge>
                             ) : null}
                             {!person.donor && !person.admin && !person.packExemptAt ? (
-                              <span className="text-xs text-muted-foreground">–</span>
+                              <span className="text-xs text-muted-foreground">{"\u2013"}</span>
                             ) : null}
                           </div>
                         </TableCell>
                         <TableCell data-label="Playtime">
-                          {/* `playtime` and not `duration`: this column answers the
-                                dialog beside it, and that one asks in days, hours and minutes. It
-                                draws the dash for null by itself, which is the answer for somebody
-                                who has never been online - not "0 min". */}
+                          {/* `playtime` draws the dash for somebody who has never been online. */}
                           <span className="text-sm tabular-nums">{playtime(person.playtimeSeconds ?? undefined)}</span>
                         </TableCell>
                         <TableCell>
@@ -637,7 +527,7 @@ export function AccessPage() {
         <RevokeDialog person={revoking} open onOpenChange={(open) => (open ? null : setRevoking(null))} />
       ) : null}
 
-      {/* Both rendered here rather than in the row, for the reason `unlinking` is declared with. */}
+      {/* Rendered here rather than in the row, for the reason `unlinking` is declared with. */}
       {unlinking ? (
         <UnlinkDialog person={unlinking} open onOpenChange={(open) => (open ? null : setUnlinking(null))} />
       ) : null}
@@ -676,28 +566,9 @@ function personName(person: Person): string {
 }
 
 /**
- * WHICH ACTIONS ONE ROW OFFERS, in one function.
+ * The actions one row offers, each only where it applies.
  *
- * Every entry below is conditional on something this row actually knows, rather than drawing
- * "Unlink" and "Periods" against every person alike whatever their state - actions and information
- * per person are shown dynamically instead, and the conditions are the point:
- *
- * - **Periods** only when a period exists. `accessUntil` is the end of the latest period *on
- *   record*, revoked ones included, so `null` means the dialog would open on nothing at all.
- * - **Grant** always. There is no state in which more access cannot be given - that is exactly
- *   what the header's own button does, and this one arrives with the person already filled in.
- * - **Revoke** only while access is active. No greyed-out button for somebody without any: there
- *   is nothing to take away, and a disabled destructive control reads as "not allowed" rather than
- *   "not applicable".
- * - **Unlink** only when a Minecraft account is linked. Drawing it for everybody, including the
- *   people with nothing to unlink, would be misleading.
- *
- * <h2>The two of the five that are deliberately not here</h2>
- * Five `access` commands name this table. `settle` is not one of these rows'
- * business: it books one payment reference, not one person, and belongs on the
- * Payments page where the row names the reference. `status` is the row itself plus the Periods
- * dialog - both read the same tables directly - and it is declared `CONSOLE` only, so a command
- * button for it could not be drawn even if it were wanted.
+ * Periods need a period, Revoke active access, Unlink a linked account; Grant is always there.
  */
 function rowActions(
   person: Person,
@@ -708,7 +579,7 @@ function rowActions(
     onRevoke: () => void
     onUnlink: () => void
     onMakeAdmin: () => void
-    /** Absent unless this admin is below the signed-in one - the only ones they may revoke. */
+    /** Absent unless this admin is below the signed-in one. */
     onRevokeAdmin?: () => void
     onPack: () => void
   },
@@ -795,7 +666,7 @@ function rowActions(
     })
   }
 
-  // Last on purpose: letting somebody play without the pack is for whoever draws it, not a routine action.
+  // Last on purpose: this is for whoever draws the pack, not a routine action.
   if (person.packExemptAt || person.minecraftUuid) {
     actions.push({
       key: "pack",
@@ -826,14 +697,6 @@ function grantedByText(person: Person, people: readonly Person[]): string {
   return `Granted by ${granter ? personName(granter) : person.adminGrantedBy}`
 }
 
-/*
- * WHY THIS PAGE MAY WRITE AT ALL, which used to be a paragraph at the top of it: `/access` in
- * Discord is the first door into the same tables and this is the second. The price of a second
- * door is paid in the record - every grant and every revocation from here writes a row into the
- * journal naming the admin who clicked. That is a decision, and a decision belongs here and not on
- * the screen of somebody who has already opened the page.
- */
-
 /** The header of the access column, with the reason its two halves disagree. */
 function AccessColumnHead() {
   return (
@@ -855,10 +718,7 @@ function AccessColumnHead() {
 /**
  * Granting, with the arithmetic named out loud.
  *
- * The rules are the database's, not this form's: a day is exactly 24 hours, a new period is
- * appended behind a running one instead of replacing it, and a purchase made before the SMP opens
- * starts on the opening day. Writing them here is the only way the person clicking can predict what
- * the row will say afterwards.
+ * A new period is appended behind a running one; one bought before the SMP opens starts then.
  */
 function GrantDialog({
   person,
@@ -947,11 +807,7 @@ function GrantDialog({
                 { discordId: discordId.trim(), days: parsedDays },
                 {
                   onSuccess: (written, asked) => {
-                    /**
-                     * The person if this dialog was opened from their row, the id they typed if
-                     * it was opened from the toolbar - there is nobody else to name then, and an
-                     * echo of what was typed is what confirms the right account was hit.
-                     */
+                    /** The person if opened from their row, otherwise the id that was typed. */
                     toast.success(personToast("Access granted for", asked.discordId), {
                       description: `Valid until ${dateTime(written.until)}. A journal line names you.`,
                     })
@@ -973,37 +829,12 @@ function GrantDialog({
 }
 
 /**
- * Sets an account's total play time by hand.
+ * Sets an account's total play time by hand, the one lever on the prestige tier.
  *
- * <h2>Why this page may write that number at all</h2>
- * The prestige tier is not a column. `Prestige.java` derives it from total play time every time it
- * draws a name, which is the right design and leaves exactly one lever: the seconds themselves. Two
- * accounts of different tiers can then stand beside each other without anybody waiting out the
- * hours first.
- *
- * <h2>Three fields here, seconds on the wire</h2>
- * Nobody types 32400, and nobody thinks in 37.5 either, and the trouble with either is not that it
- * is hard to compute but that a slip is invisible: 37.5 typed as 375 is a plausible number of hours.
- * Days, hours and minutes cannot be mistyped that way, and the multiplication happens here so that
- * the request body and the `player_playtime.seconds` column agree on a unit.
- *
- * <h2>An empty field is a zero, and nothing is out of range</h2>
- * Hours over 23 and minutes over 59 are CARRIED rather than refused: somebody who types
- * "0 days 50 hours" means two days and two hours and has not made a mistake. The only thing refused
- * is a negative number, because there is nothing it could mean.
- *
- * <h2>What it does not do</h2>
- * Stop the proxy. Somebody online right now keeps accumulating on top of whatever this writes,
- * because the flush adds seconds; there is no lock and there is deliberately no second column
- * saying "this one was set by hand". One number, one truth.
+ * Hours and minutes over range are carried, not refused; the wire carries seconds.
  */
 
-/**
- * An empty field is a zero and not an error, which is `Number("")` and not a branch: clearing a
- * field to type into it is the ordinary way to use three number inputs, and a form that went
- * unusable in between would be unusable most of the time somebody is typing in it. Anything that
- * is not a number at all is still NaN, and `usable` below is what catches it.
- */
+/** An empty field is zero; anything else that is not a number is NaN, which `usable` catches. */
 function parseField(value: string): number {
   return Number(value.replace(",", "."))
 }
@@ -1039,8 +870,7 @@ function PlaytimeDialog({
         </ResponsiveAlertDialogHeader>
 
         <div className="flex flex-col gap-1.5">
-          {/* Three fields in one row: on a phone they are still three columns rather than a stack,
-              because a day, an hour and a minute are one number read left to right. */}
+          {/* Three columns even on a phone, since the three are one number read left to right. */}
           <div className="grid grid-cols-3 gap-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="playtime-days">Days</Label>
@@ -1111,10 +941,7 @@ function PlaytimeDialog({
   )
 }
 
-/**
- * Unlinking: the Discord account keeps its access, the Minecraft account is released. The bot does
- * it, so the person is told and the admin channel hears about it.
- */
+/** Unlinks the Minecraft account; the Discord account keeps its access, and the bot tells the person. */
 function UnlinkDialog({
   person,
   open,
@@ -1167,10 +994,7 @@ function UnlinkDialog({
   )
 }
 
-/**
- * Lets one player through without the resource pack, or takes that back. The pack is what everybody
- * gets; this is for whoever draws it, whose own work the network's pack would otherwise cover.
- */
+/** Lets one player through without the resource pack, or takes that back. */
 function PackExemptionDialog({
   person,
   open,
@@ -1321,11 +1145,7 @@ function RevokeAdminDialog({
   )
 }
 
-/**
- * Settling by hand, on the one row it can apply to - an OPEN request already names the reference,
- * so there is nothing left to pick. The bot books it exactly as if bunq had reported it: period,
- * role, direct message, admin note.
- */
+/** Settles the one OPEN request of this row by hand; the bot books it as if bunq had reported it. */
 function SettleAction({ reference }: { reference: string }) {
   const settle = useSettle()
   return (
@@ -1381,19 +1201,7 @@ function SettleAction({ reference }: { reference: string }) {
 }
 
 /**
- * Revoking - the destructive half.
- *
- * It takes the whole remaining run and not one period: that is what the backend's single statement
- * does, and it is what lets the login path get away with one `max(valid_until)`. Saying "every
- * running period" here is therefore accurate and not a simplification.
- */
-/**
- * Revoking, from the table row or from the opened person.
- *
- * Revoking is reachable through both doors. They are not nested: the button inside the person dialog
- * CLOSES that dialog and opens this one at page level, because an ResponsiveAlertDialog inside an open
- * ResponsiveDialog is two focus traps on one screen, and which of them gets the keyboard back afterwards is
- * not something anybody here can verify without a browser.
+ * Revokes every running period; the person dialog closes first, so there are never two focus traps.
  *
  * @param open when given, the dialog is controlled from outside and draws no trigger of its own
  */
@@ -1450,10 +1258,7 @@ function RevokeDialog({
             onClick={() => {
               revoke.mutate(person.discordId, {
                 onSuccess: (result) => {
-                  /**
-                   * Zero is a real answer and not a success: between opening this dialog and
-                   * clicking, the run may have ended or somebody else may have revoked it.
-                   */
+                  /** Zero means the run had already ended or somebody else revoked it. */
                   if (result.revoked === 0) {
                     toast.warning("There was nothing to revoke", {
                       description: personToast("No period was still running for", person.discordId),
@@ -1478,7 +1283,7 @@ function RevokeDialog({
   )
 }
 
-/** One person's chain, period by period. Read-only: the two writes stand in the table row. */
+/** One person's chain, period by period; the writes live in the table row. */
 function PersonGrants({ person, now, onRevoke }: { person: Person; now: number; onRevoke: () => void }) {
   const grants = useGrants(person.discordId)
 
@@ -1504,7 +1309,7 @@ function PersonGrants({ person, now, onRevoke }: { person: Person; now: number; 
         <Stat label="Guild" value={<MemberBadge state={person.memberState} />} />
         <Stat
           label="Minecraft"
-          value={person.minecraftUuid ? <Entity id={person.minecraftUuid} kind="minecraft" /> : "–"}
+          value={person.minecraftUuid ? <Entity id={person.minecraftUuid} kind="minecraft" /> : "\u2013"}
           hint={person.linked ? `linked ${dateTime(person.linked)}` : "not linked"}
         />
         <Stat label="Language" value={person.locale} hint={`last changed ${relative(person.updated, now)}`} />
@@ -1554,7 +1359,9 @@ function PersonGrants({ person, now, onRevoke }: { person: Person; now: number; 
                       <TableRow key={row.id}>
                         <TableCell data-label="Source">{GRANT_SOURCES[row.source] ?? row.source}</TableCell>
                         <TableCell data-label="Window" className="text-muted-foreground tnum">
-                          {dateTime(row.validFrom)} – {dateTime(row.validUntil)}
+                          {dateTime(row.validFrom)}
+                          {" \u2013 "}
+                          {dateTime(row.validUntil)}
                         </TableCell>
                         <TableCell data-label="State">
                           <StatusBadge tone={state.tone} tipContent={state.title}>
@@ -1575,7 +1382,7 @@ function PersonGrants({ person, now, onRevoke }: { person: Person; now: number; 
                                   : "Granted by hand, so there is no payment request."
                               }
                             >
-                              –
+                              {"\u2013"}
                             </span>
                           )}
                         </TableCell>
@@ -1590,9 +1397,7 @@ function PersonGrants({ person, now, onRevoke }: { person: Person; now: number; 
   )
 }
 
-// --- 2. /payments
-
-/** Eight rows of nothing while the requests are read - a page of the real table is longer. */
+/** Eight rows of nothing while the requests are read. */
 const WAITING_PAYMENTS = [0, 1, 2, 3, 4, 5, 6, 7]
 
 const PAYMENT_STATES: Record<string, { label: string; tone: Tone; title: string }> = {
@@ -1615,7 +1420,7 @@ const PAYMENT_STATES: Record<string, { label: string; tone: Tone; title: string 
   },
 }
 
-/** OPEN and past its `expires`: nobody is about to pay this, the sweep has just not run yet. */
+/** OPEN and past its `expires`; the sweep has just not run yet. */
 function isOverdue(payment: Payment, now: number): boolean {
   return payment.status === "OPEN" && new Date(payment.expires).getTime() <= now
 }
@@ -1623,9 +1428,7 @@ function isOverdue(payment: Payment, now: number): boolean {
 /**
  * The payments: the first three links of the chain.
  *
- * The sum at the top is the one number on these four pages that could mislead, so it is labelled
- * rather than printed bare: `amount_cents` is what the tab **asked for**, and the payer can edit the
- * amount on the bunq.me page. What actually arrived is not in this table at all.
+ * The sum is what the tabs asked for, since the payer can edit the amount on bunq.me.
  */
 export function PaymentsPage() {
   const payments = usePayments()
@@ -1645,21 +1448,14 @@ export function PaymentsPage() {
         isEmpty={(list: Payment[]) => list.length === 0}
       >
         {(list) => {
-          /**
-           * Everything below reads `list ?? []` and then asks `waiting` before it prints a
-           * figure. A sum over nothing is 0, and "0 paid" is not a waiting state -
-           * it is a wrong answer that will be silently corrected a moment later.
-           */
+          /** A sum over nothing is 0, which is not a waiting state, so every figure waits on `waiting`. */
           const waiting = list === undefined
           const rows = list ?? []
           const open = rows.filter((payment) => payment.status === "OPEN")
           const overdue = open.filter((payment) => isOverdue(payment, now))
           const paid = rows.filter((payment) => payment.status === "PAID")
           const requested = paid.reduce((sum, payment) => sum + payment.amountCents + payment.donationCents, 0)
-          /**
-           * Built from what is here, plus the value being filtered on, so that a status added to
-           * the CHECK constraint later still appears the moment one row carries it.
-           */
+          /** Built from the rows present, so a status added later still appears. */
           const present = [...new Set(rows.map((payment) => payment.status))].toSorted()
           const shown = rows.filter((payment) => status === "" || payment.status === status)
 
@@ -1731,15 +1527,7 @@ export function PaymentsPage() {
                     <Table className="steward-table">
                       <TableHeader>
                         <TableRow>
-                          {/*
-                            Ten headers do not fit a 1152px (72rem) card at their natural widths.
-                            `Created` is folded into a title on `Reference` (still there,
-                            one hover away, the same pattern `PersonGrants`'s `Request` cell
-                            already uses for a full id) and `Donation` is folded into `Amount` as
-                            a second line - both are real data kept, not data dropped, which is
-                            fewer columns rather than narrower ones once shrinking
-                            widths alone cannot close the gap on fields that do not wrap.
-                          */}
+                          {/* `Created` sits in the `Reference` title and `Donation` under `Amount`. */}
                           <TableHead className="w-[7rem]">Reference</TableHead>
                           <TableHead className="w-[11rem]">Person</TableHead>
                           <TableHead className="w-[4rem] text-right">Days</TableHead>
@@ -1747,13 +1535,7 @@ export function PaymentsPage() {
                           <TableHead className="w-[9rem]">Status</TableHead>
                           <TableHead className="w-[11rem]">Deadline</TableHead>
                           <TableHead className="w-[11rem]">Paid</TableHead>
-                          {/*
-                            `Tab` and `Settle` are the two actions an OPEN row can
-                            carry, and `flex-wrap` on the cell below lets them stack instead of
-                            overflowing now that this column is visible. If it still wraps or
-                            overflows at a wide viewport, a popover is the next step, not a wider
-                            column again.
-                          */}
+                          {/* `Tab` and `Settle`, which may stack. */}
                           <TableHead className="w-[11rem]" />
                         </TableRow>
                       </TableHeader>
@@ -1844,7 +1626,6 @@ export function PaymentsPage() {
                                     {dateTime(payment.settled)}
                                   </TableCell>
                                   <TableCell>
-                                    {/* No `flex-wrap` here - the header above already stacks. */}
                                     <div className="flex items-center justify-end gap-1">
                                       {payment.shareUrl ? (
                                         <Button asChild variant="ghost" size="sm">
@@ -1863,17 +1644,10 @@ export function PaymentsPage() {
                                           className="text-xs text-muted-foreground"
                                           title="No bunq.me address stands in the row for this request."
                                         >
-                                          –
+                                          {"\u2013"}
                                         </span>
                                       )}
-                                      {/*
-                                    `settle` sits here rather than on the generic command card,
-                                    on the one row it can apply to - an OPEN request already
-                                    names the reference the command needs, so there is nothing
-                                    left to pick. Money only moves for a request that can still be
-                                    settled, hence `payment.status === "OPEN"` rather than drawing
-                                    the button everywhere and disabling it.
-                                  */}
+                                      {/* Only an OPEN request can be settled. */}
                                       {payment.status === "OPEN" ? (
                                         <SettleAction reference={payment.reference} />
                                       ) : null}
@@ -1895,29 +1669,16 @@ export function PaymentsPage() {
   )
 }
 
-/** Ten rows of nothing while the record is read; the query hands out at most two hundred. */
+/** Ten rows of nothing while the record is read. */
 const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-
-// --- 3. /journal
 
 /**
  * The audit log.
  *
- * **Both filters are exact matches.** The backend compares the whole string, so this page offers
- * the actions as a list to choose from and asks for a subject explicitly rather than searching
- * while you type - a field that filters on every keystroke promises a substring search that does
- * not exist.
- *
- * The list of actions is built from the rows that are here. `audit_log.action` has no CHECK
- * constraint, and the writers are three: this interface (`GRANT_ACCESS`, `REVOKE_ACCESS`), the bot
- * (links, settlements) and the phase switch. A hardcoded list would be a page that cannot draw an
- * action somebody adds next week.
+ * Both filters are exact matches, so actions are picked from the rows present and the subject is submitted.
  */
 export function JournalPage() {
-  /**
-   * The unfiltered query, for the options. With both filters empty it *is* the filtered query -
-   * same key, one request - so this costs nothing until somebody actually filters.
-   */
+  /** The unfiltered query, for the options; it shares its key with the filtered one while no filter is set. */
   const all = useJournal("", "")
   const [action, setAction] = useState("")
   const [subject, setSubject] = useState("")
@@ -1955,11 +1716,7 @@ export function JournalPage() {
               </Select>
             </div>
 
-            {/*
-              `w-64` on the field and a button beside it is 374px of a 356px card: on a phone the
-              Filter button was drawn half off the screen. The field takes the row it is on and the
-              buttons wrap under it; from `sm` the fixed width and the one-line row come back.
-            */}
+            {/* The field takes its own row on a phone; from `sm` it has a fixed width. */}
             <form
               className="flex w-full flex-wrap items-end gap-2"
               onSubmit={(event) => {
@@ -2056,18 +1813,11 @@ export function JournalPage() {
                             <TableCell data-label="When" className="text-muted-foreground tnum" title={entry.occurred}>
                               {dateTime(entry.occurred)}
                             </TableCell>
-                            {/* The action is printed raw, exactly as the row carries it: any prettier
-                             * wording would be a table that silently falls back to the enum name for
-                             * anything new - and this column is what somebody greps the bot's log for. */}
+                            {/* Printed raw, as the row carries it and as the bot's log names it. */}
                             <TableCell data-label="Action" className="font-medium">
                               {entry.action}
                             </TableCell>
-                            {/* Never user ids, always profiles. The
-                             * identity component is what the rest of the app already uses, and it
-                             * answers the awkward case by itself: somebody the roster no longer knows
-                             * is drawn as "no Discord name on record" with the id still copyable in
-                             * the popover, which is a name for the row rather than an anonymous one.
-                             * No admin at all is Steward's own mark, the case `system` was built for. */}
+                            {/* A profile, never an id; no admin at all is Steward's own mark. */}
                             <TableCell data-label="Triggered by" className="text-muted-foreground">
                               {entry.actor ? <Entity id={entry.actor} /> : <Entity system />}
                             </TableCell>
@@ -2078,12 +1828,9 @@ export function JournalPage() {
                                 <Entity id={entry.mcUuid} kind="minecraft" />
                               ) : null}
                             </TableCell>
-                            {/* The one column here that is running text rather than a
-                             * field - a field does not wrap (a date, an id), prose does, at any
-                             * width, so this overrides TableCell's own `whitespace-nowrap` rather
-                             * than relying on the stacked layout alone. */}
+                            {/* Running text, so it wraps where TableCell would not. */}
                             <TableCell data-label="Detail" className="text-muted-foreground whitespace-normal">
-                              {entry.detail ?? "–"}
+                              {entry.detail ?? "\u2013"}
                             </TableCell>
                           </TableRow>
                         ))}

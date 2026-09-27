@@ -22,23 +22,7 @@ import org.slf4j.LoggerFactory;
 /**
  * That the ten sounds a fresh {@code sounds.yml} ships actually exist.
  *
- * <b>Why this is worth a test rather than a careful afternoon</b>
- *
- * The keys were resolved by hand once, against paper-api 26.2.build.121-stable. That answer is true
- * for exactly one version of Minecraft. A sound removed or renamed in a later one would otherwise reach production
- * as a category that has quietly gone silent - and a missing chime is the single hardest kind of regression to
- * notice, because there is nothing to see and nothing in any log.
- *
- * <b>How it resolves a key without a server</b>
- *
- * {@code org.bukkit.Sound} is an interface of constants generated from the registry, each named after its key with
- * every {@code .} replaced by {@code _} and upper-cased - {@code entity.experience_orb.pickup} is
- * {@code ENTITY_EXPERIENCE_ORB_PICKUP}. Asking for the field is enough, and it is deliberately {@code getField}
- * rather than reading the value: reading one initialises the class, which does a registry lookup, which needs the
- * running server this test does not have.
- *
- * Only {@code minecraft:} keys are checked. A key in our own namespace is a resource pack sound the server has never
- * heard of and never will, which is the whole reason the config carries keys rather than constants.
+ * Each {@code minecraft:} key is looked up as a {@code Sound} field by name, which needs no server.
  */
 class SoundDefaultsTest {
 
@@ -118,7 +102,7 @@ class SoundDefaultsTest {
                 "a shipped default that the parser has to correct is a default that was never" + " checked");
         for (final Feedback category : Feedback.values()) {
             if (category == Feedback.STAGING) {
-                // Silent on purpose - see the exception in the test above.
+                // Silent on purpose, as in the test above.
                 assertTrue(
                         sounds.isSilent(category),
                         "STAGING is no longer silent out of the box, which is a decision and not a" + " tidy-up");
@@ -128,15 +112,7 @@ class SoundDefaultsTest {
         }
     }
 
-    /**
-     * The escape hatch, driven through the real file rather than through the parser alone.
-     *
-     * {@code FeedbackSoundsTest} proves that a blank key silences a category. What it cannot prove is that a blank key
-     * <em>survives the config system</em>: jcore's loader is strict, and "the operator blanked a value" has to come
-     * back
-     * as an empty string rather than as a refused load or a default quietly written back over the top. That is the
-     * difference between an escape hatch and a promise.
-     */
+    /** The escape hatch through the real file: a blanked key comes back as an empty string. */
     @Test
     void blankingAKeyInTheFileSilencesTheCategory() throws Exception {
         Configs.sounds(directory, LOGGER);
@@ -154,17 +130,7 @@ class SoundDefaultsTest {
         assertEquals(List.of(), problems, "silencing a category on purpose must not read as a misconfiguration");
     }
 
-    /**
-     * And a reload picks the blanking up, on the instance every listener is already holding.
-     *
-     * This is the whole reason {@code sounds.yml} is a file of its own rather than a block in {@code config.yml}. The
-     * escape hatch documented on {@link SoundsSpec} - blank the key when a sound turns out to be irritating - is worth
-     * very little if using it costs a restart of the season, and {@code config.yml} is deliberately not reloadable.
-     *
-     * The assertion that matters is the last one: the plugin hands <em>one</em> {@code SmpSounds} to fifteen listeners
-     * at enable and never hands out another, so a reload that returned a new object would change nothing a player can
-     * hear.
-     */
+    /** A reload picks the blanking up, on the one {@code SmpSounds} instance every listener already holds. */
     @Test
     void aReloadIsPickedUpByTheRunningInstance() throws Exception {
         final ConfigHandle<SoundsSpec> handle = Configs.sounds(directory, LOGGER);
@@ -196,11 +162,7 @@ class SoundDefaultsTest {
                         + " noise");
     }
 
-    /**
-     * Same exhaustive switch as the adapter's, and here for the same reason.
-     *
-     * A category added to {@link Feedback} has to stop this test compiling until somebody has given it a default.
-     */
+    /** The same exhaustive switch as the adapter's, so a new {@link Feedback} category stops this compiling. */
     private static SoundsSpec.SoundSpec entryOf(final Feedback category, final SoundsSpec spec) {
         return switch (category) {
             case SMALL_SUCCESS -> spec.smallSuccess();

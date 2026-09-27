@@ -5,26 +5,16 @@ import { Fragment } from "react"
 import type { Crumb } from "@/app/breadcrumbs"
 import { StewardMark } from "@/app/steward-mark"
 
-/**
- * The pieces the frame's chrome is built from: the toggle, the mark, the trail and the search.
- *
- * **Nothing in here has a border of its own.** Every one of them
- * stands inside a surface that already has one - the island, the right-hand island, the phone's
- * dock - and a border inside a border is a nesting bordered things must not have.
- */
+/** The chrome's pieces: the toggle, the mark, the trail and the search, none with a border of its own. */
 
 /** A ghost control, the one shape every button in the chrome has. */
 export const CONTROL =
   "flex size-control shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
 
-/** The one motion of the frame: the column, the island's surface and the dock all move with it. */
+/** The one motion of the frame, shared by the column, the island's surface and the dock. */
 export const MOTION = "duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:duration-0"
 
-/**
- * The navigation toggle. `panel` is the desktop's drawing and never changes; `menu` is the phone's,
- * and turns into a cross in place while the navigation is open, because there the same button is
- * the only way to close it again.
- */
+/** The navigation toggle; on a phone it turns into a cross, since there it is the only way to close. */
 export function NavToggle({
   shown,
   onToggle,
@@ -59,12 +49,9 @@ export function NavToggle({
 }
 
 /**
- * The mark and the word "Steward" - the word alone, not "Nordtal Steward" - and
- * it leads where Overview leads.
+ * The mark and the word "Steward", leading to Overview.
  *
- * It has no padding on its left on purpose. It stands directly after the toggle, whose box ends
- * exactly where every row's label begins, so the mark starts on the same line as "Overview" below
- * it rather than a few pixels beside it.
+ * No left padding, so the mark starts on the line where every label starts.
  */
 export function Brand({ onFollow }: { onFollow?: () => void }) {
   return (
@@ -79,13 +66,7 @@ export function Brand({ onFollow }: { onFollow?: () => void }) {
   )
 }
 
-/**
- * The path of the page after the mark, which stands in for its first crumb.
- *
- * The ancestors give way before the page name does: `shrink-[999]` against a plain `shrink` puts
- * the whole shortfall on them first, so a trail that does not fit ends in "… > smp" and never in a
- * separator pointing at nothing.
- */
+/** The page's path after the mark, the ancestors shrinking first so a tight trail still ends on the page. */
 export function Trail({ crumbs }: { crumbs: Crumb[] }) {
   return (
     <span className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
@@ -110,17 +91,12 @@ export function Trail({ crumbs }: { crumbs: Crumb[] }) {
   )
 }
 
-/**
- * Opens the command palette. The palette listens for the key, so a tap sends the key.
- *
- * **The search button must never disappear.** `⌘K` does not exist on a phone, so without something
- * to tap the command palette is unreachable there.
- */
+/** Opens the command palette by sending its key, which a phone cannot type. */
 export function openCommandPalette() {
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }))
 }
 
-/** Looks like a place to type and is a button, because a real input here would be a second one. */
+/** A button that looks like a place to type, since a real input would be a second one. */
 export function SearchButton() {
   return (
     <button type="button" onClick={openCommandPalette} aria-label="Search pages" className={CONTROL}>

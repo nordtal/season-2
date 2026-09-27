@@ -6,59 +6,15 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Whether a reloaded milestone file may replace the one the season has been running on.
+ * Whether a reloaded milestone file may replace the running one.
  *
- * Two halves that pull in opposite directions:
- *
- * - It must <b>refuse a change that would orphan stored progress</b> - a renamed milestone key or a deleted
- *   objective would silently discard a finished piece of the season, and the people who did the work would simply
- *   see it gone.
- *
- * - It must <b>explicitly permit lowering the {@code target} of a live objective</b>, because that is the finest of
- *   the three escape hatches for an objective that turns out to be impossible - and a validation that blocks it
- *   means every rescue becomes an admin command, which pays proportionally rather than in full.
- *
- * A validation that only implemented the first half would look correct and would quietly delete the first escape
- * hatch. Both halves are asserted in {@code TrackValidationTest}.
- *
- * Allowed:
- *
- * - <b>Appending milestones</b> - the planned response to a track that finishes early.
- *
- * - <b>Adding objectives to a milestone that has not been unlocked yet.</b>
- *
- * - <b>Changing the target of an objective that has not completed</b>, in either direction. Lowering is the escape
- *   hatch; raising is allowed because it is the same edit and refusing it would mean a typo could only ever be
- *   corrected downwards.
- *
- * - <b>Changing anything about an objective the database has never heard of</b> - items, statistic, advancement,
- *   role, pot. Only the parts the database stores can be inconsistent with it.
- *
- * Refused:
- *
- * - <b>A stored milestone the file no longer declares.</b> Its progress, and any aura already paid against it, would
- *   have nothing to point at.
- *
- * - <b>A stored objective the file no longer declares.</b> Same, one level down - and this is what catches a renamed
- *   objective key, which looks like a deletion plus an addition.
- *
- * - <b>A change of type on an objective with stored progress.</b> {@code amount} means a different thing per type -
- *   items delivered, a statistic's increase, a count of distinct players - so carrying it across would be reading a
- *   number in the wrong unit.
- *
- * - <b>Any change of target on a <em>completed</em> objective.</b> It has already paid out, and an admin
- *   completion's {@code pot × (reached ÷ target)} refers to what was asked for at the time. Moving the target
- *   afterwards would rewrite the arithmetic behind aura that is already in the ledger.
- *
- * - <b>Reordering an unlocked milestone behind a locked one.</b> The track is linear and its order is the file's, so
- *   the unlocked milestones must stay a prefix of it. Without this a file edit could put a finished milestone after
- *   the one being worked on and leave the engine with no answer to "what comes next".
+ * It refuses whatever would orphan stored progress, and must allow lowering a live target, the finest escape hatch.
  */
 public final class TrackValidation {
 
     private TrackValidation() {}
 
-    /** One reason a reload was refused, written so it can go straight into a command's reply. */
+    /** One reason a reload was refused, worded to go straight into a command's reply. */
     public record Problem(
             @Nullable String milestoneKey, @Nullable String objectiveKey, String message) {
 
@@ -69,7 +25,7 @@ public final class TrackValidation {
         @Override
         public String toString() {
             if (milestoneKey == null) {
-                // Nothing in the file to point at - the track as a whole is the problem.
+                // Nothing in the file to point at: the track as a whole is the problem.
                 return message;
             }
             if (objectiveKey == null) {
@@ -80,12 +36,11 @@ public final class TrackValidation {
     }
 
     /**
-     * Checks a track against what the database holds.
+     * Checks a track against what the database holds, reporting every problem rather than the first.
      *
      * @param track    the track just parsed out of the file
      * @param progress the rows currently in {@code smp_milestone} and {@code smp_objective}
-     * @return every problem found, in the order they were found; empty means the file may replace
-     *         the running one. All of them rather than the first, so one reload names every mistake
+     * @return every problem, in the order found; empty means the file may replace the running one
      */
     public static List<Problem> validate(final MilestoneTrack track, final StoredProgress progress) {
         Objects.requireNonNull(track, "track");
@@ -146,11 +101,7 @@ public final class TrackValidation {
         return List.copyOf(problems);
     }
 
-    /**
-     * The unlocked milestones have to stay a prefix of the file's order.
-     *
-     * Any individual milestone can be moved, as long as what has already been finished still comes first.
-     */
+    /** The unlocked milestones have to stay a prefix of the file's order. */
     private static List<Problem> orderProblems(final MilestoneTrack track, final StoredProgress progress) {
         final List<Problem> problems = new ArrayList<>();
 

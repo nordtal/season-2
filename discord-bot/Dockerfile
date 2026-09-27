@@ -1,66 +1,24 @@
-# Runtime-only image. The jar is built by Gradle first (`./gradlew :discord-bot:shadowJar`) and
-# picked up out of build/libs, rather than being built inside the image: this is a multi-module repo,
-# so a self-contained build stage would have to copy the whole tree and rebuild every module.
+# Runtime-only image around the jar Gradle built; gradle.properties is the only place the version lives.
 #
 #   ./gradlew :discord-bot:shadowJar
 #   docker build -t ghcr.io/nordtal/discord-bot:latest discord-bot
-#
-# The version is not named anywhere in this build, and that is deliberate. A --build-arg fed from
-# a variable in .env is a version number written down a second time and therefore a version number
-# that can go stale against gradle.properties, which is the single source of truth for it.
 FROM eclipse-temurin:25-jre
 
 WORKDIR /app
 
-# The jar baked in here is the floor, not the version. The bot runs whatever discord-bot-*.jar is
-# in /app/lib, which is a volume steward-worker fills; this copy is only what makes a first
-# deployment possible, before any steward-worker run has happened. docker-entrypoint.sh
-# says the same thing at length and prints which one it picked on every start.
-#
-# The .dockerignore is load-bearing here. `shadowJar` leaves two jars side by side and this glob
-# matches both; .dockerignore keeps the -thin one out of the context so that exactly one does.
-# BuildKit does not fail on several sources into one destination - it writes one of them and says
-# nothing, and which one it picks is an ordering accident rather than a guarantee. So the failure
-# this line prevents is a silent one: an image carrying the thin jar, which starts and then dies on
-# the first class it cannot find.
+# The baked jar is the floor: the entrypoint prefers the one steward-worker put into /app/lib.
+# .dockerignore keeps the -thin jar out of the context, so this glob matches exactly one.
 COPY build/libs/discord-bot-*.jar /app/app.jar
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 RUN mkdir -p config lib \
     && chmod +x /app/docker-entrypoint.sh
 
-# There is no /app/bunq here, and no bunq variable either. The API context holds credentials and is
-# bound to the device and IP that registered it, so it lives in exactly one container:
-# steward-worker, at /app/bunq, on the `bunq-context` volume. That volume's contents are
-# regenerated, never copied.
-#
-# Configuration - three files, one environment namespace each:
-#
-#   config/bot.yml       config/database.yml          config/access.yml
-#   NORDTAL_BOT_TOKEN    NORDTAL_DATABASE_JDBC_URL    NORDTAL_ACCESS_*
-#                        NORDTAL_DATABASE_USERNAME
-#                        NORDTAL_DATABASE_PASSWORD
-#
-# Every setting in every file can be overridden this way: the variable is the setting's path
-# with '.' and '-' turned into '_'. So the price of the 30-day tier is
-# NORDTAL_ACCESS_TIERS_SHORT_PRICE_CENTS. The environment always wins over the file and is
-# never written back into it, so a secret handed to this container cannot leak into the
-# config volume.
-#
-# access.yml has NO usable defaults for the guild id, the role ids or the channel ids - they
-# are empty and the bot refuses to start until they are filled in. That is deliberate: a
-# default id would be a real channel in somebody's guild.
-#
-# NORDTAL_ACCESS_PAYMENT_WATERMARK is not read here - it is NORDTAL_STEWARD_BUNQ_WATERMARK, on the
-# container that talks to the bank. It still matters on a first deploy for the same reason: payments
-# created before it are ignored forever, and without one the first poll books up to 50 historical
-# payments, roles, DMs and public thank-yous included.
-#
-# The bot refuses to start on a config it cannot read, a setting that does not exist, or an
-# empty credential. It never falls back to defaults.
+# Configuration: config/bot.yml, config/database.yml and config/access.yml. Any setting can be
+# overridden as NORDTAL_<PATH>, with '.' and '-' as '_'; the environment wins and is never written back.
+# access.yml has no usable ids by default, and the bot refuses to start until they are set.
 
-# Where steward-worker puts this container's jar, and what it is called. The same volume is mounted
-# into the worker at /volumes/discord-bot, which is where it writes.
+# Where steward-worker puts this container's jar.
 ENV JAR_DIR=/app/lib
 ENV JAR_PREFIX=discord-bot
 

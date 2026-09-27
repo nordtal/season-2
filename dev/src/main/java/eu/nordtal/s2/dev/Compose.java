@@ -8,8 +8,7 @@ import java.util.Locale;
 /**
  * {@code docker compose} against {@code deploy/dev.env}: the same compose.yml production runs, pointed at local jars.
  *
- * The one thing that makes that possible is that each server's {@code plugins/} is a directory on this
- * machine, named by {@code <SERVICE>_PLUGINS}, rather than a volume.
+ * Each server's {@code plugins/} is a local directory named by {@code <SERVICE>_PLUGINS}, not a volume.
  */
 final class Compose {
 
@@ -54,8 +53,7 @@ final class Compose {
     /**
      * Runs {@code arguments} inside {@code service}.
      *
-     * With a pseudo-terminal only when this program has a real one: from IntelliJ's run console, which is
-     * a pipe, {@code docker compose exec} refuses to allocate one.
+     * Allocates a pseudo-terminal only when this program has one; IntelliJ's run console is a pipe.
      */
     int exec(final String service, final String... arguments) {
         final List<String> command = new ArrayList<>(List.of("exec"));
@@ -70,8 +68,7 @@ final class Compose {
     /**
      * Where one service's {@code plugins/} is on this machine.
      *
-     * A value without a {@code /} is a volume name to Docker, and nothing here can copy a jar into a
-     * volume; falling back to a guessed directory would write jars no container has mounted.
+     * A value without a {@code /} is a volume name, which this program cannot copy a jar into.
      */
     Path pluginsDir(final String service) {
         final String variable = service.toUpperCase(Locale.ROOT).replace('-', '_') + "_PLUGINS";

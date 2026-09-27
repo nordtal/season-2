@@ -20,34 +20,9 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * The season 2 login decision: one call to {@code AccessDirectory#accessState}, then linked?
+ * The season 2 login decision, from one {@code AccessDirectory#accessState} round trip.
  *
- * member and not banned? and finally whatever the current phase asks on top - each branch with its own disconnect
- * screen. If the database could not be reached, the fallback cache stands in for all of it.
- *
- * Per phase: {@code PRE_EVENT} and {@code START_EVENT} let in a linked member who is not banned and
- * show everyone else nothing beyond that; {@code SMP} additionally requires active access and shows
- * {@code gate.no-access} to a linked member without it; {@code MAINTENANCE} again asks only linked
- * and not banned.
- *
- * Maintenance refuses nobody here: a non-admin is let onto the proxy and
- * {@code eu.nordtal.s2.proxy.PlayerRouter} puts them in {@code limbo}, where the explanation is
- * shown. An unlinked player is still refused with a link code, in every phase.
- *
- * The phase arrives on the same row as the access state ({@link AccessState#phase()}): the login
- * path is one round trip, so there is deliberately no call to {@code PhaseDirectory#currentPhase()}
- * here. {@code PhaseWatch}'s poll and {@code LISTEN} exist for everything that is not a login.
- *
- * The table itself lives in {@link GateOutcome}. It is not {@link AccessState#mayJoin()} because
- * each branch needs a different screen.
- *
- * {@code @Subscribe} handlers are asynchronous by default in Velocity 4, so the blocking JDBC call
- * does not run on a Netty I/O thread. How long it may block is the connection pool's concern,
- * bounded by {@code query-timeout-seconds} in {@code database.yml}.
- *
- * This is also the one place the proxy sees a player's current Minecraft name, and it writes it
- * onto the linked account's cache - see {@code eu.nordtal.s2.common.access.MinecraftProfile}. That
- * write is best-effort and never changes the login outcome above it.
+ * Velocity 4 runs {@code @Subscribe} handlers off the Netty threads; {@code query-timeout-seconds} bounds the wait.
  */
 public final class LoginGate {
 
@@ -100,11 +75,11 @@ public final class LoginGate {
             return;
         }
 
-        // Written on every successful query, so an access-inactive state evicts a now-stale positive entry.
+        // Written on every successful query, so an inactive state evicts a stale positive entry.
         fallback.remember(uuid, state);
-        // And the facts the /phase command and the play-time writer need, from the same row.
+        // The facts the /phase command and the play-time writer need, from the same row.
         roster.remember(uuid, state);
-        // The one place this proxy sees a player's Minecraft name, only when linked - account_link is where it caches.
+        // The one place this proxy sees a player's Minecraft name; account_link caches it.
         if (state.linked()) {
             mirrorMinecraftName(uuid, player.getUsername());
         }
@@ -112,7 +87,7 @@ public final class LoginGate {
         final Instant countdownFrom = state.phase() == SeasonPhase.PRE_LAUNCH ? clock.instant() : null;
 
         switch (GateOutcome.of(state)) {
-            // ALLOW leaves the default result standing unless full; where they land is PlayerRouter's question.
+            // Refused only when full; where they land is PlayerRouter's question.
             case ALLOW -> refuseIfFull(event, state);
             case NOT_LINKED -> issueCodeAndDeny(event, player, uuid, state.launch(), countdownFrom);
             case NOT_MEMBER -> event.setResult(ComponentResult.denied(messages.notMember(state.locale())));
@@ -126,12 +101,7 @@ public final class LoginGate {
         }
     }
 
-    /**
-     * Caches the Minecraft name this login just presented.
-     *
-     * Best-effort: a failure here is a missed cache refresh, not a reason to disturb a login decision that was already
-     * made.
-     */
+    /** Caches the Minecraft name this login just presented, best-effort. */
     private void mirrorMinecraftName(final UUID uuid, final String username) {
         try {
             access.setMinecraftName(uuid, username);
@@ -143,13 +113,7 @@ public final class LoginGate {
     /**
      * The network-wide player limit, and the only place it is enforced.
      *
-     * Checked after the access decision, deliberately: the admin flag lives on the row that query
-     * returns, and a full network that the person who has to fix it cannot enter is the wrong kind
-     * of full.
-     *
-     * The count includes players still in the waiting room, because a slot they hold is a slot. Two
-     * logins in the same instant can both see room and both take it; the limit is exceeded by one,
-     * which is accepted rather than fixed with a reservation scheme.
+     * Checked after the access decision, so an admin can still enter a full network to fix it.
      */
     private void refuseIfFull(final LoginEvent event, final AccessState state) {
         final int maximum = network.maxPlayers();
@@ -161,15 +125,7 @@ public final class LoginGate {
         event.setResult(ComponentResult.denied(messages.full(state.locale(), online, maximum)));
     }
 
-    /**
-     * The database answered "unlinked", which is a healthy-path result.
-     *
-     * Issuing the code is a second database call and can fail on its own; that failure is treated like the database
-     * being unreachable, because there is no code to show either way.
-     *
-     * This happens in every phase, {@code MAINTENANCE} included: an unlinked player cannot usefully
-     * be held in {@code limbo}, since linking happens in Discord.
-     */
+    /** Issues a link code and refuses; a failure to issue one is treated as an unreachable database. */
     private void issueCodeAndDeny(
             final LoginEvent event,
             final Player player,
@@ -181,23 +137,15 @@ public final class LoginGate {
             event.setResult(ComponentResult.denied(messages.notLinked(code.code(), launch, now)));
         } catch (final RuntimeException exception) {
             logger.error("Could not issue a link code for {} ({})", uuid, player.getUsername(), exception);
-            // The player's language is unknown here, which is why the unlinked screen is bilingual; English is a guess.
+            // The unlinked screen is bilingual because the language is unknown; English is a guess.
             event.setResult(ComponentResult.denied(messages.trouble(Locale.ENGLISH)));
         }
     }
 
-    /**
-     * Only a player the cache remembers as allowed gets in.
-     *
-     * Everyone else, including anyone the cache has never heard of, is refused.
-     *
-     * The cache stores the outcome of {@link AccessState#mayJoin()}, which is phase-aware, so it
-     * remembers "let in, under the phase current at the time". The phase cannot be re-read here -
-     * it is in the same unreachable database - and the rule for that case is the last known phase.
-     */
+    /** Lets in only a player the cache remembers as allowed, under the last known phase. */
     private void fallBackToCache(final LoginEvent event, final UUID uuid) {
         if (fallback.mayJoin(uuid)) {
-            // The player limit still applies; nobody is exempt, since the admin flag is what could not be read.
+            // The limit still applies to everyone, since the admin flag is what could not be read.
             final int maximum = network.maxPlayers();
             final int online = proxy.getPlayerCount();
             if (online >= maximum) {

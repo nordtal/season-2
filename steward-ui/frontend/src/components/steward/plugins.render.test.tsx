@@ -174,7 +174,7 @@ describe("ServicePlugins", () => {
 
     expect(await screen.findByText("2.13.0 → 2.14.0")).toBeTruthy()
     expect(screen.getAllByText("up to date")).toHaveLength(1)
-    // Not on the disk: said as exactly that, with the picture and name Modrinth gives it.
+    // Not on the disk, said as such, with Modrinth's picture and name.
     const coreprotect = screen.getByText("CoreProtect").closest("li")!
     expect(within(coreprotect).getByText("Not installed")).toBeTruthy()
     expect(coreprotect.querySelector("img")).toBeTruthy()

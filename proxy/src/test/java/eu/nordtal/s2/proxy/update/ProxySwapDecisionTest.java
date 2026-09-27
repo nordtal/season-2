@@ -9,12 +9,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-/**
- * What one pass of the live proxy's swap does, including when the standby is not actually there.
- *
- * The decision is a static function of three answers precisely so that it can be held without a
- * {@code ProxyServer}: everything else in {@link ProxySwap} is Velocity, a socket and a clock.
- */
+/** What one pass of the live proxy's swap does, including when the standby is not there. */
 class ProxySwapDecisionTest {
 
     private static final Set<String> PROXY_NEXT = Set.of(ProxySwap.OWN_SERVICE);
@@ -44,7 +39,7 @@ class ProxySwapDecisionTest {
 
     @Test
     void aSilentStandbyIsNoStandby() {
-        // proxy-standby is stopped most of the season; a transfer to an address nobody listens on drops everyone.
+        // proxy-standby is stopped most of the season; a transfer to it would drop everyone.
         assertEquals(ProxySwap.Pass.STANDBY_MISSING, ProxySwap.decide(PROXY_NEXT, false, false, () -> false));
     }
 
@@ -62,15 +57,15 @@ class ProxySwapDecisionTest {
         assertEquals(1, asked.get());
     }
 
-    // the run that already went through me
+    // the run that already went through this proxy
 
     @Test
     void aRestartedProxyIsNotTheOneBeingStopped() {
         final AtomicInteger asked = new AtomicInteger();
-        // The row names `proxy` as moving the whole run; the process the run started must not read that as stopping.
+        // The row names `proxy` as moving for the whole run; the restarted process must not read that as stopping.
         assertEquals(ProxySwap.Pass.ALREADY_MOVED, ProxySwap.decide(PROXY_NEXT, false, true, probe(asked, true)));
         assertEquals(0, asked.get(), "and it costs no socket either");
-        // The door stays open: shutting it here would refuse exactly the players the standby is handing back.
+        // The door stays open for the players the standby hands back.
         assertFalse(ProxySwap.doorAfter(ProxySwap.Pass.ALREADY_MOVED, true));
         assertFalse(ProxySwap.doorAfter(ProxySwap.Pass.ALREADY_MOVED, false));
     }
@@ -112,7 +107,7 @@ class ProxySwapDecisionTest {
 
     @Test
     void theDoorOpensAgain() {
-        // A leftover proxy and a second run of the same session both arrive as IDLE and must reopen the door.
+        // A leftover proxy and a second run both arrive as IDLE and must reopen the door.
         assertFalse(ProxySwap.doorAfter(ProxySwap.Pass.IDLE, true));
         assertFalse(ProxySwap.doorAfter(ProxySwap.Pass.IDLE, false));
     }

@@ -22,12 +22,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Writing one value back without disturbing anything else.
+ * Writing one value back without disturbing anything else, asserted on the whole text of the file.
  *
- * The assertions are on the whole text of the file, not on a re-parse. A parse-level check would pass just as
- * happily for a file that had been dumped back out with every comment gone - which is the exact failure this class
- * exists to prevent, since those comments are the only documentation an operator editing another container's config
- * has.
+ * A re-parse would pass a file dumped back out with every comment gone.
  */
 class ConfigFilesWriteTest {
 
@@ -305,7 +302,7 @@ class ConfigFilesWriteTest {
     void nonAsciiInACommentIsNotMangled() throws IOException {
         final Path file = directory.resolve("utf8.yml");
         Files.writeString(file, """
-                # The size of the world – §8a, «Steward»
+                # The size of the world \u2013 §8a, «Steward»
                 size: 4096
                 """, StandardCharsets.UTF_8);
         final String before = Files.readString(file, StandardCharsets.UTF_8);
@@ -500,7 +497,7 @@ class ConfigFilesWriteTest {
 
         ConfigFiles.write(file, Map.of("ports", ConfigChange.list(List.of("25565", "19132"))));
 
-        // Not - '19132'. A list of ints quietly turning into a list of strings is a config that fails to load.
+        // Not '19132' as a string: a list of ints turning into strings is a config that fails to load.
         assertEquals("""
                 ports:
                   - 25565
@@ -633,14 +630,7 @@ class ConfigFilesWriteTest {
         assertEquals("public-url: " + expected, line, "writing «" + value + "»");
     }
 
-    /**
-     * A save is a replace, and a replace must not quietly re-decide who may read the file.
-     *
-     * {@code Files.createTempFile} makes an owner-only file, and the atomic move installs that inode under the
-     * destination's name - so a {@code config.yml} readable by everyone else stays readable by everyone else after a
-     * save, which is why this is a quiet change rather than an outage - and exactly why it has to be caught here
-     * instead of on the day one of those images gains a {@code USER} line.
-     */
+    /** A save keeps the file's permissions instead of the temp file's owner-only ones. */
     @Test
     void savingLeavesTheFilesOwnPermissionsAlone() throws IOException {
         Assumptions.assumeTrue(Files.getFileStore(fixture).supportsFileAttributeView(PosixFileAttributeView.class));
@@ -654,10 +644,7 @@ class ConfigFilesWriteTest {
     /**
      * {@code 8080 # oops} is a typo, and a typo is a 400.
      *
-     * YAML resolves it to the integer 8080 and hands back the whole line, comment included. The value then reads
-     * back as {@code 8080}, {@code verify} notices the disagreement and refuses - correctly, but with an
-     * {@link IllegalStateException} that says "This is a bug in ConfigFiles" and reaches the operator as a 500.
-     * It is their mistake, so it has to be their sentence.
+     * YAML reads it as 8080 with a comment, so the save must refuse it as the operator's mistake, not as a bug.
      */
     @Test
     void aNumberWithSomethingAfterItIsTheOperatorsMistakeAndNotThisPrograms() {

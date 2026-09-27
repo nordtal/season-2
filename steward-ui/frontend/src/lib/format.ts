@@ -1,28 +1,10 @@
 /**
- * Every number this interface prints goes through here.
+ * Formats every number this interface prints, in one locale and one base.
  *
- * Two reasons it is one file. Formatting a byte count in six places is six chances to disagree
- * about whether a gigabyte has 1000 or 1024 megabytes - and an operator comparing a card against a
- * table has to be able to trust that "1.4 GB" in one place is the same quantity as "1.4 GB" in the
- * other. And the locale is one constant, {@link LOCALE}, rather than fourteen string literals: the
- * interface used to carry LOCALE in fourteen places, and a page that formats a date differently
- * from the table beside it reads as translated rather than written.
- *
- * Base 1000, not 1024, and the unit says so. Docker reports memory in bytes and the disk numbers
- * come from `statvfs`; both are counts of bytes, and the host's own `df` prints base-1000 for the
- * same file system. Matching what the machine's own tools say is worth more here than the
- * pedantically correct GiB, because the two disagreeing is what makes somebody think a disk is
- * fuller than it is.
+ * Bytes are base 1000, matching `df` and `statvfs`, so a card and the host's own tools agree.
  */
 
-/**
- * The one locale this interface formats in.
- *
- * `en-GB` rather than `en-US`: the operators are European, and a 24-hour clock and a day-first date
- * are what every other surface of this deployment prints - the worker's logs, `docker ps`, the
- * archive names. A page that says 09/14 beside a log line that says 14/09 makes somebody check
- * twice.
- */
+/** The one locale this interface formats in: `en-GB`, for the 24-hour clock and day-first dates the logs use. */
 export const LOCALE = "en-GB"
 
 const NUMBER = new Intl.NumberFormat(LOCALE)
@@ -41,7 +23,7 @@ const UNITS = ["B", "kB", "MB", "GB", "TB", "PB"] as const
 
 /** A byte count, base 1000, one decimal from kB upwards. */
 export function bytes(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "–"
+  if (value == null || !Number.isFinite(value)) return "\u2013"
   if (value < 1000) return `${NUMBER.format(Math.round(value))} B`
   let scaled = value
   let unit = 0
@@ -49,11 +31,7 @@ export function bytes(value: number | null | undefined): string {
     scaled /= 1000
     unit += 1
   }
-  /**
-   * The loop scales the raw number, and the rounding to one decimal happens after it - so 999 999
-   * came out as "1.000,0 kB", a quantity this function never means to print and the header's own
-   * "base 1000" says it does not. The carry is checked on the rounded value, where it happens.
-   */
+  /** The carry is checked on the rounded value, so 999 999 prints as "1.0 MB" rather than "1,000.0 kB". */
   if (Math.round(scaled * 10) >= 10_000 && unit < UNITS.length - 1) {
     scaled /= 1000
     unit += 1
@@ -61,29 +39,17 @@ export function bytes(value: number | null | undefined): string {
   return `${ONE_DECIMAL.format(scaled)} ${UNITS[unit]}`
 }
 
-/**
- * A percentage that is already 0-100.
- *
- * `decimals` is honoured, all of it. It used to pick between two formatters - "no decimals" and
- * "one" - and the first of those was `Intl.NumberFormat(LOCALE)` with nothing set, whose own
- * default is THREE. So `percent(87.4567, 0)` printed "87,457 %" in the traffic light's own sentence about
- * a full disk. And because the choice was `decimals === 0 ? … : …`, every other number the
- * signature accepts quietly meant one - `percent(x, 2)` type-checked and gave one decimal, which
- * is the kind of wrong nobody can see at the call site.
- */
+/** A percentage that is already 0 to 100, with exactly `decimals` decimals. */
 export function percent(value: number | null | undefined, decimals = 1): string {
-  if (value == null || !Number.isFinite(value)) return "–"
+  if (value == null || !Number.isFinite(value)) return "\u2013"
   return `${percentFormat(decimals).format(value)} %`
 }
 
-/** One `Intl.NumberFormat` per decimal count, built once - they are not cheap to construct. */
+/** One `Intl.NumberFormat` per decimal count, cached since they are costly to construct. */
 const PERCENT_FORMATS = new Map<number, Intl.NumberFormat>()
 
 function percentFormat(decimals: number): Intl.NumberFormat {
-  /**
-   * Intl throws outside 0..20, and a caller asking for 21 decimals of a percentage has made a
-   * mistake that must not become an exception in a dashboard.
-   */
+  /** Intl throws outside 0..20, so the count is clamped rather than thrown in a dashboard. */
   const wanted = Math.min(Math.max(Math.trunc(decimals) || 0, 0), 20)
   let format = PERCENT_FORMATS.get(wanted)
   if (!format) {
@@ -98,12 +64,12 @@ function percentFormat(decimals: number): Intl.NumberFormat {
 
 /** A plain count. */
 export function count(value: number | null | undefined): string {
-  return value == null || !Number.isFinite(value) ? "–" : NUMBER.format(value)
+  return value == null || !Number.isFinite(value) ? "\u2013" : NUMBER.format(value)
 }
 
-/** Two decimals, for a load average - the one number where the third digit is noise. */
+/** Two decimals, for a load average. */
 export function load(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "–"
+  if (value == null || !Number.isFinite(value)) return "\u2013"
   return new Intl.NumberFormat(LOCALE, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -112,17 +78,11 @@ export function load(value: number | null | undefined): string {
 
 /** Cents, as the bunq rows carry them. */
 export function euros(cents: number | null | undefined): string {
-  if (cents == null || !Number.isFinite(cents)) return "–"
+  if (cents == null || !Number.isFinite(cents)) return "\u2013"
   return new Intl.NumberFormat(LOCALE, { style: "currency", currency: "EUR" }).format(cents / 100)
 }
 
-/**
- * An instant as the server sends it.
- *
- * The backend prints `String.valueOf(instant)` for the timestamps of a run, so a column that is
- * SQL NULL arrives as the four characters "null" rather than as JSON null. Both are handled here
- * rather than at every call site, because forgetting once puts the word "null" on the screen.
- */
+/** An instant as the server sends it, where SQL NULL arrives as the string "null". */
 export function parseInstant(value: string | null | undefined): Date | null {
   if (value == null || value === "null" || value === "") return null
   const parsed = new Date(value)
@@ -132,35 +92,22 @@ export function parseInstant(value: string | null | undefined): Date | null {
 /** Date and time, in full. */
 export function dateTime(value: string | Date | null | undefined): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "–" : DATE_TIME.format(parsed)
+  return parsed == null ? "\u2013" : DATE_TIME.format(parsed)
 }
 
-/**
- * The day only, without the clock - for a phone.
- *
- * `active until 1 Dec 2026, 00:00` does not fit the access badge on a 390px screen, and a badge
- * clips rather than wraps, so it was drawn as `active until 1 Dec 2026, 00:0` - a date that looks
- * like a number and is not one. Cutting the clock is the answer rather than an ellipsis: a period
- * always ends at midnight, so the four characters that did not fit were the four that carried no
- * information. An ellipsis would have been honest about being cut and still unreadable.
- */
+/** The day only, without the clock, which fits the access badge on a phone; a period always ends at midnight. */
 export function date(value: string | Date | null | undefined): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
   return parsed == null ? "\u2013" : DATE_ONLY.format(parsed)
 }
 
-/** The clock only - for a log line, where the date is the same for every line on screen. */
+/** The clock only, for a log line. */
 export function clock(value: string | Date | null | undefined): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "–" : TIME.format(parsed)
+  return parsed == null ? "\u2013" : TIME.format(parsed)
 }
 
-/**
- * "3 minutes ago", "in 2 hours".
- *
- * Intl.RelativeTimeFormat does the grammar, which is the part that is easy to get wrong by hand
- * and impossible to get wrong with the platform's own table.
- */
+/** "3 minutes ago", "in 2 hours", with the grammar from `Intl.RelativeTimeFormat`. */
 const RELATIVE = new Intl.RelativeTimeFormat(LOCALE, { numeric: "auto" })
 
 const STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
@@ -175,7 +122,7 @@ const STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
 
 export function relative(value: string | Date | null | undefined, now = Date.now()): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  if (parsed == null) return "–"
+  if (parsed == null) return "\u2013"
   let delta = (parsed.getTime() - now) / 1000
   for (const [unit, size] of STEPS) {
     if (Math.abs(delta) < size) {
@@ -186,14 +133,9 @@ export function relative(value: string | Date | null | undefined, now = Date.now
   return DATE_TIME.format(parsed)
 }
 
-/**
- * A span, spelled out: "3 d 4 h", "12 min".
- *
- * Used for uptime and for how long a run took. Deliberately two units at most - "3 days, 4 hours,
- * 11 minutes and 6 seconds" is a sentence nobody reads to the end.
- */
+/** A span in at most two units: "3 d 4 h", "12 min"; for uptime and run durations. */
 export function duration(seconds: number | null | undefined): string {
-  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "–"
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "\u2013"
   const whole = Math.floor(seconds)
   if (whole < 60) return `${whole} s`
   const minutes = Math.floor(whole / 60)
@@ -209,20 +151,12 @@ export function duration(seconds: number | null | undefined): string {
 }
 
 /**
- * Play time, in the three units a person thinks in: "1 d 6 h 30 min".
+ * Play time in days, hours and minutes, the units the dialog asks for: "1 d 6 h 30 min".
  *
- * Not `duration`, and the difference is the point. `duration` measures how long a
- * backup took and how long a container has been up, where two units are already more precision than
- * anybody reads. Play time is a number somebody TYPES - the dialog asks for days, hours and minutes
- * - and a column that answered "1 d 6 h" to a value that was entered as 1 d 6 h 30 min would make
- * the save look like it lost something.
- *
- * Seconds are dropped rather than rounded up, so a value written here and read back is the same
- * value. Zero parts are left out, except when everything is zero: "0 min" is a real answer and
- * means somebody has been on and has almost no time, which is not the same as never.
+ * Seconds are dropped so a value round-trips; zero parts are left out, but all zero is "0 min".
  */
 export function playtime(seconds: number | null | undefined): string {
-  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "–"
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "\u2013"
   const { days, hours, minutes } = splitPlaytime(seconds)
   const parts: string[] = []
   if (days > 0) parts.push(`${days} d`)
@@ -231,13 +165,7 @@ export function playtime(seconds: number | null | undefined): string {
   return parts.join(" ")
 }
 
-/**
- * The same three numbers, unjoined - what the dialog puts in its three fields.
- *
- * The inverse is a multiplication and is deliberately not here: anything over 23 hours or 59
- * minutes is carried on save rather than refused, so the form owns that direction. Somebody typing
- * "0 days 50 hours" means two days and two hours and has not made a mistake.
- */
+/** The same three numbers unjoined, for the dialog's fields; the form carries overflow on save. */
 export function splitPlaytime(seconds: number | null | undefined): {
   days: number
   hours: number
@@ -257,5 +185,5 @@ export function splitPlaytime(seconds: number | null | undefined): {
 /** How long ago an instant was, as a span rather than as "… ago". */
 export function since(value: string | Date | null | undefined, now = Date.now()): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "–" : duration((now - parsed.getTime()) / 1000)
+  return parsed == null ? "\u2013" : duration((now - parsed.getTime()) / 1000)
 }

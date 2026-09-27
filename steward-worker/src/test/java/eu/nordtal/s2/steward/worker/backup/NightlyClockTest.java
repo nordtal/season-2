@@ -11,11 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/**
- * The arithmetic of the nightly clock, without a database and without waiting for 04:45.
- *
- * Every one of these is a bug that has already happened once, in the clock this replaces.
- */
+/** The arithmetic of the nightly clock, without a database and without waiting for 04:45. */
 class NightlyClockTest {
 
     private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");

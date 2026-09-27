@@ -10,9 +10,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 
-/**
- * Registering and holding a security key, and the write gate that needs one held recently.
- */
+/** Registering and holding a security key, and the write gate that needs one held recently. */
 class WebAuthnKeyTest extends StewardUiTestSupport {
 
     @Test
@@ -37,7 +35,7 @@ class WebAuthnKeyTest extends StewardUiTestSupport {
                     GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString(),
                     "the interface cannot tell this apart from an ordinary refusal: " + refused.body());
 
-            // Including the ones that write. A missing key is not a read-only mode.
+            // Including the ones that write: a missing key is not a read-only mode.
             assertEquals(
                     403, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
         } finally {
@@ -69,7 +67,7 @@ class WebAuthnKeyTest extends StewardUiTestSupport {
                             .getAsJsonObject()
                             .get("label")
                             .getAsString());
-            // Registering a key IS holding it, so the session is verified without a second ceremony one second later.
+            // Registering a key is holding it, so the session is verified without a second ceremony.
             assertTrue(me.get("verified").getAsBoolean(), me.toString());
 
             journalledBy("770000000000000002", "REGISTER_KEY", "YubiKey blau");
@@ -189,7 +187,7 @@ class WebAuthnKeyTest extends StewardUiTestSupport {
         assertFalse(me.get("verified").getAsBoolean(), "a fresh session started out verified");
         assertFalse(me.getAsJsonArray("keys").isEmpty(), "this account should have a key already");
 
-        // Reading is refused too, and that is the whole of C: before it, this was readable for thirty days.
+        // Reading is refused too.
         for (final String path :
                 new String[] {"/api/services", "/api/people", "/api/journal", "/api/updates", "/api/config"}) {
             final HttpResponse<String> refused = get(fresh, path);
@@ -283,7 +281,7 @@ class WebAuthnKeyTest extends StewardUiTestSupport {
         // `retryable` tells the interface to open the dialog and retry, rather than draw a red box.
         assertTrue(body.get("retryable").getAsBoolean(), refused.body());
 
-        // And holding it again lets the same request through: "one tap, not two" as the server sees it.
+        // Holding it again lets the same request through: "one tap, not two" as the server sees it.
         holdTheKey(browser, authenticator);
         assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}").statusCode());
         settleOpenRuns();
@@ -296,7 +294,7 @@ class WebAuthnKeyTest extends StewardUiTestSupport {
         holdTheKey(browser, authenticator);
         heldLongAgo(browser);
 
-        // Four writes, including the two moved across from the plan's original "not dangerous" list.
+        // Four writes.
         final String[][] writes = {
             {"/api/updates", "{\"kind\":\"UPDATE\"}"},
             {"/api/access/grant", "{\"discordId\":\"1\",\"days\":1}"},
@@ -337,7 +335,7 @@ class WebAuthnKeyTest extends StewardUiTestSupport {
 
         assertEquals(200, delete(browser, "/api/keys/" + id).statusCode());
         assertFalse(get(browser, "/api/me").body().contains("My old phone"));
-        // The first key is untouched, which is the thing a remove has to get right: the account still works afterwards.
+        // The first key is untouched, so the account still works afterwards.
         assertEquals(200, get(browser, "/api/services").statusCode());
     }
 

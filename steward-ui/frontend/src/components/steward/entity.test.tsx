@@ -7,11 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { Actor, Entity, entityKind } from "@/components/steward/entity"
 import { IDENTIFIER_PATTERN } from "@/components/steward/identity"
 
-/**
- * One component recognises an entity and draws it properly, app-wide. These
- * hold the four answers it gives - a person by Discord id, a person by Minecraft UUID, a service,
- * and the question mark for everything it cannot place.
- */
+/** The four answers of the entity component: a Discord id, a Minecraft UUID, a service, and a question mark. */
 
 const DISCORD_ID = "214906139328839681"
 const MC_UUID = "11111111-2222-3333-4444-555555555555"

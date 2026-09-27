@@ -13,19 +13,12 @@ import {
 } from "@/lib/webauthn"
 
 /**
- * The conversion between what travels and what the browser's API takes.
+ * Converts between the wire's base64url and the browser's buffers, the half jsdom can reach.
  *
- * There is nothing clever in this file and that is the point: every one of these is a byte-for-byte
- * identity that is trivially true until somebody writes `base64` where `base64url` was meant, at
- * which point the failure is a `SecurityError` in a dialog on somebody's phone with nothing in any
- * log on the server. The two alphabets differ in exactly two characters out of sixty-four, so a
- * mistake shows up in roughly one challenge in twenty - which is worse than always.
- *
- * The server half of the same boundary is covered by `WebAuthnKeyTest` against a real
- * software authenticator; this is the half jsdom can reach.
+ * The alphabets differ in two characters, so a mix up fails only now and then, as a `SecurityError` on a phone.
  */
 
-/** The one byte pair that separates the two alphabets: 62 is `+`/`-` and 63 is `/`/`_`. */
+/** The bytes that separate the two alphabets: 62 is `+`/`-` and 63 is `/`/`_`. */
 const ALPHABET_TRAP = new Uint8Array([0xfb, 0xff, 0xbe])
 
 function bufferOf(bytes: Uint8Array): ArrayBuffer {
@@ -34,7 +27,6 @@ function bufferOf(bytes: Uint8Array): ArrayBuffer {
   return buffer
 }
 
-/** A minimal attestation credential, as a real browser would return one from `create()`. */
 function credentialOf(extra: Partial<AttestationCredentialLike> = {}): AttestationCredentialLike {
   return {
     type: "public-key",
@@ -50,7 +42,6 @@ function credentialOf(extra: Partial<AttestationCredentialLike> = {}): Attestati
   }
 }
 
-/** An `Error` with the given `name`, the way a browser's `DOMException` carries one. */
 function named(name: string, message = ""): Error {
   const error = new Error(message)
   error.name = name
@@ -75,11 +66,7 @@ describe("base64url, which is not base64", () => {
 
   it("round-trips at all three padding lengths", () => {
     /**
-     * A challenge is 32 bytes and a credential id is whatever the key chose, so all three
-     * remainders occur in practice - and each one takes a different branch of the four-to-three
-     * byte packing. What this does NOT cover is the `"=".repeat(...)` that puts the padding back:
-     * measured by deleting it, all twenty tests stay green, because `atob` accepts an unpadded
-     * string. It is kept as the explicit thing rather than as one that happens to work.
+     * All three remainders occur, each a different branch; `atob` accepts the padding missing, so it is kept explicit.
      */
     for (const length of [1, 2, 3, 31, 32, 33]) {
       const bytes = new Uint8Array(length)
@@ -112,10 +99,7 @@ describe("the server's JSON as the browser's API wants it", () => {
     const options = toCreationOptions(answer)
 
     expect(options.challenge).toEqual(new Uint8Array([1, 2, 3, 4]))
-    /**
-     * "MTIz" is the digits 1, 2, 3 - the user handle is the Discord id as UTF-8 bytes, which is
-     * what `Credentials.handleOf` writes on the other side.
-     */
+    /** The user handle is the Discord id as UTF-8 bytes, as `Credentials.handleOf` writes it. */
     expect(options.user.id).toEqual(new Uint8Array([0x31, 0x32, 0x33]))
     expect(options.rp).toEqual({ id: "nordtal.eu", name: "Nordtal Steward" })
     expect(options.pubKeyCredParams).toEqual([{ alg: -7, type: "public-key" }])
@@ -155,10 +139,7 @@ describe("the server's JSON as the browser's API wants it", () => {
   })
 
   it("leaves the exclusion list absent when the server sent none", () => {
-    /**
-     * An empty array is not the same thing: it is a list, and a browser reading one has been told
-     * there is nothing to exclude rather than nothing to say.
-     */
+    /** An empty array would tell the browser there is nothing to exclude, not nothing to say. */
     const options = toCreationOptions(answer)
 
     expect(options.excludeCredentials).toBeUndefined()
@@ -179,10 +160,7 @@ describe("the credential as the server's library reads it", () => {
   })
 
   it("carries the transports, which the browser's own toJSON() does not", () => {
-    /**
-     * The reason this file exists rather than a call to `credential.toJSON()`: without this list a
-     * later authentication dialog offers every method the browser has instead of the one that works.
-     */
+    /** Without the transports, a later sign in offers every method the browser has. */
     const written = JSON.parse(fromCredential(credentialOf()))
 
     expect(written.response.transports).toEqual(["internal", "hybrid"])
@@ -252,21 +230,14 @@ describe("the dialog", () => {
 
 describe("what a person is told went wrong", () => {
   it("tells a cancelled dialog apart from a refused one", () => {
-    /**
-     * The two that are not faults, and the pair that matters most: one means try again, the other
-     * means try a different key. The browser's own message for both is usually the empty string.
-     */
+    /** A cancel means try again and a known key means use another; the browser's message is usually empty. */
     expect(whyTheKeyFailed(named("NotAllowedError"))).toMatch(/cancelled/)
     expect(whyTheKeyFailed(named("NotAllowedError"))).toMatch(/Nothing was registered/)
     expect(whyTheKeyFailed(named("InvalidStateError"))).toMatch(/already registered/)
   })
 
   it("blames this server for the one failure that is this server's", () => {
-    /**
-     * A SecurityError is relying-party-id against the page's address - `Configs.requireRelyingParty`
-     * refuses the same mistake at startup. If one ever reaches a browser, the person holding the key
-     * must not be left thinking their key is broken.
-     */
+    /** A relying party mismatch is the server's fault, and the person must not blame the key. */
     expect(whyTheKeyFailed(named("SecurityError"))).toMatch(/configuration fault on this server/)
   })
 

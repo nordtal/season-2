@@ -25,20 +25,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Turns an {@link UpdatePlan} into files on disk.
+ * Turns an {@link UpdatePlan} into files on disk, one whole service at a time.
  *
- * Everything is downloaded into a staging directory first and only moved into place once every artefact of a service
- * is present, so a run that fails half way leaves the server as it was. The staging directory is resolved per
- * destination directory because it has to sit on the same filesystem: a cross-device move silently degrades to
- * copy-and-delete, which is precisely the half-written jar in {@code plugins/} this class exists to prevent.
- *
- * A service moves together or not at all - a partial swap of coupled plugins is a server that does not start. Two
- * artefacts are exempt. A server jar: plugins are compiled against the version, never the build, and the build
- * already in {@code .server/} runs. The resource pack: it is not a file in a volume at all, and leaving
- * {@code pack.yml} alone keeps the previous URL and hash in force, which is a pack that works.
- *
- * Only a jar whose filename prefix matches the one just installed is deleted, and only after the new jar is in place
- * ( {@link JarName}). A jar nothing accounts for is reported and left.
+ * Downloads are staged on the same filesystem and moved atomically once every artefact of a service is present.
  */
 @Slf4j
 public final class Applier {
@@ -58,7 +47,7 @@ public final class Applier {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
         final Path root = Path.of(config.volumesRoot());
 
-        // Grouped by service so the all-or-nothing rule has something to be all-or-nothing about.
+        // Grouped by service, since a service moves together or not at all.
         final Map<String, List<Change>> byService = new LinkedHashMap<>();
         for (final Change change : plan.changes()) {
             if (change.service() != null) {
@@ -80,11 +69,7 @@ public final class Applier {
     /**
      * Fills the standby volumes, always last and always attempted.
      *
-     * Last, because a copy of a folder that is still being written is a copy of something that never existed; every
-     * time, because a service can be UNCHANGED here and its standby still be empty - a standby volume is created
-     * long after the live one and starts out with nothing in it. A run that reaches this method is a run that had
-     * work: {@code Runner} answers NOTHING_TO_DO before it ever calls apply, so this cannot turn an idle run into
-     * one that reports doing something.
+     * Last, so the copy is of finished files; always, since a standby can be empty while its service is unchanged.
      */
     private static List<ApplyResult.Outcome> fillStandbys(final Path root, final Set<String> services) {
         return Standbys.fill(root, services);
@@ -102,7 +87,7 @@ public final class Applier {
 
         markUnresolvedServerJarsSkipped(service, changes, outcomes);
 
-        // The pack is not a file this module downloads - the client fetches the zip - so applyPack handles it.
+        // The client fetches the pack zip, so applyPack handles it.
         final List<Change> work = changes.stream()
                 .filter(change -> change.status().isWork())
                 .filter(change -> change.wanted() != null)
@@ -154,7 +139,7 @@ public final class Applier {
 
     private static void markUnresolvedServerJarsSkipped(
             final String service, final List<Change> changes, final List<ApplyResult.Outcome> outcomes) {
-        // A server jar that could not be resolved does not block the plugins: they compile against the version.
+        // A server jar that could not be resolved does not block the plugins, which compile against the version.
         changes.stream()
                 .filter(change -> change.status().isFailure())
                 .filter(change -> isServerJar(change.artifact()))
@@ -186,7 +171,7 @@ public final class Applier {
 
     private Map<String, Path> stageWork(final Path volume, final List<Change> work, final Map<Path, Path> byDestination)
             throws IOException {
-        // Sweep up the old layout's staging directory at the volume root; nothing else reads it.
+        // Sweeps up the old layout's staging directory at the volume root.
         deleteRecursively(volume.resolve(STAGING));
         final Map<String, Path> staged = new LinkedHashMap<>();
         for (final Change change : work) {
@@ -210,7 +195,7 @@ public final class Applier {
                     Objects.requireNonNull(destination.getParent(), "resolved against a directory");
             try {
                 Files.createDirectories(destinationDirectory);
-                // ATOMIC_MOVE and nothing else: a silent fallback would let a cross-device move corrupt the jar.
+                // ATOMIC_MOVE only: a silent copy fallback could leave a half-written jar.
                 Files.move(
                         staged.get(change.artifact()),
                         destination,
@@ -232,12 +217,7 @@ public final class Applier {
         return outcomes;
     }
 
-    /**
-     * The proxy's {@code pack.yml}, written after its jars.
-     *
-     * Both values come from the release: the asset's own download URL and the content of the {@code .sha1} asset
-     * beside the zip - never computed here, never copied by a person.
-     */
+    /** The proxy's {@code pack.yml}, written after its jars, with the URL and sha1 the release publishes. */
     private List<ApplyResult.Outcome> applyPack(final Path root, final String service, final List<Change> changes) {
         final Change pack = changes.stream()
                 .filter(change -> change.artifact().equals(Topology.RESOURCE_PACK))
@@ -247,7 +227,7 @@ public final class Applier {
             return List.of();
         }
 
-        // "Could not be checked" is not "unchanged": pack.yml keeps what it said, so the previous pack is resent.
+        // "Could not be checked" is not "unchanged": pack.yml keeps the previous pack.
         if (pack.status().isFailure()) {
             return List.of(new ApplyResult.Outcome(
                     service,
@@ -293,8 +273,7 @@ public final class Applier {
     /**
      * The staging directory for one destination, created on first use and emptied first.
      *
-     * A run that died between the two phases leaves files here, and re-using them would install a jar nobody
-     * verified in this run.
+     * Emptied, since leftovers from a dead run were never verified.
      */
     private static Path stagingFor(final Map<Path, Path> known, final Path destination) throws IOException {
         final Path existing = known.get(destination);
@@ -322,8 +301,7 @@ public final class Applier {
     /**
      * Deletes any jar this artefact's new file supersedes.
      *
-     * Safe to delete steward-worker's own running jar this way only because Linux keeps an unlinked inode alive for
-     * whoever holds it open; on Windows the delete would fail.
+     * Deleting steward-worker's own running jar is safe only because Linux keeps an unlinked inode alive.
      */
     private static List<String> removeSuperseded(final Path directory, final String installed) throws IOException {
         final List<String> removed = new ArrayList<>();

@@ -13,31 +13,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Whoever asked, as seen from the process that is running their command for them.
+ * Whoever asked, as seen from the process that runs their command for them.
  *
- * Replying is collecting: there is nobody here to talk to, the asker is in another JVM, waiting on
- * a row. So every
- * {@code reply} is rendered in the language the row carries and appended, and the whole text is
- * written back into {@code command_request.result} when the command returns. The asking surface
- * prints it verbatim.
- *
- * <b>Rendered here, printed there</b> is a deliberate inversion of the usual rule that a command
- * hands back a key and the adapter renders it. It is only sound because a command that can travel
- * names keys from {@code :commands}' own bundle, which carries no markup at all - MiniMessage and
- * Discord's markdown cannot both live in one string, so the shared bundle has neither and plain text
- * is correct on both sides. {@code MessageBundlesTest} is what keeps that true; if it ever stops
- * being true, this class is where the damage shows up, as literal {@code <green>} in a Discord
- * message.
- *
- * The admin flag is passed in by {@link CommandInbox} after the row was claimed, and is not the
- * one from the row: the whole point of checking twice is that {@code discord_user.admin} can
- * change while a request is in flight. Nothing about permission travels on the row.
- *
- * Sound is dropped, honestly:
- * {@link #reply(MessageRef, eu.nordtal.s2.common.feedback.Feedback)} falls through to the plain
- * one. A {@code Feedback} is a noise made at somebody standing in a world; the person who typed this
- * command is in Discord, or on another server. Playing it to nobody, or worse to whoever happens to
- * share their UUID's server, is not a better failure than silence.
+ * Replies are rendered here in the row's language and collected into {@code command_request.result}; sound is dropped.
  */
 public final class RemoteUser implements NordtalUser {
 
@@ -99,19 +77,12 @@ public final class RemoteUser implements NordtalUser {
         lines.add(text);
     }
 
-    /**
-     * Everything the command said, as one block of text.
-     *
-     * Empty when a command replied nothing at all, which is not a failure - it is a command that
-     * did its work silently. {@link CommandInbox} turns that into a key of its own rather than
-     * settling the row with an empty answer, because "it worked and said nothing" and "it never ran"
-     * look identical to somebody watching a spinner.
-     */
+    /** Returns everything the command said as one block of text, empty when it replied nothing. */
     public String text() {
         return String.join("\n", lines);
     }
 
-    /** How many lines came back. For the inbox's "said nothing at all" case, and for tests. */
+    /** Returns how many lines came back. */
     public int lineCount() {
         return lines.size();
     }

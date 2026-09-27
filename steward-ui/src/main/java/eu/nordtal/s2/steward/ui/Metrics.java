@@ -9,11 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/**
- * {@code /api/metrics}: the curves the start page draws.
- *
- * Reads its graphs out of Postgres, never out of Docker, which only ever answers "now".
- */
+/** {@code /api/metrics}: the curves the start page draws, read from Postgres since Docker only answers "now". */
 final class Metrics {
 
     private final @Nullable Data data;

@@ -9,24 +9,9 @@ import java.util.List;
 import net.kyori.adventure.text.Component;
 
 /**
- * Draws the spawn NPC's surface: the active milestone, four objective cards, and your own share.
+ * Draws the spawn NPC's surface: a heading, four objective cards, and the player's own share.
  *
- * Six rows: a heading plate naming the milestone with a text bar and an "n of m done" counter; two rows of two
- * cards, each 68 x 32 with a type icon, a name, a painted progress bar and its numbers; and a share line along the
- * bottom.
- *
- * A card spans two chest rows, and a row font gives one ascent per layer per row, so the plate needs a code point
- * per card row ( {@link Glyphs#GUI_CARD_TOP}, {@code _BOTTOM}). The icon, name and numbers fall inside the rows' own
- * bands and cost nothing extra; the bar lands in the four-pixel gap between two bands, which is why its fill carries
- * an ascent of its own.
- *
- * The bar's track is baked into the card and the fill is a power-of-two decomposition of its width, so any fill up
- * to {@link #BAR_MAX} is at most four glyphs. The heading uses a text bar instead, where there is no room for a
- * painted one.
- *
- * <b> {@link #CARDS_PER_PAGE} is a page, not a limit</b>: milestones with five objectives exist, and dropping the
- * fifth is the one outcome this menu must not produce. {@link ObjectiveGui} pages, and the two page buttons are
- * drawn only when there is a second page.
+ * Four cards is a page, not a limit: {@link ObjectiveGui} pages rather than drop a fifth objective.
  */
 public final class ObjectivePanel {
 
@@ -51,7 +36,7 @@ public final class ObjectivePanel {
     private static final int PILL_TEXT_X = PILL_X + 3;
     private static final int PILL_RIGHT = PILL_X + PILL_WIDTH - 3;
 
-    /** Where the heading's six-character text bar starts - the artifact's own x. */
+    /** Where the heading's six-character text bar starts. */
     private static final int HEADING_BAR_X = 104;
 
     /** How many characters that bar is. Six fits between the name and the counter and no more. */
@@ -66,7 +51,7 @@ public final class ObjectivePanel {
     /** Four slot columns inset two: the same 68 pixels a balloon card is wide. */
     public static final int CARD_WIDTH = 4 * SlotGeometry.PITCH - 2 * INSET;
 
-    /** Two slot rows inset two - the balloon's card is three. */
+    /** Two slot rows inset two. */
     public static final int CARD_HEIGHT = 2 * SlotGeometry.PITCH - 2 * INSET;
 
     /** The two x positions a card sits at; slot column 4 is the gap, as it is on the balloon. */
@@ -95,12 +80,7 @@ public final class ObjectivePanel {
     /** Where the share sentence has to stop when the page controls are there. */
     private static final int PAGED_RIGHT = SlotGeometry.x(7) - 2;
 
-    /**
-     * The share plate's width on a paged menu: seven slot cells inset two.
-     *
-     * That way the grey ends where the two cells carrying the page buttons begin. The sentence is fitted to
-     * {@link #PAGED_RIGHT}, so the full plate's last two cells would otherwise be grey with nothing on them.
-     */
+    /** The share plate's width on a paged menu: seven slot cells inset two, ending where the page buttons begin. */
     public static final int PILL_SHORT_WIDTH = 7 * SlotGeometry.PITCH - 2 * INSET;
 
     public static final int PREV_SLOT = SlotGeometry.slot(7, SHARE_ROW);
@@ -111,15 +91,15 @@ public final class ObjectivePanel {
     /**
      * One drawn card.
      *
-     * @param icon    one of the four {@code GUI_ROW_ICON_*} states - the icon <em>is</em> the state
+     * @param icon    one of the four {@code GUI_ROW_ICON_*} states, which is the card's state
      * @param name    the objective's name, folded and shortened here
      * @param numbers what stands under the bar, e.g. {@code 1240/2048}
-     * @param ratio   0 to 1; the painted bar's width comes from this and from nothing else
+     * @param ratio   0 to 1; the painted bar's width comes from this alone
      * @param done    whether the green wash goes over it
      */
     public record Card(String icon, String name, String numbers, double ratio, boolean done) {}
 
-    /** The pictogram that says what kind of objective this is - or that it is finished. */
+    /** The pictogram for this kind of objective, or for a finished one. */
     public static String icon(final eu.nordtal.s2.smp.milestone.ObjectiveType type, final boolean done) {
         if (done) {
             return Glyphs.GUI_ROW_ICON_DONE;
@@ -181,12 +161,7 @@ public final class ObjectivePanel {
                 MenuFont.fit(milestone, HEADING_BAR_X - 4 - PILL_TEXT_X), HEADING_ROW, PILL_TEXT_X, MenuPalette.INK);
     }
 
-    /**
-     * One card: its plate, then everything on it, then the wash if it is finished.
-     *
-     * Order is draw order: the plate first, so nothing on it is painted over, and the wash last, because it has to tint
-     * everything under it including the bar.
-     */
+    /** One card, in draw order: its plate, everything on it, then the wash if it is finished. */
     private static void card(final MenuTitle.Canvas canvas, final int index, final Card card) {
         final int x = CARD_X.get(index % 2);
         final int upper = CARD_ROW.get(index / 2);
@@ -205,12 +180,9 @@ public final class ObjectivePanel {
     }
 
     /**
-     * The painted fill, as a run of power-of-two slices starting at {@code x}.
+     * The painted fill, as a run of power-of-two slices starting at {@code x}, largest first.
      *
-     * Largest first, so the run is the number's binary representation and there is exactly one way to write any width.
-     * A
-     * ratio that has started but rounds to nothing still draws one pixel, so "1 of 3000" does not look like "not
-     * begun".
+     * A ratio that has started but rounds to nothing still draws one pixel.
      */
     private static void fill(final MenuTitle.Canvas canvas, final int x, final boolean top, final double ratio) {
         final double clamped = Math.max(0.0, Math.min(1.0, ratio));
@@ -249,12 +221,7 @@ public final class ObjectivePanel {
         pageButton(canvas, NEXT_X, Glyphs.GUI_ROW_ICON_NEXT, hasNext);
     }
 
-    /**
-     * One page button, drawn greyed when there is no page on that side.
-     *
-     * Greyed rather than removed, so a control never appears to have moved. A click on a greyed one is refused with the
-     * refusal sound.
-     */
+    /** One page button, drawn greyed when there is no page on that side, so a control never vanishes. */
     private static void pageButton(
             final MenuTitle.Canvas canvas, final int x, final String arrow, final boolean enabled) {
         canvas.rowArt(enabled ? Glyphs.GUI_ROW_BUTTON_SMALL : Glyphs.GUI_ROW_BUTTON_SMALL_OFF, SHARE_ROW, x, null);
@@ -275,7 +242,7 @@ public final class ObjectivePanel {
         return List.copyOf(slots);
     }
 
-    /** Which card a slot belongs to, or -1 - the inverse of {@link #slotsOf}. */
+    /** Which card a slot belongs to, or -1: the inverse of {@link #slotsOf}. */
     public static int cardOf(final int slot) {
         for (int index = 0; index < CARDS_PER_PAGE; index++) {
             if (slotsOf(index).contains(slot)) {

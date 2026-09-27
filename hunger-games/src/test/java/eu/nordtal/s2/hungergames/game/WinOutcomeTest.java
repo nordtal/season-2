@@ -9,19 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * That the four ways a game can end stay four ways.
- *
- * They were once three, and effectively two: {@code Outcome} carried a {@code tie}
- * flag that {@code Outcome::win} always set to {@code false} - including for a win the tiebreaker
- * had just produced - and no caller read it. The ceremony therefore announced a kill-count decision
- * as an ordinary victory, in front of the players who had just watched both of them die together,
- * while {@code hg.win.tie-broken} and {@code hg.win.no-winner} sat written and translated in both
- * language files with nothing able to reach them.
- *
- * {@code Ceremony} itself needs a world and real players, so what can be pinned here is the
- * shape it branches on. That is the part that was wrong.
- */
+/** Checks that the four ways a game can end stay distinct, since {@code Ceremony} branches on them. */
 class WinOutcomeTest {
 
     private static final UUID WINNER = UUID.fromString("33333333-3333-3333-3333-333333333333");

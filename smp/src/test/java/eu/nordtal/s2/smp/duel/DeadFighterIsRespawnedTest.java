@@ -12,25 +12,7 @@ import org.junit.jupiter.api.Test;
 /**
  * A fighter's own inventory never waits on a death screen for longer than a tick.
  *
- * <b>The failure it exists for</b>
- *
- * A duel loser who is <em>dead</em> when the duel is settled cannot be written to: Minecraft replaces a dead
- * player's contents on respawn, so {@code Duels} parks their pre-duel snapshot in a map and hands it back from
- * {@code PlayerRespawnEvent}. That map is this process's memory and nothing persists it. Between the
- * death and the click there is no time limit at all - somebody who dies and walks away from the keyboard holds the
- * snapshot for as long as they like - and a restart in that window loses their own inventory for good while leaving
- * them the arena's loadout, reached by a different road as well.
- *
- * Pressing the button for them settles it on the next tick, and it is not a new decision: by owner decision a duel
- * ends at the spawn with a title and <b>no death screen</b>. {@code onDamage} cancels the
- * lethal blow, so this branch is reached only by {@code /kill}, the void and {@code setHealth(0)} - the three ways a
- * fighter can die without being hit, and the ones that still showed the screen the decision was about.
- *
- * <b>Why a text search</b>
- *
- * The whole of it is one call on a live {@code Player} at the end of a real duel. What this protects is that the
- * call stays next to the map it settles - and a version without it works perfectly for everybody who clicks respawn,
- * which is everybody, until a restart lands in the window.
+ * The pre-duel snapshot lives only in memory until respawn, so the fighter is respawned on the next tick.
  */
 class DeadFighterIsRespawnedTest {
 

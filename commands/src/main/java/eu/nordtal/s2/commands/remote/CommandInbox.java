@@ -21,55 +21,28 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 
 /**
- * The far end of a travelling command: claim a request, run it here, write the answer back.
+ * The far end of a travelling command: claims a request, runs it here and writes the answer back.
  *
- * {@link #drain()} is called on a {@code nordtal_command} notification <em>and</em> on a timer:
- * <b>the poll is the guarantee</b>, the notification is what makes a command feel instant, and a
- * notification is never the state - so every wake-up claims in a loop until the inbox is empty
- * rather than assuming one signal means one row.
- *
- * Authorisation happens here too, and it is not a duplicate. The asking surface refused a
- * non-admin already, immediately and with a sentence. This is the second check, and it exists
- * because {@code discord_user.admin} can be revoked while a row waits - which is precisely the
- * emergency the live revocation was built for. A request carries no permission with it; it carries
- * an identity, and permission is re-read against that identity here.
- *
- * A command that throws is an answer, not a crash. Whatever a command does, the row gets settled.
- * A target that claimed a row and then died is the one case this cannot cover, and it is why
- * {@code RUNNING} is distinguishable from {@code PENDING} afterwards: a request nobody ever
- * claimed is a target that is down, and one claimed and never settled is a target that is up and
- * stuck.
+ * Admin is re-read against the claimed identity, since {@code discord_user.admin} can be revoked while a row waits.
  */
 public final class CommandInbox {
 
-    /** Whether an identity is currently an admin. Re-read per claimed request, never cached here. */
+    /** Whether an identity is currently an admin, re-read per claimed request. */
     @FunctionalInterface
     public interface AdminCheck {
 
         /**
-         * @param request the claimed row - its {@code discordId} is the identity to check, and its
-         *                {@code minecraftId} the fallback for a surface that had no Discord id
+         * @param request the claimed row: its {@code discordId} is the identity to check, its {@code minecraftId} the
+         *     fallback
          * @return whether they may run an admin-only command right now
          */
         boolean isAdmin(CommandRequest request);
 
         /**
-         * The check every inbox should use, written once.
+         * Admits the console by its source and anyone else only by an identity in the admin set.
          *
-         * What it refuses to do, and why the alternative is a hole:
-         * {@code request.discordId().map(admins::contains).orElse(true)} looks equivalent, with the
-         * {@code orElse(true)} meaning "the console, which is the operator" - but V11 only forces a Discord id for
-         * {@code source='DISCORD'}: a {@code GAME} row may legitimately have none, and
-         * {@code limbo} writes exactly those, because a waiting room holds no account links. Every
-         * one of those rows was read as the console and ran <b>unauthorised</b>.
-         *
-         * So the console is identified by what it is - {@code source = 'CONSOLE'}, which the
-         * schema pins to having neither identity - and everything else has to produce an identity
-         * that is in the admin set. An absent one is refused, which is the direction to fail in.
-         *
-         * @param admins           every admin's Discord id, re-read per call
-         * @param adminMinecraftIds every admin's Minecraft account, for a row written by a game
-         *                          surface that had no link to hand
+         * @param admins            every admin's Discord id, re-read per call
+         * @param adminMinecraftIds every admin's Minecraft account, for a game row with no Discord link
          */
         static AdminCheck of(
                 final java.util.function.Supplier<java.util.Set<String>> admins,
@@ -112,16 +85,10 @@ public final class CommandInbox {
     }
 
     /**
-     * Make a command runnable here.
+     * Makes a command runnable here.
      *
-     * The type parameter is what lets one registry hold commands over different effect
-     * interfaces: the effects are captured at registration and never leave this method's signature,
-     * so nothing downstream has to know that {@code /smp aura} and {@code /hg start} are typed
-     * differently.
-     *
-     * @throws IllegalArgumentException if the command's target is not this inbox's, if two commands
-     *                                  claim the same path, or if the effects hand their work to
-     *                                  another thread - see {@link #requireInline}
+     * @throws IllegalArgumentException if the target is not this inbox's, two commands claim one path, or the effects
+     *     run {@code async} on another thread
      */
     public <E extends CommandEffects> CommandInbox register(final NordtalCommand<E> command, final E effects) {
         Objects.requireNonNull(command, "command");
@@ -142,12 +109,7 @@ public final class CommandInbox {
     }
 
     /**
-     * Run everything waiting for this process.
-     *
-     * Re-entrant calls do nothing rather than queueing: the notification listener and the poll
-     * timer are different threads and will occasionally arrive together, and one of them finding the
-     * inbox already being drained is exactly the case where the right answer is to let the other one
-     * finish the work it is already doing.
+     * Runs everything waiting for this process; a re-entrant call does nothing rather than queueing.
      *
      * @return how many requests were settled
      */
@@ -176,35 +138,15 @@ public final class CommandInbox {
         }
     }
 
-    /** How many commands can be run here. For a startup log line, and for tests. */
+    /** Returns how many commands can be run here. */
     public int size() {
         return commands.size();
     }
 
     /**
-     * Refuse effects whose {@code async} does not run before it returns.
+     * Refuses effects whose {@code async} has not run on the calling thread by the time it returns.
      *
-     * The bug this makes impossible: a command's work happens inside {@link CommandEffects#async},
-     * and this inbox settles the request row the moment {@code run} returns. Effects built with a
-     * scheduler - the ones the local chat adapter uses, and the obvious thing to pass here by
-     * accident - would therefore
-     * settle the row before the command had said a word: the asker gets "the command changed
-     * something and had nothing to say about it" for work that has not started, and the real answer
-     * is written into a row nobody reads any more.
-     *
-     * Nothing about that failure points at its cause, and it only happens on the surface furthest
-     * from the logs. So it is checked here, once, at startup: a probe is submitted through
-     * {@code async}, and it has to have run <b>on this very thread</b> by the time the call
-     * returns.
-     *
-     * The thread, and not a flag: asking "did it run?" with a flag is a race in both directions,
-     * because a pool thread can pick the task up and set the flag between {@code async} returning
-     * and the flag being read, so a scheduler would be waved through whenever the machine was busy
-     * enough to context switch there - the dangerous direction.
-     *
-     * The identity of the thread has no such race. Another thread can never write <em>this</em>
-     * thread into the box, and a same-thread executor always has by the time {@code async} returns.
-     * Nothing waits, and nothing depends on who wins.
+     * Otherwise the row settles before the command speaks; checking the thread, unlike a flag, cannot race.
      */
     private static void requireInline(final NordtalCommand<?> command, final CommandEffects effects) {
         final AtomicReference<Thread> ranOn = new AtomicReference<>();
@@ -294,7 +236,7 @@ public final class CommandInbox {
             return;
         }
 
-        // A command that answered nothing did its work and said nothing about it. Saying so is not decoration: a blank.
+        // A command that answered nothing still worked, and saying so tells the asker it ran.
         settle(
                 request,
                 true,

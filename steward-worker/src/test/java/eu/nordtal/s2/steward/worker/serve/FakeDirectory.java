@@ -13,14 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * An {@link UpdateDirectory} that lives in a map, for the tests about {@link UpdateServer} 's loop.
- *
- * The real one is exercised against a real PostgreSQL in {@code :common} - the claim is
- * {@code FOR UPDATE SKIP LOCKED} and the countdown is database arithmetic, neither of which has a meaningful
- * in-memory version. What this stands in for is the shape of the answers, so that the loop above it can be driven
- * through cases a real database would take a minute of wall clock to produce.
- */
+/** An {@link UpdateDirectory} that lives in a map, for the tests about the loop of {@link UpdateServer}. */
 final class FakeDirectory implements UpdateDirectory {
 
     private final Map<Long, UpdateRequest> rows = new LinkedHashMap<>();
@@ -256,7 +249,7 @@ final class FakeDirectory implements UpdateDirectory {
             if (row.status() != UpdateStatus.RUNNING) {
                 continue;
             }
-            // Every kind: a RESTART used to be closed as DONE here, because a redeploy took the worker down mid-call.
+            // Every kind, a RESTART included, since a redeploy takes the worker down mid-call.
             rows.put(
                     row.id(),
                     new UpdateRequest(

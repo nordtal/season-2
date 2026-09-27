@@ -13,18 +13,13 @@ import java.io.IOException
 /**
  * Fails when a file Gradle compiles is a file Git does not have.
  *
- * A local build compiles the working tree; CI compiles the checkout. Anything present in one and
- * absent from the other surfaces as a compile error on a machine that is not yours, usually
- * because of an unanchored directory pattern in `.gitignore` that also matches a Java package. An
- * ignored file is not an untracked one, so `git status` stays clean and gives no hint of it. This
- * task asks Git directly: of everything under a source directory, is anything both untracked and
- * ignored?
+ * An ignored file leaves `git status` clean and only breaks CI, usually through an unanchored `.gitignore` pattern.
  */
 @DisableCachingByDefault(
     because = "Its result depends on .gitignore and the index, neither of which is a declarable input",
 )
 abstract class CheckSourcesTracked : DefaultTask() {
-    /** Source directories of this project. Their contents are what Gradle would compile. */
+    /** Source directories of this project. */
     @get:Internal
     abstract val sourceDirectories: ConfigurableFileCollection
 
@@ -35,8 +30,7 @@ abstract class CheckSourcesTracked : DefaultTask() {
     init {
         group = "verification"
         description = "Fails when a source file is ignored by Git and therefore missing from the repository."
-        // .gitignore, the global ignore file and the index are all inputs no task can declare, so
-        // there is no honest up-to-date check here. The work is one `git` call.
+        // Git's ignore files and index cannot be declared as inputs, so the task always runs.
         outputs.upToDateWhen { false }
     }
 
@@ -71,11 +65,7 @@ abstract class CheckSourcesTracked : DefaultTask() {
         )
     }
 
-    /**
-     * The paths under [pathspecs] that are untracked *and* ignored. Asking for both at once is what
-     * keeps a tracked file that happens to match an ignore rule from being reported: that file is in
-     * the repository, which is all this task cares about.
-     */
+    /** The paths under [pathspecs] that are untracked and ignored; a tracked file matching a rule is fine. */
     private fun ignoredFilesUnder(
         root: File,
         pathspecs: List<String>,

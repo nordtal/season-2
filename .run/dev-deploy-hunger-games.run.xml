@@ -1,7 +1,7 @@
 <!--
   dev deploy hunger-games
 
-  Rebuild :hunger-games, replace the jar, restart that one container.
+  Rebuilds :hunger-games, replaces its jar and restarts that container.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev deploy hunger-games" type="Application" factoryName="Application" folderName="dev: build and deploy">

@@ -25,11 +25,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Step 3: what happens on disk.
- *
- * The part worth the test: what happens on disk when it goes wrong half way through.
- */
+/** Step 3 of a run: what happens on disk, above all when it fails half way through. */
 class ApplierTest {
 
     private static final String SHA1 = "6f1ed002ab5595859014ebf0951522d9d0f2ee34";
@@ -149,7 +145,7 @@ class ApplierTest {
 
         apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
 
-        // A directory full of jars that no program reads is a puzzle for whoever finds it, not a harmless leftover.
+        // A directory of jars nothing reads is a puzzle, not a harmless leftover.
         assertFalse(Files.exists(volumes.resolve("smp").resolve(Applier.STAGING)));
     }
 
@@ -235,7 +231,7 @@ class ApplierTest {
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
         assertEquals(ApplyResult.Status.DONE, outcome(result, "smp", "smp").status());
 
-        // UNCHANGED claims a file that is there; SKIPPED is a whole-service refusal - neither fits a partial install.
+        // UNCHANGED claims a file that is there and SKIPPED refuses the whole service; neither fits a partial install.
         assertEquals(
                 ApplyResult.Status.UNSUPPORTED,
                 outcome(result, "smp", "coreprotect").status());
@@ -591,7 +587,7 @@ class ApplierTest {
                 """, StandardCharsets.UTF_8);
     }
 
-    /** Where the fetcher was asked to put one file - the staging directory, by definition. */
+    /** Where the fetcher was asked to put one file, which is the staging directory. */
     private static Path parentOf(final Fake fetcher, final String fileName) {
         return fetcher.destinations.stream()
                 .filter(candidate -> candidate.getFileName().toString().equals(fileName))

@@ -5,28 +5,7 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
 /**
  * The one query behind every MOTD placeholder and every status channel name.
- *
- * Package-private, reached through {@link SnapshotDirectory}: no consumer holds a {@code Jdbi}
- * or a DAO of ours, which is the same rule {@code AccessDao} and {@code PhaseDao} follow.
- *
- * <b>One query, not six.</b> It runs on a timer while nobody is necessarily looking, so its cost
- * is a standing cost of running the proxy - and six round trips on a ten-second interval is six
- * times a standing cost for numbers that decorate a server list. Every part of it is a count over a
- * table with an index on the column it filters by, and the whole thing is scalar subqueries hung
- * off a one-row {@code VALUES}, which is the same shape (and the same reasoning) as the login
- * query in {@code AccessDao}.
- *
- * <b>Read-only, and deliberately reading tables two other plugins own.</b> The alternative was
- * having {@code hunger-games} and {@code smp} push their state to the proxy over a plugin-message
- * channel, which is a second copy of a running game's state plus a stale-detection problem for
- * when a backend is down. Counting rows in the database those plugins already write is the cheaper
- * half of that trade by a wide margin - the cost is that this query knows their schema, which is
- * why it names {@code V5} and {@code V6} in its comments.
- *
- * Alive is derived from {@code hg_event}, not from anything a plugin stores: an elimination
- * writes a {@code DEATH} row with the victim on it ({@code WinTracker}), and the in-memory alive
- * set that plugin keeps is not visible from here. Counting distinct victims is therefore the only
- * answer available without new plumbing, and it is exact for a game that is running.
+ * Scalar subqueries off a one-row {@code VALUES}, reading tables {@code hunger-games} and {@code smp} own.
  */
 interface SnapshotDao {
 

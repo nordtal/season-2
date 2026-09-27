@@ -22,16 +22,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-/**
- * The milestone state machine against the real {@code smp_milestone_state_check}.
- *
- * {@code SmpDao#completeMilestone} used to write {@code 'COMPLETE'} - a value V6's CHECK refuses, so every
- * unlock threw - and {@code completedMilestoneKeys()} read the same value back, so it never returned a row. Escape
- * hatch 2 ( {@code /smp milestone unlock}) had never worked, the automatic unlock at the end of an objective set
- * would have failed the same way, and the season's list of unlocked milestones was empty by construction. Found by
- * typing the command on the local stack; nothing in memory could have found it, because the value only meets the
- * constraint in a database.
- */
+/** The milestone state machine against the real {@code smp_milestone_state_check}. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MilestoneStateIntegrationTest {
 
@@ -119,7 +110,7 @@ class MilestoneStateIntegrationTest {
 
     @Test
     void objectiveRowsAreEnsured() {
-        // smp_objective was once never inserted into, so progress ran against an empty table; this is that insert.
+        // Progress needs the smp_objective row; this is the insert that creates it.
         dao.ensureObjective("departure", "logs", "HAND_IN", 64);
         dao.ensureObjective("departure", "logs", "HAND_IN", 64);
         assertEquals(1, dao.objectivesOf("departure").size(), "one row, however often the file is read");

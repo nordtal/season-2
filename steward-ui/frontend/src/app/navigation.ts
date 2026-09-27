@@ -14,18 +14,7 @@ import {
 import type { Icon } from "@phosphor-icons/react"
 import type { LinkProps } from "@tanstack/react-router"
 
-/**
- * The one list of places in this interface.
- *
- * The sidebar renders it, the command palette renders it and the breadcrumb resolves titles out of
- * it. There is deliberately no second copy: a route that exists and is not here is a route nobody
- * can reach, and that is a bug we would rather have loudly than quietly.
- *
- * Everything here is English - labels, ids, paths, notes and comments alike. Steward had German
- * labels while the audience was three German admins; that split meant every string existed in one
- * language and every identifier beside it in another, and the seam was a standing invitation to
- * leave half of a rename behind.
- */
+/** The one list of places, read by the sidebar, the palette and the breadcrumb; a route missing here is unreachable. */
 
 /** The ten containers of the season 2 stack, in the order the sidebar lists them. */
 export const SERVICES = [
@@ -47,7 +36,7 @@ export type NavEntry = {
   /** Stable id, used as a React key and as the command palette's search value. */
   id: string
   label: string
-  /** One line of what the page is for. The command palette shows it; so does the placeholder. */
+  /** One line of what the page is for, shown by the command palette and the placeholder. */
   note: string
   icon?: Icon
   /** Words an admin might type that are not in the label. */
@@ -59,28 +48,13 @@ export type NavEntry = {
 
 export type NavGroup = {
   id: string
-  /**
-   * The heading over the group - and **optional on purpose**.
-   *
-   * Eight of the ten groups here used to hold exactly one entry, so the sidebar drew "Season" as a
-   * heading and "Season" as the row under it, eight times over. That is about a sixth of the
-   * sidebar's height spent saying each thing twice. A group with no label is drawn without a
-   * heading, and the command palette lists it without one; the entries are their own names.
-   */
+  /** The heading over the group, left out where a group's single entry names itself. */
   label?: string
   icon: Icon
   entries: NavEntry[]
 }
 
-/**
- * Four groups, not ten.
- *
- * Only `Services` and `Operations` are a set of things that belong together and need saying so.
- * Everything else is one page with one name, and those are gathered into two unlabelled groups -
- * the one above (the start page) and the one below (everything that is neither a container nor a
- * run). Keeping the shape as groups rather than a flat list is what lets the separators and the
- * command palette's sections stay where they are.
- */
+/** Four groups: `Services`, `Operations` and two unlabelled ones for the single pages around them. */
 export const NAVIGATION: NavGroup[] = [
   {
     id: "overview",
@@ -90,12 +64,6 @@ export const NAVIGATION: NavGroup[] = [
         id: "overview",
         label: "Overview",
         to: "/",
-        /**
-         * There is no traffic light in the ordinary case - it appears only when something is amber or
-         * red; "host load" is a metric row of CPU, memory, disk, backlog and the last backup;
-         * and the table of every service collapses into one line saying how many of how many are
-         * healthy. A note is a promise about the page behind it, so it names what is there.
-         */
         note: "Whether anything needs attention, the numbers behind it, and the season.",
         icon: PulseIcon,
         keywords: ["home", "dashboard", "health", "overview", "status"],
@@ -130,11 +98,7 @@ export const NAVIGATION: NavGroup[] = [
         keywords: ["update", "drift", "image", "plugin", "restart", "schedule"],
       },
       {
-        /**
-         * Points at the list page rather than `/operations/backups/$id` with an id of "latest" -
-         * "latest" is not a backup's name, and the list page is the thing somebody typing "backup"
-         * is looking for; it links every report from its own rows.
-         */
+        /** The list page rather than a backup id, since "latest" is not a backup's name. */
         id: "operations-backups",
         label: "Backups",
         to: "/operations/backups",
@@ -192,7 +156,7 @@ export const NAVIGATION: NavGroup[] = [
   },
 ]
 
-/** Every entry, flattened - what the command palette lists. */
+/** Every entry, flattened, as the command palette lists them. */
 export const ALL_ENTRIES: NavEntry[] = NAVIGATION.flatMap((group) =>
   group.entries.map((entry) => ({ ...entry, icon: entry.icon ?? group.icon })),
 )

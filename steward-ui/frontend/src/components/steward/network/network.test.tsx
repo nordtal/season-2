@@ -15,17 +15,7 @@ import type { Service } from "@/lib/api"
 /**
  * The network view, rendered against a fake `/api/services`.
  *
- * Every assertion below runs once, against the panel the start page
- * actually holds.
- *
- * <h2>What a test here can and cannot answer</h2>
- * jsdom has no layout, so nothing about where a box ended up or where a line was drawn is visible
- * from here - and a test pretending otherwise would be measuring its own stub. What it can hold is
- * everything that is a decision rather than a position: that all ten services are drawn and none is
- * quietly missing, that a healthy box is green **here** while the sidebar stays silent, that a
- * count of nobody is different from no count at all, and that the four drift states each draw what
- * they were decided to draw. The geometry is for a browser at 390px and 1440px, which is where the
- * ticket says it will be looked at.
+ * jsdom has no layout, so these hold decisions, not positions; the geometry needs a browser.
  */
 
 function service(over: Partial<Service> = {}): Service {
@@ -46,10 +36,7 @@ function service(over: Partial<Service> = {}): Service {
   }
 }
 
-/**
- * Ten containers, and every interesting shape among them at once: a service with players and one
- * without, all four drift states, one that is down and one still starting.
- */
+/** Ten containers: with and without players, all four drift states, one down and one starting. */
 const TABLE = {
   services: [
     service({ service: "smp", players: 3 }),
@@ -78,21 +65,13 @@ function draw(table: unknown = TABLE, component: () => React.ReactNode = Network
     "fetch",
     vi.fn(async (url: string) => {
       if (url === "/api/services") return json(table)
-      /**
-       * Every node's toolbar carries a `RecreateButton`, and that component asks `/api/deployer`
-       * unconditionally to know whether to disable itself - not something a rendering test of the
-       * graph itself has any reason to special-case per node.
-       */
+      /** Every toolbar's `RecreateButton` asks `/api/deployer` whether to disable itself. */
       if (url === "/api/deployer") return json({ available: true })
       throw new Error(`the view asked for ${url}, which this test did not expect`)
     }),
   )
 
-  /**
-   * A real router, because a node's identifier is a `Link` into `/services/$name`. The panel itself
-   * has no route of its own any more - it is half of the start page - so the tree here is the one
-   * thing it links into and a root that draws it.
-   */
+  /** A real router, since a node's identifier is a `Link` into `/services/$name`. */
   const root = createRootRoute()
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/", component: component }),
@@ -135,11 +114,7 @@ afterEach(() => {
 describe("the network view", () => {
   it("draws every service in navigation.ts, plus the box the traffic comes from", async () => {
     draw()
-    /**
-     * The BOX is not the signal that the answer arrived: the whole picture
-     * is drawn from `PLAN` before `/api/services` has said anything, and only the three fetched
-     * things inside a box wait. So these wait on one of those instead.
-     */
+    /** Boxes are drawn from `PLAN` before `/api/services` answers, so this waits on a fetched item. */
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     const drawn = [...document.querySelectorAll("[data-node]")].map((node) => datasetOf(node).node)
@@ -166,10 +141,7 @@ describe("the network view", () => {
     expect(within(box("smp")).getByTitle("players").textContent).toBe("3")
     expect(within(box("limbo")).getByTitle("players").textContent).toBe("4")
     expect(within(box("proxy")).getByTitle("players").textContent).toBe("7")
-    /**
-     * Nobody is on, and that is a number: a server with zero players is a running server, and the
-     * box has to say so rather than look like one that never answered.
-     */
+    /** Zero players is a running server, and the box has to say so rather than look unanswered. */
     expect(within(box("hunger-games")).getByTitle("players").textContent).toBe("0")
     // The entry box carries the network's total, which is proxy's own row.
     expect(within(box("players")).getByTitle("players").textContent).toBe("7")
@@ -180,20 +152,9 @@ describe("the network view", () => {
   })
 
   /**
-   * The identifier never shares its row with the count, because that is what took its characters
-   * away.
+   * The identifier never shares its row with the count, which is what truncated it at 390px.
    *
-   * At 390px, the layout falls back to a
-   * two-column grid, and two of the cards narrow it further with the rail margin their database bus
-   * needs, so the identifier - which
-   * carries `truncate` so that it yields rather than break the box - is the thing that yields.
-   * `proxy` and `hunger-games` can render as `network-co…` and `hunger-ga…`, and the
-   * identifier is the *first* of the four things a node carries. It must not be the first to go.
-   *
-   * Sixty-four tests were green through all of it, because every one of them finds the count with
-   * `getByTitle("players")` and none of them cares which row it sits in. This one does: it asks
-   * whether the two are siblings, which is the shape of the defect rather than its appearance, and
-   * is the one thing a jsdom test can say about a layout it cannot measure.
+   * It asks whether the two are siblings, the shape of the defect, which jsdom can check without measuring.
    */
   it("never puts the count on the identifier's own row, which is what truncated it", async () => {
     draw()
@@ -207,11 +168,7 @@ describe("the network view", () => {
       )
     }
 
-    /**
-     * And the one deliberate exception, written down rather than implied: the entry box has no
-     * second line to put a count on, so its count does sit beside the label - which is harmless
-     * there, because "players" is short enough that nothing has ever had to yield to it.
-     */
+    /** The entry box is the exception: it has no second line, and "players" is short enough to leave room. */
     const entry = box("players")
     expect(within(entry).getByText("players").parentElement).toBe(within(entry).getByTitle("players").parentElement)
   })
@@ -241,11 +198,7 @@ describe("the network view", () => {
   })
 
   it("drops a count that the worker no longer trusts, rather than drawing a zero", async () => {
-    /**
-     * proxy stopped writing, so `/api/services` omits `players` everywhere. That is not
-     * an empty network; it is nobody having said. Four boxes lose an item and the picture keeps
-     * its shape.
-     */
+    /** proxy stopped writing, so `players` is absent everywhere: nobody has said, which is not an empty network. */
     const silent = {
       ...TABLE,
       services: TABLE.services.map((entry) => {
@@ -264,23 +217,8 @@ describe("the network view", () => {
   })
 })
 
-/**
- * The dedup that makes "one arrow into the group" true lives in `wires.tsx`'s `Wires` component,
- * not in the geometry model `geometry.test.ts` checks - that file recomputes the same resolution
- * independently of `Wires` itself, so it would stay green even if `Wires`'s own deduplication broke
- * (checked by breaking it: commenting out the `seen`/dedup lines there left every assertion in
- * `geometry.test.ts` passing, because none of them render anything). This is the one test that
- * actually renders `h` and counts the `<path>` elements the browser would draw.
- */
 describe("a stopped node says nothing rather than half of something", () => {
-  /**
-   * Nothing incomplete is to be shown where there is nothing to show. A
-   * container that is not running reports no `cpuPercent` and no `memoryBytes`, and `format.ts`
-   * answers an en dash for both - which is exactly right in a table column, where a dash in a
-   * value cell means "no value", and wrong behind the word "cpu", where it reads as a rendering
-   * fault.
-   */
-  /** The vitals are drawn inside a tooltip, so they are rendered here on their own. */
+  /** Rendered on its own, since the vitals live in a tooltip; a dash behind the word "cpu" reads as a fault. */
   const OFF = {
     service: "smp",
     containerId: "abc",
@@ -311,26 +249,19 @@ describe("a stopped node says nothing rather than half of something", () => {
   })
 })
 
+/** Renders `Wires` itself, since `geometry.test.ts` would stay green if its dedup broke. */
 describe("the view collapses a group's edges into one drawn line each", () => {
   it("draws one traffic edge into each group and one data foot out of each group", async () => {
     draw()
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     const edgeKeys = [...document.querySelectorAll("[data-edge]")].map((el) => datasetOf(el).edge)
-    /**
-     * Three raw edges - proxy to each of smp, hunger-games and limbo - collapse to this
-     * one key; two more - steward-ui to steward-worker and to steward-deployer - collapse to the
-     * other. The three edges that were never grouped (players to proxy, players to caddy,
-     * caddy to steward-ui) are untouched by the collapse and still draw one each.
-     */
+    /** Three proxy edges collapse to one key, two steward-ui edges to the other; ungrouped edges draw one each. */
     expect(edgeKeys.filter((key) => key === "proxy-paper")).toHaveLength(1)
     expect(edgeKeys.filter((key) => key === "steward-ui-steward-ops")).toHaveLength(1)
     expect(edgeKeys).toHaveLength(5)
 
-    /**
-     * The database fan: five sources once the Paper trio and the deploy pair have each collapsed
-     * to their group's own frame, down from the seven raw database clients in topology.ts.
-     */
+    /** Five database sources, once the Paper trio and the deploy pair collapse to their group frames. */
     expect(document.querySelectorAll("[data-foot]")).toHaveLength(5)
   })
 })
@@ -338,12 +269,7 @@ describe("the view collapses a group's edges into one drawn line each", () => {
 /**
  * The phone's half of the layout: below 640px the drawing is a list of rows.
  *
- * `NetworkTable` is rendered directly rather than through `NetworkPanel` with a narrowed window,
- * and that is the honest way round: `useIsMobile` reads `window.innerWidth` and a `matchMedia` that
- * `vitest.setup.ts` stubs to "never matches", so a test that set the width and rendered the panel
- * would be asserting against the stub's opinion rather than the component's. Which of the two the
- * panel picks is one line and is stated in `view.tsx`; what the table itself draws is ten rows, and
- * that is what is worth holding.
+ * `NetworkTable` is rendered directly, since `vitest.setup.ts` stubs `matchMedia` to never match.
  */
 describe("the network on a phone", () => {
   it("draws one row per service, in the sections' order, and no row for players", async () => {
@@ -353,10 +279,7 @@ describe("the network on a phone", () => {
     const drawn = [...document.querySelectorAll("[data-row]")].map((node) => datasetOf(node).row)
     for (const name of SERVICES) expect(drawn, `${name} has no row`).toContain(name)
     expect(new Set(drawn).size).toBe(drawn.length)
-    /**
-     * The order is the sections', flattened - which is the only thing left in the table that says
-     * anything about the topology; there is deliberately no "connected to" column.
-     */
+    /** The order is the sections', flattened, since the table deliberately has no "connected to" column. */
     expect(drawn).toEqual(SECTIONS.flatMap((section) => section.members))
     // `players` is a box in the drawing and not a service; it gets no row. See SECTIONS.
     expect(drawn).not.toContain("players")
@@ -375,7 +298,7 @@ describe("the network on a phone", () => {
     draw(TABLE, NetworkTable)
     await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
 
-    // health, tag, count, and the two buttons - the card's contents on one line.
+    // Health, tag, count and the two buttons: the card's contents on one line.
     expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy()
     expect(row("smp").textContent).toContain("1.4.0")
     expect(row("smp").textContent).not.toContain("ghcr.io")

@@ -13,7 +13,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Where this program talks to a person: a real terminal, or IntelliJ's run console, which is a pipe.
  *
- * A secret is read without echo only on a real terminal; a run console has no way to hide what is typed.
+ * Only a real terminal can read a secret without echo.
  */
 class Terminal {
 

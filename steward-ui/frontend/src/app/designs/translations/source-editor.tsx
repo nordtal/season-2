@@ -9,12 +9,6 @@ import { BreakButton, GlyphMenu, PlaceholderMenu, StyleButtons } from "@/app/des
 import type { Fill } from "@/app/designs/translations/preview"
 import { tokenOf } from "@/lib/message-text"
 
-/**
- * B: the text as it is stored, with its syntax coloured. A textarea lies over a highlighted copy
- * of itself, so the browser keeps doing everything a text field does - caret, selection, undo,
- * a phone keyboard - and the colours are only drawn underneath.
- */
-
 export type SourceEditorProps = {
   text: string
   onChange: (text: string) => void
@@ -28,6 +22,11 @@ export type SourceEditorProps = {
 
 const MONO = "font-mono text-[13px] leading-6"
 
+/**
+ * B: the stored text with its syntax coloured, a textarea over a highlighted copy of itself.
+ *
+ * The browser keeps caret, selection, undo and the phone keyboard; the colours are only drawn underneath.
+ */
 export function SourceEditor({ text, onChange, format, args, glyphs, fill, label, disabled }: SourceEditorProps) {
   const area = useRef<HTMLTextAreaElement>(null)
   const under = useRef<HTMLPreElement>(null)
@@ -52,7 +51,7 @@ export function SourceEditor({ text, onChange, format, args, glyphs, fill, label
     })
   }
 
-  /** The style row works here too: the selection is re-styled through the run model and written back. */
+  /** The style row works here too, re-styling the selection through the run model. */
   function restyle(change: (style: Style) => Style) {
     const element = area.current
     if (!element) return
@@ -121,7 +120,7 @@ export function SourceEditor({ text, onChange, format, args, glyphs, fill, label
   )
 }
 
-/** The source, cut into coloured pieces: tags, colour tags in their own colour, placeholders, the unknown in red. */
+/** The source in coloured pieces: tags, colour tags in their colour, placeholders, and unknowns in red. */
 export function highlight(text: string, format: Format, args: MessageArg[]): ReactNode[] {
   const known = new Set(args.map((arg) => arg.name))
   const out: ReactNode[] = []

@@ -6,30 +6,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The languages a fresh {@code access.yml} is written with: {@code en} and {@code de}.
+ * The languages a fresh {@code access.yml} is written with, {@code en} and {@code de}, with empty ids.
  *
- * Why this class exists: The same reason {@link DefaultTiers} does, and it is the worked example this follows.
- * {@code languages} is a list so that a third language is a config edit rather than a release (
- * {@code docs/i18n.md}), and jcore initialises a {@code List<NestedSpec>} to empty - so without a default built
- * here, a fresh installation would come out with no languages at all and refuse to start on a file nobody had
- * touched yet. {@code Specs.createUnsafe} is jcore's documented way to build a nested spec from a map of its keys,
- * and jcore's writer knows how to serialise a list of them.
- *
- * The ids are still empty, which is the standing rule for every id in this repository: a fresh file carries the two
- * entries, not two guesses at somebody's role and channel snowflakes. So a fresh install still stops at the config
- * check - it just stops saying "fill these in" rather than "there are no languages".
- *
- * The map keys are the {@code @Key} names from {@link AccessSpec.LanguageSpec}, not the method names.
- * {@code createUnsafe} does not apply defaults, so every key of the spec has to be listed here; a new setting on
- * {@code LanguageSpec} has to be added below or it comes out null.
+ * {@code createUnsafe} applies no defaults, so every {@code @Key} of {@link AccessSpec.LanguageSpec} is listed.
  */
 final class DefaultLanguages {
 
-    /**
-     * English first, because it is the mandatory fallback.
-     *
-     * The order of this list is the order the link-code disconnect screen prints its languages in.
-     */
+    /** English first, as the mandatory fallback; the link screen prints languages in this order. */
     static final List<AccessSpec.LanguageSpec> LIST = List.of(language("en"), language("de"));
 
     private DefaultLanguages() {}

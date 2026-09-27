@@ -19,16 +19,10 @@ import java.util.regex.Pattern;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Announcements an admin writes by hand, one text per language.
- *
- * Each language is one {@code announce} row, the same row the SMP writes at a milestone, so the
- * bot has one path for both senders; each row is claimed and answered on its own. The look back is
- * those same rows in {@code command_request} rather than a second table.
- */
+/** Announcements an admin writes by hand, one {@code announce} row per language, the same row the SMP writes. */
 final class Announcements {
 
-    /** Discord refuses a message longer than this, and the bot would answer "not posted". */
+    /** Discord refuses a longer message. */
     static final int MAX_LENGTH = 2000;
 
     private static final Pattern TAG = Pattern.compile("[a-z]{2,8}");
@@ -37,7 +31,6 @@ final class Announcements {
     private final @Nullable DataSource dataSource;
     private final CommandApi commands;
 
-    /** @param dataSource null in a test that runs without a database, which never calls these */
     Announcements(final @Nullable DataSource dataSource, final CommandApi commands) {
         this.dataSource = dataSource;
         this.commands = commands;
@@ -47,7 +40,7 @@ final class Announcements {
         return Objects.requireNonNull(dataSource, "no database - this route is not available without one");
     }
 
-    /** {@code GET /api/announcements} - the latest announcements, by either sender, newest first. */
+    /** {@code GET /api/announcements}: the latest, by either sender, newest first. */
     void recent(final Context ctx) {
         final List<Map<String, Object>> recent = new ArrayList<>();
         try (Connection connection = dataSource().getConnection();
@@ -85,9 +78,9 @@ final class Announcements {
     }
 
     /**
-     * {@code POST /api/announcements} - {@code {texts: {<tag>: <text>, ...}}}, one row per entry.
+     * {@code POST /api/announcements} with {@code {texts: {<tag>: <text>, ...}}}, one row per entry.
      *
-     * Every entry must carry text; nothing is written unless every entry passes.
+     * Nothing is written unless every entry carries text.
      */
     void send(final Context ctx) {
         final JsonObject body;

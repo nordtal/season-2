@@ -20,12 +20,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils"
 
 /**
- * The Console tab's window: toolbar, the line into the server, and the log, newest on
- * top, in one dark rounded box that lies flat on the page.
+ * The Console tab's window: toolbar, the line into the server, and the log newest on top.
  *
- * No Pause, no Following switch, no Clear, no connection badge: the stream reconnects by itself and
- * says so only in the window, and scrolling away is what stops the window from following - the
- * arrow that appears then is the way back.
+ * The stream reconnects by itself, and scrolling away stops the following until the arrow brings it back.
  */
 export function ServiceConsole({
   name,
@@ -35,10 +32,7 @@ export function ServiceConsole({
 }: {
   name: string
   hasConsole: boolean
-  /**
-   * Why the log may have ended on purpose: a run is taking this service down (`going`), or it is
-   * not running (`gone`). A stream that stops then is the expected answer, not a failure.
-   */
+  /** Why the log may end on purpose: a run is stopping this service (`going`) or it is not running (`gone`). */
   offline?: "going" | "gone"
   /** How many lines the worker can fill; the steps above it are not offered. */
   capacity: number | undefined
@@ -165,7 +159,7 @@ export function ServiceConsole({
   )
 }
 
-/** The steps the worker can fill; the lowest is always there, the window says when it runs dry. */
+/** The steps the worker can fill; the lowest is always there, and the window says when it runs dry. */
 export function offeredSteps(capacity: number | undefined): number[] {
   return STEPS.filter((step) => step === DEFAULT_LIMIT || (capacity ?? 0) >= step)
 }
@@ -174,7 +168,7 @@ function pad(value: number): string {
   return String(value).padStart(2, "0")
 }
 
-/** The raw lines the window holds, oldest first, as a file (the filter applies, the markers do not). */
+/** The raw lines the window holds, oldest first, as a file, filtered but without the markers. */
 function download(name: string, entries: LogEntry[]) {
   const text = entries
     .filter((entry) => entry.kind === "line")
@@ -222,10 +216,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
   const newest = useRef<number | null>(null)
   const [away, setAway] = useState(false)
 
-  /**
-   * The colour a stack trace inherits is the one of the line above it in time, so this walks the
-   * log oldest first and then turns the list round for drawing.
-   */
+  /** A stack trace takes the colour of the line before it in time, so this walks oldest first and then turns round. */
   const rows = useMemo(() => {
     const out: Row[] = []
     let carried: Level | null = null
@@ -246,10 +237,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
     return out.toReversed()
   }, [entries])
 
-  /**
-   * A new block arrived on top. At the top, it slides in from above; scrolled away, the reading
-   * position is held instead, and nothing moves under the reader's eyes.
-   */
+  /** A new block slides in at the top; scrolled away, the reading position is held instead. */
   useLayoutEffect(() => {
     const pane = box.current
     const content = grid.current
@@ -258,7 +246,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
     newest.current = top
     if (!pane || !content || top === null || previous === null || top === previous) return
     const added = rows.findIndex((row) => row.entry.seq <= previous)
-    // Not found: the window was refilled from a new connection, which is not an arrival.
+    // Not found: a refill from a new connection, which is not an arrival.
     if (added <= 0) return
     const first = content.children[0]
     const kept = content.children[added]
@@ -292,8 +280,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
         onScroll={(event) => setAway(event.currentTarget.scrollTop > AWAY)}
         className="h-full overflow-auto px-2 pt-1.5 pb-16 [overflow-anchor:none] sm:px-3"
       >
-        {/* On a phone the time and source stand in a line of their own above the text, which
-            then has the full width; from `sm` up the three share one row as columns. */}
+        {/* On a phone time and source get their own line above the text; from `sm` up all three are columns. */}
         <div ref={grid} className="grid grid-cols-1 gap-x-3 sm:grid-cols-[auto_auto_1fr]">
           {rows.map(({ entry, line, level }) =>
             line === null ? (
@@ -323,10 +310,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
                 key={entry.seq}
                 className={cn(
                   "break-words whitespace-pre-wrap",
-                  /**
-                   * A line that carries on the one before it sits under the message, whether or
-                   * not its head is still in the window; anything else has the whole width.
-                   */
+                  /** A continuation line sits under the message; anything else has the whole width. */
                   continuesPrevious(line.text) ? "max-sm:pl-3 sm:col-start-3" : "col-span-full",
                   level ? LEVEL_TEXT[level] : "text-white/85",
                 )}
@@ -354,11 +338,9 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
 }
 
 /**
- * One line into the server console, directly above the lines its answer comes back in.
+ * One line into the server console, directly above the log its answer comes back in.
  *
- * The up arrow does what a shell's does. The history is not persisted, deliberately: a command
- * history that survives a reload is a command history the next person at this browser can read.
- * No success toast: the answer appears two centimetres below. The error toast stays.
+ * The up arrow walks a history that is not persisted, so the next person at this browser cannot read it.
  */
 function ConsoleLine({ name }: { name: string }) {
   const send = useConsole(name)

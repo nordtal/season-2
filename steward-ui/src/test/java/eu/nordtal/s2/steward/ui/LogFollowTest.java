@@ -43,7 +43,7 @@ class LogFollowTest extends StewardUiTestSupport {
     void loggingOutEndsTheFollow() throws Exception {
         final HttpClient browser = browser();
         signIn(browser);
-        // Since package C a Discord session on its own reads nothing; the follow is what is under test.
+        // A Discord session alone reads nothing; the follow is what is under test.
         holdTheKey(browser, authenticator);
         final HttpResponse<InputStream> follow = openTheLog(browser);
         final int whileFollowing;
@@ -63,7 +63,7 @@ class LogFollowTest extends StewardUiTestSupport {
 
     @Test
     void aQuietFollowSurvivesAndThenIsCleanedUp() throws Exception {
-        // The slowest test in this module, and both halves are the point: a quiet log is a healthy one.
+        // The slowest test in this module: a quiet log is a healthy one.
         chattyLog.set(false);
         try {
             final HttpClient browser = browser();
@@ -83,10 +83,10 @@ class LogFollowTest extends StewardUiTestSupport {
                         waitForALineSaying(lines, "open"), "the follow went quiet and died after beat " + (beat - 1));
             }
 
-            // Now the tab is closed, which means the socket goes; the JDK's client does not close it on its own.
+            // The tab closes, so the socket goes; the JDK's client does not close it on its own.
             tab.close();
 
-            // Every reload used to leave a connection open here, and an open log stream at the worker.
+            // Each reload would otherwise leave a connection open here, and a log stream at the worker.
             assertTrue(
                     theFollowsConnectionClosed(whileFollowing),
                     "the worker's end outlived the browser's: " + workerConnections.get() + " connections open, "
@@ -96,12 +96,7 @@ class LogFollowTest extends StewardUiTestSupport {
         }
     }
 
-    /**
-     * The same follow, opened by hand over a socket this test can really close.
-     *
-     * It borrows the session cookie out of the browser's own jar, so it is the same signed-in
-     * person - only the transport is one whose closing means something.
-     */
+    /** The same follow over a socket this test can really close, signed in with the browser's own cookie. */
     private static java.net.Socket openTheLogOverASocket(final HttpClient browser) throws Exception {
         final java.net.CookieHandler jar = browser.cookieHandler().orElseThrow();
         final String cookies = ((CookieManager) jar)
@@ -136,13 +131,7 @@ class LogFollowTest extends StewardUiTestSupport {
         return new BufferedReader(new InputStreamReader(follow.body(), StandardCharsets.UTF_8));
     }
 
-    /**
-     * Reads the stream until it says that, it ends, or twenty seconds pass.
-     *
-     * On its own thread, because a socket read that never returns would otherwise hang the whole
-     * test run rather than failing it - and "the stream never ended" is precisely the defect these
-     * two tests are about.
-     */
+    /** Reads the stream until it says that, it ends, or twenty seconds pass, on its own thread so a hang fails. */
     private static boolean waitForALineSaying(final BufferedReader lines, final String text) throws Exception {
         // A daemon thread: an ordinary one would still be parked in readLine() when the suite ends.
         final ExecutorService one = Executors.newSingleThreadExecutor(runnable -> {
@@ -168,14 +157,7 @@ class LogFollowTest extends StewardUiTestSupport {
         }
     }
 
-    /**
-     * Waits up to three quarters of a minute for the worker's end to close.
-     *
-     * Long on purpose. On a quiet log nothing discovers a closed tab until the heartbeat writes
-     * into it, and the first write after a close often still succeeds - the failure comes on the
-     * one after. Two beats plus room is the honest bound, and a test that allowed less would fail
-     * on a slow machine while the behaviour was correct.
-     */
+    /** Waits up to 45 seconds for the worker's end to close, since only the second write after a close fails. */
     private static boolean theFollowsConnectionClosed(final int whileFollowing) throws InterruptedException {
         // Strictly fewer than during the follow, since the client pools connections across requests.
         for (int attempt = 0; attempt < 450 && workerConnections.get() >= whileFollowing; attempt++) {

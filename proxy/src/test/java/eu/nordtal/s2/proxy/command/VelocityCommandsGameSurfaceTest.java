@@ -26,24 +26,13 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * The proxy's half of the rule about {@link eu.nordtal.s2.commands.Surface#GAME} and a player's command tree.
+ * A command without {@link eu.nordtal.s2.commands.Surface#GAME} is absent from a player's command tree.
  *
- * A command carrying no {@code GAME} surface is not in that tree at all. An admin typing the chat form of
- * {@code /update check} or {@code /phase show} is meant to get
- * Minecraft's own "Unknown command" rather than a bespoke not-in-game message: the commands are
- * meant to be gone from a player's view entirely, and a command that does not exist produces no
- * message to assert on, so this file asks the tree instead of a chat log.
- *
- * {@code ProxyPlugin} hands this adapter {@code PhaseCommands}, {@code NetworkCommands} and
- * {@code UpdateCommands} through {@code local()}, and nothing else: the five commands a player
- * types are native Brigadier beside this tree rather than declarations in it. All three carry no
- * {@code Surface.GAME} - {@code /network reload} and the {@code /update} family are
- * {@code CONSOLE} only, {@code /phase} is {@code CONSOLE} and {@code WEB}.
- * {@link VelocityUser#origin()} returns {@code GAME} for every connected player.
+ * The proxy's declarations are all console or web only, so an admin in game gets Minecraft's "Unknown command".
  */
 class VelocityCommandsGameSurfaceTest {
 
-    /** On the roster as an admin: the source that passed the old gate, and the point of the new. */
+    /** On the roster as an admin, so only the surface can refuse. */
     private static final UUID ADMIN = UUID.fromString("00000000-0000-4000-8000-00000000002a");
 
     private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locale.ENGLISH);
@@ -108,7 +97,7 @@ class VelocityCommandsGameSurfaceTest {
                 .orElseThrow(() -> new AssertionError("no /" + literal + " was built"));
     }
 
-    /** A connected player who is an admin, and nothing else - anything further throws. */
+    /** A connected player who is an admin, and nothing else; anything further throws. */
     private static CommandSource admin() {
         return (CommandSource) Proxy.newProxyInstance(
                 Player.class.getClassLoader(),

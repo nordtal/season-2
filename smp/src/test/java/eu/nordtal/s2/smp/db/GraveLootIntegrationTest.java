@@ -28,25 +28,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * Closing a grave, against a real PostgreSQL running the real migrations.
  *
- * <b>The failure it exists for</b>
- *
- * {@code smp_grave.looted_by} is {@code varchar(32)}, the same shape as {@code owner_id} beside it, because every
- * person in this schema is a discord id. {@code Graves#onClosed} passed the looter's <em>Minecraft UUID</em>, whose
- * 36 characters do not fit, so {@code markGraveLooted} threw {@code value too long for type character varying(32)}
- * on every single loot - and it threw from inside the async task that erases the grave and refunds the experience,
- * so none of that happened either. No grave was ever marked looted, every grave was restored on every start, and
- * nobody ever got their levels back (finding 132).
- *
- * <b>Nothing in the game showed it.</b> The window opens, the items come out, the window closes - which is the whole
- * of what a player can check. It was found by reading {@code smp_grave} after a real loot on the local stack.
- *
- * <b>Why a container</b>
- *
- * The defect <em>is</em> the column width. An in-memory stand-in would accept both strings and stay green through
- * the whole bug. This drives the real statement against the real schema, and the second case pins the width as the
- * reason rather than as an accident - so widening the column later is a decision somebody has to take on purpose.
- *
- * It <b>skips itself</b> when no Docker daemon is reachable.
+ * It pins {@code smp_grave.looted_by} at 32 characters, a discord id; skips itself without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class GraveLootIntegrationTest {
@@ -119,12 +101,7 @@ class GraveLootIntegrationTest {
                 "a grave already looted must not be marked a second time");
     }
 
-    /**
-     * A grave is open to anyone, not only whoever died into it - decided rather than found.
-     *
-     * There is no ownership check in {@code markGraveLooted}'s {@code WHERE} clause, so this is green from the
-     * first run; that absence is worth having written down.
-     */
+    /** A grave is open to anyone, not only whoever died into it: {@code markGraveLooted} checks no owner. */
     @Test
     void aStrangerMayEmptyAnyonesGrave() {
         assertTrue(
@@ -213,12 +190,7 @@ class GraveLootIntegrationTest {
                 "the younger grave of the same player is untouched - two deaths are two graves");
     }
 
-    /**
-     * The hologram over a grave counts down against {@code created} plus the configured limit.
-     *
-     * So {@code openGraves} has to hand that column back and {@link GraveRowMapper} has to read it as the
-     * {@code timestamptz} it is, not drop it or silently null it.
-     */
+    /** The hologram's countdown needs {@code openGraves} to hand back {@code created} as a {@code timestamptz}. */
     @Test
     void openGravesCarryWhenTheyWereMade() {
         final GraveRow row = dao.openGraves().stream()

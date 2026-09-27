@@ -8,18 +8,6 @@ import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asElement } from "@/lib/test-elements"
 
-/**
- * The health dot on a service row in the sidebar.
- *
- * `useServices()` is the same hook `OverviewPage` and `OperationsPage` already call - one shared
- * query, so the sidebar reads whatever that query already knows rather than opening a second one.
- * Whether ten green dots would be noise is answered by the component ({@link HealthDot} in
- * `components/steward/status.tsx`) - a healthy row draws nothing, matching the Issues tile on the
- * start page, which is silent for "ok" too. Only a row that is not simply fine gets a mark, and
- * "not read yet" gets its own, neutral mark rather than the fine one - `health.ts`'s own rule,
- * applied one level down.
- */
-
 /** A route this test never draws, only routes to. */
 const nothing = () => null
 
@@ -44,10 +32,7 @@ function service(over: Record<string, unknown> = {}) {
   }
 }
 
-/**
- * The sidebar under a router that resolves every place it links to - `/services/$name` alone
- * covers all ten service rows, same as `router.tsx`'s real tree.
- */
+/** The sidebar under a router resolving every place it links to; `/services/$name` covers all ten rows. */
 function draw(fetchImpl: ReturnType<typeof vi.fn>) {
   vi.stubGlobal("fetch", fetchImpl)
 
@@ -112,11 +97,7 @@ describe("NavList - the health dot on a service row", () => {
   })
 
   it("never shows the fine colour before the query has answered", async () => {
-    /**
-     * The rule `health.ts` already carries: "A green light on no evidence is the one thing this
-     * page must not do." A query that has not answered yet must not look the same as ten healthy
-     * rows - so it gets a neutral mark, on every row, until `/api/services` actually answers.
-     */
+    /** Before `/api/services` answers every row gets a neutral mark, never the look of ten healthy rows. */
     const fetchImpl = vi.fn<() => Promise<Response>>(() => new Promise<Response>(() => {}))
     draw(fetchImpl)
 

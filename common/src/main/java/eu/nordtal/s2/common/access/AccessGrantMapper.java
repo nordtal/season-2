@@ -12,13 +12,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Maps an {@code access_grant} row.
- *
- * Written out rather than reached for with {@code ConstructorMapper}: that mapper matches record
- * components by parameter name, which only survives compilation with {@code -parameters}. A build
- * flag is a bad thing for a query to depend on, and the explicit version also documents that every
- * point in time comes back as {@code timestamptz} and is converted through
- * {@link OffsetDateTime} - the only reliable way to get a {@link Instant} out of the PostgreSQL
- * driver without going through the JVM's default time zone.
+ * Every {@code timestamptz} goes through {@link OffsetDateTime}, which keeps the JVM's default time zone out of it.
  */
 public final class AccessGrantMapper implements RowMapper<AccessGrant> {
 

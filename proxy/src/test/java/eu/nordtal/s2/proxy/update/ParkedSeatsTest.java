@@ -21,19 +21,19 @@ class ParkedSeatsTest {
 
     @Test
     void anAdminGoesBackWhereTheyWere() {
-        // The only case where the seat differs from the phase's own answer: an admin is deliberately not moved.
+        // The only case where the seat differs from the phase: an admin is not moved.
         assertEquals("hunger-games", ParkedSeats.destination("hunger-games", true, "smp", AVAILABLE, SERVERS));
     }
 
     @Test
     void everybodyElseGoesByThePhase() {
-        // For a non-admin the two agree by construction; a moved phase disagreeing is what the seat check guards.
+        // For a non-admin the two agree by construction.
         assertEquals("smp", ParkedSeats.destination("hunger-games", false, "smp", AVAILABLE, SERVERS));
     }
 
     @Test
     void aWaitingRoomIsNeverASeat() {
-        // Releasing somebody from the waiting room INTO the waiting room is a stale title with no timeout at all.
+        // Releasing somebody from the waiting room into the waiting room leaves a stale title.
         assertEquals("smp", ParkedSeats.destination("limbo", true, "smp", AVAILABLE, SERVERS));
         assertEquals("smp", ParkedSeats.destination("limbo-standby", true, "smp", AVAILABLE, SERVERS));
     }
@@ -53,13 +53,13 @@ class ParkedSeatsTest {
     void aSeatIsUsedOnce() {
         final ParkedSeats seats = new ParkedSeats(List.of(new SwapStore.Seat(PLAYER, "hunger-games", NOW)), NOW);
         assertEquals("hunger-games", seats.releaseTo(PLAYER, true, "smp", AVAILABLE, SERVERS));
-        // A retried release goes by the phase, the safe direction: the seat is already tried and the phase is now.
+        // A retried release goes by the phase, since the seat is already used.
         assertEquals("smp", seats.releaseTo(PLAYER, true, "smp", AVAILABLE, SERVERS));
     }
 
     @Test
     void aStaleSeatIsDropped() {
-        // The failure this prevents: an admin logging in days later, moved by a row nobody remembers writing.
+        // An admin logging in days later must not be moved by an old row.
         final Instant old = NOW.minus(SwapStore.SEAT_VALID_FOR).minusSeconds(1);
         assertFalse(new SwapStore.Seat(PLAYER, "hunger-games", old).isFresh(NOW));
         assertTrue(new SwapStore.Seat(PLAYER, "hunger-games", NOW.minus(SwapStore.SEAT_VALID_FOR)).isFresh(NOW));

@@ -14,18 +14,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * The one step between {@code ConfigFiles} and the browser: whether {@code envOverridden} actually reaches the wire.
- *
- * {@link ConfigApi#document} writes its answer key by key into a hand-built map, so "the field exists on
- * {@code ConfigEntry}" and "the field is sent" are two different facts, and a suite that only exercises the record
- * can stay green while the wire answer stays silent.
- *
- * {@code false} must never be sent as if it meant "we checked and this is fine" when the truth is "nobody checked" -
- * absent is the only honest way to say the second one, and a key sent as {@code null} would still require the
- * interface to test for it twice, which is exactly what was already rejected for {@code choices} and
- * {@code protectedEntry}.
- */
+/** {@code envOverridden} actually reaches the wire, and is absent rather than {@code false} when nobody checked. */
 class ConfigApiEnvOverrideTest {
 
     @TempDir
@@ -55,7 +44,7 @@ class ConfigApiEnvOverrideTest {
     @Test
     void theJsonOmitsEnvironmentoverriddenEntirelyWhenNoServiceEverReported() throws IOException {
         Files.writeString(directory.resolve("access.yml"), "guild-id: '1'\n");
-        // Deliberately no EnvOverrideFile.write call at all - the untouched case.
+        // Deliberately no EnvOverrideFile.write call at all: the untouched case.
 
         assertFalse(
                 entry("guild-id").containsKey("environmentOverridden"),

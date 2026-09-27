@@ -18,11 +18,6 @@ import { useMetrics } from "@/lib/queries"
 import { Skeleton } from "@/components/steward/query-state"
 import { Stat } from "@/components/steward/stat"
 
-/**
- * The four proposed curves for a service page's CPU and RAM, each drawn from the same `useMetrics`
- * reads the live head makes. Deleted with the rest of `app/designs/` once one is picked.
- */
-
 type Series = { at: number; value: number }[]
 type Format = (value: number) => string
 
@@ -61,12 +56,12 @@ function peak(series: Series) {
   return series.reduce((top, point) => (point.value > top.value ? point : top), series[0])
 }
 
-/** The strip a curve will fill, shimmering, and nothing else - the same rule `Sparkline` keeps. */
+/** The strip a curve will fill, shimmering, as `Sparkline` draws it. */
 function Waiting({ height }: { height: number }) {
   return <Skeleton style={{ height }} className="w-full" />
 }
 
-// --- A: a taller line, its peak marked
+// A: a taller line, its peak marked
 
 export function TallLine({ label, value, points, format }: MetricProps) {
   const series = useMemo(() => seriesOf(points), [points])
@@ -108,7 +103,7 @@ export function TallLine({ label, value, points, format }: MetricProps) {
   )
 }
 
-// --- B: the range of each stretch as a band, its mean as the line
+// B: the range of each stretch as a band, its mean as the line
 
 export function Band({ label, value, points }: MetricProps) {
   const data = useMemo(() => {
@@ -151,7 +146,7 @@ export function Band({ label, value, points }: MetricProps) {
   )
 }
 
-// --- C: both in one chart, with a time axis
+// C: both in one chart, with a time axis
 
 export function Together({
   cpu,
@@ -168,10 +163,7 @@ export function Together({
     const load = seriesOf(cpu)
     const ram = seriesOf(memory)
     if (load === undefined || ram === undefined) return undefined
-    /**
-     * One row per bucket, both metrics in it: two series sampled together still do not share
-     * timestamps to the millisecond, and one row per sample would draw each line with holes.
-     */
+    /** One row per bucket, since two series sampled together never share timestamps exactly. */
     const a = buckets(load, 96)
     const b = buckets(ram, 96)
     return a.map((row, index) => ({ at: row.at, cpu: row.mean, ram: b[index]?.mean }))
@@ -228,7 +220,7 @@ export function Together({
   )
 }
 
-/** Every second full hour inside the range - five labels over six hours, none crowding the ends. */
+/** Every second full hour inside the range, none crowding the ends. */
 function hourTicks(times: number[] | undefined) {
   if (!times || times.length < 2) return undefined
   const hour = 3_600_000
@@ -239,7 +231,7 @@ function hourTicks(times: number[] | undefined) {
   return out
 }
 
-// --- D: one range for both, and a reading under the finger
+// D: one range for both, and a reading under the finger
 
 export const RANGES = [1, 6, 24] as const
 export type Range = (typeof RANGES)[number]

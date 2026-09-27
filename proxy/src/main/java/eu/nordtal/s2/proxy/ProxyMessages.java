@@ -11,13 +11,10 @@ import eu.nordtal.s2.common.message.spec.Name;
 import eu.nordtal.s2.common.message.spec.Shown;
 import net.kyori.adventure.text.Component;
 
-/**
- * Every message of the proxy bundle, one method per key.
- */
+/** Every message of the proxy bundle, one method per key. */
 @MessageSpec("proxy")
 public interface ProxyMessages {
 
-    /** The messages; stateless, so one instance serves every caller. */
     ProxyMessages MESSAGES = MessageSpecs.create(ProxyMessages.class);
 
     Gate gate();

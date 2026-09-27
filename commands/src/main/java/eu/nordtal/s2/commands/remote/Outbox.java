@@ -21,37 +21,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
 /**
- * The near end of a travelling command: write the request, wait for the answer, say it.
+ * The near end of a travelling command: writes the request, waits for the answer and says it.
  *
- * Nothing here blocks: the two callers are a Brigadier handler on a server's main thread and a JDA
- * gateway thread with a three second budget. So {@link #send} writes the row on the supplied
- * scheduler and then <em>reschedules itself</em> to look at the outcome, rather than sleeping in a
- * loop - waiting thirty seconds for the SMP to answer must cost a scheduled task, not a held thread.
- *
- * Giving up is a decision the asker takes alone. When the deadline passes, the asker marks the row
- * {@code EXPIRED} - and that update only touches a row still {@code PENDING}, so a target that
- * claimed it a moment ago keeps it. Losing that race is the good case and it is reported as its own
- * sentence: the command <em>is</em> running, the answer is simply not coming back through this
- * interaction any more. Cancelling work already underway is not on offer and should not be: a
- * half-applied {@code /smp aura} is worse than a slow one.
- *
- * A row nothing ever claimed says the process that owns the command is not listening - a backend
- * that is down, or one whose inbox failed to start. That is a different sentence from a target that
- * claimed the request and never settled it, and the two stay distinguishable because the target
- * never writes {@code EXPIRED} itself.
+ * Nothing blocks: {@link #send} reschedules itself to read the outcome rather than holding a thread.
  */
 public final class Outbox {
 
-    /** How long the asker waits. Half a minute is a Discord interaction's practical patience. */
+    /** How long the asker waits, about a Discord interaction's practical patience. */
     public static final Duration TIMEOUT = Duration.ofSeconds(30);
 
     /**
-     * How often the outcome is read while waiting.
-     *
-     * A poll and not a second {@code LISTEN}: the answer is wanted by exactly one waiting
-     * interaction, in one process, for a few seconds - which is the shape a poll fits and a
-     * notification channel does not. Half a second is under the threshold at which a person watching
-     * a spinner notices, and sixty reads of one indexed row over the whole wait is nothing.
+     * How often the outcome is read while waiting; one interaction waiting seconds fits a poll, not a {@code LISTEN}.
      */
     public static final Duration POLL = Duration.ofMillis(500);
 
@@ -68,7 +48,7 @@ public final class Outbox {
         this(requests, scheduler, TIMEOUT, POLL, warn);
     }
 
-    /** Package-visible timings, so a test can run the whole wait in milliseconds. */
+    /** Takes the timings, so a test can run the whole wait in milliseconds. */
     Outbox(
             final CommandRequests requests,
             final ScheduledExecutorService scheduler,
@@ -83,9 +63,9 @@ public final class Outbox {
     }
 
     /**
-     * Send a command to the process that owns it, and answer {@code user} when it comes back.
+     * Sends a command to the process that owns it and answers {@code user} when it comes back.
      *
-     * Returns at once. Everything after the row is written happens on the scheduler.
+     * Returns at once; everything after the row is written happens on the scheduler.
      */
     public void send(final Declaration declaration, final NordtalUser user, final Values values) {
         Objects.requireNonNull(declaration, "declaration");
@@ -120,7 +100,7 @@ public final class Outbox {
                 user.reply(MESSAGES.command().remote().failed(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
-            // MUTED: it is the receipt before the wait, not the answer. Colouring it like news would make the line.
+            // MUTED: it is the receipt before the wait, not the answer.
             user.reply(
                     MESSAGES.command()
                             .remote()

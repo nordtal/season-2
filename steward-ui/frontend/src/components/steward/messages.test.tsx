@@ -20,11 +20,6 @@ vi.mock("sonner", () => ({
   },
 }))
 
-/**
- * A service's message bundles on the Settings & Translations tab: one file per bundle, the texts as
- * a tree of named sections, and each text with its English and German under one field.
- */
-
 function json(body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -308,12 +303,7 @@ describe("saving a line", () => {
     await screen.findByDisplayValue("Welcome")
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
-    /**
-     * Both the reset-pending preview and the saved result show "Welcome" - packaged text, since
-     * the override is gone either way - so a display-value match alone cannot tell the two apart.
-     * The Reset button itself can: it only draws while an override exists, so its disappearance is
-     * the one signal that is true only once the save has actually round-tripped.
-     */
+    /** Both states show the packaged "Welcome", so only the Reset button vanishing proves the save round-tripped. */
     await waitFor(() => expect(screen.queryByRole("button", { name: /Reset/ })).toBeNull())
     expect(screen.getByDisplayValue("Welcome")).toBeTruthy()
     expect(screen.queryByText("overridden")).toBeNull()

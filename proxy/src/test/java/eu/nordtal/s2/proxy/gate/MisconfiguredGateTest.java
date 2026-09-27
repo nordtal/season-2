@@ -15,16 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The fail-closed handler.
+ * The fail-closed handler, which has no state to branch on and no admin path.
  *
- * There is deliberately little to test, and that is the property being asserted: this class has no
- * state to branch on, so it cannot be talked into letting somebody through. In particular there is
- * <b>no admin path</b> - the admin flag lives in the database a broken {@code database.yml} cannot
- * reach.
- *
- *
- * The {@code LoginEvent} wiring is not exercised: constructing one needs a Velocity
- * {@code Player}, which only exists on a running proxy.
+ * The {@code LoginEvent} wiring needs a Velocity {@code Player} and is not exercised.
  */
 class MisconfiguredGateTest {
 
@@ -41,7 +34,7 @@ class MisconfiguredGateTest {
 
     @Test
     void theBundleLoadsWithoutAnyConfigurationAtAll() {
-        // The whole point: this screen must render when the configuration itself is what is broken.
+        // This screen must render when the configuration itself is broken.
         assertNotNull(messages.get(Locale.ENGLISH, "gate.misconfigured"));
         assertTrue(
                 messages.hasTranslation(Locale.GERMAN, "gate.misconfigured"),
@@ -52,7 +45,7 @@ class MisconfiguredGateTest {
     void theScreenShowsBothLanguagesBecauseNobodyCanBeIdentified() {
         final String rendered = flatten(gate.refuse(UUID.randomUUID(), "someone"));
 
-        // Compared against the drawn text, not the raw value: a raw comparison would fail on colour as if missing.
+        // Compared against the drawn text, since the raw value carries colour tags.
         assertTrue(rendered.contains(drawn(messages.get(Locale.ENGLISH, "gate.misconfigured"))), rendered);
         assertTrue(rendered.contains(drawn(messages.get(Locale.GERMAN, "gate.misconfigured"))), rendered);
     }
@@ -86,7 +79,7 @@ class MisconfiguredGateTest {
         assertEquals(0, gate.refusedCount());
     }
 
-    /** A bundle value with its MiniMessage tags taken off - what a player reads off this screen. */
+    /** A bundle value with its MiniMessage tags removed, as a player reads it. */
     private static String drawn(final String raw) {
         return raw.replaceAll("</?[a-zA-Z_#][a-zA-Z0-9_:.#'\\-]*>", "");
     }

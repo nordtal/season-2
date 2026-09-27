@@ -11,28 +11,14 @@ import org.jspecify.annotations.Nullable;
 @RegisterRowMapper(ManagedPluginMapper.class)
 interface PluginDao {
 
-    /**
-     * Every added plugin, on every service.
-     *
-     * Ordered by service and then by artefact rather than by when it was added: this list is
-     * merged into the topology on every run and read into a table in the interface, and both want
-     * the same plugin in the same place twice running.
-     */
+    /** Returns every added plugin, ordered by service and artefact so each keeps its place between reads. */
     @SqlQuery("SELECT * FROM service_plugin ORDER BY service, artifact")
     List<ManagedPlugin> all();
 
     @SqlQuery("SELECT * FROM service_plugin WHERE service = :service ORDER BY artifact")
     List<ManagedPlugin> on(@Bind("service") String service);
 
-    /**
-     * Writes the row, or refreshes the one already there.
-     *
-     * {@code ON CONFLICT DO UPDATE} rather than an insert that can fail: adding a plugin that is
-     * already added is not an error, it is somebody making sure - and the newer press carries the
-     * newer {@code file_prefix}, which is the field that goes stale when a project renames its
-     * artefact. {@code added} is left alone on a refresh: it says when the plugin arrived on this
-     * service, and that did not change.
-     */
+    /** Writes the row, or refreshes {@code file_prefix} on the one already there while keeping {@code added}. */
     @SqlUpdate("""
             INSERT INTO service_plugin
                 (service, artifact, project_id, file_prefix, title, icon_url, page_url, added_by)
@@ -55,7 +41,7 @@ interface PluginDao {
             @Bind("pageUrl") @Nullable String pageUrl,
             @Bind("addedBy") @Nullable String addedBy);
 
-    /** @return how many rows went away; zero when it was not added, which is not an error */
+    /** Returns how many rows went away; zero when it was not added. */
     @SqlUpdate("DELETE FROM service_plugin WHERE service = :service AND artifact = :artifact")
     int remove(@Bind("service") String service, @Bind("artifact") String artifact);
 }

@@ -7,27 +7,9 @@ import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * The one place in this deployment that applies the schema.
+ * The one place in this deployment that applies the schema, from {@code classpath:db/migration}.
  *
- * What moved and what did not: The call moved here from {@code AccessBot}, which was the only {@code migrate()} in
- * the repository. The SQL did not move: it stays in {@code common/src/main/resources/db/migration/}, next to the API
- * that reads it, and reaches this classpath because {@code :common} is shaded into this module's jar - exactly how
- * it reached the bot's. jcore's {@code Database#migrate()} scans {@code classpath:db/migration}, so nothing about
- * how the files are found changed either.
- *
- * Why steward-worker and not the bot: A release that adds a table is a release that adds a migration. The schema and
- * the versions are one thing, so they get one owner - and the alternative was an operator rule written in prose
- * ("bring the bot up first, it is the only process that migrates"), which works until the deployment where somebody
- * does it in the other order and finds out from a stack trace.
- *
- * Migration comes before anything moves: {@code updater apply} migrated first and swaps jars afterwards, so a plugin
- * never comes up against a schema older than itself. A migration that fails stops the run: no jar is fetched, no
- * pack is written, and the report says why. That is the one outcome where this module must refuse to do half a run -
- * a half-migrated database with new jars on top of it is the state nobody can reason about.
- *
- * The pool is opened and closed around one call: Every other module here keeps a pool for as long as it runs. This
- * one exists for the length of a migration, which is why it is a static method and not a field: there is nothing to
- * hold.
+ * A failed migration stops the run before any jar or pack moves.
  */
 @Slf4j
 public final class Schema {
@@ -37,11 +19,8 @@ public final class Schema {
     /**
      * Applies every pending migration.
      *
-     * @return how many were applied - zero is the ordinary answer on a database that is current.
-     * @throws org.flywaydb.core.api.FlywayException if a migration fails or the history is
-     *                                               inconsistent. Deliberately not wrapped: Flyway's
-     *                                               own message names the file and the statement,
-     *                                               and nothing this module could add would beat it.
+     * @return how many were applied, zero on a current database
+     * @throws org.flywaydb.core.api.FlywayException if a migration fails or the history is inconsistent, unwrapped
      */
     public static int migrate(final DatabaseSpec config) {
         try (Database database = open(config)) {
@@ -50,11 +29,7 @@ public final class Schema {
     }
 
     /**
-     * Opens the pool.
-     *
-     * The one-shot commands do not need this - {@link #migrate(DatabaseSpec)} opens and closes one around one call.
-     * {@code steward-worker serve} does: it holds a pool for as long as it runs, an advisory lock connection out of it
-     * for as long as an apply takes, and a {@code LISTEN} connection outside it that pgjdbc opens directly.
+     * Opens the pool that {@code serve} holds for as long as it runs.
      *
      * @return a pool the caller owns and must close
      */
@@ -65,7 +40,7 @@ public final class Schema {
     /**
      * Applies every pending migration over a pool somebody else owns.
      *
-     * @return how many were applied - zero is the ordinary answer on a database that is current
+     * @return how many were applied, zero on a current database
      */
     public static int migrate(final Database database) {
         final int applied = database.migrate();

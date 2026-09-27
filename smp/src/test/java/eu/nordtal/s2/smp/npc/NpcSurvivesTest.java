@@ -15,27 +15,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The figure in the tavern survives being hit, and the guard that makes that true is switched on.
  *
- * <b>The failure it exists for</b>
- *
- * {@code SpawnNpc} has set {@code setInvulnerable(true)} since the day it was written, and that flag is not what it
- * reads as: vanilla lets a <b>creative-mode</b> player hit straight through it, and the <b>void</b> ignores it
- * outright. Every admin standing next to the NPC is in creative mode. The spawn protection is a rule about blocks,
- * so it defends nothing here. The figure is the only way a {@code HAND_IN} objective can be fulfilled, so the whole
- * milestone track goes with it and nothing says so - the next player to right-click simply finds nothing to click
- * (finding 150).
- *
- * <b>Why the registration is half the test</b>
- *
- * A test that read {@code NpcProtection} alone would have been green on the defect this is written for: the handlers
- * can be perfect and never run. The listener is one line in {@code SmpPlugin}, in a method with twenty of them, and
- * it is exactly the line a merge drops. {@code AdminWatchWiringTest} in {@code :common} exists for the same shape of
- * failure - a mechanism that was written, was tested, and had no caller for a day.
- *
- * <b>Why a text search</b>
- *
- * Raising an {@code EntityDamageEvent} needs a world, an entity and a damage source, and spawning a
- * {@code Mannequin} needs a server. What is being protected is a registration and three cancels, which is the same
- * reason {@code PortalGateWiringTest} and {@code SpawnNpcLabelTest} are text searches.
+ * {@code setInvulnerable} does not stop creative players or the void, so the handlers and their registration are read.
  */
 class NpcSurvivesTest {
 
@@ -118,14 +98,7 @@ class NpcSurvivesTest {
         }
     }
 
-    /**
-     * The file with its comments taken out.
-     *
-     * Crude on purpose - it does not understand a {@code //} inside a string literal, and there is none in the two
-     * files
-     * this reads. Anything cleverer would be a Java parser, and the point of a text search is that it is smaller than
-     * the thing it checks.
-     */
+    /** The file with its comments taken out, crudely: a {@code //} inside a string literal is not understood. */
     private static String code(final String source) {
         return source.replaceAll("(?s)/\\*.*?\\*/", " ").replaceAll("(?m)//.*$", " ");
     }

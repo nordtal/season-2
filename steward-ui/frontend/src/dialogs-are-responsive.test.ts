@@ -6,34 +6,10 @@ import { assert, describe, expect, it } from "vitest"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-/**
- * Nothing in the app reaches for a raw dialog: every one goes through `responsive-dialog.tsx`.
- *
- * Every dialog in the whole app is to be a dialog or a bottom
- * sheet depending on the width, decided by one component - and `Dialog` is not to be used raw
- * anywhere, the command palette and the security-key prompt included. Writing the exceptions into a
- * comment alone is exactly the kind
- * of note the next dialog is written without having read.
- *
- * So the rule is a test. A page that imports `Dialog`, `AlertDialog`, `Sheet` or `Drawer` from
- * `components/ui/` fails here, and the failure names the file. The primitives stay where they are:
- * they are what the responsive component is built out of, and this rule is about who may reach past
- * it.
- *
- * <h2>Why the import and not the element</h2>
- * A JSX tag can be renamed at the import (`Dialog as Shell`) and a regex over `<Dialog` would miss
- * it, while a regex over the identifier would flag every mention in a comment. The import line is
- * the one thing a call site cannot do without.
- */
+/** Every dialog goes through `responsive-dialog.tsx`; the import is checked, since a JSX tag can be renamed there. */
 const RAW = /from\s+"@\/components\/ui\/(dialog|alert-dialog|sheet|drawer)"/
 
-/**
- * The files allowed to import a raw one, each with the reason in its own words.
- *
- * Exemption is by file, the same shape `no-middle-dot.test.ts` and
- * `identifiers-stay-in-the-popover.test.ts` both use: a file half-converted looks exactly like one
- * this test never read.
- */
+/** The files allowed to import a raw one, each with its reason; exemption is by file. */
 const ALLOWED = new Map<string, string>([
   [
     path.join("components", "ui", "responsive-dialog.tsx"),
@@ -98,10 +74,7 @@ describe("every dialog goes through the responsive one", () => {
   })
 
   it("the command palette and the security-key prompt are converted, by name", () => {
-    /**
-     * Named here rather than trusting the sweep above: both are shells rather than pages, so a
-     * revert would read like a refactor.
-     */
+    /** Named explicitly, since a revert of either shell would read like a refactor. */
     for (const file of [path.join("components", "ui", "command.tsx"), path.join("app", "security-keys.tsx")]) {
       const text = readFileSync(path.join(source, file), "utf8")
       assert.include(

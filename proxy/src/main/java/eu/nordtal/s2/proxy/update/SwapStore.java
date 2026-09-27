@@ -10,32 +10,13 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-/**
- * Where a proxy swap keeps the two things it cannot keep in memory.
- *
- * Which backend each player was standing on, and whether the standby still has anybody.
- *
- * An interface with one implementation, the same shape {@code PlaytimeStore} has and for the same
- * reason: {@link ProxySwap} and {@link StandbyReturn} own the interesting part - when to move
- * somebody - and that part is assertable without a database only if the storage is a seam.
- */
+/** Where a proxy swap keeps each player's backend and the standby's head count, outside memory. */
 public interface SwapStore {
 
-    /**
-     * How long a seat is worth acting on.
-     *
-     * A swap is over in twenty seconds; this is three minutes, which is the difference between
-     * "long enough for a bad one" and "long enough to still be here tomorrow". The upper bound is
-     * the one that matters: past it a seat is a player's old position, and acting on one
-     * would move somebody on an ordinary login to a server the phase does not point at - which
-     * looks exactly like broken routing and is not.
-     */
+    /** How long a seat is worth acting on; past it, a seat would override routing on an ordinary login. */
     Duration SEAT_VALID_FOR = Duration.ofMinutes(3);
 
-    /**
-     * @param dataSource the proxy's own pool, the same one the access directory borrows
-     * @return a store over that pool; it owns nothing and there is nothing to close
-     */
+    /** Returns a store over the proxy's own pool; it owns nothing and there is nothing to close. */
     static SwapStore using(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
         final SwapDao dao = Jdbi.create(dataSource)
@@ -65,9 +46,8 @@ public interface SwapStore {
      * One row of {@code proxy_swap_seat}: where somebody was standing when they were parked.
      *
      * @param playerUuid the player
-     * @param server     the backend, as {@code velocity.toml} spells it
-     * @param recordedAt when it was written - the only thing that tells a seat from this run apart
-     *                   from one left over by a swap nobody came back from
+     * @param server the backend, as {@code velocity.toml} spells it
+     * @param recordedAt when it was written, which tells this run's seats from leftovers
      */
     record Seat(UUID playerUuid, String server, Instant recordedAt) {
 
@@ -77,10 +57,7 @@ public interface SwapStore {
             Objects.requireNonNull(recordedAt, "recordedAt");
         }
 
-        /**
-         * @param now the proxy's clock
-         * @return whether this seat is still worth acting on - see {@link #SEAT_VALID_FOR}
-         */
+        /** Returns whether this seat is still worth acting on, by {@link #SEAT_VALID_FOR}. */
         public boolean isFresh(final Instant now) {
             return !recordedAt.isBefore(now.minus(SEAT_VALID_FOR));
         }
@@ -91,24 +68,22 @@ public interface SwapStore {
      *
      * @param player the player
      * @param server the backend they are on, as {@code velocity.toml} spells it
-     * @param now    the proxy's clock
+     * @param now the proxy's clock
      */
     void seat(UUID player, String server, Instant now);
 
     /**
-     * Takes every seat and leaves the table empty - read once, at startup.
+     * Takes every seat and leaves the table empty; read once, at startup.
      *
-     * @return every row there was, stale ones included; {@link Seat#isFresh} is what sorts them
+     * @return every row there was, stale ones included
      */
     List<Seat> takeAllSeats();
 
     /**
      * The standby's heartbeat, so {@code steward-worker} can see whether it is safe to stop it.
      *
-     * @param players how many the standby is holding right now; zero is a real answer and the one
-     *                the worker is waiting for
-     * @param now     the proxy's clock - what makes that zero trustworthy rather than merely the
-     *                last thing a dead process happened to write
+     * @param players how many the standby is holding right now; zero is what the worker waits for
+     * @param now the proxy's clock, which tells a live zero from a dead process's last write
      */
     void reportStandby(int players, Instant now);
 }

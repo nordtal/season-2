@@ -15,13 +15,7 @@ import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/compon
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-/**
- * `discordId` used to be defined here and stayed exported under this name for
- * `snowflake-picker.test.tsx`, which imports it from this module. The implementation moved to
- * `config-controls.tsx` so `repeatable-cards.tsx` could use it too without importing
- * this file back - a card's own fields need the same "is this a role or a channel" heuristic as a
- * top-level key, and a cycle between the two files would follow from importing it the other way.
- */
+/** Re-exported for `snowflake-picker.test.tsx`; it lives in `config-controls.tsx` to avoid an import cycle. */
 export { discordId } from "@/components/steward/config-controls"
 
 /** The marker for a key the file has but the schema does not mention. */
@@ -34,12 +28,9 @@ export function NotInSchemaBadge() {
 }
 
 /**
- * The marker for a key an environment variable currently answers: saving it here
- * changes the file, never the running service, until whoever set the variable removes it.
+ * The marker for a key an environment variable answers, where saving changes the file but not the service.
  *
- * The field stays editable regardless - the decision is to let the file be
- * prepared for the day the variable is gone, not to lock it - so this is a sign next to the field,
- * not a state on it.
+ * The field stays editable, so the file can be prepared for when the variable is gone.
  */
 export function EnvironmentOverriddenBadge() {
   return (
@@ -60,25 +51,12 @@ export function EnvironmentOverriddenBadge() {
   )
 }
 
-/**
- * A file steward could not read as YAML, shown exactly as it stands on disk - and
- * editable as the plain text it is when the mount underneath it allows a write
- * at all. There is nothing here this class parsed, so there is no form and no per-field save; the
- * whole file is one draft, checked for the syntax its own name implies only once the operator
- * saves it, and never refused for what that check finds. See `RawConfigEditor` for the rest of
- * this - format detection, highlighting, the save itself and its warnings all live there so this
- * function stays just the hand-off it was built as.
- */
-/**
- * Whether `document` carries the `revision` the worker now sends on every raw document.
- *
- * `RawConfigDocument` itself does not declare the field - see `EditableRawConfigDocument`'s own
- * comment for why it is a separate type - so this is what tells the two apart at runtime.
- */
+/** Whether `document` carries the `revision` the worker sends on every raw document. */
 function isEditable(document: RawConfigDocument): document is EditableRawConfigDocument {
   return "revision" in document && typeof document.revision === "string"
 }
 
+/** A file that is not valid YAML, shown as it stands on disk and handed to `RawConfigEditor` for editing. */
 export function RawConfigView({
   file,
   document,
@@ -106,12 +84,7 @@ function isSectionValuesArray(value: Draft[string] | undefined): value is Sectio
   )
 }
 
-/**
- * What the form would send: only the keys that actually differ from the file.
- *
- * Sending everything would be simpler and would rewrite every line of the file on every save,
- * which turns a one-word change into a diff nobody reads.
- */
+/** Only the keys that differ from the file, so a one word change stays a one line diff. */
 export function changed(document: ParsedConfigDocument, draft: Draft): ConfigChanges {
   const changes: ConfigChanges = {}
   for (const entry of document.entries) {
@@ -123,21 +96,14 @@ export function changed(document: ParsedConfigDocument, draft: Draft): ConfigCha
       }
       continue
     }
-    /**
-     * A card's whole list of sections is sent the same way a plain LIST is: as one
-     * value under the parent path, compared whole against the sections the file itself held - a
-     * removed card is invisible in a diff of individual keys, since there is no key left to differ.
-     */
+    /** A card list is sent whole under its parent path, since a removed card leaves no key to differ. */
     if (entry.kind === "SECTIONS") {
       if (isSectionValuesArray(value) && JSON.stringify(value) !== JSON.stringify(sectionsFromEntry(entry))) {
         changes[entry.path] = value
       }
       continue
     }
-    /**
-     * A secret has no value here to compare against, so any typed value is a change - including an
-     * empty one, which empties it. The field says so out loud rather than doing it quietly.
-     */
+    /** A secret has no value to compare, so any typed value is a change, an empty one emptying it. */
     if (entry.secret || value !== (entry.value ?? "")) {
       changes[entry.path] = value
     }
@@ -146,18 +112,9 @@ export function changed(document: ParsedConfigDocument, draft: Draft): ConfigCha
 }
 
 /**
- * The one path-keyed exception to "a card has no title beyond its index".
+ * Titles `languages` cards by their tag's language name, the one `SECTIONS` entry with a natural title.
  *
- * `languages` in `discord-bot/access.yml` is the only `SECTIONS` entry in the whole config tree
- * that has a natural title - the tag - and nothing in the schema marks a field as "the one that
- * names this entry" for `RepeatableCards` to find generically (`SchemaNode` carries field shapes,
- * never a role like that). Recognising it by key path here, instead of teaching the schema a new
- * concept for a case that occurs exactly once, is the ticket's own documented fallback. `tiers`,
- * the only other `SECTIONS` entry today, gets no title from here and keeps the plain "Entry N".
- *
- * The name itself comes from `languageName` (`lib/language-names.ts`), a hand-kept map - see that
- * file for where the two names in it come from. A blank tag (a freshly added, still-empty card)
- * falls back to the plain index rather than showing an empty string as a title.
+ * A blank tag falls back to the plain index.
  */
 function sectionTitleFor(entry: ConfigEntry): ((section: SectionValues, index: number) => string) | undefined {
   if (entry.path !== "languages") return undefined
@@ -167,13 +124,7 @@ function sectionTitleFor(entry: ConfigEntry): ((section: SectionValues, index: n
   }
 }
 
-/**
- * Which control an entry gets: the repeatable cards for a `SECTIONS` entry, the plain
- * scalar list rows for a `LIST`, or a leaf's own scalar control - a secret, a schema's choices, a
- * Discord id, a boolean or plain text, in that order of precedence. The leaf branch is
- * `ScalarControl` in `config-controls.tsx`, shared with a field drawn inside a card, so the two
- * never drift apart over what a "choices" or a "boolean" looks like.
- */
+/** Which control an entry gets: cards for `SECTIONS`, list rows for `LIST`, else `ScalarControl`. */
 export function Control({
   entry,
   draft,

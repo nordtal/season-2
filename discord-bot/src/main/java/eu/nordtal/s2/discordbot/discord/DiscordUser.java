@@ -13,20 +13,9 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 
 /**
- * An admin who ran a slash command, as {@code :commands} sees them.
+ * An admin who ran a slash command, as {@code :commands} sees them, with no Minecraft UUID.
  *
- * Why the replies accumulate: A shared command may say more than one thing - {@code /phase smp-start} says what the
- * date is now and then how much paid access moved with it - and a Discord interaction has exactly one message.
- * {@code editOriginal} replaces it, so sending each line on its own would leave the admin looking at the last one
- * and never seeing the first. Every reply therefore appends and re-sends the whole text, which is one REST call per
- * line and two or three per command.
- *
- * The alternative, follow-up messages, was rejected: three ephemeral messages for one command is how season 1's bot
- * read, and the second and third of them are indistinguishable from a bug.
- *
- * What this class does not carry: No Minecraft UUID. The command layer is written not to assume one exists - and a
- * Discord admin who has never linked an account is an ordinary case here, unlike on the proxy where the login gate
- * refuses one. {@code /phase} needs neither, and asks for neither.
+ * Every reply appends and re-sends the whole text, since an interaction has exactly one message.
  */
 public final class DiscordUser implements NordtalUser {
 
@@ -96,42 +85,31 @@ public final class DiscordUser implements NordtalUser {
         say(text);
     }
 
-    /** The interaction being answered, for a caller that wants to attach components. */
+    /** Returns the interaction being answered, for a caller that attaches components. */
     public InteractionHook hook() {
         return hook;
     }
 
-    /** Everything said so far, for a caller that wants to send it with components attached. */
+    /** Returns everything said so far. */
     public String text() {
         synchronized (lines) {
             return String.join("\n\n", lines);
         }
     }
 
-    /**
-     * One more line, and the whole answer resent.
-     *
-     * Why the list is locked: More than one thread reaches it. This user is built on a JDA worker thread, and a command
-     * whose target is another process is then answered by {@code Outbox} - from its own scheduler, and again from the
-     * task that gives up waiting. Two of those three can overlap, and an unsynchronised {@link ArrayList} written from
-     * two threads loses a line, sends a stale one, or fails inside the list itself.
-     *
-     * The join happens under the same lock, so the text sent is the text the list held at the moment this line was
-     * added
-     * rather than whatever it holds by the time the edit is built.
-     */
+    /** Appends one line and resends the whole answer, under a lock since {@code Outbox} answers from other threads. */
     private void say(final String line) {
         final String all;
         synchronized (lines) {
             lines.add(line);
             all = String.join("\n\n", lines);
         }
-        // Components are cleared: any confirmation button that led here has been used and would else run twice.
+        // Clears components, so a used confirmation button cannot run twice.
         hook.editOriginal(all).setComponents(List.of()).queue();
     }
 
     private String render(final MessageRef message) {
-        // Messages' own named substitution, not a hand-rolled replace: it reports a placeholder mismatch either way.
+        // Messages' own substitution, which reports a placeholder mismatch.
         return messages.format(locale, message);
     }
 }

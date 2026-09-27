@@ -4,16 +4,12 @@ import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What saving one thing came to.
+ * What saving one thing came to; zero {@code bytes} with {@code ok} true is a finding, not a detail.
  *
- * {@code bytes} is on this record because a backup that saved nothing has to be able to say so. Run 23 once reported
- * success having snapshotted zero volumes, and nothing in the report made that visible. A size of zero is not a
- * detail here; it is the finding.
- *
- * @param name what was saved - a volume name, or {@code database}
+ * @param name what was saved: a volume name, or {@code database}
  * @param ok whether there is now a file that can be restored from
- * @param bytes how large it is. Zero with {@code ok} true is a contradiction the report shows
- * @param took how long it ran, because "the stack was down for 66 seconds" is half the story
+ * @param bytes how large it is
+ * @param took how long it ran
  * @param file where it landed, or {@code null} when nothing was written
  * @param message what happened, in a sentence a person can act on
  */
@@ -34,7 +30,7 @@ public record SnapshotResult(
         return new SnapshotResult(name, false, 0, took, null, message);
     }
 
-    /** A size a person reads at 04:45, not a number of bytes. */
+    /** Formats a size for a person to read. */
     public static String human(final long bytes) {
         if (bytes < 1024) {
             return bytes + " B";

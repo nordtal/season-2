@@ -1,7 +1,7 @@
 <!--
   gradlew checkPipeSafety
 
-  `deploy/pipe-safety-test.sh` — every script under `pipefail` for the `| head` shape that turns a reader's SIGPIPE into the pipeline's exit status. The one suite that is not a test for one script.
+  Scans every pipefail script for a `| head` whose SIGPIPE fails the pipeline.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: checkPipeSafety" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">

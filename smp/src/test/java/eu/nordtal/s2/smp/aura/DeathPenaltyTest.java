@@ -8,11 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/**
- * What a death costs, and the one exemption there is.
- *
- * It is deliberately <em>one</em> rule: everything costs, the arena costs nothing, and the listed causes cost more.
- */
+/** What a death costs: everything costs, the arena costs nothing, and the listed causes cost more. */
 class DeathPenaltyTest {
 
     private final DeathPenalty penalty = new DeathPenalty(5, 20, Set.of("lava", "cactus", "in_wall"));

@@ -10,13 +10,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * The two sentences a person actually reads, and the rule that decides which one they get.
+ * The two sentences a person reads about an image, and the rule that decides which one they get.
  *
- * Why a string is worth a test: neither of these is a log line - they are notes in the update report that goes into a
- * Discord embed and into {@code /smp update} 's output, and they are the only thing standing between "nobody could
- * look at this image" and "this image is current". Neither sentence may point at a management panel that does not
- * exist, or ask for credentials the reader cannot supply. A wrong sentence here is not cosmetic; it is finding A24
- * wearing different words.
+ * They go into the update report, so neither may name a removed panel or ask for credentials.
  */
 class ImageResultTest {
 

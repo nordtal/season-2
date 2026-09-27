@@ -31,14 +31,9 @@ import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The three-line HUD: players, loot, border.
+ * The three-line HUD, players, loot and border, as three {@link BossBar} pills per player.
  *
- * Three {@link BossBar} instances per player, redrawn a few times a second.
- *
- * Players shows alive/dead plus an arrow to the nearest living player, loot a countdown plus a
- * direction, border its shrink status. The resource pack makes the vanilla bar itself invisible, so
- * this class only decides what each line says. Each line is one {@link BossBarLine} pill: icon,
- * text, and the bearing arrow riding at the end of the same pill.
+ * The resource pack hides the vanilla bar, so this class only decides what each line says.
  */
 public final class HudRenderer {
 
@@ -58,15 +53,10 @@ public final class HudRenderer {
 
     private @Nullable BukkitTask task;
 
-    /**
-     * The living count is read at render time, never pushed in.
-     *
-     * A push depends on somebody remembering to call it, while reading the tracker four times a
-     * second cannot go stale.
-     */
+    /** Read at render time rather than pushed in, so the living count cannot go stale. */
     private final WinTracker wins;
 
-    /** Read on every redraw, for the reason given on {@link #wins}. */
+    /** Read on every redraw, like {@link #wins}. */
     private final LootRefill loot;
 
     public HudRenderer(
@@ -160,7 +150,7 @@ public final class HudRenderer {
         player.showBossBar(borderBar);
     }
 
-    /** The arrow rides at the end of its text's pill - or nothing does, when there is no target. */
+    /** The arrow rides at the end of its text's pill, or nothing does when there is no target. */
     private static String withArrow(final String text, final String arrow) {
         return arrow.isEmpty() ? text : text + BossBarLine.ICON_GAP + arrow;
     }

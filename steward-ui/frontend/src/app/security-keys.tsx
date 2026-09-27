@@ -25,22 +25,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-/**
- * The keys registered on this account: add, rename, remove.
- *
- * The keys stand in the user popover as a
- * list. A dialog opens where one belongs - registering a key, renaming one, and the question
- * before a removal - and nowhere else. An inline form for registering would grow the popover
- * under the reader's thumb as it unfolds, which is why it is a dialog instead.
- *
- * **Nothing in here is bordered.** The popover is already a bordered surface and the settings
- * page draws this inside a card, so every framed box this section uses - the form, each key row,
- * the two alerts - is a plain row.
- *
- * **The state lives above the list**, in {@link useSecurityKeyActions}, so the dialogs can be
- *   mounted outside the popover. A dialog rendered inside it dies the moment the popover closes -
- *   and the popover closes on the first outside click, which is the dialog's own overlay.
- */
+/** The key list's state and its three dialogs, kept above the popover so an open dialog outlives it. */
 export type SecurityKeyActions = ReturnType<typeof useSecurityKeyActions>
 
 export function useSecurityKeyActions(me: Me | undefined) {
@@ -56,13 +41,7 @@ export function useSecurityKeyActions(me: Me | undefined) {
 
   return {
     keys,
-    /**
-     * Whether `/api/me` has answered at all.
-     *
-     * `keys` is `me?.keys ?? []`, so an unanswered session and an account with no key are the same
-     * empty array here - and the list said "No key is registered." to somebody who has three. This
-     * is the one bit that tells them apart.
-     */
+    /** Whether `/api/me` has answered, since `keys` is empty both before that and for an account with no key. */
     waiting: me === undefined,
     add,
     rename,
@@ -92,23 +71,17 @@ export function useSecurityKeyActions(me: Me | undefined) {
     closeAdding: () => setAdding(false),
     closeRenaming: () => setRenaming(null),
     closeRemoving: () => setRemoving(null),
-    /** Whether any of the three questions is on screen - what tells a popover to get out of the way. */
+    /** Whether any of the three questions is on screen, which tells a popover to get out of the way. */
     get asking() {
       return adding || renaming !== null || removing !== null
     },
   }
 }
 
-/**
- * The list itself, and the one line under each key.
- *
- * ABSENT IS NOT THE SAME AS FALSE. An authenticator that did not answer the backup question is not
- * one that answered "no", and only a definite no is a reason to press for a second key - a passkey
- * synced through iCloud already exists in two places.
- */
 /** Two rows while `/api/me` is read. One key is the common case, two the recommended one. */
 const WAITING_KEYS = [0, 1]
 
+/** The registered keys; an absent backup answer is not a no, so only a definite no asks for a second key. */
 export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
   const { keys } = state
   const onlyOneAndItIsPhysical = keys.length === 1 && keys[0].backedUp === false
@@ -190,13 +163,7 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
   )
 }
 
-/**
- * The three questions, mounted where a closing popover cannot take them with it.
- *
- * Adding an authenticator is exactly as powerful as having one, so a stolen session that could add
- * a key would be a stolen session that had made itself permanent. The server enforces that; this
- * side never has to know.
- */
+/** The three dialogs, mounted where a closing popover cannot take them with it. */
 export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
   const { add, rename, remove } = state
 
@@ -300,11 +267,7 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
-      {/*
-        A question rather than a button that just does it. Removing the LAST key is allowed - it
-        puts this account back at the setup page, which is recoverable - but removing the wrong one
-        of two is not, and the two look identical until the name is read.
-      */}
+      {/* A question first, since the wrong one of two keys looks like the right one until the name is read. */}
       <ResponsiveAlertDialog open={state.removing !== null} onOpenChange={(open) => open || state.closeRemoving()}>
         <ResponsiveAlertDialogContent>
           <ResponsiveAlertDialogHeader>

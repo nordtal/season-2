@@ -1,5 +1,4 @@
-// Everything every module shares: Java 25, UTF-8, JUnit, the nordtal group and the
-// repo-wide version from the root gradle.properties.
+// Shared by every module: Java 25, UTF-8, JUnit, the group and the repo-wide version.
 
 import eu.nordtal.s2.build.CheckSourcesTracked
 import eu.nordtal.s2.build.RepositoryRootTestInputs
@@ -31,14 +30,12 @@ dependencies {
     "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
 }
 
-// A test that reads a file at the repository root has to say so, or Gradle reports the task
-// UP-TO-DATE after that file is edited. See RepositoryRootTestInputs for why two tests do it.
+// A test reading a file at the repository root declares it, or Gradle skips it after an edit.
 val repositoryRootTestInputs =
     extensions.create<RepositoryRootTestInputs>("repositoryRootTestInputs", rootProject.layout.projectDirectory)
 
-// The assembled resource pack, for a module that opts in with `resourcePack(project(":resource-pack",
-// "pack"))`. Its tests find it through the system property `nordtal.pack`, because part of the pack
-// is generated and src/ alone is not what the client receives.
+// The assembled pack, for modules that declare `resourcePack(project(":resource-pack", "pack"))`.
+// Tests find it through the system property `nordtal.pack`.
 val resourcePack = configurations.dependencyScope("resourcePack")
 val resourcePackFiles =
     configurations.resolvable("resourcePackFiles") {
@@ -63,7 +60,7 @@ tasks.named<Test>("test") {
     )
 }
 
-// Read here, not inside the task block: a Task is ExtensionAware too, and the<SourceSetContainer>() there resolves against the task instead.
+// Read outside the task block, where the<SourceSetContainer>() would resolve against the task.
 val sourceDirectoriesOfEverySourceSet = the<SourceSetContainer>().map { it.allSource.srcDirs }
 val repositoryRootDirectory = rootProject.layout.projectDirectory
 

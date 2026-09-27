@@ -8,21 +8,7 @@ import java.util.UUID;
 /**
  * The arguments a command was actually given, already parsed and checked against its {@link Declaration}.
  *
- * The accessors throw rather than return {@link Optional} because a required argument that is
- * missing here is not a user error - the adapter would have refused the
- * input long before, with the platform's own syntax message. It is a declaration and a command that
- * disagree, which is a programming mistake, and the useful behaviour for one of those is a loud
- * failure naming the argument rather than an {@link Optional} that some branch forgets to check and
- * silently treats as "not given".
- *
- * An argument declared {@link Argument#optional()} is the one case where absence is a legitimate
- * answer, and {@link #optionalString} is the accessor that says so out loud.
- *
- * A player is a UUID by the time it gets here.
- * Both surfaces resolve their own way - a Minecraft name in chat, a member picked from a list in
- * Discord and followed through {@code account_link} - and both end at the same UUID. That is the
- * point of resolving in the adapter: "who does this correct?" is one question with one answer,
- * rather than two questions that happen to look alike.
+ * A missing required argument is a programming mistake, so the accessors throw; a player is already a UUID.
  */
 public final class Values {
 
@@ -34,19 +20,7 @@ public final class Values {
         this.values = normalise(declaration, Objects.requireNonNull(values, "values"));
     }
 
-    /**
-     * Every {@link Argument.Kind#CHOICE} in its declared spelling, whatever case it was typed in.
-     *
-     * One place, because the alternative is three: Discord's dropdown only sends the declared
-     * form; both chat adapters type a choice as a plain
-     * word and hand on whatever was typed. Normalising here is what lets a command compare against
-     * its own constants without every one of them remembering to be lenient - and it is what keeps
-     * {@code /phase set maintenance}, which has worked in chat since the proxy's hand-written
-     * adapter, from being refused by the generic check that replaced it.
-     *
-     * A value that is not one of the choices at all is left exactly as it was typed:
-     * {@link NordtalCommand#check} is what refuses it, and it has to be able to quote it back.
-     */
+    /** Returns the values with every {@link Argument.Kind#CHOICE} in its declared spelling; others stay as typed. */
     private static Map<String, Object> normalise(final Declaration declaration, final Map<String, Object> values) {
         final Map<String, Object> normalised = new java.util.LinkedHashMap<>(values);
         for (final Argument argument : declaration.arguments()) {
@@ -59,7 +33,7 @@ public final class Values {
         return Map.copyOf(normalised);
     }
 
-    /** No arguments at all - {@code /smp reload}, {@code /hg start}. */
+    /** No arguments at all, as for {@code /smp reload}. */
     public static Values none(final Declaration declaration) {
         return new Values(declaration, Map.of());
     }
@@ -69,40 +43,29 @@ public final class Values {
         return get(name, String.class);
     }
 
-    /** An optional string argument, absent if it was not given. */
+    /** Returns an optional string argument, absent if it was not given. */
     public Optional<String> optionalString(final String name) {
         return Optional.ofNullable(values.get(name)).map(String.class::cast);
     }
 
-    /** An {@link Argument.Kind#INTEGER}, already inside the bounds the declaration set. */
+    /** Returns an {@link Argument.Kind#INTEGER}, already inside the declared bounds. */
     public int integer(final String name) {
         return get(name, Integer.class);
     }
 
-    /** A {@link Argument.Kind#PLAYER}, resolved to a UUID by the adapter. */
+    /** Returns a {@link Argument.Kind#PLAYER}, resolved to a UUID by the adapter. */
     public UUID player(final String name) {
         return get(name, UUID.class);
     }
 
     /**
-     * An {@link Argument.Kind#ACCOUNT}, as a Discord id.
-     *
-     * A string and not a {@code long}: Discord ids are snowflakes that exceed what a JSON number
-     * can hold safely, they are compared and stored as text everywhere in this repository, and
-     * {@code discord_user.discord_id} is a {@code varchar}.
+     * Returns an {@link Argument.Kind#ACCOUNT} as a Discord id, text because a snowflake exceeds a safe JSON number.
      */
     public String account(final String name) {
         return get(name, String.class);
     }
 
-    /**
-     * Whatever was supplied for this argument, untyped - or empty if nothing was.
-     *
-     * For the one caller that has to walk a command's arguments without knowing what they are:
-     * {@link eu.nordtal.s2.commands.remote.RequestArguments}, writing them onto a request row. Every
-     * other reader knows which argument it wants and what kind it is, and should keep using the
-     * typed accessors, which fail loudly rather than handing back an {@code Object}.
-     */
+    /** Returns whatever was supplied for this argument, untyped, for {@code RequestArguments} alone. */
     public Optional<Object> raw(final String name) {
         return Optional.ofNullable(values.get(name));
     }

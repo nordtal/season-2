@@ -92,14 +92,7 @@ class BundleContinuationTest {
                         + " count instead, the way the wheel does at one spin");
     }
 
-    /**
-     * The value a line declares, or {@code null} if it declares none.
-     *
-     * A properties comment starts with {@code #} or {@code !} after any leading whitespace, and
-     * a key ends at the first unescaped {@code =} or {@code :} - or, for a key with no separator at
-     * all, at the first unescaped whitespace. A line that is neither a comment nor a declaration is
-     * blank.
-     */
+    /** Returns the value a line declares, or {@code null} for a comment or a blank line. */
     private static String valueOf(final String line) {
         final String trimmed = line.stripLeading();
         if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith("!")) {
@@ -118,11 +111,7 @@ class BundleContinuationTest {
         return "";
     }
 
-    /**
-     * @return whether {@code line} is continued on the next one - an <em>odd</em> number of trailing
-     *         backslashes, because {@code \\} at the end of a value is an escaped backslash and ends
-     *         the value
-     */
+    /** Returns whether {@code line} ends in an odd number of backslashes, which continues it. */
     private static boolean continues(final String line) {
         int backslashes = 0;
         for (int i = line.length() - 1; i >= 0 && line.charAt(i) == '\\'; i--) {

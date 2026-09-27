@@ -14,9 +14,8 @@ import kotlin.system.exitProcess
 /**
  * Asks for the folder of a Minecraft instance and remembers it for [InstallPack].
  *
- * A program of its own rather than a task action, because it opens a window and a Gradle daemon
- * has no business doing that. The first argument is the file to write; a second one is taken as
- * the answer instead of asking, which is also the way in on a machine with no screen.
+ * A separate program, so the Gradle daemon opens no window. The first argument is the file to write; a
+ * second is taken as the answer instead of asking.
  */
 object MinecraftInstanceChooser {
     private const val TITLE = "Choose your Minecraft instance folder"
@@ -42,7 +41,7 @@ object MinecraftInstanceChooser {
             finish(1, "There is no screen to ask on. Pass the folder instead: -PminecraftInstance=<folder>")
         }
         if (System.getProperty("os.name").startsWith("Mac")) {
-            // Swing's chooser looks foreign on macOS; this property turns the native one into a folder picker.
+            // Makes macOS's native chooser pick folders.
             System.setProperty("apple.awt.fileDialogForDirectories", "true")
             val dialog = FileDialog(null as Frame?, TITLE, FileDialog.LOAD).apply { directory = start.path }
             dialog.isVisible = true

@@ -1,9 +1,7 @@
 <!--
   dev reset hunger-games
 
-  Deletes the hunger-games volume, its map included. plugins/ is a directory on the host and
-  survives. You type the service name back in the
-  Run window before anything is deleted.
+  Deletes the hunger-games volume after you type the service name back. plugins/ survives.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev reset hunger-games" type="Application" factoryName="Application" folderName="dev: reset (destructive)">

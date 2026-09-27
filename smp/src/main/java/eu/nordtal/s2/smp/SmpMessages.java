@@ -15,9 +15,7 @@ import eu.nordtal.s2.common.message.spec.TextFormat;
 import eu.nordtal.s2.smp.world.WorldRole;
 import java.util.Optional;
 
-/**
- * Every message of the smp bundle, one method per key.
- */
+/** Every message of the smp bundle, one method per key. */
 @MessageSpec("smp")
 public interface SmpMessages {
 
@@ -366,11 +364,7 @@ public interface SmpMessages {
 
         Smp.Milestone milestone();
 
-        /**
-         * A milestone's shipped name, or empty for one only {@code milestones.yml} knows.
-         *
-         * A milestone with no shipped name shows under its config key.
-         */
+        /** Returns a milestone's shipped name, or empty for one only {@code milestones.yml} knows. */
         default Optional<MessageRef> milestoneName(final String key) {
             return Optional.ofNullable(
                     switch (key) {

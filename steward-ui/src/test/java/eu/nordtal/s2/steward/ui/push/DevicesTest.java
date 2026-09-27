@@ -6,12 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link Devices#nameOf} against the User-Agents that actually reach this service.
+ * {@link Devices#nameOf} against real User-Agents, each walking past a trap.
  *
- * The strings below are real ones, copied rather than invented - the three that matter are an
- * iPhone, a desktop Chrome and a desktop Firefox. The
- * point of each assertion is the trap it walks past: every one of these carries the word "Mozilla",
- * Chrome's carries "Safari", and Edge's carries both "Chrome" and "Safari".
+ * Every one carries "Mozilla", Chrome's carries "Safari", and Edge's carries both "Chrome" and "Safari".
  */
 class DevicesTest {
 

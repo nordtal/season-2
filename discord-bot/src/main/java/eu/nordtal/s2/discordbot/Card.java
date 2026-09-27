@@ -10,18 +10,9 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 
 /**
- * The one way this bot draws an embed.
+ * Builds every embed the bot sends: a title, one-word headings, and values that are data.
  *
- * An embed is UI, not a paragraph in a box: A title, one-word headings, and values that are data:
- * {@code smp 0.9.3 → 0.9.4} rather than a sentence saying the plugin was updated. What happened is the colour, when
- * is the timestamp, and who asked is a field. Every embed the bot sends goes through here so the next one cannot
- * drift back into prose.
- *
- * Discord's limits are answered here, once: 25 fields, 1024 characters per field, 4096 in the description and 6000
- * across the whole embed. JDA refuses an embed over any of them, and the person watching then sees nothing at all.
- * {@link #block} is the answer for anything that grows with the network: its lines are packed into as few fields as
- * they fit, and what does not fit is counted ("+3 more") rather than cut off mid-line. There is no fallback to a
- * code block. A code block is for something to copy.
+ * Discord's size limits are enforced here; {@link #block} packs lines into fields and counts what does not fit.
  */
 public final class Card {
 
@@ -32,7 +23,7 @@ public final class Card {
     static final int DESCRIPTION = 4096;
     static final int TOTAL = 6000;
 
-    /** Discord drops a field with an empty name; this is the name of a block's continuation. */
+    /** The name of a block's continuation field, since Discord drops a field with an empty name. */
     private static final String CONTINUED = "​";
 
     /** The colour of an embed is its outcome. */
@@ -84,9 +75,7 @@ public final class Card {
     }
 
     /**
-     * One line per item under one heading, full width, continued into further fields when it outgrows one.
-     *
-     * Summarised by {@code more} once the embed itself is full.
+     * Adds one line per item under one heading, continued into further fields when it outgrows one.
      *
      * @param more what to say about the lines that did not fit, given how many there were
      */
@@ -94,7 +83,7 @@ public final class Card {
         if (lines.isEmpty()) {
             return this;
         }
-        // Enough for the heading of one more field plus a "+N more" line, measured from the longest the count makes.
+        // Room for one more heading plus a "+N more" line.
         final int reserve = CONTINUED.length() + more.apply(lines.size()).length() + 1;
         final List<String> chunks = new ArrayList<>();
         StringBuilder chunk = new StringBuilder();
@@ -158,9 +147,7 @@ public final class Card {
         return embed.build();
     }
 
-    // Formatting.
-
-    /** A transition: the old value plain, the new one bold, an arrow between. */
+    /** Renders a transition: the old value plain, the new one bold, an arrow between. */
     public static String arrow(final String from, final String to) {
         return escape(from) + " → " + bold(to);
     }
@@ -173,16 +160,12 @@ public final class Card {
         return "*" + escape(text) + "*";
     }
 
-    /**
-     * Makes text from outside read as itself.
-     *
-     * A player name, an artefact, a failure message - so an underscore in it does not turn the rest italic.
-     */
+    /** Escapes Discord markdown in text from outside, such as a player name. */
     public static String escape(final String text) {
         return text.replaceAll("([\\\\*_~`|>])", "\\\\$1");
     }
 
-    /** {@code 14 s}, {@code 2 min 14 s}, {@code 1 h 3 min}: a duration as a value, not a phrase. */
+    /** Renders a duration as {@code 14 s}, {@code 2 min 14 s} or {@code 1 h 3 min}. */
     public static String duration(final Duration duration) {
         final long seconds = Math.max(0, duration.toSeconds());
         if (seconds < 60) {
@@ -193,8 +176,6 @@ public final class Card {
         }
         return seconds / 3600 + " h " + seconds % 3600 / 60 + " min";
     }
-
-    // The arithmetic.
 
     private Card add(final String name, final String value, final boolean inline) {
         final String heading = cut(name, FIELD_NAME);

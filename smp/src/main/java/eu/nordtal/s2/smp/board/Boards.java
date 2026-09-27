@@ -38,38 +38,16 @@ import org.jspecify.annotations.Nullable;
 /**
  * The two boards at the spawn, rendered <b>per player, in their own language</b>.
  *
- * <b>Why one entity per viewer</b>
- *
- * A Text Display carries one piece of text for everyone who can see it. Two people standing side by side reading the
- * same board in two languages is therefore not something one entity can do, and the whole point of this server's
- * i18n is that it never asks anybody to read the other language. So each board is spawned once per viewer and hidden
- * from everyone else with {@link Player#hideEntity}.
- *
- * With a handful of players that is a handful of entities. It is emphatically not a technique that would scale to a
- * hundred, and it does not have to - this is a small community server, and saying so out loud is cheaper than
- * discovering the limit later.
- *
- * The displays are spawned with {@code setPersistent(false)} so a crash cannot leave them in the world, and every
- * one belonging to this plugin is swept at start anyway.
- *
- * <b>The frame</b>
- *
- * {@link BoardFrame} owns the frame's composition - the glyphs, corners, edges and dividers of {@code
- * nordtal:board} - and the reason the board's width is configuration rather than a measurement.
+ * A Text Display shows one text to everyone, so each board is one non-persistent entity per viewer.
  */
 public final class Boards {
 
-    /** Once every five seconds. The numbers behind a board change a few times an hour. */
+    /** Once every five seconds; the numbers behind a board change a few times an hour. */
     private static final long REFRESH_TICKS = 100L;
 
     private static final int BAR_WIDTH = 20;
 
-    /**
-     * Wide enough that a board never wraps.
-     *
-     * Not {@code Integer.MAX_VALUE}: Minecraft carries this to the client and a wrap width is an ordinary varint there,
-     * so a number nobody would ever reach is safer than the largest one that exists.
-     */
+    /** Wide enough that a board never wraps, yet an ordinary varint on the client, unlike {@code Integer.MAX_VALUE}. */
     private static final int NO_WRAPPING = 10_000;
 
     private static final int LEADERBOARD_SIZE = 10;
@@ -80,7 +58,6 @@ public final class Boards {
     private final Messages messages;
     private final PlayerLocales locales;
 
-    /** viewer -> board kind -> their own display. */
     private final Map<UUID, Map<BoardKind, TextDisplay>> displays = new HashMap<>();
 
     private volatile List<AuraRow> leaderboard = List.of();
@@ -114,7 +91,6 @@ public final class Boards {
         displays.clear();
     }
 
-    /** Hands the board the leaderboard rows an async task has just read. */
     public void setLeaderboard(final List<AuraRow> rows) {
         this.leaderboard = List.copyOf(rows);
     }
@@ -143,7 +119,7 @@ public final class Boards {
         if (world == null) {
             return;
         }
-        // Only draw for people who could possibly see it - a board is at the spawn, not the Nether.
+        // A board is at the spawn, so only people in that world could see it.
         if (!player.getWorld().equals(world)) {
             return;
         }
@@ -162,12 +138,12 @@ public final class Boards {
             entity.setSeeThrough(false);
             entity.setPersistent(false);
             entity.setViewRange(1.0f);
-            // Every line starts at the same x, so centring would move each line by half its own width.
+            // Every line starts at the same x.
             entity.setAlignment(TextDisplay.TextAlignment.LEFT);
-            // A wrapped continuation carries no frame; see BoardFrame for why the width is fixed instead.
+            // A wrapped continuation carries no frame; see {@link BoardFrame}.
             entity.setLineWidth(NO_WRAPPING);
         });
-        // Hidden from everybody, then shown to its owner - visible for a tick means seen in the wrong language.
+        // Hidden from everybody, then shown to its owner: visible for a tick means seen in the wrong language.
         for (final Player other : Bukkit.getOnlinePlayers()) {
             if (!other.equals(owner)) {
                 other.hideEntity(plugin, display);
@@ -183,17 +159,17 @@ public final class Boards {
         };
     }
 
-    // Every line is a bundle value; names travel as parameters so MessageRenderer escapes them.
+    // Names travel as parameters so {@code MessageRenderer} escapes them.
     private Component objectiveText(final Locale locale, final int width) {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         final Component title =
                 renderer.format(locale, MESSAGES.smp().board().objective().title());
         final List<Component> lines = new ArrayList<>();
 
-        // One read: the name and the rows under it have to be the same milestone's.
+        // One read, so the name and the rows are the same milestone's.
         final SeasonState.Active active = season.active();
         if (active.unread()) {
-            // Before the first refresh. The title alone, rather than "finished" for a second.
+            // Before the first refresh, the title alone rather than "finished".
             return BoardFrame.render(width, title, lines);
         }
         if (active.key() == null) {
@@ -243,13 +219,7 @@ public final class Boards {
         return BoardFrame.render(width, title, lines);
     }
 
-    /**
-     * A Minecraft name for a UUID.
-     *
-     * This repository stores no Minecraft names - they are the server's to know and the player's to change - so
-     * they are resolved here and remembered for the session. {@code getOfflinePlayer} does not hit the network
-     * for a UUID the server has seen before, which every player on this board has been.
-     */
+    /** Returns a player's Minecraft name, remembered for the session, since this repository stores none. */
     private String nameOf(final UUID uuid) {
         return namesByUuid.computeIfAbsent(uuid, key -> {
             final String name = Bukkit.getOfflinePlayer(key).getName();

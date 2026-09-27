@@ -26,9 +26,9 @@ import org.junit.jupiter.api.TestInstance;
 import org.yaml.snakeyaml.Yaml;
 
 /**
- * Makes the second copy of a fact {@link Topology} and {@code compose.yml} share fail loudly instead of quietly.
+ * Makes a fact {@link Topology} and {@code compose.yml} both hold fail loudly when the two copies drift.
  *
- * It reads the real compose file rather than a fixture, because a fixture would be a third copy.
+ * It reads the real compose file, since a fixture would be a third copy.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyTest {
@@ -159,11 +159,7 @@ class TopologyTest {
                         + ". port: -1 means they are the same port, so these cannot differ.");
     }
 
-    /**
-     * The guard in front of 25565, deliberately not a {@link Topology} service.
-     *
-     * A run stops only what Topology names; a guard that restarted with the proxy would have moved the dead port.
-     */
+    /** The guard in front of 25565, deliberately not a {@link Topology} service, so a run never restarts it. */
     private static final String GUARD = "caddy";
 
     @Test
@@ -344,11 +340,7 @@ class TopologyTest {
         return limits;
     }
 
-    /**
-     * Splits a {@code bind:host:container} mapping on its separating colons.
-     *
-     * Not on the colons inside a {@code ${VAR:-default}}, of which every field here has one.
-     */
+    /** Splits a {@code bind:host:container} mapping on its separating colons, not those inside a default. */
     private static List<String> fields(final String mapping) {
         final List<String> parts = new java.util.ArrayList<>();
         final StringBuilder current = new StringBuilder();
@@ -370,7 +362,7 @@ class TopologyTest {
         return List.copyOf(parts);
     }
 
-    /** {@code ${SMP_EXPECTED_PLUGINS:-smp …}} - what compose uses when .env says nothing. */
+    /** {@code ${SMP_EXPECTED_PLUGINS:-smp …}}, what compose uses when .env says nothing. */
     private static String defaultOf(final String value) {
         final java.util.regex.Matcher matcher =
                 java.util.regex.Pattern.compile("^\\$\\{[A-Z0-9_]+:-(.*)}$").matcher(value);
@@ -458,11 +450,7 @@ class TopologyTest {
         }
     }
 
-    /**
-     * The volumes {@code backup.volumes} actually names, asked of the spec rather than typed here.
-     *
-     * A second list of names in a test would be a second decision nobody would remember to change.
-     */
+    /** The volumes {@code backup.volumes} names, asked of the spec so no second list exists. */
     private static final Set<String> BACKED_UP = Set.copyOf(defaults().backup().volumes());
 
     /** {@link StewardSpec} answering nothing but its own defaults. */
@@ -677,7 +665,7 @@ class TopologyTest {
                 each + ": the interface edits one volume and the service reads another");
     }
 
-    /** The host side of a compose mount - everything before the last colon-separated field pair. */
+    /** The host side of a compose mount, everything before the last colon-separated field pair. */
     private static String sourceOf(final String mount) {
         final int split = mount.lastIndexOf(':');
         return mount.substring(0, split);
@@ -690,12 +678,7 @@ class TopologyTest {
         return ((List<Object>) volumes).stream().map(String::valueOf).toList();
     }
 
-    /**
-     * One entry of compose.yml's {@code configs:} block, as the file writes it.
-     *
-     * The caddy configuration lives inline in compose.yml rather than in a file of its own, so a test about what the
-     * guard does has to read it where it is written.
-     */
+    /** One entry of compose.yml's {@code configs:} block, where the caddy configuration is written inline. */
     private static String configContent(final String name) {
         final Path compose = findUpwards("compose.yml");
         try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {

@@ -5,10 +5,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * One argument of a command, described rather than parsed.
- *
- * The kinds are a closed set: each adapter (Brigadier, JDA, the remote request row) builds its
- * own representation from this declaration and never re-decides what the argument is.
+ * One argument of a command, described rather than parsed; each adapter builds its own form from it.
  *
  * @param name     the argument's name, as it appears in both the chat syntax and the Discord option
  * @param kind     what it accepts
@@ -22,55 +19,29 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
     /** What an argument accepts. */
     public enum Kind {
 
-        /** A single unquoted word. Keys, names of things. */
+        /** A single unquoted word. */
         WORD,
 
-        /**
-         * The rest of the line, spaces included.
-         *
-         * Must be last in a command, and {@link Declaration} refuses one that is not: Brigadier
-         * would otherwise hand the whole remainder to it and call the next argument unexpected.
-         */
+        /** The rest of the line, spaces included; {@link Declaration} refuses one that is not last. */
         GREEDY_STRING,
 
         /** A whole number between {@link #min} and {@link #max}, both inclusive. */
         INTEGER,
 
-        /**
-         * A player.
-         *
-         * In chat that is a Minecraft name; in Discord it is a member picked from the list and
-         * resolved through {@code account_link}. The adapter resolves, so a command sees a player
-         * either way.
-         */
+        /** A player: a Minecraft name in chat, a member resolved through {@code account_link} in Discord. */
         PLAYER,
 
         /** One of {@link #choices}. Suggested in chat, a real choice list in Discord. */
         CHOICE,
 
         /**
-         * A person, identified by their <b>Discord account</b>.
+         * A person by Discord account, who may not have linked a Minecraft account yet.
          *
-         * Not {@link #PLAYER}: the commands taking this one act on people who may not have
-         * linked a Minecraft account yet ({@code /access grant} on a payment that arrived outside
-         * the normal flow). In Discord it is the member's id and nothing else; in chat it is a
-         * Minecraft name resolved through {@code account_link}, refused when there is no link.
+         * In chat it is a Minecraft name resolved through {@code account_link}, refused without a link.
          */
         ACCOUNT,
 
-        /**
-         * An open payment reference.
-         *
-         * A word, as far as parsing goes - six characters, no spaces - and <b>not</b>
-         * {@link #WORD}, because every adapter that can offer a list has to offer one here. Typing
-         * a reference out of memory is the one mistake nobody needs on the single command that
-         * books money, and that argument is the same in chat, in Discord and in a browser: Discord
-         * autocompletes it from {@code openReferences()}, and the Steward interface draws a select
-         * filled from {@code GET /api/payments/open}.
-         *
-         * A kind is what each adapter already switches on, so giving this its own kind turns "offer
-         * a list" from a note into something the compiler asks about.
-         */
+        /** An open payment reference, a word that every adapter offers a list of. */
         REFERENCE
     }
 
@@ -93,11 +64,7 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
     }
 
     /**
-     * The declared choice a typed value means, in the case the declaration wrote it.
-     *
-     * Matching ignores case (chat is lenient) but the answer is always the declared spelling, so
-     * that everything downstream - a comparison against {@code SeasonPhase.name()}, a request row,
-     * an audit entry - sees one normalised form.
+     * Returns the declared choice a typed value means, matched ignoring case but spelled as declared.
      *
      * @return the declared choice, or empty when this is not one of them
      */
@@ -128,12 +95,12 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
         return new Argument(name, Kind.PLAYER, true, 0, 0, List.of());
     }
 
-    /** A required Discord account - a person who may not have linked a Minecraft one. */
+    /** A required Discord account, of a person who may not have linked a Minecraft one. */
     public static Argument account(final String name) {
         return new Argument(name, Kind.ACCOUNT, true, 0, 0, List.of());
     }
 
-    /** A required open payment reference - a word every adapter offers a list for. */
+    /** A required open payment reference, which every adapter offers a list of. */
     public static Argument reference(final String name) {
         return new Argument(name, Kind.REFERENCE, true, 0, 0, List.of());
     }

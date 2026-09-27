@@ -8,15 +8,7 @@ import eu.nordtal.s2.steward.worker.plan.Topology;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * What a recreate actually takes round.
- *
- * The defect this is written for was measured on the dev host: a {@code RESTART} carrying
- * {@code scope = 'smp'} planned {@code [proxy, limbo, hunger-games, smp]} and took the whole network round, proxy
- * swap included. The scope had been written faithfully into the row and this one kind never read it - which is
- * invisible in the code (nothing is missing, a list is simply built from somewhere else) and very visible in the
- * game, because the announcement names the services it is about.
- */
+/** What a recreate actually takes round: only the services its scope names. */
 class RestartScopeTest {
 
     private static final List<String> ALL =
@@ -45,7 +37,7 @@ class RestartScopeTest {
 
     @Test
     void aScopeNamingSomethingThatIsNotAMinecraftServiceRestartsNothing() {
-        // The dangerous reading of "no match" is "then everything" - postgres is not restarted by asking for it here.
+        // The dangerous reading of "no match" is "then everything"; postgres is not restarted by asking for it here.
         assertEquals(List.of(), Runner.restarted(List.of("postgres"), List.of()));
     }
 

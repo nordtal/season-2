@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 /**
  * An environment file as compose reads it: {@code NAME=value} lines, comments, one layer of quotes.
  *
- * It is never sourced or executed. A value written here is never printed, because half of them are secrets.
+ * It is never sourced, and no value is ever printed.
  */
 final class EnvFile {
 
@@ -119,7 +119,7 @@ final class EnvFile {
         try {
             Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"));
         } catch (final UnsupportedOperationException e) {
-            // Windows has no POSIX modes; the file inherits the user's own directory permissions there.
+            // Windows has no POSIX modes; the directory's permissions apply.
         }
     }
 

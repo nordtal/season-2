@@ -8,19 +8,9 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Everything {@code /smp} touches that only the SMP server can reach.
+ * Everything {@code /smp} touches that only the SMP server can reach; nothing here decides anything.
  *
- * Nothing here decides anything. Which sentence comes back when no milestone is active, whether an
- * unknown objective key is worth a database round trip, what a correction of zero aura should do -
- * all of that is in the command classes, where it can be asserted without a world. What is left is
- * the work itself, and every one of these needs something bound to this JVM: a world folder, the
- * milestone engine's in-memory track, the identity cache the nametags are drawn from.
- *
- * Two instances of this exist per server, and the difference matters:
- * one built with the plugin's async scheduler, for {@code /smp} typed in chat; one built with
- * {@code Runnable::run}, for the command inbox - which settles a request row the moment the command
- * returns and would otherwise write an empty answer. {@code CommandInbox#register} refuses the wrong
- * one at startup rather than letting it be discovered on the surface furthest from the logs.
+ * The inbox's instance must run {@code async} inline, which {@code CommandInbox#register} checks at startup.
  */
 public interface SmpEffects extends CommandEffects {
 
@@ -38,52 +28,40 @@ public interface SmpEffects extends CommandEffects {
             @Nullable Instant validUntil) {}
 
     /**
-     * Re-read the reloadable configs and the message bundles.
+     * Re-reads the reloadable configs and the message bundles.
      *
-     * @return what the milestone track was refused for, one readable line each - empty when the file
-     *         was taken. A reload is refused rather than applied when the file disagrees with
-     *         progress the season has already recorded (a renamed milestone key, an objective that
-     *         changed type, a completed objective whose target moved), because applying it orphans
-     *         rows and can stop progression with nothing anywhere saying why. The running track is
-     *         left exactly as it was; the sounds and the wording are re-read regardless, since they
-     *         fail independently.
+     * @return why the milestone track was refused and left running as it was, one line each; empty when it was taken
      */
     java.util.List<String> reload();
 
-    /** The active milestone's key, or empty when the track has not started or is finished. */
+    /** Returns the active milestone's key, or empty when the track has not started or is finished. */
     Optional<String> activeMilestone();
 
-    /** Whether that milestone declares an objective by this key. */
+    /** Returns whether that milestone declares an objective by this key. */
     boolean hasObjective(String milestone, String objective);
 
-    /**
-     * Close one objective by hand, paying out scaled to what was actually collected.
-     *
-     * Never the full pot - that is what makes an escape hatch never worth more than doing the
-     * work, and it is the same arithmetic a real completion uses.
-     */
+    /** Closes one objective by hand, paying out scaled to what was actually collected. */
     void completeObjective(String milestone, String objective);
 
-    /** Unlock a whole milestone by hand. */
+    /** Unlocks a whole milestone by hand. */
     void unlockMilestone(String milestone);
 
-    /** The name of a player this server knows, for a sentence about them. */
+    /** Returns the name of a player this server knows. */
     Optional<String> nameOf(UUID player);
 
-    /** The Discord account linked to a Minecraft one. Empty means the link is missing. */
+    /** Returns the Discord account linked to a Minecraft one, empty when the link is missing. */
     Optional<String> discordIdOf(UUID player);
 
     /**
-     * Change somebody's aura and record who did it.
+     * Changes somebody's aura and records who did it.
      *
-     * @param by a name for the audit trail. An unexplained balance is what the reason column exists
-     *           to prevent, and an admin's correction is the likeliest one to be questioned
+     * @param by a name for the audit trail
      */
     void changeAura(UUID player, String discordId, int delta, String by);
 
-    /** Whether this account is linked and whether access is running. Empty when nothing is known. */
+    /** Returns whether this account is linked and has access running, empty when nothing is known. */
     Optional<Access> access(UUID player);
 
-    /** The purchase somebody has started and not finished, if there is one. */
+    /** Returns the purchase somebody has started and not finished, if there is one. */
     Optional<OpenPayment> openPayment(String discordId);
 }

@@ -20,14 +20,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * A list of sections whose sections hold lists of their own.
+ * A list of sections whose sections hold lists of their own, like smp's {@code milestones.yml}.
  *
- * smp's {@code milestones.yml}, where every milestone carries a list of objectives and every objective a list of
- * items.
- *
- * The cards are built from the schema, not from a guess at how uniform the file looks, so the card shape reaches
- * every level the schema describes, and the writer edits, appends and removes at any of those levels while leaving
- * every other line where it was.
+ * The cards and the writer follow the schema to every level and leave every other line where it was.
  */
 class ConfigFilesNestedSectionsTest {
 

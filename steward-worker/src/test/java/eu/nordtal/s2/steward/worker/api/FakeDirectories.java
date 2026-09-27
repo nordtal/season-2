@@ -15,19 +15,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * {@link UpdateDirectory} and {@link AuditDirectory} in a list.
+ * {@link UpdateDirectory} and {@link AuditDirectory} over fixed rows, for a {@link WorkerApi} without PostgreSQL.
  *
- * For the tests in this package that build a real {@link WorkerApi} without a real PostgreSQL behind it.
- *
- * Everything past {@link UpdateDirectory#recent(int)} / {@link AuditDirectory#recent(int)} /
- * {@link AuditDirectory#search(String, String, int)} throws: {@link WorkerApiIntegrationTest} and
- * {@link FollowEndsTest} exercise containers, logs and the console, never a write to either table, and a fake that
- * quietly accepted one would be a test that could not tell the difference.
- *
- * {@code eu.nordtal.s2.steward.worker.serve.FakeDirectory} already plays this role for the run loop, but it is
- * package-private there and shaped around claiming and settling rows rather than listing them - reusing it would
- * mean widening its visibility for a listing method it does not have, for two tests in a different package that only
- * need to hand {@link WorkerApi} something that type-checks.
+ * Every method but the listing ones throws, so a test cannot silently write.
  */
 final class FakeDirectories {
 
@@ -140,13 +130,7 @@ final class FakeDirectories {
         }
     }
 
-    /**
-     * Every method throws except {@code recent} and {@code search}, which read {@code rows}.
-     *
-     * {@link AuditDirectory#recent(int)} and {@link AuditDirectory#search(String, String, int)} are the two
-     * exceptions. {@code search} filters by {@code action} exactly the way {@code JdbiAuditDirectory} does, which is
-     * the behaviour {@link ActionsApi} actually relies on.
-     */
+    /** Every method throws except {@code recent} and {@code search}, which filters by action as the real one does. */
     static AuditDirectory audit(final AuditEntry... rows) {
         final List<AuditEntry> sorted = List.of(rows).stream()
                 .sorted(Comparator.comparing(AuditEntry::occurred).reversed())

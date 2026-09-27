@@ -11,15 +11,7 @@ import java.util.Set;
 /**
  * What a balloon shows, worked out without a server so it can be tested as a table.
  *
- * Three equal cards in fixed places: Nordtal and Nether sit side by side in rows 0-2, at columns
- * 0-3 and 5-8 respectively, and the End sits alone in rows 3-5, columns 0-3.
- *
- * Every world keeps its place at every balloon; the card of the world the player is standing in
- * is marked rather than moved. A destination that is not unlocked yet <b>stays in its place,
- * greyed</b>, naming the milestone that opens it, rather than disappearing.
- *
- * The End has no balloon of its own, so it is never the "here" world: the way out is the vanilla
- * exit portal, which does not work until the dragon is dead.
+ * Every world keeps a fixed card: the current one is marked and a locked one greyed, never moved or hidden.
  */
 public final class BalloonMenu {
 
@@ -64,13 +56,7 @@ public final class BalloonMenu {
     /** The slot column each card column starts at: 0..3 and 5..8, leaving 4 as the gap. */
     private static final int[] CARD_COLUMN_START = {0, 5};
 
-    /**
-     * The three cards' fixed places: (column, row) in the 2 x 2 grid, read left to right.
-     *
-     * The bottom right is empty - the loop below reads each row's own length, which is why a ragged row is a layout and
-     * not a special case. The hole is at the end of the reading order deliberately: a gap in the middle would read as a
-     * card that failed to draw.
-     */
+    /** The three cards' places in the 2 x 2 grid, read left to right; the empty cell comes last. */
     private static final WorldRole[][] PLACES = {
         {WorldRole.NORDTAL, WorldRole.NETHER},
         {WorldRole.END},
@@ -96,7 +82,7 @@ public final class BalloonMenu {
         return List.copyOf(entries);
     }
 
-    /** The slot column a card column starts at - the left edge of its clickable area. */
+    /** The slot column a card column starts at. */
     public static int slotColumn(final int column) {
         return CARD_COLUMN_START[column];
     }

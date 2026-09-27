@@ -11,10 +11,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 
-/**
- * Where {@code steward-worker}'s config files live, and every rule about what a valid value is.
- * Every check runs once at startup rather than being discovered half way through a resolve.
- */
+/** Loads {@code steward-worker}'s config files and checks every value once, at startup. */
 public final class Configs {
 
     /** {@code owner/name}, the only form the GitHub API takes. */
@@ -44,7 +41,7 @@ public final class Configs {
                 })
                 .load();
 
-        // This config has no usable default: localhost:5432 is not the database from inside a container.
+        // localhost:5432 is not the database from inside a container, so there is no usable default.
         if (fresh) {
             logger.warn(
                     "No config existed at {} - defaults were written and are almost certainly" + " not what you want",
@@ -73,7 +70,7 @@ public final class Configs {
                 })
                 .load();
 
-        // A fresh steward.yml is usable as written: the defaults are the real nordtal.eu values.
+        // A fresh steward.yml is usable as written, since the defaults are the real values.
         if (fresh) {
             logger.info(
                     "No config existed at {} - it was written with this project's own defaults", file.toAbsolutePath());
@@ -83,11 +80,9 @@ public final class Configs {
     }
 
     /**
-     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file.
+     * Writes {@code handle}'s environment overrides next to its file, best-effort.
      *
-     * So this same process's {@code configfile.EnvOverrides} can warn that editing an overridden setting through
-     * Steward has no effect until the variable is removed. Best-effort: this is a UI nicety, not a reason for a
-     * correctly loaded config to refuse to start the worker.
+     * {@code configfile.EnvOverrides} reads it to warn that an overridden setting cannot be edited.
      */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {
@@ -98,15 +93,9 @@ public final class Configs {
     }
 
     /**
-     * What bunq has to get right before this container is allowed to touch a bank account.
+     * Refuses a half-filled bunq block by name; empty is allowed and means no bank account.
      *
-     * Empty is allowed, half is not: a season with no bank account is a season whose network does everything except
-     * take money, and it has to be able to start - the account is the one thing here that cannot be created from a
-     * terminal. Half of it is always a setup that stopped in the middle, or an environment file that was renamed in
-     * one place and not the other, so it is refused by name rather than run.
-     *
-     * The account id is parsed here: Not in the poll loop minutes later, and not inside a Discord interaction: a
-     * non-numeric id is a value somebody typed, and the place to say so is the start.
+     * A non-numeric account id is refused here too, at the start rather than in the poll loop.
      */
     private static void requireBunq(final StewardSpec.BunqSpec bunq) {
         final boolean key = isSet(bunq.apiKey());
@@ -129,7 +118,7 @@ public final class Configs {
         requirePositive("bunq.poll-interval-seconds", bunq.pollIntervalSeconds());
         requirePositive("bunq.recent-payment-count", bunq.recentPaymentCount());
 
-        // Blank is normal: the first start stamps its own instant and every later start reads it back.
+        // Blank is normal: the first start stamps its own instant.
         final String watermark = bunq.watermark();
         if (watermark != null && !watermark.isBlank()) {
             try {
@@ -145,16 +134,10 @@ public final class Configs {
         return value != null && !value.isBlank();
     }
 
-    /**
-     * What a backup may be pointed at.
-     *
-     * {@code postgres-data} is refused by name: a snapshot of a live PGDATA is torn, and that surfaces as a
-     * {@code pg_restore} failing months later rather than as an error here. The pg_dump sidecar writes
-     * {@code postgres-dumps} instead.
-     */
+    /** Refuses {@code postgres-data} as a backup volume, since a snapshot of a live PGDATA is torn. */
     private static void requireBackup(final BackupSpec backup) {
         requirePositive("backup.patience-minutes", backup.patienceMinutes());
-        // The forbidden entry is reported before the missing one, so a wrong line is fixed before a missing one.
+        // The forbidden entry is reported before the missing one.
         for (final String volume : backup.volumes()) {
             if (volume != null && volume.endsWith("postgres-data")) {
                 throw new IllegalArgumentException("backup.volumes lists '" + volume + "'. A"
@@ -167,16 +150,7 @@ public final class Configs {
         requireTheWorld(backup.volumes());
     }
 
-    /**
-     * The world is the one volume that cannot be rebuilt, so it has to be in this list.
-     *
-     * What a successful backup is taken to prove: a list that kept {@code bot-config} and dropped {@code mc-smp}
-     * would produce a perfectly successful backup every night while the one volume the guarantee was about was in
-     * no archive anywhere.
-     *
-     * Refused at load, therefore, and not warned about: the cost of being wrong here is Nordtal, which is in no
-     * repository and in no release, and the operator who edits this list is not the one who finds out.
-     */
+    /** Requires the world volume in the list, since it is the one volume that cannot be rebuilt. */
     private static void requireTheWorld(final List<String> volumes) {
         if (volumes.stream().noneMatch(volume -> volume != null && volume.endsWith("mc-smp"))) {
             throw new IllegalArgumentException("backup.volumes does not list the smp world volume"
@@ -210,7 +184,7 @@ public final class Configs {
     private static void requireModrinthId(final String key, final String value) {
         requireText(key, value);
         if (!MODRINTH_ID.matcher(value).matches()) {
-            // A slug passes as text and only fails as an id when the author renames it - caught here instead.
+            // A slug only fails as an id when the author renames it, so it is caught here.
             throw new IllegalArgumentException(key + " must be a Modrinth project id: eight"
                     + " alphanumeric characters, not the slug. Read it from the 'project_id' field"
                     + " of any version, or from a cdn.modrinth.com/data/<id>/ URL. Was '"

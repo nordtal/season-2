@@ -17,15 +17,13 @@ import {
 } from "@/lib/format"
 
 /**
- * The numbers this interface prints, held against what the file promises they look like.
+ * The formatters held against the shapes the file promises.
  *
- * One character in here is not the one a keyboard produces and is written as an escape on purpose:
- * the placeholder for "nothing to show" is an en dash, not a hyphen - an assertion typed with the
- * ordinary character passes nowhere and fails for a reason nobody can see in the diff.
+ * `NOTHING` is an escaped en dash, since a typed hyphen would fail for a reason the diff hides.
  */
 const NOTHING = "\u2013"
 
-/** Every formatter takes null, undefined, NaN and both infinities, because the API sends all four. */
+/** Every formatter takes null, undefined, NaN and both infinities, since the API sends all four. */
 const NOT_A_NUMBER = [null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]
 
 describe("bytes", () => {
@@ -36,10 +34,7 @@ describe("bytes", () => {
   })
 
   it("treats a kilobyte as a thousand bytes, because that is what df on this host says", () => {
-    /**
-     * The header of the file argues this explicitly: matching the machine's own tools beats the
-     * pedantically correct GiB, so 1024 B is 1.0 kB and not 1.0 KiB.
-     */
+    /** Decimal units match the machine's own tools, so 1000 B is 1.0 kB and not a KiB. */
     expect(bytes(1000)).toBe("1.0 kB")
     expect(bytes(1024)).toBe("1.0 kB")
     expect(bytes(1500)).toBe("1.5 kB")
@@ -52,7 +47,6 @@ describe("bytes", () => {
   })
 
   it("stops at petabytes rather than walking off the end of the unit list", () => {
-    // A value larger than the largest unit must still be a sentence, not "undefined".
     expect(bytes(1e15)).toBe("1.0 PB")
     expect(bytes(1e18)).toBe("1,000.0 PB")
   })
@@ -62,12 +56,7 @@ describe("bytes", () => {
   })
 
   it("never prints a thousand of one unit, because that is the next unit", () => {
-    /**
-     * FINDING - fails today. The scaling loop looks at the raw value and the rounding happens
-     * afterwards, so 999 999 B is scaled to 999.999 kB and then printed as "1,000.0 kB". Every
-     * byte count in [999 950, 999 999] reads as a thousand kilobytes rather than as a megabyte,
-     * and these are integers the host really reports.
-     */
+    /** Scaling looks at the rounded value, so 999 999 B is a megabyte and not "1,000.0 kB". */
     expect(bytes(999_999)).toBe("1.0 MB")
     expect(bytes(999_999_999)).toBe("1.0 GB")
   })
@@ -75,10 +64,7 @@ describe("bytes", () => {
 
 describe("percent", () => {
   it("prints a whole number when no decimals were asked for", () => {
-    /**
-     * The regression this test exists for: Intl's own default is three fraction digits, so the
-     * zero-decimal call printed "87.457 %" where the page had asked for "87 %".
-     */
+    /** Intl defaults to three fraction digits, which a zero decimal call must not print. */
     expect(percent(87.4567, 0)).toBe("87 %")
     expect(percent(0, 0)).toBe("0 %")
     expect(percent(100, 0)).toBe("100 %")
@@ -96,12 +82,7 @@ describe("percent", () => {
   })
 
   it("honours a decimal count other than zero or one", () => {
-    /**
-     * FINDING - fails today. The signature takes `decimals: number`, so this call type-checks, but
-     * the implementation is `decimals === 0 ? NO_DECIMAL : ONE_DECIMAL` and every value that is not
-     * 0 silently means 1. Either the formatter is chosen by the argument or the type says `0 | 1`;
-     * accepting a number and ignoring it is the one option that cannot be seen at the call site.
-     */
+    /** A decimal count other than 0 or 1 must be honoured, not read as 1. */
     expect(percent(12.3456, 2)).toBe("12.35 %")
   })
 
@@ -161,10 +142,7 @@ describe("euros", () => {
 
 describe("parseInstant", () => {
   it("reads the four characters null as SQL NULL rather than as a date", () => {
-    /**
-     * The backend prints String.valueOf(instant), so a NULL column arrives as the word. Handled
-     * here once, because forgetting once puts "null" on the screen.
-     */
+    /** The backend prints a NULL column as the word "null". */
     expect(parseInstant("null")).toBeNull()
     expect(parseInstant("")).toBeNull()
     expect(parseInstant(null)).toBeNull()
@@ -172,7 +150,7 @@ describe("parseInstant", () => {
   })
 
   it("returns null for a string that is not a date, never an Invalid Date", () => {
-    // An Invalid Date would survive a null check and then throw inside Intl at the call site.
+    // An Invalid Date would pass a null check and throw inside Intl.
     expect(parseInstant("not a time")).toBeNull()
     expect(parseInstant("2026-13-45T99:99:99Z")).toBeNull()
   })
@@ -187,11 +165,7 @@ describe("parseInstant", () => {
 })
 
 describe("dateTime and clock", () => {
-  /**
-   * These two are the only assertions in this file that must not name a time zone: the tests run
-   * wherever they run, so what is pinned is the en-GB shape - day first, a named month, and a
-   * 24-hour clock - rather than the digits, which depend on the machine.
-   */
+  /** The en-GB shape is pinned rather than the digits, which depend on the machine's time zone. */
   const LOCALE_DATE_TIME = /^\d{1,2} \w+ \d{4}, \d{2}:\d{2}$/
   const LOCALE_CLOCK = /^\d{2}:\d{2}:\d{2}$/
 
@@ -291,11 +265,7 @@ describe("since", () => {
   })
 
   it("shows a dash for an instant in the future", () => {
-    /**
-     * Pinned rather than endorsed: "how long ago" has no answer for the future, but the browser
-     * clock and the worker's clock are two clocks, and a timestamp two seconds ahead reads as
-     * "nothing here" rather than as "0 s". See the findings.
-     */
+    /** Pinned, not endorsed: two clocks disagree, so a timestamp slightly ahead reads as nothing. */
     expect(since(new Date(NOW + 2_000), NOW)).toBe(NOTHING)
   })
 
@@ -305,11 +275,7 @@ describe("since", () => {
   })
 })
 
-/**
- * Play time is asked for in days, hours and minutes, so it has to be
- * answered in them too - a column that says "1 d 6 h" to something entered as 1 d 6 h 30 min looks
- * like a save that lost the minutes.
- */
+/** Play time is entered in days, hours and minutes, so it is shown in all three. */
 describe("playtime", () => {
   it("spells out all three units, leaving out the empty ones", () => {
     expect(playtime(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h 30 min")
@@ -319,19 +285,13 @@ describe("playtime", () => {
   })
 
   it("keeps the minutes `duration` would have dropped", () => {
-    /**
-     * THE WHOLE DIFFERENCE between the two, in one line: duration stops at two units because an
-     * uptime does not need a third, and this one cannot.
-     */
+    /** Unlike `duration`, which stops at two units, this one keeps the minutes. */
     expect(duration(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h")
     expect(playtime(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h 30 min")
   })
 
   it("answers zero with a zero and nothing at all with a dash", () => {
-    /**
-     * Two different people: one has been online and has almost no time, the other has never been
-     * online. "0 min" and the dash are the two answers and they must not be the same one.
-     */
+    /** Almost no time and never online are different answers: "0 min" and the dash. */
     expect(playtime(0)).toBe("0 min")
     expect(playtime(59)).toBe("0 min")
     expect(playtime(-1)).toBe(NOTHING)

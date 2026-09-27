@@ -18,18 +18,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The revision - the thing that stops the second of two open forms silently undoing the first.
+ * The revision, which stops the second of two open forms from silently undoing the first.
  *
- * What is actually being defended: Not a conflict, a disappearance. Two admins open the same file; the first changes
- * the port and saves; the second, whose form still shows the old port, changes the token and saves. Without a
- * revision the second save re-reads the file, applies its own one change to what it finds, and writes the result -
- * which is correct in every respect except that the first admin's port is back to what it was, with nothing anywhere
- * recording that it ever moved. Nobody gets an error, nobody gets a conflict, and the only evidence is a service
- * that starts on the wrong port some days later.
- *
- * The assertions below are on the bytes of the file wherever a file is involved, for the same reason
- * {@code ConfigFilesWriteTest} is: a refused save that nevertheless rewrote the file - reformatted, comments
- * dropped, quoting changed - would pass every test that re-parses.
+ * Without it the second save re-applies its own change to the new file and quietly reverts the first admin's edit.
  */
 class ConfigFilesRevisionTest {
 

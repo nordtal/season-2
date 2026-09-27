@@ -8,16 +8,9 @@ import { asButton, asElement } from "@/lib/test-elements"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * "Recreate", and the one sentence it must never say by accident.
+ * "Recreate", and the rule that a job which cannot be read is never shown as running.
  *
- * A job that cannot be read is **not** a job that is running. Defaulting to "Running" and three dots
- * said exactly the same thing as a compose run in progress, in the one situation where the
- * difference matters most: the container may already be down and the only process allowed to bring
- * it back is the one that has stopped answering.
- *
- * The fake backend below answers by URL rather than by call count, because the dialog asks three
- * different questions - is the deployer there, please recreate, what became of it - and a queue of
- * responses would silently re-order itself the moment the component changed when it asks what.
+ * The fake backend answers by URL, since the dialog asks three questions in an order that may change.
  */
 
 type Answer = { status?: number; body: unknown }
@@ -62,10 +55,7 @@ function draw(node: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  /**
-   * The same provider the Shell puts around everything: `StatusBadge` is a Radix tooltip and
-   * throws without one, which would be a test failing for a reason the component does not have.
-   */
+  /** The Shell's tooltip provider, without which `StatusBadge` throws. */
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>{node}</TooltipProvider>
@@ -95,44 +85,25 @@ describe("RecreateButton - before anything is pressed", () => {
   })
 
   it("is not drawn at all for the deployer itself", async () => {
-    /**
-     * It is the container the request travels through, so it refuses to recreate itself. A button
-     * that is drawn and then refused is a button that teaches an operator to distrust the page.
-     */
+    /** The deployer refuses to recreate itself, so no button is drawn for it. */
     draw(<RecreateButton service="steward-deployer" />)
 
     expect(screen.queryByRole("button")).toBeNull()
   })
 
   it("is disabled with the deployer's own reason on it when there is no shared secret", async () => {
-    /**
-     * "not set up" is a different sentence from "broken", and only the deployer knows which it
-     * is.
-     */
     fetched = backend({ available: false, reason: "No shared secret has been set up." })
     vi.stubGlobal("fetch", fetched)
     draw(<RecreateButton service="smp" />)
 
-    /**
-     * `toBeDisabled` would need jest-dom, which this project does not install - the property is
-     * the same assertion and one dependency fewer.
-     */
+    /** `toBeDisabled` needs jest-dom, which this project does not install. */
     const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
     await waitFor(() => expect(button.disabled).toBe(true))
     expect(button.title).toBe("No shared secret has been set up.")
   })
 
   it("is disabled when the deployer is configured but its container is not answering", async () => {
-    /**
-     * `reachable` is not a guess the interface makes: the endpoint performs a real GET
-     * /api/health against steward-deployer and reports what came back
-     * (`InternalClient#isReachable`). A false here is therefore an answer, and answers lock the
-     * button - unlike a first load, which is the absence of one.
-     *
-     * This field travelled in the payload and was read by nobody, which made a configured
-     * deployer with a dead container look exactly like a healthy one, right down to the sentence
-     * promising the image is already on this host.
-     */
+    /** `reachable: false` is a measured answer from the endpoint, and answers lock the button. */
     fetched = backend({ available: true, reachable: false })
     vi.stubGlobal("fetch", fetched)
     draw(<RecreateButton service="smp" />)
@@ -144,28 +115,20 @@ describe("RecreateButton - before anything is pressed", () => {
   })
 
   it("says that nobody in the world is warned, before the button is pressed and not after", async () => {
-    /**
-     * The whole argument for the dialog: an update counts down in front of every player, this
-     * does not. Putting that in front of the button is cheaper than explaining it afterwards.
-     */
     draw(<RecreateButton service="smp" />)
     fireEvent.click(screen.getByRole("button", { name: /Recreate/ }))
 
     const dialog = await screen.findByRole("dialog")
     expect(dialog.textContent).toContain("no countdown")
     expect(dialog.textContent).toContain("thrown out")
-    // Nothing has been asked for yet - opening the dialog must not start a compose run.
+    // Opening the dialog must not start a compose run.
     expect(fetched.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false)
   })
 })
 
 describe("RecreateButton - when /api/deployer itself cannot be asked", () => {
   it("disables the button and stops claiming a state nobody has checked, on a 404", async () => {
-    /**
-     * The third state: no answer at all, not "answered false". `deployer.data`
-     * stays undefined here, so the old `unavailable = deployer.data?.available === false` read
-     * this as available and drew the confident title regardless.
-     */
+    /** No answer at all: `deployer.data` stays undefined, which must not read as available. */
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
@@ -183,11 +146,7 @@ describe("RecreateButton - when /api/deployer itself cannot be asked", () => {
 
 describe("RecreateButton - before /api/deployer has answered at all", () => {
   it("keeps the button active but does not claim a state nobody has checked yet", async () => {
-    /**
-     * The fourth state: the ordinary first load. The decided fix only lets the error case lock
-     * the button - a query that is merely slow must not go grey - but the title still must not
-     * say the confident sentence before anybody has checked anything.
-     */
+    /** The first load leaves the button open but must not claim the confident title. */
     let settle!: (response: Response) => void
     vi.stubGlobal(
       "fetch",
@@ -202,7 +161,7 @@ describe("RecreateButton - before /api/deployer has answered at all", () => {
     expect(button.disabled).toBe(false)
     expect(button.title).not.toContain("from the image already on this host")
 
-    // Let the pending fetch resolve so the test does not leak a dangling timer into the next one.
+    // Resolves the pending fetch so no timer leaks into the next test.
     settle(json({ body: { available: true, reachable: true } }))
     await waitFor(() => expect(button.title).toContain("from the image already on this host"))
   })
@@ -249,10 +208,7 @@ describe("RecreateButton - while the job is read", () => {
   })
 
   it("shows the failure, and not Running, when the job cannot be read at all", async () => {
-    /**
-     * The defect this replaced: `job.data?.state ?? "RUNNING"` drew the working badge for a job
-     * nothing had ever answered about.
-     */
+    /** A job nobody has answered about must not draw the working badge. */
     vi.stubGlobal(
       "fetch",
       backend({
@@ -294,16 +250,7 @@ describe("RecreateButton - while the job is read", () => {
 
 describe("RecreateButton - the footer while the job is unreadable", () => {
   it("lets the operator out again after a poll that failed", async () => {
-    /*
-     * This was a defect when it was written. `running` was
-     * `recreate.isPending || job.data?.state === "RUNNING"`, and `job.data` survives a failed
-     * poll - which is exactly what the body of the dialog had just been corrected for. So once
-     * one poll had answered RUNNING and the next one failed, the body correctly said the deployer
-     * is not answering while the footer said "Running…", the close button was disabled, and
-     * `onOpenChange` refused Escape and the overlay too: shut in a dialog that had just announced
-     * nothing more is coming. `running` now carries the same `!job.error` guard that
-     * `refetchInterval` uses in queries.ts.
-     */
+    // `running` carries the `!job.error` guard, since `job.data` survives a failed poll.
     let broken = false
     vi.stubGlobal(
       "fetch",
@@ -321,11 +268,7 @@ describe("RecreateButton - the footer while the job is unreadable", () => {
     broken = true
     await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeNull(), { timeout: 3000 })
 
-    /**
-     * The body is right and the footer is not. Scoped to the footer on purpose: Radix's own
-     * dismiss icon carries the sr-only name "Close" too, so an unscoped query by that name finds
-     * two buttons and the one this assertion is about is the second.
-     */
+    /** Scoped to the footer, since Radix's dismiss icon is also named "Close". */
     const footer = asElement(dialog.querySelector('[data-slot="dialog-footer"]'))
     const close = asButton(within(footer).getByRole("button", { name: /Close|Running/ }))
     expect([close.textContent, close.disabled]).toEqual(["Close", false])

@@ -16,18 +16,7 @@ import org.junit.jupiter.api.Test;
 /**
  * What a backup is worth when nobody could watch the servers stop.
  *
- * The shape this exists for: Docker's stop call succeeds whether the server shut down properly or was killed at the
- * end of its grace period, so the client inspects the container afterwards to find out which. That inspect can fail
- * on its own - a daemon that stopped answering between the two calls - and then the run holds a stopped container
- * and no idea whether the world had finished writing. Refusing there would take the network down over an unreadable
- * inspect, so the run carries on; what must not happen is the thing that happened in run 23, where carrying on meant
- * the archive came out of the sequence indistinguishable from one taken over a clean shutdown.
- *
- * Why the ordering is asserted and not just the outcome: {@link FakeSnapshots} shares {@link FakeContainers#calls}
- * deliberately, so stopping, saving and marking are one list in one order. A mark written before the archive exists
- * is a warning about a file that is not there yet, and on a run where the save then fails it is a warning about a
- * file that never arrives - so the position of {@code mark:} in that list is the assertion, not an afterthought to
- * it.
+ * Each archive gets its mark after it exists, so the order in {@link FakeContainers#calls} is the assertion.
  */
 class UnverifiedStopBackupTest {
 
@@ -113,7 +102,7 @@ class UnverifiedStopBackupTest {
 
     @Test
     void reportedFailedIsNotTheSameAsNotBackedUp() {
-        // The whole risk of the owner's decision, in one test: FAILED is a note about evidence that must exist.
+        // The whole risk of settling FAILED, in one test: FAILED is a note about evidence that must exist.
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).stopUnverified(Topology.SMP);
         final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
@@ -132,7 +121,7 @@ class UnverifiedStopBackupTest {
                 saved.line("bot-config").state(),
                 "both volumes were saved, and the run is a failure anyway - the two facts are"
                         + " supposed to hold at the same time");
-        // A set, not a list: FakeSnapshots#marks hands back a Map.copyOf, whose order is unspecified and varies.
+        // A set, not a list: order is asserted on the shared call list, not on the marks.
         assertEquals(
                 Set.of("/backups/mc-smp-20260913T000000Z.tar.zst", "/backups/bot-config-20260913T000000Z.tar.zst"),
                 snapshots.marks().keySet(),

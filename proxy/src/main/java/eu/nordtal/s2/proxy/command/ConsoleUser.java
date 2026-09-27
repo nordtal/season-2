@@ -15,16 +15,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The proxy console, as {@code :commands} sees it.
  *
- * <b>Why the console is an admin without asking anything.</b>
- * It is the operator. Reaching it means a shell on the production host, where the database can be
- * edited by hand anyway - and a console that had to consult the database would be unusable in
- * exactly the situation it exists for, which is the database being the thing that is broken. It is
- * the one place in this repository where something other than {@code discord_user.admin} decides,
- * and {@code PaperUser.console} says the same about the three backends.
- *
- * <b>English, and not a fallback choice.</b>
- * A console has no account and therefore no {@code discord_user.locale}. English is what every other
- * unattributed line in this network is written in.
+ * It is an admin without asking, so it works while the database is broken, and it reads English.
  */
 public final class ConsoleUser implements NordtalUser {
 
@@ -35,7 +26,7 @@ public final class ConsoleUser implements NordtalUser {
         this(messages, null);
     }
 
-    /** @param audience where to print, or {@code null} for the JVM's own standard output */
+    /** Prints to {@code audience}, or to standard output when it is {@code null}. */
     public ConsoleUser(final Messages messages, final @Nullable Audience audience) {
         this.renderer = new MessageRenderer(messages);
         this.audience = audience;
@@ -86,13 +77,7 @@ public final class ConsoleUser implements NordtalUser {
         send(Component.text(text));
     }
 
-    /**
-     * Plain text, never MiniMessage.
-     *
-     * A console is a log file. Adventure's console audience strips the markup itself, but the
-     * fallback path here is {@code System.out}, and a raw {@code <green>} in a container log is the
-     * kind of thing somebody greps past.
-     */
+    /** Plain text, never MiniMessage, since the fallback is {@code System.out}. */
     private void send(final Component component) {
         if (audience != null) {
             audience.sendMessage(component);

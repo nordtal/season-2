@@ -8,15 +8,7 @@ import com.google.gson.JsonSyntaxException;
 import java.io.IOException;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Reading the three APIs' JSON, with the field name in the message when it is not there.
- *
- * gson arrives through jcore as a transitive api dependency, which is also why no parser is declared in this
- * module's build file. It is used raw rather than through {@code @SerializedName} data classes on purpose: these
- * payloads are large, mostly irrelevant, and change shape upstream without warning. Naming the six fields we
- * actually read means an upstream addition is ignored and an upstream removal is an error that says which field went
- * missing - a mapped class would instead hand back an object with a silent null in it.
- */
+/** Reads the three APIs' JSON with raw gson, naming the field in the message when it is missing. */
 final class Json {
 
     private Json() {}

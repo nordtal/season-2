@@ -7,17 +7,7 @@ import java.util.UUID;
 
 /**
  * A command about to be sent to the process that owns it.
- *
- * <b>Everything the target needs, and nothing it could look up</b>
- *
- * The identities, the language and the arguments all ride on the row. That is deliberate for the
- * language in particular: the answer has to come back in the language of whoever typed the command,
- * even if their {@code discord_user.locale} is changed while the row is in flight. Looking it up on
- * the far side would make the reply's language depend on when it was claimed.
- *
- * What does <b>not</b> ride on the row is the admin flag. The target re-reads it after claiming,
- * because the whole point of checking twice is that it can change in between - a request written by
- * an admin who is revoked a second later must not carry its own permission with it.
+ * The answer's language rides on the row; the admin flag does not and is re-read after claiming.
  *
  * @param target       which process runs the effect, as {@code Target#name()}
  * @param command      the command path joined with spaces, no leading slash: {@code "smp aura"}
@@ -72,10 +62,6 @@ public record NewCommandRequest(
         }
     }
 
-    /**
-     * The sources {@code command_request_source_check} allows.
-     *
-     * {@code SYSTEM} is a {@code Surface}, not a source: that command travels as {@code CONSOLE}.
-     */
+    /** The sources {@code command_request_source_check} allows; {@code SYSTEM} travels as {@code CONSOLE}. */
     private static final java.util.Set<String> SOURCES = java.util.Set.of("DISCORD", "GAME", "CONSOLE", "WEB");
 }

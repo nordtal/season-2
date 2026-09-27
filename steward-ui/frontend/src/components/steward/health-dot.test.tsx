@@ -7,20 +7,7 @@ import { afterEach, assert, describe, expect, it } from "vitest"
 
 import { HealthDot } from "@/components/steward/status"
 
-/**
- * The switch `HealthDot` carries, and the rule it must not break.
- *
- * **Green in the network view, silent in the sidebar**. A picture of state whose healthy boxes
- * carry nothing looks like a query that failed; a sidebar where nothing is the message makes the
- * one row that matters easy to find. So the component draws both, and the caller says which -
- * `quiet` defaults to the sidebar's answer, so no existing call site had to change and going loud
- * is the thing that has to be typed.
- *
- * The second test below is the one that matters in six months' time: it reads `app-sidebar.tsx` and
- * checks that the sidebar still says nothing about `quiet`, because the way this rule gets broken
- * is not somebody arguing with it - it is somebody adding `quiet={false}` to a row while making the
- * dots line up.
- */
+/** `HealthDot` is green in the network view and silent in the sidebar, and the sidebar must never set `quiet`. */
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const sidebarFile = path.resolve(here, "../../app/app-sidebar.tsx")
@@ -50,11 +37,7 @@ describe("HealthDot - quiet by default, loud where a picture needs it", () => {
   })
 
   it("never draws the fine colour for a service it has not read, loud or not", () => {
-    /**
-     * `health.ts`'s rule one level down: "A green light on no evidence is the one thing this page
-     * must not do." Turning the quiet off must not turn that into a green dot for a service the
-     * query has not answered for yet.
-     */
+    /** Going loud must not turn an unanswered query into a green dot. */
     const { rerender } = render(<HealthDot />)
     expect(screen.getByLabelText(/not read/i).className).not.toContain("bg-success")
 
@@ -63,13 +46,7 @@ describe("HealthDot - quiet by default, loud where a picture needs it", () => {
   })
 })
 
-/**
- * Whether a source file has opinions about `quiet`.
- *
- * Exported and taken as a string rather than reading the file itself, so the test below can prove
- * the detector detects. A guard whose only evidence is that it found nothing has not been shown to
- * work - that is the same hole `no-middle-dot.test.ts` closes with its second test.
- */
+/** Whether a source file sets `quiet`, taking a string so the test can prove the detector detects. */
 export function mentionsQuiet(source: string): string[] {
   return source
     .split("\n")
@@ -98,12 +75,7 @@ describe("the sidebar stays silent", () => {
   })
 })
 
-/**
- * Held down is its own reading.
- *
- * `service_hold` is the only place the difference between "somebody put this down" and "this fell
- * over" exists - the container state is `exited` either way.
- */
+/** A held service reads as held, since `service_hold` alone tells it from a crash. */
 describe("a held service is not a broken one", () => {
   const held = { state: "exited", hold: { since: "2026-09-20T18:00:00Z", by: "hmtill" } }
 
@@ -125,10 +97,7 @@ describe("a held service is not a broken one", () => {
   })
 
   it("changes nothing about a held container that is running anyway", () => {
-    /**
-     * The hold describes being stopped. One that is up and failing its healthcheck is not what
-     * anybody asked for, and `health.ts` keeps it red for the same reason.
-     */
+    /** A held service that is up and unhealthy stays red, as in `health.ts`. */
     render(<HealthDot service={{ ...held, state: "running", health: "unhealthy" }} quiet={false} />)
     expect(screen.getByLabelText("unhealthy").className).toContain("bg-destructive")
   })

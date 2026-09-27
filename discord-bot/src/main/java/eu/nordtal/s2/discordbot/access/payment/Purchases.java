@@ -10,20 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * The purchase state machine, without any Discord or any bank call in it.
  *
- * Everything that has to happen in a particular order lives here, so the Discord listener is glue
- * and the admin commands share the same rules rather than each having their own copy.
- *
- * {@link #confirm(PaymentRequest)} sets {@code tab_requested} and
- * {@link #close(PaymentRequest, PaymentRequestStatus)} sets {@code cancel_requested};
- * steward-worker holds the bunq key, makes the call and writes the answer back, and
- * {@code nordtal_payment} wakes both sides so neither waits for a poll. What the user sees in
- * between is "your payment link is being created", and what they see if it fails is
- * {@code tab_failed} - a state that exists precisely so that sentence has an exit.
- *
- * A request that is {@code SUPERSEDED} in our table while its bunq.me URL still works is a link
- * somebody can still pay - and that payment would then arrive against a reference nothing books
- * automatically, which is a support ticket rather than a purchase. The closing and the asking are
- * one transaction here; the bank call happens a second later, in another container.
+ * It writes {@code tab_requested} and {@code cancel_requested}; steward-worker makes the bank call.
  */
 @Slf4j
 public final class Purchases {
@@ -41,14 +28,7 @@ public final class Purchases {
     /**
      * Records what somebody has selected.
      *
-     * An open request that has not reached a bunq tab yet is edited in place, so clicking through the options does not
-     * burn a reference per click. Once a tab exists the amount is fixed at bunq and the row has to be superseded
-     * instead - tab and all.
-     *
-     * @param discordId who is buying.
-     * @param tier which tier they picked.
-     * @param donation whether the donation surcharge is included.
-     * @return the open request, ready to be confirmed.
+     * An open request without a bunq tab is edited in place; once a tab exists it is superseded, tab and all.
      */
     public PaymentRequest select(final String discordId, final Tier tier, final boolean donation) {
         final int donationCents = donation ? tiers.donationCents() : 0;
@@ -91,18 +71,10 @@ public final class Purchases {
     }
 
     /**
-     * Asks steward-worker for the bunq.me tab.
+     * Asks steward-worker for the bunq.me tab and returns once the row is written; asking again is the retry.
      *
-     * Returns as soon as the row is written - which is the point. The link does not exist yet and this process
-     * could not make it; the caller shows "your payment link is being created" and fills it in when
-     * {@code nordtal_payment} says the row has one, or shows {@code tab_failed} when the bank said no.
-     *
-     * Asking again is the retry: {@code requestTab} clears the previous failure in the same statement, so a row
-     * can go from refused back to pending without any state living in this process.
-     *
-     * @param request the open request.
-     * @return {@code true} when a tab is now wanted; {@code false} when the request was closed underneath us, or
-     *     already has a tab - in which case the caller already has the link.
+     * @param request the open request
+     * @return {@code true} when a tab is now wanted; {@code false} when the request is closed or already has one
      */
     public boolean confirm(final PaymentRequest request) {
         if (request.tab().isPresent()) {

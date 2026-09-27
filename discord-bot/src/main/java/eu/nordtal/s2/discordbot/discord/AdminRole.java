@@ -13,17 +13,9 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 
 /**
- * The Discord admin role, kept to match the admin tree in the database - one way.
+ * Keeps the Discord admin role matching the admin tree in the database, never the other way round.
  *
- * Admins are granted and revoked in Steward. The role is a decoration of that decision: this adds it to every admin
- * in the guild and takes it from everybody else who holds it, a role given by hand in Discord included. Nothing here
- * ever writes the database.
- *
- * It runs on every wake of the access listener - a grant or revocation notifies {@code nordtal_admin}, and the
- * thirty-second poll catches a notification that was lost and a role somebody handed out by hand.
- *
- * A failure is alerted once per account and then kept quiet until it succeeds: a bot whose role sits below the admin
- * role would otherwise post the same line every thirty seconds.
+ * A failure is alerted once per account and then kept quiet until it succeeds.
  */
 @Slf4j
 public final class AdminRole {
@@ -69,11 +61,10 @@ public final class AdminRole {
             }
         }
 
-        // Whatever is left is an admin without the role.
         for (final String discordId : shouldHave) {
             final Member member = guild.getMemberById(discordId);
             if (member == null) {
-                // Not in the member cache: leaving drops the admin anyway, so the next pass catches up.
+                // Not in the member cache: leaving drops the admin anyway.
                 continue;
             }
             guild.addRoleToMember(member, role)

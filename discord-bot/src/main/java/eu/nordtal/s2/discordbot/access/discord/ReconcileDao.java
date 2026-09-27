@@ -14,20 +14,11 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 /**
  * The sweeps: who should hold the access role, and whose access is about to end or just ended.
  *
- * Why this is not in {@code :common}: {@code AccessDirectory} answers questions about one account, because that is
- * what the login path and the commands ask. These are set-shaped questions asked by background timers that only the
- * bot runs, and the proxy and the plugins have no use for them. Putting them here keeps {@code :common} 's API the
- * small thing the login path needs. They read tables {@code :common} owns the meaning of, so a change to
- * {@code access_grant} is still a change in two modules - which is the documented cost of the bot owning the schema.
- *
- *
- * Public rather than package-private: {@link #allUsers()} is also what {@code GuildState} 's startup reconcile uses
- * to find accounts that left while the bot was down, and {@code GuildState} lives at the top level, not under
- * {@code access} - membership, locale and the admin flag are bot-wide projections, not an access-only concern.
+ * These set-shaped queries serve only the bot's timers, so they stay out of {@code :common}'s {@code AccessDirectory}.
  */
 public interface ReconcileDao {
 
-    /** Everyone a non-revoked grant covers right now - exactly the set that should hold the role. */
+    /** Everyone a non-revoked grant covers right now, which is exactly the set that should hold the role. */
     @SqlQuery("""
             SELECT DISTINCT discord_id
             FROM access_grant
@@ -37,12 +28,7 @@ public interface ReconcileDao {
             """)
     List<String> withActiveAccess();
 
-    /**
-     * Users whose current run of access ends within the next {@code hours}.
-     *
-     * Grouped by user and filtered on the maximum, so an appended chain produces one deadline and not one per grant.
-     *
-     */
+    /** Returns users whose current run of access ends within the next {@code hours}, one row per user. */
     @SqlQuery("""
             SELECT discord_id, max(valid_until) AS valid_until
             FROM access_grant
@@ -53,12 +39,7 @@ public interface ReconcileDao {
     @RegisterRowMapper(AccessDeadlineMapper.class)
     List<AccessDeadline> endingWithin(@Bind("hours") int hours);
 
-    /**
-     * Users whose access ran out within the last {@code hours} and has not been renewed.
-     *
-     * The lookback exists so that a bot which was down when somebody's access expired still sends the message when it
-     * comes back, rather than the moment being missed for good.
-     */
+    /** Returns users whose access ran out within the last {@code hours} and has not been renewed. */
     @SqlQuery("""
             SELECT discord_id, max(valid_until) AS valid_until
             FROM access_grant
@@ -73,7 +54,7 @@ public interface ReconcileDao {
     /**
      * Records that one message about one deadline has been sent.
      *
-     * @return 1 the first time, 0 afterwards - so a restart does not re-send yesterday's reminders
+     * @return 1 the first time, 0 afterwards
      */
     @SqlUpdate("""
             INSERT INTO expiry_notice (discord_id, valid_until, kind)
@@ -85,25 +66,15 @@ public interface ReconcileDao {
             @Bind("validUntil") OffsetDateTime validUntil,
             @Bind("kind") String kind);
 
-    /**
-     * Every Discord account the bot has ever written about.
-     *
-     * The startup reconcile needs it to find the accounts that are not in the guild any more: a leave the bot missed
-     * while it was down produces no event to catch up on, so the only way to notice is to compare what we know against
-     * who is actually there.
-     */
+    /** Returns every Discord account the bot has ever written about, to find those that left while it was down. */
     @SqlQuery("SELECT discord_id FROM discord_user")
     List<String> allUsers();
 
-    /**
-     * The language a Discord account chose, for a message that is not going to a Minecraft account.
-     *
-     * {@code AccessDirectory} answers this for a UUID, because that is what the login path needs; a DM has no UUID.
-     */
+    /** Returns the language a Discord account chose, for a DM, which has no Minecraft UUID. */
     @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
     java.util.Optional<String> localeOf(@Bind("discordId") String discordId);
 
-    /** Deletes link codes that have run out. Stage C issues them; the sweep belongs to the bot. */
+    /** Deletes link codes that have run out. */
     @SqlUpdate("DELETE FROM link_code WHERE expires <= now()")
     int deleteExpiredLinkCodes();
 

@@ -9,20 +9,11 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
-/**
- * {@code config/database.yml}.
- *
- * The hand-written {@code POSTGRES_URL} / {@code POSTGRES_USER} / {@code POSTGRES_PASSWORD} overrides this used to
- * carry are gone: jcore's environment overlay covers every setting, so there is no longer a second, separate way for
- * a value to reach this config.
- *
- * Deploy change: the variables are now {@code NORDTAL_DATABASE_JDBC_URL}, {@code NORDTAL_DATABASE_USERNAME} and
- * {@code NORDTAL_DATABASE_PASSWORD}. The old {@code POSTGRES_*} names are no longer read.
- */
+/** {@code config/database.yml}, overridable per setting through {@code NORDTAL_DATABASE_*}. */
 @ConfigSpec(
         header = {
             "-------------------------------------------------------------------",
-            "  access-bot - PostgreSQL connection",
+            "  access-bot: PostgreSQL connection",
             "-------------------------------------------------------------------",
             "In production the password belongs in the environment, not in this",
             "file. Every setting can be overridden with",

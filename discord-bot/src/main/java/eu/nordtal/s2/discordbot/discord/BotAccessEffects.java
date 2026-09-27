@@ -23,20 +23,9 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 
 /**
- * {@link AccessEffects} against this bot.
+ * {@link AccessEffects} against this bot: the row, the Discord role, the direct message and the audit entry.
  *
- * Everything here is three things at once: A grant is a row, a Discord role and a direct message in the recipient's
- * own language; a revocation is the same three in reverse. Only this process holds a JDA session, which is why these
- * are the bot's effects and not {@code :common} 's - and why a Paper server asking for one writes a
- * {@code command_request} row rather than doing it itself.
- *
- * The audit row is written here and not by the command: {@code audit_log} is this bot's, and its shape - action,
- * actor, subject, detail - is a Discord shape. A command that built one would be a command that knows what a Discord
- * id is for; the command hands over a {@link NordtalUser} and this decides what to file.
- *
- * Two instances, as everywhere: The one behind the slash commands runs its work on the bot's worker pool, because a
- * JDA gateway thread has three seconds. The one behind the command inbox runs it inline, because the inbox settles a
- * request row when the command returns.
+ * The slash command instance runs on the worker pool; the command inbox instance runs inline.
  */
 public final class BotAccessEffects implements AccessEffects, AccessChanges {
 
@@ -51,10 +40,10 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
     private final org.slf4j.Logger log;
 
     /**
-     * @param messages this bot's layered bundle - what it says on its own surface
-     * @param shared   {@code :commands}' bundle as the command inbox renders it. Two views of the
-     *                 same files, so a reload that moved only one of them would leave a command
-     *                 answering differently in Discord and in game
+     * Creates the effects over both views of the same bundle files.
+     *
+     * @param messages this bot's layered bundle
+     * @param shared {@code :commands}' bundle as the command inbox renders it, reloaded together with {@code messages}
      */
     public BotAccessEffects(
             final Executor executor,
@@ -89,7 +78,7 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
 
     @Override
     public Optional<Status> status(final String discordId) {
-        // Read through the guild, not JDA's global lookup, so a departed member reads as empty, not a thrown error.
+        // Through the guild, so a departed member reads as empty rather than throwing.
         final Optional<net.dv8tion.jda.api.entities.Member> member = roles.member(discordId);
         if (member.isEmpty()) {
             return Optional.empty();
@@ -126,12 +115,7 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         return grant(discordId, days, Actor.of(by));
     }
 
-    /**
-     * The grant itself, for whoever asked.
-     *
-     * Four things, and only this process can do three of them: the row, the role, the direct message in the recipient's
-     * own language, and the line in the admin channel.
-     */
+    /** Grants access: the row, the role, the direct message and the admin channel line. */
     @Override
     public Instant grant(final String discordId, final int days, final Actor by) {
         final AccessGrant granted = access.grantAccess(discordId, days, AccessSource.ADMIN, null);
@@ -156,7 +140,7 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         return revoke(discordId, Actor.of(by));
     }
 
-    /** @return how many grants were revoked - zero is a legitimate answer and worth saying. */
+    /** Returns how many grants were revoked, zero included. */
     @Override
     public int revoke(final String discordId, final Actor by) {
         final int revoked = access.revokeAccess(discordId);
@@ -177,10 +161,10 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         return unlink(discordId, Actor.of(by));
     }
 
-    /** @return whether there was a link to break. */
+    /** Returns whether there was a link to break. */
     @Override
     public boolean unlink(final String discordId, final Actor by) {
-        // Read before the unlink: afterwards the audit entry is the only place the UUID survives.
+        // Read before the unlink: afterwards only the audit entry keeps the UUID.
         final Optional<UUID> linked = access.linkedMinecraftAccount(discordId);
         if (!access.unlink(discordId)) {
             return false;
@@ -201,7 +185,7 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         return settle(reference, Actor.of(by));
     }
 
-    /** Book a payment by hand, for whoever asked. */
+    /** Books a payment by hand, for whoever asked. */
     @Override
     public Settled settle(final String reference, final Actor by) {
         final Optional<PaymentRequest> request = requests.byReference(reference);
@@ -245,20 +229,14 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
     }
 
     /**
-     * Write somebody's total play time.
-     *
-     * It joins the other four so that "an access change" means the same set of consequences whoever asked for it.
-     *
-     * No direct message. The other four change what somebody may do and they are told; this corrects a number that is
-     * only ever read by admins, and a DM saying "your play time is now 42 hours" is an interruption about nothing. The
-     * tier it derives into is visible in game the moment it changes, which is the only part a player would notice.
+     * Writes somebody's total play time, without a direct message.
      *
      * @param seconds the new total, which is what the column holds
      */
     @Override
     public void setPlaytime(final String discordId, final long seconds, final Actor by) {
         access.setPlaytimeSeconds(discordId, seconds);
-        // Days, hours and minutes, because that is the unit Steward's dialog and list use.
+        // Days, hours and minutes, the unit Steward uses.
         admin.record("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(), PlaytimeWording.of(seconds));
         admin.note(by.mention() + " set <@" + discordId + ">'s play time to " + PlaytimeWording.of(seconds) + ".");
     }
@@ -267,7 +245,6 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
     public boolean reloadMessages() {
         try {
             messages.reload();
-            // The command inbox's own view of the shared bundle, in the same breath.
             shared.reload();
             return true;
         } catch (final RuntimeException failure) {

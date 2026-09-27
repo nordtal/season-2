@@ -6,16 +6,9 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * Which message the bot last posted for which managed message kind.
+ * Which message the bot last posted for each managed message kind, so a restart edits it instead of posting again.
  *
- * This is the whole reason {@code managed_message} exists: without a stored id, "post my message or edit the one
- * that is already there" needs the bot to scan channel history and guess which message is its own, and a wrong guess
- * leaves two copies that nobody can tell apart.
- *
- * Public and shared at the top level rather than under {@code access}: {@code managed_message.kind} is deliberately
- * unconstrained, so this DAO serves any feature that maintains a message-per-kind, not only the access half's
- * contribution/link messages - {@code hungergames} 's register message uses the same table through the same DAO
- * rather than duplicating the SQL.
+ * Any feature with a message per kind uses it, since {@code managed_message.kind} is unconstrained.
  */
 public interface ManagedMessageDao {
 

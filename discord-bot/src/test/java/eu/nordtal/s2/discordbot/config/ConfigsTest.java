@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.exception.UnknownConfigKeyException;
@@ -20,20 +19,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * The fail-fast that replaced "log it and carry on with defaults".
- *
- * Every test here is a value that used to be able to reach production: a mistyped key that the old loader deleted
- * silently, a bunq account id that was only parsed inside the poll loop, a channel id nobody filled in. The point of
- * the config layer is that none of them get past startup.
- *
- * What these tests cannot prove: that the ids in a real {@code access.yml} point at the channels and roles somebody
- * meant. A snowflake is checked for being a snowflake, not for existing - that only shows up against a real guild.
- *
- */
+/** Every value that must not get past startup: mistyped keys, malformed ids and missing settings. */
 class ConfigsTest {
 
-    /** The agreed price list, as YAML. Substituted into {@link #access(String)}. */
+    /** The agreed price list, as YAML. */
     private static final String VALID_TIERS = """
             tiers:
             - days: 30
@@ -43,7 +32,7 @@ class ConfigsTest {
             - days: 90
               price-cents: 700""";
 
-    /** The agreed language list, as YAML. Substituted into {@link #access(String, String)}. */
+    /** The agreed language list, as YAML. */
     private static final String VALID_LANGUAGES = """
             languages:
             - tag: en
@@ -57,11 +46,7 @@ class ConfigsTest {
               link-channel: '35'
               hunger-games-channel: '40'""";
 
-    /**
-     * A third language, to be appended to {@link #VALID_LANGUAGES}.
-     *
-     * Nothing in the bot knows the tag {@code fr} exists; that is the point.
-     */
+    /** A third language that nothing in the bot knows, to append to {@link #VALID_LANGUAGES}. */
     private static final String FRENCH = """
 
             - tag: fr
@@ -70,14 +55,7 @@ class ConfigsTest {
               link-channel: '38'
               hunger-games-channel: '41'""";
 
-    /**
-     * Everything but the tiers and the languages, so a test about one setting does not trip over the other twenty.
-     *
-     * There are deliberately no {@code roles.german} / {@code roles.english} and no {@code channels.contribution-*} /
-     * {@code channels.link-*} keys here: the {@code languages} list is the only source for them, and an undeclared
-     * key stops the load - which
-     * {@link #theRetiredRolesGermanRolesEnglishAreDeletedFromTheFileNotArguedWith()} asserts.
-     */
+    /** Everything but the tiers and the languages, without the retired per-language role and channel keys. */
     private static final String REST = """
             guild-id: '1'
             donation-cents: 500
@@ -95,13 +73,7 @@ class ConfigsTest {
             role-reconcile-interval-minutes: 10
             """;
 
-    /**
-     * A complete access.yml with the given tiers and languages blocks.
-     *
-     * @param tiers     the {@code tiers:} section to use
-     * @param languages the {@code languages:} section to use
-     * @return the whole file
-     */
+    /** Returns a complete access.yml with the given tiers and languages blocks. */
     private static String access(final String tiers, final String languages) {
         return tiers + "\n" + languages + "\n" + REST;
     }
@@ -134,8 +106,6 @@ class ConfigsTest {
         System.clearProperty(Configs.DIRECTORY_PROPERTY);
     }
 
-    // Access.yml.
-
     @Test
     void aCompleteAccessYmlLoadsWithThePricesAsIntegerCents() throws Exception {
         Files.writeString(directory.resolve("access.yml"), access());
@@ -156,7 +126,7 @@ class ConfigsTest {
 
     @Test
     void noAdminChannelIsABotThatStartsAndLogsItsAlertsInstead() throws Exception {
-        // A deployment with a guild but no admin channel yet still has to come up to say what else is missing.
+        // A guild without an admin channel yet still has to come up to say what else is missing.
         Files.writeString(directory.resolve("access.yml"), access().replace("admin: '24'", "admin: ''"));
 
         assertEquals("", Configs.access().get().channels().admin());
@@ -164,7 +134,7 @@ class ConfigsTest {
 
     @Test
     void anAdminChannelThatIsPresentStillHasToBeASnowflake() throws Exception {
-        // Optional and lenient are not the same thing. Empty is a decision; `<#24>` is a paste.
+        // Empty is a decision; `<#24>` is a paste.
         Files.writeString(directory.resolve("access.yml"), access().replace("admin: '24'", "admin: '<#24>'"));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
@@ -173,7 +143,6 @@ class ConfigsTest {
 
     @Test
     void theGuildIdIsOneOfTheTwoTheBotCannotStartWithout() throws Exception {
-        // The other is roles.admin: together they say where the bot lives and who may administer it.
         Files.writeString(directory.resolve("access.yml"), access().replace("guild-id: '1'", "guild-id: ''"));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
@@ -199,7 +168,7 @@ class ConfigsTest {
 
     @Test
     void theBotRefusesToStartWhileTheAdminRoleIdIsEmpty() throws Exception {
-        // The flag this role mirrors into authorises /phase set and admission during MAINTENANCE.
+        // This role's flag authorises /phase set and admission during MAINTENANCE.
         Files.writeString(directory.resolve("access.yml"), access().replace("admin: '14'", "admin: ''"));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
@@ -216,7 +185,7 @@ class ConfigsTest {
 
     @Test
     void aLongerTierThatCostsLessStopsTheBot() throws Exception {
-        // A shortfall walks down to the highest tier the amount covers - the answer if longer costs more.
+        // A shortfall walks down to the highest tier the amount covers.
         Files.writeString(
                 directory.resolve("access.yml"),
                 access(VALID_TIERS.replace("- days: 60\n  price-cents: 500", "- days: 60\n  price-cents: 900")));
@@ -236,13 +205,11 @@ class ConfigsTest {
 
     @Test
     void anEmptyTierListIsADeploymentThatHasNotPricedAnythingYet() throws Exception {
-        // Prices are a decision made in the interface after the stack is up, not a precondition of being up.
+        // Prices are set in the interface after the stack is up, not a precondition of being up.
         Files.writeString(directory.resolve("access.yml"), access("tiers: []"));
 
         assertTrue(Configs.access().get().tiers().isEmpty());
     }
-
-    // The language list.
 
     @Test
     void theLanguageListLoadsWithItsTagsRoleAndChannels() throws Exception {
@@ -261,7 +228,7 @@ class ConfigsTest {
 
     @Test
     void aLanguageListWithoutEnStopsTheBotAndPrintsTheShapeToWrite() throws Exception {
-        // English is the floor every missing translation degrades to; without it the failure surfaces elsewhere.
+        // English is the floor every missing translation degrades to.
         Files.writeString(directory.resolve("access.yml"), languages("""
                 languages:
                 - tag: de
@@ -292,7 +259,7 @@ class ConfigsTest {
 
     @Test
     void twoEntriesWithTheSameTagStopTheBot() throws Exception {
-        // A tag is the bundle file name and the value in discord_user.locale, so two entries claiming one is ambiguous.
+        // A tag is the bundle name and the discord_user.locale value, so two entries claiming one are ambiguous.
         Files.writeString(
                 directory.resolve("access.yml"), languages(VALID_LANGUAGES.replace("- tag: de", "- tag: en")));
 
@@ -312,7 +279,7 @@ class ConfigsTest {
 
     @Test
     void aLanguageEntryWhoseIdsAreAllEmptyIsALanguageThatServesNothing() throws Exception {
-        // Empty switches the thing it names off - no link message in this language - and Configured lists it.
+        // Empty switches off what it names, and Configured lists it.
         Files.writeString(
                 directory.resolve("access.yml"),
                 languages(VALID_LANGUAGES
@@ -333,7 +300,7 @@ class ConfigsTest {
 
     @Test
     void aLanguageIdThatIsPresentStillHasToBeASnowflakeNamingTheEntry() throws Exception {
-        // The leniency is about emptiness only: an unresolvable channel and an unconfigured one are not the same.
+        // An unresolvable channel and an unconfigured one are not the same.
         Files.writeString(
                 directory.resolve("access.yml"),
                 languages(VALID_LANGUAGES.replace("link-channel: '35'", "link-channel: '<#35>'")));
@@ -344,7 +311,6 @@ class ConfigsTest {
 
     @Test
     void aLanguageWithNoStatusChannelIsALanguageWithNoStatusChannel() throws Exception {
-        // The one optional id in the file; VALID_LANGUAGES does not carry it at all.
         Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES));
 
         final AccessSpec config = Configs.access().get();
@@ -378,7 +344,7 @@ class ConfigsTest {
 
     @Test
     void aStatusChannelThatIsSetHasToBeARealSnowflake() throws Exception {
-        // Lenient about absent must not become lenient about wrong: an unresolvable id fails silently otherwise.
+        // Lenient about absent must not become lenient about wrong.
         Files.writeString(
                 directory.resolve("access.yml"),
                 languages(VALID_LANGUAGES.replace(
@@ -402,7 +368,7 @@ class ConfigsTest {
 
     @Test
     void aTagTooLongForManagedMessageKindStopsTheBot() throws Exception {
-        // Not a rule about languages: managed_message.kind is varchar(32) and holds "CONTRIBUTION_<TAG>".
+        // managed_message.kind is varchar(32) and holds "CONTRIBUTION_<TAG>".
         Files.writeString(
                 directory.resolve("access.yml"),
                 languages(VALID_LANGUAGES.replace("- tag: de", "- tag: " + "a".repeat(20))));
@@ -411,11 +377,9 @@ class ConfigsTest {
         assertTrue(error.getMessage().contains("as long as a managed message's key"), error.getMessage());
     }
 
-    // The list is the only source.
-
     @Test
     void theRetiredRolesGermanRolesEnglishAreDeletedFromTheFileNotArguedWith() throws Exception {
-        // The list is the only source for a language's role; a re-declared `german:` key is deleted, not refused.
+        // A re-declared `german:` key is deleted, not refused.
         Files.writeString(
                 directory.resolve("access.yml"), access().replace("  donor: '11'", "  donor: '11'\n  german: '12'"));
 
@@ -448,7 +412,7 @@ class ConfigsTest {
 
     @Test
     void aThirdLanguageIsAConfigEditAndNothingElse() throws Exception {
-        // Nothing in the bot's source mentions 'fr': the file below is the entire change per language.
+        // Nothing in the bot's source mentions 'fr'; this file is the entire change per language.
         Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES + FRENCH));
 
         final Languages languages = Languages.of(Configs.access().get());
@@ -466,7 +430,6 @@ class ConfigsTest {
                 () -> assertEquals("HG_REGISTER_FR", french.hungerGamesRegisterKind()),
                 () -> assertArrayEquals(
                         new Locale[] {Locale.ENGLISH, Locale.GERMAN, Locale.FRENCH}, languages.locales()),
-                // ...and the two that already existed still behave exactly as they did.
                 () -> assertEquals(
                         "de", languages.resolve(Set.of("33")).orElseThrow().tag()),
                 () -> assertEquals("31", languages.forLocale(Locale.ENGLISH).contributionChannelId()));
@@ -474,7 +437,7 @@ class ConfigsTest {
 
     @Test
     void aDeployedAccessYmlCarryingTheMovedPaymentKeysLosesThemAndKeepsTheBot() throws Exception {
-        // payment.watermark and payment.recent-payment-count belong to steward-worker's bunq block, not this one.
+        // These belong to steward-worker's bunq block, not this one.
         Files.writeString(directory.resolve("access.yml"), access().replace("""
                         payment:
                           poll-interval-seconds: 30
@@ -501,7 +464,7 @@ class ConfigsTest {
     void aMistypedSettingStopsTheBotAndSaysWhatWasMeant() throws Exception {
         Files.writeString(directory.resolve("access.yml"), access().replace("donation-cents:", "donation-cent:"));
 
-        // jcore keeps the trace of a typo rather than deleting the key it does not know, as the old loader did.
+        // jcore keeps the trace of a typo rather than deleting the unknown key.
         final UnknownConfigKeyException error = assertThrows(UnknownConfigKeyException.class, Configs::access);
 
         assertAll(
@@ -513,7 +476,7 @@ class ConfigsTest {
 
     @Test
     void theRetiredLinkCodeTtlMinutesIsDeletedFromTheFileAndGateYmlKeepsTheOnlyOne() throws Exception {
-        // gate.yml carries the only link-code TTL; a deployed access.yml still carrying the key means nothing.
+        // gate.yml carries the only link-code TTL.
         Files.writeString(directory.resolve("access.yml"), access() + "link-code-ttl-minutes: 10\n");
 
         Configs.access();
@@ -525,7 +488,7 @@ class ConfigsTest {
 
     @Test
     void aDefaultsAccessYmlIsWrittenAndItCannotStartTheBot() {
-        // Real channel and role ids as defaults would let a config that failed to load post into a real channel.
+        // Real ids as defaults would let a config that failed to load post into a real channel.
         assertThrows(ConfigValidationException.class, Configs::access);
 
         final Path file = directory.resolve("access.yml");
@@ -556,8 +519,6 @@ class ConfigsTest {
         return Files.readString(file);
     }
 
-    // Bot.yml.
-
     @Test
     void theBotRefusesToStartWhileTheCredentialsAreEmpty() {
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::bot);
@@ -571,7 +532,7 @@ class ConfigsTest {
 
     @Test
     void aDeployedBotYmlStillCarryingTheWholeBunqBlockLosesItAndKeepsTheBot() throws Exception {
-        // The bunq block belongs to steward-worker; a deployed bot.yml carrying it costs only a WARN and a .bak.
+        // The bunq block belongs to steward-worker; a deployed bot.yml carrying it costs a WARN and a .bak.
         Files.writeString(directory.resolve("bot.yml"), """
                 token: a-token
                 bunq:
@@ -596,7 +557,7 @@ class ConfigsTest {
         assertThrows(ConfigValidationException.class, Configs::bot);
 
         final Path file = directory.resolve("bot.yml");
-        // The header is not in the YAML; jcore puts the file-level @ConfigSpec(header) into the schema instead.
+        // jcore puts the file-level header into the schema, not the YAML.
         final Path schema = directory.resolve("bot.schema.json");
         assertAll(
                 () -> assertTrue(Files.isRegularFile(file), "the defaults file is still written"),
@@ -605,7 +566,7 @@ class ConfigsTest {
                 () -> assertTrue(
                         Files.isRegularFile(schema),
                         "the schema is written beside it, under the config's own base name"),
-                // "THIS" and not "THESE": bot.yml has one setting, the token; the bunq credentials are elsewhere.
+                // "THIS", not "THESE": bot.yml has one setting, the token.
                 () -> assertTrue(
                         Files.readString(schema).contains("LEAVE THIS EMPTY"),
                         "and the schema's root explanation carries the header that says so"),
@@ -619,8 +580,6 @@ class ConfigsTest {
                         "the YAML itself stays comment-free - that is what jcore 4.0.0 decided"));
     }
 
-    // Database.yml.
-
     @Test
     void aNonPostgresqlJdbcUrlStopsTheBot() throws Exception {
         Files.writeString(directory.resolve("database.yml"), "jdbc-url: jdbc:mysql://db:3306/access\nusername: u\n");
@@ -629,17 +588,7 @@ class ConfigsTest {
         assertTrue(error.getMessage().contains("PostgreSQL"), error.getMessage());
     }
 
-    /**
-     * Every loaded config file has a {@code *.schema.json} written beside it.
-     *
-     * A file with no schema falls back to steward-worker's plain leaf-key reading, which is a weaker guard than the
-     * schema gives.
-     *
-     * {@code ConfigHandle} 's load writes {@code <name>.schema.json} unconditionally on every load, whether or not the
-     * load ends up throwing in the validator - the schema write happens before the validator runs. This pins that this
-     * module's own loading code, which calls {@link ConfigLoader#builder} exactly the way {@code smp} and every other
-     * module does, keeps doing so.
-     */
+    /** Every loaded config file has a {@code *.schema.json} written beside it, even when validation then fails. */
     @Test
     void everyConfigFileThisModuleWritesGetsASchemaJsonBesideIt() {
         swallowValidationFailure(Configs::access);
@@ -658,18 +607,12 @@ class ConfigsTest {
                         "database.yml has no database.schema.json beside it"));
     }
 
-    /**
-     * Runs a config loader and discards a validation failure.
-     *
-     * This test is only about the file and its schema having been written, which jcore does before the validator
-     * ever runs, not about whether the freshly written defaults are themselves acceptable (they usually are not:
-     * an empty token or guild id is refused by design).
-     */
+    /** Runs a config loader and ignores a validation failure, since only the written files matter here. */
     private static void swallowValidationFailure(final ThrowingCall call) {
         try {
             call.run();
         } catch (final ConfigValidationException expectedForFreshDefaults) {
-            // Ignored on purpose - see the Javadoc above.
+            // Ignored on purpose.
         } catch (final ConfigException unexpected) {
             throw new AssertionError(unexpected);
         }

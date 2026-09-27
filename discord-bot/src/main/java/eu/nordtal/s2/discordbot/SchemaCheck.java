@@ -5,14 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
 
 /**
- * The bot refuses to start against a database it was not built against.
+ * Refuses to start against a database this jar was not built against.
  *
- * steward-worker owns the migrations; without this check the bot would instead fail on its first query, minutes
- * later, inside a Discord interaction.
- *
- * Flyway's {@code validate()} compares the migrations shaded into this jar - the same files the worker applies -
- * against what the database says has been applied. The Paper plugins do not do this, because Flyway must never be
- * shaded into a plugin jar; the bot starts first and catches it for the whole stack.
+ * steward-worker migrates; without this the bot would fail on its first query, inside a Discord interaction.
  */
 @Slf4j
 final class SchemaCheck {
@@ -20,9 +15,7 @@ final class SchemaCheck {
     private SchemaCheck() {}
 
     /**
-     * @throws IllegalStateException if the database is not at the schema this jar expects. The
-     *                               message names the worker's command, because that is the only
-     *                               thing that fixes it.
+     * @throws IllegalStateException if the database is not at this jar's schema; the message names the worker's command
      */
     static void validate(final DataSource dataSource) {
         try {

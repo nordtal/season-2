@@ -29,17 +29,7 @@ import org.jdbi.v3.core.Jdbi;
 /**
  * The bot-maintained messages: a contribution message and a link message per configured language.
  *
- * On startup the bot edits the message it posted last time, or posts a new one if there isn't one. The id is
- * remembered in {@code managed_message}, so a restart never leaves a second copy - and the embed is rendered from
- * configuration on every start, which is what stops a stale price from living on in an embed nobody re-posted.
- * Season 1's answer was a {@code /send-contribution-embed} command with the prices, role ids and image URLs written
- * into the source; those image URLs have since expired and render as broken images.
- *
- * How many there are is a config question. It was four - {@code CONTRIBUTION_EN}, {@code CONTRIBUTION_DE},
- * {@code LINK_EN}, {@code LINK_DE}, hard-coded as an enum against four fixed channel keys. It is now two per entry
- * of {@code access.yml} 's {@code languages} list, with the same names: the {@code managed_message.kind} is derived
- * from the language tag, so the rows the bot has already written keep their keys and a third language adds two rows
- * rather than needing a migration. {@code V2__bot_state.sql} left {@code kind} unconstrained for exactly this.
+ * The id is kept in {@code managed_message}, so a start edits the last message rather than posting another.
  */
 @Slf4j
 public final class ManagedMessages {
@@ -96,7 +86,7 @@ public final class ManagedMessages {
                         ? Button.primary(
                                 Ids.BUY,
                                 messages.format(locale, MESSAGES.contribution().button()))
-                        // Stage C: opens a modal for the code the proxy showed on the login screen.
+                        // Opens a modal for the code the proxy showed on the login screen.
                         : Button.primary(
                                 Ids.LINK,
                                 messages.format(locale, MESSAGES.link().button()))));
@@ -120,8 +110,7 @@ public final class ManagedMessages {
     }
 
     /**
-     * @return {@code false} when the remembered message is gone - it was deleted by hand, or the
-     *         channel was cleared - so the caller posts a fresh one
+     * @return {@code false} when the remembered message is gone, so the caller posts a fresh one
      */
     private boolean edit(
             final MessageChannel channel,
@@ -150,8 +139,6 @@ public final class ManagedMessages {
             return false;
         }
     }
-
-    // Embeds.
 
     private MessageEmbed contributionEmbed(final Locale locale) {
         final List<String> prices = new ArrayList<>();
@@ -186,8 +173,6 @@ public final class ManagedMessages {
                 .image("attachment://" + LINK_BANNER)
                 .build();
     }
-
-    // Resources.
 
     private InputStream banner(final String name) {
         final InputStream stream = getClass().getClassLoader().getResourceAsStream("banners/" + name);

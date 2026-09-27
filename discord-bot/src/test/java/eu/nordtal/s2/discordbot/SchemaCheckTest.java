@@ -14,14 +14,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-/**
- * What the bot does at startup now that it does not migrate: check, and refuse if the answer is no.
- *
- * Against a real PostgreSQL, because the thing being tested is the state of a database. Driven by hand from
- * {@link BeforeAll} rather than through {@code @Testcontainers} for the same reason as every other integration test
- * here - that extension is built against JUnit 5 and this repo is on the JUnit 6 BOM - and it skips itself when no
- * Docker daemon is reachable.
- */
+/** The startup schema check against a real PostgreSQL, skipped when no Docker daemon is reachable. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @org.junit.jupiter.api.TestMethodOrder(org.junit.jupiter.api.MethodOrderer.OrderAnnotation.class)
 class SchemaCheckTest {
@@ -58,7 +51,7 @@ class SchemaCheckTest {
     @Test
     @org.junit.jupiter.api.Order(1)
     void anUnmigratedDatabaseIsRefusedAndTheMessageNamesTheCommandThatFixesIt() {
-        // Deliberately first: runs before anything migrates the container, the state before steward-worker.
+        // Deliberately first: the container is not migrated yet.
         final IllegalStateException refused =
                 assertThrows(IllegalStateException.class, () -> SchemaCheck.validate(database.dataSource()));
 

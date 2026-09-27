@@ -6,21 +6,9 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Which Discord ids were actually filled in, and what the bot therefore does not do.
+ * Reports once at startup which optional Discord ids are empty, and so which features are off.
  *
- * Why this exists: a deployment that has a guild but not yet a donor role must still be able to start and say what
- * else is missing. The two ids the bot genuinely cannot work without are the guild and the admin role - one says
- * where it lives, the other says who is allowed to administer it, and without the second nobody can log in to
- * Steward to fill the rest in. Everything else is a feature: leave the id empty and the bot simply does not serve
- * that feature.
- *
- * Why it is said out loud: A feature that is silently off is indistinguishable from one that is broken. Every
- * consumer below degrades quietly at the call site - a donation with no contribution channel is not an error, it is
- * a deployment that has not picked one yet - so the one place that must not be quiet is the start.
- * {@link #report(AccessSpec, PaymentGateway.State)} writes a single line naming what is unconfigured, so the answer
- * to "why did nothing appear in the channel" is in the log the operator already has.
- *
- * @see Configs#access()
+ * Only the guild and the admin role are required; every other empty id silently switches its feature off.
  */
 @Slf4j
 public final class Configured {
@@ -28,12 +16,7 @@ public final class Configured {
     private Configured() {}
 
     /**
-     * Whether an id was configured at all.
-     *
-     * This is not the same question as "is it a valid snowflake" - {@link Configs} has already refused anything
-     * that is neither empty nor digits. It is the check every JDA call needs in front of it, because
-     * {@code getRoleById("")} and {@code getChannelById(_, "")} do not answer {@code null}: they throw, and an
-     * unconfigured channel would come out as a stack trace rather than as a feature nobody switched on.
+     * Returns whether an id was configured, which every JDA lookup needs since an empty id throws.
      *
      * @param id an id out of the configuration.
      * @return whether there is something to look up.
@@ -43,14 +26,10 @@ public final class Configured {
     }
 
     /**
-     * Says once, at startup, which features have no id behind them.
+     * Logs one line naming every feature that has no id behind it.
      *
-     * @param config  the loaded and validated access configuration
-     * @param gateway what steward-worker last said about its bunq credentials. This bot has no
-     *                bunq key of its own, so it cannot answer the question by looking at a file -
-     *                it reads the answer the worker wrote. It is carried here rather than logged
-     *                separately so that this one line stays the whole list of what is switched
-     *                off, instead of being one of two places to look.
+     * @param config the loaded and validated access configuration
+     * @param gateway what steward-worker last reported about its bunq credentials, so this one line stays complete
      */
     public static void report(final AccessSpec config, final PaymentGateway.State gateway) {
         final List<String> off = new ArrayList<>();
@@ -75,14 +54,12 @@ public final class Configured {
                 off.add("bunq in steward-worker's steward.yml - the worker started and "
                         + "found no key, so nothing is ever polled for and nothing can be bought; the "
                         + "rest of the bot is unaffected");
-            // Not "off": nobody has said. A worker that never started and one that started without a key look alike.
+            // Not "off": a worker that never started and one without a key look alike.
             case UNKNOWN ->
                 off.add("bunq - no steward-worker has said whether it has a key since "
                         + "this database was created. Read steward-worker's own start line: it says "
                         + "'bunq is ON' or 'bunq is OFF' in one sentence");
-            case ON -> {
-                // Nothing to report. A gateway that is on is not a feature that is switched off.
-            }
+            case ON -> {}
         }
     }
 

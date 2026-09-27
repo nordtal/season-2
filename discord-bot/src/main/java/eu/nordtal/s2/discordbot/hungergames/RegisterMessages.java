@@ -19,18 +19,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.jdbi.v3.core.Jdbi;
 
-/**
- * The bot-maintained Register message.
- *
- * One per configured language, in {@code Language#hungerGamesChannelId()}, carrying the button
- * {@link RegisterFlow} listens for.
- *
- * Same post-or-edit-by-remembered-id shape as {@code ManagedMessages}, reusing the same {@link ManagedMessageDao} -
- * {@code managed_message.kind} is deliberately unconstrained so a second feature maintaining its own kind of managed
- * message needs no migration. This class does not reuse {@code ManagedMessages} itself: that class's embeds are
- * access-specific (tiers, donation, link), and the two features have nothing in common past "post or edit one
- * message per language" - which is exactly what the shared DAO already captures.
- */
+/** Posts and edits the Register message, one per configured language, through {@link ManagedMessageDao}. */
 @Slf4j
 public final class RegisterMessages {
 
@@ -54,7 +43,7 @@ public final class RegisterMessages {
     }
 
     private void publish(final String kind, final String channelId, final Locale locale) {
-        // No channel for this language means no register message. Checked first: getChannelById throws on empty.
+        // No channel means no message; checked first, since getChannelById throws on empty.
         if (!Configured.isSet(channelId)) {
             return;
         }

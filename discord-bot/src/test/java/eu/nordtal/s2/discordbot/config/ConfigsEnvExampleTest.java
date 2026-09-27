@@ -25,8 +25,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * How {@code access.yml}'s settings survive the round trip through {@code .env.example} and the environment overlay.
- *
- * Split out of {@link ConfigsTest}, which owns the file-loading rules this reuses only as a fixture.
  */
 class ConfigsEnvExampleTest {
 
@@ -87,24 +85,10 @@ class ConfigsEnvExampleTest {
         System.clearProperty(Configs.DIRECTORY_PROPERTY);
     }
 
-    // .env.example.
-
     /**
-     * The value of {@code key} as {@code .env.example} at the repository root ships it, with a leading {@code #}
-     * stripped from every line of a commented-out block.
+     * Returns the value of {@code key} in the repository's {@code .env.example}, with a leading {@code #} stripped.
      *
-     * Read out of the real file rather than copied into a literal here, on purpose: a copy is a second source of truth
-     * that nothing compares, and the two blocks this reads are exactly the ones whose shape has to survive jcore's
-     * environment overlay. {@code build-logic} 's {@code repositoryRootTestInputs} declares the file as an input of
-     * this
-     * test task - without that, editing {@code .env.example} would leave {@code :discord-bot:test} UP-TO-DATE and the
-     * check would not run at all.
-     *
-     * Both blocks are written the way an operator reads them - one key per line - rather than as the single line a
-     * shell
-     * would have needed, because docker compose parses a single-quoted multi-line value in an env file as one string.
-     * That is a claim about two systems this repository does not own, so the half that is ours is what is checked:
-     * whatever compose hands over, jcore has to turn back into a list of specs.
+     * Read from the real file, which {@code repositoryRootTestInputs} declares as an input of this test task.
      */
     private static String envExampleValue(final String key) throws IOException {
         final Path file = repositoryRoot().resolve(".env.example");
@@ -135,15 +119,7 @@ class ConfigsEnvExampleTest {
         return line.startsWith("#") ? line.substring(1) : line;
     }
 
-    /**
-     * The repository root, found by walking up from the working directory until {@code settings.gradle.kts} is there.
-     *
-     * Gradle sets the working directory to the module folder and IntelliJ may not.
-     *
-     * It anchors on the build rather than on the first {@code .env.example} above it, because this module used to ship
-     * one of its own next to its old compose file: a search for the nearest file by name found that one, which is the
-     * wrong file and looks like the right one.
-     */
+    /** Returns the directory holding {@code settings.gradle.kts}, not the nearest {@code .env.example}. */
     private static Path repositoryRoot() {
         Path directory = Path.of("").toAbsolutePath();
         while (directory != null) {
@@ -169,7 +145,7 @@ class ConfigsEnvExampleTest {
         assertEquals("REPLACE_ME", config.languages().get(0).contributionChannel());
         assertEquals("REPLACE_ME", config.languages().get(0).linkChannel());
         assertEquals("REPLACE_ME", config.languages().get(1).hungerGamesChannel());
-        // status-channel is empty rather than REPLACE_ME - it is the one id an operator may leave out.
+        // status-channel is empty rather than REPLACE_ME, since an operator may leave it out.
         assertEquals("", config.languages().get(0).statusChannel());
         assertEquals("", config.languages().get(1).statusChannel());
     }
@@ -186,7 +162,7 @@ class ConfigsEnvExampleTest {
 
     @Test
     void aReplaceMeIdIsRefusedByNameRatherThanStartedWith() throws Exception {
-        // REPLACE_ME over a row of zeros: zeros are a valid snowflake for a guild that does not exist.
+        // REPLACE_ME rather than zeros: zeros are a valid snowflake for a guild that does not exist.
         Files.writeString(directory.resolve("access.yml"), access().replace("access: '10'", "access: 'REPLACE_ME'"));
 
         final ConfigValidationException thrown = assertThrows(ConfigValidationException.class, Configs::access);
@@ -196,15 +172,9 @@ class ConfigsEnvExampleTest {
     }
 
     /**
-     * The {@code @Protected} annotation and the bot's own startup rule have to name the same language.
+     * The {@code @Protected} annotation and the bot's startup rule name the same fallback language.
      *
-     * There is no way to notice at runtime if they stop doing so - the removal refusal lives in steward-worker, in
-     * another process, and the startup check here would simply go on protecting a different tag without complaining.
-     *
-     * This is that check, at build time. It replaces reading the annotation reflectively into
-     * {@code Configs.FALLBACK_LANGUAGE}: both the field and the annotation already name {@link Languages#FALLBACK_TAG},
-     * so the reflection guarded against nothing the compiler does not, while adding one way for this class to fail to
-     * initialise at all.
+     * Nothing notices at runtime if they drift, because the removal refusal lives in steward-worker.
      */
     @Test
     void theLanguageStewardWorkerRefusesToRemoveIsTheOneThisBotFallsBackTo() throws Exception {
@@ -224,25 +194,15 @@ class ConfigsEnvExampleTest {
     }
 
     /**
-     * Loads {@code access.yml} with a fake environment on top, the way the container's is.
+     * Loads {@code access.yml} with a fake environment on top, the way the container does.
      *
-     * {@link Configs#access()} reads {@link System#getenv} and a test cannot set that, so this goes through
-     * {@link ConfigLoader} directly with the same prefix. It therefore covers the overlay and not the validator - which
-     * is the half at risk here: a JSON shape that does not map onto the spec fails inside Gson, long before any rule of
-     * ours runs.
+     * This covers the overlay, not the validator, since {@link Configs#access()} reads the real environment.
      */
     private AccessSpec fromEnvironment(final Map<String, String> environment) throws Exception {
         return handleFromEnvironment(environment).get();
     }
 
-    /**
-     * The handle itself: {@link #fromEnvironment} only needs the loaded spec.
-     *
-     * {@link ConfigHandle#environmentOverrides()} is what feeds {@code EnvOverrideFile.write} in
-     * {@code Configs#load} - see
-     * {@link #languagesOverriddenExactlyTheWayDevEnvExampleOverridesItEndsUpInTheMarkerFile()} below,
-     * which needs the handle rather than the spec.
-     */
+    /** Returns the loaded handle rather than the spec, for tests that need its environment overrides. */
     private ConfigHandle<AccessSpec> handleFromEnvironment(final Map<String, String> environment) throws Exception {
         Files.writeString(directory.resolve("access.yml"), access());
         return ConfigLoader.builder(directory.resolve("access.yml"), AccessSpec.class)
@@ -252,13 +212,9 @@ class ConfigsEnvExampleTest {
     }
 
     /**
-     * The running bot's startup line has to name every setting {@code deploy/dev.env.example} overrides.
+     * Every setting {@code deploy/dev.env.example} overrides reaches the override marker file.
      *
-     * This runs that same override, {@code NORDTAL_ACCESS_LANGUAGES}, through
-     * {@link ConfigHandle#environmentOverrides()} and then
-     * {@link EnvOverrideFile}, the whole path {@code Configs#load}'s {@code recordEnvironmentOverrides} step takes
-     * in production - a private method a test cannot call directly, so this exercises the same two calls in the
-     * same order instead of trusting that they are wired up.
+     * Runs the same two calls as {@code Configs#load}, which is private.
      */
     @Test
     void languagesOverriddenExactlyTheWayDevEnvExampleOverridesItEndsUpInTheMarkerFile() throws Exception {
@@ -278,18 +234,7 @@ class ConfigsEnvExampleTest {
                 "the marker file steward-worker reads has to carry exactly what jcore reported");
     }
 
-    /**
-     * The other test above deliberately builds its own {@link ConfigHandle} and calls {@link EnvOverrideFile} itself.
-     *
-     * {@link Configs#load} is private and {@code Configs.access()} does not let a test inject environment
-     * variables - so nothing above actually calls {@code Configs} 's own {@code recordEnvironmentOverrides} step.
-     *
-     * This is the test that does: it goes through the real, public entry point with no override in play at all,
-     * and the only thing it can require is that the entry point writes some marker file - the empty-list case
-     * {@code EnvOverrideFileTest} already covers for {@link EnvOverrideFile} on its own. A regression that deletes
-     * the {@code recordEnvironmentOverrides(handle);} line from {@code Configs#load} shows up here as a missing
-     * file, not as a wrong value in one.
-     */
+    /** The public entry point writes an override marker file even with no override in play. */
     @Test
     void loadingAccessYmlThroughConfigsAccessItselfLeavesAMarkerFileBesideIt() throws Exception {
         Files.writeString(directory.resolve("access.yml"), access());

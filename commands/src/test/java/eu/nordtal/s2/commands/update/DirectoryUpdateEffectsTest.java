@@ -10,11 +10,7 @@ import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * The row says who asked and from where, from the user rather than from a per-process constant.
- *
- * The proxy picks {@code CONSOLE} for every player who types there.
- */
+/** The row records who asked and from where, taken from the user rather than a per-process constant. */
 class DirectoryUpdateEffectsTest {
 
     private final FakeUpdateDirectory directory = new FakeUpdateDirectory();

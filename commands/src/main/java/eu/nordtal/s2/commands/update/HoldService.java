@@ -15,24 +15,9 @@ import eu.nordtal.s2.common.update.UpdateKind;
 import java.util.List;
 
 /**
- * {@code /update down <service>} and {@code /update start [service]} - the two halves of one switch.
+ * {@code /update down <service>} and {@code /update start [service]}: the two halves of one switch.
  *
- * One class for both, for the reason {@link RunUpdate} gives: they differ by an enum value and by
- * whether the argument is required. Everything else - the row, the follower, the acknowledgement -
- * is the same, and two classes would be two places for it to drift.
- *
- * This exists alongside the interface's buttons because it is the console, and the console is the
- * one surface that does not depend on the thing being stopped. A service put down from a laptop
- * cannot be started again from a web interface that is itself wedged, and "the interface is the
- * only way back" is precisely the shape this network avoids everywhere else ({@code Target.LOCAL},
- * and the paragraph above it in {@link UpdateCommands}).
- *
- * The asymmetry in the argument is deliberate.
- * {@code down} demands a service; {@code start} does not. An unnamed scope is the whole network
- * everywhere in this mechanism, and on the stopping side that reading is a network held down until
- * somebody presses a button - which nobody asks for by leaving a word off. On the starting side the
- * same reading is "start everything anybody is holding", which is the recovery an operator wants and
- * can do no harm that was not already asked for.
+ * {@code down} demands a service, since an unnamed scope would hold the whole network; {@code start} does not.
  */
 public final class HoldService implements NordtalCommand<UpdateEffects> {
 

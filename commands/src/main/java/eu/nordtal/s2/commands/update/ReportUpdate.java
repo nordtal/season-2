@@ -11,7 +11,7 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.RunRefused;
 import eu.nordtal.s2.common.update.UpdateKind;
 
-/** {@code /update} - ask what is newer than what the network is running. Changes nothing. */
+/** {@code /update}: asks what is newer than what the network is running; changes nothing. */
 public final class ReportUpdate implements NordtalCommand<UpdateEffects> {
 
     @Override

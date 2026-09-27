@@ -14,24 +14,9 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * That every process adapting a shared command loads the shared bundle underneath its own.
+ * Every process adapting a shared command loads the shared bundle underneath its own.
  *
- * A shared command names keys from {@code messages/commands}. A process that loads only its own
- * root cannot resolve them - and {@code Messages} degrades to the key rather than throwing, so
- * {@code /hg start} answers with the literal string {@code hg.start.started} and nothing anywhere
- * says why. It is invisible to every other test: both bundles are internally consistent, both
- * languages carry the same keys, and the command names a key that does exist. It is only wrong at
- * the seam.
- *
- * Moving keys into the shared bundle is what makes a process need this, and moving keys is
- * exactly the change somebody makes while thinking about something else. So it is checked here
- * rather than remembered.
- *
- * Order matters and is checked: later roots win, so the shared one has to be layered underneath
- * the module's own - a module that wants to reword a shared line does it in its own bundle, and
- * that only works if its own bundle is on top. Underneath, and not merely first, because the two
- * Paper plugins carry a second shared root, {@code messages/paper-common}, which is more general
- * still and therefore sits below this one.
+ * {@code Messages} degrades to the key, so a missing or misordered root shows only as a raw key in chat.
  */
 class SharedBundleLoadedTest {
 
@@ -61,7 +46,7 @@ class SharedBundleLoadedTest {
                         + " Messages degrades to the key rather than throwing.");
                 continue;
             }
-            // Not last: later roots win, so a shared line has to be underneath something. A process that loads it last.
+            // Later roots win, so the shared bundle must not be last.
             if (roots.indexOf(SHARED) == roots.size() - 1) {
                 wrong.add(process + " loads " + SHARED + " last, so the shared bundle wins over its"
                         + " own. Later roots win: the shared one goes underneath.");
@@ -71,13 +56,7 @@ class SharedBundleLoadedTest {
         assertEquals(List.of(), wrong);
     }
 
-    /**
-     * Every message root the source names, in order.
-     *
-     * Read off the source rather than off a loaded {@code Messages}, for the reason this whole
-     * class exists: what is being checked is a line in a plugin's {@code onEnable}, and that line
-     * only runs on a server.
-     */
+    /** Every message root the source names, in order, read off the source since the wiring only runs on a server. */
     private static List<String> rootsOf(final String source) {
         final List<String> roots = new ArrayList<>();
         final Matcher matcher = ROOT.matcher(source);

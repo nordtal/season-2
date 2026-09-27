@@ -27,10 +27,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The shared bundle: the same file in two languages, complete, and free of markup.
  *
- * {@code Messages} degrades to the key rather than throwing, so a key present in one language
- * only reaches somebody as the literal string {@code phase.failed}. Markup is checked because this
- * bundle is rendered as MiniMessage on Minecraft and as Discord markdown in the guild - either
- * syntax is literal text on the other surface.
+ * {@code Messages} degrades to the key rather than throwing, and markup from one surface is literal text on the other.
  */
 class MessageBundlesTest {
 
@@ -80,7 +77,7 @@ class MessageBundlesTest {
         final Set<String> declared = keysOf("en");
         final List<String> missing = new ArrayList<>();
 
-        // Literals only: a key built by concatenation cannot be checked this way. The one such key.
+        // Literals only: a key built by concatenation cannot be checked this way.
         final Pattern named = Pattern.compile("(?:reply|phrase)\\(\\s*\"([a-z][a-z0-9.-]*)\"");
         for (final Path source : sources()) {
             final Matcher matcher = named.matcher(Files.readString(source, StandardCharsets.UTF_8));
@@ -135,7 +132,7 @@ class MessageBundlesTest {
             check(english, german, "update.state." + state, missing);
         }
         for (final UpdateReport.Change.State state : UpdateReport.Change.State.values()) {
-            // MOVING is two keys rather than one - a first install has no version to move FROM.
+            // MOVING is two keys, since a first install has no version to move from.
             switch (state) {
                 case MOVING -> {
                     check(english, german, "update.change", missing);
@@ -183,7 +180,7 @@ class MessageBundlesTest {
 
     @Test
     void theConsequenceSentencesSayTheThingTheConfirmationExistsFor() throws IOException {
-        // Content assertions, worth their brittleness here: a switch to SMP disconnects a player with no active access.
+        // Content assertions, worth their brittleness: a switch to SMP disconnects a player with no active access.
         final Properties english = load("en");
         final Properties german = load("de");
 
@@ -201,7 +198,7 @@ class MessageBundlesTest {
                 german.getProperty("phase.consequence.MAINTENANCE").contains("Admins"),
                 german.getProperty("phase.consequence.MAINTENANCE"));
 
-        // Access is only required from SMP onwards - saying otherwise would be the confirmation lying about the switch.
+        // Access is only required from SMP onwards, and the confirmation must not claim otherwise.
         for (final String free : List.of("phase.consequence.PRE_EVENT", "phase.consequence.START_EVENT")) {
             assertTrue(english.getProperty(free).contains("hunger-games"), free + ": " + english.getProperty(free));
             assertTrue(

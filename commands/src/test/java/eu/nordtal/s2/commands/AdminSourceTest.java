@@ -13,19 +13,9 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * That the admin check behind a command tree is a cache and never a query.
+ * Holds the admin check behind a command tree to a cache, never a query.
  *
- * Brigadier evaluates a node's {@code requires} predicate while building the command tree it sends
- * to a client, on a thread that must not block - once per player, per rebuild. A
- * {@code dao.isAdmin(uuid)} there is a database round trip inside that, and it looks perfectly
- * ordinary in the constructor call that passes it. A subtler way to get it wrong is passing
- * {@code FullServerAdmission}, which does hold an admin flag - but only fills it at pre-login when
- * the server is near its cap, so on a server that is never near its cap it would answer "nobody is
- * an admin" forever, silently.
- *
- * {@code AdminWatch#isAdmin} is the source that is right everywhere: it is the same set the
- * operator grant is applied from, so a command tree and {@code ops.json} cannot disagree about who
- * is an admin either.
+ * Brigadier evaluates {@code requires} per player while building the tree, on a thread that must not block.
  */
 class AdminSourceTest {
 

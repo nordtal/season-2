@@ -25,20 +25,15 @@ final class FakeSmp implements SmpEffects {
     Access access;
     OpenPayment payment;
 
-    /** Set to make the next effect throw, for the "the database stopped answering" branches. */
+    /** Set to make the next effect throw. */
     RuntimeException failure;
 
-    /**
-     * The same, for the open-payment read alone.
-     *
-     * Separate because the two reads behind {@code /smp access} are separate on purpose, and the
-     * property worth pinning is that losing the second does not discard the first.
-     */
+    /** The same, for the open-payment read alone, so losing it can be shown not to discard the first read. */
     RuntimeException paymentFailure;
 
     @Override
     public void async(final Runnable work) {
-        // Inline, like the inbox's. A command's whole answer has to exist by the time run() returns.
+        // Inline, like the inbox's: a command's whole answer has to exist by the time run() returns.
         work.run();
     }
 

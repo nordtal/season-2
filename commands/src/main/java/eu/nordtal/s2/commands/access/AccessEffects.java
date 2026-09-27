@@ -9,18 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Everything {@code /access} touches that only the Discord bot can reach.
- *
- * Granting access is three things at once: a row, a Discord role, and a direct message in the
- * recipient's own language. Only the bot holds a JDA session, so only the bot can do the second and
- * third - which is why {@link eu.nordtal.s2.commands.Target#BOT} is a target like any other rather
- * than a special case. A Paper server asking for one of these writes a {@code command_request} row
- * exactly as it would for any other process.
- *
- * Admin gating and message rendering are both properties of a command, checked once, for every
- * command: neither is hardcoded per handler the way a bare Discord slash command would leave them.
- */
+/** Everything {@code /access} touches that only the Discord bot can reach: rows, roles and direct messages. */
 public interface AccessEffects extends CommandEffects {
 
     /** One period of access somebody holds or held. */
@@ -39,35 +28,33 @@ public interface AccessEffects extends CommandEffects {
             List<Grant> grants,
             List<Purchase> purchases) {}
 
-    /** Everything worth knowing about one account. Empty when Discord does not know the id. */
+    /** Returns everything worth knowing about one account, or empty when Discord does not know the id. */
     Optional<Status> status(String discordId);
 
     /**
-     * Add days of access, apply the role, and tell them.
+     * Adds days of access, applies the role, and tells them.
      *
      * @return when access now runs until
      */
     Instant grant(String discordId, int days, NordtalUser by);
 
     /**
-     * Take every running grant away, remove the role, and tell them.
+     * Takes every running grant away, removes the role, and tells them.
      *
-     * @return how many grants were revoked - zero is a legitimate answer and worth saying
+     * @return how many grants were revoked, zero included
      */
     int revoke(String discordId, NordtalUser by);
 
-    /** Break the link between a Discord account and a Minecraft one. */
+    /** Breaks the link between a Discord account and a Minecraft one. */
     boolean unlink(String discordId, NordtalUser by);
 
-    /** Every payment reference still waiting to be settled, for the suggestions. */
+    /** Returns every payment reference still waiting to be settled, for the suggestions. */
     List<String> openReferences();
 
     /**
-     * Book a payment by hand.
+     * Books a payment by hand.
      *
-     * @return what happened, and - when it was booked - what it bought. One value rather than a
-     *         result plus a getter for the details, because a getter would be state, and state
-     *         between two calls is what makes an effects implementation unusable from two threads
+     * @return what happened and, when it was booked, what it bought
      */
     Settled settle(String reference, NordtalUser by);
 
@@ -75,11 +62,9 @@ public interface AccessEffects extends CommandEffects {
      * The outcome of {@link #settle}.
      *
      * @param outcome  which of the three happened
-     * @param until    when the access it bought runs until, only meaningful for
-     *                 {@link Settlement#BOOKED}
+     * @param until    when the access it bought runs until, for {@link Settlement#BOOKED} only
      * @param days     how many days it bought
-     * @param status   the status a {@link Settlement#NOT_OPEN} request was actually in, so the
-     *                 refusal can name it - "already paid" and "cancelled" are different problems
+     * @param status   the status a {@link Settlement#NOT_OPEN} request was actually in, so the refusal can name it
      */
     record Settled(
             Settlement outcome,
@@ -100,9 +85,9 @@ public interface AccessEffects extends CommandEffects {
         BOOKED
     }
 
-    /** Re-read the bot's own message bundles and the operator's override. */
+    /** Re-reads the bot's own message bundles and the operator's override. */
     boolean reloadMessages();
 
-    /** Override keys the bundles do not declare, after a reload. Empty when there are none. */
+    /** Returns override keys the bundles do not declare, after a reload. */
     List<String> unknownOverrideKeys();
 }

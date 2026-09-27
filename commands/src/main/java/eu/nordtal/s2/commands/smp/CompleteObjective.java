@@ -12,16 +12,9 @@ import eu.nordtal.s2.common.message.context.MilestoneContext;
 import java.util.Optional;
 
 /**
- * {@code /smp objective complete <key>} - close one objective of the active milestone by hand.
+ * {@code /smp objective complete <key>}: closes one objective of the active milestone by hand.
  *
- * An objective can turn out to be impossible after it has been announced. Closing it pays out
- * {@code pot x (reached / target)} rather than the full pot, so using the hatch is never worth more
- * than doing the work - which is what keeps it from being a way to hand out aura.
- *
- * Two refusals, and both are worth having separately:
- * "No milestone is active" and "the active milestone has no objective by that key" are different
- * mistakes: the first means the track has not started or is finished, the second is a typo. Folding
- * them into one sentence would leave an admin re-reading the milestone file for a key that is in it.
+ * Pays {@code pot x (reached / target)}, never the full pot, so the hatch is never worth more than the work.
  */
 public final class CompleteObjective implements NordtalCommand<SmpEffects> {
 
@@ -46,7 +39,7 @@ public final class CompleteObjective implements NordtalCommand<SmpEffects> {
                 user.reply(MESSAGES.smp().admin().noActiveMilestone(), Feedback.REFUSED, Tone.WARN);
                 return;
             }
-            // Guarded like the read above it, so a throw here cannot escape the async runnable and leave the admin.
+            // Guarded like the read above, so a throw cannot escape the async runnable unanswered.
             try {
                 if (!effects.hasObjective(active.get(), key)) {
                     user.reply(MESSAGES.smp().admin().noSuchObjective(), Feedback.REFUSED, Tone.BAD);

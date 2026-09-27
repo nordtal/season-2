@@ -9,14 +9,7 @@ import eu.nordtal.s2.commands.Values;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * The waiting room's one command.
- *
- * Small, and worth having for one reason: nobody can type it where it runs. A player on limbo is
- * mid-login and has no chat, so before this command could travel, the only way to reload the wording
- * of the eight titles that <em>are</em> this server's whole user interface was a shell on the
- * production host.
- */
+/** The waiting room's one command, which nobody can type where it runs, since a player on limbo has no chat. */
 class LimboCommandsTest {
 
     private static final class FakeLimbo implements LimboEffects {
@@ -59,7 +52,7 @@ class LimboCommandsTest {
 
     @Test
     void itIsConsoleOnlyAndOffGameAndDiscord() {
-        // Every admin command loses GAME and DISCORD regardless of who could type it where - console remains.
+        // Admin commands lose GAME and DISCORD; the console remains.
         assertEquals(java.util.Set.of(Surface.CONSOLE), LimboCommands.RELOAD.surfaces());
     }
 

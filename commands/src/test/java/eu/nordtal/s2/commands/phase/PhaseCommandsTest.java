@@ -20,8 +20,7 @@ import org.junit.jupiter.api.Test;
 /**
  * What {@code /phase} decides, asserted without a proxy and without a guild.
  *
- * These tests do <b>not</b> prove that either adapter registers the command, parses its
- * arguments, or renders the keys; those still need a running proxy and a real guild.
+ * This does not prove that an adapter registers the command, parses its arguments or renders the keys.
  */
 class PhaseCommandsTest {
 
@@ -31,7 +30,7 @@ class PhaseCommandsTest {
                 List.of(PhaseCommands.SHOW, PhaseCommands.SET, PhaseCommands.LAUNCH, PhaseCommands.SMP_START)) {
             assertEquals(Target.PROXY, declaration.target(), declaration.name());
             assertTrue(declaration.adminOnly(), declaration.name());
-            // Every admin command is console and web, and WEB as well as CONSOLE because a WEB row carries the asker's.
+            // Console and web, since a WEB row carries the asker's identity.
             assertEquals(java.util.Set.of(Surface.CONSOLE, Surface.WEB), declaration.surfaces(), declaration.name());
         }
     }
@@ -51,7 +50,7 @@ class PhaseCommandsTest {
 
     @Test
     void everyPhaseHasAConsequenceSentenceOfItsOwn() {
-        // One key per constant, so that a new phase produces a missing key rather than silently telling an admin what.
+        // One key per constant, so a new phase shows up as a missing key.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             assertEquals(
                     "phase.consequence." + phase.name(),
@@ -102,7 +101,7 @@ class PhaseCommandsTest {
 
     @Test
     void aProcessWithNoCacheAndNoDatabaseAnswersWithItsOwnKeyNotTheProxys() {
-        // Two keys and not one, because phase.read.failed says "the phase above" and on this path there is nothing.
+        // Two keys, because phase.read.failed refers to a phase line above, and this path printed none.
         final FakeEffects effects = new FakeEffects();
         effects.readFailure = new IllegalStateException("the database is not there");
         final FakeUser user = FakeUser.inDiscord();
@@ -115,7 +114,7 @@ class PhaseCommandsTest {
 
     @Test
     void aPhaseLinePrintedFromInsideTheReadStillCountsAsOneAbove() {
-        // No cache, so the phase line and the dates share one try: currentPhase() can still fail after it printed.
+        // No cache, so the phase line and the dates share one read that can fail after the line printed.
         final FakeEffects effects = new FakeEffects();
         effects.datesFailure = new IllegalStateException("the dates are not there");
         final FakeUser user = FakeUser.inDiscord();
@@ -252,7 +251,7 @@ class PhaseCommandsTest {
 
     @Test
     void movingSmpStartReportsHowMuchOfOtherPeoplesAccessMovedWithIt() {
-        // The only place an admin finds out that a date change rewrote rows belonging to people who are offline.
+        // The only place an admin learns that a date change rewrote rows of people who are offline.
         final FakeEffects effects = new FakeEffects();
         effects.grants = 7;
         effects.accounts = 4;

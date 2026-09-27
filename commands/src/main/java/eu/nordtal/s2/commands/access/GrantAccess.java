@@ -11,17 +11,7 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.SeasonDates;
 import java.time.Instant;
 
-/**
- * {@code /access grant <member> <days>} - days on top of whatever is already running.
- *
- * Appended, never replaced: the same rule a purchase follows, periods stack rather than being
- * summed or reset, and a lapse after the season opened starts today rather than back at the
- * anchor. {@code AccessDirectoryIntegrationTest} owns that arithmetic; this command only asks for
- * it.
- *
- * Bounded on the declaration, so Brigadier, Discord's own option validation and the request row
- * all refuse the same numbers.
- */
+/** {@code /access grant <member> <days>}: days appended on top of whatever is already running. */
 public final class GrantAccess implements NordtalCommand<AccessEffects> {
 
     @Override

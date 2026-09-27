@@ -13,10 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * {@code /update down <service>} and {@code /update start [service]}.
  *
- * What is worth asserting here is the scope and nothing else. Everything that happens after the
- * row is written belongs to steward-worker, and everything before it is the adapter's; what this
- * command decides is which kind and which services - and the difference between naming a service
- * and naming none is, on the stopping side, the difference between one server and the network.
+ * Only the scope is asserted: naming no service is the difference between one server and the network.
  */
 class HoldServiceTest {
 
@@ -95,7 +92,7 @@ class HoldServiceTest {
 
     @Test
     void updateStartWithNoServiceAsksForEverythingThatIsHeld() {
-        // The asymmetry with `down`, which the declaration enforces by requiring its argument. Empty here means "every.
+        // Unlike `down`, whose argument is required, an empty list here means every held service.
         final FakeUpdateDirectory directory = ask(UpdateCommands.START, Map.of());
 
         assertEquals(UpdateKind.START, directory.submitted.getFirst().kind());

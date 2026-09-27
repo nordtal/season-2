@@ -13,14 +13,9 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 
 /**
- * {@code /update now} and {@code /update restart} - the two that take servers away.
+ * {@code /update now} and {@code /update restart}: the two that take servers away.
  *
- * One class for both, because they differ by one enum value:
- * both stop the services, both count down for {@link UpdateDirectory#UPDATE_COUNTDOWN}, both are
- * confirmed before the countdown even starts, and both are cancelled by the same
- * {@code /update cancel}. The only difference is whether jars move in the gap - which is the
- * steward-worker's business and not this command's. Two classes would be two places for the countdown
- * length and the confirmation to drift apart.
+ * They differ only in whether jars move in the gap, which is steward-worker's business.
  */
 public final class RunUpdate implements NordtalCommand<UpdateEffects> {
 

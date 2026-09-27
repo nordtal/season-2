@@ -14,17 +14,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * {@code /update}'s effects, once, for all five processes.
  *
- * One implementation, not one per process: every other effect interface in this module is
- * implemented per process, because every other one touches something only that process has - a
- * world, a guild, a proxy's player list. This one
- * touches {@link UpdateDirectory}, which is a {@code :common} type over a {@code javax.sql
- * .DataSource}, and all five processes already hold that pool. Writing it three times would be
- * three chances for the countdown length or the source label to differ, which is the failure this
- * module exists to prevent.
- *
- * What genuinely differs per process is handed in: where to run the waiting part, how to log,
- * and how to show the answer. The <em>source</em> is not handed in at all; it is read off the
- * user in {@link #submit}, which is the one place that can tell a player from a console.
+ * One implementation, so no two processes can differ; the source is read off the user in {@link #submit}.
  */
 public final class DirectoryUpdateEffects implements UpdateEffects {
 
@@ -35,11 +25,9 @@ public final class DirectoryUpdateEffects implements UpdateEffects {
 
     /**
      * @param updates  the directory over this process's own pool
-     * @param executor where the waiting part may wait - never the main thread of a Paper server
-     *                 and never a JDA gateway thread
+     * @param executor where the waiting part may wait, never a Paper main thread or a JDA gateway thread
      * @param logger   how this process reports a failure to its own log
-     * @param watcher  how this process shows the answer coming in - see {@link
-     *                 UpdateEffects#watch}
+     * @param watcher  how this process shows the answer coming in, see {@link UpdateEffects#watch}
      */
     public DirectoryUpdateEffects(
             final UpdateDirectory updates,
@@ -73,7 +61,7 @@ public final class DirectoryUpdateEffects implements UpdateEffects {
         return updates.submit(kind, sourceOf(user), requesterOf(user), Duration.ZERO, services);
     }
 
-    /** Which surface a user is on, as the row records it. */
+    /** Returns which surface a user is on, as the row records it. */
     static UpdateSource sourceOf(final NordtalUser user) {
         return switch (user.origin()) {
             case DISCORD -> UpdateSource.DISCORD;
@@ -83,12 +71,9 @@ public final class DirectoryUpdateEffects implements UpdateEffects {
     }
 
     /**
-     * Who to record: the Discord id, the Minecraft name, or nobody.
+     * Returns who to record: the Discord id, the Minecraft name, or {@code null} for the console.
      *
-     * The id and not the display name for Discord, because the id is what {@code discord_user}
-     * is keyed by and what the bot's own button path has always written; a display name can be
-     * changed by its owner an hour later. The console is {@code null}, which is what the column
-     * has meant by it since V7 - a shell in the container is not a person.
+     * The Discord id rather than the display name, which its owner can change.
      */
     static @Nullable String requesterOf(final NordtalUser user) {
         return switch (user.origin()) {

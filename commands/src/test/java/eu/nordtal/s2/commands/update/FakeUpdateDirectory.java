@@ -29,11 +29,7 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     }
 
     /**
-     * Overridden rather than left to the default, which drops the scope on the floor.
-     *
-     * A test that could not see which services a command asked for could not tell
-     * {@code /update down smp} from {@code /update down} - and the second one is the whole network
-     * held down.
+     * Overridden, since the default drops the scope and {@code /update down smp} would look like {@code /update down}.
      */
     @Override
     public UpdateRequest submit(
@@ -128,7 +124,7 @@ final class FakeUpdateDirectory implements UpdateDirectory {
 
     @Override
     public java.util.List<UpdateRequest> recent(final int limit) {
-        // Nothing in this fake ever lists: the list is a page in the interface, not a decision anything here makes.
+        // Nothing here ever lists; the list is a page in the interface.
         return java.util.List.of();
     }
 }

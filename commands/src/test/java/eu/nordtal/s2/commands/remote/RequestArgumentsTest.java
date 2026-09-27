@@ -20,13 +20,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The wire format of a travelling command's arguments.
  *
- * The round trip is asserted over every declaration and not over examples, because the format is
- * a line, and it works because {@link Declaration}'s own invariants make the split
- * unambiguous - one greedy argument at most, last, and no other kind can hold a space. That is a
- * claim about <em>every</em> declaration rather than about the ones somebody thought to write a case
- * for, so the test walks {@link Catalogue} and would fail the moment a command is declared in a
- * shape the line cannot carry. A JSON column would not have needed the argument; it would have cost
- * a parser this repository deliberately does not have.
+ * The round trip walks every declaration in {@link Catalogue}, whose invariants keep the split unambiguous.
  */
 class RequestArgumentsTest {
 
@@ -77,7 +71,7 @@ class RequestArgumentsTest {
 
     @Test
     void aWordCarryingASpaceIsRefusedRatherThanSilentlySplit() {
-        // Only reachable if an adapter parsed something as the wrong kind - so it is a programming mistake.
+        // Only reachable if an adapter parsed something as the wrong kind, which is a programming mistake.
         final Declaration declaration = new Declaration(
                 List.of("smp", "objective", "complete"),
                 Target.SMP,
@@ -110,7 +104,7 @@ class RequestArgumentsTest {
 
     @Test
     void anIntegerOutsideItsDeclaredBoundsDoesNotReachTheCommand() {
-        // The bounds are on the declaration, so Brigadier and JDA both enforce them where the command was typed. This.
+        // The bounds are enforced where the command was typed; this is the far side's own guard.
         final Declaration declaration = new Declaration(
                 List.of("smp", "aura"),
                 Target.SMP,
@@ -235,7 +229,7 @@ class RequestArgumentsTest {
 
     @Test
     void aDiscordIdIsAsciiDigitsAndCharacterIsdigitIsNotThatTest() {
-        // Devanagari digits pass Character.isDigit. The far side hands this straight to a query and to a mention.
+        // Devanagari digits pass Character.isDigit, and the far side hands this to a query and a mention.
         final Declaration declaration = new Declaration(
                 List.of("access", "revoke"),
                 Target.BOT,
@@ -258,7 +252,7 @@ class RequestArgumentsTest {
                     argument.name(),
                     switch (argument.kind()) {
                         case WORD, REFERENCE -> "sample-key";
-                        // Deliberately with spaces: a greedy argument that does not exercise them proves nothing.
+                        // With spaces, since a greedy argument that does not exercise them proves nothing.
                         case GREEDY_STRING -> "2026-10-01 18:00";
                         case INTEGER -> argument.min();
                         case PLAYER -> UUID.fromString("11111111-2222-3333-4444-555555555555");

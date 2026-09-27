@@ -18,16 +18,7 @@ import org.junit.jupiter.api.Test;
 /**
  * {@link NordtalCommand#check}: the generic argument checks, and how they meet a command's own.
  *
- * The gap this closes: Discord builds a dropdown for a {@link Argument.Kind#CHOICE} and its own
- * client refuses anything
- * that is not on the list; {@code RequestArguments#decode} refuses one on the way off a request row.
- * Brigadier has no enum type at all, so both chat adapters type a choice as a plain word and take
- * whatever was typed - and nothing checked it afterwards.
- *
- * {@code /hg start} is what made that expensive rather than untidy: the trailing {@code confirm}
- * is a choice, and {@link StartGame} treats <em>any</em> present value as the second step. So
- * {@code /hg start yes} would have spent an armed confirmation and begun the season's flagship event
- * below the recommended minimum, having said nothing about the word it did not understand.
+ * Brigadier types a choice as a plain word, so without this {@code /hg start yes} would count as confirming.
  */
 class ChoiceCheckTest {
 
@@ -71,19 +62,19 @@ class ChoiceCheckTest {
 
     @Test
     void aChoiceTypedInTheWrongCaseIsAcceptedAndNormalisedNotRefused() {
-        // /phase set maintenance has worked in chat since the proxy's hand-written adapter.
+        // A choice matches regardless of case.
         assertTrue(
                 SET.check(new Values(PhaseCommands.SET, Map.of("phase", "maintenance")))
                         .isEmpty(),
                 "a lowercase phase name was refused");
 
-        // And what the command reads is the DECLARED spelling.
+        // What the command reads is the declared spelling.
         assertEquals("MAINTENANCE", new Values(PhaseCommands.SET, Map.of("phase", "MaInTeNaNcE")).string("phase"));
     }
 
     @Test
     void aValueThatIsNoChoiceAtAllIsQuotedBackExactlyAsItWasTyped() {
-        // The refusal names it, so it has to survive unchanged.
+        // The refusal names the typed value, so it has to survive unchanged.
         final Optional<MessageRef> problem = SET.check(new Values(PhaseCommands.SET, Map.of("phase", "MaIntenanz")));
         assertTrue(problem.isPresent());
         assertEquals("MaIntenanz", problem.get().args().get("typed"));

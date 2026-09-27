@@ -28,11 +28,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The near end of a travelling command: the wait, and the three ways it can end.
  *
- * Real timings, shrunk: the scheduler is a real one and the timeout is milliseconds rather than
- * thirty seconds. That is
- * deliberate over a fake clock: what this class actually does is reschedule itself, and a fake
- * scheduler would prove that the arithmetic is right while saying nothing about whether the
- * rescheduling terminates. The waits here are bounded by a latch, never by a sleep.
+ * The scheduler is real and the timeout short, so rescheduling is proven to terminate; waits use a latch, not a sleep.
  */
 class OutboxTest {
 
@@ -67,7 +63,7 @@ class OutboxTest {
         return new Values(AURA, Map.of("player", WHO, "delta", delta));
     }
 
-    /** Wait for {@code user} to have said {@code count} things, or fail. */
+    /** Waits for {@code user} to have said {@code count} things, or fails. */
     private static void until(final FakeUser user, final int count) {
         final long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
         while (user.replies.size() < count) {
@@ -135,7 +131,7 @@ class OutboxTest {
 
     @Test
     void claimedJustAsTheWaitRanOutIsADifferentSentenceAndABetterOne() {
-        // The good case: it IS running. Saying "no answer" here would tell an admin nothing happened while a milestone.
+        // It is running, so "no answer" would wrongly tell an admin nothing happened.
         final FakeUser user = FakeUser.inDiscord();
         outbox.send(AURA, user, aura(10));
         until(user, 1);
@@ -193,7 +189,7 @@ class OutboxTest {
 
     @Test
     void aConsoleUserIsRefusedAnIdentityByTheRowItself() {
-        // Belt and braces with the CHECK in V11: the record refuses it too.
+        // The record refuses it too, as does the CHECK in the migration.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new NewCommandRequest(

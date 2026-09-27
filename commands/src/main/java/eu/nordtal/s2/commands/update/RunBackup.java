@@ -13,20 +13,9 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 
 /**
- * {@code /backup now} - count down, take the servers down, save the volumes, bring them back.
+ * {@code /backup now}: counts down, takes the servers down, saves the volumes and brings them back.
  *
- * A separate command and not {@code /update backup}: a different amount of damage asked for a
- * different reason, and the person who wants it is usually not updating anything - it is what
- * somebody runs before a change they are not sure about. Sharing the root would put it one
- * tab-completion away from {@code /update now}, which is the one command in this network whose
- * neighbours matter.
- *
- * It lives beside {@code /update} anyway: it writes the same row into the same table, is drawn by
- * the same {@link UpdateFollower}, and is carried out by the same container. Sharing
- * {@link UpdateEffects} means it is in the one list every process already registers
- * ({@code UpdateCommands.all()}), so a process cannot end up without it - which is the failure mode
- * {@code Target.LOCAL} carries: nothing travels, so nothing complains, so a process that forgot
- * simply has no {@code /backup} and no log line about it.
+ * Its own root, away from {@code /update now}, yet registered through {@code UpdateCommands.all()} like it.
  */
 public final class RunBackup implements NordtalCommand<UpdateEffects> {
 

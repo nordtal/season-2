@@ -15,12 +15,7 @@ import java.util.Optional;
 /**
  * The request table, in a map.
  *
- * It enforces the same transitions the SQL does - a claim only takes a row that is
- * {@code PENDING} and unexpired, {@code finish} only settles a {@code RUNNING} one, {@code expire}
- * only a {@code PENDING} one - because those guards are what the two ends rely on, and a fake that
- * let anything through would make every test here pass on code the database would refuse.
- * {@code CommandRequestIntegrationTest} in {@code :common} is what proves the real statements agree
- * with this.
+ * It enforces the same transitions as the SQL, which {@code CommandRequestIntegrationTest} in {@code :common} holds.
  */
 final class FakeRequests implements CommandRequests {
 
@@ -31,7 +26,7 @@ final class FakeRequests implements CommandRequests {
     private final Map<Long, AuditLine> journalled = new LinkedHashMap<>();
     private long next = 1;
 
-    /** Set to make the next call of anything throw, for the "database stopped answering" branches. */
+    /** Set to make the next call of anything throw. */
     RuntimeException failure;
 
     /** Every request written, in order. */
@@ -48,14 +43,7 @@ final class FakeRequests implements CommandRequests {
         return id;
     }
 
-    /**
-     * The journalled insert, as one indivisible step - which is the whole property it exists for.
-     *
-     * Nothing in {@code :commands} calls it; {@code steward-ui} does. It is implemented rather
-     * than left throwing so that a fake which claims to be the request table does not quietly have
-     * a hole where an operation of that table should be, and so the line is here to assert on if
-     * something in this module ever starts writing one.
-     */
+    /** The journalled insert, as one indivisible step, implemented so the fake has no hole where the table has one. */
     @Override
     public long submit(final NewCommandRequest request, final AuditLine journal) {
         throwIfAsked();
@@ -142,13 +130,13 @@ final class FakeRequests implements CommandRequests {
         return rows.get(id).result();
     }
 
-    /** Settle a row from outside, the way a target in another process would. */
+    /** Settles a row from outside, the way a target in another process would. */
     void answer(final long id, final boolean ok, final String result) {
         final Row row = rows.get(id);
         rows.put(id, new Row(row.request(), ok ? CommandOutcome.Status.DONE : CommandOutcome.Status.FAILED, result));
     }
 
-    /** Claim a row without running anything, to reproduce the lost expiry race. */
+    /** Claims a row without running anything, to reproduce the lost expiry race. */
     void claimSilently(final long id) {
         final Row row = rows.get(id);
         rows.put(id, new Row(row.request(), CommandOutcome.Status.RUNNING, null));

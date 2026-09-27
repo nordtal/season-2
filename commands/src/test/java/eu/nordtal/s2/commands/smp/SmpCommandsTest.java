@@ -18,16 +18,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * Every decision {@code /smp} takes, without a server.
- *
- * Before this, nothing could be asked: all six of these lived as Brigadier handlers inside one
- * Paper plugin, so "what does
- * {@code /smp objective complete} say when no milestone is active?" was answerable only by starting
- * a server, loading a world, and arranging for no milestone to be active. The cases below are the
- * ones that were therefore never checked - and one of them was wrong: {@code /smp aura} answered an
- * unlinked target with the message written for a <em>player</em> about their <em>own</em> account.
- */
+/** Every decision {@code /smp} takes, without a server. */
 class SmpCommandsTest {
 
     private static final UUID SOMEBODY = UUID.fromString("11111111-2222-3333-4444-555555555555");
@@ -42,7 +33,7 @@ class SmpCommandsTest {
 
     @Test
     void theTwoThatCannotBeUndoneAskFirstAndTheOthersDoNot() {
-        // A flag on everything that writes is a flag nobody reads - /smp aura is unguarded because it is its own undo.
+        // A flag on everything that writes is a flag nobody reads; /smp aura is its own undo.
         assertEquals(
                 Set.of("/smp objective complete", "/smp milestone unlock"),
                 SmpCommands.declarations().stream()
@@ -53,10 +44,9 @@ class SmpCommandsTest {
 
     @Test
     void everySmpDeclarationIsAnAdminsAndOnTheConsoleAndWebOnly() {
-        // Every admin command lost Surface.GAME and Surface.DISCORD. The two a player types - /aura and /smp status.
         for (final Declaration declaration : SmpCommands.declarations()) {
             assertTrue(declaration.adminOnly(), declaration.name() + " is not admin-only");
-            // Console must never be lost, and game/Discord must both be gone.
+            // Console must never be lost, and GAME and DISCORD must both be gone.
             assertTrue(
                     declaration.surfaces().contains(Surface.CONSOLE),
                     declaration.name() + " lost the console, which must never happen");
@@ -83,7 +73,7 @@ class SmpCommandsTest {
 
     @Test
     void aRefusedTrackIsItsOwnAnswerAndItNamesWhatTheFileDisagreesWith() {
-        // Not the same thing as a reload that threw. The file parsed.
+        // Not the same as a reload that threw: the file parsed.
         smp.trackRefused = List.of(
                 "ancient-debris: has stored progress but is not declared in the file any more.",
                 "logs/oak: changed type from STATISTIC to HAND_IN");
@@ -102,7 +92,7 @@ class SmpCommandsTest {
 
     @Test
     void noActiveMilestoneAndNoSuchObjectiveAreDifferentSentences() {
-        // Folding them into one would leave an admin re-reading the milestone file for a key that is in it.
+        // Folding them would leave an admin searching the milestone file for a key that is in it.
         assertEquals(
                 List.of("smp.admin.no-active-milestone"),
                 run(new CompleteObjective(), Map.of("key", "netherite")).keys());
@@ -165,7 +155,7 @@ class SmpCommandsTest {
 
     @Test
     void aPlayerThisServerHasNeverSeenIsNamedByUuidRatherThanNotAtAll() {
-        // Reachable now that the command can arrive from Discord about somebody who is not here.
+        // The command can arrive about somebody who has never been on this server.
         final FakeUser user = run(new ChangeAura(), Map.of("player", SOMEBODY, "delta", 1));
         assertEquals(new PlayerContext(SOMEBODY.toString()), user.only().of("player"));
     }
@@ -215,7 +205,7 @@ class SmpCommandsTest {
 
     @Test
     void aFailureReadingThePaymentKeepsTheAccessLineWhichIsWhatWasAskedFor() {
-        // The two reads behind this command are separate on purpose. Losing the access line because the second query.
+        // The two reads are separate so a failed payment query keeps the access line.
         smp.names.put(SOMEBODY, "Steve");
         smp.access = new SmpEffects.Access("100000000000000009", true, Instant.parse("2026-10-01T00:00:00Z"));
         smp.paymentFailure = new IllegalStateException("the database did not answer");

@@ -16,22 +16,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * {@code /phase launch <when>} and {@code /phase smp-start <when>} - the season's two dates.
+ * {@code /phase launch <when>} and {@code /phase smp-start <when>}: the season's two dates.
  *
- * One class, two instances, because the only thing that differs is which column is written and
- * one noun in the reply.
- *
- * The second one moves other people's money. {@code smp_start} is what a period bought weeks
- * before the opening is anchored to, so moving it shifts every grant that has not started yet -
- * across accounts belonging to people who are not in the room. The number of grants and accounts
- * is reported for exactly that reason: it is the only place an admin finds out that it happened.
- * Clearing the date says so explicitly too, because "nothing moved" and "there was nothing left
- * to move it to" are different facts.
- *
- * The date is parsed before anything is deferred: nothing has been read and nothing will be
- * written, so a typo comes back immediately rather than after a round trip - and on Discord it
- * comes back without spending the interaction's three-second acknowledgement window on a database
- * that may be slow.
+ * Moving smp-start shifts other people's unstarted grants, so the reply counts what it moved.
  */
 public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
 
@@ -41,12 +28,12 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
         this.launch = launch;
     }
 
-    /** {@code /phase launch} - when the network opens. */
+    /** {@code /phase launch}: when the network opens. */
     public static SetSeasonDate launch() {
         return new SetSeasonDate(true);
     }
 
-    /** {@code /phase smp-start} - when paid access starts running. */
+    /** {@code /phase smp-start}: when paid access starts running. */
     public static SetSeasonDate smpStart() {
         return new SetSeasonDate(false);
     }
@@ -56,19 +43,14 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
         return launch ? PhaseCommands.LAUNCH : PhaseCommands.SMP_START;
     }
 
-    /** The message key naming which date this is, for the sentences that mention it. */
+    /** Returns the message key naming which date this is. */
     public MessageRef what() {
         return launch
                 ? MESSAGES.phase().date().what().launch()
                 : MESSAGES.phase().date().what().smpStart();
     }
 
-    /**
-     * A date that is not one, before the confirmation rather than after it.
-     *
-     * A date typo (a February 30th, say) is the worst possible thing to be told about only after
-     * confirming twice. {@code SeasonDates.parse} is the same check the command would make anyway.
-     */
+    /** Refuses a date that is not one before the confirmation rather than after it. */
     @Override
     public java.util.Optional<MessageRef> problem(final Values values) {
         final String typed = values.string("when");
@@ -108,7 +90,7 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
                         ? effects.phases().setLaunch(at, actor)
                         : effects.phases().setSmpStart(at, actor);
             } catch (final SeasonDateRefused refused) {
-                // Not a failure: the model said no, in a sentence written for the person who typed it. Nothing was.
+                // Not a failure: the model refused, in a sentence written for the person who typed it.
                 user.reply(
                         MESSAGES.phase().date().refused(Objects.requireNonNull(refused.getMessage(), "message")),
                         Tone.BAD);
@@ -164,7 +146,7 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
                 : change.accounts() == 1
                         ? MESSAGES.phase().date().movedSection().oneAccount(change.grants())
                         : MESSAGES.phase().date().moved(change.grants(), change.accounts());
-        // WARN, because this is the half of the command nobody asked for: moving smp-start moved other people's paid.
+        // WARN: moving smp-start moved other people's paid periods, which nobody asked for.
         user.reply(moved, Tone.WARN);
     }
 }

@@ -7,25 +7,14 @@ import eu.nordtal.s2.common.update.UpdateRequest;
 import java.util.Optional;
 
 /**
- * What {@code /update} touches, which is one table and nothing else.
+ * What {@code /update} touches: one table and nothing else.
  *
- * This is the whole interface because the command does not update anything and cannot:
- * steward-worker is a different container with the volumes mounted. What every surface actually
- * does is <b>write a row and read the answer back</b> - and every one of the five processes
- * already has that pool open, which is why the declaration is
- * {@link eu.nordtal.s2.commands.Target#LOCAL} and never travels.
- *
- * Everything a surface does <em>around</em> that stays with the surface: Discord's live embed and
- * its buttons, the game's chat lines. Those are drawings of the same row, not decisions about it.
+ * steward-worker does the updating; every surface writes a row and reads the answer back, so the command never travels.
  */
 public interface UpdateEffects extends CommandEffects {
 
     /**
-     * Writes the request.
-     *
-     * The user and not a name: which surface asked and who is recorded as asking are both read
-     * off {@link NordtalUser#origin()}, in one place, rather than a fixed value the proxy hands in
-     * for every player who typed there.
+     * Writes a request for the whole network, reading surface and requester off {@link NordtalUser#origin()}.
      *
      * @param kind what is being asked for
      * @param user who is asking
@@ -36,33 +25,18 @@ public interface UpdateEffects extends CommandEffects {
     }
 
     /**
-     * The same row, for the services it names.
-     *
-     * Empty is the whole network, which is what every run was before a scope existed and what
-     * {@link #submit(UpdateKind, NordtalUser)} above therefore hands in. It is <b>not</b> "no
-     * services": a run for nothing at all is not something any surface offers, and reading the
-     * empty list that way would turn a forgotten argument into a run that quietly does nothing.
+     * Writes the same row for the services it names; empty is the whole network, never "no services".
      *
      * @param services compose service names, or empty for the whole network
      */
     UpdateRequest submit(UpdateKind kind, NordtalUser user, java.util.List<String> services);
 
-    /** @return the row, if it is still there */
+    /** Returns the row, if it is still there. */
     Optional<UpdateRequest> find(long id);
 
     /**
-     * Follow this request and show its answer, the way this surface shows things.
-     *
-     * A surface hook sits in an effects interface because the answer to {@code /update} is not a
-     * sentence - it is a row that keeps changing for minutes, and every surface draws that
-     * differently: Discord edits one embed into a field per service, a chat window prints the
-     * report when it lands, a console prints nothing extra because it already has the log. None of
-     * that is a decision, so none of it belongs in the command; all of it is bound to the process,
-     * which is what this interface is for.
-     *
-     * The proxy is a surface with players on it: Velocity executes every command it knows itself
-     * and never forwards it to a backend, so for anybody <em>playing</em>, the process that serves
-     * {@code /update} is the proxy - not the server they are standing on.
+     * Follows this request and shows its answer, the way this surface shows things.
+     * For a player that is the proxy, since Velocity never forwards a command it knows.
      *
      * @param id   the request just written
      * @param user who to show it to
@@ -75,8 +49,7 @@ public interface UpdateEffects extends CommandEffects {
      * Withdraws the countdown that is running, if one still is.
      *
      * @param reason what goes into {@code result}, naming who stopped it
-     * @return the cancelled row, or empty when it was already claimed - which is exactly the
-     *         sentence the asker needs, and is why this answers a value rather than a boolean
+     * @return the cancelled row, or empty when it was already claimed
      */
     Optional<UpdateRequest> cancel(String reason);
 }

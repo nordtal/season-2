@@ -14,24 +14,16 @@ import java.util.UUID;
 /**
  * The arguments of a travelling command, as the line that would have been typed after its path.
  *
- * A line rather than JSON: {@code :common} has no JSON parser on purpose (jackson is gone, gson
- * must never be shaded into a Paper plugin). The line is unambiguous by construction, because
- * {@link Declaration} allows at most one {@link Argument.Kind#GREEDY_STRING} and only in last
- * position, and no other kind can contain a space.
- *
- * Both directions throw rather than run the command with something plausible: a value that would
- * not survive the trip, or a line that does not match the declaration, means two adapters disagree
- * - not that a user typed something wrong.
+ * Unambiguous because only a trailing {@link Argument.Kind#GREEDY_STRING} can hold a space.
  */
 public final class RequestArguments {
 
     private RequestArguments() {}
 
     /**
-     * The arguments of one invocation, as a line.
+     * Returns the arguments of one invocation as a line.
      *
-     * @throws IllegalArgumentException if a value cannot survive the round trip, or if a required
-     *                                  argument is missing from {@code values}
+     * @throws IllegalArgumentException if a value cannot survive the round trip, or a required argument is missing
      */
     public static String encode(final Declaration declaration, final Values values) {
         Objects.requireNonNull(declaration, "declaration");
@@ -45,7 +37,7 @@ public final class RequestArguments {
                     throw new IllegalArgumentException(
                             declaration.name() + " is missing required argument '" + argument.name() + "'");
                 }
-                // Optionals are trailing, so the first absent value ends the line - a value after that is refused.
+                // Optionals are trailing, so the first absent value ends the line and a later value is refused.
                 for (final Argument later : declaration
                         .arguments()
                         .subList(
@@ -84,7 +76,7 @@ public final class RequestArguments {
     }
 
     /**
-     * The arguments of one invocation, read back against the declaration that wrote them.
+     * Reads the arguments of one invocation back against the declaration that wrote them.
      *
      * @throws IllegalArgumentException if the line does not match the declaration
      */

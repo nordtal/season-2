@@ -9,35 +9,13 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * "Type it again" - the confirmation for an irreversible command on a surface that has no buttons.
+ * Asks for an irreversible command to be typed again, on a surface that has no buttons.
  *
- * Here and not in an adapter because it holds no platform type at all: a map, a clock and a window.
- * The Paper and Velocity
- * adapters both need it, and Discord needs none of it - a button is its confirmation, and the shape
- * of the two has nothing in common beyond the fact that {@link Declaration#irreversible()} is set.
- * That is why the flag is an obligation on adapters rather than something {@code run} checks: this
- * class is one adapter's way of honouring it.
- *
- * What is keyed is the identity <em>and</em> the exact command line - the whole command. Keying on
- * the identity alone would let
- * {@code /phase set MAINTENANCE} confirm a {@code /phase set SMP} typed thirty seconds earlier,
- * which on this particular command is the difference between letting only admins in and
- * disconnecting everybody without access. A confirmation must confirm the thing it was asked about.
- *
- * The proxy's {@code /phase set} is what an admin runs when Discord is down. Confirming it costs a
- * deliberate second or two during an incident: what is bought is that the one command that
- * disconnects every player without active access cannot be run by a mistyped tab completion.
+ * The key is the person and the whole command line, so one command never confirms another.
  */
 public final class Confirmations {
 
-    /**
-     * How long a pending confirmation stands.
-     *
-     * Long enough to read the sentence and type the command again; short enough that walking away
-     * from a keyboard does not leave one armed. Not configuration: nothing else in the repository
-     * depends on the number, and a value somebody could set to an hour would quietly turn the whole
-     * mechanism into a delay.
-     */
+    /** How long a pending confirmation stands; not configuration, so it cannot become a delay. */
     public static final Duration WINDOW = Duration.ofSeconds(30);
 
     private final Duration window;
@@ -55,16 +33,11 @@ public final class Confirmations {
     }
 
     /**
-     * Ask whether this exact command, from this exact person, was already asked for.
-     *
-     * <b>Consumes.</b> A confirmed command clears its own entry, so running it a third time asks
-     * again rather than going straight through - the window is one confirmation wide, not a period
-     * during which the command is unguarded.
+     * Returns whether this exact command from this person was already asked for, consuming the entry.
      *
      * @param user what was typed, and by whom
      * @param what the full command line, arguments included
-     * @return {@code true} when this is the confirmation and the command may run; {@code false} when
-     *         it is the first ask and the caller should say so and stop
+     * @return {@code true} when this is the confirmation and the command may run, {@code false} on the first ask
      */
     public boolean confirm(final NordtalUser user, final String what) {
         if (consume(user, what)) {
@@ -75,13 +48,9 @@ public final class Confirmations {
     }
 
     /**
-     * Remember that this command was asked for, without answering anything.
+     * Remembers that this command was asked for, for a flow whose confirmation is a different command.
      *
-     * For a surface whose confirmation is a <b>different command</b> rather than the same one
-     * again - {@code /hg start} warns and {@code /hg start confirm} goes through. Those two cannot
-     * use {@link #confirm} on the second step, because it arms on a miss: a bare
-     * {@code /hg start confirm} typed twice would then arm itself and go through on the second
-     * attempt, having never shown the warning it exists for.
+     * {@link #confirm} arms on a miss, so {@code /hg start confirm} typed twice would skip the warning.
      */
     public void arm(final NordtalUser user, final String what) {
         final Instant now = clock.instant();
@@ -89,13 +58,7 @@ public final class Confirmations {
         pending.put(key(user, what), now);
     }
 
-    /**
-     * Was this command armed, and is the window still open?
-     *
-     * <b>Consumes either way, and never arms.</b>
-     *
-     * @return {@code true} when a live confirmation was waiting - and only then
-     */
+    /** Returns whether this command was armed within the window, consuming it either way and never arming. */
     public boolean consume(final NordtalUser user, final String what) {
         final Instant now = clock.instant();
         sweep(now);
@@ -104,7 +67,7 @@ public final class Confirmations {
         return asked != null && !asked.plus(window).isBefore(now);
     }
 
-    /** Forget a pending confirmation - for a cancel, or a surface that abandons the flow. */
+    /** Forgets a pending confirmation, for a cancel or a surface that abandons the flow. */
     public void forget(final NordtalUser user, final String what) {
         pending.remove(key(user, what));
     }
@@ -114,7 +77,7 @@ public final class Confirmations {
         return window;
     }
 
-    /** How many are waiting; for tests, and for a leak nobody expects. */
+    /** Returns how many are waiting, for tests. */
     public int size() {
         return pending.size();
     }
@@ -123,23 +86,12 @@ public final class Confirmations {
         return identityOf(user) + " " + Objects.requireNonNull(what, "what");
     }
 
-    /**
-     * Whoever this is, as one string.
-     *
-     * The Minecraft account first, because that is the identity a game surface always has and the
-     * one an admin is typing under. The console has neither identity and falls back to its name,
-     * which is enough: there is one console per process.
-     */
+    /** Whoever this is, as one string: the Minecraft account first, else the name. */
     private static String identityOf(final NordtalUser user) {
         return user.minecraftUuid().map(UUID::toString).or(user::discordId).orElseGet(() -> "console:" + user.name());
     }
 
-    /**
-     * Drops what has timed out.
-     *
-     * On every call rather than on a timer: the map only ever holds admins mid-command, so it is
-     * a handful of entries, and a timer would be a thread for a map that is usually empty.
-     */
+    /** Drops what has timed out, on every call rather than on a timer. */
     private void sweep(final Instant now) {
         pending.entrySet().removeIf(entry -> entry.getValue().plus(window).isBefore(now));
     }

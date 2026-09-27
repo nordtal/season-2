@@ -9,6 +9,7 @@ package eu.nordtal.s2.build
  */
 object MinecraftProcesses {
     private val JAVA = setOf("java", "javaw", "java.exe", "javaw.exe")
+
     /** Main classes of a client: vanilla, and Fabric's or Quilt's Knot, which a launcher may start with a system Java. */
     private val CLIENTS = listOf("net.minecraft.client.main.Main", ".knot.KnotClient")
     private val LAUNCHERS = listOf("minecraft", "modrinth", "norisk", "prismlauncher", "multimc", "curseforge")

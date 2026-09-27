@@ -8,13 +8,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * {@link UpdatePlan#onlyMissing()} - the filter a bootstrap runs through.
- *
- * This is not a convenience method being covered for the sake of it. It is where "a container that comes back up
- * comes back on exactly the jars it was running" stops being a promise in a comment and becomes something the type
- * system enforces: {@code serve} installs a plan, and the only plan it can build is one with no upgrades in it.
- */
+/** {@link UpdatePlan#onlyMissing()}, the filter a bootstrap runs through, so it installs no upgrades. */
 class UpdatePlanTest {
 
     private static Change change(final String artifact, final Change.Status status) {

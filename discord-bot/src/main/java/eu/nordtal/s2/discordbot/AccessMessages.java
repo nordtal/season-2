@@ -13,15 +13,12 @@ import eu.nordtal.s2.common.message.spec.Name;
 import eu.nordtal.s2.common.message.spec.Shown;
 import eu.nordtal.s2.common.message.spec.TextFormat;
 
-/**
- * Every message of the access bundle, one method per key.
- */
+/** Every message of the access bundle, one method per key. */
 @MessageSpec("access")
 @Shown(Display.DISCORD_MESSAGE)
 @Format(TextFormat.DISCORD_MARKDOWN)
 public interface AccessMessages {
 
-    /** The messages; stateless, so one instance serves every caller. */
     AccessMessages MESSAGES = MessageSpecs.create(AccessMessages.class);
 
     Contribution contribution();

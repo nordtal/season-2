@@ -4,12 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { IDENTIFIER_PATTERN, PersonIdentity, minecraftHeadUrl } from "@/components/steward/identity"
 import { asInput } from "@/lib/test-elements"
 
-/**
- * The whole rule, held against the one component that is allowed to break it: identifiers belong in
- * exactly one place - this display's popover, for copying. Nowhere else. Closed, this component must
- * never draw the Discord id or the Minecraft uuid; opened, its popover is the one place both may
- * appear, each next to a way to copy it.
- */
+/** Identifiers appear only in this component's popover, each beside a way to copy it, never while closed. */
 
 const DISCORD_ID = "214906139328839681"
 const MC_UUID = "11111111-2222-3333-4444-555555555555"
@@ -44,10 +39,7 @@ describe("PersonIdentity - closed, the id is never drawn", () => {
   })
 
   it("falls back to readable text, not the raw id, for an account with no observed name", () => {
-    /**
-     * A former guild member, or one nobody has mirrored a profile onto yet - both real states,
-     * neither an excuse to fall back to the identifier the whole rule exists to hide.
-     */
+    /** A former member or an unmirrored profile still must not fall back to the identifier. */
     render(<PersonIdentity discordId={DISCORD_ID} />)
 
     expect(document.body.textContent).not.toContain(DISCORD_ID)
@@ -117,7 +109,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
 
   it("copies the id it is asked to copy, and not the other one", async () => {
     const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined)
-    // `navigator`'s own fields are prototype getters, not own properties, so spreading it copies nothing.
+    // `navigator`'s fields are prototype getters, so spreading it copies nothing.
     vi.stubGlobal("navigator", { clipboard: { writeText } })
 
     render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" mcUuid={MC_UUID} mcName="AliceMC" />)
@@ -130,10 +122,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
   })
 
   it("leaves the id selectable when the clipboard API is unavailable, rather than failing silently", async () => {
-    /**
-     * `navigator.clipboard` needs a secure context, which developing over http://127.0.0.1 does
-     * not have. The button must not be the only way to get the value out.
-     */
+    /** `navigator.clipboard` needs a secure context, which http://127.0.0.1 lacks. */
     vi.stubGlobal("navigator", { clipboard: undefined })
 
     render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" />)
@@ -142,31 +131,19 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     const field = asInput(await screen.findByLabelText("Discord-ID"))
     expect(field.readOnly).toBe(true)
     expect(field.value).toBe(DISCORD_ID)
-    // The button is still there and still clickable - it must not throw with no clipboard.
+    // Still clickable, and it must not throw without a clipboard.
     expect(() => fireEvent.click(screen.getByRole("button", { name: "Copy Discord-ID" }))).not.toThrow()
   })
 })
 
 describe("PersonIdentity - nothing half-written, and no mark nobody can see", () => {
-  /**
-   * The popover never says "last confirmed -" under the Discord name
-   * or "last seen -" under the Minecraft name when there is no timestamp, and neither name
-   * carries a staleness mark when the timestamp is old.
-   *
-   * An asterisk alone would be the only thing announcing staleness - a `title` tooltip behind
-   * it is invisible until hovered and unreachable on a phone, and a `data-stale` attribute is
-   * read by no stylesheet. So there is no attribute and no
-   * tooltip pretending to be a quieter version of a removed feature.
-   */
+  /** The popover writes no half line under a name without a timestamp, and no staleness mark. */
   it("writes no line under the Discord name, whether the name is fresh or ancient", () => {
     render(<PersonIdentity discordId={DISCORD_ID} discordDisplayName="Ally" />)
     fireEvent.click(screen.getByRole("button"))
 
     expect(screen.queryByText(/confirmed/i)).toBeNull()
-    /**
-     * The en dash `format.ts` writes when it has nothing to format. In a table cell it means "no
-     * value" and everybody reads it that way; behind a word it is a half-written sentence.
-     */
+    /** The en dash `format.ts` writes for nothing, which behind a word reads as half a sentence. */
     expect(document.body.textContent).not.toContain("\u2013")
   })
 
@@ -187,10 +164,7 @@ describe("PersonIdentity - nothing half-written, and no mark nobody can see", ()
   })
 
   it("still says so when there is genuinely nothing on record - that is a sentence, not a stub", () => {
-    /**
-     * The rule is not "never write anything", it is "never write half of something". "Never
-     * observed" is a complete answer and stays; "last confirmed -" was not one and went.
-     */
+    /** "Never observed" is a complete answer and stays. */
     render(<PersonIdentity discordId={DISCORD_ID} />)
     fireEvent.click(screen.getByRole("button"))
 
@@ -211,16 +185,9 @@ describe("PersonIdentity, Minecraft face - no asterisk, no tooltip", () => {
 
 describe("minecraftHeadUrl", () => {
   /**
-   * api.mineatar.io is the standard endpoint for Minecraft
-   * avatars. Two things about that were measured against the real service:
+   * Both uuid spellings answer at api.mineatar.io; the hyphens come out for one stable, cached URL.
    *
-   * - **Both uuid spellings answer 200**, on mineatar, mc-heads and crafatar alike. The hyphens
-   *   still come out, but the reason is no longer compatibility - it is that one spelling has to
-   *   be picked and a stable URL is a cached one.
-   * - **The blank endpoint serves 32x32.** A head is drawn at up to 32 CSS pixels, which is 96
-   *   real ones on a 3x phone, so the configured default carries `?scale=16` (128x128, 472 bytes).
-   *   That is the whole reason the base can have a query at all, and the reason the uuid has to be
-   *   inserted BEFORE it.
+   * The default base carries `?scale=16` for sharp heads, so the uuid goes before the query.
    */
   const UNDASHED = MC_UUID.replace(/-/g, "")
   const MINEATAR = "https://api.mineatar.io/face"
@@ -230,10 +197,7 @@ describe("minecraftHeadUrl", () => {
   })
 
   it("puts the uuid in the path and keeps the query behind it", () => {
-    /**
-     * The default base. Appending blindly would give `…/face?scale=16/<uuid>` - a URL that is
-     * still a URL, still fetched, and never an image of this player.
-     */
+    /** Appending blindly would give a URL that is fetched and never this player's face. */
     expect(minecraftHeadUrl(`${MINEATAR}?scale=16`, MC_UUID)).toBe(`${MINEATAR}/${UNDASHED}?scale=16`)
   })
 
@@ -253,10 +217,7 @@ describe("minecraftHeadUrl", () => {
   })
 
   it("still works for a base pointing anywhere else, because it is configuration", () => {
-    /**
-     * A deployment whose steward-ui.yml still names mc-heads keeps working - jcore preserves a
-     * written file, so the default is the NEW installation and never the running one.
-     */
+    /** A `steward-ui.yml` still naming mc-heads keeps working, since jcore preserves a written file. */
     expect(minecraftHeadUrl("https://mc-heads.net/avatar", MC_UUID)).toBe(`https://mc-heads.net/avatar/${UNDASHED}`)
   })
 
@@ -276,11 +237,7 @@ describe("PersonIdentity, Minecraft face - the name and the head, never the uuid
   it("says a name has not been observed yet, rather than showing nothing", () => {
     render(<PersonIdentity face="minecraft" mcUuid={MC_UUID} />)
 
-    /**
-     * Kept short rather than "no name observed yet": that longer form would draw
-     * as `no name observed ye` at 390px. It truncates properly as well, but a fallback label
-     * that has to truncate to fit is a label chosen too long.
-     */
+    /** Kept short, since a longer fallback truncates at 390px. */
     expect(screen.getByText(/no name yet/i)).toBeTruthy()
   })
 })

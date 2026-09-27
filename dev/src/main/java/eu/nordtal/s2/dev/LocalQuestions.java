@@ -7,9 +7,7 @@ import java.util.regex.Pattern;
 /**
  * What {@code init} asks: the few things only a person knows, in the installer's own words.
  *
- * The prompts are {@code deploy/nordtal.sh}'s, and {@code NordtalQuestionsTest} holds them against that
- * table. What differs locally is that the five Discord answers may be skipped, and that the address the
- * browser uses is asked for, because a checkout has no public host name to derive it from.
+ * The prompts are {@code deploy/nordtal.sh}'s; locally Discord may be skipped and the address is asked.
  */
 final class LocalQuestions {
 
@@ -101,7 +99,7 @@ final class LocalQuestions {
         return BROWSER_URL.matcher(value).matches();
     }
 
-    /** @return the host of such a URL: no scheme, no port - what the WebAuthn relying party id has to be */
+    /** @return the host of such a URL: no scheme, no port, as the WebAuthn relying party id needs */
     static String hostOf(final String url) {
         final String rest = url.substring(url.indexOf("://") + 3);
         final int colon = rest.indexOf(':');

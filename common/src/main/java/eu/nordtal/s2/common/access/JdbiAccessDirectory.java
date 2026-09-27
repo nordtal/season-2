@@ -20,8 +20,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The only implementation of {@link AccessDirectory}.
- *
- * It avoids jcore's {@code Database} so a Paper plugin need not shade jcore's dependencies for a pool.
+ * It avoids jcore's {@code Database} so a Paper plugin need not shade jcore's dependencies.
  */
 final class JdbiAccessDirectory implements AccessDirectory {
 
@@ -234,7 +233,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
                 if (!isUniqueViolation(exception)) {
                     throw exception;
                 }
-                // A code-only collision is not caught by the mc_uuid ON CONFLICT; each attempt is its own statement.
+                // A code collision is not caught by the mc_uuid ON CONFLICT; each attempt is its own statement.
                 lastCollision = exception;
             }
         }

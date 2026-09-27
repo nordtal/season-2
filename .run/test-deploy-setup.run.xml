@@ -1,7 +1,7 @@
 <!--
   gradlew checkSetup
 
-  `deploy/nordtal-test.sh` — deploy/nordtal.sh's checks: the host comparison the whole wait rests on, the menu, and that a secret in it is three dots.
+  Tests deploy/nordtal.sh's checks.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: checkSetup" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">

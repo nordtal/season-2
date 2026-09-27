@@ -14,9 +14,7 @@ import java.util.Optional;
 /**
  * A process that answers {@code /phase}, scripted.
  *
- * {@link #async} runs inline. That is not a shortcut: the thing under test is what a command
- * decides and in which order it says it, and a thread would only make the assertions racy without
- * proving anything the real schedulers do not already own.
+ * {@link #async} runs inline, since what is under test is what a command decides and in which order.
  */
 final class FakeEffects implements PhaseEffects, PhaseDirectory {
 
@@ -24,15 +22,15 @@ final class FakeEffects implements PhaseEffects, PhaseDirectory {
     Instant launch;
     Instant smpStart;
 
-    /** Set to make the next read or write throw, which is the branch nobody exercises by hand. */
+    /** Set to make the next read or write throw. */
     RuntimeException readFailure;
-    /** Only the two dates fail - the phase itself is readable. */
+    /** Only the two dates fail; the phase itself is readable. */
     RuntimeException datesFailure;
 
     RuntimeException writeFailure;
     SeasonDateRefused dateRefusal;
 
-    /** What {@code setSmpStart} reports as moved, so the "somebody else's money" branch is testable. */
+    /** What {@code setSmpStart} reports as moved. */
     int grants;
 
     int accounts;

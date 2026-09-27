@@ -14,12 +14,7 @@ import org.junit.jupiter.api.Test;
 /**
  * One pass at a time, and the channel both halves of the seam agree on.
  *
- * The timer thread and the listener thread both call {@link PaymentLoop#pass()}, and a pass makes HTTP calls to a
- * bank. A second pass alongside the first would corrupt nothing - every write in the seam is guarded by the schema -
- * but it would ask bunq the same questions twice, and doing that to somebody else's rate limit because a
- * notification happened to land mid-pass is not a trade worth making. {@code tryLock} rather than {@code lock} is
- * the other half of it: a caller who finds a pass running has nothing to add by waiting for it, because that pass is
- * about to read the same rows.
+ * A second pass would ask bunq the same questions twice, and a caller that finds one running has nothing to add.
  */
 class PaymentLoopTest {
 
@@ -58,7 +53,7 @@ class PaymentLoopTest {
             release.countDown();
             first.join(5_000);
 
-            // Once the first pass is done, the next wake-up runs for real - asserts the lock was actually released.
+            // Once the first pass is done the next wake-up runs, so the lock was released.
             loop.pass();
             assertEquals(2, passes.get(), "the lock was not released");
         } finally {

@@ -10,10 +10,7 @@ import type { Run } from "@/lib/api"
 import { urlOf } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/**
- * The toasts, read rather than drawn: `<Toaster />` lives in the shell and this test renders one
- * page. What is asserted below is the sentence handed to sonner, which is the part this page owns.
- */
+/** Asserts the sentence handed to sonner, since `<Toaster />` lives in the shell and this test renders one page. */
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn<(message: string) => void>(),
@@ -21,17 +18,6 @@ vi.mock("sonner", () => ({
     info: vi.fn<(message: string) => void>(),
   },
 }))
-
-/**
- * The way back out of a run somebody has just started.
- *
- * The rule itself is unit-tested in `operations.test.ts`; what this file is for is the two things
- * only the drawn page can be asked. First, that the button is on the ROW and only on the row that
- * can still be cancelled - the page carries three buttons in its header already, and a fourth one
- * that comes and goes up there would move the others on a phone. Second, that pressing it sends
- * the request straight away: every other button on this page opens a dialog first, and this one
- * must not, because a confirmation in front of an undo is a countdown running out while it is read.
- */
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -131,6 +117,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** On the row, since a button coming and going in the header would move the others on a phone. */
 describe("the Cancel is on the row, and only while there is something to cancel", () => {
   it("is there for a countdown that has not run out", async () => {
     vi.stubGlobal("fetch", backend([run()]))
@@ -150,10 +137,7 @@ describe("the Cancel is on the row, and only while there is something to cancel"
   })
 
   it("is gone once the run is actually under way", async () => {
-    /**
-     * Same RUNNING status as a countdown; the moment has simply passed. The worker holds the lock
-     * by now and its SQL would answer "too late", so there must be nothing to press.
-     */
+    /** Past `notBefore` the worker holds the lock and would answer "too late", so there is nothing to press. */
     vi.stubGlobal("fetch", backend([run({ status: "RUNNING", notBefore: new Date(Date.now() - 1000).toISOString() })]))
     draw()
 
@@ -177,6 +161,7 @@ describe("the Cancel is on the row, and only while there is something to cancel"
   })
 })
 
+/** No dialog first, since a confirmation in front of an undo is a countdown running out while it is read. */
 describe("pressing it asks the backend at once", () => {
   it("sends POST /api/updates/cancel with no dialog in between", async () => {
     const fetchMock = backend([run()])
@@ -194,10 +179,7 @@ describe("pressing it asks the backend at once", () => {
   })
 
   it("says what the backend said when the countdown ran out first", async () => {
-    /**
-     * A 409 here is not this interface failing: the row was claimed between the tap and the
-     * request. The sentence on screen has to be that, and not "the interface cannot be reached".
-     */
+    /** A 409 means the row was claimed between tap and request, and the sentence must say so. */
     const fetchMock = backend([run()], () => json(409, { title: "too late - the countdown has already run out" }))
     vi.stubGlobal("fetch", fetchMock)
     draw()

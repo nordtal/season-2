@@ -8,13 +8,7 @@ import java.util.List;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
-/**
- * The arithmetic of a staging: which picture appears on which tick, and how long the whole thing is.
- *
- * Separate from {@link CinematicsTest} on purpose. This is the part that is a pure function of
- * the description - it needs no scheduler, no surface and no player - and it is the part a wrong
- * answer in is invisible: a sequence whose second frame lands one tick early looks like a sequence.
- */
+/** Tests the arithmetic of a staging: which picture appears on which tick, and how long it lasts. */
 class CinematicTest {
 
     private static final Component A = Component.text("a");

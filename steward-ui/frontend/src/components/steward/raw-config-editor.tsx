@@ -8,26 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Failure } from "@/components/steward/query-state"
 
 /**
- * The editor `RawConfigView` (`configuration.tsx`) hands a file to once its read-only
- * fallback has one to show - a file this process could not split into keys at all, or an ordinary
- * config with a mistake in it.
+ * The editor for a file that did not split into keys, or a config with a mistake in it.
  *
- * **Format is decided by the file's own name, never by what parsed and what did not.** The same
- * four extensions {@link formatOf} mirrors the worker's own `RawSyntax.formatOf` with - YAML,
- * JSON, TOML, properties - and anything else is plain text. Neither side imports the other; the
- * two are kept true to each other only by both reading the same four endings, noted in each one's
- * own doc comment.
- *
- * **Syntax is checked on the worker, not in this browser.** `RawSyntax` already sits beside the
- * parsers this project actually uses to read these files at runtime - SnakeYAML and Gson are both
- * already on the worker's classpath, and a browser-side check would be a second, independent
- * opinion about what "valid YAML" means that could disagree with the one the server-side already
- * has. A save is one round trip either way, and it is the one round trip this editor makes.
- *
- * **Nothing here is ever refused.** A syntax problem comes back as a warning naming a line, on the
- * very same response that already carries the save - never a separate confirmation step, and never
- * a reason `useSaveRawConfig`'s promise rejects. See `ConfigApi#saveRaw` and `RawSyntax` for the
- * other half of this.
+ * The worker checks syntax and answers a problem as a warning on the save itself; nothing is refused.
  */
 export function RawConfigEditor({
   file,
@@ -43,11 +26,7 @@ export function RawConfigEditor({
   const [warnings, setWarnings] = useState<string[]>([])
   const save = useSaveRawConfig(file)
 
-  /**
-   * The answer to a save IS the file as it now reads (byte for byte here, since nothing on this
-   * path re-serialises), so a successful write settles the draft on exactly what was written -
-   * the same rule ConfigForm and BundleForm both follow.
-   */
+  /** The answer to a save is the file byte for byte, so a successful write settles the draft on it. */
   const [lastDocument, setLastDocument] = useState(document)
   if (lastDocument !== document) {
     setLastDocument(document)
@@ -65,10 +44,7 @@ export function RawConfigEditor({
   return (
     <div className="flex flex-col gap-4">
       {origin === "nordtal" ? (
-        /**
-         * A Nordtal file always has a schema, so raw text means it did not parse - worth one line.
-         * A third-party plugin's file is text and nothing more; there is nothing to say above it.
-         */
+        /** Raw text in a Nordtal file means it did not parse; a third-party file is text and nothing more. */
         <details className="text-sm text-muted-foreground">
           <summary className="cursor-pointer">Shown as text, it did not parse.</summary>
           {document.reason ? <p className="mt-1 font-mono text-xs">{document.reason}</p> : null}
@@ -121,18 +97,7 @@ export function RawConfigEditor({
   )
 }
 
-/**
- *
- * Format detection - mirrors RawSyntax.formatOf on the worker
- *
- */
-
-/**
- * The format this editor draws for a file, decided by the last extension on its own name - never
- * by sniffing its content, and never by what did or did not parse. Kept in step with the worker's
- * `RawSyntax.formatOf` by hand: a frontend module cannot import a worker enum, so the two agree
- * only because both read the same four endings.
- */
+/** The format from the file name's last extension, kept in step with `RawSyntax.formatOf` by hand. */
 export function formatOf(fileName: string): RawConfigFormat {
   const lower = fileName.toLowerCase()
   const slash = lower.lastIndexOf("/")
@@ -145,26 +110,9 @@ export function formatOf(fileName: string): RawConfigFormat {
 }
 
 /**
+ * A `<textarea>` with transparent text over a `<pre>` that draws the colouring and sizes the box.
  *
- * The editor itself: a plain textarea with a colour-matched layer of tokens behind it
- *
- */
-
-/**
- * A `<textarea>` with syntax colouring behind it, not inside it - a textarea cannot render markup,
- * so the trick every editor this small uses is two elements occupying the same box: a `<pre>` in
- * normal flow, which is what gives the box its height, and the real `<textarea>` laid over it with
- * its own text made transparent. What the operator sees as coloured text is the `<pre>`; what they
- * type into is the `<textarea>` on top of it, whose caret is the only part of it still visible.
- *
- * **This is deliberately not one npm package.** `package.json` carries no code editor and no
- * highlighter of any kind (checked before writing this), and the four formats here are line-
- * oriented enough that a tokeniser small enough to read in one sitting covers them honestly. A
- * dependency like CodeMirror buys far more than this page needs, on a UI that ships inside a jar.
- *
- * **The two layers have to agree on font, padding, border and line wrapping down to the pixel** -
- * that is the entire risk of this technique, and the reason both share one class list below rather
- * than two similar ones that could drift apart.
+ * Both layers share one class list, since they must agree on font, padding and wrapping to the pixel.
  */
 function HighlightedTextarea({
   format,
@@ -181,10 +129,7 @@ function HighlightedTextarea({
 }) {
   const preRef = useRef<HTMLPreElement>(null)
 
-  /**
-   * Both layers scroll their own box; a container that clipped instead would mean the operator
-   * could type past what is visible with nothing to bring it back into view.
-   */
+  /** Keeps the `<pre>` scrolled with the textarea, so the colouring stays under the text. */
   function syncScroll(event: UIEvent<HTMLTextAreaElement>) {
     if (!preRef.current) return
     preRef.current.scrollTop = event.currentTarget.scrollTop
@@ -216,12 +161,6 @@ function HighlightedTextarea({
   )
 }
 
-/**
- *
- * The tokeniser - one small function per format, line-oriented on purpose
- *
- */
-
 type Token = { text: string; className?: string }
 
 const CLASS = {
@@ -233,11 +172,7 @@ const CLASS = {
   literal: "text-[#8f8b82]",
 }
 
-/**
- * Every token of a whole file's text, in reading order, one line at a time - joined back together
- * with real {@code "\n"} characters rather than one element per line, so the wrapping this
- * produces is exactly the wrapping a single `<pre>` would give the same string on its own.
- */
+/** Every token of a file, joined with real `"\n"` characters so the `<pre>` wraps like the plain string. */
 function tokenize(format: RawConfigFormat, content: string): Token[] {
   if (format === "text") {
     return [{ text: content }]
@@ -283,7 +218,7 @@ function tokenizeYamlLine(line: string): Token[] {
     return tokens
   }
 
-  // A block sequence's own marker - `- item`, or a bare `-` with nothing after it yet.
+  // A block sequence's own marker: `- item`, or a bare `-` with nothing after it yet.
   const dash = /^-(\s+|$)/.exec(rest)
   if (dash) {
     tokens.push({ text: dash[0], className: CLASS.punctuation })
@@ -294,10 +229,7 @@ function tokenizeYamlLine(line: string): Token[] {
     }
   }
 
-  /**
-   * A plain key ends at the first colon followed by whitespace or the end of the line - matching
-   * ConfigFiles' own rule that a key may itself contain a colon (`12:00: something`).
-   */
+  /** A plain key ends at the first colon followed by whitespace or the line end, so `12:00: x` works. */
   const key = /^([^:#]+?)(:)(\s|$)/.exec(rest)
   if (key) {
     tokens.push({ text: key[1], className: CLASS.key })
@@ -338,11 +270,7 @@ function tokenizeTomlLine(line: string): Token[] {
   return tokens
 }
 
-/**
- * A YAML or TOML value: a quoted string, a number, a boolean/null literal, or plain text - plus
- * whatever trailing {@code # comment} follows it outside of quotes. Shared between the two formats
- * because both give a value the same three shapes.
- */
+/** A YAML or TOML value: a quoted string, a number, a literal or plain text, plus a trailing comment. */
 function tokenizeScalarValue(text: string): Token[] {
   const tokens: Token[] = []
   const leading = /^\s*/.exec(text)![0]
@@ -362,11 +290,7 @@ function tokenizeScalarValue(text: string): Token[] {
 }
 
 function scalarToken(value: string): Token {
-  /**
-   * Classified by the value with its own trailing whitespace stripped (`true `, with a trailing
-   * space, is still the literal `true`) - but the token itself always carries the untrimmed text,
-   * or the characters it stands for would quietly go missing from what the operator sees.
-   */
+  /** Classified by the trimmed value, while the token keeps the untrimmed text so nothing goes missing. */
   const trimmed = value.replace(/\s+$/, "")
   return { text: value, className: classifyScalar(trimmed) }
 }
@@ -378,11 +302,7 @@ function classifyScalar(value: string): string | undefined {
   return undefined
 }
 
-/**
- * The first `#` outside of single or double quotes that also starts a comment by YAML's own rule -
- * at the beginning of the text, or with whitespace right before it - or -1 when there is none. A
- * `#` glued onto the previous character, the way a URL's own fragment is, is not a comment.
- */
+/** The index of the first unquoted `#` that starts a YAML comment, or -1; a `#` glued to a word is not one. */
 function findUnquotedHash(text: string): number {
   let inSingle = false
   let inDouble = false

@@ -12,10 +12,8 @@ import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 
 /**
- * One plain JDBC connection with a {@code LISTEN} per channel, polled with {@code getNotifications}.
- *
- * Not pooled: {@code LISTEN} is session state and the connection blocks for the process's life. All
- * channels share it. A {@code socketTimeout} turns a dead peer into a {@link SQLException} for reconnect.
+ * One plain, unpooled JDBC connection with a {@code LISTEN} per channel, polled with {@code getNotifications}.
+ * A {@code socketTimeout} turns a dead peer into a {@link SQLException} for the reconnect.
  */
 public final class PostgresNotifications implements Notifications {
 
@@ -33,16 +31,12 @@ public final class PostgresNotifications implements Notifications {
     }
 
     /**
-     * @param jdbcUrl               the same database the caller's pool reads; the listener just
-     *                              does not go through the pool
-     * @param username              database user
-     * @param password              database password, {@code null} treated as empty
-     * @param socketTimeoutSeconds  bounds a peer that has gone away without closing; without it
-     *                              {@code getNotifications} can sit on a dead socket indefinitely
-     * @param applicationName       what this connection calls itself in {@code pg_stat_activity},
-     *                              so a parked connection can be identified
-     * @param channels              the channels to {@code LISTEN} on, at least one
-     * @return a connector that opens one dedicated connection per call
+     * Returns a connector that opens one dedicated connection per call.
+     *
+     * @param password             database password, {@code null} treated as empty
+     * @param socketTimeoutSeconds bounds a peer that has gone away without closing
+     * @param applicationName      this connection's name in {@code pg_stat_activity}
+     * @param channels             the channels to {@code LISTEN} on, at least one
      */
     public static Connector connector(
             final String jdbcUrl,
@@ -85,7 +79,7 @@ public final class PostgresNotifications implements Notifications {
                 try {
                     connection.close();
                 } catch (final SQLException ignored) {
-                    // Nothing useful to do: we are already failing, and the caller retries.
+                    // Already failing, and the caller retries.
                 }
                 throw failure;
             }
@@ -95,11 +89,7 @@ public final class PostgresNotifications implements Notifications {
     /**
      * {@inheritDoc}
      *
-     * {@code getNotifications(timeout)} answers {@code null} both when nothing was published and
-     * when the peer has gone away without closing the socket, so every timeout is followed by a
-     * liveness check that turns a dead connection into the {@link SQLException} the reconnect loop
-     * waits for. That check is one round trip per timeout, which is why the caller passes the poll
-     * interval rather than something shorter.
+     * Every timeout is followed by a liveness check, since a dead peer also answers {@code null}.
      */
     @Override
     public boolean awaitNotification(final Duration timeout) throws SQLException {
@@ -118,7 +108,7 @@ public final class PostgresNotifications implements Notifications {
         try {
             connection.close();
         } catch (final SQLException ignored) {
-            // Closing a connection we are giving up on anyway; the reconnect opens a new one.
+            // Giving up on this connection anyway; the reconnect opens a new one.
         }
     }
 }

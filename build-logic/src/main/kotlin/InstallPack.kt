@@ -21,9 +21,7 @@ import javax.inject.Inject
 /**
  * Mirrors the pack into the chosen Minecraft instance as the folder pack [packName], and enables it there once.
  *
- * The folder is replaced wholesale, so a file deleted from the pack disappears from the game too.
- * Enabling means adding the pack to `resourcePacks` in `options.txt`, which is skipped while the
- * game runs: Minecraft writes that file back when it closes and would undo the edit.
+ * The folder is replaced wholesale. `options.txt` is left alone while the game runs, which would overwrite it.
  */
 @DisableCachingByDefault(because = "Writes into a Minecraft instance, outside the build")
 abstract class InstallPack : DefaultTask() {
@@ -32,7 +30,7 @@ abstract class InstallPack : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val pack: DirectoryProperty
 
-    /** The file [MinecraftInstanceChooser] writes; read when the task runs, so a new choice needs no reconfiguration. */
+    /** The file [MinecraftInstanceChooser] writes, read when the task runs. */
     @get:Internal
     abstract val instanceFile: RegularFileProperty
 
@@ -87,7 +85,7 @@ abstract class InstallPack : DefaultTask() {
             }
         if (entry in enabled) return "The pack is enabled in this instance."
         if (MinecraftProcesses.running()) return "Minecraft is running, so options.txt was left alone. $manually"
-        // The last entry is the one on top, and ours must win over vanilla and every other local pack.
+        // The last entry is on top.
         enabled += entry
         val line = RESOURCE_PACKS + JsonOutput.toJson(enabled)
         options.writeText(

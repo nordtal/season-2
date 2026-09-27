@@ -168,7 +168,7 @@ class MessageRendererTest {
                 "escaping the escape character must be invisible once MiniMessage has parsed it");
     }
 
-    /** @return whether {@code component} or any of its children carries a click event */
+    /** Returns whether {@code component} or any of its children carries a click event. */
     private static boolean hasClickEvent(final Component component) {
         if (component.clickEvent() != null) {
             return true;

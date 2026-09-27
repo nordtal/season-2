@@ -1,8 +1,7 @@
 <!--
   gradlew :dev:test
 
-  The dev program's tests: the reset guard, the questions init borrows from deploy/nordtal.sh,
-  and the run configurations here.
+  Just :dev's JVM tests.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: jvm dev" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: jvm">

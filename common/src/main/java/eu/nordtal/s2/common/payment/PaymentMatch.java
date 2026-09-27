@@ -1,10 +1,6 @@
 package eu.nordtal.s2.common.payment;
 
-/**
- * How a payment was attributed to a request, stored in {@code payment_request.matched_by}.
- *
- * The names are the stored strings, restricted by {@code payment_request_matched_by_check}.
- */
+/** How a payment was attributed to a request, stored under its name in {@code payment_request.matched_by}. */
 public enum PaymentMatch {
 
     /** The payment arrived under the request's own bunq.me tab, the strongest match. */

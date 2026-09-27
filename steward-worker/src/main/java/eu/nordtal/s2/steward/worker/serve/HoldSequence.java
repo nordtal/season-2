@@ -14,30 +14,15 @@ import java.util.function.Consumer;
 /** The two halves of holding a service down and letting it go, on request rather than as part of any other run. */
 final class HoldSequence {
 
-    /**
-     * The two services a run may never put down, because the run is standing on them.
-     *
-     * {@code steward-worker} is the process performing the sequence and {@code postgres} holds the row it writes its
-     * report into. A DOWN naming either would be a request that cannot report what it did - and in the worker's case
-     * could not even release its own lock. Refused by name, before anything is stopped, rather than discovered
-     * halfway through.
-     */
+    /** The two services a DOWN may never name, because the run reports through them. */
     private static final List<String> NEVER_DOWN = List.of(Topology.STEWARD_WORKER, "postgres");
 
     private HoldSequence() {}
 
     /**
-     * Stop the named services and leave them stopped.
+     * Stops the named services and leaves them stopped, recorded in {@code service_hold} so no run restarts them.
      *
-     * The whole ordinary procedure, and then one step less: Countdown, park the players, stop, report - the same
-     * sequence a restart runs, with the starting half removed and a row in {@code service_hold} in its place. The
-     * row is what makes this survive a restart of this process, and what every later run reads so that nothing
-     * brings back a service somebody stopped in order to work on it.
-     *
-     * A DOWN has to name its services: An empty scope means "the whole network" everywhere else in this mechanism,
-     * and here that would be a button that stops everything with no way back except another button. It is refused
-     * rather than interpreted: the interface never offers it, and a row written by hand that forgets the scope is
-     * far more likely to be a mistake than a request to take the network down indefinitely.
+     * An empty scope is refused rather than read as the whole network.
      */
     static Outcome down(final Runner runner, final UpdateRequest request, final Consumer<UpdateReport> progress) {
         final List<String> scope = runner.directory.scopeOf(request.id());
@@ -98,7 +83,7 @@ final class HoldSequence {
                     null));
         }
 
-        // Only when somebody could be standing on one of them - the countdown is the players' warning, not ceremony.
+        // Only when somebody could be standing on one of them, since the countdown warns players.
         if (scope.stream().anyMatch(Runner::isMinecraft) && !runner.countDown(request.id(), planned, progress)) {
             return Runner.cancelled();
         }
@@ -110,7 +95,7 @@ final class HoldSequence {
 
         UpdateReport report = stopped.report();
         if (!stopped.services().isEmpty()) {
-            // Worded so that one service and four read the same, since a report is read far more often than written.
+            // Worded so that one service and four read the same.
             report = report.withNote("Held down: " + String.join(", ", stopped.services())
                     + ". Nothing starts a held service again on its own: not a later update run,"
                     + " not a restart, and not this worker coming back.");
@@ -123,14 +108,9 @@ final class HoldSequence {
     }
 
     /**
-     * The other half: take the hold off and start the services again.
+     * Takes the hold off and starts the services again, without a countdown.
      *
-     * No countdown. Nothing goes down, so there is nothing to warn anybody about, and thirty seconds of "the network
-     * is about to be interrupted" before a server comes back would be a warning about good news.
-     *
-     * An empty scope here is every held service, and that asymmetry with {@link #down} is deliberate: the dangerous
-     * direction is the one that stops things. Starting everything that somebody stopped is the recovery an operator
-     * wants after a restart of this process, and it can do no harm that was not already asked for.
+     * An empty scope here means every held service, unlike {@link #down}.
      */
     static Outcome startHeld(final Runner runner, final UpdateRequest request, final Consumer<UpdateReport> progress) {
         final List<String> asked = runner.directory.scopeOf(request.id());
@@ -170,7 +150,7 @@ final class HoldSequence {
                         List.of(new UpdateReport.Change("down", "stays down", "starting")),
                         null));
             }
-            // Comes off BEFORE the start: a start that never returns must not leave the row claiming a hold.
+            // Comes off before the start, so a start that never returns leaves no row claiming a hold.
             for (final String service : services) {
                 runner.directory.release(service);
             }

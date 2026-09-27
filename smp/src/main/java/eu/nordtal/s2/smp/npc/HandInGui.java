@@ -22,9 +22,7 @@ import org.bukkit.inventory.ItemStack;
 /**
  * The deposit screen: put items in, press confirm, and only then does anything happen.
  *
- * Items are only consumed on an explicit confirmation, so a misplaced shift-click cannot swallow an inventory.
- * <b>Closing the screen without pressing the button gives everything back</b>, which has to be done deliberately: a
- * plugin inventory that is simply closed drops its contents into nothing.
+ * Closing without confirming gives everything back, since a closed plugin inventory drops its contents into nothing.
  */
 public final class HandInGui implements Surface {
 
@@ -65,12 +63,7 @@ public final class HandInGui implements Surface {
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, confirm));
     }
 
-    /**
-     * The first wanted material this server knows, as an item.
-     *
-     * A name that reached here unbound is a configuration this server refused, so the sample is left out rather than
-     * throwing inside a menu constructor.
-     */
+    /** The first wanted material this server knows, or empty rather than throwing in a menu constructor. */
     private java.util.Optional<Material> sample() {
         return wanted.stream()
                 .map(name -> Material.matchMaterial(name))
@@ -132,14 +125,9 @@ public final class HandInGui implements Surface {
     }
 
     /**
-     * Applies a sorted deposit: takes what was accepted, leaves the rest in place.
+     * Takes what was accepted and leaves the rest in place.
      *
-     * <b>It hands back what it took.</b> The credit that pays for these items runs asynchronously and can legitimately
-     * credit nothing, and {@link #returnEverything} reads the very slots this method has just emptied - so without
-     * these
-     * copies the items are gone and the player is told the hand-in succeeded.
-     *
-     * @return the stacks that were removed, as they were before removal
+     * @return the stacks that were removed, so a credit that fails can hand them back
      */
     public List<ItemStack> apply(final HandIn.Result result) {
         final List<ItemStack> taken = new ArrayList<>();
@@ -163,22 +151,12 @@ public final class HandInGui implements Surface {
         return taken;
     }
 
-    /**
-     * Gives back stacks {@link #apply} removed, when the credit they paid for did not happen.
-     *
-     * Straight into the player's inventory rather than back into the screen: by the time this is known the screen may
-     * be
-     * closed, and a slot that is put back after {@link #returnEverything} has run would be emptied by nothing at all.
-     */
+    /** Gives back stacks {@link #apply} removed, straight into the inventory, when their credit did not happen. */
     public void giveBack(final Player player, final List<ItemStack> stacks) {
         stacks.forEach(stack -> give(player, stack));
     }
 
-    /**
-     * Gives everything in the deposit slots back to the player.
-     *
-     * Called on close, always: a plugin inventory that is simply closed drops its contents into nothing.
-     */
+    /** Gives everything in the deposit slots back to the player; called on every close. */
     public void returnEverything(final Player player) {
         for (int slot = 0; slot < DEPOSIT_SLOTS; slot++) {
             final ItemStack stack = inventory.getItem(slot);
@@ -190,7 +168,7 @@ public final class HandInGui implements Surface {
         }
     }
 
-    /** Into the inventory, and on the floor at their feet if it does not fit. Never nowhere. */
+    /** Into the inventory, and on the floor at their feet if it does not fit. */
     private static void give(final Player player, final ItemStack stack) {
         final org.bukkit.Location dropAt = java.util.Objects.requireNonNull(player.getLocation());
         player.getInventory()

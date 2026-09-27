@@ -39,9 +39,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * PvP protection and death handling, for real players and disconnected ones' armor-stand bodies.
  *
- * Friendly fire needs no code: vanilla allows it with no scoreboard team in the way. Protection is
- * everyone from everyone, not a team mechanic: a per-player "protected until" timestamp in
- * {@link GameState}, cancelling damage when either side is still protected.
+ * Protection is everyone from everyone, a per-player timestamp in {@link GameState}; friendly fire needs no code.
  */
 public final class CombatListener implements Listener {
 
@@ -53,22 +51,10 @@ public final class CombatListener implements Listener {
     private final WinTracker winTracker;
     private final HungerGamesSounds sounds;
 
-    /**
-     * What to run once the game is decided.
-     *
-     * The winner's Minecraft uuid is resolved here, on the async task, because {@code Outcome} names
-     * the winner by {@code hg_member.id} and the ceremony runs on the main thread, where this
-     * repository does not query. {@code null} when there is no winner or the winner never linked an
-     * account.
-     */
+    /** What to run once the game is decided, with the winner's Minecraft uuid already resolved off the main thread. */
     private final Consumer<Ceremony.Decision> onGameDecided;
 
-    /**
-     * The kill feed, for the one death vanilla does not announce.
-     *
-     * A body's marker dying is an {@code EntityDeathEvent}, which carries no death message, so
-     * {@link SystemLines#onDeath} never sees it.
-     */
+    /** The kill feed for a body's death, which vanilla does not announce. */
     private final SystemLines systemLines;
 
     private final ArenaComposition composition;
@@ -125,7 +111,6 @@ public final class CombatListener implements Listener {
         handleDeath(victim.getUniqueId(), killerUuid);
     }
 
-    /** A body's marker dying counts as its owner dying. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onMarkerDeath(final EntityDeathEvent event) {
         if (!(event.getEntity() instanceof ArmorStand)) {
@@ -142,13 +127,7 @@ public final class CombatListener implements Listener {
         handleDeath(owner, killerUuid);
     }
 
-    /**
-     * The kill feed line for a body's death.
-     *
-     * The victim's name comes off the marker, not a {@code Player}: its owner is offline, which is
-     * why a body is standing there. Two keys rather than one with a sometimes-empty slot - "fell to
-     * the border" and "was killed by" are different sentences.
-     */
+    /** The kill feed line for a body's death, named off the marker since its owner is offline. */
     private void announceBodyDeath(final Entity marker, final UUID owner, final @Nullable UUID killerUuid) {
         final Component victim = composition.ofName(marker.getName(), owner);
         final Player killer = killerUuid == null ? null : plugin.getServer().getPlayer(killerUuid);
@@ -171,7 +150,7 @@ public final class CombatListener implements Listener {
                 .runTaskAsynchronously(plugin, () -> resolveDeathAsync(gameId, victimMcUuid, killerMcUuid));
     }
 
-    /** The database and outcome work for one death, off the main thread; scheduled by {@link #handleDeath}. */
+    /** The database and outcome work for one death, off the main thread. */
     private void resolveDeathAsync(final UUID gameId, final UUID victimMcUuid, final @Nullable UUID killerMcUuid) {
         final Optional<RosterEntry> victimEntry = dao.rosterEntryByMcUuid(gameId, victimMcUuid);
         if (victimEntry.isEmpty()) {
@@ -206,7 +185,6 @@ public final class CombatListener implements Listener {
         });
     }
 
-    /** Decides {@code gameId} in the database and builds the ceremony's {@link Ceremony.Decision}. */
     private Ceremony.Decision decisionFor(final UUID gameId, final WinTracker.Outcome decided) {
         final UUID winnerMcUuid = decided.winnerMemberId() == null
                 ? null
@@ -224,7 +202,6 @@ public final class CombatListener implements Listener {
         return new Ceremony.Decision(decided, winnerMcUuid, dao.activeMembersOf(gameId), dao.killCounts(gameId));
     }
 
-    /** Follows a projectile back to whoever fired it, so an arrow kill still counts as a kill. */
     private Entity resolveAttacker(final Entity damager) {
         if (damager instanceof Projectile projectile && projectile.getShooter() instanceof Entity shooter) {
             return shooter;

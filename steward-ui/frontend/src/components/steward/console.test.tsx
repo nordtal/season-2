@@ -4,11 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ServiceConsole, offeredSteps } from "./console"
 
-/**
- * The Console window: newest line on top, the level as the text's colour, a stack
- * trace keeping the colour of its error, the grey run and end lines, Find, the steps the worker can
- * fill, and a failure drawn where the lines would be.
- */
+/** The Console window: newest line on top, levels as colours, stack traces, run lines, Find, steps and failures. */
 
 type Listener = (event: Event) => void
 

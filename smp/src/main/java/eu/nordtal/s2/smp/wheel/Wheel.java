@@ -32,20 +32,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The wheel of fortune in the tavern: one free spin a day, plus whatever contributing has earned.
  *
- * <b>It costs no aura.</b> Aura is recognition, not currency, and the moment it buys something it stops being
- * recognition - that is the single rule this whole feature has to respect.
- *
- * The pool and its weights are {@code config.yml} 's and are meant to be retuned without a release; the arithmetic
- * is {@link PrizeDraw} 's and is tested there. What is here is the spending of a spin, and the guard that makes it
- * happen exactly once lives in SQL rather than in Java: two clicks in the same second both see a free spin, and only
- * the update that changes a row gets a prize.
- *
- * <b>The order the three halves run in</b>
- *
- * Spending the spin and drawing the prize are decisions and happen off the main thread; showing it is a window and
- * happens on it. {@link WheelGui} is the five seconds in between - before that a spin was a chat
- * line, which is a lottery ticket read out to you. Nothing in the animation decides anything, and {@link WheelStrip}
- * is where that is argued rather than assumed.
+ * A spin is spent in SQL off the main thread, so two clicks yield one prize; {@link WheelGui} only shows it.
  */
 public final class Wheel {
 
@@ -185,14 +172,7 @@ public final class Wheel {
         });
     }
 
-    /**
-     * The lowest contribution share that earns an extra spin, which is what the window says.
-     *
-     * The <em>lowest</em> and not the first entry: {@code wheel-extra-spin-percents} is documented as being in any
-     * order, and {@code PrizeDraw#extraSpinsFor} counts every threshold a share reaches - so the number a player needs
-     * to reach to earn anything at all is the smallest one. Zero when the list is empty, which is what "nothing earns a
-     * spin" looks like.
-     */
+    /** The lowest contribution share that earns an extra spin, or zero when the list is empty. */
     private int earnAt() {
         return config.wheelExtraSpinPercents().stream()
                 .filter(java.util.Objects::nonNull)
@@ -202,17 +182,7 @@ public final class Wheel {
     }
 
     /**
-     * Hands over what was won, or says loudly that it could not.
-     *
-     * Called from exactly one place - {@code WheelGui#finish}, which is a one-shot latch - so a spin pays once however
-     * it ended: the wheel running down, the window closed early, or the player logging off mid-spin. That last one is
-     * the window the animation introduced and the instant payout did not have, and <b>it puts the spin back</b> rather
-     * than logging that it is gone: the row is spent in the database, the item was never handed over, and a warning in
-     * a
-     * console is not something a player can spend. The refund is the exact inverse of the statement this spin ran, and
-     * it is idempotent on the free path.
-     *
-     * @param refund undoes the row this spin spent; run only when nothing was handed over
+     * Hands over what was won once, from {@code WheelGui#finish}, running {@code refund} when nothing was handed over.
      */
     private void give(
             final Player player,
@@ -239,14 +209,7 @@ public final class Wheel {
                 .format(locale, MESSAGES.smp().wheel().won(count, material.translationKey())));
     }
 
-    /**
-     * One icon per prize, in pool order, for the strip to travel through.
-     *
-     * A prize whose material does not resolve gets a barrier rather than stopping the spin: the winner has already been
-     * checked, so a broken entry here is one that is only ever passed by - and a wheel that refuses to open because of
-     * a
-     * prize nobody won would be a worse answer than a visibly wrong icon flying past.
-     */
+    /** One icon per prize, in pool order, with a barrier for a material that does not resolve. */
     private static List<ItemStack> icons(final List<WheelPrizeSpec> pool) {
         final List<ItemStack> out = new ArrayList<>(pool.size());
         for (final WheelPrizeSpec prize : pool) {
@@ -264,20 +227,7 @@ public final class Wheel {
         return Material.matchMaterial(name.trim().toUpperCase(Locale.ROOT));
     }
 
-    /**
-     * Runs one piece of database work off the main thread, from wherever it is called.
-     *
-     * A refund is asked for from both sides of the tick boundary - {@code award} 's broken-prize branch is already
-     * async, {@code give} 's offline branch is on the main thread - and this repository's hard rule is that a Paper
-     * plugin never queries the database from the main thread. Scheduling unconditionally is what makes the caller not
-     * have to know where it is.
-     *
-     * A shutdown in the same tick loses the refund: Bukkit refuses to schedule for a plugin that is being disabled, and
-     * it throws rather than returning. Caught and logged, because the alternative is an exception out of
-     * {@code InventoryCloseEvent} during a stop - and a spin lost to a server restart is the same size of problem as
-     * the
-     * one this whole method exists to fix, with none of the same reachability.
-     */
+    /** Runs database work off the main thread from anywhere; a refund lost to a shutdown is logged, not thrown. */
     private void offThread(final Runnable work) {
         try {
             Bukkit.getScheduler().runTaskAsynchronously(plugin, work);
@@ -293,12 +243,7 @@ public final class Wheel {
         tell(player, message, null);
     }
 
-    /**
-     * The same, plus a sound.
-     *
-     * Both in the one hop back to the main thread: the message and its sound belong to the same moment, and scheduling
-     * them separately is how they end up a tick apart.
-     */
+    /** The same, plus a sound, in one hop so the two land in the same tick. */
     private void tell(final Player player, final Component message, final @Nullable Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline()) {

@@ -9,13 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
-/**
- * The share line's arithmetic, which is the whole of what the spawn NPC's bottom row says.
- *
- * Every case here was previously answerable only by contributing to an objective on a running server and then
- * opening the menu - the line did not exist at all before, and the number on it is derived from a
- * database read, a config list and two different summations.
- */
+/** The share line's arithmetic, which is the whole of what the spawn NPC's bottom row says. */
 class OwnShareTest {
 
     /** The shipped thresholds: one spin at the qualifying 2 %, two at 10 %, three at 25 %. */

@@ -6,136 +6,45 @@ import { DATABASE_CLIENTS, EDGES, type NodeId } from "./topology"
 import { type Box, EDGE_COLOR, type Geometry, type Point, Wires, bundle, collapseToGroups } from "./wires"
 
 /**
- * Where the cards go, said in **lanes** rather than in pixels - which is what lets one arrangement
- * cover every width instead of two covering two.
+ * Where the cards go, in lanes from 0 to 1 that {@link place} turns into pixels, so only the gaps stretch.
  *
- * <h2>Why a plan and not a grid</h2>
- * A plain grid arrangement is fairly boring, and the
- * cards would sit so close together that the connection between them could not be seen. Both
- * are the same complaint from two sides - a grid puts every card in a cell of equal size, so the
- * space between two cards is whatever the gap happens to be, and it is the same everywhere whether
- * a line runs there or not. A plan can put a lane's width between two cards a line has to cross and
- * nothing at all between two that are merely neighbours, and it can leave a lane empty on purpose.
- *
- * <h2>Lanes, because the drawing stretches and the cards do not</h2>
- * Proportional layout is fine, but the
- * boxes must not grow with it - only the arrows should stretch. That rules out the obvious
- * implementation - a `viewBox`
- * scaled to the container - because a `viewBox` scales the text and the borders along with the
- * gaps, which is exactly what must not happen. It also rules out the arrangement this file used to
- * hold: two hand-written coordinate tables and a jump between them at one measured width.
- *
- * So a spot names a **lane**, a number from 0 to 1, and {@link place} turns it into an x once the
- * available width is known:
- *
- * <pre>
- *   x = MARGIN + NODE.width / 2 + lane * (width - 2 * MARGIN - NODE.width)
- * </pre>
- *
- * Lane 0 is the leftmost a card can sit and still be fully on the canvas, lane 1 the rightmost,
- * lane 0.5 the middle - at every width. A card's own size never appears on the right-hand side of
- * anything but that one formula, so nothing about a card changes when the canvas does: the gaps
- * grow, the lines that cross them grow with the gaps, and the boxes do not move relative to their
- * own text. **`y` stays absolute**, because the vertical is not where the extra room is; a canvas
- * that grew taller as it grew wider would push the rest of the start page down for no reason.
- *
- * <h2>The one thing lanes cost</h2>
- * A layout that is right at 380px and right at 1200px has to be right at every width in between,
- * and "in between" is where two cards in different lanes slide past each other. Nothing may share a
- * row across lanes unless it still clears at {@link Arrangement.minWidth}, which is the narrowest
- * the formula is ever asked for - so the centre-lane cards (`players`, `postgres`, `discord-bot`)
- * each sit at a height no side card occupies. `geometry.test.ts` runs every geometric assertion at
- * several widths rather than one, which is the check that this holds.
- *
- * <h2>The reserved lane</h2>
- * An arrangement may name a `junction`. Every database line then curves into that one point and a
- * single trunk carries them the rest of the way, merging what would otherwise be several database
- * lines into one. The point has
- * to sit where no card does, and the corridors the feet descend in have to be clear as well;
- * `geometry.test.ts` is what says so, at every width.
- *
- * <h2>Groups - one border, one endpoint</h2>
- * The three Paper services (`smp`, `hunger-games`, `limbo`) and, separately,
- * `steward-worker` and `steward-deployer` pack tightly under one shared grey border, and an
- * edge that would otherwise fan out to their members collapses into a single line to the group. A
- * `GroupSpec` names its members and its own lane; the members' own positions are *derived* from
- * that centre (`groupMemberSpots`) rather than written out card by card, for the same reason every
- * other spot here is a point and not a memory: an eleventh member is one name added to the list,
- * not three numbers recomputed by hand. `geometryOf` turns a group into a `Box` of its own
- * (`groupBox`) and a reverse map from member id to group id; `wires.tsx`'s `resolveEndpoint` is
- * what an edge or a database source is actually resolved against, and that is where "the group
- * behaves as one endpoint" lives - this file only describes the shape, it never merges an edge.
+ * `y` stays absolute. Cards in different lanes never share a row where they collide at `minWidth`.
  */
 
-/**
- * 144x76, and the height is measured rather than chosen: 12px of vertical padding, a 16px
- * identifier row, a 17px tag row, two 2px gaps and a 24px toolbar come to 73, and the card is given
- * three more so that the toolbar has somewhere to sit rather than somewhere to bulge out of.
- *
- * **It does not change with the canvas.** That is the whole point of a fixed card size.
- */
+/** 144x76, measured from the card's rows plus room for the toolbar; fixed whatever the canvas does. */
 export const NODE = { width: 144, height: 76 }
 
-/**
- * How much room a lane-0 card leaves to the canvas edge.
- *
- * It has to be at least `GROUP_PADDING`, or a group in lane 0 hangs off the left of the canvas -
- * its frame is wider than its members on every side. It is six more than that so the frame does not
- * sit *on* the edge either: at `GROUP_PADDING` exactly, both
- * group borders would sit flush against the panel's own edge and read as cut off rather than as frames.
- */
+/** The room a lane-0 card leaves to the canvas edge, more than `GROUP_PADDING` so a frame is not cut off. */
 export const MARGIN = 16
 
-/** A card's place: which lane it sits in, and how far down. See the class comment. */
+/** A card's place: which lane it sits in, and how far down. */
 export type Spot = { id: NodeId; lane: number; y: number }
 
 /**
- * Several cards, packed into one bordered unit that behaves as a single endpoint for an edge.
+ * Several cards in one bordered column that acts as a single endpoint for an edge.
  *
- * `lane`/`y` is the centre of the group's own frame, not of any one member - the same convention as
- * `Spot`, so a group is placed exactly the way a lone card is. Members stack in one column, in the
- * order given, `GROUP_GAP` apart; there is no horizontal variant because neither current group
- * needs one, and a column is what the two side lanes already are.
+ * `lane` and `y` are the centre of the group's frame, like a `Spot`; members stack `GROUP_GAP` apart.
  */
 export type GroupSpec = { id: string; members: NodeId[]; lane: number; y: number }
 
 export type Arrangement = {
-  /**
-   * The narrowest canvas this arrangement is ever asked to be right at.
-   *
-   * It is not a preferred width and not a design size: it is the width at which two cards in
-   * neighbouring lanes are closest to touching, so it is the width every collision assertion has to
-   * be run at. Below it the picture is scaled down rather than broken - see `Field`.
-   */
+  /** The narrowest canvas the arrangement must be right at; below it the picture is scaled down. */
   minWidth: number
-  /**
-   * The widest canvas the arrangement is drawn at, however much room there is.
-   *
-   * A stretch with no ceiling is not what "it stretches" can have meant on a 27-inch screen: past about
-   * 720px the three lanes are far enough apart that the picture stops being a diagram and becomes
-   * a band with cards along its edges and nothing in the middle. Beyond this width the drawing is
-   * centred in what is left rather than pulled further apart. It is a stop, not a second
-   * arrangement - nothing about the picture changes when the ceiling is reached except that it
-   * stops moving.
-   */
+  /** The widest canvas the arrangement is drawn at; beyond it the picture is centred rather than pulled apart. */
   maxWidth: number
   height: number
   spots: Spot[]
   groups?: GroupSpec[]
   /** Where the database lines meet before entering the sink, or nothing to draw them separately. */
   junction?: { lane: number; y: number }
-  /** Per-edge detours, keyed by the resolved `from-to` (a group's own id once an endpoint sits
-   *  inside one), for the siblings that would otherwise run through each other. See `curve` in
-   *  `wires.tsx`. */
+  /** Per-edge detours keyed by the resolved `from-to`, for siblings that would otherwise run through each other. */
   bows?: Record<string, number>
 }
 
 /**
- * One arrangement at one width: the same shape, with every lane resolved to an x.
+ * One arrangement at one width, with every lane resolved to an x.
  *
- * Everything downstream of {@link place} - the geometry, the wires, the cards themselves - works in
- * absolute pixels and knows nothing about lanes, which is why the stretch is one function and not a
- * change spread through the drawing.
+ * Everything downstream works in absolute pixels.
  */
 export type Placed = {
   width: number
@@ -146,7 +55,7 @@ export type Placed = {
   bows?: Record<string, number>
 }
 
-/** The x a lane lands on at a given canvas width. The one formula the stretch consists of. */
+/** The x a lane lands on at a given canvas width. */
 export function laneX(lane: number, width: number): number {
   return MARGIN + NODE.width / 2 + lane * (width - 2 * MARGIN - NODE.width)
 }
@@ -169,13 +78,7 @@ export function place(arrangement: Arrangement, width: number): Placed {
   }
 }
 
-/**
- * The gap inside a group and the frame around it - Tailwind's `gap-1` in raw pixels because a
- * group's members are positioned the same way every other card is, by a centre point handed to
- * `ServiceNode`, and a Tailwind class cannot reach across an absolutely positioned sibling to
- * produce one. `PADDING` is chosen so the border reads as a frame around the stack rather than a
- * fourth card of its own: enough room that it clears a member's own rounded corner on every side.
- */
+/** The gap inside a group and the padding of its frame, in pixels since members are placed by centre point. */
 export const GROUP_GAP = 4
 export const GROUP_PADDING = 10
 
@@ -233,13 +136,7 @@ export function geometryOf(placed: Placed): Geometry {
   return { boxes, groups, memberOf, width: placed.width, height: placed.height }
 }
 
-/**
- * The picture's own top-level shapes, for the two checks a member's own box would answer wrongly:
- * whether anything overlaps, and whether everything stays on the canvas. A member sitting inside
- * its group's frame is not a collision, it is what the frame is for - so those two checks want one
- * region per group, not one per member, the same resolution `wires.tsx`'s `resolveEndpoint` gives
- * an edge. A lone card outside any group is unaffected and keeps its own box.
- */
+/** The top-level shapes, one per group or lone card, for the overlap and on-canvas checks. */
 export function regionsOf(placed: Placed): Record<string, Box> {
   const geometry = geometryOf(placed)
   const regions: Record<string, Box> = { ...geometry.boxes }
@@ -253,10 +150,7 @@ export function regionsOf(placed: Placed): Record<string, Box> {
 /**
  * How wide the thing holding the picture is.
  *
- * In jsdom this stays 0, which resolves to "the
- * narrowest the one plan is defined at" - `minWidth` - rather than "the wide plan wins". A rendering test therefore sees the tightest
- * version of the picture, which is the one where anything that can collide does; the widths above
- * it are checked by `geometry.test.ts` running the same assertions against several of them.
+ * 0 in jsdom resolves to `minWidth`, the tightest version of the picture.
  */
 function useAvailableWidth(ref: React.RefObject<HTMLElement | null>): number {
   const [width, setWidth] = useState(0)
@@ -285,19 +179,9 @@ const TRAFFIC = EDGES.filter((edge) => edge.kind === "traffic")
 const DATA = EDGES.filter((edge) => edge.kind === "data")
 
 /**
- * The picture, drawn from its arrangement at whatever width it has been given.
+ * The picture, drawn from its arrangement at the container's width: it stretches, it does not scale.
  *
- * <h2>It stretches; it does not scale</h2>
- * The canvas is the container's own width, never a fixed one, and every card is placed by
- * {@link place} at that width. Pull the window wider and the lanes move apart, the lines between
- * them grow, and every card is the same 144x76 with the same 11px tag underneath it that it was
- * before - stretching, not scaling, in one sentence.
- *
- * The one exception is below `minWidth`, and it is a safety net rather than a mode: the picture is
- * scaled down instead of overflowing, because a topology map that has to be dragged sideways is not
- * one you can read at a glance. It fires in one place and barely: below 640px the panel draws
- * {@link NetworkTable} instead of this component at all, and just above that line, with the column
- * open, the panel is only narrowly above `PLAN`'s own minimum width.
+ * Only below `minWidth` is it scaled down, rather than overflowing.
  */
 export function Field({ plan, id }: { plan: Arrangement; id: string }) {
   const outer = useRef<HTMLDivElement>(null)
@@ -310,12 +194,7 @@ export function Field({ plan, id }: { plan: Arrangement; id: string }) {
   const placed = place(plan, width)
   const geometry = geometryOf(placed)
 
-  /**
-   * Resolved through the group map rather than read off `geometry.boxes` directly: three of the
-   * seven database clients (`smp`, `hunger-games`, `limbo`) share the Paper group's frame, so this
-   * is five boxes, not seven, and the group's foot leaves from its own border rather than from
-   * whichever member happens to be listed first.
-   */
+  /** Resolved through the group map, so the Paper group's foot leaves from its own border. */
   const sources = collapseToGroups(DATABASE_CLIENTS, geometry)
   const sink = geometry.boxes.postgres
   const merged = placed.junction && sink ? bundle(sources, sink, placed.junction) : null
@@ -333,9 +212,7 @@ export function Field({ plan, id }: { plan: Arrangement; id: string }) {
           ["--node-h" as string]: `${NODE.height}px`,
         }}
       >
-        {/* One shared frame per group, drawn before the cards so a card's own z-10 (see
-            `ServiceNode`) always wins - the border reads as sitting behind the stack, never on
-            top of it, without this needing a z-index of its own. */}
+        {/* One frame per group, drawn before the cards so it sits behind them. */}
         {placed.groups.map((group) => {
           const box = geometry.groups[group.id]
           if (!box) return null
@@ -376,10 +253,7 @@ export function Field({ plan, id }: { plan: Arrangement; id: string }) {
                   strokeLinecap="round"
                 />
               ))}
-              {/* The trunk is the same kind of line as the feet and is drawn the same way - dashed
-                  and in the same neutral - only thicker, because it is the five of them together.
-                  A solid, thin trunk would make a 38px stub under `postgres`
-                  read as a different sort of connection entirely. */}
+              {/* The trunk is dashed like the feet and thicker, since it carries all of them. */}
               <path
                 data-trunk=""
                 d={merged.trunk}
@@ -398,5 +272,5 @@ export function Field({ plan, id }: { plan: Arrangement; id: string }) {
   )
 }
 
-/** Only here so a caller can name the edge sets without importing `topology` as well. */
+/** Re-exported so a caller can name the edge sets without importing `topology`. */
 export { DATA, TRAFFIC }

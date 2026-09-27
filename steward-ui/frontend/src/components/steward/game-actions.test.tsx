@@ -7,10 +7,7 @@ import { HungerGamesActions, SmpActions, keyName } from "@/components/steward/ga
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton } from "@/lib/test-elements"
 
-/**
- * These actions must never look like commands in any way. These hold that the smp and hunger-games actions are picked, not typed; that they are
- * asked for by what they act on; and that the late answer - EXPIRED above all - is said in words.
- */
+/** The smp and hunger-games actions are picked, not typed, named by what they act on, and a late answer is in words. */
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {

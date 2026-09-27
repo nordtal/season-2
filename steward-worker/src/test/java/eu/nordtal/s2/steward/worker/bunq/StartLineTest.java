@@ -17,25 +17,11 @@ import org.slf4j.LoggerFactory;
 /**
  * The one line steward-worker says about bunq at startup, seen both ways.
  *
- * Why a test and not a deployment: {@code NORDTAL_STEWARD_BUNQ_*} is deliberately not
- * {@code :?} in {@code compose.yml} because a season without a bank account is a valid season. An environment file
- * missing that pair therefore produces a stack in which every container is healthy, every log is quiet,
- * and no payment is ever noticed again.
- *
- * Proving that by rolling out would mean rolling out twice - once with a key and once without - on the only machine
- * this project has. So the decision is driven here instead, through the
- * real logging path: {@link BunqGateway#logStartupLine} is what {@code StewardWorker} calls, an appender on the root
- * logger sees what actually came out, and both branches are asserted on the text and on the level. The two sentences
- * are printed to standard output as well, so the test report carries the words themselves rather than a claim about
- * them.
- *
- * What it cannot prove: That the line is reached at startup. That is one call in
- * {@code StewardWorker#startPayments}, unconditional and above the {@code return}, and a test that asserted it would
- * be asserting the shape of a method rather than a behaviour.
+ * Without the bunq variables every container is healthy and quiet, so this line is the only sign.
  */
 class StartLineTest {
 
-    /** The poll the "on" sentence quotes. Any value; 30 is {@code bunq.poll-interval-seconds}. */
+    /** The poll the "on" sentence quotes; any value works. */
     private static final Duration POLL = Duration.ofSeconds(30);
 
     /** A key shaped like a real one, so "the line never contains it" is a real assertion. */
@@ -86,7 +72,7 @@ class StartLineTest {
 
     @Test
     void halfACredentialIsNotHalfOnItIsOffAndTheConfigRefusesItFirst() {
-        // Asserts the gateway is unconfigured with half a credential - a key with no account must not read as on.
+        // Half a credential is unconfigured: a key with no account must not read as on.
         assertFalse(new BunqGateway(bunq(API_KEY, "")).configured());
         assertFalse(new BunqGateway(bunq("", "987654")).configured());
         assertFalse(

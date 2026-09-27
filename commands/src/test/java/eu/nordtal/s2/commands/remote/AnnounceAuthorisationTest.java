@@ -20,25 +20,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code /announce} is {@code adminOnly}; the flag itself is not what this test is about.
+ * {@code /announce} with the real {@code AdminCheck}: the SMP's CONSOLE rows post, a revoked admin's WEB row does not.
  *
- * {@code CatalogueTest} already asserts which declarations are not admin-only, and a list of names
- * is exactly as true as somebody's belief about what the list means. The claim being made here is a
- * claim about two behaviours, and they pull in opposite directions: the SMP must be unaffected - it
- * writes {@code source = 'CONSOLE'}, which {@link CommandInbox.AdminCheck#of} lets through by
- * definition, so every milestone announcement still posts even when the admin roster is empty -
- * and a row written from the web interface by somebody whose admin role has since been taken away
- * must not still post into an announcement channel.
- *
- * The second is the whole point of the change and it is invisible at the declaration: whether
- * {@code adminOnly} is even consulted is decided in {@code CommandInbox#handle}, at the moment the
- * row is claimed, which is minutes after the browser submitted it. Flipping the flag back to
- * {@code false} leaves {@code CatalogueTest} red - and leaves this class red for the reason that
- * actually matters, which is a WEB row running unauthorised.
- *
- * The real {@link AnnounceCommands#ANNOUNCE} and the real {@code AdminCheck.of} are used
- * throughout. {@code CommandInboxTest} builds its inboxes with {@code request -> admin} on purpose,
- * so no test in this module put the two real halves together before.
+ * The check runs when the row is claimed, minutes after it was written, so the declaration alone cannot show it.
  */
 class AnnounceAuthorisationTest {
 
@@ -98,7 +82,7 @@ class AnnounceAuthorisationTest {
 
     @Test
     void theSmpsOwnAnnouncementStillPostsWithNobodyAtAllOnTheAdminRoster() {
-        // Announcer#row writes source CONSOLE, requested_by "smp" and no identity of any kind.
+        // Announcer#row writes source CONSOLE, requested_by "smp" and no identity.
         final long id = row("CONSOLE", null, "Der Aufbruch ist geschafft.");
 
         assertEquals(1, inboxWhereTheAdminsAre(Set.of()).drain());
@@ -110,20 +94,20 @@ class AnnounceAuthorisationTest {
 
     @Test
     void anAnnouncementAskedForInTheBrowserByARevokedAdminIsNotPosted() {
-        // The case the change was made for, and the one nobody can rehearse against real systems: the role is taken.
+        // The role was taken away after the row was written.
         final long id = row("WEB", NO_LONGER_ADMIN, "Server geht gleich aus.");
 
         assertEquals(1, inboxWhereTheAdminsAre(Set.of(ADMIN)).drain());
 
         assertEquals(List.of(), effects.lines(), "a revoked admin's line was posted into an announcement channel");
-        // DONE and not FAILED: the command was answered, and the answer is no. A FAILED row would read.
+        // DONE and not FAILED: the command was answered, and the answer is no.
         assertEquals(CommandOutcome.Status.DONE, requests.statusOf(id));
         assertEquals(MESSAGES.get(Locale.ENGLISH, "command.not-admin"), requests.resultOf(id));
     }
 
     @Test
     void anAnnouncementAskedForInTheBrowserByAnAdminIsPosted() {
-        // The other side: without it, the tests above are also satisfied by an inbox that admits everyone.
+        // Without this, an inbox that admits everyone would pass the tests above.
         final long id = row("WEB", ADMIN, "Wartung um 20 Uhr.");
 
         assertEquals(1, inboxWhereTheAdminsAre(Set.of(ADMIN)).drain());
@@ -134,7 +118,7 @@ class AnnounceAuthorisationTest {
 
     @Test
     void aRowThatCarriesNoIdentityAtAllIsRefusedUnlessItIsTheConsole() {
-        // GAME rows may legitimately have no Discord id - limbo writes exactly those.
+        // GAME rows may have no Discord id; limbo writes exactly those.
         final long id = row("GAME", null, "Hallo aus dem Nichts.");
 
         assertEquals(1, inboxWhereTheAdminsAre(Set.of(ADMIN)).drain());
@@ -145,7 +129,7 @@ class AnnounceAuthorisationTest {
 
     @Test
     void theDeclarationTheTwoBehavioursAboveComeFromIsTheOneInTheCatalogue() {
-        // Not a trivial restatement of the flag: it is the join between this class and CatalogueTest.
+        // This joins this class to CatalogueTest.
         assertTrue(AnnounceCommands.ANNOUNCE.adminOnly());
         assertTrue(eu.nordtal.s2.commands.Catalogue.all().contains(AnnounceCommands.ANNOUNCE));
     }

@@ -36,32 +36,19 @@ import java.util.Locale;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * The season 2 waiting room. Every login lands here first, whatever the phase, and leaves when the proxy says so.
+ * The season 2 waiting room: every login lands here first and leaves when the proxy says so.
  *
- * What it shows is <b>nothing</b>: black, no visible world, no other players and no chat. A title in the player's
- * language says what they are waiting for, and that is the entire interface.
- *
- * The three things that end a wait - the pack is applied, the phase's backend is up, maintenance is over - are all
- * the proxy's to know and all arrive as a {@code nordtal:limbo} plugin message ( {@link LimboProtocol}). This
- * plugin's only outgoing message says "this player has arrived"; it never says where anybody should go, because
- * routing lives in one process and this is not it.
- *
- * The database connection exists because that one line of text is translated: a plugin reads a player's language at
- * join through {@code :common}'s {@link PlayerLocales}. One indexed lookup per join, no writes, ever.
+ * The proxy ends every wait on {@code nordtal:limbo} ({@link LimboProtocol}); this only reports arrival.
  */
 public final class LimboPlugin extends JavaPlugin {
 
     private ConfigHandle<LimboSpec> configHandle;
     private ConfigHandle<DatabaseSpec> databaseHandle;
 
-    /**
-     * Its own file and handle, read once at enable.
-     *
-     * See {@code ColoursSpec}'s own javadoc for why {@code /limbo reload} does not touch it.
-     */
+    /** Read once at enable; {@code /limbo reload} does not touch it. */
     private ConfigHandle<ColoursSpec> coloursHandle;
 
-    /** The tone palette this server paints a reply with. Set once in {@link #start()}. */
+    /** The tone palette replies are painted with. */
     private ToneColours colours;
 
     private HikariDataSource pool;
@@ -78,15 +65,7 @@ public final class LimboPlugin extends JavaPlugin {
     private LimboChannel channel;
     private org.bukkit.scheduler.BukkitTask heartbeat;
 
-    /**
-     * <b>One try around the whole start.</b>
-     *
-     * Anything that throws out of {@code onEnable} leaves Paper having disabled this plugin while the server carries
-     * on running without it - the exact state {@link #severe} exists to prevent.
-     *
-     * {@code RuntimeException} only: {@code ConfigException} is checked and {@code start()} answers it where it is
-     * thrown.
-     */
+    /** Runs {@link #start()} inside one try, so a failure stops the server instead of leaving it running without it. */
     @Override
     public void onEnable() {
         // Loads the class every disable step goes through, while the jar it lives in still exists; see Shutdown#warmUp.
@@ -96,7 +75,7 @@ public final class LimboPlugin extends JavaPlugin {
         try {
             start();
         } catch (final Refusal refusal) {
-            // Already logged, and the shutdown is already in motion - see severe(String).
+            // Already logged, and the shutdown is under way; see severe(String).
         } catch (final RuntimeException failure) {
             severe("limbo is not starting: " + failure.getMessage());
         }
@@ -263,11 +242,9 @@ public final class LimboPlugin extends JavaPlugin {
     }
 
     /**
-     * The container readiness marker - see {@link Readiness}.
+     * Starts the container readiness marker ({@link Readiness}), last in {@code start()}, so a marker means it all ran.
      *
-     * It is the <b>last</b> thing {@code start()} does, so a marker on disk means this plugin got all the way through.
-     * Written from Bukkit's async scheduler, which is re-queued by the main thread, so a server frozen mid-tick goes
-     * stale rather than staying green on an open port.
+     * Written from the async scheduler, which the main thread re-queues, so a frozen server goes stale.
      */
     private void startHeartbeat() {
         final Readiness readiness = Readiness.onDefaultPath(getLogger()::warning);
@@ -302,7 +279,7 @@ public final class LimboPlugin extends JavaPlugin {
         getLogger().info("limbo disabled");
     }
 
-    /** One disable step, isolated from the next - see {@link eu.nordtal.s2.common.health.Shutdown}. */
+    /** One disable step, isolated from the next; see {@link eu.nordtal.s2.common.health.Shutdown}. */
     private void quietly(final String what, final Runnable step) {
         eu.nordtal.s2.common.health.Shutdown.quietly(
                 what, step, (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
@@ -313,14 +290,7 @@ public final class LimboPlugin extends JavaPlugin {
         return org.slf4j.LoggerFactory.getLogger(LimboPlugin.class);
     }
 
-    /**
-     * The plugin cannot run, so neither can this server.
-     *
-     * It takes the server down with it because these are our own dedicated backends: disabling the plugin alone
-     * leaves a container that is up and green with no season on it. The heartbeat marker reports that state, but an
-     * unhealthy container is only a red square - Docker restarts nothing on health alone - so the shutdown is what
-     * actually stops it.
-     */
+    /** Logs the reason and stops the server: disabling only the plugin leaves a healthy container with no season. */
     private Refusal severe(final String message) {
         getLogger().severe(message);
         getServer().getPluginManager().disablePlugin(this);
@@ -328,14 +298,7 @@ public final class LimboPlugin extends JavaPlugin {
         return new Refusal();
     }
 
-    /**
-     * Thrown by every {@link #severe(String)} call in {@link #start()}, and by nothing else.
-     *
-     * {@code severe} already logs the reason and starts the shutdown; this only gives
-     * {@code throw severe(...)} a real {@code throw}, so NullAway's {@code KnownInitializers} check
-     * on {@link #start()} sees that nothing after it runs. {@link #onEnable()} catches it separately
-     * so the message is not logged twice.
-     */
+    /** Thrown only by {@link #severe(String)}, so NullAway sees that nothing after {@code throw severe(...)} runs. */
     private static final class Refusal extends RuntimeException {
         private Refusal() {
             super(null, null, false, false);

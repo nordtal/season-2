@@ -1,8 +1,4 @@
-/**
- * The abbreviations a key or a file name in this stack actually uses, written upper-case. The same
- * list as the worker's `Labels.of` and jcore's `SettingLabels.of`, so a label reads the same
- * whichever of the three made it.
- */
+/** Abbreviations kept upper case, the same list as the worker's `Labels.of` and jcore's `SettingLabels.of`. */
 const ACRONYMS = new Set([
   "api",
   "db",
@@ -30,11 +26,7 @@ const ACRONYMS = new Set([
 /** A brand spelled with one lower-case letter in front, `bStats`, is one word and keeps its case. */
 const BRAND = /^[a-z][A-Z][a-z]+$/
 
-/**
- * Parts already split on their separators, as one sentence-case name: a change of case is a word
- * boundary too, a known acronym and a word written in capitals inside a mixed-case part stay
- * upper-case, and everything else is lower-cased.
- */
+/** Parts already split on separators, as one sentence case name; a change of case also splits words. */
 export function sentenceOf(parts: string[], keepBrands = false): string {
   const words: string[] = []
   let brandFirst = false
@@ -75,7 +67,7 @@ function withoutRepeats(sentence: string): string {
     .join(" ")
 }
 
-/** The names the services go by where a person reads them - the plugins tab's names. */
+/** The names the services go by where a person reads them, as on the plugins tab. */
 const SERVICE_TITLES: Record<string, string> = {
   smp: "SMP",
   "hunger-games": "Hunger Games",
@@ -93,21 +85,14 @@ export function serviceTitle(service: string): string {
   return SERVICE_TITLES[service] ?? capitalCase(sentenceOf(service.split(/[-_.\s]+/)) || service)
 }
 
-/**
- * A path under a service's volume as a name in Capital Case: the extension goes, the separators and
- * a change of case split words, and a word that repeats the one before it is dropped.
- */
+/** A path under a service's volume in Capital Case, without its extension or repeated words. */
 export function fileTitle(path: string): string {
   const withoutExtension = path.replace(/\.[a-z0-9]+$/i, "")
   const sentence = sentenceOf(withoutExtension.split(/[-_./]+/), true)
   return sentence ? capitalCase(withoutRepeats(sentence)) : path
 }
 
-/**
- * How a config file is named in the list. A service's own file, and a Nordtal plugin's file inside
- * the service it belongs to, go by the file alone ("Milestones"); a file in another plugin's folder
- * is named after that plugin first ("Display Tags Config", "bStats Config", "Voicechat Server").
- */
+/** How a config file is named in the list; a file in another plugin's folder gets that plugin's name first. */
 export function configTitle(location: { service: string; name: string; plugin?: string | null }): string {
   const slash = location.name.indexOf("/")
   if (slash < 0) return fileTitle(location.name)

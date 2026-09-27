@@ -15,25 +15,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
-/**
- * The HUD reads its numbers; nothing has to remember to tell it.
- *
- * What this is guarding: two of the three HUD lines were fed by setters -
- * {@code setCounts(alive, dead)} and {@code setNextRefillAt(instant)} - and <b>neither had a single
- * caller anywhere in the repository</b>. So for the whole of every game the first line read "Alive
- * 0, Dead 0" and the second read "no further refills planned", on the one screen every participant
- * of the season's flagship event is looking at. Seen on the local stack, on a real client, with two
- * live participants standing in the world.
- *
- * Both halves of each wire existed and nothing joined them: {@code WinTracker#aliveCount()} and
- * {@code #deadCount(int)} had no caller either. That is what makes this a shape rather than two
- * slips - "remember to call this whenever something changes" is a rule with no enforcement, and a
- * HUD that redraws four times a second can simply ask instead.
- *
- * The rule: this renderer has no {@code setX} method. Whatever it shows, it pulls from the object
- * that owns the fact, on the redraw. A setter here would compile, pass every other test, and print
- * a zero to everybody.
- */
+/** Checks that the HUD pulls every number from its owner on the redraw, so the renderer has no setter. */
 class HudReadsItsNumbersTest {
 
     private static final String RENDERER = "hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java";
@@ -78,7 +60,7 @@ class HudReadsItsNumbersTest {
         for (final Path source : sources()) {
             final String relative =
                     repositoryRoot().relativize(source).toString().replace('\\', '/');
-            // The renderer's own javadoc names both retired setters; the first test above keeps them from returning.
+            // The first test above covers the renderer itself.
             if (relative.equals(RENDERER)) {
                 continue;
             }

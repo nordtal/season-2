@@ -8,8 +8,7 @@ import javax.imageio.ImageIO
 /**
  * The rules a resource pack's own files can be held to without a server, a client or the Java modules.
  *
- * Every finding is a sentence for the person who drew the file, not for the person who wrote the
- * font. `ResourcePackTest` in `:common` says the same things on `check` and more besides.
+ * Every finding is a sentence for the person who drew the file.
  */
 object PackRules {
     /** Sprites that hide a vanilla element and therefore must not carry a single pixel. */

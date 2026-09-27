@@ -22,20 +22,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 /**
- * {@link SmpEffects} against this server.
+ * {@link SmpEffects} against this server; the one place that decides which thread each piece of work needs.
  *
- * <b>Two of these exist, and the {@link Executor} is the difference</b>
- *
- * The one behind {@code /smp} in chat is built with the plugin's async scheduler, because a Brigadier handler runs
- * on the main thread and none of this may block it. The one behind the command inbox is built with
- * {@code Runnable::run}, because the inbox settles the request row when the command returns - hand the work to
- * another thread there and the answer is written before it exists. {@code CommandInbox#register} refuses the wrong
- * one at startup.
- *
- * <b>Which thread each piece of work needs is decided here, and only here</b>
- *
- * That is the whole reason this class exists rather than the command calling Bukkit directly. Everything below is a
- * database round trip and belongs off the main thread.
+ * The chat instance uses the async scheduler; the inbox's runs inline, since it settles its row on return.
  */
 public final class BukkitSmpEffects implements SmpEffects, Standing {
 
@@ -49,13 +38,7 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
 
     private final java.util.function.Function<java.util.Locale, Status> status;
 
-    /**
-     * The connection the three aura reads share, so they answer about one moment.
-     *
-     * {@code dao} is on-demand: every call takes its own connection, so a single aura event between them can leave
-     * {@code /aura} printing a rank against a leaderboard from a different state. One handle in a
-     * {@code REPEATABLE READ} transaction is what makes the three one answer.
-     */
+    /** One handle in a {@code REPEATABLE READ} transaction, so the three aura reads describe one moment. */
     private final org.jdbi.v3.core.Jdbi jdbi;
 
     public BukkitSmpEffects(
@@ -79,7 +62,6 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
         this.reload = reload;
     }
 
-    /** Everything {@code /smp} does off the main thread, on the plugin's async scheduler. */
     public static Executor async(final Plugin plugin) {
         return task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
     }
@@ -113,11 +95,11 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
     public void completeObjective(final String milestone, final String objective) {
         final Optional<ObjectiveRow> row = dao.objective(milestone, objective);
         if (row.isEmpty()) {
-            // Between the check and here somebody reloaded the track.
+            // Somebody reloaded the track since the check.
             throw new IllegalStateException("objective " + milestone + "/" + objective
                     + " disappeared while it was being" + " completed - the track was probably reloaded in between");
         }
-        // null: an admin's escape hatch has nobody behind it, a network event rather than a congratulation.
+        // Null: an admin's completion has nobody behind it.
         engine.finishObjective(milestone, row.get(), null);
         plugin.getLogger().info("an admin completed objective " + milestone + "/" + objective);
     }
@@ -130,7 +112,7 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
 
     @Override
     public Optional<String> nameOf(final UUID player) {
-        // On the server thread: both lookups read state the server owns, and an async task must not touch Bukkit's API.
+        // Both lookups read state the server owns, which an async task must not touch.
         return onMainThread(() -> {
             final Player online = Bukkit.getPlayer(player);
             return online != null
@@ -141,7 +123,7 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
 
     @Override
     public Optional<String> discordIdOf(final UUID player) {
-        // The cache first: filled at join for everybody here.
+        // The cache first, filled at join for everybody here.
         return identities.discordIdOf(player).or(() -> dao.discordIdOf(player));
     }
 
@@ -160,7 +142,6 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
 
     @Override
     public Status status(final java.util.Locale locale) {
-        // Built by the plugin, which holds the season state, bundle and pool.
         return status.apply(locale);
     }
 
@@ -170,17 +151,7 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
     }
 
     /**
-     * {@code /aura}: three reads and one hop to the server thread for the names.
-     *
-     * <b>Why the names are resolved in one hop and not one each</b>
-     *
-     * {@link #nameOf} waits for the server thread per call, which is the right shape for a command that names one
-     * person
-     * and the wrong one for a list of ten - ten round trips through the scheduler, on a command any player can type as
-     * often as they like. So the whole list is resolved inside a single {@code callSyncMethod}.
-     *
-     * The database reads stay on this thread, which is an async one by construction: everything that reaches this class
-     * comes through {@code CommandEffects#async} .
+     * {@code /aura}: three reads here, then one hop to the server thread for all the names rather than one per name.
      */
     @Override
     public Optional<AuraStanding> auraStanding(final UUID player) {
@@ -188,11 +159,10 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
         if (discordId.isEmpty()) {
             return Optional.empty();
         }
-        // All three in one REPEATABLE READ transaction.
         final AuraSnapshot snapshot =
                 jdbi.inTransaction(org.jdbi.v3.core.transaction.TransactionIsolationLevel.REPEATABLE_READ, handle -> {
                     final SmpDao attached = handle.attach(SmpDao.class);
-                    // A player never given aura has no smp_player row yet.
+                    // A player never given aura has no {@code smp_player} row yet.
                     final int own = attached.auraOf(discordId.get()).orElse(0);
                     return new AuraSnapshot(own, attached.auraPlace(own, discordId.get()), attached.topAura(10));
                 });
@@ -224,7 +194,6 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
 
     private <T> T onMainThread(final Callable<T> work) {
         if (Bukkit.isPrimaryThread()) {
-            // Nothing in this class is called from the main thread today.
             try {
                 return work.call();
             } catch (final Exception failure) {
@@ -237,7 +206,7 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("interrupted while waiting for the server thread", interrupted);
         } catch (final ExecutionException failure) {
-            // getCause() is only null for an ExecutionException built without one, which callSyncMethod never does.
+            // {@code callSyncMethod} always sets a cause.
             throw asUnchecked(java.util.Objects.requireNonNull(failure.getCause()));
         }
     }
@@ -246,6 +215,5 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
         return failure instanceof RuntimeException unchecked ? unchecked : new IllegalStateException(failure);
     }
 
-    /** The three aura reads, taken together. */
     private record AuraSnapshot(int aura, AuraPlace place, List<AuraRow> top) {}
 }

@@ -16,11 +16,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-/**
- * {@code steward_push_subscription}, against a real PostgreSQL.
- *
- * Modelled on {@code SessionRowsTest}; a subscription only exists once a row does.
- */
+/** {@code steward_push_subscription}, against a real PostgreSQL. */
 class PushSubscriptionsTest {
 
     private static PostgreSQLContainer<?> postgres;
@@ -101,7 +97,7 @@ class PushSubscriptionsTest {
                 subscriptions.of("46").get(0).device(),
                 "the endpoint is not a name - see Devices for where one comes from");
 
-        // A second call with no User-Agent at all must not blank the name it already has.
+        // A second call without a User-Agent must not blank the name it already has.
         subscriptions.subscribe("46", "https://push.example/ep-5", "p", "a", null);
         assertEquals(
                 "iPhone, Safari",

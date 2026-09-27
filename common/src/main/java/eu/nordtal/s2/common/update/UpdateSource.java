@@ -1,10 +1,6 @@
 package eu.nordtal.s2.common.update;
 
-/**
- * Which surface an {@link UpdateRequest} came from, stored in {@code update_request.source}.
- *
- * steward-worker treats all of them alike; the column is for the person reading the table.
- */
+/** Which surface an {@link UpdateRequest} came from, stored in {@code update_request.source}. */
 public enum UpdateSource {
 
     /** {@code /update} in the admin channel. */

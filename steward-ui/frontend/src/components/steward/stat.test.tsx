@@ -4,25 +4,13 @@ import { afterEach, describe, expect, it } from "vitest"
 import { UsageBar } from "@/components/steward/stat"
 import { asElement } from "@/lib/test-elements"
 
-/**
- * The `value` on the usage bar.
- *
- * A bar for something with a ceiling is handed a pair of numbers off the host, and `total` is zero
- * whenever the answer has not arrived - a container without limits, a disk that has not been
- * measured yet. `used / 0` is `Infinity` or `NaN`, and a bar that is 100 % full because nothing is
- * known reads as an emergency. Checked with `tsc` at the time; never with a test.
- *
- * The bar is a `role="meter"` rather than shadcn's `Progress`, and that is deliberate - the colour
- * change at a threshold is the entire reason an operator glances at it, and `Progress` has no such
- * thing. The assertions below are therefore against the ARIA value and the class, which is what a
- * reader of the page actually gets.
- */
 afterEach(cleanup)
 
 const meter = () => screen.getByRole("meter")
 const share = () => Number(meter().getAttribute("aria-valuenow"))
 const fill = () => asElement(meter().firstElementChild)
 
+/** `total` is zero until measured, and a bar must not read full because nothing is known. */
 describe("UsageBar - the arithmetic", () => {
   it("reports the share of the ceiling", () => {
     render(<UsageBar used={25} total={100} />)
@@ -36,7 +24,7 @@ describe("UsageBar - the arithmetic", () => {
   })
 
   it.each([0, -1])("answers 0 rather than NaN or Infinity when the ceiling is %s", (total) => {
-    // This is the finding. An unmeasured disk must not draw a full bar.
+    // An unmeasured disk must not draw a full bar.
     render(<UsageBar used={5} total={total} />)
     expect(share()).toBe(0)
     expect(Number.isNaN(share())).toBe(false)
@@ -74,7 +62,7 @@ describe("UsageBar - the colour, which is the reason it is not shadcn's Progress
   })
 
   it("stays green for an unmeasured ceiling instead of drawing a red full bar", () => {
-    // The two halves of the finding meet here: the guarded share is 0, so the tone is the calm one.
+    // The guarded share is 0, so the tone is the calm one.
     render(<UsageBar used={5} total={0} />)
     expect(fill().className).toContain("bg-success")
   })

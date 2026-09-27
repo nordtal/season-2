@@ -1,13 +1,5 @@
 {
-  // The test project: tsconfig.app.json's settings, plus the one thing tests legitimately have and
-  // the application does not - node. Vitest runs in node, and a mirror test reads a file out of the
-  // repository (health.test.ts holds DEFAULT_THRESHOLDS against UiSpec.java, the way PlatformTest
-  // holds Platform against libs.versions.toml on the Java side).
-  //
-  // It includes the whole of src/ rather than only the test files: `noEmit` rules out project
-  // references, which need emitted declarations. An application file is therefore checked twice,
-  // and the copy that matters is the app project's - the one WITHOUT node, which is what stops a
-  // `process.env` from creeping into a browser bundle.
+  // The app project plus node, which the tests need; it covers all of src/, since `noEmit` rules out references.
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
     "tsBuildInfoFile": "../build/tsbuildinfo/test.tsbuildinfo",

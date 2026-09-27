@@ -12,29 +12,11 @@ import java.util.Optional;
 /**
  * The language list from {@code access.yml}, and every rule that reads it.
  *
- * Why this exists: A fixed set of language-specific keys in {@code access.yml} would make a third language a code
- * change, which is exactly what {@code docs/i18n.md} says it must never be. This class is the only place in the bot
- * that turns a language tag, a role id or a locale into anything.
- *
- * What it guarantees: The list is non-empty, its tags are unique and lower case, {@code en} is present and every id
- * that is filled in is a snowflake - all validated by {@link Configs} before the bot touches a guild, so nothing
- * here has to cope with a broken list. The same shape is asserted in {@link #of(List)} so a test cannot build one
- * this class's callers could not survive.
- *
- * An id may be empty, and that is not a broken list. A language whose role is blank is one no member is ever
- * recorded as speaking; a language whose channel is blank is one that message is not posted in. What this class must
- * never do is hand an empty id to JDA, which throws rather than answering {@code null} - so every consumer of an id
- * from here checks {@link Configured#isSet(String)} first.
- *
- * Order: The configured order is preserved end to end: it is the order the managed messages are published in, the
- * order the bundles are loaded in, and the tie-break when a member holds more than one language role.
- * {@link DefaultLanguages} writes {@code en} first for that reason.
- *
- * @see AccessSpec#languages()
+ * The configured order is kept end to end; an id may be empty, so callers check {@link Configured#isSet(String)}.
  */
 public final class Languages {
 
-    /** The one tag that has to be configured; see {@code docs/i18n.md}. */
+    /** The one tag that has to be configured. */
     public static final String FALLBACK_TAG = "en";
 
     private final List<Language> ordered;
@@ -48,12 +30,11 @@ public final class Languages {
             index.put(language.tag(), language);
         }
         this.byTag = Map.copyOf(index);
-        // of(List) already rejects a list with no FALLBACK_TAG entry, so the lookup always hits.
         this.fallback = Objects.requireNonNull(index.get(FALLBACK_TAG), "fallback language");
     }
 
     /**
-     * Reads the language list out of the configuration.
+     * Reads the language list from the configuration.
      *
      * @param config the loaded and validated access configuration
      * @return the languages, in the order the file lists them
@@ -72,16 +53,11 @@ public final class Languages {
     }
 
     /**
-     * The same list without a config file behind it.
-     *
-     * This is what the tests use, and it is the only reason anything here is expressed in terms of {@link Language}
-     * rather than of the spec interface.
+     * Builds the list without a config file.
      *
      * @param languages the languages, in the order they should be used
      * @return the languages
-     * @throws IllegalArgumentException if the list is empty, has a duplicate tag, or has no
-     *                                  {@code en} entry - the three things {@link Configs} refuses
-     *                                  to start on
+     * @throws IllegalArgumentException if the list is empty, has a duplicate tag, or has no {@code en} entry
      */
     public static Languages of(final List<Language> languages) {
         if (languages == null || languages.isEmpty()) {
@@ -99,77 +75,52 @@ public final class Languages {
         return new Languages(copy);
     }
 
-    /** @return every configured language, in the order {@code access.yml} lists them */
+    /** Returns every configured language, in the order {@code access.yml} lists them. */
     public List<Language> all() {
         return ordered;
     }
 
-    /** @return the {@code en} entry, which is guaranteed to exist */
+    /** Returns the {@code en} entry, which always exists. */
     public Language fallback() {
         return fallback;
     }
 
-    /**
-     * @return the locales to load message bundles for. A language with no bundle of its own is not
-     *         an error - {@code Messages} logs it once and that language reads English, which is
-     *         what makes an incomplete translation safe to ship.
-     */
+    /** Returns the locales to load message bundles for; one without a bundle reads English. */
     public Locale[] locales() {
         return ordered.stream().map(Language::locale).toArray(Locale[]::new);
     }
 
     /**
+     * Returns the entry with that tag, if it is configured.
+     *
      * @param tag a language tag
-     * @return the entry with that tag, if it is configured
      */
     public Optional<Language> byTag(final String tag) {
         return Optional.ofNullable(tag == null ? null : byTag.get(tag.toLowerCase(Locale.ROOT)));
     }
 
     /**
-     * The configured language a locale belongs to.
+     * Returns the configured language of a locale, or {@code en} when that language is not configured.
      *
      * @param locale a locale, typically read out of {@code discord_user.locale}
-     * @return the matching entry, or the {@code en} entry when that language is not configured -
-     *         the same degradation the message bundles do, so a stored tag from a language that has
-     *         since been removed from the file still resolves to a real channel
      */
     public Language forLocale(final Locale locale) {
         return byTag(Locales.tag(locale)).orElse(fallback);
     }
 
     /**
+     * Returns whether a role id is one of the configured language roles.
+     *
      * @param roleId a Discord role id
-     * @return whether it is one of the configured language roles - the test that decides whether a
-     *         role change is worth re-reading a member's language for
      */
     public boolean isLanguageRole(final String roleId) {
         return ordered.stream().anyMatch(language -> language.roleId().equals(roleId));
     }
 
     /**
-     * Which language a member holding these roles should be recorded as speaking.
+     * Returns the language a member holding these roles speaks, or empty when they hold no language role.
      *
-     * The rule: A member holding exactly one language role has that language. A member holding none has no answer at
-     * all
-     * - {@link Optional#empty()}, which the caller turns into "leave whatever is stored", because the column already
-     * defaults to English and overwriting a real choice because onboarding is mid-flight is worse than being a little
-     * stale.
-     *
-     * More than one role: The fallback language loses to any other. Somebody holding {@code de} and {@code en} is
-     * recorded as {@code de}: they picked a language and then also picked the thing everything already degrades to, so
-     * the specific choice is the informative one. This is the generalisation of the rule this replaced, which took
-     * German over English for the same reason and could not express anything else because there were only ever two
-     * roles.
-     *
-     * Between two non-fallback languages - {@code de} and {@code fr} both held - the configured order wins, first entry
-     * in {@code access.yml}. That case is not settled by {@code docs/i18n.md}: it says {@code en} is the fallback and
-     * nothing about ranking two real choices against each other. Configured order is deterministic and is itself a
-     * config edit, which is the least surprising answer available, but it is a choice made here rather than one the
-     * documentation made.
-     *
-     * @param heldRoleIds the role ids the member currently holds.
-     * @return the language to record, or empty when the member holds no language role.
+     * The fallback loses to any other language; between two others, the configured order wins.
      */
     public Optional<Language> resolve(final Collection<String> heldRoleIds) {
         if (heldRoleIds == null || heldRoleIds.isEmpty()) {
@@ -182,33 +133,24 @@ public final class Languages {
                 continue;
             }
             if (!FALLBACK_TAG.equals(language.tag())) {
-                // The first real choice in configured order, and nothing after it can beat it.
+                // The first real choice in configured order wins.
                 return Optional.of(language);
             }
             fallbackHeld = language;
         }
-        // Only the fallback role was held, or none was.
         return Optional.ofNullable(fallbackHeld);
     }
 
     /**
-     * One configured language.
+     * One configured language; every id except the tag may be empty.
      *
-     * @param tag                   the language tag, lower case; the bundle file name and the value
-     *                              stored in {@code discord_user.locale}
-     * @param roleId                the onboarding role that chooses it - read-only for the bot
+     * @param tag the language tag, lower case; the bundle file name and the {@code discord_user.locale} value
+     * @param roleId the onboarding role that chooses it, read only by the bot
      * @param contributionChannelId where the buy-access message and the donation thank-yous go
-     * @param linkChannelId         where the account-link message goes
-     * @param hungerGamesChannelId  where the hunger games Register message goes - a separate channel
-     *                              from {@code contributionChannelId} on purpose, since registering
-     *                              for the start event and buying paid access are unrelated actions
-     * @param announcementChannelId where a milestone and a phase change are
-     *                              POSTED in this language, or {@code ""} for none - the second
-     *                              optional id, and the one the servers write through
-     * @param statusChannelId       the channel whose NAME carries the countdown and then the live
-     *                              status, or {@code ""} for a language that has none. The only
-     *                              optional id here: the bot writes no message into it and simply
-     *                              renames nothing when it is empty
+     * @param linkChannelId where the account-link message goes
+     * @param hungerGamesChannelId where the hunger games Register message goes
+     * @param announcementChannelId where milestones and phase changes are posted, or {@code ""} for none
+     * @param statusChannelId the channel whose name carries the status, or {@code ""} for none
      */
     public record Language(
             String tag,
@@ -219,7 +161,7 @@ public final class Languages {
             String statusChannelId,
             String announcementChannelId) {
 
-        /** The six-id form: no announcement channel, which is the file's default too. */
+        /** The six-id form, with no announcement channel. */
         public Language(
                 final String tag,
                 final String roleId,
@@ -230,41 +172,32 @@ public final class Languages {
             this(tag, roleId, contributionChannelId, linkChannelId, hungerGamesChannelId, statusChannelId, "");
         }
 
-        /** @return whether this language has a status channel to rename at all */
+        /** Returns whether this language has a status channel to rename. */
         public boolean hasStatusChannel() {
             return statusChannelId != null && !statusChannelId.isBlank();
         }
 
-        /** @return whether announcements for this language have a channel to be posted into */
+        /** Returns whether announcements for this language have a channel. */
         public boolean hasAnnouncementChannel() {
             return announcementChannelId != null && !announcementChannelId.isBlank();
         }
 
-        /** @return the tag as a {@link Locale}, for the message bundles and {@code discord_user.locale} */
+        /** Returns the tag as a {@link Locale}. */
         public Locale locale() {
             return Locales.parse(tag);
         }
 
-        /**
-         * @return the {@code managed_message.kind} of the buy-access message in this language, e.g.
-         *         {@code CONTRIBUTION_EN}. The primary key of a row the bot has already written, so
-         *         it is derived from the tag and never renamed.
-         */
+        /** Returns the {@code managed_message.kind} of the buy-access message, such as {@code CONTRIBUTION_EN}. */
         public String contributionKind() {
             return "CONTRIBUTION_" + tag.toUpperCase(Locale.ROOT);
         }
 
-        /** @return the {@code managed_message.kind} of the account-link message, e.g. {@code LINK_EN} */
+        /** Returns the {@code managed_message.kind} of the account-link message, such as {@code LINK_EN}. */
         public String linkKind() {
             return "LINK_" + tag.toUpperCase(Locale.ROOT);
         }
 
-        /**
-         * @return the {@code managed_message.kind} of the hunger games Register message, e.g.
-         *         {@code HG_REGISTER_EN}. {@code managed_message.kind} is {@code varchar(32)}, which
-         *         is why a language tag longer than 19 characters is refused ({@code docs/i18n.md}) -
-         *         this prefix is the longest of the three and still leaves that much room.
-         */
+        /** Returns the {@code managed_message.kind} of the Register message, such as {@code HG_REGISTER_EN}. */
         public String hungerGamesRegisterKind() {
             return "HG_REGISTER_" + tag.toUpperCase(Locale.ROOT);
         }

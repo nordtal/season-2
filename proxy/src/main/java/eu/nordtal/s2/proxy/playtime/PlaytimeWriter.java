@@ -14,25 +14,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 
 /**
- * Counts network-wide online time and writes it to {@code player_playtime}.
+ * Counts network-wide online time, AFK included, and writes it to {@code player_playtime}.
  *
- * The proxy counts it because only the proxy sees a session across servers; a backend sees just
- * its own slice. AFK time counts on purpose: prestige measures presence, not effort. The tier is
- * derived from these seconds and never stored, so retuning the thresholds is a config edit rather
- * than a migration.
- *
- * Written on disconnect and periodically in between
- * ({@code gate.yml#playtime-flush-interval-seconds}), so a crash costs minutes rather than a whole
- * session. Both paths run through {@link #flush(UUID)} and the store's single
- * {@code seconds = seconds + N} statement.
- *
- * A flush advances the session's start marker by exactly the whole seconds it wrote, not to
- * "now", so the sub-second remainder is not discarded once per interval.
- *
- * The Discord id that keys the table is copied out of {@link LoginRoster} once, when the player
- * joins, rather than read back at disconnect - the roster is cleared on disconnect too, and handler
- * order for one event is not something to rely on. A player the roster does not know (a login
- * admitted by the fallback cache) is not counted, because there is no key to count them under.
+ * Flushed on disconnect and on a timer; a player the roster does not know is not counted.
  */
 public final class PlaytimeWriter {
 
@@ -47,7 +31,6 @@ public final class PlaytimeWriter {
         this(store, roster, logger, Clock.systemUTC());
     }
 
-    /** Package-visible so tests can advance time instead of sleeping through it. */
     PlaytimeWriter(final PlaytimeStore store, final LoginRoster roster, final Logger logger, final Clock clock) {
         this.store = Objects.requireNonNull(store, "store");
         this.roster = Objects.requireNonNull(roster, "roster");
@@ -57,12 +40,7 @@ public final class PlaytimeWriter {
 
     // session lifecycle
 
-    /**
-     * Starts counting.
-     *
-     * {@code PostLoginEvent} rather than {@code LoginEvent}: the gate may still refuse the login, and a refused player
-     * has not been online.
-     */
+    /** Starts counting on {@code PostLoginEvent}, since the gate may still refuse a {@code LoginEvent}. */
     @Subscribe
     public void onPostLogin(final PostLoginEvent event) {
         begin(event.getPlayer().getUniqueId(), event.getPlayer().getUsername());
@@ -77,10 +55,7 @@ public final class PlaytimeWriter {
     }
 
     /**
-     * Stops counting for a player.
-     *
-     * Always preceded by a {@link #flush(UUID)}, never a substitute for one - dropping a session without writing it is
-     * exactly the session loss this class exists to prevent.
+     * Stops counting for a player, always after a {@link #flush(UUID)}.
      *
      * @param mcUuid the player who has left
      */
@@ -88,12 +63,12 @@ public final class PlaytimeWriter {
         sessions.remove(mcUuid);
     }
 
-    /** Package-visible entry point for the two events above, so tests need no Velocity types. */
+    /** Entry point for the two events above, so tests need no Velocity types. */
     void begin(final UUID mcUuid, final String username) {
         final String discordId =
                 roster.of(mcUuid).map(LoginRoster.Session::discordId).orElse(null);
         if (discordId == null) {
-            // No Discord id to key the row by; logged rather than guessed, since a wrong key would corrupt a total.
+            // No Discord id to key the row by; a guessed key would corrupt a total.
             logger.warn(
                     "Not counting play time for {} ({}): the login path never learned a Discord "
                             + "id for this account",
@@ -107,9 +82,9 @@ public final class PlaytimeWriter {
     // flushing
 
     /**
-     * One pass over every session being counted. Meant to be called on a fixed schedule.
+     * One pass over every session being counted, meant for a fixed schedule.
      *
-     * @return how many players had whole seconds written for them
+     * @return how many players had whole seconds written
      */
     public int flushAll() {
         int written = 0;
@@ -122,9 +97,8 @@ public final class PlaytimeWriter {
     }
 
     /**
-     * Writes the whole seconds accumulated since this session's marker and advances the marker by exactly that much.
+     * Writes the whole seconds since this session's marker and advances it by exactly that much.
      *
-     * @param mcUuid the player
      * @return whether anything was written
      */
     boolean flush(final UUID mcUuid) {
@@ -133,7 +107,7 @@ public final class PlaytimeWriter {
             return false;
         }
 
-        // Locks the session, not the class: a disconnect flush and flushAll never double-credit or block each other.
+        // Locks the session, not the class: a disconnect flush and flushAll never double-credit.
         synchronized (session) {
             final long seconds =
                     Duration.between(session.since, clock.instant()).toSeconds();
@@ -144,7 +118,7 @@ public final class PlaytimeWriter {
             try {
                 store.add(session.discordId, seconds);
             } catch (final RuntimeException exception) {
-                // The marker is deliberately not advanced: the seconds are still owed, written on the next flush.
+                // The marker stays put: the seconds are still owed and go out on the next flush.
                 logger.warn(
                         "Could not write {}s of play time for {} ({}); it will be written with " + "the next flush",
                         seconds,
@@ -160,18 +134,12 @@ public final class PlaytimeWriter {
         }
     }
 
-    /** @return how many sessions are being counted, for tests and logging */
+    /** How many sessions are being counted. */
     public int tracked() {
         return sessions.size();
     }
 
-    /**
-     * One player's running session.
-     *
-     * Mutable in one field and only from {@link #flush(UUID)}, which holds this object's monitor
-     * across the whole read-write-advance. {@code volatile} is not enough on its own: it makes each
-     * access atomic and says nothing about two threads doing all three steps at once.
-     */
+    /** One player's running session; {@link #flush(UUID)} holds its monitor across read, write and advance. */
     private static final class Session {
 
         private final String discordId;

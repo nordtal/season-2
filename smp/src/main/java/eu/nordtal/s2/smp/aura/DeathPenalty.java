@@ -6,19 +6,9 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What a death costs.
+ * What a death costs: 5 ordinarily, 20 for a listed cause, and nothing in the duel arena, whose stake settles it.
  *
- * <b>−5 ordinarily, −20 for a listed cause, and nothing in the duel arena.</b> Aura is meant to be a number with
- * risk in it rather than a meter that only ever rises.
- *
- * The duel arena is the only exemption: the ±10 stake already settles the fight, so a death penalty on top would
- * make every duel a net loss for both players. Everything else costs, including the world border, the void, and
- * dying in the End during the dragon fight. There is deliberately <b>no protection against a death drain</b> - no
- * daily cap, no per-killer cooldown; the ledger is what exists instead.
- *
- * Listed causes are compared as lowercase strings rather than as a Bukkit enum, so that the config can be validated
- * with no registry initialised and a damage type the platform does not have is a startup warning rather than a load
- * failure.
+ * Causes are lowercase strings, so an unknown damage type is a startup warning rather than a load failure.
  */
 public final class DeathPenalty {
 
@@ -33,10 +23,11 @@ public final class DeathPenalty {
     private final Set<String> listedCauses;
 
     /**
-     * @param ordinary     the ordinary penalty, as a positive number of aura
-     * @param listed       the listed-cause penalty, as a positive number of aura
-     * @param listedCauses the damage-type keys that cost {@code listed}; matched case-insensitively
-     *                     and with any {@code minecraft:} namespace stripped
+     * Creates the penalty.
+     *
+     * @param ordinary the ordinary penalty, as a positive number of aura
+     * @param listed the listed-cause penalty, as a positive number of aura
+     * @param listedCauses the damage-type keys that cost {@code listed}, matched case-insensitively without namespace
      */
     public DeathPenalty(final int ordinary, final int listed, final Set<String> listedCauses) {
         if (ordinary < 0 || listed < 0) {
@@ -54,10 +45,10 @@ public final class DeathPenalty {
     }
 
     /**
-     * @param damageType the damage type the player died to, in any case and with or without a
-     *                   namespace; {@code null} for a death with no known cause
-     * @param inArena    whether the death happened inside a duel arena
-     * @return the aura delta to book, which is zero or negative
+     * Returns the aura delta to book, zero or negative.
+     *
+     * @param damageType the damage type, in any case and with or without a namespace; null when unknown
+     * @param inArena whether the death happened inside a duel arena
      */
     public int deltaFor(final @Nullable String damageType, final boolean inArena) {
         if (inArena) {
@@ -67,22 +58,24 @@ public final class DeathPenalty {
     }
 
     /**
+     * Returns which of the two reasons to write into the ledger.
+     *
      * @param damageType the damage type, in any case and with or without a namespace
-     * @return which of the two reasons to write into the ledger
      */
     public AuraReason reasonFor(final @Nullable String damageType) {
         return isListed(damageType) ? AuraReason.DEATH_LISTED : AuraReason.DEATH;
     }
 
     /**
+     * Returns whether the damage type is one of the configured embarrassing ones.
+     *
      * @param damageType the damage type, in any case and with or without a namespace
-     * @return whether it is one of the configured embarrassing ones
      */
     public boolean isListed(final @Nullable String damageType) {
         return damageType != null && listedCauses.contains(normalise(damageType));
     }
 
-    /** @return the causes as they are matched, for a startup log that can be checked by eye */
+    /** Returns the causes as they are matched, for the startup log. */
     public Set<String> listedCauses() {
         return listedCauses;
     }

@@ -12,15 +12,8 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The whole SQL surface this plugin needs, as a JDBI SqlObject interface.
- *
- * A read-mostly DAO over tables the bot's migrations own, plus the {@code hg_*} tables the bot
- * writes registrations into and this plugin writes game state into.
- */
+/** The whole SQL surface of this plugin: reads over the bot's tables, and game state in the {@code hg_*} tables. */
 public interface HungerGamesDao {
-
-    // hg_game
 
     @SqlQuery("SELECT id, state, started, ended, winner_member_id FROM hg_game WHERE state <> 'DECIDED'")
     @RegisterRowMapper(HgGameMapper.class)
@@ -43,16 +36,12 @@ public interface HungerGamesDao {
             """)
     void decideGame(@Bind("id") UUID id, @Bind("winnerMemberId") @Nullable UUID winnerMemberId);
 
-    // hg_team
-
     @SqlQuery("SELECT id, game_id, name, colour_rgb, colour_named FROM hg_team WHERE game_id = :gameId")
     @RegisterRowMapper(HgTeamMapper.class)
     List<HgTeam> teamsOf(@Bind("gameId") UUID gameId);
 
     @SqlUpdate("UPDATE hg_team SET colour_rgb = :colourRgb, colour_named = :colourNamed WHERE id = :id")
     void setTeamColour(@Bind("id") UUID id, @Bind("colourRgb") int colourRgb, @Bind("colourNamed") String colourNamed);
-
-    // hg_member
 
     @SqlQuery("""
             SELECT id, team_id, game_id, discord_id, state, ready
@@ -65,12 +54,7 @@ public interface HungerGamesDao {
     @SqlUpdate("UPDATE hg_member SET ready = :ready WHERE game_id = :gameId AND discord_id = :discordId")
     int setReady(@Bind("gameId") UUID gameId, @Bind("discordId") String discordId, @Bind("ready") boolean ready);
 
-    /**
-     * The full roster of one game.
-     *
-     * Every active ({@code OWNER}/{@code ACCEPTED}) membership, joined through
-     * {@code account_link} to the Minecraft account it belongs to.
-     */
+    /** Every active ({@code OWNER} or {@code ACCEPTED}) membership of one game, joined to its Minecraft account. */
     @SqlQuery("""
             SELECT m.id AS member_id, m.team_id, t.name AS team_name, t.colour_rgb, t.colour_named,
                    m.discord_id, m.state, m.ready, link.mc_uuid
@@ -94,8 +78,6 @@ public interface HungerGamesDao {
     @RegisterRowMapper(RosterEntryMapper.class)
     Optional<RosterEntry> rosterEntryByMcUuid(@Bind("gameId") UUID gameId, @Bind("mcUuid") UUID mcUuid);
 
-    // discord_user / account_link
-
     @SqlQuery("SELECT mc_uuid FROM account_link WHERE discord_id = :discordId")
     Optional<UUID> mcUuidOf(@Bind("discordId") String discordId);
 
@@ -105,10 +87,7 @@ public interface HungerGamesDao {
     @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
     Optional<String> localeOf(@Bind("discordId") String discordId);
 
-    /**
-     * Whether the account behind this Minecraft UUID currently holds the Discord admin flag.
-     * {@code discord_user.admin} is the only admin list; this plugin only reads it.
-     */
+    /** Whether the account behind this Minecraft UUID holds the admin flag, {@code discord_user.admin}. */
     @SqlQuery("""
             SELECT usr.admin
             FROM account_link link
@@ -116,8 +95,6 @@ public interface HungerGamesDao {
             WHERE link.mc_uuid = :mcUuid
             """)
     Optional<Boolean> isAdmin(@Bind("mcUuid") UUID mcUuid);
-
-    // hg_event
 
     @SqlUpdate("""
             INSERT INTO hg_event (game_id, type, actor_id, victim_id, detail)
@@ -137,12 +114,7 @@ public interface HungerGamesDao {
             """)
     int killCount(@Bind("gameId") UUID gameId, @Bind("actorId") UUID actorId);
 
-    /**
-     * The same tally for every member of a game in one round trip.
-     *
-     * For the ceremony, which needs all of them at the busiest moment of the event and must not
-     * query per member per player. Members with no kills are absent from the map.
-     */
+    /** The kill tally of every member of a game in one round trip; members with no kills are absent. */
     @SqlQuery("""
             SELECT actor_id, count(*) AS kills FROM hg_event
             WHERE game_id = :gameId AND type = 'KILL' AND actor_id IS NOT NULL

@@ -44,14 +44,7 @@ interface AuditDao {
             @Bind("subject") @Nullable String subject,
             @Bind("limit") int limit);
 
-    /**
-     * One line in the journal.
-     *
-     * Deliberately not transactional with whatever it describes. An {@code access_grant} that
-     * lands and a journal line that does not is a bug worth finding; a grant rolled back because
-     * the journal was momentarily unavailable is a member locked out by a bookkeeping error. The
-     * caller writes the action first and records it second.
-     */
+    /** Writes one line into the journal, deliberately outside the transaction of the action it describes. */
     @SqlUpdate("""
             INSERT INTO audit_log (action, actor, subject, mc_uuid, detail)
             VALUES (:action, :actor, :subject, :mcUuid, :detail)

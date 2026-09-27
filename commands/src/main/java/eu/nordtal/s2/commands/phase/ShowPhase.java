@@ -13,18 +13,9 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * {@code /phase show} - and the bare {@code /phase} on the proxy. Reads, writes nothing.
+ * {@code /phase show}, also the bare {@code /phase} on the proxy; writes nothing.
  *
- * The phase can come out before the database is asked because this is the command somebody runs
- * while the network is misbehaving, so a process holding the
- * phase in memory says it <em>first</em> and asks the database afterwards. The proxy does hold it
- * ({@code PhaseWatch}); the bot does not, and reads. Both paths end with the same two lines in the
- * same order, which is exactly what {@link PhaseEffects#observation()} exists to make possible
- * without either process knowing about the other.
- *
- * Whether the first line is an observation or the never-read fallback is stated rather than
- * hidden: "the network is in MAINTENANCE" and "the network has not been readable, so it is being
- * treated as MAINTENANCE" are different facts, and only one of them is a reason to panic.
+ * A process holding the phase says it before asking the database, so the answer survives a database that is down.
  */
 public final class ShowPhase implements NordtalCommand<PhaseEffects> {
 
@@ -39,7 +30,7 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
         held.ifPresent(observation -> sayPhase(user, observation.phase(), observation.everRead()));
 
         effects.async(() -> {
-            // Whether a phase line has actually gone out, which is NOT the same question as whether this process had.
+            // Whether a phase line has gone out, which differs from whether this process held one.
             boolean saidThePhase = held.isPresent();
             final Instant launch;
             final Instant smpStart;
@@ -52,7 +43,7 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
                 smpStart = effects.phases().smpStart().orElse(null);
             } catch (final RuntimeException failure) {
                 effects.warn("reading the season dates for /phase show", failure);
-                // Always an answer, and which one depends on whether a phase line went out: phase.read.failed says.
+                // Always an answer, worded by whether a phase line already went out.
                 user.reply(
                         saidThePhase
                                 ? MESSAGES.phase().read().failed()
@@ -74,7 +65,7 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
     }
 
     private static void sayPhase(final NordtalUser user, final SeasonPhase phase, final boolean everRead) {
-        // The unread answer is WARN and not NEUTRAL: it is the proxy's own cache answering because nothing has ever.
+        // The unread answer is WARN: it is the proxy's fallback, not an observation.
         user.reply(
                 everRead
                         ? MESSAGES.phase().current(phase.name())

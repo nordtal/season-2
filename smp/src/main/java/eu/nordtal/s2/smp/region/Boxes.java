@@ -4,13 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * An ordered list of {@link Box} es, asked one question: which one is this position in?
+ * An ordered list of {@link Box} entries, asked which one holds a position.
  *
- * Checked in configuration order and the first hit wins, which is what makes a small box carved out of a large one
- * possible by putting it first. Linear, because the number of boxes is a handful and a spatial index for six entries
- * is a way to be slower with more code.
- *
- * Pure, so it is tested without a server.
+ * The first hit in configuration order wins, so a small box carved out of a large one goes first.
  */
 public final class Boxes {
 

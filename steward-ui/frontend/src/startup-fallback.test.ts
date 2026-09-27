@@ -7,19 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { asElement } from "@/lib/test-elements"
 
-/**
- * The inline script in `index.html` that reports a startup that never happened.
- *
- * It is deliberately not a module under `src/` - a module is one more file the bundle can fail to
- * fetch, and the whole point of this script is to still run when the bundle has. So it is tested
- * the way it ships: extracted out of the real `index.html` and executed as-is, rather than as a
- * copy kept in step by hand. A copy here is exactly the drift `NothingIsGermanTest`'s own history
- * warns about - the day this test and the markup disagree, this reads the file that is wrong.
- */
+/** The inline script in `index.html` that reports a failed startup, run as it ships rather than as a copy. */
 
 const indexHtml = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../index.html"), "utf8")
 
-/** The one inline, non-module `<script>` - `<script type="module" ...>` never matches this. */
+/** The one inline, non-module `<script>`; a `type="module"` one never matches. */
 function inlineScriptSource(): string {
   const match = indexHtml.match(/<script>([\s\S]*?)<\/script>/)
   if (!match) {
@@ -29,19 +21,14 @@ function inlineScriptSource(): string {
 }
 
 function runInlineScript(): void {
-  /**
-   * The real script, not a rewrite of it - run in the global context the same way a browser's own
-   * inline, non-module <script> would, rather than through the Function constructor.
-   */
+  /** Run in the global context, as a browser runs an inline script. */
   runInThisContext(inlineScriptSource())
 }
 
-/** The text currently shown in the startup-fallback message element, if it is present. */
 function message(): string | null {
   return document.getElementById("startup-fallback-message")?.textContent ?? null
 }
 
-/** Attaches `element` to the document and fires the `error` event a failed resource load raises. */
 function fireResourceError(element: HTMLElement): void {
   document.head.appendChild(element)
   element.dispatchEvent(new Event("error"))
@@ -55,11 +42,7 @@ describe("index.html's inline startup reporter", () => {
     document.body.innerHTML =
       '<div id="startup-fallback"><p id="startup-fallback-message">Steward has not started yet.</p></div>'
     reload = vi.fn<() => void>()
-    /**
-     * jsdom's own reload() logs "Not implemented: navigation" and does nothing - replaced so a
-     * test can tell whether it was asked for at all.
-     */
-    /** Only `reload` is read by the inline script - see index.html's two call sites. */
+    /** jsdom's `reload()` does nothing, so it is replaced to record whether it was asked for. */
     Object.defineProperty(window, "location", {
       value: { reload },
       writable: true,
@@ -79,7 +62,7 @@ describe("index.html's inline startup reporter", () => {
 
     expect(reload).toHaveBeenCalledTimes(1)
     expect(window.sessionStorage.getItem("steward:reloaded-after-startup-error")).toBe("1")
-    // The silent path: nothing is written over the plain sentence that is already there.
+    // The silent path: nothing is written over the sentence already there.
     expect(message()).toBe("Steward has not started yet.")
   })
 
@@ -111,10 +94,7 @@ describe("index.html's inline startup reporter", () => {
     fireResourceError(first)
     expect(reload).toHaveBeenCalledTimes(1)
 
-    /**
-     * The reload itself is what a real browser would do here; this test stands in a fresh
-     * execution of the same inline script for it, on the document state the first run left behind.
-     */
+    /** A fresh run of the same script stands in for the reload, on the state the first left behind. */
     const second = document.createElement("script")
     second.src = "http://localhost/assets/index-deadbeef.js"
     fireResourceError(second)
@@ -135,12 +115,7 @@ describe("index.html's inline startup reporter", () => {
   })
 
   it("reveals the panel the moment it has something to say, without waiting out the fade-in", () => {
-    /**
-     * The panel is hidden by a CSS delay so a healthy start never flashes it (index.html's own
-     * <style>). An animation that never runs would leave it hidden forever, and hidden is the one
-     * failure direction that matters here - so the reporter reveals it directly rather than
-     * trusting the animation it cannot see.
-     */
+    /** The reporter reveals the panel itself, since an animation that never runs would leave it hidden. */
     runInlineScript()
     const panel = asElement(document.getElementById("startup-fallback"))
     expect(panel.style.opacity).toBe("")

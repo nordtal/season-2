@@ -6,16 +6,7 @@ import java.time.OffsetDateTime;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
-/**
- * Maps a {@code service_plugin} row.
- *
- * Written out rather than reached for with {@code ConstructorMapper}, for the reason
- * {@code UpdateRequestMapper} gives: that mapper matches record components by parameter name, which
- * only survives compilation with {@code -parameters}, and a build flag is a bad thing for a query
- * to depend on. {@code added} goes through {@link OffsetDateTime} for the same reason it does
- * there - the only reliable way out of the PostgreSQL driver that does not pass through the JVM's
- * default time zone.
- */
+/** Maps a {@code service_plugin} row, written out so it does not depend on the {@code -parameters} flag. */
 public final class ManagedPluginMapper implements RowMapper<ManagedPlugin> {
 
     @Override

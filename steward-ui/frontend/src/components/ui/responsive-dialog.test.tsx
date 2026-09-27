@@ -15,20 +15,6 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
 
-/**
- * The one place that decides sheet or dialog: every dialog switches
- * over, and at one common place.
- *
- * jsdom has no layout, so nothing here can say that a sheet sits at the bottom edge or that it can
- * be dragged away - `fits-on-a-phone.test.ts` says at length why a width is a number this
- * environment does not have. What it CAN say is which of the two primitives was mounted, which is
- * the whole of what this component decides: `data-slot` is on every shadcn part for exactly this
- * kind of question.
- *
- * The width is `window.innerWidth`, because that is what `useIsMobile` reads - the media query is
- * only how it learns that the number changed. jsdom's own window is 1024 wide, which is why the
- * desktop case needs no setup at all.
- */
 afterEach(() => {
   cleanup()
   window.innerWidth = 1024
@@ -47,6 +33,7 @@ function draw() {
   return screen.getByText("Which one is this")
 }
 
+/** Which primitive mounts, read from `data-slot` since jsdom has no layout; its window is 1024 wide, a desktop. */
 describe("one dialog, two shapes", () => {
   it("is a centred dialog on a desktop", async () => {
     window.innerWidth = 1024
@@ -91,14 +78,7 @@ function drawConfirmation(onConfirm: () => void) {
   return screen.getByText("Delete it")
 }
 
-/**
- * The confirmation switches over too, rather than remaining an exception.
- *
- * A sheet can be flicked away and a confirmation has to be
- * answered - but flicking it away IS an answer, the same one a click on the
- * overlay already gives. So there is nothing here asserting that it cannot be dismissed - that would
- * be the wrong decision written as a test.
- */
+/** The confirmation takes both shapes; flicking a sheet away is an answer, like a click on the overlay. */
 describe("the confirmation takes both shapes as well", () => {
   it("is an alert dialog on a desktop", () => {
     window.innerWidth = 1024

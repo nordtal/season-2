@@ -10,21 +10,15 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * An {@link UpdatePlan} as text a person reads before deciding whether to restart a network.
+ * An {@link UpdatePlan} as plain text a person reads before restarting the network, shared verbatim by every surface.
  *
- * Plain text rather than Discord components, because the container's log, the Discord embed and the in-game lines
- * all carry this string verbatim out of {@code update_request.result} and must not drift apart - and because this
- * half is then testable without a bot token.
- *
- * The resolved release tag is printed even when nothing changed: "everything is up to date" and "the release you
- * meant is still a draft, so latest is last week's tag" produce identical rows, and the tag is what tells them
- * apart.
+ * The release tag is printed even when nothing changed, so a stale draft does not look up to date.
  */
 public final class Report {
 
     private static final String INDENT = "  ";
 
-    /** Wide enough for "not installed", which is the longest status word. */
+    /** Wide enough for "not installed", the longest status word. */
     private static final int LABEL_WIDTH = 15;
 
     private Report() {}
@@ -33,7 +27,7 @@ public final class Report {
         final StringBuilder out = new StringBuilder();
         appendHeader(out, plan);
 
-        // One outage, one explanation: a repeated failure reason is printed once at the bottom, referenced by number.
+        // A repeated failure reason is printed once at the bottom, referenced by number.
         final Map<String, Integer> footnotes = footnotesOf(plan);
         appendServices(out, groupByService(plan), footnotes);
         appendUnclaimed(out, plan);
@@ -57,12 +51,7 @@ public final class Report {
         out.append('\n');
     }
 
-    /**
-     * Groups the plan's rows the way the network is shaped.
-     *
-     * Proxy first, with everything outside a Minecraft volume collected at the end rather than filed under a
-     * server it does not run on.
-     */
+    /** Groups the rows the way the network is shaped: proxy first, anything outside a Minecraft volume last. */
     private static Map<String, List<Change>> groupByService(final UpdatePlan plan) {
         final Map<String, List<Change>> grouped = new LinkedHashMap<>();
         for (final Change change : plan.changes()) {
@@ -84,7 +73,7 @@ public final class Report {
         grouped.forEach((service, changes) -> {
             out.append(service).append('\n');
 
-            // A service that is not mounted would otherwise repeat one sentence on every row it has.
+            // A service that is not mounted would otherwise repeat one sentence on every row.
             final String shared = sharedNote(changes);
             if (shared != null) {
                 out.append(INDENT).append(noteText(shared, footnotes)).append('\n');
@@ -142,11 +131,7 @@ public final class Report {
         out.append('\n');
     }
 
-    /**
-     * The notes worth printing once instead of on every row that carries them.
-     *
-     * Only the repeated ones, insertion-ordered so the numbers run down the page.
-     */
+    /** The repeated notes, printed once and numbered in insertion order. */
     private static Map<String, Integer> footnotesOf(final UpdatePlan plan) {
         final Map<String, Integer> counts = new LinkedHashMap<>();
         for (final Change change : plan.changes()) {
@@ -169,12 +154,7 @@ public final class Report {
         return number == null ? note : "[" + number + "]";
     }
 
-    /**
-     * What a run did.
-     *
-     * In the same shape as the plan above so the two read as one page. Printed before anything restarts: the whole
-     * value of the restart being a separate button is that somebody sees this first.
-     */
+    /** What a run did, in the same shape as the plan, printed before anything restarts. */
     public static String render(final ApplyResult result) {
         final StringBuilder out = new StringBuilder("what was done\n\n");
 
@@ -226,7 +206,7 @@ public final class Report {
         return out.toString();
     }
 
-    /** The one word in the status column. Uppercase for the two that need a person. */
+    /** The one word in the status column, uppercase for the two that need a person. */
     private static String label(final Change change) {
         return switch (change.status()) {
             case UP_TO_DATE -> "up to date";
@@ -270,7 +250,7 @@ public final class Report {
             return installed == null ? "?" : installed;
         }
         if (wanted.checksum() != null && "sha1".equals(wanted.checksum().algorithm())) {
-            // The hash in full: two releases can share twelve leading hex chars on screen, none in the client.
+            // The hash in full: two releases can share twelve leading hex characters.
             return wanted.fileName() + " (sha1 " + wanted.checksum().hex() + ")";
         }
         return wanted.fileName();

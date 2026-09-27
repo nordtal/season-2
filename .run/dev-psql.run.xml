@@ -1,8 +1,7 @@
 <!--
   dev psql
 
-  psql on the local database, as POSTGRES_USER on POSTGRES_DB. In the Run window it reads one
-  statement per line and prints no prompt; end it with \q or Ctrl-D.
+  Opens psql on the local database. It reads one statement per line; \q or Ctrl-D ends it.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev psql" type="Application" factoryName="Application" folderName="dev: console and database">

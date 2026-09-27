@@ -1,14 +1,8 @@
 <!--
   gradlew checkSetup checkEntrypoint checkRestore checkPipeSafety
 
-  All four shell suites in one run: the installer's checks, the Minecraft entrypoint, the restore
-  guards and the pipefail scan. The scripts they test run on the Linux host and in the containers.
-
-  NONE OF THEM NEEDS DOCKER OR A NETWORK - that is the point of them. They drive the scripts'
-  functions directly, which is why they can hang off `check` at all.
-
-  They shell out to `bash` off PATH and need bash 4 or later. Where there is none, as on Windows,
-  each one says so and is skipped rather than failed; CI always runs them.
+  Runs the four shell suites. They need bash 4 but no Docker or network; without bash they are
+  skipped.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: deploy scripts (all four)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">

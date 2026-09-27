@@ -22,11 +22,9 @@ import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The lobby's periodic ready-check broadcast, carrying a clickable "I am ready".
+ * The lobby's periodic ready-check broadcast, carrying a clickable "I am ready" and a live team count.
  *
- * Ready state is visible to everyone and starts nothing by itself - it informs the admin's
- * decision. The broadcast carries a live ready/total team count; {@code /hg ready-status} lists
- * the teams by name on demand, rather than flooding chat with them on every broadcast.
+ * Ready state starts nothing by itself; it informs the admin's decision.
  */
 public final class Lobby {
 
@@ -75,12 +73,7 @@ public final class Lobby {
         }
     }
 
-    /**
-     * Deliberately silent: a standing reminder on a timer, not an event.
-     *
-     * A chime on a repeating message makes people turn the sound off, taking the countdown and the
-     * border with it.
-     */
+    /** Deliberately silent: a chime on a repeating message makes people turn the sound off entirely. */
     private void broadcast(final World world, final UUID gameId) {
         final List<RosterEntry> roster = dao.roster(gameId);
         final long totalTeams =
@@ -103,9 +96,7 @@ public final class Lobby {
     }
 
     /**
-     * Marks the calling player's active membership as ready.
-     *
-     * See {@code /hg ready} in {@code eu.nordtal.s2.hungergames.command.HungerGamesCommand}.
+     * Marks the calling player's active membership as ready, for {@code /hg ready}.
      *
      * @return whether a membership was found and updated
      */

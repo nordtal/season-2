@@ -1,7 +1,7 @@
 # steward-worker
 
-Owns the versions of everything the network runs, and the database schema. It is one program that is
-both a service and a set of commands:
+The part of Steward that owns the database schema and the version of everything the network runs.
+It is the only process that runs Flyway, so every other service waits for it to become healthy.
 
 ```bash
 docker compose up -d steward-worker               # serve: migrate, then wait for requests
@@ -10,21 +10,8 @@ docker compose run --rm steward-worker migrate    # apply the schema, nothing el
 docker compose run --rm steward-worker bootstrap  # migrate, then fetch and place the files
 ```
 
-It belongs to the three-part system **Steward**, and a service name is runtime identity — the
-compose service, the two volumes, the image and the `NORDTAL_STEWARD_*` environment prefix all
-carry it.
-
-It has **no compose profile** — it is in every selection, and every other service waits for it to
-become healthy, which happens once the schema is current.
-
-**This container is the bootstrap of a deployment, not a tool used on one.** It is the only process
-that runs Flyway: without a run of it there is no schema, so no bot and no server. The bot refuses a
-database it was not built against and names `steward-worker migrate`; a Minecraft container refuses
-an empty `plugins/` folder.
-
-Running it with no argument gives the read-only report, so a container started by accident does the
-harmless thing. That default is _not_ reachable through `docker compose run`, which falls through to
-the service's own `command` — always name the subcommand.
+With no argument it prints the read-only report. `docker compose run` falls through to the service's
+own `command`, so always name the subcommand there.
 
 ## Where a version comes from
 
@@ -34,246 +21,55 @@ the service's own `command` — always name the subcommand.
 | DisplayTags                                          | GitHub releases, `nordtal/papermc-display-tags`            |
 | PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper` |
 | Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                     |
-| what is installed                                    | the six volumes under `volumes-root`                       |
+| what is installed                                    | the volumes under `volumes-root`                           |
 | what pack the proxy offers                           | `pack.yml` in the `proxy` volume                           |
 
-The report prints one row per artefact per server: up to date, `OUTDATED old -> new`, not installed,
-_unknown_, or _UNRESOLVED_. The last two exist so that "nothing to do" and "nothing could be asked"
-never look the same.
+Every repository is read through `/releases/latest`, which skips drafts and pre-releases. There is no
+pin and no rollback: a bad release is corrected by publishing a better one.
 
 ## Rules
 
-- **`serve` is not a scheduler and must never become one.** It migrates at startup and then does
-  nothing until a row appears in `update_request`. A crash restart at three in the morning must not
-  move a version.
-- **The runs that write are not the same run.** An update stops the services whose jars change,
-  migrates, installs, starts them and waits for healthy. `bootstrap` fills empty slots and stops and
-  starts nothing. A report writes nothing and restarts nothing.
-- **Two workers cannot serve at once**, and none can move jars concurrently. Both are PostgreSQL
-  advisory locks; the second asker is refused rather than queued, because a plan resolved now is
-  stale by the time a queued run would start.
-- **A swap is two phases.** Artefacts are downloaded and verified in `.nordtal-staging` inside the
-  server's own volume; only when all of them are present does anything move into place. A download
-  that fails half way leaves the server exactly as it was.
-- **A server moves together or not at all.** If one artefact cannot be resolved the whole server is
-  skipped — a partial swap is a server that does not start.
-- **Nothing it does not account for is ever deleted**, and only after the new jar is in place.
-- **A source that cannot be reached costs its own rows and nobody else's.**
-- **A version not tagged for the platform is refused, never worked around.**
-- **"Skipped" is a third answer**, distinct from success and failure.
+- `serve` is not a scheduler. It migrates at startup and then acts only on rows in `update_request`.
+- An update stops the services whose jars change, migrates, installs, starts them and waits for
+  healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
+- Two workers cannot serve or move jars at once; both are advisory locks, and the second is refused.
+- Artefacts are staged in `.nordtal-staging` inside the server's volume and move only when all are
+  present. A server moves together or not at all.
+- Nothing it does not account for is deleted, and only after the new jar is in place.
+- A version not tagged for the platform is refused. "Skipped" is distinct from success and failure.
 
-Two traps the code is shaped by: PacketEvents publishes a `-sources.jar` in the same Modrinth
-version, so the artefact is the one with `"primary": true`; and a filename split on the last `-` is
-the identity of what is installed, matching `entrypoint.sh`, because two programs disagreeing about
-which jar supersedes which shows up as Paper loading two copies of one plugin in silence.
+## What it does
+
+- **Updates.** `/update` in Discord and in game writes a row; `serve` listens on `nordtal_update` and
+  polls every fifteen seconds. A restart is due sixty seconds out, and the proxy counts players down.
+- **Handover.** No process replaces the jar it runs, so an update that brings a newer worker places
+  only that jar, returns the request to the inbox and exits. The new worker migrates and finishes the
+  request, so a release's migrations are applied by that release.
+- **Containers.** It holds the Docker socket to read state, health and metrics, to stop and start
+  containers and to write into the Minecraft consoles. It never creates a container; that is
+  `steward-deployer`'s.
+- **Images.** It checks each service's image against the registry before a run, and reports an image
+  it could not check as unchecked, never as current.
+- **Metrics.** Every 30 seconds it writes host and container samples into `metric_sample`, and folds
+  them into hourly means after 30 days (`docker.metrics` in `steward.yml`).
+- **Backups.** `pg_dump` inside the postgres container, then the volumes as zstd tars read back once
+  before the rename from `.partial`. The nightly clock only writes a request row. There is no offsite
+  copy.
+- **Payments.** It is the only container holding a bunq credential. `NORDTAL_STEWARD_BUNQ_API_KEY`
+  and `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID` are set together or not at all, and every start logs one line
+  saying whether bunq is on. `bunq-context` is regenerated after a move, never copied.
 
 ## Configuration
 
-One file, `config/steward.yml`, one namespace `NORDTAL_STEWARD_*`. The environment wins over the file
-and is never written back. Its defaults are the real values — the repositories, project ids and
-platform versions are facts about this project, not about a deployment.
-
-**Which release it follows is not a setting.** There is no `season-release` key and no environment
-variable for it, and no way to pin a tag. Every repository is read through GitHub's
-`/releases/latest`, and the resolved tag is printed on every run.
-
-That endpoint **skips drafts and pre-releases** by GitHub's own definition. It is what we want and it
-is the one trap left: a release sitting as a draft is invisible here, so an update that "did not
-arrive" is usually a release nobody pressed Publish on. Check the releases page first.
-
-**There is no rollback.** A bad release is corrected by publishing a better one. That is the same
-trade this project already took on the Paper build, and the same reasoning: a pin is a version number
-kept somewhere other than `gradle.properties`, and every one of those this repository kept went
-stale.
-
-## What it owns
-
-The database schema, every plugin jar, the server jars in `.server/`, and the proxy's `pack.yml`. The
-schema and the versions are one thing — a release that adds a table is a release that adds a
-migration — which is the argument for one owner rather than two. Migrations run **before** any jar
-moves, and a failed migration stops the run before anything is fetched.
-
-It also owns the bot's jar and its own; both containers fall back to the jar baked into their image
-only while the volume is empty. No process replaces the jar it is executing, so an update that
-brings a newer worker is **handed to it**: the run places only that jar, before the standbys, the
-countdown or any stop, puts the request back into the inbox and exits. Docker starts the container
-again on the new jar, which migrates at startup and carries out the rest of the same request. A
-release's migrations are therefore always applied by that release, never by the worker before it —
-the other order let a worker migrate to the schema it knew and then start a bot built against one
-more. The version comes from the jar's manifest; a worker that finds a run handed to a version other
-than its own refuses it rather than restarting in a loop.
-
-It does not own worlds or anything a player built.
-
-## The bank
-
-This is the **only container in the network that holds a bunq credential**, and the only one that
-makes an HTTP call to bunq: `discord-bot` is a process with a gateway connection to a third party and
-a permanent invitation for strangers to press its buttons, which is not where a bank credential
-belongs.
-
-Two variables, `NORDTAL_STEWARD_BUNQ_API_KEY` and `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`, and they are
-**optional together**: a season without a bank account is a season where everything works except
-buying access. Half of one is refused at startup by name, because that is always a setup that stopped
-in the middle — or an environment file renamed in one place and not the other.
-
-**The one line.** Because the pair is optional, a file still carrying the old `NORDTAL_BOT_BUNQ_*`
-names produces a stack in which every container is healthy, every log is quiet, and no payment is
-ever noticed again. There is no error to find. So this container says which of the two it is, in one
-sentence, on every start:
-
-```
-INFO  bunq is ON: payments on monetary account 123456 are polled every 30s, and this container is
-      the only one that holds the key.
-WARN  bunq is OFF: bunq.api-key and bunq.account-id are both empty in steward.yml
-      (NORDTAL_STEWARD_BUNQ_API_KEY / NORDTAL_STEWARD_BUNQ_ACCOUNT_ID), so no payment link can be
-      created and no payment will ever be noticed. ...
-```
-
-Read it after any deploy that touched those variables. It is also written into `bot_setting` so that
-`discord-bot`, which has no bunq configuration of its own any more, can repeat it in its own startup
-listing rather than claiming everything is configured.
-
-**The seam.** The bot writes a row; this container acts on it and writes the answer back. Five steps
-per pass, each guarded on its own so one bad bank call cannot cost the rest: expire what is overdue,
-create the tabs somebody asked for, cancel the tabs somebody asked to go away, match payments by tab,
-match the remainder by `NT-XXXXXX` reference. Every write publishes on `nordtal_payment`, both
-processes listen on it, and **the poll is still the guarantee** — the notification only decides when.
-
-**`bunq-context` is regenerated, never copied.** bunq binds an installed key to a device and an IP,
-so a context file created by another container — or on a laptop — is refused by the API, and the
-refusal appears inside a poll rather than at startup. The volume moved here from `discord-bot`; its
-contents did not.
-
-## The two surfaces
-
-Nothing calls this container — it is reached through the database. `/update` in Discord and in game
-write a row into `update_request` and read the answer back from it. `serve` holds a
-`LISTEN nordtal_update` connection outside its pool _and_ polls every fifteen seconds: the poll is the
-guarantee, the notification is the speed.
-
-A restart is written with an instant sixty seconds out and the proxy counts every player down to it.
-The worker refuses to claim the row before that instant, so the countdown is real and cancellable for
-its whole length.
-
-The restart itself is **one stop and one start per container**, and **not** a project-wide redeploy:
-that does both in a single request and would take this container down with everything else, leaving
-nothing to report whether the network came back.
-
-It goes over the Docker socket: one `GET /containers/json` filtered to the compose project, one
-inspect per container for its state and health, then `POST /containers/{id}/stop` and `/start`. A run
-that **cannot read the container runtime** refuses **before** a version is resolved or a file is
-touched, and says so by name.
-
-## The docker socket
-
-**It is mounted here, and nowhere else in this deployment.** The part that must not hold the socket
-is the **web interface**, because that is what an attacker reaches first. This container already
-downloads files from the internet and puts them where servers execute them; the socket does not
-widen that.
-
-What it does with it:
-
-|                 |                                                                                                                                                        |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| reads           | state, health, image, uptime, CPU and memory per container, the log stream, `/system/df`                                                               |
-| asks a registry | `GET /distribution/{ref}/json` against the image's own digests, to check for drift                                                                     |
-| writes          | one stop, one start, and `mc <command>` into the four Minecraft consoles                                                                               |
-| **refuses**     | creating a container. That needs the compose file, which `steward-deployer` owns, and a container rebuilt from an inspect would drift from it silently |
-
-`:ro` on the mount would be theatre: it restricts the socket _file_, not the API behind it. The
-restraint is in the code — `DockerOps` — and in the fact that `steward-ui` has no socket at all.
-
-Without the socket nothing here fails. The drift check and the metrics report that they **could not
-look**, which is a different answer from _everything is current_ — and confusing those two is
-precisely what let four releases run behind unnoticed.
-
-## The curves
-
-Every 30 seconds `serve` writes one row per series into `metric_sample`: the host's load, CPU,
-memory and disk, and CPU and memory per container. Eleven series, about 32 000 rows a day, some
-60 MB after 30 days — after which raw samples become hourly means, a thirtieth of the size with the
-year still in them.
-
-That table is dumped with the rest of the database, so **the retention is also a decision about how
-big every backup is**. It is `docker.metrics` in `steward.yml`, and turning it off costs the start
-page its curves and nothing else.
-
-## The backup
-
-Two halves, because a database and a world are not the same problem.
-
-**The database is dumped, not tarred.** `pg_dump` inside the postgres container — inside, so the
-client can never be older than the server it dumps, which is a refusal rather than a warning. It
-takes an MVCC snapshot, so it is consistent as of the moment it starts and **nothing has to be
-stopped for it**: it runs before the servers go down, which is minutes off the outage for free.
-
-**The volumes are tarred** from read-only mounts, piped through `zstd`, into `/backups`, and read back
-once to check the archive. `-1` and not `-3`: region files are already deflated, so a higher
-compression level buys little size for real downtime.
-
-Both write `<name>.partial` and rename only after the archive has been read back. A half-written
-file that looks like every other one is worse than none: it is the one the retention sweep keeps
-and the one a restore picks.
-
-**Saved means a file exists.** Every line in the report carries the size and the duration, and a
-volume that produced nothing is FAILED even if every call succeeded, so a successful-looking run that
-saved zero volumes is still visible as a failure.
-
-**The nightly clock lives here.** It writes a request row and nothing else; everything after that row
-is the path `/backup now` already took. A season with `smp` down still gets a backup, because nothing
-about scheduling it depends on `smp` running. The farm world reset does not trust a clock either; it
-asks the database whether a backup actually succeeded.
-
-**What is not built: the offsite copy.** Every archive is on the same disk as the thing it is a copy
-of. Fourteen of them protect against a mistake and against nothing else. There is deliberately no
-untested S3 path in this code.
-
-## The images
-
-A `start` hands a container back to Docker on exactly the image it was created from. So the jars move
-and `entrypoint.sh`, the JRE under it and every change to `compose.yml` stay on whatever was pulled
-at the last deploy — for ever, because nothing on the automatic path ever pulls. Two steps close
-that: the drift check reads which services have moved past their image, and a recreate pulls one
-service's image and brings its container back from it.
-
-The drift read happens **before anything is stopped**, so a stale image is a row in the plan a person
-confirms rather than a step discovered after they said yes to something else. A service it names is
-then **recreated** instead of started, one service at a time, and the report says which. Volumes are
-not touched on that path.
-
-- **Three answers, never two.** Newer in the registry, the same, or _could not be asked_ — the last
-  is a named note and never a quiet "up to date", because a check that silently reports "current"
-  when it could not actually look is how a network runs releases behind without anyone noticing. An
-  image that cannot be checked is one built on this host and pushed nowhere, or a registry that did
-  not answer; credentials are not among the reasons, because all three `ghcr.io/nordtal` packages are
-  public.
-- **The worker never recreates itself**, for the reason it never stops itself: the call would end
-  the run from inside. Its own stale image is a note saying the project has to be redeployed from
-  the host.
-- **Nor anything it does not own.** `postgres` and the backup sidecar are named in a note and left
-  alone — a sequence that recreates a container it never stopped is one nobody can predict from the
-  report they confirmed.
-- **The recreate is not this container's to perform.** `DockerOps.recreate` refuses: creating a
-  container needs the compose file, which `steward-deployer` owns. It is also why each
-  recreate is reported _before_ it is asked for — a `compose up` that considers this container a
-  diverged dependency can end the run from the outside, and the last line written is then the whole
-  diagnosis.
+`config/steward.yml`, overridable as `NORDTAL_STEWARD_*`. Its defaults are the real values.
 
 ## Tests
 
-`./gradlew :steward-worker:test` — no network, no container. Fixtures in `src/test/resources/fixtures/` were
-recorded from the live GitHub, Modrinth and PaperMC APIs. `TopologyTest` reads the real `compose.yml`,
-so a backend added there and not to `Topology` fails the build. The migration is covered from the
-other side by `:discord-bot`'s `SchemaCheckTest` against a real PostgreSQL.
-
-`ImageResultTest` holds the two sentences a person reads when an image could not be compared. They
-are not log lines — they go into a Discord embed and into `/smp update`'s output, and they are the
-only thing between _"nobody could look at this"_ and _"this is current"_.
+`./gradlew :steward-worker:test` needs no network. Fixtures in `src/test/resources/fixtures/` were
+recorded from the live GitHub, Modrinth and PaperMC APIs, and `TopologyTest` reads the real
+`compose.yml`.
 
 ## Output
 
-The report goes to **stdout**, every log line to **stderr**. That separation is why this module has
-its own `logback.xml`, and why it uses `<encoder>` rather than `<layout>` — a deprecated `<layout>`
-makes logback print its startup status report on stdout, on top of the thing a person is meant to
-read.
+The report goes to stdout and every log line to stderr, which is why this module has its own
+`logback.xml`.

@@ -10,14 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A {@link ContainerOps} that answers from a map instead of from a Docker daemon.
- *
- * Everything the update sequence does is an ordering decision, and the only way to see one is to record the calls.
- * {@link #calls} is that record, in order: {@code stop:smp}, {@code backup:mc-smp}, {@code start:smp}. A backup
- * run's whole correctness is that middle entry sitting between the other two - a snapshot taken of a server that is
- * still running fails at RESTORE and nowhere else.
- */
+/** A {@link ContainerOps} that answers from a map and records every call in order in {@link #calls}. */
 final class FakeContainers implements ContainerOps {
 
     /** Every stop and start, in the order they were asked for. */
@@ -35,7 +28,7 @@ final class FakeContainers implements ContainerOps {
     /** service -> what the drift check found. Absent means UNKNOWN, which is never work. */
     private final Map<String, ImageResult.State> images = new LinkedHashMap<>();
 
-    /** Services whose deploy or recreate is refused - a 404 on the project id, a pull that failed. */
+    /** Services whose deploy or recreate is refused, like a 404 on the project id or a failed pull. */
     private final java.util.Set<String> recreateRefused = new java.util.LinkedHashSet<>();
 
     /** volume -> what it settles as. Absent means "succeeds". */
@@ -59,7 +52,7 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
-    /** These were checked and are current - which is not the same as never checked. */
+    /** These were checked and are current, which is not the same as never checked. */
     FakeContainers imageCurrent(final String... names) {
         for (final String name : names) {
             images.put(name, ImageResult.State.UP_TO_DATE);
@@ -76,12 +69,7 @@ final class FakeContainers implements ContainerOps {
     /** Services whose container comes up and never passes its healthcheck. */
     private final java.util.Set<String> neverHealthy = new java.util.LinkedHashSet<>();
 
-    /**
-     * These come back {@code running} and {@code unhealthy}, for ever.
-     *
-     * The interesting failure of a standby: the container exists, compose is happy, and the plugin inside it threw in
-     * {@code onEnable}. A run that reads "it started" rather than "it is back" would park every player on it.
-     */
+    /** These come back {@code running} and {@code unhealthy} for ever, like a standby whose plugin failed to enable. */
     FakeContainers neverHealthy(final String... names) {
         neverHealthy.addAll(List.of(names));
         return this;
@@ -125,7 +113,7 @@ final class FakeContainers implements ContainerOps {
         return RedeployResult.triggered("HTTP 200");
     }
 
-    /** The daemon is not answering at all - the case the whole run must refuse to start on. */
+    /** The daemon is not answering at all, which the whole run must refuse to start on. */
     FakeContainers unreachable() {
         reachable = false;
         return this;
@@ -137,19 +125,13 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
-    /**
-     * These stops are accepted and nothing can say how they ended - the run 23 shape.
-     *
-     * Docker's stop call succeeds whether the server shut down or was killed at the end of the grace period, so the
-     * real client inspects the container afterwards; this is the case where that inspect itself fails. The
-     * container is stopped, and whether the world had finished writing is a question nobody can answer any more.
-     */
+    /** These stops are accepted, but the inspect afterwards fails, so nothing can say how they ended. */
     FakeContainers stopUnverified(final String... names) {
         stopUnverified.addAll(List.of(names));
         return this;
     }
 
-    /** A service that is up but whose plugin died - running, unhealthy. The interesting failure. */
+    /** A service that is up but whose plugin died: running, unhealthy. */
     void sick(final String service) {
         services.put(service, new ServiceRuntime(service, service + "-container", "running", "unhealthy"));
     }

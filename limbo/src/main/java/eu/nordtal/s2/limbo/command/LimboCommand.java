@@ -22,20 +22,7 @@ import org.bukkit.plugin.Plugin;
 /**
  * The waiting room's Brigadier trees: its one command, and everything another process runs.
  *
- * <b>Two things this fold fixed rather than moved</b>
- *
- * - The reply was rendered against <b>the Minecraft client's own language</b> ( {@code player.locale()}), which
- *   docs/i18n.md forbids in as many words: a player's language is {@code discord_user.locale}, mirrored from their
- *   Discord onboarding role, and the client's setting is consulted nowhere in this repository. It now goes through
- *   {@link PlayerLocales} like every other reply.
- *
- * - The gate was the {@code limbo.admin} permission node - the only one this repository owned. It is now the same
- *   admin flag as everywhere else; see {@link LimboCommands} for why that loses nothing.
- *
- * <b>Why this server registers other processes' commands too</b>
- *
- * It is the one place an admin can be while a backend is unreachable: every login on the network crosses limbo. So
- * {@code /smp reload} and {@code /hg start} are reachable from here, as rows.
+ * Every login crosses limbo, so it is where an admin can reach {@code /smp reload} while a backend is down.
  */
 public final class LimboCommand {
 

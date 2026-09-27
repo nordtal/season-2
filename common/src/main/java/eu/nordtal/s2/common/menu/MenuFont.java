@@ -12,9 +12,7 @@ import java.util.Properties;
 
 /**
  * The five-pixel alphabet the row fonts draw, and how wide text written in it is.
- *
- * The advances come from our own sheet. Text is folded to capitals except ß, and a character the sheet
- * lacks becomes {@code ?}, so every computed width stays correct.
+ * Text is folded to capitals except ß, and a character the sheet lacks becomes {@code ?}.
  */
 public final class MenuFont {
 
@@ -30,34 +28,23 @@ public final class MenuFont {
 
     private MenuFont() {}
 
-    /** @return how far {@code codePoint} moves the cursor in a row font, or 0 if it has none */
+    /** Returns how far {@code codePoint} moves the cursor in a row font, or 0 if it has none. */
     public static int advance(final int codePoint) {
         return TABLE.getOrDefault(codePoint, 0);
     }
 
-    /** @return true when the row fonts declare {@code codePoint} */
+    /** Returns whether the row fonts declare {@code codePoint}. */
     public static boolean covers(final int codePoint) {
         return TABLE.containsKey(codePoint);
     }
 
-    /**
-     * Folds one character onto the sheet's alphabet.
-     *
-     * @return the character the row fonts would draw for {@code character}
-     */
+    /** Returns the character the row fonts would draw for {@code character}. */
     public static char fold(final char character) {
         final char upper = Character.toUpperCase(character);
         return covers(upper) ? upper : UNKNOWN;
     }
 
-    /**
-     * Folds a whole string - the one place text becomes drawable, and the one place it is measured.
-     *
-     * Everything a caller hands to a row is passed through this first, so that
-     * {@link #width(String)} is measuring the same characters that will be drawn. Measuring the
-     * unfolded string and drawing the folded one is the way a right-aligned number ends up a
-     * pixel or two out for exactly the names that contain something unusual.
-     */
+    /** Folds a whole string, the one place text becomes drawable and the one place it is measured. */
     public static String fold(final String text) {
         final StringBuilder out = new StringBuilder(text.length());
         for (int index = 0; index < text.length(); index++) {
@@ -66,17 +53,13 @@ public final class MenuFont {
         return out.toString();
     }
 
-    /** @return the cursor's displacement after drawing {@code text}, which must already be folded */
+    /** Returns the cursor's displacement after drawing {@code text}, which must already be folded. */
     public static int width(final String text) {
         return text.codePoints().map(MenuFont::advance).sum();
     }
 
     /**
      * Shortens {@code text} until it fits {@code pixels}, ending it in two dots when it does not.
-     *
-     * Two dots rather than an ellipsis because the sheet has no ellipsis, and two dots rather
-     * than one because one reads as a full stop. The text is folded first, so the width measured
-     * here is the width drawn.
      *
      * @param text   any string, folded here
      * @param pixels the space available, in GUI pixels
@@ -93,7 +76,7 @@ public final class MenuFont {
         return shorter.stripTrailing() + "..";
     }
 
-    /** @return the whole table, code point to advance - for tests, and for nothing else */
+    /** Returns the whole table, code point to advance, for tests. */
     public static Map<Integer, Integer> table() {
         return Map.copyOf(TABLE);
     }

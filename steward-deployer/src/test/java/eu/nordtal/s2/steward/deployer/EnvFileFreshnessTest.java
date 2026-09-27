@@ -13,18 +13,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * A rotated env file behind a stale FILE bind mount, and the one signal that catches it.
+ * A rotated env file behind a stale file bind mount is refused on its zero link count, and nothing else.
  *
- * A host rotation after the container started leaves this process reading a deleted file forever,
- * silently. The one signal that survives the mount is the orphaned inode's own link count, which
- * drops to zero - this class is what makes {@link Compose#assertEnvFileFresh()} refuse on that
- * signal, and never anything else.
- *
- * These tests need no Docker daemon and no real bind mount, on purpose, the same way
- * {@link ComposeRefusesItselfTest} needs none: a real orphaned inode only exists behind an actual
- * mount, and faking the link count is what lets the refusal itself be exercised in a plain JVM. A
- * real file on disk, with its real (healthy) link count, is used for the "nothing wrong" case so the
- * fake is only ever standing in for the one number this class cannot otherwise get to zero.
+ * The link count is faked, since a real orphaned inode needs a real mount.
  */
 class EnvFileFreshnessTest {
 
@@ -59,7 +50,7 @@ class EnvFileFreshnessTest {
 
     @Test
     void theRealPosixBackedLinkCountOfAnOrdinaryFileIsNotZero() throws IOException {
-        // No fake here: the default LinkCounter this class wires in must read an ordinary file as healthy too.
+        // No fake: the default LinkCounter must read an ordinary file as healthy too.
         tempEnvFile = Files.createTempFile("env-file-", ".env");
         Files.writeString(tempEnvFile, "DEMO_VALUE=before\n");
         final Compose compose = new Compose(Path.of("/app/compose.yml"), tempEnvFile, Path.of("/app"), "nordtal-s2");

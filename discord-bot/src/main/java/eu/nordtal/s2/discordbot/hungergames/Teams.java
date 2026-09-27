@@ -9,14 +9,9 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
 /**
- * Team registration over {@code hg_game} / {@code hg_team} / {@code hg_member}, from the Discord side.
+ * Team registration over {@code hg_game}, {@code hg_team} and {@code hg_member}, from the Discord side.
  *
- * Registration needs no admin to start anything: {@link #openGame()} creates the one non-DECIDED {@code hg_game} row
- * lazily, on the first attempt. {@code hg_game_one_open_key} makes that safe under a race - the loser re-reads the
- * row the winner created.
- *
- * Every check here is also a schema constraint. The Java checks exist only to answer with a specific result rather
- * than a generic failure; a race that slips past them still cannot write a bad row.
+ * Every check is also a schema constraint; the Java checks only choose a specific result.
  */
 public final class Teams {
 
@@ -31,7 +26,7 @@ public final class Teams {
         this.dao = jdbi.onDemand(HungerGamesDao.class);
     }
 
-    /** @return the id of the one open (non-DECIDED) game, creating it if none exists yet */
+    /** Returns the id of the one open game, creating it if none exists yet. */
     public UUID openGame() {
         final Optional<UUID> existing = dao.openGameId();
         if (existing.isPresent()) {
@@ -40,7 +35,7 @@ public final class Teams {
         try {
             return dao.createGame();
         } catch (final UnableToExecuteStatementException exception) {
-            // hg_game_one_open_key: somebody else's first registration created it a moment ago.
+            // Somebody else's first registration created it a moment ago.
             if (isUniqueViolation(exception)) {
                 return dao.openGameId().orElseThrow(() -> exception);
             }
@@ -52,7 +47,7 @@ public final class Teams {
      * Registers a new team with {@code discordId} as its owner.
      *
      * @param discordId the registering Discord account
-     * @param name      the team name, 3-15 characters, unique within the open game
+     * @param name the team name, 3 to 15 characters, unique within the open game
      */
     public RegistrationResult register(final String discordId, final String name) {
         final String trimmed = name == null ? "" : name.strip();
@@ -82,7 +77,7 @@ public final class Teams {
             return RegistrationResult.registered(teamId);
         } catch (final UnableToExecuteStatementException exception) {
             if (isUniqueViolation(exception)) {
-                // Either unique key: somebody else's registration landed between the check above and this transaction.
+                // Somebody else's registration landed between the check above and this transaction.
                 return dao.activeMembershipId(gameId, discordId).isPresent()
                         ? RegistrationResult.alreadyRegistered()
                         : RegistrationResult.nameTaken();
@@ -138,7 +133,9 @@ public final class Teams {
     }
 
     /**
-     * @param memberId          the INVITED row's id, carried by the accept button
+     * Accepts an invite on behalf of the invited account.
+     *
+     * @param memberId the INVITED row's id, carried by the accept button
      * @param respondingDiscordId only this account's own invite can be answered with it
      */
     public AnswerResult accept(final UUID memberId, final String respondingDiscordId) {
@@ -149,7 +146,7 @@ public final class Teams {
         return AnswerResult.answered(teamId, dao.teamName(teamId).orElseThrow());
     }
 
-    /** @see #accept(UUID, String) */
+    /** Declines an invite, with the same rules as {@link #accept(UUID, String)}. */
     public AnswerResult decline(final UUID memberId, final String respondingDiscordId) {
         if (dao.decline(memberId, respondingDiscordId) != 1) {
             return AnswerResult.notPending();
@@ -158,12 +155,12 @@ public final class Teams {
         return AnswerResult.answered(teamId, dao.teamName(teamId).orElseThrow());
     }
 
-    /** @return the account's language, English when nothing is known about it yet */
+    /** Returns the account's language, English when nothing is known yet. */
     public Locale localeOf(final String discordId) {
         return Locales.parse(dao.localeOf(discordId).orElse(null));
     }
 
-    /** @return the OWNER of a team, so an invite's accept/decline can be reported back to them */
+    /** Returns the OWNER of a team, to report an answer to an invite back to. */
     public Optional<String> ownerOf(final UUID teamId) {
         return dao.ownerDiscordId(teamId);
     }

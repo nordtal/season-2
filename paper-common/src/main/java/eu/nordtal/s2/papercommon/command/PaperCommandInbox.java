@@ -18,15 +18,7 @@ import org.bukkit.plugin.Plugin;
 /**
  * A Paper plugin's end of the command channel: the inbox, its poll, and its wake-up.
  *
- * Renders with {@code :commands}' own bundle, loaded on its own, not the plugin's layered
- * {@code Messages}: the module's bundle is allowed MiniMessage, which would reach a Discord admin
- * as a literal {@code <green>}. The shared bundle carries no markup at all, so one string is
- * correct on both surfaces.
- *
- * The poll here is a few seconds, shorter than the admin roster's: the asker gives up after
- * thirty seconds, so a missed notification would answer a command exactly when nobody is listening
- * any more. It costs a query against a partial index on a table that is empty almost all of the
- * time.
+ * It renders with the markup-free {@code :commands} bundle, since the same answer may reach Discord.
  */
 public final class PaperCommandInbox {
 
@@ -39,8 +31,7 @@ public final class PaperCommandInbox {
     /**
      * @param here     which process this is
      * @param requests the shared table
-     * @param access   how the admin flag is re-read after a row is claimed - which is a second check
-     *                 and not a duplicate, because the flag can change while a request waits
+     * @param access   re-reads the admin flag after a row is claimed, since it can change while a request waits
      */
     public PaperCommandInbox(
             final Plugin plugin, final Target here, final CommandRequests requests, final AccessDirectory access) {
@@ -66,21 +57,9 @@ public final class PaperCommandInbox {
     }
 
     /**
-     * The shared command bundle, alone - and the operator's override on top of it.
+     * Loads the shared command bundle with the operator's override, and no other layer.
      *
-     * Loaded off the plugin's own class loader because {@code :commands} is shaded into it, so
-     * this is the copy that shipped with this build, and a version skew shows up as an unknown key
-     * rather than as a message from another release.
-     *
-     * <b>Alone means one root, not no overrides.</b> Layering has to be avoided here because the
-     * module's own bundle is allowed MiniMessage; the override directory is the operator's single
-     * lever over wording, and it must reach the answer a command gives in chat as well as the one it
-     * gives to a Discord admin.
-     *
-     * The plugin should keep what this returns and reload it wherever it reloads its own, which
-     * is what {@link #reloadMessages()} is for. It should <em>not</em> report this bundle's unknown
-     * override keys: a key only the module declares is not unknown, it is simply in the other
-     * bundle, and the plugin's layered {@code Messages} already names the genuinely unknown ones.
+     * Reload it with the plugin's own; its unknown override keys belong to the module, so do not report them.
      */
     public static Messages sharedBundle(final Plugin plugin) {
         return Messages.load(
@@ -92,10 +71,7 @@ public final class PaperCommandInbox {
     }
 
     /**
-     * Re-read the shared bundle and its override.
-     *
-     * For the plugin's own reload command to call next to its own reload. Without it the answers
-     * this inbox writes back keep the wording the process started with, for as long as it runs.
+     * Re-reads the shared bundle and its override, next to the plugin's own reload.
      *
      * @return whether the running wording is now what the files say
      */
@@ -108,18 +84,13 @@ public final class PaperCommandInbox {
         }
     }
 
-    /** Make a command runnable here. Effects must run their work inline - the inbox checks. */
+    /** Makes a command runnable here; its effects must run their work inline. */
     public <E extends CommandEffects> PaperCommandInbox register(final NordtalCommand<E> command, final E effects) {
         inbox.register(command, effects);
         return this;
     }
 
-    /**
-     * Start looking.
-     *
-     * Async, always: {@link CommandInbox#drain()} claims rows and runs commands, and the whole
-     * point of the effects layer is that whatever needs the main thread asks for it itself.
-     */
+    /** Starts looking, always async, since commands ask for the main thread themselves. */
     public void start(final Plugin plugin) {
         final long ticks = Math.max(20L, POLL.toSeconds() * 20L);
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, inbox::drain, ticks, ticks);
@@ -127,17 +98,17 @@ public final class PaperCommandInbox {
                 .info("the command inbox is listening for " + inbox.size() + " command(s) from other processes");
     }
 
-    /** The wake-up, to hand to {@link eu.nordtal.s2.papercommon.access.AdminWatch}'s listener. */
+    /** Returns the wake-up, for {@link eu.nordtal.s2.papercommon.access.AdminWatch}'s listener. */
     public List<NotificationListener.Refresh> refreshes() {
         return List.of(new NotificationListener.Refresh("the command inbox", inbox::drain));
     }
 
-    /** The channel that wake-up listens on. */
+    /** Returns the channel that wake-up listens on. */
     public List<String> channels() {
         return List.of(Channels.COMMAND);
     }
 
-    /** How many commands this process can be asked to run. */
+    /** Returns how many commands this process can be asked to run. */
     public int size() {
         return inbox.size();
     }

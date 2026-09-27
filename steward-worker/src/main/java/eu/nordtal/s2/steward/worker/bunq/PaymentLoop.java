@@ -13,47 +13,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What drives {@link Payments}: a poll, and a {@code LISTEN nordtal_payment} that makes it feel immediate.
+ * Drives {@link Payments} with a poll, and a {@code LISTEN nordtal_payment} that makes it feel immediate.
  *
- * The poll is the guarantee: The same rule as everywhere else in this network. A notification is lost while a
- * process is disconnected and is never repeated, so the timer below runs whatever happens, and
- * {@link NotificationListener} runs the same pass on every connect and every reconnect before it waits for anything.
- * The signal only decides when, never what - the payload is empty and the pass re-reads both queues in full.
- *
- * Why this does not contradict "serve is not a scheduler": That rule is about versions: a crash restart at three in
- * the morning must not move a jar. This loop moves nothing and installs nothing - it asks a bank what has arrived
- * and writes rows, which is the same poll {@code discord-bot} has run on a timer since the first deployment. It is
- * here rather than there because the bunq key is here.
- *
- * One pass at a time: The timer thread and the listener thread both call {@link Payments#pass()}, and a pass makes
- * HTTP calls to a bank that can take a bounded but real amount of time. The lock is what keeps a notification
- * arriving mid-pass from starting a second one alongside it - which would not corrupt anything (every write is
- * guarded by the schema) but would ask bunq the same questions twice. {@code tryLock} rather than {@code lock}: a
- * pass that is already running is about to read the same rows, so the second caller has nothing to add by waiting
- * for it.
+ * The poll is the guarantee; a {@code tryLock} keeps a notification mid-pass from starting a second pass.
  */
 @Slf4j
 public final class PaymentLoop implements AutoCloseable {
 
-    /**
-     * One pass.
-     *
-     * A {@link Runnable} and not a {@link Payments}, for one reason: what is worth testing about this class is that
-     * two callers produce one pass, and a {@code Payments} cannot be built without a bunq gateway and a database.
-     * The public entry point below still takes the real type, so nothing outside this file can pass something that
-     * is not the payment pass.
-     */
+    /** One pass, as a {@link Runnable} so a test can count passes without a bank or a database. */
     private final Runnable work;
 
     private final ScheduledExecutorService timer;
     private final ReentrantLock running = new ReentrantLock();
 
-    /**
-     * Set once, immediately after construction.
-     *
-     * Only because the listener has to be handed {@code this::pass} - the two genuinely refer to each other.
-     * Volatile rather than final so {@link #close()} on another thread sees it.
-     */
+    /** Set once after construction, since the listener and this loop refer to each other. */
     private volatile @Nullable NotificationListener listener;
 
     PaymentLoop(final Runnable work, final ScheduledExecutorService timer) {
@@ -64,10 +37,9 @@ public final class PaymentLoop implements AutoCloseable {
     /**
      * Starts both halves.
      *
-     * @param payments  the work
-     * @param connector how to open a {@code LISTEN} connection; a dedicated one, never the pool's -
-     *                  {@code LISTEN} is session state and a pool hands sessions back out
-     * @param poll      how often to ask bunq regardless of any notification
+     * @param payments the work
+     * @param connector opens a dedicated {@code LISTEN} connection, never the pool's
+     * @param poll how often to ask bunq regardless of any notification
      * @return the running loop, to be closed with the container
      */
     public static PaymentLoop start(
@@ -87,17 +59,12 @@ public final class PaymentLoop implements AutoCloseable {
                 poll);
         loop.listener.start();
 
-        // Zero initial delay: the first pass drains anything left over from the previous container's notifications.
+        // Zero initial delay drains anything left from the previous container.
         final var _ = timer.scheduleWithFixedDelay(loop::pass, 0, poll.toSeconds(), TimeUnit.SECONDS);
         return loop;
     }
 
-    /**
-     * One pass, unless one is already running.
-     *
-     * Package-visible and not private so the test can call it without a bank, a database or a clock: what is worth
-     * testing here is that two callers produce one pass.
-     */
+    /** Runs one pass, unless one is already running. */
     void pass() {
         if (!running.tryLock()) {
             log.debug("A payment pass is already running; this wake-up adds nothing");

@@ -24,16 +24,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Which Modrinth project a jar on the disk came from, told by its hash.
+ * Which Modrinth project a jar on the disk came from, told by its SHA-512.
  *
- * The plugins the network gives carry no row, so their name, picture and link have to come from somewhere else, and
- * the file name is not it: {@code voicechat-bukkit-2.6.24.jar} does not say "Simple Voice Chat". Modrinth answers a
- * file's SHA-512 with the version it belongs to, so a jar Modrinth published is recognised whoever put it there, and
- * one it never published - the Nordtal jars, display-tags from GitHub - is recognised as not being one.
- *
- * Nothing here may slow the list down or break it. A hash is computed once per file and size, a hash's project is
- * asked once and kept (a published file never changes owner), and a project's name and icon are kept for a day. When
- * Modrinth cannot be reached, the jar is simply not identified this time and is asked about again on the next call.
+ * Hashes and projects are cached, names and icons for a day; an unreachable Modrinth only leaves a jar unnamed.
  */
 final class JarIdentity {
 
@@ -60,7 +53,7 @@ final class JarIdentity {
         this.clock = clock;
     }
 
-    /** The Modrinth project of each jar Modrinth published, keyed by file name. Never throws. */
+    /** The Modrinth project of each jar Modrinth published, keyed by file name; never throws. */
     Map<String, Modrinth.Project> identify(final List<Installation.Jar> jars) {
         final Map<String, String> projectOfJar = new LinkedHashMap<>();
         for (final Installation.Jar jar : jars) {
@@ -94,7 +87,8 @@ final class JarIdentity {
 
     /**
      * Name and icon of each of these Modrinth projects, keyed by id, from the same day-long cache.
-     * Never throws: an id Modrinth could not be asked about is simply missing from the answer.
+     *
+     * Never throws: an id Modrinth could not be asked about is missing from the answer.
      */
     Map<String, Modrinth.Project> projects(final java.util.Collection<String> ids) {
         final Instant now = clock.get();

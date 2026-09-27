@@ -13,13 +13,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Builds the disconnect and chat components the login gate, the expiry check and the phase router show.
- *
- * So that {@link LoginGate} and {@link ExpiryWatch} stay about deciding what happens.
- *
- * The methods the {@code routing} package needs are {@code public}; the rest are package-private.
- */
+/** Builds the disconnect and chat components the login gate, the expiry check and the phase router show. */
 public final class GateMessages {
 
     private final Messages messages;
@@ -30,11 +24,7 @@ public final class GateMessages {
         this.config = config;
     }
 
-    /**
-     * The unlinked screen: English first, German underneath in grey italics.
-     *
-     * Because the account is unknown at this point and there is no locale to pick from.
-     */
+    /** The unlinked screen: English first, German underneath, since the account has no locale yet. */
     Component notLinked(final String code, final @Nullable Instant launch, final @Nullable Instant now) {
         Component result = MessageRenderer.of(messages)
                 .format(Locale.ENGLISH, MESSAGES.gate().notLinked(code))
@@ -54,22 +44,12 @@ public final class GateMessages {
         return withCountdown(result, Locale.ENGLISH, launch, now);
     }
 
-    /**
-     * The account is no longer linked, discovered while the player was already connected.
-     *
-     * Unlike the login screen it carries no fresh link code: issuing one is a database write, and this path is not a
-     * login.
-     */
+    /** The account is no longer linked, found mid-session; unlike the login screen it carries no link code. */
     public Component unlinked(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().unlinked());
     }
 
-    /**
-     * The screen for somebody who arrives between a proxy swap parking the network and it actually stopping.
-     *
-     * It promises nothing about how long, because the proxy saying it is about to stop cannot know when it
-     * comes back.
-     */
+    /** The screen for a login between a proxy swap parking the network and the proxy stopping. */
     public Component restarting(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().restarting());
     }
@@ -100,42 +80,22 @@ public final class GateMessages {
         return result;
     }
 
-    /**
-     * The network is in {@code MAINTENANCE} and there is no {@code limbo} server to hold this player in.
-     *
-     * Not a gate screen: a non-admin is admitted during maintenance and routed to {@code limbo},
-     * where the explanation is shown. This is the fallback for {@code gate.yml#server-limbo} naming
-     * a server the proxy does not have.
-     */
+    /** The {@code MAINTENANCE} fallback for when {@code gate.yml#server-limbo} names no registered server. */
     public Component maintenance(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().maintenance());
     }
 
-    /**
-     * The phase says this player belongs on a server this proxy does not have registered.
-     *
-     * And the phase is not {@code MAINTENANCE} (which has its own screen above). Always a config error -
-     * {@code gate.yml}'s server names not matching {@code velocity.toml}.
-     */
+    /** The phase names a server this proxy does not have: {@code gate.yml} disagrees with {@code velocity.toml}. */
     public Component noServer(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().noServer());
     }
 
-    /**
-     * The network is at {@code network.yml#max-players} and this player is not an admin.
-     *
-     * The numbers are in the text on purpose: "312 of 312" reads as a limit somebody chose, where "full" alone reads as
-     * something broken.
-     */
+    /** The network is at {@code network.yml#max-players} and this player is not an admin. */
     Component full(final Locale locale, final int online, final int max) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().full(online, max));
     }
 
-    /**
-     * {@code PRE_LAUNCH}, linked, nothing bought yet: the invitation to buy the first month now.
-     *
-     * So that the SMP is playable the moment the event ends.
-     */
+    /** {@code PRE_LAUNCH}, linked, nothing bought yet: the invitation to buy the first month now. */
     public Component preLaunchBuy(final Locale locale, final @Nullable Instant launch, final @Nullable Instant now) {
         Component result = MessageRenderer.of(messages)
                 .format(locale, MESSAGES.gate().preLaunch().buy());
@@ -157,11 +117,7 @@ public final class GateMessages {
                 now);
     }
 
-    /**
-     * Appends the countdown line, in grey, with a blank line above it.
-     *
-     * Or nothing at all when there is no countdown to show, which is every phase but {@code PRE_LAUNCH}.
-     */
+    /** Appends the countdown line in grey below a blank line, or nothing when there is no countdown. */
     private Component withCountdown(
             final Component screen, final Locale locale, final @Nullable Instant launch, final @Nullable Instant now) {
         if (now == null) {
@@ -172,12 +128,7 @@ public final class GateMessages {
                 .append(LaunchCountdown.component(messages, locale, launch, now).color(NamedTextColor.GRAY));
     }
 
-    /**
-     * A backend lost this player without a reason, redirected to the waiting room instead of a disconnect screen.
-     *
-     * Velocity shows this component at the moment of the redirect - the only explanation the player gets,
-     * because the path that produced the kick never decided anything to say. See {@link BackendKick}.
-     */
+    /** A backend lost this player without a reason; shown on the redirect to the waiting room. */
     public Component connectionLost(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().connectionLost());
     }

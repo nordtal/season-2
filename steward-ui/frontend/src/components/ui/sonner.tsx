@@ -2,12 +2,7 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CheckCircleIcon, InfoIcon, WarningIcon, XCircleIcon, SpinnerIcon } from "@phosphor-icons/react"
 import type { CSSVars } from "@/lib/utils"
 
-/**
- * The registry version of this file reads the current theme from `next-themes`. This interface has
- * exactly one theme, so the hook (and the dependency) would only ever return "dark" - it is hard
- * coded instead, and the success/warning/error colours are pulled from the three status tokens so
- * a toast cannot disagree with a badge.
- */
+/** The interface has one theme, so this hard codes dark and takes the status colours from the badge tokens. */
 const TOAST_VARS: CSSVars = {
   "--normal-bg": "var(--popover)",
   "--normal-text": "var(--popover-foreground)",

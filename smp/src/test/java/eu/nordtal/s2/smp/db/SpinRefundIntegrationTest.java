@@ -25,26 +25,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * Putting a wheel spin back, against a real PostgreSQL running the real migrations.
  *
- * <b>Why the refund exists</b>
- *
- * The spin is spent in SQL <em>before</em> the prize is drawn and long before the animation draws its first frame -
- * deliberately, because an animation that could stop anywhere else would be a second, disagreeing answer about one
- * spin. The cost of that ordering is two paths that end with a spent row and an empty hand: a player who disconnects
- * between the commit and the next tick, and a {@code wheel-prizes} entry naming an item this server does not know.
- * Both used to log a warning and leave the player a spin poorer; a warning in a console is not something a player
- * can spend.
- *
- * <b>Why it needs a container</b>
- *
- * All three things that can go wrong here are properties of the database, not of Java. {@code last_free} is a
- * nullable {@code date} and the refund of a player's <em>first ever</em> free spin writes {@code null} into it -
- * which is where PostgreSQL answers "could not determine data type of parameter" unless the statement casts, and no
- * in-memory test can tell you that. The free refund has to be idempotent and the earned one has to respect
- * {@code smp_spin_used_not_negative}. And a refund must put back <em>the same kind</em> of spin that was taken:
- * giving an earned spin back as a free one would hand out a spin a day.
- *
- * It <b>skips itself</b> when no Docker daemon is reachable, so a green build on a machine without Docker proves
- * none of it.
+ * A refund restores the same kind of spin, casts its null date and stays idempotent; skips itself without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SpinRefundIntegrationTest {

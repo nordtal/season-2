@@ -25,15 +25,7 @@ import org.slf4j.LoggerFactory;
 /**
  * What happens to an arrival while this proxy is being moved.
  *
- * The rule: nobody is refused any more. An arrival is parked on the standby exactly like
- * everybody who was already connected, and the screen below is what is left when the transfer
- * itself cannot be sent. A player with a seat is coming back <em>from</em> the swap and is not
- * touched at all.
- *
- * As with {@link MisconfiguredGateTest}, the {@code PostLoginEvent} half is not exercised:
- * constructing one needs a Velocity {@code Player}, which only exists on a running proxy. What is
- * worth asserting is the decision, what the player reads on the failure path, and that the language
- * comes out of memory - because that path runs on a process that is seconds from stopping.
+ * Arrivals are parked on the standby; a player with a seat is coming back from the swap and is let in.
  */
 class RestartGateTest {
 
@@ -54,13 +46,13 @@ class RestartGateTest {
 
     @Test
     void theWindowParksRatherThanRefuses() {
-        // The proxy is only unreachable for its own restart; before and after it moves players onto the standby.
+        // The proxy is only unreachable for its own restart; before and after, it parks players on the standby.
         assertEquals(RestartGate.Handling.PARK, RestartGate.decide(true, false));
     }
 
     @Test
     void aSeatIsNeverTouched() {
-        // A held seat is somebody coming back from the swap; refusing them would be the same loop with a nicer name.
+        // A held seat is somebody coming back from the swap; refusing them would loop.
         assertEquals(RestartGate.Handling.LET_IN, RestartGate.decide(true, true));
     }
 
@@ -82,7 +74,7 @@ class RestartGateTest {
 
     @Test
     void theLanguageComesOutOfMemory() {
-        // This runs on a proxy that stops in a moment, so a round trip for a language could outlive it.
+        // This proxy stops in a moment, so a round trip for a language could outlive it.
         locales.remember(PLAYER, german());
         final RestartGate gate =
                 new RestartGate(LOGGER, () -> true, uuid -> false, player -> false, gateMessages, locales);
@@ -111,7 +103,7 @@ class RestartGateTest {
 
     @Test
     void itPromisesNoTime() {
-        // The worker restarts it on the other side of a stop that has not happened yet; a number would be a guess.
+        // The worker restarts it after a stop that has not happened yet, so any time would be a guess.
         for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
             final String raw = messages.get(locale, "gate.restarting");
             assertTrue(raw.matches("(?s).*\\S.*"), raw);
@@ -138,11 +130,7 @@ class RestartGateTest {
                 null);
     }
 
-    /**
-     * A {@link GateSpec} that answers every method with its declared default.
-     *
-     * That is all {@link GateMessages} needs here: the restart screen takes no placeholder and no invite.
-     */
+    /** A {@link GateSpec} that answers every method with its declared default. */
     private static GateSpec defaults() {
         return (GateSpec) Proxy.newProxyInstance(
                 GateSpec.class.getClassLoader(), new Class<?>[] {GateSpec.class}, new NoConfiguration());
@@ -175,7 +163,7 @@ class RestartGateTest {
         }
     }
 
-    /** A bundle value with its MiniMessage tags taken off - what a player reads off this screen. */
+    /** A bundle value with its MiniMessage tags removed, as a player reads it. */
     private static String drawn(final String raw) {
         return raw.replaceAll("</?[a-zA-Z_#][a-zA-Z0-9_:.#'\\-]*>", "");
     }

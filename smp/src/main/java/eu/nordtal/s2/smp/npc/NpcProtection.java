@@ -8,44 +8,9 @@ import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 
 /**
- * Nothing may hurt, burn or shove the figure in the tavern.
+ * Nothing may hurt, burn or shove the figure in the tavern, the only way to fulfil a hand-in.
  *
- * <b>Why {@code setInvulnerable(true)} is not the whole answer</b>
- *
- * {@link org.bukkit.entity.Entity#setInvulnerable(boolean)} is the vanilla invulnerability flag, and vanilla itself
- * carries two documented ways past it: a player in <b>creative mode</b> hits through it - which is what every admin
- * standing next to the NPC is in - and the <b>void</b> ignores it outright. The spawn protection covers blocks and
- * not entities, so it protects nothing here either. The figure is the only way a {@code HAND_IN} objective can be
- * fulfilled, so losing it is losing the milestone track until somebody restarts the server (finding 150).
- *
- * <b>By identity, never by type</b>
- *
- * Every handler asks {@link SpawnNpc#is(java.util.UUID)}. A check on {@code instanceof Mannequin} would protect
- * every mannequin on the server - a decoration somebody built, a mannequin in a player's own base - and turn an
- * ordinary entity into one nobody can ever remove. The figure this plugin placed is the only one it has any business
- * defending.
- *
- * <b>Three events, and each is a different way to lose it</b>
- *
- * - {@link EntityDamageEvent} is the hit, the void, the lava and the drowning. Cancelling it also removes the
- *   knockback that a hit would have applied, because that knockback is a consequence of damage that was dealt.
- *
- * - {@link EntityCombustEvent} is the figure catching fire. Damage being cancelled would leave it standing in flames
- *   for ever - burning without being hurt - which reads as a bug to everybody who walks past it.
- *
- * - {@link EntityKnockbackEvent} is every shove that is <em>not</em> damage: an explosion, a piston, a wind charge.
- *   {@code setImmovable(true)} is what should stop those, and this is the cheap belt to that pair of braces - a
- *   figure that has drifted two blocks is standing inside the tavern wall. Paper's event rather than Bukkit's:
- *   {@code org.bukkit.event.entity .EntityKnockbackEvent} is deprecated for removal on 26.2 and compiling against it
- *   is a warning today and a break on the next platform bump.
- *
- * Deliberately <b>not</b> handled here: {@code PlayerInteractEntityEvent}. The right-click is the whole point of the
- * figure and is owned by {@link NpcListener}; a guard that cancelled interaction would protect the NPC from being
- * used.
- *
- * {@link EventPriority#LOWEST} with {@code ignoreCancelled = false}: this is a refusal, so it should be in place
- * before anything else decides what the damage does, and a plugin that has already cancelled the event agrees with
- * us.
+ * Creative players and the void pass {@code setInvulnerable}; each handler checks {@link SpawnNpc#is}.
  */
 public final class NpcProtection implements Listener {
 

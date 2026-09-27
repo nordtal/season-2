@@ -26,13 +26,9 @@ public record UpdateRequest(
         @Nullable String result) {
 
     /**
-     * How long until this may run, from a caller's clock.
-     *
-     * Clamped at zero rather than going negative: every caller of this is rendering a countdown,
-     * and "-3 seconds" is not a thing to show a player.
+     * Returns the whole seconds until this may run, never negative.
      *
      * @param now the instant to measure from
-     * @return whole seconds remaining, never negative
      */
     public long secondsUntilDue(final Instant now) {
         final long seconds = notBefore.getEpochSecond() - now.getEpochSecond();
@@ -40,17 +36,9 @@ public record UpdateRequest(
     }
 
     /**
-     * The same, to the millisecond.
-     *
-     * <b>Why the whole seconds above are not enough</b>
-     *
-     * The proxy schedules one task per second of the last ten, each on the exact instant its number
-     * is true. Truncating to whole seconds first would put every one of them up to 999 ms early or
-     * late - so the counter would show 3 while 2.1 seconds were left, and the number nobody may
-     * disbelieve would be the one that is wrong.
+     * Returns the time until this may run to the millisecond, never negative, so a per-second countdown lands on time.
      *
      * @param now the instant to measure from
-     * @return milliseconds remaining, never negative
      */
     public Duration untilDue(final Instant now) {
         final Duration left = Duration.between(now, notBefore);

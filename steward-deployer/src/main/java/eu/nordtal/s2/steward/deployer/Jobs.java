@@ -19,39 +19,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A deployment is slow, so it is a job rather than a request.
+ * Runs deployments as jobs, one at a time, so a request answers at once and the output is read as it appears.
  *
- * Pulling four images and recreating a stack takes minutes; an HTTP call that waits for it times
- * out somewhere nobody controls, and the caller is then left not knowing whether the work
- * continued. So a request starts a job and answers immediately with its id, and the interface
- * reads the output as it appears.
- *
- * <b>Jobs live in memory and die with this container.</b> That is a deliberate limit, not an
- * oversight: the durable record of a deployment is the state of the stack itself plus this
- * service's log, and a second store would be another thing to back up and keep consistent. A job
- * whose answer nobody read is a job whose result can be read off {@code docker compose ps}.
+ * Jobs live in memory and die with this container; the stack itself is the durable record.
  */
 public final class Jobs {
 
     private static final Logger log = LoggerFactory.getLogger(Jobs.class);
 
-    /** How many finished jobs are kept. Small on purpose - see the class comment. */
+    /** How many finished jobs are kept. */
     private static final int KEEP = 50;
 
     private final Map<String, Job> byId = new ConcurrentHashMap<>();
     private final List<String> order = new CopyOnWriteArrayList<>();
 
-    /**
-     * How many deployments may be waiting behind the one that is running.
-     *
-     * Small on purpose: an unbounded queue lets a browser holding a button down stack up hundreds
-     * of deployments that each stay {@code RUNNING}, keep their output forever, and then run one
-     * after another for hours against a stack nobody is still asking about. Five is more than
-     * anybody deploys on purpose and small enough that the sixth is obviously a mistake.
-     */
+    /** How many deployments may wait behind the running one before a new one is refused. */
     private static final int WAITING = 5;
 
-    /** One at a time. Two compose runs against one project race for the same containers. */
+    /** One at a time, since two compose runs against one project race for the same containers. */
     private final ExecutorService worker =
             new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(WAITING), runnable -> {
                 final Thread thread = new Thread(runnable, "deployer-job");
@@ -67,7 +52,6 @@ public final class Jobs {
         try {
             submit(job, work);
         } catch (RejectedExecutionException full) {
-            // A refusal the caller can read beats a queue that grows without limit.
             job.append("refused: " + WAITING + " deployments are already waiting behind the one"
                     + " that is running. Wait for them, or read /api/jobs to see what they are.");
             job.finish(-1);
@@ -76,7 +60,7 @@ public final class Jobs {
     }
 
     private void submit(final Job job, final Work work) {
-        // The runnable catches every exception itself, so the future's own result carries nothing new.
+        // The runnable catches every exception itself.
         final var _ = worker.submit(() -> {
             try {
                 final int code = work.run(job::append);
@@ -102,7 +86,7 @@ public final class Jobs {
             final String oldest = order.remove(0);
             final Job job = byId.get(oldest);
             if (job != null && job.state() == State.RUNNING) {
-                // Never drop a job that is still running: its listeners would stop being fed.
+                // Never drop a running job: its listeners would stop being fed.
                 order.add(oldest);
                 return;
             }
@@ -129,7 +113,7 @@ public final class Jobs {
         private final Instant started = Instant.now();
         private final List<String> lines = new CopyOnWriteArrayList<>();
         private final List<Consumer<String>> listeners = new CopyOnWriteArrayList<>();
-        /** Guards "write a line" against "start watching", so neither can happen inside the other. */
+        /** Guards writing a line against starting to watch, so a reconnect never misses one. */
         private final Object watchers = new Object();
 
         private volatile State state = State.RUNNING;
@@ -143,18 +127,9 @@ public final class Jobs {
         }
 
         /**
-         * One line, to the record and to everyone watching.
+         * Writes one line to the record and to everyone watching, under {@link #watchers}.
          *
-         * <b>The lock is what makes a reconnect honest.</b> {@link #follow} copies the lines it
-         * has and then registers; a line written in that gap would otherwise reach neither the
-         * copy nor the new listener, lost for that caller for good - most likely the closing line,
-         * which would make the deployment look, to whoever had just reconnected, like one that
-         * simply stopped talking.
-         *
-         * Listeners are fed while the lock is held, which is deliberate: feeding them outside it
-         * restores the gap in a different shape, as lines arriving out of order. What it costs is
-         * that a listener which blocks blocks this job's output - so a listener that throws is
-         * dropped, and the ones this service has are SSE writes to a local reverse proxy.
+         * A listener that throws is dropped, since a blocking one would stall the job's output.
          */
         void append(final String line) {
             synchronized (watchers) {
@@ -163,7 +138,6 @@ public final class Jobs {
                     try {
                         listener.accept(line);
                     } catch (RuntimeException e) {
-                        // A browser that walked away must not take the deployment with it.
                         listeners.remove(listener);
                     }
                 }
@@ -173,7 +147,7 @@ public final class Jobs {
         void finish(final int code) {
             exitCode = code;
             finished = Instant.now();
-            // Write the line before flipping the state: follow() stops listening once state leaves RUNNING.
+            // Write the line before flipping the state: follow() stops once state leaves RUNNING.
             final State finalState = code == 0 ? State.DONE : State.FAILED;
             synchronized (watchers) {
                 append("--- " + finalState + " (exit " + code + ")");
@@ -181,12 +155,7 @@ public final class Jobs {
             }
         }
 
-        /**
-         * Feeds everything written so far, then every further line.
-         *
-         * The replay is what makes a reconnect honest: a listener that only ever sees the future
-         * shows a deployment that appears to begin in the middle.
-         */
+        /** Feeds everything written so far, then every further line. */
         public Runnable follow(final Consumer<String> listener) {
             synchronized (watchers) {
                 for (final String line : new ArrayList<>(lines)) {

@@ -8,13 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
-/**
- * When the free spin comes back.
- *
- * A calendar day in the server's own time zone, by decision. Midnight is the boundary, and a boundary is
- * exactly the kind of thing that is easy to get right by accident and wrong by one comparison operator - which is
- * why it is asserted against fixed dates rather than waited for.
- */
+/** When the free spin comes back: at midnight in the server's own time zone, asserted against fixed dates. */
 class SpinsTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 1);

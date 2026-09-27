@@ -7,13 +7,7 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
-/**
- * One landing point.
- *
- * Deliberately without a {@code world}: which world a point is in comes from the
- * {@link eu.nordtal.s2.smp.world.WorldRole} it is filed under, and a point that could name its own world could name
- * one the balloon does not fly to.
- */
+/** One landing point, without a world: the {@link eu.nordtal.s2.smp.world.WorldRole} it is filed under names it. */
 @ConfigSpec
 public interface SpawnPointSpec {
 

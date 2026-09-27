@@ -47,33 +47,27 @@ public record AccessState(
         return unlinked(minecraftAccount, SeasonPhase.MAINTENANCE);
     }
 
-    /**
-     * The answer for a UUID nobody has linked, in a network whose phase <em>is</em> known.
-     *
-     * @param account the UUID that was asked about
-     * @param phase   the phase the row carried
-     * @return an unlinked state
-     */
+    /** Returns the answer for a UUID nobody has linked, in a network whose phase is known. */
     public static AccessState unlinked(final UUID account, final SeasonPhase phase) {
         return new AccessState(account, null, null, false, null, false, false, false, Locale.ENGLISH, phase, null);
     }
 
-    /** @return whether a Discord account is linked to this UUID */
+    /** Returns whether a Discord account is linked to this UUID. */
     public boolean linked() {
         return discordId != null;
     }
 
-    /** @return the linked Discord account, if any */
+    /** Returns the linked Discord account, if any. */
     public Optional<String> discordAccount() {
         return Optional.ofNullable(discordId);
     }
 
-    /** @return the end of the current run of access, if any */
+    /** Returns the end of the current run of access, if any. */
     public Optional<Instant> validUntil() {
         return Optional.ofNullable(accessValidUntil);
     }
 
-    /** @return when the network opens, if a date has been announced */
+    /** Returns when the network opens, if a date has been announced. */
     public Optional<Instant> launchAt() {
         return Optional.ofNullable(launch);
     }
@@ -93,25 +87,9 @@ public record AccessState(
     }
 
     /**
-     * The whole login decision in one place, so no caller re-derives it.
-     *
-     * Who gets in, per phase: {@code PRE_LAUNCH} is <b>admins only</b> - the network has not opened
-     * yet. {@code PRE_EVENT} and {@code START_EVENT} both admit any linked, non-banned Discord
-     * member. {@code SMP} admits the same <b>plus active access</b> - or the admin flag.
-     * {@code MAINTENANCE} admits the same linked, non-banned member - see below.
-     *
-     * During {@code MAINTENANCE} admission is unchanged and the <em>destination</em>
-     * ({@code limbo}) is what differs. {@link #admin()} matters in two phases: in
-     * {@code PRE_LAUNCH} it <em>is</em> the admission rule, and in {@code SMP} it stands in for an
-     * access period so that the admin who switches the network into {@code SMP} is not disconnected
-     * by their own switch. A banned admin is still banned, because {@link #linkedMember()} is asked
-     * first.
-     *
-     * This deliberately does not pick the disconnect screen - unlinked, banned and no-access are
-     * three different messages, and {@code proxy}'s {@code LoginGate} chooses between
-     * them. This is the single-boolean form for callers that only need the answer.
-     *
-     * @return whether this account may join right now, in the phase this state was read in
+     * Returns whether this account may join right now, in the phase this state was read in.
+     * In {@code SMP} the admin flag stands in for access, so the admin who switches into {@code SMP} is not
+     * disconnected.
      */
     public boolean mayJoin() {
         if (!linkedMember()) {

@@ -10,33 +10,23 @@ import net.kyori.adventure.text.format.ShadowColor;
 
 /**
  * Draws the frame around a Text Display board out of {@code nordtal:board}.
- *
- * The width is configured, because the default font's advances live in the client jar. Every glyph is
- * followed by a {@code -1} space, as bitmap glyphs advance one pixel more than their width. A content line
- * draws its right edge before its content, so nothing is placed after the content. {@code BoardFrameTest}
- * derives the corner widths from the PNGs.
+ * Every glyph is followed by a {@code -1} space, and a content line draws its right edge before its content.
  */
 public final class BoardFrame {
 
     /** Where the content column starts, which is also where the horizontal edges start. */
     public static final int CONTENT_X = 9;
 
-    /** Trimmed width of {@code corner_tl} and {@code corner_bl} - a full cell, stub reaching right. */
+    /** Trimmed width of {@code corner_tl} and {@code corner_bl}: a full cell, stub reaching right. */
     public static final int CORNER_LEFT_WIDTH = 9;
 
-    /** Trimmed width of {@code corner_tr} and {@code corner_br} - stub coming in from the left. */
+    /** Trimmed width of {@code corner_tr} and {@code corner_br}: stub coming in from the left. */
     public static final int CORNER_RIGHT_WIDTH = 6;
 
     /** Trimmed width of {@code edge_v_l} and {@code edge_v_r}. */
     public static final int EDGE_V_WIDTH = 6;
 
-    /**
-     * Widths the content column may be set to.
-     *
-     * The ceiling is the negative shift's: a content line walks back {@code width + 6} pixels,
-     * and eight advances of 1 to 128 add up to 255. The floor is judgement - a board narrower than
-     * this holds no line worth framing.
-     */
+    /** Widths the content column may be set to; the ceiling is what the eight negative advances can walk back. */
     public static final int MIN_WIDTH = 32;
 
     /** @see #MIN_WIDTH */
@@ -109,11 +99,8 @@ public final class BoardFrame {
     }
 
     /**
-     * One line of the box: both vertical edges, then the content, starting at {@link #CONTENT_X}.
-     *
-     * The order is the point. The right edge is placed first, at a position derived only from
-     * the configured width, and the cursor is then walked back to the content column - so nothing
-     * in this composition ever has to know how wide the content turns out to be.
+     * Returns one line of the box: both vertical edges, then the content at {@link #CONTENT_X}.
+     * The right edge comes first, so nothing needs to know how wide the content is.
      */
     public static Component row(final int width, final Component content) {
         checkWidth(width);
@@ -125,13 +112,7 @@ public final class BoardFrame {
         return Component.empty().append(frameText(edges)).append(content);
     }
 
-    /**
-     * Tiles a power-of-two glyph set to exactly {@code width} pixels.
-     *
-     * Same decomposition {@link BossBarWidth} does for the boss bar, and deliberately not shared
-     * with it: that one ends in a cap glyph this frame has no equivalent of, and every segment here
-     * carries its own {@code -1}.
-     */
+    /** Tiles a power-of-two glyph set to exactly {@code width} pixels. */
     private static String tile(final int width, final String[] segments) {
         final StringBuilder out = new StringBuilder();
         int left = width;
@@ -181,21 +162,7 @@ public final class BoardFrame {
         return out.toString();
     }
 
-    /**
-     * A frame component: {@code nordtal:board}, white, shadowless, and italic-free.
-     *
-     * All three halves matter. A component that names no font resolves its code points in
-     * {@code minecraft:default}, where they are other glyphs entirely - the mistake
-     * {@link Glyphs#FONT_BOSSBAR} documents. A component that names no colour inherits the parent's,
-     * and a board whose heading is gold would then have a gold frame.
-     *
-     * <b>And a component that names no shadow gets vanilla's</b>, which is the whole glyph drawn
-     * again one pixel down and right. On a line of text that is what text is supposed to look like;
-     * on a frame composed of tiles butted against each other it is a dark ghost bleeding out of
-     * every tile into its neighbour, and the seam it draws is exactly where the composition was
-     * meant to be invisible. The shadow costs no advance, so nothing here moves - it only looks
-     * broken, which is why it survives a reading of the arithmetic.
-     */
+    /** Returns a frame component in {@code nordtal:board}, white, not italic and shadowless so tiles do not bleed. */
     private static Component frameText(final String composed) {
         return Component.text(composed)
                 .font(Key.key(Glyphs.FONT_BOARD))

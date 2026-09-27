@@ -5,10 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * A request one process has claimed and is about to run.
- *
- * Read-only. The row is written once by the asker and settled once by the target; nothing amends
- * it in between, which is what makes {@link CommandRequests#claim} safe to be a single statement.
+ * A request one process has claimed and is about to run; written once by the asker and settled once by the target.
  *
  * @param id          the row, for settling it afterwards
  * @param command     the command path joined with spaces, no leading slash
@@ -18,8 +15,7 @@ import java.util.UUID;
  * @param discordId   their Discord id, absent for the console
  * @param minecraftId their Minecraft UUID, absent for the console and for an unlinked member
  * @param locale      the language tag the answer has to be rendered in
- * @param expires     when the asker stops waiting - already in the future, or this row would not
- *                    have been claimable
+ * @param expires     when the asker stops waiting, already in the future
  */
 public record CommandRequest(
         long id,

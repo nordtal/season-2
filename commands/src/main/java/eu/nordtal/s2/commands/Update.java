@@ -80,12 +80,7 @@ public interface Update {
 
     Embed embed();
 
-    /**
-     * The headings of a run drawn in Discord.
-     *
-     * One word each: the value under a heading is the data, and a heading that explains it is a
-     * sentence in a box.
-     */
+    /** The one-word headings of a run drawn in Discord. */
     @Name("Embed")
     interface Embed {
 

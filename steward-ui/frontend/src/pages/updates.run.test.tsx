@@ -7,20 +7,6 @@ import { UpdateRunPage } from "@/pages/operations"
 import { urlOf } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/**
- * What a run's report says it did.
- *
- * The run detail page has to move with the
- * Available card: the jar name and the pack hash both belong in the report.
- * `PlanReport` writes the version pair into the report, so
- * every surface that draws a report gets it - and this file holds the drawing end of it.
- *
- * The hash in the report is the pack that was on
- * the proxy **before** the run, written when the plan was made - the run never writes a new one
- * back, so it is a label, not a reading that could go stale. Forty characters of it
- * in a table cell would be too wide.
- */
-
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -103,6 +89,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** A report names the version pair `PlanReport` writes, and a pack by its short pre-run hash. */
 describe("a run's report reads as versions, not as bookkeeping", () => {
   it("prints the jump the worker resolved and no jar name", async () => {
     vi.stubGlobal("fetch", backend())
@@ -123,10 +110,7 @@ describe("a run's report reads as versions, not as bookkeeping", () => {
   })
 
   it("leaves a filename alone when that is honestly all there is", async () => {
-    /**
-     * The fallback the worker writes when two names do not come apart - a renamed jar. It has to
-     * stay visible as a filename: an invented version would be worse.
-     */
+    /** A renamed jar falls back to its filename, since an invented version would be worse. */
     vi.stubGlobal(
       "fetch",
       backend({

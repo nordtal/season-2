@@ -11,38 +11,21 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
 /**
- * What a player looks like, in the three places they are drawn.
+ * What a player looks like on the tab list, the nametag and in chat.
  *
- * One composition, shown in full where there is room and trimmed where there is not - the three
- * surfaces: the tab list shows all six, sorted by online time; the nametag shows the flag, name,
- * admin/donor and crest, <b>with no aura</b>; chat shows the flag, name and crest.
- *
- * <b>The nametag omits the aura</b> for performance: aura changes on every death, hand-in and
- * duel, and a nametag that carried it would send a packet to everyone in range each time.
- *
- * <b>The name carries the prestige colour.</b> {@link #name} is the single seam every one of
- * these three surfaces paints a name through - the tab list, the nametag DisplayTags renders and
- * the chat prefix {@code SystemLines} also uses for every join, leave, death and advancement line
- * - so colouring it once here reaches all of them by construction rather than by four call sites
- * agreeing to do the same thing. An admin's colour wins over their prestige tier; see
- * {@link PrestigeColours} for why that is not a fourteenth tier.
+ * The nametag leaves out the aura, which changes too often for a packet to everyone in range.
  */
 public final class PlayerComposition {
 
-    /** The join line's colour, reused for aura somebody has. */
+    /** The join line's colour, reused for positive aura. */
     private static final TextColor AURA_POSITIVE = Objects.requireNonNull(TextColor.fromHexString("#8ba888"));
 
-    /** ...and the leaving one, for aura somebody has spent or never earned. */
+    /** The leave line's colour, for aura at zero or below. */
     private static final TextColor AURA_EMPTY = Objects.requireNonNull(TextColor.fromHexString("#a8888b"));
 
     private final Supplier<Prestige> prestige;
 
-    /**
-     * A supplier, not a captured value, for the same reason {@code SmpPlugin.track} is one.
-     *
-     * A reference held here at construction would not notice {@code /smp reload} replacing the field it was read
-     * from.
-     */
+    /** A supplier, because {@code /smp reload} replaces the colour table. */
     private final Supplier<PrestigeColours> colours;
 
     public PlayerComposition(final Supplier<Prestige> prestige, final Supplier<PrestigeColours> colours) {
@@ -79,30 +62,23 @@ public final class PlayerComposition {
                 .append(crest(identity));
     }
 
-    /**
-     * The wearer's language, as a flag glyph.
-     *
-     * The language of the person being <em>looked at</em>, not of the person looking.
-     */
+    /** The wearer's language as a flag glyph, not the viewer's. */
     private Component flag(final Locale locale) {
         return Component.text(Glyphs.flagFor(locale)).decoration(TextDecoration.ITALIC, false);
     }
 
-    /** The prestige colour, or the admin colour if it wins. */
+    /** The prestige colour, or the admin colour, which wins. */
     private Component name(final String name, final Identity identity) {
         return Component.text(name).color(nameColour(identity)).decoration(TextDecoration.ITALIC, false);
     }
 
-    /**
-     * @return the admin colour if {@link Identity#admin()} is set, otherwise this identity's
-     *         prestige-tier colour - never both, and never a fourteenth tier of its own
-     */
+    /** Returns the admin colour when {@link Identity#admin()} is set, otherwise the prestige tier's colour. */
     private TextColor nameColour(final Identity identity) {
         final PrestigeColours palette = colours.get();
         return identity.admin() ? palette.admin() : palette.tier(tierOf(identity));
     }
 
-    /** @return the tier {@link #crest} also draws - one derivation, read from both places. */
+    /** Returns the tier {@link #crest} also draws. */
     private int tierOf(final Identity identity) {
         return prestige.get().tierOf(identity.playtimeSeconds());
     }
@@ -118,23 +94,13 @@ public final class PlayerComposition {
         return out;
     }
 
-    /**
-     * The crest for however long somebody has been here.
-     *
-     * Everybody has one - {@link Prestige#tierOf} floors at tier 1 - so this is never empty. Thirteen designs, thirteen
-     * tiers; a fourteenth would have nothing to render as.
-     */
+    /** The crest for however long somebody has been here, never empty since tiers start at 1. */
     private Component crest(final Identity identity) {
         final int tier = tierOf(identity);
         return Component.text(" " + Glyphs.PRESTIGE_CRESTS.get(tier - 1)).decoration(TextDecoration.ITALIC, false);
     }
 
-    /**
-     * Green when positive, red at zero or below.
-     *
-     * The two values are the palette's, not {@code NamedTextColor} 's, so that they match the join and leave lines the
-     * tab-list header sits under.
-     */
+    /** Green when positive, red at zero or below, in the palette's colours to match the join and leave lines. */
     private Component aura(final int amount) {
         return Component.text(String.valueOf(amount))
                 .color(amount > 0 ? AURA_POSITIVE : AURA_EMPTY)

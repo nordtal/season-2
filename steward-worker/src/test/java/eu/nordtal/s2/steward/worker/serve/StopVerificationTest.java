@@ -12,11 +12,7 @@ import org.junit.jupiter.api.Test;
 /**
  * A backup refuses to save anything when a service it asked to stop is still running.
  *
- * The question this answers is which lines of the report are services that were asked.
- *
- * It is not all of them. The database dump is taken first, with everything still up, and it writes a line of its own
- * - and that line named a thing no container is. Counting it made every backup abort before saving a single volume,
- * quietly, with a message blaming "database" for not stopping.
+ * The database dump's own line names no container, so it is not counted as a service that was asked.
  */
 class StopVerificationTest {
 

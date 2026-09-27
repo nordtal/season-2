@@ -17,26 +17,13 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.junit.jupiter.api.Test;
 
 /**
- * The update embed stays inside Discord's limit on the whole of it.
+ * The update embed stays inside Discord's 6000-character total, in every language it is drawn in.
  *
- * Why this needs a test rather than care: Discord caps an embed at 6 000 characters in total - title, description
- * and every field name and value added together - and JDA throws from {@code build()} when that is exceeded. In this
- * class the exception unwinds into {@code fail()}, so the admin is told "that did not work" instead of being shown
- * the run. That happens on exactly the runs with the most to say, which are the ones going wrong.
- *
- * The arithmetic guarding it has been wrong twice in two days. First the per-part caps were enforced and the total
- * was not; then the overflow field reserved a flat 20 characters for a value three times that; then the description
- * was written out of the remaining budget without being subtracted from it, so the overflow field measured itself
- * against space already spent. Each was introduced by the fix for the one before it, which is the argument for
- * measuring the result instead of reasoning about the guard.
- *
- * It renders against the real shared bundle, because the embed's headings and state labels are not hardcoded
- * English. A German label is not the same length as its English original, so the budget arithmetic is measured in
- * the language it will actually be drawn in - both of them.
+ * JDA throws from {@code build()} past the limit, which would hide exactly the runs with the most to say.
  */
 class EmbedBudgetTest {
 
-    /** Discord's own limit, and the thing every case here measures against. */
+    /** Discord's limit on a whole embed. */
     private static final int LIMIT = 6000;
 
     private final Messages messages =
@@ -57,7 +44,7 @@ class EmbedBudgetTest {
 
     @Test
     void aDescriptionThatEatsTheWholeBudgetLeavesNoRoomClaimedByTheOverflowField() {
-        // Notes long enough to consume everything the services left, plus more services than were drawn.
+        // Notes long enough to consume the rest, plus more services than are drawn.
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
             final MessageEmbed embed = UpdateCommand.fields(report(30, 900, 1, 5000), request(), messages, locale);
 
@@ -117,7 +104,7 @@ class EmbedBudgetTest {
 
     @Test
     void theAdminChannelsContextFieldsAreInsideTheLimitTooInBothLanguages() {
-        // Only UpdateFeed draws with context, so without this case the fields it adds are measured by nothing.
+        // Only UpdateFeed draws with context, so this is the only case measuring those fields.
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
             final MessageEmbed embed =
                     UpdateCommand.fields(report(40, 600, 30, 400), longAsker(), messages, locale, true);

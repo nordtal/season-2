@@ -6,34 +6,19 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * An admin is an operator, on every Paper server, for as long as they are an admin and no longer.
- *
- * Operator rather than a list of permission nodes, because a list only ever covers what somebody
- * wrote down and every plugin added later brings nodes nobody adds to it.
- *
- * {@code setOp} is persistent - Bukkit writes {@code ops.json} - so an operator outlives the
- * session that was given one, and a server that stops between a join and a quit would leave one
- * behind forever. {@link #sweep()} therefore removes <b>every</b> operator at plugin enable,
- * unconditionally and without asking the database, so there is no wrong answer to give when the
- * database is unreachable. The price is that a hand-set console {@code op} does not survive a
- * restart, which is intended: {@code discord_user.admin} is the only admin list.
- *
- * Transitions are tracked rather than re-applied, because every {@code setOp} is a disk write and
- * {@link #refresh} is meant to be called on every notification and poll tick.
- *
- * It never decides <em>who</em> is an admin - the flag is handed in - and it holds no Bukkit
- * type, because {@code :common} is compiled against no platform; the two calls that need one arrive
- * through {@link Ops}.
+ * An admin is an operator on every Paper server, for as long as they are an admin and no longer.
+ * {@code setOp} persists in {@code ops.json}, so {@link #sweep()} removes every operator at enable, a hand-set one
+ * included.
  */
 public final class AdminOperators {
 
     /** The two operations this needs from a platform, satisfied inline by each Paper plugin. */
     public interface Ops {
 
-        /** Grant or remove operator. Persistent: Bukkit writes {@code ops.json}. */
+        /** Grants or removes operator; Bukkit persists it in {@code ops.json}. */
         void setOp(UUID player, boolean operator);
 
-        /** Everybody currently carrying operator, whether online or not. */
+        /** Returns everybody currently carrying operator, online or not. */
         Set<UUID> operators();
     }
 
@@ -55,7 +40,7 @@ public final class AdminOperators {
     }
 
     /**
-     * A player joined. Grants operator if they are an admin, and does nothing at all if not.
+     * Grants operator to a joining player who is an admin, and does nothing otherwise.
      *
      * @param player  who joined
      * @param isAdmin their {@code discord_user.admin} flag, already read by the caller
@@ -71,8 +56,7 @@ public final class AdminOperators {
 
     /**
      * Re-derives operator for everybody online from the full admin set.
-     *
-     * Only a change reaches {@link Ops#setOp}, so an unchanged tick writes nothing to disk.
+     * Only a change reaches {@link Ops#setOp}, so an unchanged tick writes nothing.
      *
      * @param admins the full admin set, freshly read, never a delta
      * @param online who is currently connected
@@ -83,17 +67,16 @@ public final class AdminOperators {
         }
     }
 
-    /** Whether this object currently holds {@code player} as an operator it granted. */
+    /** Returns whether this object currently holds {@code player} as an operator it granted. */
     public boolean holds(final UUID player) {
         return opped.contains(player);
     }
 
-    /** Whom this object has opped. A copy; for tests and for a status line. */
+    /** Returns a copy of whom this object has opped. */
     public Set<UUID> held() {
         return Set.copyOf(new HashSet<>(opped));
     }
 
-    /** The one place that writes, and the one place that keeps the two in step. */
     private void set(final UUID player, final boolean operator) {
         if (operator) {
             if (opped.add(player)) {

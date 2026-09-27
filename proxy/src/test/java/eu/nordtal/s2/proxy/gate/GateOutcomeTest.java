@@ -13,26 +13,7 @@ import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * The gate's phase table, asserted phase by phase.
- *
- * {@code MAINTENANCE} admits the same linked member every other phase does; the player is held in
- * {@code limbo} by {@code eu.nordtal.s2.proxy.routing.PhaseRouting} instead.
- *
- * Gate outcome per phase and player kind - columns are unlinked, left/banned, member with no
- * access, member with access, admin with no access:
- *
- * {@code PRE_LAUNCH}:   NOT_LINKED, NOT_MEMBER, PRE_LAUNCH_BUY, PRE_LAUNCH_READY, ALLOW
- * {@code PRE_EVENT}:    NOT_LINKED, NOT_MEMBER, ALLOW, ALLOW, ALLOW
- * {@code START_EVENT}:  NOT_LINKED, NOT_MEMBER, ALLOW, ALLOW, ALLOW
- * {@code SMP}:          NOT_LINKED, NOT_MEMBER, NO_ACCESS, ALLOW, ALLOW
- * {@code MAINTENANCE}:  NOT_LINKED, NOT_MEMBER, ALLOW, ALLOW, ALLOW
- *
- * In memory and exhaustive: {@link GateOutcome#of(AccessState)} is a total function of one record,
- * which is why the decision lives there and not inside a {@code LoginEvent} handler. What this
- * does <b>not</b> prove is that the resulting disconnect screens render, or that Velocity honours
- * the denial - that needs a running proxy and a real client.
- */
+/** The gate's phase table, asserted phase by phase. */
 class GateOutcomeTest {
 
     private static final UUID PLAYER = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -89,7 +70,7 @@ class GateOutcomeTest {
 
     @Test
     void havingBoughtAccessEarlyChangesNothingBeforeTheSmp() {
-        // "Selling access before the SMP begins is still possible and simply banks days."
+        // Selling access before the SMP begins is still possible and banks days.
         assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.PRE_EVENT, true)));
     }
 
@@ -116,7 +97,7 @@ class GateOutcomeTest {
 
     @Test
     void theFullDecisionTableIsWhatThisClassProduces() {
-        // Every cell of the table in this class's documentation, asserted rather than described.
+        // The whole table, one row per phase: unlinked, left, member without access, member with access, admin.
         assertRow(SeasonPhase.PRE_LAUNCH, GateOutcome.PRE_LAUNCH_BUY, GateOutcome.PRE_LAUNCH_READY, GateOutcome.ALLOW);
         assertRow(SeasonPhase.PRE_EVENT, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
         assertRow(SeasonPhase.START_EVENT, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
@@ -155,7 +136,7 @@ class GateOutcomeTest {
 
     @Test
     void maintenanceLetsAPlainLinkedMemberInSoTheyCanBeHeldInLimbo() {
-        // Maintenance is a routing decision, not a gate decision: a non-admin is admitted and then held in limbo.
+        // Maintenance is a routing decision: a non-admin is admitted and then held in limbo.
         assertEquals(
                 GateOutcome.ALLOW,
                 GateOutcome.of(member(SeasonPhase.MAINTENANCE, false)),
@@ -164,7 +145,7 @@ class GateOutcomeTest {
 
     @Test
     void maintenanceDoesNotAskWhetherAccessWasBought() {
-        // The admission rule is the same one PRE_EVENT and START_EVENT use. Only SMP asks for more.
+        // The admission rule is the one PRE_EVENT and START_EVENT use; only SMP asks for more.
         assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.MAINTENANCE, true)));
         assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.MAINTENANCE, false)));
     }
@@ -178,7 +159,7 @@ class GateOutcomeTest {
 
     @Test
     void theAdminFlagChangesTheGateDecisionInPreLaunchAndSmpAndNowhereElse() {
-        // PRE_LAUNCH: admin IS the admission rule. SMP: it stands in for access. Elsewhere it only routes.
+        // PRE_LAUNCH: admin is the admission rule. SMP: it stands in for access. Elsewhere it only routes.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             if (phase == SeasonPhase.PRE_LAUNCH || phase == SeasonPhase.SMP) {
                 continue;
@@ -204,7 +185,7 @@ class GateOutcomeTest {
 
     @Test
     void mayJoinAgreesWithTheOutcomeForEveryPhaseAndEveryAccountState() {
-        // mayJoin() is the same table as one boolean; if the two drift, a player let in is kicked a minute later.
+        // mayJoin() is the same table as a boolean; if they drift, a player let in is kicked a minute later.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             for (final MemberState membership : MemberState.values()) {
                 for (final boolean accessActive : new boolean[] {false, true}) {
@@ -231,14 +212,14 @@ class GateOutcomeTest {
                 PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, false, false, Locale.ENGLISH, null, null);
 
         assertEquals(SeasonPhase.MAINTENANCE, state.phase());
-        // The guess lands on MAINTENANCE: "everybody waits in limbo", harmless for an unlocatable player.
+        // The guess is MAINTENANCE, where everybody waits in limbo.
         assertEquals(GateOutcome.ALLOW, GateOutcome.of(state));
         assertTrue(state.mayJoin());
     }
 
     @Test
     void thereIsNoOutcomeLeftThatOnlyMaintenanceCouldProduce() {
-        // No maintenance refusal constant exists, so nothing can accidentally start returning one.
+        // No maintenance refusal exists, so nothing can start returning one.
         assertEquals(
                 6,
                 GateOutcome.values().length,
@@ -260,7 +241,7 @@ class GateOutcomeTest {
 
     @Test
     void preLaunchAsksWhetherAccessWasBoughtAndNotWhetherItIsRunning() {
-        // A period bought before opening waits rather than burning; accessActive() would wrongly ask them to buy.
+        // A period bought before opening waits rather than running; accessActive() would ask them to buy.
         final AccessState boughtButNotRunning = new AccessState(
                 PLAYER,
                 DISCORD_ID,

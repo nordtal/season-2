@@ -29,8 +29,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * The stand-in worker, deployer and Discord, and the real interface and database in front of them.
  *
- * Shared by every steward-ui integration test class: one Postgres container, one set of fake
- * Javalin servers and one running {@link StewardUi}, started once per subclass and torn down after.
+ * One Postgres container, one set of stand-ins and one {@link StewardUi}, started once per subclass.
  */
 abstract class StewardUiFixture {
 
@@ -45,19 +44,7 @@ abstract class StewardUiFixture {
 
     static final AtomicBoolean workerBroken = new AtomicBoolean(false);
 
-    /**
-     * Who the stand-in Discord says is signing in.
-     *
-     * Changeable, because the default is the shape of the bug.
-     *
-     * "Ally" and {@code "1"} are eight characters together, and every assertion about the
-     * journal in this class was written against them. A real snowflake is 17 to 19 digits and a
-     * guild nickname may be 32 characters, so the composed {@code "name (id)"} this interface used
-     * to write into {@code audit_log.actor} - {@code varchar(32)} - overflowed for anything but a
-     * very short name, and no test here could see it. Making the pair settable is the cheapest
-     * honest fix: one sign-in against the real flow, rather than a second copy of this whole
-     * fixture with different constants in it.
-     */
+    /** Who the stand-in Discord says is signing in, settable so a test can use a 32-character nickname. */
     static final java.util.concurrent.atomic.AtomicReference<String> memberId =
             new java.util.concurrent.atomic.AtomicReference<>("1");
 
@@ -71,15 +58,7 @@ abstract class StewardUiFixture {
     /**
      * Whether the stand-in worker's log keeps producing lines after its first one.
      *
-     * A quiet log is not an edge case, it is the normal one: a healthy Minecraft server says
-     * nothing for minutes at a time. It is also the only way to tell two mechanisms apart - a
-     * follow that ends because the next line found the session gone, and one that ends because
-     * somebody closed the tab. With a chatty log the first hides the second.
-     *
-     * Quiet means no {@code data:} lines - no log output. The connection still carries a
-     * comment now and then, because that is what {@code steward-worker} does: it has the same
-     * heartbeat, for the same two reasons, and a stand-in that went completely silent would be
-     * testing the interface against a worker that does not exist.
+     * A quiet log still sends the worker's heartbeat comments, and is what tells a closed tab from a lost session.
      */
     static final AtomicBoolean chattyLog = new AtomicBoolean(true);
 
@@ -88,12 +67,9 @@ abstract class StewardUiFixture {
             new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /**
-     * How many connections are open to the stand-in worker, counted by Jetty itself.
+     * How many connections are open to the stand-in worker, counted by Jetty rather than by SSE clients.
      *
-     * Counting SSE clients instead was the obvious thing and it is wrong: a Javalin SSE client
-     * is removed when a write to it fails, so a stand-in worker with nothing to say never
-     * notices the interface hanging up - it has the same blindness the interface has, and a blind
-     * instrument cannot measure whether somebody else can see. The socket is not blind.
+     * An SSE client is only removed when a write to it fails, so a quiet stand-in never sees a hangup.
      */
     static final java.util.concurrent.atomic.AtomicInteger workerConnections =
             new java.util.concurrent.atomic.AtomicInteger();
@@ -457,7 +433,7 @@ abstract class StewardUiFixture {
         ui.start(UI_PORT);
     }
 
-    /** The one key account "1" has. Registered once, in {@code StewardUiTestSupport}, and used by everything. */
+    /** The one key account "1" has, registered once in {@code StewardUiTestSupport}. */
     static final TestAuthenticator authenticator = new TestAuthenticator();
 
     /** The origin the interface expects, which is `public-url`'s and not this JVM's address. */

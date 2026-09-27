@@ -3,17 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { QUIET_FAILURES, backoff, useLogStream } from "@/lib/use-log-stream"
 import type { LogStream } from "@/lib/use-log-stream"
 
-/**
- * The contract of the console's stream: entries in the log's order and bounded at the
- * chosen limit, applied a frame at a time, refilled - not stitched - on every new connection, and a
- * broken connection retried on its own with a backoff, silently for the first
- * {@link QUIET_FAILURES} failures and with the server's sentence after them.
- *
- * jsdom has no `EventSource`, so the tests install one. It is deliberately dumb - it records
- * listeners, lets a test push an event through them and counts `close()` - because a clever fake
- * tests itself instead of the hook.
- */
-
 type Listener = (event: Event) => void
 
 class FakeEventSource {
@@ -53,24 +42,21 @@ class FakeEventSource {
     this.closeCalls++
   }
 
-  /** What the server sends. Text rides on a `MessageEvent.data`, exactly as the real one delivers it. */
+  /** What the server sends, with text on `MessageEvent.data` as the real one delivers it. */
   emit(type: string, data?: string): void {
     if (type === "open") this.readyState = FakeEventSource.OPEN
     const event = data === undefined ? new Event(type) : new MessageEvent(type, { data })
     for (const listener of this.listeners.get(type) ?? []) listener(event)
   }
 
-  /** An `error` with the ready state the browser would be in - flaky retry, or given up for good. */
+  /** An `error` in the ready state the browser would be in, retrying or given up. */
   fail(readyState: number): void {
     this.readyState = readyState
     this.emit("error")
   }
 }
 
-/**
- * The source the hook is currently listening on. Always the newest: a StrictMode mount and a
- * `reconnect` both leave a closed one behind, and a test that talked to it would test nothing.
- */
+/** The newest source, since a StrictMode mount and `reconnect` both leave a closed one behind. */
 function live(): FakeEventSource {
   const source = FakeEventSource.opened.at(-1)
   if (!source) throw new Error("the hook never constructed an EventSource")
@@ -113,6 +99,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** The console stream: bounded, in log order, refilled on each connection and retried quietly at first. */
 describe("useLogStream", () => {
   it("asks for the chosen number of lines", () => {
     mount(5000)

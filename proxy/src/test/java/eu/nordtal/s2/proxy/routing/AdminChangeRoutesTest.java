@@ -10,23 +10,9 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
- * Losing the admin rank moves you, it does not only stop you typing.
+ * Losing the admin rank reroutes the player, not only their commands.
  *
- * <b>The half that was missing.</b>
- * The proxy re-reads the admin roster on its poll and its {@code LISTEN}, and the reason written
- * next to it is exactly right: "an emergency revocation is precisely the case where [waiting for
- * a disconnect] is the wrong direction". What it fixes is <em>authorisation</em> - who may run
- * {@code /phase} and {@code /smp}. It moves nobody.
- *
- * In {@code MAINTENANCE} the flag is the entire difference between being let onto the backend and
- * being held in the waiting room. So a revoked admin used to stay standing on the SMP, through a
- * phase whose whole purpose is that nobody is on it, until somebody happened to change the phase
- * again - measured on a running deployment as several seconds to notice but no movement at all.
- *
- * {@code PlayerRouter#rerouteAll} was already public for this - its javadoc says "a future admin
- * command can force one" - and it re-reads each player's own admission row rather than trusting the
- * phase handed in, so driving it from a flag change is the same pass a phase change makes. The
- * decision to do it at all matches the one the three backends took for the operator grant.
+ * In {@code MAINTENANCE} the flag decides between the backend and the waiting room.
  */
 class AdminChangeRoutesTest {
 

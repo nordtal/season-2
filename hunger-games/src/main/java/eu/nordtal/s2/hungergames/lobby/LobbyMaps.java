@@ -20,11 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Slices a language-specific lobby image onto a grid of item-frame-mounted maps.
+ * Slices a language-specific lobby image onto a grid of maps in item frames.
  *
- * The shipped {@code lobby/map-en.png} and {@code lobby/map-de.png} are placeholders; producing
- * the real artwork is design work. A missing file is logged and skipped rather than failing
- * {@code onEnable}, which is why {@link #render(World)} never throws for a missing resource.
+ * A missing image is logged and skipped, so {@link #render(World)} never throws for it.
  */
 public final class LobbyMaps {
 
@@ -38,15 +36,7 @@ public final class LobbyMaps {
         this.config = config;
     }
 
-    /**
-     * Loads {@code lobby/map-<lang>.png} for every language this plugin has a message bundle for.
-     *
-     * Slices it into a {@code columns x rows} grid and mounts one map per item frame found at the
-     * configured origin. A missing image for a language is logged once and that language's maps
-     * are left as-is (typically empty vanilla maps) rather than aborting the whole plugin.
-     *
-     * @param world the lobby's world
-     */
+    /** Loads {@code lobby/map-<lang>.png} for every bundle language and mounts its slices at the configured origin. */
     public void render(final World world) {
         for (final String language : java.util.List.of("en", "de")) {
             renderLanguage(world, language);
@@ -129,7 +119,7 @@ public final class LobbyMaps {
         frame.setItem(mapItem);
     }
 
-    /** Draws one already-sliced image cell onto its map, once, and does nothing after that. */
+    /** Draws one already-sliced image cell onto its map, once. */
     private static final class StaticImageRenderer extends MapRenderer {
 
         private final Image image;

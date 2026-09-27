@@ -1,9 +1,7 @@
 <!--
   dev reset proxy
 
-  Deletes the proxy's volume: its .server cache, its logs, its generated configs. plugins/ is a
-  directory on the host and survives. You type the service name back in the
-  Run window before anything is deleted.
+  Deletes the proxy volume after you type the service name back. plugins/ survives.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev reset proxy" type="Application" factoryName="Application" folderName="dev: reset (destructive)">

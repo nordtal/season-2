@@ -65,23 +65,13 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private ConfigHandle<HungerGamesSpec> configHandle;
     private ConfigHandle<DatabaseSpec> databaseHandle;
 
-    /**
-     * Its own file and handle so {@code /hg reload} can re-read it mid-game.
-     *
-     * {@link #configHandle} deliberately cannot be reloaded: the border schedule, loot timings and
-     * spawn towers are bound once and a game is a running clock.
-     */
+    /** Its own handle, so {@code /hg reload} can re-read it mid-game, unlike {@link #configHandle}. */
     private ConfigHandle<SoundsSpec> soundsHandle;
 
-    /**
-     * Its own file and handle, read once at enable.
-     *
-     * {@code /hg reload} does not touch this one - see {@code ColoursSpec}'s own javadoc for why -
-     * so there is nothing to reload it against.
-     */
+    /** Read once at enable; {@code /hg reload} does not touch it. */
     private ConfigHandle<ColoursSpec> coloursHandle;
 
-    /** The tone palette this server paints a reply with. Set once in {@link #start()}. */
+    /** The tone palette replies are painted with. */
     private ToneColours colours;
 
     private HikariDataSource pool;
@@ -90,13 +80,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
     /** What a non-admin may type here, and what their client is told exists. */
     private eu.nordtal.s2.papercommon.command.CommandFilter commandFilter;
 
-    /**
-     * The command layer.
-     *
-     * Two effects instances, and the difference is the executor: the chat one schedules, the
-     * inbox's runs inline because the inbox settles a request row when the command returns.
-     * {@code CommandInbox#register} refuses the wrong one at startup.
-     */
+    /** The chat effects schedule; the inbox's run inline, since the inbox settles its row when the command returns. */
     private HungerGamesEffects chatEffects;
 
     private Outbox outbox;
@@ -107,7 +91,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private HungerGamesSounds sounds;
 
     private Messages messages;
-    /** {@code :commands}' bundle as the inbox renders it - a second view of the same files. */
+    /** {@code :commands}' bundle as the inbox renders it, a second view of the same files. */
     private Messages sharedMessages;
 
     private PlayerLocales locales;
@@ -127,13 +111,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
     /** The one game this plugin is currently tracking, refreshed from the database at enable and after decision. */
     private volatile @Nullable UUID currentGameId;
 
-    /**
-     * One try around the whole start.
-     *
-     * Anything that throws after the config read would otherwise escape {@code onEnable}, leaving
-     * Paper running this server without the plugin - the exact state {@link #severe} exists to
-     * prevent.
-     */
+    /** Runs {@link #start()} inside one try, so a failure stops the server instead of leaving it running without it. */
     @Override
     public void onEnable() {
         // Must be first: loads the class every disable step below goes through, while the jar still exists.
@@ -143,7 +121,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         try {
             start();
         } catch (final Refusal refusal) {
-            // Already logged, and the shutdown is already in motion - see severe(String).
+            // Already logged, and the shutdown is under way; see severe(String).
         } catch (final RuntimeException failure) {
             severe("hunger-games is not starting: " + failure.getMessage());
         }
@@ -226,7 +204,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
         refreshCurrentGame();
 
-        // Lobby map slicing - tolerant of missing artwork.
+        // Lobby map slicing, tolerant of missing artwork.
         new LobbyMaps(this, config).render(world);
 
         lobby.startBroadcasting(world, () -> currentGameId);
@@ -242,7 +220,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         final AdminOperators operators = BukkitOps.create();
         operators.sweep();
 
-        // One instance, shared by the gate, the fullness answer and the operator grant - two would leave one empty.
+        // One instance for the gate, the fullness answer and the operator grant; two would leave one empty.
         final FullServerAdmission admission = new FullServerAdmission();
 
         getServer().getPluginManager().registerEvents(new FullServerGate(dao, admission, getLogger0()), this);
@@ -314,7 +292,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         sharedMessages = PaperCommandInbox.sharedBundle(this);
         final PaperCommandInbox inbox =
                 new PaperCommandInbox(this, Target.HUNGER_GAMES, requests, access, sharedMessages);
-        // Inline, on purpose - see the field comment.
+        // Inline on purpose; see the chatEffects field.
         final HungerGamesEffects inboxEffects = new BukkitHungerGamesEffects(
                 this,
                 Runnable::run,
@@ -363,13 +341,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
                         .toList());
     }
 
-    /**
-     * The container readiness marker ({@link Readiness}).
-     *
-     * Called last in {@code start()} so a marker on disk means the plugin got all the way through;
-     * every refusal above returns first. The async task is re-queued by the main-thread heartbeat,
-     * so a server frozen mid-tick stops beating rather than staying green on an open port.
-     */
+    /** Starts the readiness marker ({@link Readiness}) last, re-queued by the main thread so a freeze goes stale. */
     private void startHeartbeat() {
         final Readiness readiness = Readiness.onDefaultPath(getLogger()::warning);
         final long ticks = Readiness.BEAT.toSeconds() * 20L;
@@ -408,7 +380,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         getLogger().info("hunger-games disabled");
     }
 
-    /** One disable step, isolated from the next - see {@link eu.nordtal.s2.common.health.Shutdown}. */
+    /** One disable step, isolated from the next; see {@link eu.nordtal.s2.common.health.Shutdown}. */
     private void quietly(final String what, final Runnable step) {
         eu.nordtal.s2.common.health.Shutdown.quietly(
                 what, step, (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
@@ -423,13 +395,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         });
     }
 
-    /**
-     * Runs off the main thread.
-     *
-     * The roster is read here rather than in the {@code onReleased} callback, which runs on the
-     * main thread in the tick every participant is released - and reading it up front means the
-     * tracker knows who is alive before the first death is recorded.
-     */
+    /** Runs off the main thread, reading the roster before anyone is released so the first death is tracked. */
     private void startGame(final UUID gameId, final World world) {
         final List<HgMember> activeMembers = dao.activeMembersOf(gameId);
         manager.start(gameId, world, () -> {
@@ -440,11 +406,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         });
     }
 
-    /**
-     * Re-reads the message bundles and the operator's override on top of them.
-     *
-     * Throws rather than answering a boolean so the failure reaches the console with its own message.
-     */
+    /** Re-reads the message bundles and the operator's override; throws so the console gets the reason. */
     private void reloadMessages() {
         messages.reload();
         // The inbox's own view of the same files; its unknown keys go unreported since it holds one root.
@@ -491,25 +453,14 @@ public final class HungerGamesPlugin extends JavaPlugin {
         currentGameId = null;
     }
 
-    /**
-     * The last game this server decided, so a command lookup cannot put it back.
-     *
-     * A query that started before the decision landed still answers with that game, and writing it
-     * back into the cache the lobby broadcasts from would restart the countdown for a finished game.
-     */
+    /** The last game this server decided, so a lookup that started before the decision cannot put it back. */
     private volatile @Nullable UUID decidedGameId;
 
     private void refreshCurrentGame() {
         currentGameId = dao.currentGame().map(game -> game.id()).orElse(null);
     }
 
-    /**
-     * The game as the database has it <em>now</em>, for the commands.
-     *
-     * The cache above is filled once at enable, so a game registered in Discord after this server
-     * started would be invisible to {@code /hg} until a restart. Runs on the effects' executor,
-     * never the main thread, which is why the lobby's own broadcast still reads the cache.
-     */
+    /** The game as the database has it now, for the commands; never called on the main thread. */
     private @Nullable UUID currentGameIdNow() {
         final UUID found = dao.currentGame()
                 .map(game -> game.id())
@@ -532,18 +483,12 @@ public final class HungerGamesPlugin extends JavaPlugin {
         return world;
     }
 
-    // getLogger() answers java.util.logging.Logger; jcore's ConfigLoader wants slf4j's - the one adapter point.
+    // getLogger() answers java.util.logging.Logger; jcore's ConfigLoader wants slf4j's.
     private org.slf4j.Logger getLogger0() {
         return org.slf4j.LoggerFactory.getLogger(HungerGamesPlugin.class);
     }
 
-    /**
-     * The plugin cannot run, so neither can this server.
-     *
-     * On a dedicated backend, disabling the plugin and letting Paper carry on leaves a container
-     * that is up, green and has no season on it - nothing outside the JVM restarts on health alone,
-     * so the shutdown has to happen here.
-     */
+    /** Logs the reason and stops the server: disabling only the plugin leaves a healthy container with no season. */
     private Refusal severe(final String message) {
         getLogger().severe(message);
         getServer().getPluginManager().disablePlugin(this);
@@ -551,13 +496,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         return new Refusal();
     }
 
-    /**
-     * Thrown by every {@link #severe(String)} call in {@link #start()}, and by nothing else.
-     *
-     * {@code severe} already logs the reason and starts the shutdown; this only gives {@code throw severe(...)} a
-     * real {@code throw}, so NullAway's {@code KnownInitializers} check on {@link #start()} sees that nothing after
-     * it runs. {@link #onEnable()} catches it separately so the message is not logged twice.
-     */
+    /** Thrown only by {@link #severe(String)}, so NullAway sees that nothing after {@code throw severe(...)} runs. */
     private static final class Refusal extends RuntimeException {
         private Refusal() {
             super(null, null, false, false);

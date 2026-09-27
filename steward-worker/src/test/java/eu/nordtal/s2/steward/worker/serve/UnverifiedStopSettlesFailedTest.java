@@ -13,31 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * How a run that stopped servers is settled, and the one rule in it that is not about a failed line.
  *
- * The rule: Every line can be green - the service stopped, the volume saved, the jars moved, the servers came back -
- * and the one thing missing is the evidence that the server had finished writing when the next step touched its
- * files. Owner's decision: that settles the run {@code FAILED} on both paths, because an archive nobody
- * can vouch for is the irreversible thing a green-looking run would otherwise unlock.
- *
- * Why the note is asserted on the same object as the stage, every time: There are three possible outcomes here and
- * only one of them is right. {@code DONE} over an unverified stop is run 23. {@code FAILED} with the note dropped is
- * worse than either, because it is a failure with no reason attached: somebody reads FAILED on a backup run, assumes
- * nothing was saved, and goes looking for an older archive - while the night's archives sit on the disk with a mark
- * beside them that nobody has been told to read. So no test here checks a stage without also checking what the
- * report says about it.
- *
- * Three conditions, or-ed, and each one is load-bearing on its own: An unverified stop, a caller that has already
- * failed ( {@code result.hasFailures()} on the update path - a download that did not arrive), and a line that
- * failed. Folding three conditions into one expression is exactly where one of them quietly stops being read, so
- * each is driven here with the other two switched off.
- *
- * And two modes, which is a fourth way for them to interact: {@link Runner.Doubt#IS_ONLY_SAID} is the restart path:
- * nothing was written between the stop and the start, so there is no artefact anybody later has to decide whether to
- * trust, and the run is not failed over it. What it is not is silence - a restart is what somebody does when a
- * server is already misbehaving, which is exactly when a stop nobody could read is most likely, and the server was
- * started again on a world that may have been cut off mid-save. So the note is made either way, and the only
- * difference is what the last sentence of it says. Two things follow, and both are held below: a mode that quietly
- * drops the note is the failure this whole design is about, and a mode that swallows the other two conditions would
- * turn every restart into a success. The second is one parenthesis away.
+ * An unverified stop settles the run {@code FAILED} with a note; on a restart the note is only said.
  */
 class UnverifiedStopSettlesFailedTest {
 
@@ -51,7 +27,7 @@ class UnverifiedStopSettlesFailedTest {
     /** And what the update path passes, which is a different sentence for a different risk. */
     private static final String JARS = "the jars were moved into its plugins directory";
 
-    /** The restart path's, which is the argument for saying anything at all put into a sentence. */
+    /** The restart path's sentence. */
     private static final String SAME_WORLD = "it was started again on the same world";
 
     @Test
@@ -265,12 +241,7 @@ class UnverifiedStopSettlesFailedTest {
         assertEquals(List.of(), settled.notes());
     }
 
-    /**
-     * A report in which everything went right: the volume saved, both servers back.
-     *
-     * At {@code VERIFYING}, because that is the stage a report is really at when it reaches {@code settle} - the
-     * run has not decided anything yet.
-     */
+    /** A report in which everything went right, at the {@code VERIFYING} stage {@code settle} receives. */
     private static UpdateReport green() {
         return UpdateReport.at(UpdateReport.Stage.VERIFYING)
                 .with(new UpdateReport.ServiceLine(

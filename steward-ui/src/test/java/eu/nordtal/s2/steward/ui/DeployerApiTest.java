@@ -11,9 +11,7 @@ import java.net.http.HttpResponse;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Recreating a service through steward-deployer, and the truncated-actor edge case around it.
- */
+/** Recreating a service through steward-deployer, and the truncated actor edge case around it. */
 class DeployerApiTest extends StewardUiTestSupport {
 
     @Test
@@ -39,7 +37,7 @@ class DeployerApiTest extends StewardUiTestSupport {
                 GSON.fromJson(get("/api/journal?action=RECREATE").body(), JsonArray.class);
         final JsonObject row = journal.get(0).getAsJsonObject();
         assertEquals("RECREATE", row.get("action").getAsString());
-        // The Discord id is what `audit_log.actor` holds; "name (id)" used to overflow varchar(32).
+        // The Discord id is what `audit_log.actor` holds, since "name (id)" overflowed varchar(32).
         assertEquals("1", row.get("actor").getAsString());
         assertTrue(
                 row.get("detail").getAsString().contains("Ally"),
@@ -48,28 +46,9 @@ class DeployerApiTest extends StewardUiTestSupport {
     }
 
     /**
-     * The column that could not hold what was being written into it, on every path that writes it.
+     * Every path into {@code audit_log.actor}, a {@code varchar(32)}, signed in with a 32-character nickname.
      *
-     * Why one test and not five
-     * It is one mistake, made five times, and it has one shape: a composed {@code "name (id)"} put
-     * into {@code audit_log.actor}, which is {@code varchar(32)} and is documented as the admin's
-     * Discord id. A snowflake is 17 to 19 digits, so the brackets and the id alone are 20 to 22
-     * characters; any display name of eleven characters or more overflowed. Splitting this into
-     * five tests would let four of them stay green while the fifth path was reintroduced, and the
-     * thing worth asserting is that no route into this journal composes any more.
-     *
-     * Why it needs its own sign-in
-     * Every other test in this class is signed in as {@code Ally (1)} - eight characters, which
-     * fits with room to spare and is exactly why nothing here saw the bug for as long as it
-     * existed. This one signs in a second browser against the same real flow with the stand-in
-     * Discord answering a 19-digit snowflake and a 32-character nickname: the maximum Discord
-     * allows, which is the case that has to work rather than a case that happens to.
-     *
-     * The phase path is the quiet one
-     * {@code PhaseDao} writes its own journal row with {@code cast(:actor AS varchar(32))}, and an
-     * explicit cast in PostgreSQL truncates rather than refusing. That path therefore never
-     * failed; it wrote half a name into the journal and said nothing, which is worse than the 500
-     * the other four gave. So the assertion there is on the value, not on the status code.
+     * {@code PhaseDao}'s explicit cast truncates rather than refusing, so that path asserts the value, not the status.
      */
     @Test
     void aLongDisplayNameIsNotAnOverflow() throws Exception {
@@ -77,7 +56,7 @@ class DeployerApiTest extends StewardUiTestSupport {
         final String longName = "Archibald Fotheringay-Chumleighs";
         assertEquals(19, snowflake.length(), "a Discord snowflake is 17 to 19 digits");
         assertEquals(32, longName.length(), "32 is the longest nickname Discord accepts");
-        // What the old form would have produced, and what the column is: the arithmetic, spelled out.
+        // What "name (id)" would have produced, against the column's width.
         assertEquals(54, (longName + " (" + snowflake + ")").length());
 
         memberId.set(snowflake);

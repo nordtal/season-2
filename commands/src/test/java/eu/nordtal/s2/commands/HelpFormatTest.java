@@ -17,11 +17,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The help output's shape, which is four message keys and no code.
  *
- * The point of putting the whole format in the bundle is that an operator can change it without a
- * release - re-order the parts, drop the explanation, change the separator. What makes that safe is
- * that the adapter supplies exactly the placeholders these keys name and no others: an override that
- * names {@code {description}} would otherwise print the literal string {@code {description}} into
- * somebody's chat, and the only way to find out would be to mistype a command on a live server.
+ * The adapter must supply exactly the placeholders these keys name, or an override prints one raw.
  */
 class HelpFormatTest {
 
@@ -30,7 +26,7 @@ class HelpFormatTest {
     private final Messages messages =
             Messages.load(HelpFormatTest.class.getClassLoader(), ROOT, Locale.ENGLISH, Locale.GERMAN);
 
-    /** What {@code PaperCommands} actually fills in, per key. */
+    /** What {@code PaperCommands} fills in, per key. */
     private static final Map<String, List<String>> SUPPLIED = Map.of(
             "command.help.header", List.of("command"),
             "command.help.line", List.of("usage", "what"),
@@ -68,7 +64,7 @@ class HelpFormatTest {
 
     @Test
     void theListLineKeepsItsIndentWhichNeedsEscapingToSurvivePropertiesLoad() throws IOException {
-        // Properties.load strips unescaped leading whitespace from a value. The unescaped version parses, resolves.
+        // Properties.load strips unescaped leading whitespace from a value, so the indent needs escaping.
         for (final String lang : List.of("en", "de")) {
             final Properties properties = new Properties();
             try (InputStream stream =
@@ -85,7 +81,7 @@ class HelpFormatTest {
 
     @Test
     void aUsageLineAndItsExplanationAreSeparateKeysSoEitherCanBeDropped() {
-        // An operator who finds the explanations noisy can blank command.help.what and keep the syntax. That only.
+        // An operator can blank command.help.what and keep the syntax.
         assertEquals(List.of("usage"), SUPPLIED.get("command.help.usage"));
         assertEquals(List.of("what"), SUPPLIED.get("command.help.what"));
     }

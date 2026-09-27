@@ -17,21 +17,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * That exactly one {@code serve} can run against one database.
+ * Exactly one {@code serve} runs against one database.
  *
- * What breaks without it: {@code UpdateServer.settleOrphans()} closes every row left {@code RUNNING} because
- * "nothing is running those rows: the only process that claims one is an updater, and this one has just started".
- * With two serve loops that reasoning is simply false - the second one marks the first one's in-flight {@code APPLY}
- * as {@code FAILED}, the real one's {@code finish(...)} then matches no {@code RUNNING} row, and the report of the
- * run that was actually installing jars is thrown away and replaced by "steward-worker stopped while this request
- * was running".
- *
- * Two of them was not a hypothetical: {@code docker compose run} inherited the service's {@code command} and started
- * a second daemon every time somebody asked for the read-only report.
- *
- * A real PostgreSQL, because an advisory lock is a property of a database session and "a second connection is
- * refused" has no in-JVM stand-in. Skips itself when no Docker daemon is reachable - a green build on a machine
- * without Docker proves nothing here.
+ * A second would settle the first one's in-flight rows as orphans and throw its report away.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ServeLockIntegrationTest {

@@ -5,9 +5,7 @@ import javax.sql.DataSource;
 /**
  * Which players an admin lets through without the resource pack.
  *
- * The pack is the default and this is the only thing that changes it, for one account at a time.
- * An exemption has no expiry: it stays until an admin enforces the pack again. The proxy reads it
- * with the login state, so a change takes effect at the player's next login.
+ * An exemption lasts until an admin enforces the pack again, and takes effect at the next login.
  */
 public interface PackExemptions {
 

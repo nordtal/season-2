@@ -33,21 +33,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 /**
- * The hunger games server's Brigadier trees.
+ * The hunger games server's Brigadier trees: the player's {@code /hg ready} and the wiring.
  *
- * Three admin commands, one player command, and everything another process runs.
- *
- * What is left of this class: {@code /hg ready}, and the wiring. The three admin subcommands are
- * declarations in {@code :commands} now, so what they say and when they refuse is assertable
- * without a server - which for the command that starts the season's flagship event it previously
- * was not.
- *
- * {@code /hg ready} stays here, and stays player-only. It marks the <b>sender</b> ready. The
- * console is registered for no game and neither is a Discord member, so there is nobody for it to
- * mark - and it is the one {@code /hg} subcommand that is not admin-only, which is why it cannot be
- * in the catalogue. It is registered as an extra subtree under the same root, which is also why
- * {@link PaperCommands} puts its admin check on the nodes below a root rather than on the root
- * itself: gating {@code /hg} would have hidden this from every player.
+ * {@code /hg ready} is an extra subtree under the admin root, so {@link PaperCommands} gates below the root.
  */
 public final class HungerGamesCommand {
 
@@ -99,7 +87,7 @@ public final class HungerGamesCommand {
         for (final NordtalCommand<HungerGamesEffects> command : HungerGamesCommands.all()) {
             commands.local(command, effects);
         }
-        // /update is Surface.GAME, so every game server serves it, and its watcher is what delivers the report.
+        // /update is Surface.GAME, so every game server serves it, and its watcher delivers the report.
         final eu.nordtal.s2.papercommon.command.UpdateWatcher updates =
                 new eu.nordtal.s2.papercommon.command.UpdateWatcher(
                         plugin, eu.nordtal.s2.common.update.UpdateDirectory.using(pool));
@@ -113,18 +101,12 @@ public final class HungerGamesCommand {
                                         .warning("An update command failed while " + what + ": " + failure),
                                 updates::watch)));
 
-        // extraOpen, not extra: this is the one subtree any player may use.
         commands.extraOpen("hg", ready());
         commands.remoteAll(Catalogue.all());
         return commands.build();
     }
 
-    /**
-     * {@code /hg ready} - the player half.
-     *
-     * The admin check is deliberately absent and the {@code requires} is a player check instead:
-     * this is the command a participant runs, and the console genuinely cannot.
-     */
+    /** {@code /hg ready}, which checks for a player instead of the admin flag. */
     private LiteralArgumentBuilder<CommandSourceStack> ready() {
         return Commands.literal("ready")
                 .requires(source -> source.getSender() instanceof Player)
@@ -133,7 +115,7 @@ public final class HungerGamesCommand {
 
     private int handleReady(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
-        // Optional::empty, not null: no Discord id travels here, and null is ambiguous between PaperUser's factories.
+        // Optional::empty, not null: null is ambiguous between PaperUser's factories.
         final NordtalUser user = PaperUser.of(
                 plugin,
                 player,

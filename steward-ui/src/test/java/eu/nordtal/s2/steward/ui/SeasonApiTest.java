@@ -11,14 +11,7 @@ import org.junit.jupiter.api.Test;
 /** The season's dates, curves and phase, as the interface reads and writes them. */
 class SeasonApiTest extends StewardUiTestSupport {
 
-    /**
-     * {@code which} decided between two dates with an {@code equals} and an {@code else}.
-     *
-     * So {@code "smpstart"}, {@code "launchh"} and a missing field all meant "launch", and the
-     * interface answered 200 having overwritten the wrong one of the two dates a whole season
-     * hangs off. A value outside the pair is a question this endpoint cannot answer, and the only
-     * honest reply is a refusal.
-     */
+    /** Any {@code which} outside the two dates is refused, rather than overwriting launch. */
     @Test
     void aSeasonDateNeedsAName() throws Exception {
         final String at = "\"at\":\"2026-10-01T18:00:00Z\"";
@@ -28,7 +21,7 @@ class SeasonApiTest extends StewardUiTestSupport {
         assertEquals(400, post("/api/season/date", "{" + at + "}").statusCode());
         assertEquals(
                 400, post("/api/season/date", "{" + at + ",\"which\":\"\"}").statusCode());
-        // And the two it does know still work.
+        // The two it does know still work.
         assertEquals(
                 200,
                 post("/api/season/date", "{" + at + ",\"which\":\"smpStart\"}").statusCode());
@@ -37,12 +30,7 @@ class SeasonApiTest extends StewardUiTestSupport {
                 post("/api/season/date", "{" + at + ",\"which\":\"launch\"}").statusCode());
     }
 
-    /**
-     * "No date" is a real state - the start page and the MOTD countdown read it.
-     *
-     * A null {@code at} is the way back to it; a blank one is still a forgotten field, and
-     * {@code which} is still required.
-     */
+    /** A null {@code at} clears a date, a real state the start page reads; a blank one is still refused. */
     @Test
     void aSeasonDateCanBeRemoved() throws Exception {
         final String at = "\"at\":\"2026-10-01T18:00:00Z\"";
@@ -74,7 +62,7 @@ class SeasonApiTest extends StewardUiTestSupport {
 
         assertEquals("host", answer.get("subject").getAsString());
         assertTrue(answer.has("points"), answer.toString());
-        // Nothing has sampled into this database, so the honest answer is no points, not a fabricated line.
+        // Nothing has sampled into this database, so the answer is no points, not a fabricated line.
         assertEquals(0, answer.getAsJsonArray("points").size());
     }
 

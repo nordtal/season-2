@@ -1,9 +1,7 @@
-// Not a Java module. It assembles src/ and the fonts generated from templates/ into one pack, zips
-// that for the release and the pack-install server, and installs it into a local Minecraft
-// instance for whoever draws the pack. The
-// client is sent a URL and a SHA-1 and refuses the pack if they disagree, so the hash is
-// generated on every build rather than written down anywhere.
+// Assembles src/ and the fonts generated from templates/ into one pack, zips it with its SHA-1, which the
+// client checks, and installs it into a local Minecraft instance.
 
+import eu.nordtal.s2.build.CheckNoDashPunctuation
 import eu.nordtal.s2.build.CheckNoTrackerIds
 import eu.nordtal.s2.build.CheckPack
 import eu.nordtal.s2.build.CheckSourcesTracked
@@ -19,9 +17,7 @@ plugins {
 val packSource = layout.projectDirectory.dir("src")
 val templates = layout.projectDirectory.dir("templates")
 
-// The six chest-row fonts are one font at six heights, so only row 0 is written down. The pitch
-// and the row count are SlotGeometry.PITCH and MenuTitle.MAX_ROWS; MenuFontTest holds every
-// ascent against them.
+// The six chest-row fonts are row 0 at six heights; pitch and count mirror SlotGeometry and MenuTitle.
 val generateRowFonts =
     tasks.register<GenerateRowFonts>("generateRowFonts") {
         template.set(templates.file("gui_row.json"))
@@ -30,8 +26,7 @@ val generateRowFonts =
         target.set(layout.buildDirectory.dir("generated/row-fonts"))
     }
 
-// The pack as the client receives it. Everything that reads the pack - the zip, checkPack,
-// installPack and the tests of :common and :smp - reads this, never src/ alone.
+// The pack as the client receives it; everything that reads the pack reads this, never src/.
 val assembledPack = layout.buildDirectory.dir("pack")
 val assemblePack =
     tasks.register<Sync>("assemblePack") {
@@ -57,7 +52,7 @@ val packZip =
         archiveBaseName.set("nordtal-resource-pack")
         archiveVersion.set(project.version.toString())
 
-        // Byte-identical output for identical input, so the same version always hashes the same.
+        // Reproducible, so the same version always hashes the same.
         isReproducibleFileOrder = true
         isPreserveFileTimestamps = false
     }
@@ -82,8 +77,7 @@ tasks.named("assemble") {
     dependsOn(packZip)
 }
 
-// The same guard the Java modules get. This module has no source sets, but it has a src/ whose
-// contents go into the zip, and an ignored file there is a glyph the client never receives.
+// The Java modules' guard, since an ignored file under src/ never reaches the zip.
 val repositoryRootDirectory = rootProject.layout.projectDirectory
 
 val checkSourcesTracked =
@@ -110,8 +104,22 @@ val checkNoTrackerIds =
         enforced.set(findProperty("conventions.comments")?.toString()?.toBoolean() ?: false)
     }
 
+val noDashPunctuation =
+    tasks.register<CheckNoDashPunctuation>("noDashPunctuation") {
+        repositoryRoot.set(rootProject.layout.projectDirectory)
+        pathspecs.set(
+            listOf(
+                rootProject.projectDir
+                    .toPath()
+                    .relativize(projectDir.toPath())
+                    .toString(),
+            ),
+        )
+        enforced.set(findProperty("conventions.comments")?.toString()?.toBoolean() ?: false)
+    }
+
 tasks.named("check") {
-    dependsOn(checkNoTrackerIds)
+    dependsOn(checkNoTrackerIds, noDashPunctuation)
 }
 
 val checkPack =

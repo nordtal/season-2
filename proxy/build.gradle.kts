@@ -5,7 +5,7 @@ plugins {
     id("nordtal.message-spec")
 }
 
-// Names start() as NullAway's initializer, since ProxyPlugin's fields are set there, not in the constructor.
+// Names start() as NullAway's initializer, since ProxyPlugin's fields are set there.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option(
@@ -15,25 +15,18 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
-// BrandColourTest reads NetworkSpec's own source, so Gradle has to see that file as a test input -
-// otherwise editing the spec leaves :proxy:test UP-TO-DATE.
+// BrandColourTest reads NetworkSpec's source, so Gradle has to see it as a test input.
 repositoryRootTestInputs {
     reads("proxy/src/main/java/eu/nordtal/s2/proxy/config/NetworkSpec.java")
 
-    // NobodyComparesAgainstOneLimboTest walks this module's own sources. Without the directory
-    // declared, adding the very line it forbids leaves :proxy:test UP-TO-DATE and the rule stops
-    // running exactly when it would have fired.
+    // NobodyComparesAgainstOneLimboTest walks this module's own sources.
     reads("proxy/src/main")
 
-    // ComposeTellsTheStandbyApartTest reads the deployment file itself: the one value that tells
-    // the live proxy from the standby is a string in a YAML nothing compiles, and both ways of
-    // getting it wrong are silent. Without this line, deleting that string leaves :proxy:test
-    // UP-TO-DATE.
+    // ComposeTellsTheStandbyApartTest reads the deployment file itself.
     reads("compose.yml")
 }
 
 repositories {
-    // jcore only.
     maven("https://jitpack.io")
 }
 
@@ -41,36 +34,22 @@ dependencies {
     // :commands carries the declarations, decisions and message keys; this module is the adapter.
     implementation(project(":commands"))
 
-    // jcore carries eu.nordtal.jcore.config (database.yml and gate.yml) and also exports JDBI 3,
-    // HikariCP and the PostgreSQL driver, which is the stack AccessDirectory needs.
-    //
-    // Flyway is excluded here rather than at shadowJar time: this module never migrates anything
-    // (access-bot owns the schema), and a shadowJar-level exclude would only drop the two named
-    // artifacts' own classes, leaving flyway-database-cockroachdb and the whole Jackson databind
-    // stack that flyway-core pulls in. Excluding the group removes the subtree from resolution.
+    // Flyway is excluded by group: this module never migrates, and a shadowJar exclude would leave its subtree.
     implementation(libs.jcore) {
         exclude(group = "org.flywaydb")
     }
 
-    // AccessPool builds a HikariCP pool directly, and jcore exposes HikariCP only at runtime. The
-    // catalog pins it to jcore's own version so there is exactly one copy on the classpath.
+    // AccessPool builds a HikariCP pool directly; the catalog pins jcore's own version.
     implementation(libs.hikaricp)
 
-    // jcore already brings both at runtime; these put them on the compile classpath for two
-    // classes: PostgresPhaseNotifications unwraps org.postgresql.PGConnection to poll
-    // getNotifications(timeout), because pgjdbc has no callback API and LISTEN cannot be written
-    // against java.sql alone; PlaytimeStore installs jdbi3-core's PostgresPlugin.
+    // PostgresPhaseNotifications needs PGConnection, and PlaytimeStore installs jdbi3-core's PostgresPlugin.
     implementation(libs.jdbi.postgres)
     implementation(libs.postgresql.driver)
 
-    // velocity-api is compileOnly, so it is not on the test classpath by default. The tests need
-    // it for Adventure's Component and nothing more; none of them starts a proxy.
+    // For Adventure's Component; no test starts a proxy.
     testImplementation(libs.velocity.api)
 
-    // PlaytimeDao's upsert is the one SQL statement this module owns, and no in-memory test can
-    // say anything about it: the integration test runs the real migrations against a PostgreSQL
-    // container and skips itself when no Docker daemon is reachable. Test-only; Flyway never
-    // reaches the shaded jar.
+    // PlaytimeDao's upsert runs against a PostgreSQL container; Flyway never reaches the shaded jar.
     testImplementation(libs.flyway.core)
     testImplementation(libs.flyway.postgresql)
     testImplementation(libs.testcontainers.postgresql)

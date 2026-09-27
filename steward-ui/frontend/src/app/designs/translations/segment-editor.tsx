@@ -19,15 +19,6 @@ import { Glyph, MinecraftText } from "@/app/designs/translations/preview"
 import type { Fill } from "@/app/designs/translations/preview"
 import { VisualEditor } from "@/app/designs/translations/visual-editor"
 
-/**
- * C: the text as a list of pieces, one row each - a stretch of text, a placeholder, a glyph or a
- * line break, every one with its own style. Nothing is selected by dragging, so this is the one
- * that works the same with a thumb as with a mouse.
- *
- * The list is kept as the author built it, not merged: two neighbours of the same style stay two
- * rows until the text is written out, so a row never vanishes under the finger that just styled it.
- */
-
 export type SegmentEditorProps = {
   runs: Run[]
   onChange: (runs: Run[]) => void
@@ -38,6 +29,11 @@ export type SegmentEditorProps = {
   disabled?: boolean
 }
 
+/**
+ * C: the text as a list of styled pieces, one row each, which works the same by thumb as by mouse.
+ *
+ * Neighbours of one style stay separate rows until the text is written out, so no row vanishes when styled.
+ */
 export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disabled }: SegmentEditorProps) {
   const [open, setOpen] = useState<number | null>(null)
   const can = capabilities(format)

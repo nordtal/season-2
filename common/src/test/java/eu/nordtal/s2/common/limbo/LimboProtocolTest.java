@@ -11,17 +11,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * The {@code nordtal:limbo} wire format, from both ends.
+ * Round-trips the {@code nordtal:limbo} wire format, where a message that does not parse is silently lost.
  *
- * This is the one piece of the login path that two separate processes have to agree on byte for
- * byte, and the failure mode when they do not is silence: a message that does not parse is
- * indistinguishable from one that was never sent, so a player simply sits in the waiting room
- * forever with nothing in any log. Round-tripping every message here is what makes that
- * impossible to introduce by accident.
- *
- * The other half of the contract is that {@link LimboProtocol#decode(byte[])} never throws. Every
- * byte array it sees came off a socket - and on the proxy, off one a modded client can write to -
- * so the malformed cases below are not defensive padding, they are the ordinary input.
+ * {@link LimboProtocol#decode(byte[])} must never throw, so the malformed cases are ordinary input.
  */
 class LimboProtocolTest {
 
@@ -62,7 +54,7 @@ class LimboProtocolTest {
 
     @Test
     void aWaitWithoutItsReasonDecodesToNothing() throws IOException {
-        // The header says WAIT and the body is missing - the shape a half-flushed write produces.
+        // The header says WAIT and the body is missing, the shape a half-flushed write produces.
         assertEquals(Optional.empty(), LimboProtocol.decode(raw(LimboProtocol.VERSION, (byte) 1)));
     }
 

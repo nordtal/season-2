@@ -16,13 +16,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/**
- * When players are moved out of the way, and which servers that means.
- *
- * The whole of it without a proxy and without a database: {@link Evacuation#imminent} takes the
- * one row, which is every input the decision has. What is left in the class - connecting a player,
- * refusing when the waiting room is itself being updated - is Velocity calls and a log line.
- */
+/** When players are moved out of the way, and which servers that means, from the one row alone. */
 class EvacuationTest {
 
     private static final Instant NOW = Instant.parse("2026-09-09T18:00:00Z");
@@ -52,7 +46,7 @@ class EvacuationTest {
 
     @Test
     void aCountdownMovesNobody() {
-        // Nobody moves for a cancelled outage, and nobody moves while the counter still shows a number.
+        // Nobody moves for a cancelled outage, nor while the counter still shows a number.
         assertEquals(Set.of(), Evacuation.imminent(Optional.empty()));
     }
 
@@ -67,7 +61,7 @@ class EvacuationTest {
 
     @Test
     void theSweepIsOnlyTheGuarantee() {
-        // The zero beat runs the sweep too; a sweep alone would move people up to RestartWatch.INTERVAL late.
+        // The zero beat runs the sweep too; the sweep alone could move people up to RestartWatch.INTERVAL late.
         assertTrue(
                 RestartWatch.INTERVAL.compareTo(java.time.Duration.ZERO) > 0,
                 "a sweep with no interval would be the decision rather than the guarantee");
@@ -75,7 +69,7 @@ class EvacuationTest {
 
     @Test
     void onlyTheMovingServices() {
-        // A line with no MOVING change is not a reason to take a server down for an outage the run never causes.
+        // A line with no MOVING change does not take a server down.
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.COUNTDOWN)
                 .with(new UpdateReport.ServiceLine(
                         "smp",
@@ -104,7 +98,7 @@ class EvacuationTest {
 
     @Test
     void anUnreadableReportMovesNobody() {
-        // The safe direction is no guess at the whole network: a row older than the report codec is plain text.
+        // A row older than the report codec is plain text, and the safe guess is no services.
         final UpdateRequest row = new UpdateRequest(
                 3L,
                 UpdateKind.UPDATE,
@@ -132,7 +126,7 @@ class EvacuationTest {
 
     @Test
     void theHoldsBecomeASet() {
-        // The DOWN run is DONE in seconds, so the hold is what keeps the waiting room explaining the outage.
+        // The DOWN run is DONE in seconds, so the hold keeps the waiting room explaining the outage.
         assertEquals(Set.of("smp"), Evacuation.heldServices(List.of(heldDown("smp"))));
     }
 

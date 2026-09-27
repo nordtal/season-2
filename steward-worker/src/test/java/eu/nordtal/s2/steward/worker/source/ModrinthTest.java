@@ -74,11 +74,7 @@ class ModrinthTest {
         assertThrows(IOException.class, () -> modrinth.newest("voicechat", "9eGKb6K1", MC, "paper"));
     }
 
-    /**
-     * Three velocity builds, all pre-releases, which is the shape the real project has.
-     *
-     * Many versions published and not one of them {@code release}.
-     */
+    /** Three velocity builds, all pre-releases, the shape the real project has. */
     private static final String VELOCITY_PRE_RELEASES = """
             [{"version_number":"velocity-2.6.4","version_type":"alpha","date_published":"2025-09-19T11:08:43Z",
               "files":[{"filename":"voicechat-velocity-2.6.4.jar","primary":true,
@@ -99,7 +95,7 @@ class ModrinthTest {
         final RemoteFile file = modrinth.newest("voicechat-velocity", "9eGKb6K1", MC, "velocity");
 
         assertEquals("voicechat-velocity-2.6.18.jar", file.fileName());
-        // Newest by date, not first in the list and not the highest version_type - the same rule every artefact gets.
+        // Newest by date, not first in the list and not the highest version_type: the rule every artefact gets.
         assertEquals("velocity-2.6.18", file.version());
     }
 

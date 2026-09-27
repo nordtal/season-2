@@ -3,10 +3,9 @@ import { useActiveRun } from "@/lib/queries"
 import { RUN_KIND } from "@/components/steward/status"
 
 /**
- * One run in the whole network at a time: while one is open, a second is refused wherever it is
- * asked for. So the buttons that would ask say so before they are pressed, with the run that is
- * in the way as their title. An unanswered `/api/updates/active` locks nothing - the backend still
- * refuses, and a button greyed out for a slow query would be the worse lie.
+ * One run in the network at a time: while one is open, buttons that would start another are locked.
+ *
+ * Their title names the open run. An unanswered `/api/updates/active` locks nothing; the backend still refuses.
  */
 export function useRunLock(): { run: Run | null; locked: boolean; title: string | undefined } {
   const active = useActiveRun()

@@ -7,48 +7,15 @@ import { assert, describe, expect, it } from "vitest"
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /**
- * There is one way to wait in this interface, and it goes through `QueryState`.
+ * Every view that loads data waits through `QueryState`, the one skeleton approach.
  *
- * Everywhere in the app that loads data, there has to be a skeleton behind it, and one single
- * approach for the whole app rather than one per page. That approach is
- * `components/steward/query-state.tsx`: it calls its child twice, once with `undefined` and once
- * with the data, so a view writes its layout once and gets its own waiting shape out of it. What
- * this file guards is that the approach stays the only one - several patterns living side by side
- * is how the interface got here in the first place.
- *
- * <h2>Why `isPending` itself is not the rule</h2>
- * `isPending` is also a **mutation's** word for "this button is busy": `"Saving…"`,
- * `"Switching…"`, `"Waiting for the key…"`, `"Searching…"` - places where it is the honest word and
- * no loading state at all. Outlawing the string would either need exemptions that all say the same
- * nothing, or force those buttons to lie.
- *
- * So the rule is on the two boxes instead. `Loading` is the flat grey block the gate exists to
- * replace, and a view that still draws one either went through the gate's `rows` opt-out - which
- * is inside `QueryState` and therefore invisible here, by design - or is named below with its
- * reason. `Failure` is deliberately **not** guarded: a mutation that fails needs an error line and
- * has no query to hang it on, which is a number of honest call sites.
- *
- * <h2>The caveat, taken word for word from `fits-on-a-phone.test.ts`</h2>
- * **THIS FILE CANNOT TELL YOU THAT THE INTERFACE FITS. It can only tell you that a rule which once
- * made it fit has not been deleted.** The only instrument that sees a width is a picture:
- * `/home/dev/ui-shots/tool/preview.mjs --target=/access --width=390 --out=…` renders the built
- * frontend against the fixtures in `/home/dev/ui-shots/fixtures` with no server and no session,
- * and `overflow.mjs` measures the same thing in numbers when a deployment is running. A guard that
- * is trusted further than it can see is worse than no guard - so whether the skeleton actually
- * looks like what follows it is an eye's question.
+ * Only `Loading` is guarded; `isPending` and `Failure` also serve mutations, where they are honest.
  */
 const QUERIES = /from "@\/lib\/queries"/
 const GATE = /from "@\/components\/steward\/query-state"/
 const FLAT_BARS = /<Loading\b/
 
-/**
- * Files that read from `@/lib/queries` and draw no waiting shape, each with the reason.
- *
- * By file rather than by line, the same trade `no-middle-dot.test.ts` explains: a file half swept
- * looks exactly like one this test never read. Three of the four below only ever call *mutations*,
- * which have nothing to wait for; the fourth fetches one thing and hands it to a component that
- * carries its own waiting state.
- */
+/** Files that read from `@/lib/queries` and draw no waiting shape, each with the reason, listed by file. */
 const NO_WAITING_SHAPE = new Map<string, string>([
   [
     "app/app-sidebar.tsx",
@@ -69,11 +36,7 @@ const NO_WAITING_SHAPE = new Map<string, string>([
   ],
 ])
 
-/**
- * The views that still draw flat grey bars, each with the reason. Where one view genuinely cannot
- * draw itself without its data, that one view keeps a second shape - and the exception belongs in
- * a map here rather than in nobody's notes.
- */
+/** The views that still draw flat grey bars, each with the reason. */
 const FLAT_BARS_ALLOWED = new Map<string, string>([
   [
     "pages/operations.tsx",
@@ -153,11 +116,7 @@ describe("one waiting state, and it is QueryState", () => {
     )
   })
 
-  /**
-   * Without this, a broken path or a changed extension makes both rules above pass by finding
-   * nothing at all - a green build and a guard nobody can trust. Same shape as the second test in
-   * `no-middle-dot.test.ts`.
-   */
+  /** Without this, a broken path or extension makes both rules above pass by finding nothing. */
   it("actually reads the sources, so an empty result means something", () => {
     const all = views()
     expect(all.length).toBeGreaterThan(40)
@@ -165,10 +124,7 @@ describe("one waiting state, and it is QueryState", () => {
     expect(all.some(({ relative }) => relative === "components/steward/query-state.tsx")).toBe(true)
   })
 
-  /**
-   * An exemption for a file that no longer needs one is a promise nobody is keeping. Both maps are
-   * checked the same way `no-middle-dot.test.ts` checks its own.
-   */
+  /** An exemption a file no longer needs is stale. */
   it("has no exemption that is already stale", () => {
     const stale: string[] = []
     const byName = new Map(views().map((view) => [view.relative, view.text]))

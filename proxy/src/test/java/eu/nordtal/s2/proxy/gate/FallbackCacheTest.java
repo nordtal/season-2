@@ -16,12 +16,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Exercises {@link FallbackCache} entirely in memory - no database, no Docker.
- *
- * It is a pure function of what it was told and how much time has passed, which is exactly what
- * {@link MutableClock} lets these tests control without a single {@code Thread.sleep}.
- */
+/** Exercises {@link FallbackCache} in memory, with {@link MutableClock} standing in for elapsed time. */
 class FallbackCacheTest {
 
     private static final UUID PLAYER = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -90,7 +85,7 @@ class FallbackCacheTest {
 
     @Test
     void aLaterUnsuccessfulStateEvictsAnEarlierPositiveOne() {
-        // No stale "yes" once the database has told us "no" more recently, even though both calls succeeded.
+        // No stale "yes" once the database has more recently said "no".
         cache.remember(PLAYER, activeState());
         assertTrue(cache.mayJoin(PLAYER), "precondition");
 
@@ -106,13 +101,13 @@ class FallbackCacheTest {
         cache.remember(PLAYER, activeState());
         clock.advance(Duration.ofMinutes(10));
 
-        // 20 minutes since the first remember(), only 10 since the second: inside the window since it refreshed.
+        // 20 minutes since the first remember(), only 10 since the second: still inside the window.
         assertTrue(cache.mayJoin(PLAYER));
     }
 
     @Test
     void aMemberWithNoAccessAtAllIsCachedWhileThePhaseAsksForNone() {
-        // Without this, a database outage during PRE_EVENT would refuse every player the gate had just been letting in.
+        // Else a database outage during PRE_EVENT would refuse every player the gate had been letting in.
         cache.remember(PLAYER, memberInAFreePhase());
 
         assertTrue(cache.mayJoin(PLAYER));
@@ -161,12 +156,7 @@ class FallbackCacheTest {
                 null);
     }
 
-    /**
-     * The same account, in a phase that asks for no access at all.
-     *
-     * What the cache stores is the outcome of {@link AccessState#mayJoin()}, so this is a positive entry even
-     * though nothing has been bought - which is the point of the phase model.
-     */
+    /** The same account in a phase that asks for no access, which caches as a positive entry. */
     private AccessState memberInAFreePhase() {
         return new AccessState(
                 PLAYER,

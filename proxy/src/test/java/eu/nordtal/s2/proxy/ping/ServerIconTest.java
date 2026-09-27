@@ -14,13 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.LoggerFactory;
 
-/**
- * The built-in server icon is what Velocity accepts, and a fresh data folder gets a copy of it.
- *
- * Both halves fail silently on a real proxy - a wrong-sized PNG is one warning line and a
- * browser entry without an icon, which nobody reports as a fault - so the size is pinned here
- * against the file in the jar, and the seeding against a temp directory.
- */
+/** The built-in server icon is what Velocity accepts, and a fresh data folder gets a copy of it. */
 class ServerIconTest {
 
     @Test
@@ -59,22 +53,9 @@ class ServerIconTest {
     }
 
     /**
-     * The built-in server icon is pixel art, not a resampled photograph.
+     * The built-in server icon is pixel art, not a resampled image.
      *
-     * {@code resource-pack/src/pack.png} is 128x128 with 21 distinct colours and every 2x2 block
-     * uniform - 64x64 pixel art, doubled. The icon is every second pixel of it, which is exactly
-     * lossless at that ratio.
-     *
-     * A resampled source instead turns those 21 colours into hundreds: a pixel logo with soft
-     * edges, which in a list of server entries reads as a low-resolution photograph. Nothing
-     * about that is visible from the dimensions, from the PNG being valid, or from
-     * {@code Favicon.create} accepting it, and it is not visible in an IDE either at 64 px.
-     *
-     * The bound is loose on purpose. It is not "the logo has 21 colours", which would fail the
-     * day the mark is redrawn; it is "this is a palette rather than a gradient", which is what
-     * separates the two ways of getting to 64x64. A hand-painted icon with more than 64 colours
-     * is a real possibility, and a deliberate one, at which point this case is the conversation
-     * about which resampler that art wants.
+     * The bound separates a palette from a gradient, so a redrawn logo still passes.
      */
     @Test
     void theBuiltInIconWasNotSmoothed() throws IOException {
@@ -99,7 +80,7 @@ class ServerIconTest {
                 ServerIcon.load(dataDirectory, LoggerFactory.getLogger("test")).isEmpty());
     }
 
-    /** The icon as it sits in the jar - the file every fresh data folder is seeded from. */
+    /** The icon in the jar, which every fresh data folder is seeded from. */
     private static BufferedImage builtIn() throws IOException {
         try (InputStream in = ServerIcon.class.getResourceAsStream("/" + ServerIcon.FILE_NAME)) {
             assertNotNull(in, "proxy's jar has to carry " + ServerIcon.FILE_NAME);

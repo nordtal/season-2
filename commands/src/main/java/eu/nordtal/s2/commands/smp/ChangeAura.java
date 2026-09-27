@@ -13,17 +13,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * {@code /smp aura <player> <delta>} - a correction, with its reason recorded.
+ * {@code /smp aura <player> <delta>}: a correction, with its reason recorded.
  *
- * Not confirmed, deliberately: applying the negative is an exact undo, which is what a
- * confirmation would otherwise be protecting against. Guarding it as well would train an admin to
- * type every {@code /smp} command twice, and that is how the guard on the one that deletes a world
- * stops being read.
- *
- * Aura is credited to a Discord account, not to a Minecraft one, which is why an unlinked target is
- * refused rather than half-applied: {@code smp_aura_event} is keyed on the Discord id, so there is
- * genuinely nothing to write. The sentence that comes back is addressed to the <b>admin</b> about
- * somebody else, not to a player about their own account.
+ * Not confirmed, since the negative is an exact undo; an unlinked target is refused, as aura is per Discord id.
  */
 public final class ChangeAura implements NordtalCommand<SmpEffects> {
 
@@ -68,12 +60,7 @@ public final class ChangeAura implements NordtalCommand<SmpEffects> {
         });
     }
 
-    /**
-     * The player's name, or their UUID when the lookup itself fails.
-     *
-     * The name is decoration - what the admin came for is the aura change - so a failure here
-     * must not end the task before anything has been said.
-     */
+    /** Returns the player's name, or their UUID when the lookup itself fails, which must not end the task. */
     static String nameOr(final SmpEffects effects, final UUID player) {
         try {
             return effects.nameOf(player).orElse(player.toString());

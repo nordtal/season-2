@@ -17,13 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * That {@code milestones.yml} can be written and read back as the whole track.
- *
- * What only this can prove: <b>two levels of nesting through jcore</b>. A list of milestones each holding a list of
- * objectives is deeper than anything else in this repository puts through jcore's vendored config system, so the
- * round trip is exercised rather than assumed.
- */
+/** That {@code milestones.yml} can be written and read back as the whole track, two levels of nesting deep. */
 class MilestonesTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MilestonesTest.class);
@@ -39,7 +33,7 @@ class MilestonesTest {
                 Files.isRegularFile(directory.resolve("milestones.yml")),
                 "a fresh load has to write the defaults out, or there is nothing to edit");
 
-        // A SECOND load, from the file the first one just wrote - the first handle still holds in-memory defaults.
+        // A SECOND load, from the file the first one just wrote: the first handle still holds in-memory defaults.
         final MilestonesSpec reread = Configs.milestones(directory, LOGGER).get();
         final MilestoneTrack track = Milestones.read(reread).track();
 

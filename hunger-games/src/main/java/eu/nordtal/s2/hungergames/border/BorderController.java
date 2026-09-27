@@ -23,11 +23,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Drives {@code World#getWorldBorder()}: centred on spawn, shrinking by a fixed step on every death.
  *
- * Extending an in-flight shrink rather than restarting it, plus a slow passive shrink after a
- * quiet period with no death.
- *
- * {@code WorldBorder} exposes no "am I mid-transition", target or time-remaining getter, so
- * {@link GameState} is the source of truth for whether a shrink is in flight and what it targets.
+ * A death extends a shrink in flight; a quiet period starts a slow passive one. {@link GameState} tracks both.
  */
 public final class BorderController {
 
@@ -72,12 +68,7 @@ public final class BorderController {
         }
     }
 
-    /**
-     * Called whenever a player dies or an unattended body is eliminated.
-     *
-     * Extends an in-flight shrink by one step, or starts a fresh death-triggered shrink from the
-     * border's current size.
-     */
+    /** Called whenever a player dies or an unattended body is eliminated; extends or starts a shrink by one step. */
     public void onDeath(final GameState state) {
         state.markDeath(Instant.now());
 
@@ -133,12 +124,7 @@ public final class BorderController {
         announcePassive();
     }
 
-    /**
-     * {@code COUNTDOWN_TICK}, not {@code NETWORK_EVENT}.
-     *
-     * A shrink is a clock running out on where the listener may stand, not something that happened
-     * to somebody else.
-     */
+    /** {@code COUNTDOWN_TICK}, not {@code NETWORK_EVENT}: a shrink is a clock running out, not news about somebody. */
     private void announce(final double target, final long seconds) {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(MessageRenderer.of(messages)
@@ -162,9 +148,9 @@ public final class BorderController {
     }
 
     /**
-     * @param location a position in the event world
-     * @return whether the position is still inside the current border - a loot point the border
-     *         has passed counts as absent, and an unattended body outside it dies
+     * Returns whether a position is still inside the current border.
+     *
+     * A loot point the border has passed counts as absent, and an unattended body outside it dies.
      */
     public boolean isInside(final Location location) {
         return world.getWorldBorder().isInside(location);

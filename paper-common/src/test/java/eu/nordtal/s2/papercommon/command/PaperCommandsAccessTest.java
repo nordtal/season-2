@@ -15,22 +15,15 @@ import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
 /**
- * Who may use an admin command on a Paper server.
+ * Who may use an admin command on a Paper server: the console always, anyone else by the admin flag.
  *
- * The gate reads only the sender's type: a {@link ConsoleCommandSender} always may, everything
- * else is asked for the admin flag. A command block's {@link BlockCommandSender} and the
- * {@link ProxiedCommandSender} that {@code /execute as … run …} builds are real surfaces here -
- * players build with command blocks, and two third-party datapacks are required for the server to
- * start at all.
- *
- * Every sender is a dynamic proxy: an instance of the Bukkit interface with no server behind it,
- * which is exactly as much as a type-only decision needs.
+ * Command blocks and {@code /execute as} senders are real surfaces here, and each sender is a dynamic proxy.
  */
 class PaperCommandsAccessTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000001");
 
-    /** Admin flag lookups must never even be consulted for a non-player. */
+    /** Must never be consulted for a non-player. */
     private static final Predicate<UUID> NOBODY_IS_ADMIN = PaperCommandsAccessTest::nobodyIsAdmin;
 
     private static final Predicate<UUID> EVERYBODY_IS_ADMIN = PaperCommandsAccessTest::everybodyIsAdmin;
@@ -64,7 +57,7 @@ class PaperCommandsAccessTest {
 
     @Test
     void aRemoteConsoleMayNot() {
-        // RCON is not enabled here; having its password is not the same authority as a shell in the container.
+        // RCON is not enabled here; its password is not the same authority as a shell in the container.
         assertFalse(PaperCommands.mayUse(sender(RemoteConsoleCommandSender.class), NOBODY_IS_ADMIN));
     }
 

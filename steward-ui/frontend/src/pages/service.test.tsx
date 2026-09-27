@@ -42,11 +42,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/**
- * One flat row - State with the uptime under it, CPU, RAM, Disk. The image line, its
- * digest, the Console badge, Docker's own status sentence and the RAM hint are gone; the player count
- * moved into the online line under the page heading.
- */
+/** One flat row: State with the uptime under it, then CPU, RAM and Disk. */
 describe("ServiceHead - the number row", () => {
   it("draws State, CPU and RAM and nothing of what was dropped", () => {
     draw(<ServiceHead name="smp" service={service({ players: 3, cpuPercent: 12, memoryBytes: 2.9e9 })} />)
@@ -83,12 +79,7 @@ describe("ServiceHead - the number row", () => {
   })
 })
 
-/**
- * A service that is down because somebody pressed Down and a service that is down
- * because it fell over are the same container to Docker - stopped, with an exit code. The whole
- * difference lives in `service_hold`, arrives on the row as `hold`, and this head is where a person
- * sees it. Absent is not false, the same rule `players` follows above.
- */
+/** Held down and crashed look the same to Docker; only `hold` tells them apart, and absent is not false. */
 describe("ServiceHead - a service somebody is holding down", () => {
   it("says so when the row carries a hold", () => {
     draw(
@@ -102,10 +93,7 @@ describe("ServiceHead - a service somebody is holding down", () => {
       />,
     )
 
-    /**
-     * The two badges are merged into one: the state badge itself reads "held down",
-     * rather than Docker's word in red with an explanation beside it.
-     */
+    /** One badge reading "held down", not Docker's word in red with an explanation beside it. */
     expect(screen.queryByText("held down")).not.toBeNull()
     expect(screen.queryByText("exited")).toBeNull()
   })

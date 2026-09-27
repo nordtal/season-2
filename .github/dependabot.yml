@@ -1,7 +1,4 @@
-# The workflows pin actions to a commit SHA rather than a tag, because a tag can be moved by its
-# owner and every release job here carries write access to this repository. Dependabot opens a
-# pull request when a pinned action has a newer release and rewrites the SHA and the trailing
-# `# vX.Y.Z` comment together.
+# Actions are pinned to a commit SHA, since a tag can move; Dependabot updates the SHA and its `# vX.Y.Z`.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -9,7 +6,7 @@ updates:
     schedule:
       interval: weekly
     groups:
-      # One pull request for all of them; they move together often enough to make separate ones wasteful.
+      # One pull request for all of them.
       actions:
         patterns:
           - "*"

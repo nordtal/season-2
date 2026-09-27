@@ -5,7 +5,7 @@ import io.javalin.http.Context;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/** Who is in the guild, what they paid, what they may - and the journal of it all. */
+/** Who is in the guild, what they paid, what they may, and the journal of it all. */
 final class RosterRoutes {
 
     private final @Nullable Data data;
@@ -31,9 +31,7 @@ final class RosterRoutes {
     }
 
     /**
-     * What {@code access settle} may be pointed at.
-     *
-     * A list and not a limit: see {@code RosterDirectory#openPayments} for why.
+     * What {@code access settle} may be pointed at; a list, not a limit, as {@code RosterDirectory#openPayments} says.
      */
     void openPayments(final Context ctx) {
         ctx.json(data().roster().openPayments());

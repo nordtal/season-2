@@ -5,13 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
-/**
- * The one mapping in {@link Glyphs} that is a decision rather than a constant.
- *
- * A flag beside a name says what to greet somebody in, so getting it wrong is not cosmetic - and
- * the fallbacks matter more than the hits: an unexpected locale, or one that has not been read yet,
- * has to render as a flag rather than as a missing-glyph box.
- */
+/** Pins the locale flags in {@link Glyphs}, whose fallbacks must render a flag rather than a missing-glyph box. */
 class GlyphsFlagTest {
 
     @Test

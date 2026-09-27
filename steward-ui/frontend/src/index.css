@@ -12,24 +12,9 @@
 }
 
 /*
- * Nordtal Steward - the theme.
+ * The Steward theme, dark only: `index.html` carries `class="dark"` and nothing removes it.
  *
- * DARK ONLY. There is no light block, no toggle and no `prefers-color-scheme` query: `index.html`
- * carries `class="dark"` and nothing removes it. The custom-variant below exists because shadcn
- * components ship `dark:` utilities; it resolves to "always" here, which is the point.
- *
- * THE ONE RULE: blue is action and nothing else. #4a63d8 is the brand (it is
- * NetworkSpec.NORDTAL_BLUE, measured off the logo) and it appears on primary buttons, on the focus
- * ring, on the active navigation item and on links. NO SURFACE CARRIES IT - every page, card,
- * popover, sidebar and input background is neutral near-black. That is the whole discipline of
- * this variant: if no panel is blue, every blue thing on screen means something.
- *
- * Foreground is #fffcf6, a warm off-white, never pure white - it is what keeps a near-black
- * interface from reading as a colour-managed screenshot.
- *
- * Status colours are chosen, not inherited. Tailwind's green-500/amber-500/red-500 are louder and
- * bluer than this palette wants, so success/warning/danger are spelled out below and are the only
- * three values allowed to say "good", "careful" and "broken".
+ * Blue #4a63d8 marks action and nothing else; no surface carries it, and status has exactly three colours.
  */
 @custom-variant dark (&:is(.dark *));
 
@@ -37,7 +22,7 @@
 .dark {
   color-scheme: dark;
 
-  /* Surfaces: neutral near-black, in four steps. None of them is tinted. */
+  /* Surfaces: neutral near-black, in four steps, none tinted. */
   --background: #0d0d0d;
   --foreground: #fffcf6;
   --card: #141414;
@@ -45,11 +30,11 @@
   --popover: #161616;
   --popover-foreground: #fffcf6;
 
-  /* Action. The only blue in the file. */
+  /* Action: the only blue in the file. */
   --primary: #4a63d8;
   --primary-foreground: #fffcf6;
 
-  /* Quiet surfaces that sit on top of --card. Warm-neutral, deliberately not blue-grey. */
+  /* Quiet surfaces on top of --card, warm-neutral rather than blue-grey. */
   --secondary: #1e1e1c;
   --secondary-foreground: #fffcf6;
   --muted: #1a1a19;
@@ -57,7 +42,7 @@
   --accent: #232320;
   --accent-foreground: #fffcf6;
 
-  /* Status. Three values, no more. `--destructive` is the name shadcn's components look for. */
+  /* Status: three values. `--destructive` is the name shadcn's components look for. */
   --success: #3fb98a;
   --success-foreground: #0d0d0d;
   --warning: #d9a13b;
@@ -67,21 +52,17 @@
 
   --border: #2a2a27;
   --input: #333330;
-  /* The focus ring is blue because focus is the promise of an action. */
+  /* The focus ring is blue because focus promises an action. */
   --ring: #4a63d8;
 
-  /*
-   * Charts stay off the brand. A series painted #4a63d8 would be the one blue on screen that is
-   * not clickable, which is exactly the confusion the rule above exists to prevent - so the ramp
-   * is the three status colours plus two neutrals.
-   */
+  /* Charts stay off the brand, so no unclickable series is blue. */
   --chart-1: #3fb98a;
   --chart-2: #d9a13b;
   --chart-3: #d8534a;
   --chart-4: #8f8b82;
   --chart-5: #cfc9be;
 
-  /* The sidebar is a surface, so it is neutral - one step darker than the page, not lighter. */
+  /* The sidebar is a surface, so it is neutral, one step darker than the page. */
   --sidebar: #0a0a0a;
   --sidebar-foreground: #fffcf6;
   --sidebar-primary: #4a63d8;
@@ -91,57 +72,26 @@
   --sidebar-border: #232320;
   --sidebar-ring: #4a63d8;
 
-  /*
-   * Radius, and the concentric rule that goes with it: an element nested inside another with
-   * padding p gets `outer - p`. --radius-inner is the one step down that covers almost every case
-   * here (6px outer, 12px cell padding, so anything inside a card is square-ish by design).
-   */
+  /* Radius; a nested element with padding p gets `outer - p`, which --radius-inner covers. */
   --radius: 0.375rem;
 
-  /* Density. Table rows are 34px and cells are padded 12px; a control inside a row still gets its
-   * own 36px minimum, because a hit area is not a layout decision. */
+  /* Density: 34px rows with 12px cell padding, while a control in a row keeps its 36px minimum. */
   --row-height: 34px;
   --cell-padding: 12px;
   --control-min-height: 36px;
 
-  /*
-   * THE TWO NUMBERS `lib/app-frame.ts` MEASURES, and the values they have until it has.
-   *
-   * These are the answers for everything that is not an iOS home screen, and they are correct
-   * there: the viewport is the window, and there is no blurred band over the top of it. The
-   * script overwrites both on `<html>` on the first frame. They are declared here so the shell is
-   * laid out correctly before it runs and on anything where it cannot - `var(--app-height)` with
-   * nothing behind it is not a height at all, and the shell would collapse to its content.
-   */
+  /* Defaults for the two numbers `lib/app-frame.ts` measures, so the shell lays out before it runs. */
   --app-height: 100svh;
   --blur-clearance: 0px;
 
-  /*
-   * WHERE THE ISLAND SITS on a desktop: below the notch and the blurred band where there is one.
-   * The column's list and the content keep clear of it by this and `--control-min-height`, which
-   * asks about the input device rather than the width of the window - the honest question here.
-   */
+  /* Where the island sits on a desktop: below the notch and the blurred band, if any. */
   --island-top: calc(env(safe-area-inset-top) + var(--blur-clearance) + 0.75rem);
 
-  /*
-   * THE BAR THAT TRAVELS ACROSS A SKELETON.
-   *
-   * Always lighter than the surface it crosses, and in the dark that means a far smaller amplitude
-   * than the white-on-grey every light-mode library uses. `--foreground` rather than white for the
-   * reason the top of this file gives for `--foreground` being warm at all: a pure white bar puts a
-   * cold edge into an interface that has none anywhere else.
-   */
+  /* The shimmer band, `--foreground` rather than white so it adds no cold edge. */
   --shimmer: color-mix(in oklab, var(--foreground) 7%, transparent);
 }
 
-/*
- * A FINGER IS NOT A MOUSE POINTER.
- *
- * 36px is a comfortable target for something you aim with a cursor and a poor one for something you
- * aim with the middle of a thumb; both Apple and Google land on about 44. This asks about the input
- * device rather than the width, which is the honest question - a touchscreen laptop gets the larger
- * targets and a narrow desktop window does not.
- */
+/* Larger targets for touch, chosen by input device rather than by width. */
 @media (pointer: coarse) {
   :root,
   .dark {
@@ -204,23 +154,9 @@
 }
 
 /*
- * THE SHIMMER, AND WHY IT IS THIS SHIMMER.
+ * The shimmer: a pseudo-element moved by `transform`, which runs without paint across many skeletons.
  *
- * Read out of eight libraries rather than out of blog posts about them. The field splits in two:
- * a pseudo-element moved with `transform` (MUI, react-loading-skeleton, HeroUI) against a
- * `background-position` animated on the element itself (Ant Design, Chakra). Only `transform` and
- * `opacity` run without paint, which is worth nothing for one skeleton and quite a lot for the
- * twenty a table page mounts at once.
- *
- * 1.8s sits between Ant's 1.4s and MUI's 2s; the 40% of the cycle spent off-screen is the rest
- * three of five implementations build in, and the two without it (react-loading-skeleton, Ant) read
- * as a washing machine rather than as waiting. The stops are 0/50/100 with the band as wide as the
- * element, which is the softest of the documented variants - a hard stop reads as gloss on a button.
- *
- * Nothing is staggered and nothing is delayed. None of the eight libraries does, and the result is
- * that everything mounted in the same frame travels in phase: one bar crossing the page instead of
- * twenty flickers. `will-change` is deliberately absent for the same reason it would be tempting -
- * many layers at once is exactly the case web.dev warns costs memory.
+ * Nothing is staggered, so everything mounted together travels in phase.
  */
 @theme {
   --animate-shimmer: shimmer 1.8s ease-in-out infinite;
@@ -251,13 +187,7 @@
   }
 }
 
-/*
- * `display: none`, not `animation: none` - the way react-loading-skeleton and MUI do it, and for
- * their reason: a stopped animation leaves the bar standing in its base position, and a visible
- * light edge that never moves looks like a rendering fault rather than like a setting being
- * honoured. The base layer above already blunts every animation globally; this says the intent
- * where it applies.
- */
+/* Hidden rather than stopped, since a frozen bar looks like a rendering fault. */
 @media (prefers-reduced-motion: reduce) {
   .skeleton-shimmer::after {
     display: none;
@@ -270,8 +200,7 @@
   }
 
   html {
-    /* Every scroll in this interface is a container's, not the document's: the shell is a fixed
-     * viewport with its own scroll areas. */
+    /* Every scroll is a container's: the shell is a fixed viewport with its own scroll areas. */
     height: 100%;
     @apply font-sans;
   }
@@ -284,11 +213,7 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /*
-   * A number that changes must not make the column dance. Every digit here is the same width, and
-   * the rule is applied to the elements that carry figures rather than left to each author to
-   * remember: tables, form controls, code and anything explicitly marked `.tnum`.
-   */
+  /* Tabular figures wherever numbers change, so columns do not dance. */
   table,
   input,
   output,
@@ -300,23 +225,19 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /*
-   * Focus is never removed, only replaced. Components below may set `outline-none`, and every one
-   * of them pairs it with a visible `focus-visible:ring-*`; this is the net for anything that
-   * forgets, and for elements the design system never touches.
-   */
+  /* A net for anything that removes focus without drawing its own ring. */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
 
-  /* Scrollbars, so a dark surface does not grow a light one down its right edge. */
+  /* Dark scrollbars, so a dark surface grows no light one. */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
 
-  /* Respect the setting. Nothing in this interface depends on an animation to be understood. */
+  /* Nothing here depends on an animation to be understood. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -330,11 +251,7 @@
 }
 
 @layer components {
-  /*
-   * Density, in one place. A table cell is 12px of padding inside a 34px row - and a button that
-   * lands in that row keeps its own 36px, so it overhangs the row's text box slightly rather than
-   * shrinking to fit it. That is the intended look: rows are tight, targets are not.
-   */
+  /* Density in one place: tight 12px cells in a 34px row, while buttons keep their 36px. */
   .steward-table :where(th, td) {
     padding-inline: var(--cell-padding);
     padding-block: 0;
@@ -346,40 +263,13 @@
   }
 
   /*
-   * ON A PHONE A ROW IS A CARD.
+   * Below `md` a table row becomes a card of "name: value" lines, the name from `data-label`.
    *
-   * Every table in this interface was built with fixed column widths - `w-[14rem]`, `w-[22rem]` -
-   * because every one of them is a table of facts an operator reads across. None of that fits in
-   * 390 pixels, and the fallback the component already had was a sideways scrollbar: to see the CPU
-   * column you swiped, per table, per row, forever.
-   *
-   * So below `md` the table stops being a table. `display` is changed out from under it, which
-   * takes the column widths with it - `w-[14rem]` on a `<th>` means nothing once the `<th>` is
-   * `display: none` - and every cell becomes a line of "name: value". The name comes from
-   * `data-label` on the cell, because the header row it would have come from is gone.
-   *
-   * A CELL WITH NO `data-label` IS NOT A HOLE: it spans the full width instead of leaving an empty
-   * name column. That is deliberate. An action cell holding two buttons wants the whole width, and
-   * a label somebody forgot reads as an unnamed line rather than as a broken layout.
+   * A cell without `data-label` spans the full width, as an action cell wants.
    */
 }
 
-/*
-  DELIBERATELY UNLAYERED, and that is the whole reason this block sits outside `@layer components`
-  rather than inside it.
-
-  Inside that layer, half of it would silently do nothing: Tailwind's `utilities` layer
-  comes after `components`, so EVERY utility class shadcn's `TableCell` already carries would beat
-  these rules no matter how specific they were made. `height: auto` would lose to `h-(--row-height)`,
-  `white-space: normal` would lose to `whitespace-nowrap`, and `padding-block` would lose to `py-0`.
-  The result would be a cell computing to 34px around a grid row of 100px - a wrapped sentence
-  drawn straight over the next row's card, which no test can see and a screenshot can.
-
-  Unlayered styles beat every layer, which is what a layout override for one breakpoint needs to
-  be. The cost, stated plainly: a utility class on a single stacked cell can no longer override
-  anything this block sets. That is the trade - this block decides the stacked layout, and a cell
-  that wants out of it needs a rule here rather than a class there.
-*/
+/* Unlayered, so it beats shadcn's utility classes on the cells it overrides. */
 @media (width < 48rem) {
   .steward-table,
   .steward-table :where(thead, tbody, tr, th, td) {
@@ -408,14 +298,7 @@
     border-bottom-width: 1px;
   }
 
-  /*
-    `:is`, NOT `:where`, and that is the whole rule.
-    `:where()` contributes nothing to specificity, so this block would tie with shadcn's own utility
-    classes on the cell - `h-(--row-height)` and `whitespace-nowrap` - and lose the tie on source
-    order. The result would be a cell computing to `height: 34px` around a grid row of 100px:
-    a wrapped sentence drawn straight over the next row's card. `:is()` takes the highest
-    specificity of its arguments, so these rules win the way they always read as if they did.
-  */
+  /* `:is`, not `:where`, so these rules outrank shadcn's utility classes on the cell. */
   .steward-table :is(th, td) {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -426,20 +309,9 @@
     padding-inline: 0;
     padding-block: 0.25rem;
     text-align: left;
-    /*
-      shadcn's `TableCell`/`TableHead` carry `whitespace-nowrap`, and this selector is more
-      specific than that utility class - so without `white-space: normal` here, ordinary prose
-      (an `audit_log.detail` sentence) never wraps at all and the row is as wide as its longest
-      line. `overflow-wrap` below only decides where a line breaks WITHIN an
-      unbreakable run; it cannot make text wrap while `nowrap` still holds.
-    */
+    /* Overrides the cell's `whitespace-nowrap`, which `overflow-wrap` alone cannot. */
     white-space: normal;
-    /*
-      An image reference is one word to a line-breaking algorithm - `ghcr.io/nordtal/steward-
-      deployer:latest` is 281px of unbreakable text in a column 200px wide, and it was drawn
-      straight off the right edge of the phone where nothing could reach it. On a wide screen the
-      column is wide enough and this never applies.
-    */
+    /* Breaks an image reference, which is one long word, instead of drawing it off the phone's edge. */
     overflow-wrap: anywhere;
   }
 
@@ -454,31 +326,17 @@
     line-height: 1.25rem;
   }
 
-  /* `text-right` is an alignment against a column that no longer exists. */
+  /* `text-right` aligns against a column that no longer exists. */
   .steward-table td {
     justify-items: start;
   }
 
-  /*
-    ...and `justify-items: start` is why this is needed. A grid item that is not stretched is
-    sized to its content, and Firefox measured `ghcr.io/nordtal/steward-deployer:latest` at its
-    full 281px inside a 134px column - so the cell was right, the badge inside it was right, and
-    the reference was still drawn 80px off the right edge of the phone. A percentage max-width
-    resolves against the grid area, which is the number that was being ignored. Stretching the
-    items instead would fix it and make every status badge as wide as the column.
-  */
+  /* Bounds a child to its grid area, since `justify-items: start` sizes it to content. */
   .steward-table td > * {
     max-width: 100%;
   }
 
-  /*
-    A cell with two children - the Journal table's `Concerns`, a subject id plus a
-    `PersonIdentity` line under it - only places the first child by the implicit rule the grid
-    already has; grid auto-placement drops the second one into row 2, COLUMN 1, which is the
-    label column, and it collides with the next cell's `::before` label -
-    the identity line would sit inside the label box. Every child belongs in
-    column 2, beside the label, however many of them there are.
-  */
+  /* Puts every child in column 2, beside the label, however many there are. */
   .steward-table td[data-label] > * {
     grid-column: 2;
   }

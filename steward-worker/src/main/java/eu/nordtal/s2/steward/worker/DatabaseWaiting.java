@@ -14,38 +14,21 @@ final class DatabaseWaiting {
     /** How long {@link #openDatabase(DatabaseSpec)} keeps asking before it calls the database absent. */
     static final Duration DATABASE_WAIT = Duration.ofMinutes(3);
 
-    /** The pause between two attempts. Short enough that a database appearing is noticed at once. */
+    /** The pause between two attempts. */
     static final Duration DATABASE_RETRY = Duration.ofSeconds(2);
 
     private DatabaseWaiting() {}
 
     /**
-     * Opens the pool, waiting for the database to appear. {@code null} means stop.
+     * Opens the pool, waiting for the database to appear; {@code null} means stop.
      *
-     * Why it waits rather than exiting at once: There is deliberately no {@code depends_on} on the database (see
-     * {@code compose.yml}), so on a first deployment this container starts while PostgreSQL is still initialising and
-     * the pool cannot connect. The original answer was to exit and let {@code restart: unless-stopped} try again a few
-     * seconds later, which does work - the container really is healthy half a minute later.
-     *
-     * It is not enough, and a first deployment is exactly where it breaks. Every other service in the stack waits on
-     * this one through {@code depends_on: service_healthy}, and compose does not treat an exit during startup as "not
-     * ready yet" - it treats it as a dependency that failed, prints
-     * {@code dependency failed to start: container nordtal-s2-steward-worker-1 is unhealthy} and abandons the whole
-     * {@code up}. A worker that exits once because PostgreSQL is a second short, then comes back on its own and is
-     * healthy, is too late: compose has already given up and taken nothing else with it. A process that
-     * is going to be waited for cannot answer "come back later" by dying.
-     *
-     * So it asks again for {@link #DATABASE_WAIT}, and only the end of that window is a refusal. The refusal keeps what
-     * it always had: a named sentence, no stack trace - what an operator saw before this was caught was a whole
-     * {@code HikariPool$PoolInitializationException} on the very first screen of the very first deployment, which reads
-     * as a broken deployment when it is a normal one - and a non-zero exit that the restart policy turns into another
-     * try.
+     * Other services wait on this one being healthy, and compose abandons {@code up} if it exits, so it retries.
      */
     static @Nullable Database openDatabase(final DatabaseSpec config) {
         return openDatabase(config, DATABASE_WAIT, DATABASE_RETRY);
     }
 
-    /** @see #openDatabase(DatabaseSpec) - the windows are arguments so a test need not wait minutes. */
+    /** The same, with the windows as arguments so a test need not wait minutes. */
     static @Nullable Database openDatabase(final DatabaseSpec config, final Duration wait, final Duration between) {
         final long deadline = System.nanoTime() + wait.toNanos();
         boolean announced = false;
@@ -64,7 +47,7 @@ final class DatabaseWaiting {
                     return null;
                 }
                 if (!announced) {
-                    // Once, not once per attempt: ninety copies on a first deployment would bury the migration line.
+                    // Once, not per attempt, so the retries do not bury the migration line.
                     log.info(
                             "The database at {} is not answering yet ({}). That is expected on a"
                                     + " first deployment - PostgreSQL is still initialising and this"
@@ -87,7 +70,6 @@ final class DatabaseWaiting {
         }
     }
 
-    /** The innermost message, which is the one that says what actually happened. */
     private static String rootCauseOf(final Throwable failure) {
         Throwable cause = failure;
         while (cause.getCause() != null && !cause.getCause().equals(cause)) {

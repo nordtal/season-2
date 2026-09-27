@@ -29,18 +29,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 /**
- * What happens when somebody dies, and what happens when somebody opens what they left.
+ * What happens when somebody dies, and when somebody opens what they left.
  *
- * Two things at once, and they are separate rules that happen to share an event:
- *
- * - <b>The inventory becomes a grave.</b> Keep-inventory is off and the drops are taken here instead, so nothing
- *   scatters and nothing burns.
- *
- * - <b>The death costs aura</b> - five ordinarily, twenty for a listed cause, and <b>nothing at all in the duel
- *   arena</b>, where the ±10 stake is the whole of what was at risk.
- *
- * The arena exception is passed in as a predicate rather than looked up, so this listener does not need to know that
- * duels exist - which is also what lets the arena rule be tested by handing it a lambda.
+ * The inventory becomes a grave, and the death costs aura except in the duel arena, which comes in as a predicate.
  */
 public final class GraveListener implements Listener {
 
@@ -131,7 +122,7 @@ public final class GraveListener implements Listener {
         });
     }
 
-    /** Right-clicking a grave's invisible click surface opens it - for anybody, by design. */
+    /** Right-clicking a grave's invisible click surface opens it, for anybody. */
     @EventHandler(ignoreCancelled = true)
     public void onInteract(final PlayerInteractEntityEvent event) {
         final Optional<UUID> graveId =
@@ -146,13 +137,7 @@ public final class GraveListener implements Listener {
     /**
      * A click inside a grave window.
      *
-     * The content rows are deliberately free - taking things out is the whole point - so this only stands between a
-     * player and the footer, which is furniture and one button. Without it a shift-click or a pickup on the footer
-     * would
-     * move a head or a blank into somebody's inventory and, worse, leave an item in a slot nothing writes back. The
-     * head
-     * is a real item and it is still not clickable: an emptied grave hands it over on close, so there is no gesture for
-     * it at all and its cell stays cancelled like every other piece of footer furniture.
+     * The content rows are free; the footer is furniture and one button, and a click on it is cancelled.
      */
     @EventHandler
     public void onClick(final org.bukkit.event.inventory.InventoryClickEvent event) {

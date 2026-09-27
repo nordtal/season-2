@@ -7,19 +7,14 @@ import java.util.Objects;
 import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 
-/**
- * One staged moment as a value: images shown in the title slot for some ticks each, plus effect and sound.
- *
- * {@link Cinematics} runs one on a {@link CinematicStage}. An image is a {@link Component}, which carries
- * its font; an effect is a namespaced key and a sound a {@link Feedback} category, resolved by the adapter.
- */
+/** One staged moment: images shown in the title slot for some ticks each, plus an effect and a sound. */
 public final class Cinematic {
 
     /**
      * One image and how long it stays.
      *
-     * @param image the picture, as a component that already names its font if it needs one
-     * @param ticks how long it is on screen before the next one replaces it, at least 1
+     * @param image the picture, naming its font if it needs one
+     * @param ticks how long it is on screen before the next one, at least 1
      */
     public record Frame(Component image, int ticks) {
 
@@ -36,7 +31,7 @@ public final class Cinematic {
     /**
      * A potion effect held for the length of the staging.
      *
-     * @param type      the effect's namespaced key, e.g. {@code minecraft:blindness}
+     * @param type      the effect's namespaced key, such as {@code minecraft:blindness}
      * @param amplifier the level, 0 being the first
      */
     public record Effect(String type, int amplifier) {
@@ -52,7 +47,7 @@ public final class Cinematic {
         }
     }
 
-    /** Which image is on screen at which tick. What {@link Cinematics} schedules, one each. */
+    /** Which image is on screen from which tick. */
     public record Cue(int atTick, Frame frame) {}
 
     private final List<Frame> frames;
@@ -80,22 +75,22 @@ public final class Cinematic {
         return frames;
     }
 
-    /** The line under every image, or {@code null} when there is none. */
+    /** Returns the line under every image, or {@code null} when there is none. */
     public @Nullable Component subtitle() {
         return subtitle;
     }
 
-    /** The effect held for {@link #totalTicks()}, or {@code null} when there is none. */
+    /** Returns the effect held for {@link #totalTicks()}, or {@code null} when there is none. */
     public @Nullable Effect effect() {
         return effect;
     }
 
-    /** The category played once at the start, or {@code null} when the moment is silent. */
+    /** Returns the category played once at the start, or {@code null} when the moment is silent. */
     public @Nullable Feedback sound() {
         return sound;
     }
 
-    /** How long the whole thing lasts, in ticks. */
+    /** Returns how long the whole thing lasts, in ticks. */
     public int totalTicks() {
         int total = 0;
         for (final Frame frame : frames) {
@@ -130,7 +125,7 @@ public final class Cinematic {
             return this;
         }
 
-        /** Adds several images that each stay the same length - the ordinary animated case. */
+        /** Adds several images that each stay the same length. */
         public Builder frames(final List<Component> images, final int ticksEach) {
             for (final Component image : images) {
                 frame(image, ticksEach);
@@ -138,19 +133,19 @@ public final class Cinematic {
             return this;
         }
 
-        /** The line under every image. {@code null} leaves it out. */
+        /** Sets the line under every image; {@code null} leaves it out. */
         public Builder subtitle(final @Nullable Component subtitle) {
             this.subtitle = subtitle;
             return this;
         }
 
-        /** Held for the whole staging. {@code null} leaves it out. */
+        /** Sets the effect held for the whole staging; {@code null} leaves it out. */
         public Builder effect(final @Nullable Effect effect) {
             this.effect = effect;
             return this;
         }
 
-        /** Played once, at the start. {@code null} leaves it out, and so does a blank key. */
+        /** Sets the sound played once at the start; {@code null} or a blank key leaves it out. */
         public Builder sound(final @Nullable Feedback sound) {
             this.sound = sound;
             return this;

@@ -12,42 +12,16 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * {@code GET /api/actions}: the newest things that happened on this network, across both tables that record one.
+ * {@code GET /api/actions}: the newest runs from {@code update_request} and lines from {@code audit_log}, merged.
  *
- * Why this is a query and not two: an update, a restart and a backup are all the same table,
- * {@code update_request}, distinguished only by {@code kind} - the same table's {@link UpdateKind#RESTART} and
- * {@link UpdateKind#BACKUP}. The second table is {@code audit_log}, the admin/access journal already served to the
- * interface as {@code /api/journal} - but by steward-ui's own backend, not this one, and only from that one table.
- * This class is the one place that reads both and answers with one sorted, truncated list, so the frontend never
- * merges two feeds and never has the chance to forget a third.
- *
- * Why the audit half is nine separate queries, not one: {@link AuditDirectory} does not expose "recent, filtered by
- * a set of actions" - only {@link AuditDirectory#recent(int)} (unfiltered) and
- * {@link AuditDirectory#search(String, String, int)} (exactly one action). {@code audit_log} on this deployment is
- * dominated by {@code HELD_KEY}, one for every session unlocked with a security key - so asking for "the newest 5,
- * unfiltered" and then throwing away what does not belong on this list would as likely as not throw away
- * everything. One {@code search} per {@linkplain #DISPLAYED_AUDIT_ACTIONS displayed action} costs a handful of
- * indexed reads of a small table instead, and gets back exactly {@code limit} rows of each kind that exists,
- * however deep in the journal the fifth {@code GRANT_ACCESS} is hiding.
- *
- * What is deliberately left off {@link #DISPLAYED_AUDIT_ACTIONS}: {@code HELD_KEY} - proving who you are to look at
- * the system is not a thing that was done to it, and including it would mean this list is HELD_KEY five rows out of
- * five on a quiet day.
+ * The audit half is one search per displayed action, since {@code HELD_KEY} rows would crowd out the rest.
  */
 public final class ActionsApi {
 
-    /** What the interface asks for when it does not say - a screenful, same as {@code recent()}. */
+    /** What the interface gets when it does not ask for a number. */
     public static final int DEFAULT_LIMIT = 5;
 
-    /**
-     * The {@code audit_log.action} values worth a place on this list.
-     *
-     * Unconstrained by the schema (see {@link AuditEntry#action()}), so this is necessarily a guess at what the bot
-     * writes today rather than something a compiler can hold shut - {@code AuditDirectory}'s own javadoc names
-     * {@code LINK, UNLINK, GRANT_ACCESS, REVOKE_ACCESS, SETTLE} as its examples, and {@code RECREATE},
-     * {@code SET_PHASE}, {@code REGISTER_KEY}, {@code REMOVE_KEY} and {@code FORGET_FACTORS} are what is actually
-     * in the running database.
-     */
+    /** The {@code audit_log.action} values worth a place on this list; {@code HELD_KEY} is left off on purpose. */
     private static final Set<String> DISPLAYED_AUDIT_ACTIONS = Set.of(
             "GRANT_ACCESS",
             "REVOKE_ACCESS",
@@ -68,25 +42,24 @@ public final class ActionsApi {
         this.audit = audit;
     }
 
-    /** {@code GET /api/actions?limit=n} - a bare JSON array, newest first. */
+    /** {@code GET /api/actions?limit=n}: a bare JSON array, newest first. */
     public void list(final Context ctx) {
         final int limit = ctx.queryParamAsClass("limit", Integer.class).getOrDefault(DEFAULT_LIMIT);
-        // Through json(), never the records themselves - see ActionEntry#json for why.
+        // Through json(), never the records themselves.
         ctx.json(recent(limit).stream().map(ActionEntry::json).toList());
     }
 
     /**
-     * @param limit how many, at most. Below 1 is clamped to 1, exactly as {@link
-     *              UpdateDirectory#recent(int)} and {@link AuditDirectory#recent(int)} already
-     *              clamp it
-     * @return the merged, newest-first list
+     * The merged, newest-first list.
+     *
+     * @param limit how many, at most; below 1 is clamped to 1
      */
     List<ActionEntry> recent(final int limit) {
         final int clamped = Math.max(1, limit);
         final List<ActionEntry> combined = new ArrayList<>();
 
         for (final UpdateRequest run : updates.recent(clamped)) {
-            // APPLY is retired and refused (see UpdateKind's own javadoc) - only history; not useful here.
+            // APPLY is retired and refused, so it is only history.
             if (run.kind() == UpdateKind.APPLY) {
                 continue;
             }

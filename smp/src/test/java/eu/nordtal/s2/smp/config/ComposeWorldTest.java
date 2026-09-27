@@ -21,23 +21,13 @@ import org.yaml.snakeyaml.Yaml;
 /**
  * That the world {@code compose.yml} tells Paper to generate is the world this plugin looks for.
  *
- * <b>Why this file exists</b>
- *
- * Nothing used to write {@code level-name} into {@code server.properties} at all.
- * {@code deploy/minecraft/entrypoint.sh} fetched Terralith and Dungeons and Taverns into
- * {@code /data/${LEVEL_NAME}/datapacks} - {@code nordtal}, per {@code compose.yml} - while Paper kept its own
- * default and generated {@code world}. The consequences were three, and the middle one is the expensive one: the
- * datapacks were never loaded, so the season world would have been vanilla terrain <em>permanently</em> (terrain is
- * not re-rolled); {@code world-nordtal: nordtal} named a world that did not exist; and the plugin refused to start.
- *
- * Nothing in this repository could have caught it. The two halves of the fact live in a YAML file the build never
- * read and a Java default nothing compared it against. This is the comparison.
+ * A mismatch leaves the datapacks unloaded and the season world vanilla for good.
  */
 class ComposeWorldTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ComposeWorldTest.class);
 
-    /** {@code ${SMP_LEVEL_NAME:-nordtal}} - what compose falls back to when .env says nothing. */
+    /** {@code ${SMP_LEVEL_NAME:-nordtal}}: what compose falls back to when .env says nothing. */
     private static final Pattern DEFAULTED = Pattern.compile("^\\$\\{[A-Z0-9_]+:-(.*)}$");
 
     @TempDir
@@ -56,11 +46,7 @@ class ComposeWorldTest {
                         + " world, put the datapacks in it, and the plugin would look for another.");
     }
 
-    /**
-     * Nordtal is generated from it once and then kept for the season.
-     *
-     * So the seed is the one value here that cannot be corrected afterwards by editing a file.
-     */
+    /** Nordtal is generated from the seed once and kept for the season, so the seed cannot be corrected later. */
     @Test
     void theSeasonWorldsSeedIsPinned() {
         final String seed = defaultOf(environmentOf("smp").get("LEVEL_SEED"), "smp.LEVEL_SEED");
@@ -113,12 +99,7 @@ class ComposeWorldTest {
         return matcher.group(1);
     }
 
-    /**
-     * The directory holding {@code settings.gradle.kts}, not the nearest file by name.
-     *
-     * The anchor is the rule this repository settled on after a second {@code .env.example} in a module
-     * directory shadowed the real one for a walk-up by name.
-     */
+    /** The directory holding {@code settings.gradle.kts}, not the nearest file by name. */
     private static Path repositoryRoot() {
         Path directory = Path.of("").toAbsolutePath();
         while (directory != null) {

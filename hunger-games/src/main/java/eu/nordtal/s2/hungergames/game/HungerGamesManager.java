@@ -32,11 +32,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The start sequence, in one place.
+ * The start sequence: towers, freeze, countdown, release with PvP protection.
  *
- * Teleport to towers, freeze, countdown, release with PvP protection. Also owns the
- * effective-participant, colour and demotion work that must happen exactly once, at countdown
- * time, before the border step is computed.
+ * It also does the demotion and colour work that must happen once, before the border step is computed.
  */
 public final class HungerGamesManager {
 
@@ -52,7 +50,7 @@ public final class HungerGamesManager {
     private final BorderController border;
     private final HungerGamesSounds sounds;
 
-    /** Frozen players cannot move during the countdown - {@code FreezeListener} consults this. */
+    /** Whether players are frozen for the countdown, which {@code FreezeListener} consults. */
     private volatile boolean frozen;
 
     public HungerGamesManager(
@@ -85,20 +83,11 @@ public final class HungerGamesManager {
     }
 
     /**
-     * Runs the whole start sequence.
+     * Runs the whole start sequence; callers must already be off the main thread.
      *
-     * Resolve the roster, demote incomplete duos, generate and write colours, teleport everyone (or
-     * their body) onto a spawn tower, freeze, count down, release with PvP protection.
-     *
-     * Callers must already be off the main thread: the teleports and the release callback are
-     * scheduled back onto the main thread internally.
-     *
-     * @param gameId     the game being started
-     * @param world      the event world
-     * @param onReleased called once the countdown finishes and protection begins, on the main
-     *                   thread - the caller flips {@code hg_game.state} to RUNNING's dependent
-     *                   schedulers (loot, HUD) here, since starting those is this plugin's own
-     *                   concern and not this class's
+     * @param gameId the game being started
+     * @param world the event world
+     * @param onReleased called on the main thread once the countdown finishes and protection begins
      */
     public void start(final UUID gameId, final World world, final Runnable onReleased) {
         final List<RosterEntry> roster = dao.roster(gameId);
@@ -109,7 +98,7 @@ public final class HungerGamesManager {
             return;
         }
 
-        // Colours are written before the world is touched, so a restart before release still repaints identically.
+        // Colours are written before the world is touched, so a restart before release repaints identically.
         assignColours(participants);
 
         final double step =
@@ -146,12 +135,7 @@ public final class HungerGamesManager {
         });
     }
 
-    /**
-     * Tells every solo-by-demotion participant why they are standing on their tower alone.
-     *
-     * Sent at the start of the countdown, when they are asking, rather than at release. Only online
-     * participants are told; a body waiting for its owner has nobody to tell.
-     */
+    /** Tells every online solo-by-demotion participant, at the start of the countdown, why they stand alone. */
     private void announceDemotions(final List<Participant> participants) {
         for (final Participant participant : participants) {
             if (!participant.demotedToSolo()) {
@@ -168,13 +152,7 @@ public final class HungerGamesManager {
         }
     }
 
-    /**
-     * Schedules the countdown announcements at {@link Countdown#marks(int)}.
-     *
-     * One task per mark rather than one repeating task: the marks are not evenly spaced, and a task
-     * that survives a cancelled game is worse than eight that expire on their own. Bukkit cancels
-     * all of them when the plugin disables.
-     */
+    /** Schedules the countdown announcements, one task per mark, since the marks are uneven. */
     private void scheduleCountdown(final List<Participant> participants) {
         final int total = config.countdownSeconds();
         for (final int remaining : Countdown.marks(total)) {
@@ -195,7 +173,6 @@ public final class HungerGamesManager {
                                                 .format(
                                                         locales.of(participant.mcUuid()),
                                                         MESSAGES.hg().start().countdown(remaining)));
-                                        // Not a metronome - the marks are uneven, unlike chat which scrolls past.
                                         sounds.play(online, Feedback.COUNTDOWN_TICK);
                                     }
                                 }
@@ -204,10 +181,7 @@ public final class HungerGamesManager {
         }
     }
 
-    /**
-     * Generates one palette entry per distinct team, not per player, so a duo shares its colour.
-     * The palette size is {@link Demotion#effectiveTeamCount(List)}, computed after demotion.
-     */
+    /** One palette entry per distinct team, so a duo shares its colour, sized after demotion. */
     private void assignColours(final List<Participant> participants) {
         final int teamCount = Demotion.effectiveTeamCount(participants);
         final List<Integer> palette = TeamColours.generatePalette(teamCount);
@@ -232,7 +206,7 @@ public final class HungerGamesManager {
     private void placeOnTower(final Participant participant, final Location tower) {
         final Player online = plugin.getServer().getPlayer(participant.mcUuid());
         if (online != null) {
-            // Not in the teleport callback, which would reorder an unrehearsable sequence; a failed teleport is logged.
+            // Not in the teleport callback, which would reorder the sequence; a failed teleport is logged.
             final var _ = online.teleportAsync(tower).thenAccept(moved -> {
                 if (!moved) {
                     plugin.getLogger()
@@ -244,7 +218,6 @@ public final class HungerGamesManager {
             online.setInvulnerable(true);
             // mayfly only stops vanilla's floating kick while FreezeListener pins everyone; release() takes it away.
             online.setAllowFlight(true);
-            // TRAVEL: this is the module's real "the game has started" moment for a participant.
             sounds.play(online, Feedback.TRAVEL);
             return;
         }
@@ -282,7 +255,6 @@ public final class HungerGamesManager {
                         .format(
                                 locales.of(participant.mcUuid()),
                                 MESSAGES.hg().start().released(config.pvpProtectionSeconds())));
-                // The last beat of the countdown, on the same category as the marks before it.
                 sounds.play(online, Feedback.COUNTDOWN_TICK);
             }
         }

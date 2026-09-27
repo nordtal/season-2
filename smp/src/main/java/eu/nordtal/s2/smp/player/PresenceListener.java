@@ -16,11 +16,7 @@ import org.bukkit.plugin.Plugin;
 /**
  * Join and quit: the operator grant, the surfaces, and the language the join line waits for.
  *
- * Chat itself is per Paper server: the SMP is one server holding three worlds, so Nordtal, the Nether and the End
- * share one chat. The composition in front of the message is drawn by {@link SystemLines} in {@code :paper-common}.
- *
- * An admin becomes a server <b>operator</b> at join and stops being one at quit, through {@link AdminOperators}. The
- * admin flag is mirrored from Discord into the database by the bot, so there is one truth and nothing to reconcile.
+ * An admin is a server operator from join to quit, through {@link AdminOperators}.
  */
 public final class PresenceListener implements Listener {
 
@@ -66,9 +62,7 @@ public final class PresenceListener implements Listener {
     /**
      * Reads the player's language off the main thread and redraws their surfaces once it is known.
      *
-     * Without this call {@code PlayerLocales#of} answers English for every player, so {@code LocaleJoinWiringTest} in
-     * {@code :common} fails the build if a backend omits it. The HUD and the boards pick the language up on their own
-     * timers; the tab-list header does not, which is why {@code refresh} runs again once the value has landed.
+     * {@code LocaleJoinWiringTest} fails the build if this call is missing.
      */
     private void loadLanguage(final Player player) {
         // Named rather than chained.
@@ -92,11 +86,9 @@ public final class PresenceListener implements Listener {
     }
 
     /**
-     * Fills in a nametag the moment DisplayTags creates one.
+     * Fills in a nametag the moment DisplayTags creates one, on every path that creates it.
      *
-     * The only place the composition reliably reaches the tag: DisplayTags applies its own configured lines while
-     * constructing the tag and fires this event afterwards, so anything written at join or on a later Bukkit event is
-     * overwritten or races the render. This covers every path that creates a tag: join, a world change, a reload.
+     * DisplayTags writes its own lines while constructing the tag, so anything written earlier is overwritten.
      */
     @EventHandler
     public void onNameTagCreate(final NameTagCreateEvent event) {

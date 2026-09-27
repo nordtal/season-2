@@ -7,20 +7,7 @@ import { SeasonPage } from "@/pages/season"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton, asElement, asInput } from "@/lib/test-elements"
 
-/**
- * The reason for a phase change, and where it must not end up.
- *
- * The phase is the door policy: it decides who may join and where they land, and the switch is in
- * force on the next join with no restart anywhere. It is therefore the one setting in the interface
- * that asks twice, and the sentence typed into that second question is written into the journal
- * next to the operator's name.
- *
- * **A sentence that was typed and then cancelled must not survive the dialog.** `reason` is state
- * on the card, not on the dialog, so a cleared-only-on-success version leaves the abandoned
- * sentence in the field - and the *next* confirmation, about a different phase, sends it. The
- * journal then carries a reason for a change nobody gave it, which is worse than an empty one:
- * an empty reason is honest, and a wrong one is evidence.
- */
+/** The phase change dialog, and that a reason typed then cancelled never reaches the journal with the next change. */
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -35,7 +22,7 @@ const SEASON = {
   smpStart: "2026-10-08T18:00:00Z",
 }
 
-/** The page's own routes. There is no command card on it any more, so no catalogue either. */
+/** The page's own routes; it has no command card, so no catalogue either. */
 function backend(over: { phase?: () => { status: number; body: unknown } } = {}) {
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/season/phase" && init?.method === "POST") {
@@ -59,17 +46,9 @@ function draw(node: ReactNode) {
 }
 
 /**
- * Press "Switch" on the row of one phase, found by the constant printed beside its label.
+ * Presses "Switch" on one phase's row, disabled until `/api/season` answers.
  *
- * The five rows are drawn from a constant in the page, so they are on screen before `/api/season`
- * has answered - and their buttons are disabled until it has, because a
- * Switch that cannot know which phase is current is a Switch that might be the current one.
- *
- * **Every lookup here is repeated inside the `waitFor`, and that is not style.** The first pass
- * finds a row that is still waiting; by the time the button is enabled React has re-rendered that
- * subtree, and a node captured before the answer can be one that is no longer in the document. A
- * detached button is disabled for ever and reports nothing else, so holding one turns this into a
- * five-second timeout with no message worth reading.
+ * Every lookup repeats inside the `waitFor`, since a node captured before the answer may be detached.
  */
 async function ask(phase: string): Promise<HTMLElement> {
   const live = () => {
@@ -111,11 +90,7 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
   })
 
   it("is gone when the dialog is dismissed with Escape rather than with the button", async () => {
-    /**
-     * `onOpenChange` is what clears it, so every way out of the dialog has to go through it -
-     * Escape and a click on the overlay included. Clearing it in the Cancel handler alone would
-     * pass the test above and leak here.
-     */
+    /** Escape and an overlay click leave through `onOpenChange` too, which is what clears the reason. */
     vi.stubGlobal("fetch", backend())
     draw(<SeasonPage />)
 
@@ -129,10 +104,7 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
   })
 
   it("is not what the next phase change sends, which is the whole point", async () => {
-    /**
-     * The defect as it would be read six months later: a journal entry against MAINTENANCE
-     * carrying a sentence somebody typed about PRE_LAUNCH and then thought better of.
-     */
+    /** A journal entry against MAINTENANCE must not carry a sentence typed about PRE_LAUNCH. */
     const fetched = backend()
     vi.stubGlobal("fetch", fetched)
     draw(<SeasonPage />)
@@ -150,10 +122,7 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
   })
 
   it("is sent when it was meant, so that the clearing is not simply a broken field", async () => {
-    /**
-     * The other direction. A test that only ever asserts "" would pass against a field that never
-     * works at all.
-     */
+    /** The other direction, so a field that never works does not pass. */
     const fetched = backend()
     vi.stubGlobal("fetch", fetched)
     draw(<SeasonPage />)
@@ -180,10 +149,7 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
   })
 
   it("asks before it switches at all, and the question names the admission rule", async () => {
-    /**
-     * Not decoration: "Before launch" tells nobody whether their players can log in, and the
-     * dialog is the last place this can be said before the door changes.
-     */
+    /** The dialog is the last place to say whether players can still log in before the door changes. */
     vi.stubGlobal("fetch", backend())
     draw(<SeasonPage />)
 
@@ -195,10 +161,9 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
 })
 
 /**
- * The alerts a scope currently shows for the refused phase change, filtered to the sentence under
- * test - `hidden: true` because Radix marks everything outside the open dialog aria-hidden, and the
- * filter because the page carries a standing `role="alert"` of its own ("Nothing is carried
- * between seasons"), which is not the sentence under test.
+ * The alerts in a scope carrying the refusal under test.
+ *
+ * `hidden: true` since Radix hides all outside the dialog; the page's own standing alert is filtered out.
  */
 function refusals(scope: { queryAllByRole: typeof screen.queryAllByRole }) {
   return scope
@@ -222,15 +187,7 @@ describe("SeasonPage - a switch the backend refuses", () => {
   })
 
   it("shows the operator why, inside the dialog they are looking at", async () => {
-    /*
-     * This was a defect when it was written, and the same one `command-card.tsx` had one file over:
-     * `{change.error ? <Failure …/> : null}` sat in the `CardContent`, which the open AlertDialog
-     * covers and marks `aria-hidden` - so a refused phase change left the dialog open, the
-     * "Switch" button enabled again, and the reason nowhere the operator could see it. Pressing
-     * it a second time is the obvious next move, and it would have failed the same way, silently.
-     * The refusal is now repeated inside the dialog, and the copy in the card is only drawn while
-     * the dialog is shut.
-     */
+    // The refusal is repeated inside the dialog, since the open dialog covers the card's copy.
     vi.stubGlobal(
       "fetch",
       backend({ phase: () => ({ status: 503, body: { error: "The database is not answering." } }) }),
@@ -240,15 +197,10 @@ describe("SeasonPage - a switch the backend refuses", () => {
     const dialog = await ask("MAINTENANCE")
     fireEvent.click(within(dialog).getByRole("button", { name: "Switch" }))
 
-    /**
-     * `hidden: true` because Radix marks everything outside the open dialog aria-hidden, and the
-     * filter because the page carries a standing `role="alert"` of its own ("Nothing is carried
-     * between seasons"), which is not the sentence under test.
-     * It IS rendered - in the card underneath, which the overlay covers.
-     */
+    /** Rendered in the card underneath, which the overlay covers. */
     await waitFor(() => expect(refusals(screen)).toHaveLength(1))
 
-    // And this is the assertion that fails: it is not in the dialog the operator is looking at.
+    // It must also be in the dialog the operator is looking at.
     expect(refusals(within(dialog))).toHaveLength(1)
   })
 })

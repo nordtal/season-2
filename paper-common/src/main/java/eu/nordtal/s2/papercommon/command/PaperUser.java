@@ -23,27 +23,19 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Whoever typed a command on a Paper server - a player, or the console.
+ * A player or the console that typed a command on a Paper server.
  *
- * <b>The console is always an admin</b>, and that is the single exception to
- * {@code discord_user.admin} being the only admin list. It is not a second list: the console is a
- * shell inside the container, and anybody holding one can edit that table by hand. Refusing them
- * would only remove the path that still works when the database holds no admin at all.
- *
- * The console gets English, because it has no account and therefore no language.
- *
- * Commands do their work on Bukkit's async scheduler, so every reply hops to the main thread -
- * carrying the message <em>and</em> its sound in one tick, because two hops read as lag.
+ * The console is always an admin and speaks English; replies hop to the main thread with their sound in one tick.
  */
 public final class PaperUser implements NordtalUser {
 
-    /** How a module plays its own feedback sounds. Nothing here knows what a category sounds like. */
+    /** How a module plays its own feedback sounds. */
     @FunctionalInterface
     public interface Chime {
 
         void play(Player player, Feedback feedback);
 
-        /** For a module with no sounds, and for the console, which has no ears. */
+        /** Returns a chime that plays nothing, for a module with no sounds and for the console. */
         static Chime silent() {
             return (player, feedback) -> {};
         }
@@ -78,17 +70,11 @@ public final class PaperUser implements NordtalUser {
     }
 
     /**
-     * A player who has already been looked up.
+     * Returns a player who has already been looked up.
      *
-     * @param admin     their {@code discord_user.admin} flag, <b>read by the caller</b> on a thread
-     *                  that is allowed to wait. It is never read here: {@link #admin()} is called
-     *                  from places that must not block
-     * @param discordId their Discord id if the caller happens to know it, {@code null} otherwise -
-     *                  "this surface does not know one" is a legitimate answer and commands are
-     *                  written for it
-     * @param colours   the tone palette this plugin is configured with right now - a supplier and
-     *                  not a value, so a reload swaps what the next reply paints with rather than
-     *                  what this already-built instance answered when it was constructed
+     * @param admin their {@code discord_user.admin} flag, read by the caller off the main thread
+     * @param discordId their Discord id, or {@code null} if the caller does not know it
+     * @param colours the current tone palette, a supplier so that a reload reaches the next reply
      */
     public static PaperUser of(
             final Plugin plugin,
@@ -102,11 +88,7 @@ public final class PaperUser implements NordtalUser {
         return of(plugin, player, locale, admin, () -> Optional.ofNullable(discordId), messages, chime, colours);
     }
 
-    /**
-     * The same, with the Discord account resolved only if something asks. See {@link #discordId()}.
-     *
-     * The overload to use whenever the source is anything but a cache.
-     */
+    /** Returns the same, with the Discord account resolved only when asked; use it unless the source is a cache. */
     public static PaperUser of(
             final Plugin plugin,
             final Player player,
@@ -127,7 +109,7 @@ public final class PaperUser implements NordtalUser {
                 Objects.requireNonNull(colours, "colours"));
     }
 
-    /** The console: English, always an admin, no identities, and no sound. */
+    /** Returns the console: English, always an admin, no identities, and no sound. */
     public static PaperUser console(
             final Plugin plugin,
             final CommandSender sender,
@@ -144,17 +126,15 @@ public final class PaperUser implements NordtalUser {
                 Objects.requireNonNull(colours, "colours"));
     }
 
-    /** Whether this sender is the console, for a command that has to refuse one. */
+    /** Returns whether this sender is the console. */
     public static boolean isConsole(final CommandSender sender) {
         return sender instanceof ConsoleCommandSender;
     }
 
     /**
-     * Their Discord account, <b>resolved when asked and not when this object is built</b>.
+     * Returns their Discord account, resolved when asked rather than when built.
      *
-     * A {@code PaperUser} is built inside a Brigadier handler on the main thread for every
-     * invocation, so an eager lookup would be a database query there. The callers that need the
-     * answer read it on their own scheduler.
+     * A {@code PaperUser} is built on the main thread per invocation, where an eager lookup would query the database.
      */
     @Override
     public Optional<String> discordId() {
@@ -223,12 +203,7 @@ public final class PaperUser implements NordtalUser {
         return MessageRenderer.of(messages).format(locale, message);
     }
 
-    /**
-     * One hop to the main thread, carrying the line and its sound together.
-     *
-     * Scheduled unconditionally rather than only when off-thread, so that two replies keep the
-     * order they were written in whichever thread each came from.
-     */
+    /** Sends on the main thread, always scheduled, so that replies keep their order across threads. */
     private void send(final Component message, final @Nullable Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             sender.sendMessage(message);

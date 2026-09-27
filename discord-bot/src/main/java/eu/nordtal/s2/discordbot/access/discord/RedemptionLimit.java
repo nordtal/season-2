@@ -9,33 +9,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * How many link codes one Discord account may get wrong before the modal stops answering it.
+ * Caps how many wrong link codes one Discord account may try per hour; a four-character code is safe only with it.
  *
- * This is the other half of a four-character code: {@code LinkCodes} in {@code :common} generates four characters
- * from a 31-symbol alphabet - 923 521 possibilities - and a link code is a bearer credential for taking over
- * somebody else's account link. Nothing else stands between a guesser and that: the modal is a Discord interaction,
- * and Discord's own limits are generous enough to be irrelevant here. Five wrong guesses an hour turns 923 521
- * possibilities into decades of guessing per account. The length and this class were decided together and neither
- * is safe alone.
- *
- * What counts: Only a code that matched nothing. A correct code obviously does not, and neither does a code that was
- * refused because the account is already linked - that one is a real code held by somebody who clicked the wrong
- * button, and burning their allowance for it would punish the honest case. A successful redemption clears the
- * account's history outright.
- *
- * In memory, not in the database: The bot is one process and the counters are lost when it restarts. That costs
- * nothing against a space this size - an attacker who could restart the bot would not need to guess codes - and it
- * buys the absence of a table, a sweep and a database round trip inside an interaction that has three seconds to be
- * acknowledged. The map only ever holds accounts that failed within the window; an entry whose failures have all
- * aged out is dropped on the next look, so it cannot grow without bound.
- *
- * Not thread-safe by accident: Every method is {@code synchronized} on this instance. JDA delivers interactions from
- * several gateway threads and the bot hands them to a worker pool, so two modals really can arrive at once; a lock
- * around a few million operations a season is not worth avoiding.
+ * Only a code that matched nothing counts. Counters live in memory, and every method is synchronized.
  */
 public final class RedemptionLimit {
 
-    /** The window the cap is measured over. Not configurable - the cap itself is. */
+    /** The window the cap is measured over; the cap itself is configurable. */
     private static final Duration WINDOW = Duration.ofHours(1);
 
     private final int maxFailures;
@@ -43,10 +23,8 @@ public final class RedemptionLimit {
     private final Map<String, Deque<Instant>> failures = new HashMap<>();
 
     /**
-     * @param maxFailures how many failures are allowed per account per hour; must be positive,
-     *                    which {@code Configs} has already checked for the configured value
-     * @param clock       the clock to measure the window with - injected so the window can be
-     *                    tested without waiting an hour
+     * @param maxFailures how many failures are allowed per account per hour; positive
+     * @param clock       the clock to measure the window with
      */
     public RedemptionLimit(final int maxFailures, final Clock clock) {
         if (maxFailures <= 0) {
@@ -57,17 +35,10 @@ public final class RedemptionLimit {
     }
 
     /**
-     * Takes one attempt, if there is one to take.
+     * Takes one attempt, if there is one to take, in the same lock as the check.
      *
-     * A check followed by a separate record would be racy: the bot hands interactions to a pool of four workers, so
-     * four modals from one account could each pass the check before any of them recorded anything, and the account
-     * would get eight or nine guesses out of a cap of five - a hole in the one mechanism that makes a
-     * four-character code defensible. Admission and accounting are therefore the same synchronized operation, and
-     * the caller gives the attempt back when it turns out not to have been a guess.
-     *
-     * @param discordId the account submitting a code.
-     * @return how many attempts are left after taking this one - {@code 0} means the next one is refused - or
-     *     {@code -1} when there was nothing left to take and the caller must not look at the code at all.
+     * @param discordId the account submitting a code
+     * @return attempts left after this one, or {@code -1} when none was left and the code must not be looked at
      */
     public synchronized int acquire(final String discordId) {
         final Deque<Instant> recent = recent(discordId);
@@ -80,14 +51,7 @@ public final class RedemptionLimit {
     }
 
     /**
-     * Gives back the attempt {@link #acquire(String)} took, because it was not a wrong guess after all.
-     *
-     * The code was right, or it was a real code belonging to an account that is already linked, or the redemption
-     * threw before it could answer either way.
-     *
-     * Only the attempt this caller took is returned - the most recent one - so two workers racing cannot give each
-     * other's back. Harmless when there is nothing recorded, which is the normal case after a successful redemption has
-     * already cleared the account.
+     * Gives back the most recent attempt {@link #acquire(String)} took, because it was not a wrong guess.
      *
      * @param discordId the account
      */
@@ -103,10 +67,7 @@ public final class RedemptionLimit {
     }
 
     /**
-     * Forgets an account's failures.
-     *
-     * Called when a code is actually redeemed: somebody who has just proved they hold a real code is not the case
-     * this defends against, and leaving their strikes standing would cap the next link they legitimately make.
+     * Forgets an account's failures, once a code is actually redeemed.
      *
      * @param discordId the account
      */
@@ -114,12 +75,7 @@ public final class RedemptionLimit {
         failures.remove(discordId);
     }
 
-    /**
-     * The account's failures inside the window, with everything older dropped.
-     *
-     * Also drops the map entry entirely when nothing is left, which is what keeps the map the size of "accounts
-     * that failed in the last hour" rather than "accounts that ever failed".
-     */
+    /** Returns the account's failures inside the window, dropping older ones and an entry left empty. */
     private Deque<Instant> recent(final String discordId) {
         final Deque<Instant> recorded = failures.get(discordId);
         if (recorded == null) {

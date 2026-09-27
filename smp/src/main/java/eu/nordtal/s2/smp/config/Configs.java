@@ -17,15 +17,9 @@ import java.util.Map;
 import org.slf4j.Logger;
 
 /**
- * Where {@code smp} 's config files live, and every rule about what a valid value is.
+ * Where {@code smp}'s config files live, and every rule about what a valid value is.
  *
- * Four files, each with its own environment namespace, in the shape every other module in this repository uses:
- * {@code config.yml} for the settings, {@code database.yml} for the connection, {@code milestones.yml} for the track
- * and {@code sounds.yml} for the feedback sounds.
- *
- * The track and the sounds are their own files because both are edited while players are online: {@code /smp reload}
- * re-reads either without touching a duel loadout, a world name or a database password, none of which the plugin
- * would notice changing - it binds them once at enable.
+ * The track, sounds, colours and prestige files are separate so {@code /smp reload} can re-read them.
  */
 public final class Configs {
 
@@ -57,12 +51,7 @@ public final class Configs {
     }
 
     /**
-     * Loads the track.
-     *
-     * Only the <em>structure</em> is validated here, by {@link Milestones#read}. Whether an item name, a
-     * statistic or an advancement exists is not checked: that needs an initialised Bukkit registry, so the
-     * plugin binds them at enable instead. Comparing the track to stored progress is {@code TrackValidation}'s
-     * job and needs a database this method must not open.
+     * Loads the track, validating only its structure; registry names are bound at enable, stored progress elsewhere.
      */
     public static ConfigHandle<MilestonesSpec> milestones(final Path dataFolder, final Logger logger)
             throws ConfigException {
@@ -81,33 +70,20 @@ public final class Configs {
                 false);
     }
 
-    /**
-     * Loads the sounds.
-     *
-     * <b>No validator.</b> Every rule about a sound is enforced in {@code FeedbackSounds}, and each corrects or
-     * silences rather than refusing: a typo in a chime must not take a season offline.
-     */
+    /** Loads the sounds, with no validator: {@code FeedbackSounds} corrects or silences a bad entry. */
     public static ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger) throws ConfigException {
         return load(dataFolder, logger, "sounds", SoundsSpec.class, "NORDTAL_SMP_SOUNDS", config -> {}, false);
     }
 
-    /**
-     * Loads the tone colours.
-     *
-     * <b>No validator.</b> {@code ToneColours#parse} is where a bad hex value is caught, and it corrects rather than
-     * refuses: a typo in a colour is not worth a season offline, the same rule {@link #sounds} follows for a bad sound
-     * key.
-     */
+    /** Loads the tone colours, with no validator: {@code ToneColours#parse} corrects a bad hex value. */
     public static ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger) throws ConfigException {
         return load(dataFolder, logger, "colours", ColoursSpec.class, "NORDTAL_SMP_COLOURS", config -> {}, false);
     }
 
     /**
-     * {@code ColoursSpec} 's five accessors, as the map {@link eu.nordtal.s2.common.message.ToneColours} parses.
+     * {@code ColoursSpec}'s five accessors, as the map {@link eu.nordtal.s2.common.message.ToneColours} parses.
      *
-     * An exhaustive {@code switch} with no {@code default}, the same guard {@code SmpSounds} ' {@code specOf} uses for
-     * {@code Feedback}: a sixth {@link Tone} stops this compiling until somebody says what its colour is called, rather
-     * than silently leaving it unpainted.
+     * An exhaustive {@code switch}, so a sixth {@link Tone} does not compile until its colour is named.
      */
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
@@ -126,12 +102,7 @@ public final class Configs {
     }
 
     /**
-     * Loads the crest ladder - hours and colours in one file.
-     *
-     * <b>The validator is only about the hours.</b> {@code PrestigeColours#parse} is where a bad hex value is caught,
-     * and it corrects rather than refuses - the same rule {@link #colours} follows for the tone palette. A bad hour is
-     * not that: {@link Prestige} 's constructor is the whole rule, and running it here is what makes a ladder that does
-     * not rise stop the load rather than the first render.
+     * Loads the crest ladder, refusing only bad hours, since {@link Prestige}'s constructor is the whole rule for them.
      */
     public static ConfigHandle<PrestigeSpec> prestige(final Path dataFolder, final Logger logger)
             throws ConfigException {
@@ -146,9 +117,7 @@ public final class Configs {
     }
 
     /**
-     * The thirteen tier colours, in tier order.
-     *
-     * What {@link eu.nordtal.s2.smp.prestige.PrestigeColours#parse} takes.
+     * The thirteen tier colours, in tier order, as {@link eu.nordtal.s2.smp.prestige.PrestigeColours#parse} takes them.
      */
     public static List<String> declaredPrestigeTiers(final PrestigeSpec spec) {
         final PrestigeSpec.TierColoursSpec tiers = spec.colours();
@@ -168,13 +137,7 @@ public final class Configs {
                 tiers.tier13());
     }
 
-    /**
-     * The same thirteen keys of the other block, in the same order, as {@link Prestige} takes them.
-     *
-     * Two methods rather than one pair-returning method because the two halves are consumed by two different
-     * objects at two different moments; what keeps them aligned is that both walk {@code tier01..tier13}, which
-     * is the same contract the file's own header states.
-     */
+    /** The thirteen tier hours, in the same order, as {@link Prestige} takes them. */
     public static List<Integer> declaredPrestigeHours(final PrestigeSpec spec) {
         final PrestigeSpec.TierHoursSpec tiers = spec.hours();
         return List.of(
@@ -194,10 +157,10 @@ public final class Configs {
     }
 
     private static void validate(final SmpSpec config) {
-        // Whether the world exists is checked once at enable instead, after Worlds#bootstrap creates it.
+        // Whether the world exists is checked at enable, after {@code Worlds#bootstrap} creates it.
         requireText("world-nordtal", config.worldNordtal());
         requireText("first-join-spawn: world", config.firstJoinSpawn().world());
-        // AdminWatch floors this at one second, so a non-positive value silently becomes a query per second.
+        // {@code AdminWatch} floors this at one second.
         requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
         requirePositive("nether-border-diameter", config.netherBorderDiameter());
         requirePositive("end-border-diameter", config.endBorderDiameter());
@@ -212,7 +175,7 @@ public final class Configs {
             throw new IllegalArgumentException("duel-stake must not be negative");
         }
         if (config.graveMaxAgeHours() < 0) {
-            // Zero is a real answer here - it means "never decays" - so it cannot double as the error case.
+            // Zero means "never decays", so it cannot double as the error case.
             throw new IllegalArgumentException(
                     "grave-max-age-hours must not be negative. 0 is how decay is turned off; a "
                             + "negative number is not a shorter way of saying that");
@@ -310,13 +273,7 @@ public final class Configs {
         return handle;
     }
 
-    /**
-     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file.
-     *
-     * Lets steward-worker warn that editing an overridden setting there has no effect until the variable is
-     * removed. Best-effort: this is a UI nicety, not a reason for a correctly loaded config to refuse to enable
-     * the plugin.
-     */
+    /** Writes {@code handle}'s environment overrides next to its file, for steward-worker, best-effort. */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {
             EnvOverrideFile.write(handle.file(), handle.environmentOverrides());

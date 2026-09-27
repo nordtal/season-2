@@ -9,7 +9,7 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-/** {@code /limbo reload} - re-read the wording without taking the waiting room down. */
+/** {@code /limbo reload}: re-reads the wording without taking the waiting room down. */
 public final class ReloadLimbo implements NordtalCommand<LimboEffects> {
 
     @Override

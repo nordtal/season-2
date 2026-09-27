@@ -6,31 +6,10 @@ import { assert, describe, expect, it } from "vitest"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-/**
- * The rule this test holds has already been broken once and accepted regardless, which is why it
- * is a test and not a one-off grep.
- *
- * Caps text such as "LATEST ACTIONS" has no place in this interface, except an abbreviation - CPU,
- * RAM, 2FA - and those are written in capitals as a word in the source, never forced there by a
- * `text-transform`. A rule proven only by a one-off grep holds exactly until the next file nobody
- * thought to re-check.
- *
- * <h2>Why the class, and not the word</h2>
- * This reads every Tailwind class list in the sources - inside a plain `className="…"`, and
- * inside `cn(…)`/`cva(…)`, the two shapes `fits-on-a-phone.test.ts` learned the hard way are both
- * needed - and asks whether `uppercase` appears in one as a whole utility, not as a substring.
- * An abbreviation like CPU is a word written in a sentence, never a class, so this test never
- * looks at it and needs no hand-kept exception list for it. Only a class list that genuinely
- * forces a `text-transform: uppercase` can trip it.
- */
+/** No class list may force `uppercase`; an abbreviation like CPU is written in capitals in the source instead. */
 const UPPERCASE_UTILITY = /(^|[\s:])uppercase($|\s)/
 
-/**
- * Every double-quoted string in a `.tsx` source that looks like a Tailwind class list: at least
- * one hyphenated utility, and no sentence punctuation - which is what tells a class list apart
- * from an ordinary piece of copy sitting in the same file. Comments are blanked first, because a
- * comment describing this very rule would otherwise spell out `uppercase` and trip on itself.
- */
+/** Every `.tsx` string shaped like a class list, comments blanked so this rule cannot trip on itself. */
 function classAttributes(directory: string): Array<{ file: string; line: number; classes: string }> {
   const found: Array<{ file: string; line: number; classes: string }> = []
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -40,11 +19,7 @@ function classAttributes(directory: string): Array<{ file: string; line: number;
       continue
     }
     if (!entry.name.endsWith(".tsx") || entry.name.includes(".test.")) continue
-    /**
-     * Blanked, not deleted - a multi-line block comment collapsed to one space would shift every
-     * line number after it, which is exactly the kind of thing that makes a red result hard to
-     * trust.
-     */
+    /** Blanked, not deleted, so line numbers stay true. */
     const withoutComments = readFileSync(full, "utf8")
       .replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, " "))
       .replace(/^\s*\/\/.*$/gm, " ")
@@ -78,11 +53,7 @@ describe("nothing is drawn in capitals by a class", () => {
     )
   })
 
-  /**
-   * Without this, a broken path or a changed extension makes the rule above pass by finding
-   * nothing at all - the failure mode that leaves a green build and a guard nobody can trust. Same
-   * shape as `identifiers-stay-in-the-popover.test.ts`'s second test.
-   */
+  /** Without this, a broken path or extension makes the rule above pass by finding nothing. */
   it("actually reads the sources, so an empty result means something", () => {
     const files: string[] = []
     const walk = (directory: string) => {

@@ -11,29 +11,15 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
- * That the name in the MOTD is one mark and not five.
+ * The name in every MOTD carries the one brand colour.
  *
- * <b>Why this is a text search.</b>
- * The same reason {@code AdminWatchWiringTest} is one: {@link NetworkSpec.MotdSpec}'s defaults are
- * {@code default} methods on an interface served by a reflective proxy, so there is no instance to
- * ask without loading a config, and what has to be protected is the <b>literal</b> somebody types
- * when they add a sixth phase.
- *
- * It is not hypothetical. Each of the five MOTDs used to colour {@code nordtal.eu}
- * for itself: a light blue gradient before the start, orange during the hunger games, green on the
- * SMP, grey in maintenance. Every one of them was a reasonable choice on its own, and together they
- * meant the server browser showed four different marks depending on the day. The owner saw the
- * green one and named the rule: Nordtal is the dark blue of the logo, always.
- *
- * The value itself is measured rather than chosen - see the comment on
- * {@link NetworkSpec.MotdSpec#NORDTAL_BLUE}. This test pins the string exactly, so changing the
- * brand colour stays a deliberate edit in two places rather than a drift in one.
+ * A text search, because the defaults are interface methods and the literal is what must hold.
  */
 class BrandColourTest {
 
     private static final String SPEC = "proxy/src/main/java/eu/nordtal/s2/proxy/config/NetworkSpec.java";
 
-    /** Every phase in {@code SeasonPhase}. A sixth one has to appear here too. */
+    /** Every phase in {@code SeasonPhase}. */
     private static final int PHASES = 5;
 
     @Test

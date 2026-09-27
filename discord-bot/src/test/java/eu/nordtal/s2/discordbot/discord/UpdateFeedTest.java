@@ -24,16 +24,7 @@ import java.util.function.Consumer;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.junit.jupiter.api.Test;
 
-/**
- * What the admin channel is told about a run nobody in Discord started.
- *
- * Why these are worth a test at all: Every one of them was previously answerable only by watching a real guild
- * during a real update, which happens about once a season - and three of the four are silent when they are wrong. A
- * feed that starts from zero fills the channel with a season of history; one that starts from {@code max(id)} and
- * nothing else silently loses the run that finished during the restart; one that does not skip {@code DISCORD} rows
- * puts two drawings of the same run in front of the same people and they disagree the moment the interaction token
- * expires.
- */
+/** What the admin channel is told about a run nobody in Discord started. */
 class UpdateFeedTest {
 
     private static final Instant NOW = Instant.parse("2026-09-08T20:00:00Z");
@@ -70,12 +61,11 @@ class UpdateFeedTest {
         }
     }
 
-    /** Only the four reads the feed makes; everything else is somebody else's business. */
+    /** Only the four reads the feed makes. */
     private static final class Rows implements UpdateDirectory {
 
         @Override
         public java.util.List<UpdateRequest> recent(final int limit) {
-            // The feed follows rows by id, one at a time; a page of recent ones is the web interface's question.
             return java.util.List.of();
         }
 
@@ -178,7 +168,7 @@ class UpdateFeedTest {
 
     @Test
     void aPassIsAdmittedBeforeTheHandOverSoABusyPoolQueuesOneAndNotThirty() {
-        // The executor stands in for four workers busy with payments, taking the task and holding it before it runs.
+        // The executor stands in for busy workers, holding the task before it runs.
         final List<Runnable> queued = new ArrayList<>();
         final java.util.concurrent.Executor busy = queued::add;
 
@@ -203,7 +193,7 @@ class UpdateFeedTest {
         };
         assertThrows(java.util.concurrent.RejectedExecutionException.class, () -> feed.submit(shuttingDown));
 
-        // Without the release in the catch, one rejection during a restart would leave the feed silent for good.
+        // Without the release in the catch, one rejection would silence the feed for good.
         rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
         final List<Runnable> queued = new ArrayList<>();
         feed.submit(queued::add);
@@ -347,7 +337,7 @@ class UpdateFeedTest {
 
     @Test
     void aRunThatEndedWhileTheBotWasDownIsPostedOnceAsAResult() {
-        // Easy to leave out and silent when missing: a row below max(id) is one the feed would never look at again.
+        // A row below max(id) is one the feed would never look at again.
         rows.put(row(
                 1L,
                 UpdateSource.GAME,

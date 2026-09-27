@@ -13,36 +13,9 @@ import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
 /**
- * The door, for the seconds between "this proxy is being moved" and "this proxy has stopped".
- * Nobody is turned away at it: an arrival in that window is parked on the standby, exactly like
- * everybody who was already connected when the countdown reached zero.
+ * Parks an arrival on the standby between a proxy swap's countdown reaching zero and the proxy stopping.
  *
- * {@code ProxySwap} parks once, at the moment the countdown reaches zero, and what follows is not
- * instant: the worker then waits for the backends to empty, which can take several seconds. Whoever
- * connects inside that window was never parked, because parking already happened, and would
- * otherwise meet the raw Velocity screen when the process stops.
- *
- * Parking rather than refusing is the design, not a fallback: the aim is that connecting through the
- * proxy is impossible for as short a time as possible, and waiting inside the game is fine - the
- * proxy should only be unreachable for its own restart, and before and after that it moves players
- * onto the standbys properly rather than refusing anyone. Refusal is therefore the failure path: it
- * is what an arrival gets when the transfer itself could not be sent - a client older than 1.20.5, a
- * standby that went away between the park and now. The sentence is the same one, which is why
- * {@code gate.restarting} is still here.
- *
- * A player with a seat is never touched: a player {@code ParkedSeats} is holding a seat for is
- * coming home from this very swap, and sending them back to the standby would be a loop. The seat
- * and this door are checked together for exactly that reason.
- *
- * This does nothing on the standby, and on a proxy with no {@code network.yml#public-address}: in
- * both cases {@code ProxySwap} never enters the state, so this never fires. The second is a
- * deployment that drops everybody on every update anyway, and a nicer screen for three of them is
- * not worth a second reader of the update row.
- *
- * The locale comes from {@link FallbackCache}, which is memory and not a round trip. A proxy that
- * is seconds from stopping must not open a database connection to pick a language, and the cache
- * holds everybody who logged in recently - which, in a window that opens at the end of a countdown,
- * is very nearly everybody who is trying.
+ * Refusal is only the failure path, for a transfer that could not be sent; a player with a seat is let in.
  */
 public final class RestartGate {
 
@@ -53,19 +26,16 @@ public final class RestartGate {
     private final GateMessages messages;
     private final FallbackCache locales;
 
-    /** How many arrivals were sent on to the standby, for the log line and for the test. */
+    /** How many arrivals were sent on to the standby. */
     private final AtomicLong parked = new AtomicLong();
 
-    /** How many could not be, and got the sentence instead. That number should stay at zero. */
+    /** How many could not be and got the screen instead; it should stay at zero. */
     private final AtomicLong refused = new AtomicLong();
 
     /**
-     * @param stopping normally {@code ProxySwap::isStopping} - a supplier rather than the object so
-     *                 that the {@code gate} package keeps knowing nothing about {@code update}
-     * @param seated   normally {@code ParkedSeats::holds}, and asked before anything else
-     * @param park     normally {@code ProxySwap::park}: seat them and hand them the standby's
-     *                 address. {@code false} when the transfer could not be sent at all, which is
-     *                 the only case that still ends in a screen
+     * Takes suppliers rather than the swap itself, so the {@code gate} package knows nothing about {@code update}.
+     *
+     * @param park seats the player and transfers them; {@code false} when the transfer could not be sent
      */
     public RestartGate(
             final Logger logger,
@@ -85,7 +55,7 @@ public final class RestartGate {
     /** What happens to one arrival. */
     enum Handling {
 
-        /** Nothing: no run is moving this proxy, or they are the far end of one. */
+        /** No run is moving this proxy, or they are the far end of one. */
         LET_IN,
 
         /** Straight on to the standby, the same way everybody already connected went. */
@@ -95,9 +65,7 @@ public final class RestartGate {
     /**
      * The rule, without a Velocity event around it.
      *
-     * @param stopping whether a run that moves this proxy has reached zero
-     * @param hasSeat  whether {@code ParkedSeats} is holding a seat for them, which means they are
-     *                 arriving from the standby and not into a proxy that is going away
+     * @param hasSeat whether {@code ParkedSeats} holds a seat for them, so they are arriving from the standby
      */
     static Handling decide(final boolean stopping, final boolean hasSeat) {
         if (!stopping || hasSeat) {
@@ -106,15 +74,7 @@ public final class RestartGate {
         return Handling.PARK;
     }
 
-    /**
-     * {@code PostLoginEvent} and not {@code LoginEvent}: a login answers yes or a screen, this with a transfer.
-     *
-     * By here the player exists, the profile is settled - which is what the locale cache is keyed on - and the
-     * connection can carry the transfer packet.
-     *
-     * Nothing here overrides a decision {@link LoginGate} has already made: that one denies the
-     * login itself, so a player refused for a reason of their own never reaches this method.
-     */
+    /** {@code PostLoginEvent}, not {@code LoginEvent}: the connection can carry the transfer packet by here. */
     @Subscribe
     public void onPostLogin(final PostLoginEvent event) {
         final Player player = event.getPlayer();
@@ -126,7 +86,7 @@ public final class RestartGate {
         try {
             moved = park.test(player);
         } catch (final RuntimeException failure) {
-            // The same catch ProxySwap#park has: Velocity refuses the transfer outright for a client older than 1.20.5.
+            // Velocity refuses the transfer outright for a client older than 1.20.5.
             logger.warn("Could not park {} on arrival", player.getUsername(), failure);
             moved = false;
         }
@@ -143,7 +103,7 @@ public final class RestartGate {
     }
 
     /**
-     * The decision without the Velocity event around it, so a test can hold it without a {@code Player}.
+     * The refusal without the Velocity event around it.
      *
      * @return the screen they get
      */
@@ -158,15 +118,12 @@ public final class RestartGate {
         return messages.restarting(locale);
     }
 
-    /** @return how many arrivals were sent on to the standby since the proxy started */
+    /** How many arrivals were sent on to the standby since the proxy started. */
     public long parkedCount() {
         return parked.get();
     }
 
-    /**
-     * @return how many arrivals got the screen because the transfer could not be sent. A run that
-     *         went the way it is meant to leaves this at zero
-     */
+    /** Returns how many arrivals got the screen because the transfer could not be sent; zero on a clean run. */
     public long refusedCount() {
         return refused.get();
     }

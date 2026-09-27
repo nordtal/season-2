@@ -15,9 +15,8 @@ import org.gradle.api.tasks.TaskAction
 /**
  * Writes the glyphs a message can name into [target] as `manifest.json` plus one `<name>.png` each.
  *
- * Reads [names] against the pack's `minecraft:default` only: the `nordtal:` fonts are layout
- * pieces a message never names. A name the font does not declare fails the build here;
- * `GlyphNamesTest` in `:common` says the same on `check`.
+ * Reads [names] against `minecraft:default` only, since messages never name a `nordtal:` glyph.
+ * An undeclared name fails the build.
  */
 abstract class GlyphManifest : DefaultTask() {
     @get:InputFile

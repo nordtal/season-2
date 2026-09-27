@@ -10,49 +10,21 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
 import java.util.List;
 
-/**
- * {@code config/config.yml}.
- *
- * Everything the hunger games start event needs that is not a database credential.
- *
- * The hard minimum of two participants is {@link #HARD_MINIMUM_PARTICIPANTS}, a constant rather
- * than a setting, because it is arithmetic: the border step divides by
- * {@code participants - 1}. {@link #softMinimumParticipants()} is the configurable one, below which
- * a start needs a confirmation.
- *
- * Coordinates get real placeholder defaults an operator fills in once the hand-built world exists;
- * they are world data, not secrets, unlike anything Discord-shaped.
- */
+/** {@code config/config.yml}: everything the hunger games start event needs that is not a database credential. */
 @ConfigSpec(
         header = {
             "-------------------------------------------------------------------",
-            "  hunger-games - the season 2 start event",
+            "  hunger-games: the season 2 start event",
             "-------------------------------------------------------------------",
-            "Every setting here can be overridden with an environment variable",
-            "named NORDTAL_HUNGER_GAMES_<PATH>, with '.' and '-' both becoming",
-            "'_':",
+            "The loot point and lobby coordinates are placeholders until the",
+            "hand-built event world exists.",
             "",
-            "  countdown-seconds  ->  NORDTAL_HUNGER_GAMES_COUNTDOWN_SECONDS",
-            "",
-            "The environment wins over this file and is never written back into",
-            "it. A setting this file does not declare is deleted on the next",
-            "start, with a warning and a copy of the old file in config.yml.bak",
-            "- unless it looks like a MISSPELLING of a real one, which stops",
-            "the plugin instead, because only you know what you meant by it.",
-            "",
-            "The loot point and lobby coordinates are placeholders: the actual",
-            "event world is hand-built and does not exist in this repository",
-            "yet. Fill them in once it does."
+            "Every setting can be overridden with an environment variable named",
+            "NORDTAL_HUNGER_GAMES_<PATH>, with '.' and '-' both becoming '_'."
         })
 public interface HungerGamesSpec {
 
-    /**
-     * The hard floor below which {@code /hg start} refuses outright.
-     *
-     * The border step divides by {@code participants - 1}, so a lower value is not strict, it is
-     * broken. An alias for the constant in {@code :commands}, which cannot see this interface - one
-     * number, not two that have to agree.
-     */
+    /** The floor below which {@code /hg start} refuses, since the border step divides by one less than it. */
     int HARD_MINIMUM_PARTICIPANTS = eu.nordtal.s2.commands.hungergames.HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS;
 
     @Order(1)
@@ -68,11 +40,8 @@ public interface HungerGamesSpec {
     @Name("Soft minimum of players")
     @Key("soft-minimum-participants")
     @Comment({
-        "Below this many effective (post-demotion) participants, /hg start asks for",
-        "confirmation instead of starting outright, so a rehearsal with a handful of real",
-        "clients is not blocked by a rule meant to catch a mis-click. The hard floor of " + HARD_MINIMUM_PARTICIPANTS
-                + " below which",
-        "the command refuses outright is arithmetic, not configurable."
+        "Below this many participants (after demotion), /hg start asks for confirmation.",
+        "Below " + HARD_MINIMUM_PARTICIPANTS + " it refuses outright; that floor is not configurable."
     })
     @Explain(
             "Below this, /hg start asks for confirmation instead of refusing outright; the hard floor is arithmetic and not configurable.")
@@ -102,16 +71,12 @@ public interface HungerGamesSpec {
     @Name("Border wall speed (blocks per second)")
     @Key("border-wall-speed-blocks-per-second")
     @Comment({
-        "How fast the border moves once a death-triggered shrink starts, in blocks of",
-        "DIAMETER change per second - the wall itself moves at half that rate, so this value",
-        "is already doubled.",
-        "",
-        "The wall must stay just under walking speed (4.317 blocks/s). The default 6.0",
-        "diameter-blocks/s is a 3.0 blocks/s wall, about 70% of that, leaving margin for a",
-        "player who has to dodge terrain or another player."
+        "How fast a death-triggered shrink moves, in blocks of DIAMETER per second; the wall",
+        "moves at half that. Keep the wall under walking speed (4.317 blocks/s): the default",
+        "is a 3.0 blocks/s wall, leaving margin to dodge terrain or another player."
     })
     @Explain(
-            "Diameter change per second, not wall movement - the wall itself moves at half this rate. Keep it under walking speed (4.317 blocks/s).")
+            "Diameter change per second; the wall moves at half this rate. Keep it under walking speed (4.317 blocks/s).")
     default double borderWallSpeedBlocksPerSecond() {
         return 6.0;
     }
@@ -121,10 +86,7 @@ public interface HungerGamesSpec {
     @Key("border-quiet-period-seconds")
     @Comment({
         "How long the game can go with no death before the passive shrink kicks in.",
-        "",
-        "Ten minutes is long relative to a fight and short relative to the whole event, so",
-        "ordinary lulls - looting, travelling, waiting out another fight - do not trigger a",
-        "shrink that then fights the next death-triggered one."
+        "Long enough that an ordinary lull between fights does not trigger it."
     })
     @Explain("How long without a death before the passive shrink starts.")
     default int borderQuietPeriodSeconds() {
@@ -135,16 +97,11 @@ public interface HungerGamesSpec {
     @Name("Border passive shrink (blocks per hour)")
     @Key("border-passive-shrink-blocks-per-hour")
     @Comment({
-        "How fast the border shrinks during a passive (quiet-period) shrink, in diameter-",
-        "blocks per hour - a much coarser unit than the death-triggered wall speed above,",
-        "because this is meant to be barely noticeable minute to minute.",
-        "",
-        "It only has to be fast enough that a stalemate - a field of disconnected bodies, or a",
-        "same-team final two - eventually gets forced together. A death cancels it and resumes",
-        "the death-triggered shrink."
+        "How fast the passive (quiet period) shrink moves, in blocks of diameter per hour.",
+        "Barely noticeable, only enough to force a stalemate together. A death cancels it."
     })
     @Explain(
-            "Diameter-blocks per hour, a much coarser unit than the wall speed above - meant to be barely noticeable and only force a stalemate together.")
+            "Blocks of diameter per hour, a much coarser unit than the wall speed above. Only meant to force a stalemate together.")
     default double borderPassiveShrinkBlocksPerHour() {
         return 15.0;
     }
@@ -179,11 +136,8 @@ public interface HungerGamesSpec {
     @Order(11)
     @Name("World name")
     @Key("world-name")
-    @Comment({
-        "The Bukkit world name the event runs in. Not a snowflake - a world folder name, so it",
-        "gets a real (placeholder) default like any other id that is not Discord-shaped."
-    })
-    @Explain("A placeholder - set it to the real event world's name once the hand-built world exists.")
+    @Comment({"The Bukkit world folder the event runs in. A placeholder until the event world exists."})
+    @Explain("A placeholder: set it to the event world's folder name once the world exists.")
     default String worldName() {
         return "hunger_games";
     }
@@ -199,11 +153,8 @@ public interface HungerGamesSpec {
     @Name("Loot points")
     @Key("loot-points")
     @Comment({
-        "Five loot points: the spawn plus four staggered locations. World data, not secrets,",
-        "so the coordinates default to real (placeholder) numbers.",
-        "",
-        "The list may not be empty and must contain exactly 5 entries with unique labels; see",
-        "Configs' validator. If you have emptied it, this is the shape:",
+        "Exactly five loot points with unique labels: the spawn plus four staggered locations.",
+        "The shape of one entry:",
         "",
         "  loot-points:",
         "  - label: spawn",
@@ -211,7 +162,7 @@ public interface HungerGamesSpec {
         "    y: 64.0",
         "    z: 0.0"
     })
-    @Explain("Exactly five entries required, each with a unique label - the spawn plus four staggered locations.")
+    @Explain("Exactly five entries, each with a unique label: the spawn plus four staggered locations.")
     default List<LootPointSpec> lootPoints() {
         return DefaultLootPoints.LIST;
     }
@@ -220,38 +171,23 @@ public interface HungerGamesSpec {
     @Name("Refill tiers")
     @Key("refill-tiers")
     @Comment({
-        "The loot refill schedule: how long after the start each tier's restock happens, and",
-        "what items it stocks every loot point with. A list, so a schedule change is a config",
-        "edit and not a release. The default schedule is basic at 0h, iron-level PvP gear at",
-        "1h, diamond-level at 2h and overpowered at 2h30.",
-        "",
-        "The list may not be empty and delays must be unique and ascending; see Configs'",
-        "validator. A tier is identified by its delay, so changing 'delay-minutes' on an",
-        "existing entry retires that tier."
+        "The loot refill schedule: when each tier restocks every loot point, and with what.",
+        "Delays must be unique and ascending. A tier is identified by its delay, so changing",
+        "'delay-minutes' on an existing entry retires that tier."
     })
     @Explain("A schedule ordered by ascending delay; changing 'delay-minutes' on an existing entry retires that tier.")
     default List<RefillTierSpec> refillTiers() {
         return DefaultRefillTiers.LIST;
     }
 
-    // admin propagation
-
     @Order(15)
     @Name("Admin poll interval (seconds)")
     @Key("admin-poll-interval-seconds")
     @Comment({
-        "How often this server re-reads who is an admin, in seconds.",
-        "",
-        "An admin is a server operator for as long as they are an admin, and the flag lives in",
-        "discord_user.admin - nowhere else. Without re-reading it, a revoked admin would keep",
-        "operator until they chose to disconnect.",
-        "",
-        "THIS POLL IS THE GUARANTEE, not the LISTEN connection below. A tick on which nothing",
-        "changed costs one indexed query and writes nothing to ops.json, which is what makes it",
-        "affordable to run for the life of the server."
+        "How often this server re-reads who is an admin (discord_user.admin), in seconds.",
+        "THIS POLL IS THE GUARANTEE a revoked admin loses operator, not the LISTEN below."
     })
-    @Explain(
-            "How often admin status is re-read from the database - this is the guarantee a revoked admin loses operator, not the LISTEN switch below.")
+    @Explain("How often admin status is re-read; this poll, not the LISTEN switch below, is the guarantee.")
     default int adminPollIntervalSeconds() {
         return 30;
     }
@@ -260,14 +196,10 @@ public interface HungerGamesSpec {
     @Name("Listen for admin changes")
     @Key("admin-listen-enabled")
     @Comment({
-        "Whether to also open a dedicated LISTEN nordtal_admin connection.",
-        "",
-        "It only makes a revocation feel instant instead of taking up to one poll interval; the",
-        "poll above is what is actually guaranteed. Turning this off costs latency and nothing",
-        "else, which is why it is a switch: it is one connection per backend, outside the pool,",
-        "parked in a blocking read for the life of the server."
+        "Whether to also open a dedicated LISTEN nordtal_admin connection, outside the pool.",
+        "It only makes a revocation feel instant; turning it off costs latency and nothing else."
     })
-    @Explain("Makes a revocation feel instant instead of waiting for the next poll; turning it off only costs latency.")
+    @Explain("Makes a revocation feel instant instead of waiting for the next poll; off only costs latency.")
     default boolean adminListenEnabled() {
         return true;
     }
@@ -319,9 +251,8 @@ public interface HungerGamesSpec {
         @Name("Map grid columns")
         @Key("map-grid-columns")
         @Comment({
-            "How many Minecraft maps wide the sliced lobby image grid is. The image is sliced",
-            "from hunger-games/src/main/resources/lobby/map-<lang>.png, one per language, at",
-            "3x3 (384x384px). A missing file is logged and skipped, not a startup failure."
+            "How many Minecraft maps wide the lobby image grid is, sliced from lobby/map-<lang>.png",
+            "per language. A missing file is logged and skipped."
         })
         @Explain(
                 "How many maps wide the sliced lobby image is, sliced from map-<lang>.png per language; a missing file is skipped, not a startup failure.")
@@ -342,13 +273,10 @@ public interface HungerGamesSpec {
         @Name("Map frame origin X")
         @Key("map-frame-origin-x")
         @Comment({
-            "World coordinates of the top-left item frame's block position in the map grid.",
-            "The grid extends along +X (columns) and +Y downward (rows); frames must already",
-            "exist at these positions in the hand-built lobby - this plugin only sets each",
-            "frame's map item, it does not place frames."
+            "World coordinates of the top-left item frame in the map grid, which extends along +X",
+            "(columns) and downward (rows). The frames must already exist; this plugin only sets their maps."
         })
-        @Explain(
-                "The top-left item frame's position - frames must already exist in the hand-built lobby; this plugin sets their map, it does not place them.")
+        @Explain("The top-left item frame's position. The frames must already exist; this plugin only sets their maps.")
         default int mapFrameOriginX() {
             return 0;
         }
@@ -357,8 +285,7 @@ public interface HungerGamesSpec {
         @Name("Map frame origin Y")
         @Key("map-frame-origin-y")
         @Comment("World coordinates of the top-left item frame's block position in the map grid.")
-        @Explain(
-                "The top-left item frame's position - frames must already exist in the hand-built lobby; this plugin sets their map, it does not place them.")
+        @Explain("The top-left item frame's position. The frames must already exist; this plugin only sets their maps.")
         default int mapFrameOriginY() {
             return 196;
         }
@@ -367,8 +294,7 @@ public interface HungerGamesSpec {
         @Name("Map frame origin Z")
         @Key("map-frame-origin-z")
         @Comment("World coordinates of the top-left item frame's block position in the map grid.")
-        @Explain(
-                "The top-left item frame's position - frames must already exist in the hand-built lobby; this plugin sets their map, it does not place them.")
+        @Explain("The top-left item frame's position. The frames must already exist; this plugin only sets their maps.")
         default int mapFrameOriginZ() {
             return 0;
         }
@@ -433,12 +359,11 @@ public interface HungerGamesSpec {
         @Name("Items")
         @Key("items")
         @Comment({
-            "The item pool for this refill, as a list of Bukkit material names. Every loot",
-            "chest is cleared and restocked with one of each - see LootRefill. Material names",
-            "are validated at load; an unknown one fails the load with the name that is wrong."
+            "Bukkit material names. Every loot chest is cleared and restocked with one of each.",
+            "An unknown name fails the load."
         })
         @Explain(
-                "Bukkit material names - every loot chest is cleared and restocked with one of each. An unknown name fails the load.")
+                "Bukkit material names; every loot chest is cleared and restocked with one of each. An unknown name fails the load.")
         default List<String> items() {
             return List.of("BREAD");
         }

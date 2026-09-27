@@ -11,19 +11,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * That all three Paper backends run the command filter, and that the proxy publishes what they read.
+ * Checks that all three Paper backends run the command filter and that the proxy publishes what they read.
  *
- * <b>Why this is a text search and not a real test</b>
- *
- * The same reason {@code AdminWatchWiringTest} is one, and it is the same failure it guards against:
- * a backend that never registers the filter looks <b>exactly</b> like one that does. Nothing about
- * the server is different - the plugin loads, every command works, the tab list is full - and the
- * only observable difference is a vanilla command in somebody's completion, which is what the whole
- * thing exists to remove. There is no assertion available from a JVM with no server in it.
- *
- * The proxy is in this list too, for the half that has no second chance: it is the only process
- * that writes the row, so a proxy that stops publishing leaves three servers filtering whatever they
- * last read, for as long as that row survives - which is silently, and for ever.
+ * A text search, since a backend without the filter looks exactly like one with it.
  */
 class CommandFilterWiringTest {
 

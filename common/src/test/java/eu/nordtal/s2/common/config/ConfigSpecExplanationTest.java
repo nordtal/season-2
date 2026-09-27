@@ -153,7 +153,7 @@ class ConfigSpecExplanationTest {
         return blocks;
     }
 
-    /** The {@code @Key} value of a block, or a fallback that still names it if one is somehow absent. */
+    /** Returns the {@code @Key} value of a block, or a fallback that still names it. */
     private static String settingName(final String block) {
         final Matcher key = KEY.matcher(block);
         return key.find()
@@ -161,13 +161,7 @@ class ConfigSpecExplanationTest {
                 : "(no @Key found in: " + block.strip().lines().findFirst().orElse("?") + ")";
     }
 
-    /**
-     * Every {@code *Spec.java} in a {@code config} directory under any module's {@code src/main/java}.
-     *
-     * Matched by directory name rather than by module list, so a module gaining its first
-     * {@code @ConfigSpec} needs nothing added here - the same shape {@code EveryBundleIsCompleteTest}
-     * uses for message bundles.
-     */
+    /** Returns every {@code *Spec.java} in a {@code config} directory under any module's {@code src/main/java}. */
     private static List<Path> specFiles() {
         final List<Path> found = new ArrayList<>();
         for (final Path module : childDirectories(RepositoryRoot.path())) {

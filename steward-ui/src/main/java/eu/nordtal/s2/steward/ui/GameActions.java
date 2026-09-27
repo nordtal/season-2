@@ -18,18 +18,15 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The SMP's and the hunger games' admin actions, as the service pages draw them.
+ * The SMP's and the hunger games' admin actions, each one row written through {@link CommandApi#submit}.
  *
- * The transport is the command row and nothing else: each action is one row written through
- * {@link CommandApi#submit}. {@code smp_milestone} and {@code smp_objective} are the track as the
- * running server holds it, not the file in the volume, and only what can be acted on is offered.
+ * The track is read from {@code smp_milestone} and {@code smp_objective}, as the running server holds it.
  */
 final class GameActions {
 
     private final @Nullable DataSource dataSource;
     private final CommandApi commands;
 
-    /** @param dataSource null in a test that runs without a database, which never calls these */
     GameActions(final @Nullable DataSource dataSource, final CommandApi commands) {
         this.dataSource = dataSource;
         this.commands = commands;
@@ -39,7 +36,7 @@ final class GameActions {
         return Objects.requireNonNull(dataSource, "no database - this route is not available without one");
     }
 
-    /** {@code GET /api/smp/track} - the active milestones and their objectives. */
+    /** {@code GET /api/smp/track}: the active milestones and their objectives. */
     void track(final Context ctx) {
         final Map<String, List<Map<String, Object>>> objectives = new LinkedHashMap<>();
         try (Connection connection = dataSource().getConnection();
@@ -77,7 +74,7 @@ final class GameActions {
         ctx.json(Map.of("active", active));
     }
 
-    /** {@code POST /api/smp/objective} - {@code {key}}, an open objective of the active milestone. */
+    /** {@code POST /api/smp/objective} with {@code {key}}, an open objective of the active milestone. */
     void completeObjective(final Context ctx) {
         final String key = key(ctx);
         if (!exists("""
@@ -90,7 +87,7 @@ final class GameActions {
         answer(ctx, commands.submit(ctx, SmpCommands.COMPLETE_OBJECTIVE, arguments("key", key)));
     }
 
-    /** {@code POST /api/smp/milestone} - {@code {key}}, the active milestone. */
+    /** {@code POST /api/smp/milestone} with {@code {key}}, the active milestone. */
     void unlockMilestone(final Context ctx) {
         final String key = key(ctx);
         if (!exists("SELECT 1 FROM smp_milestone WHERE state = 'ACTIVE' AND key = ?", key)) {
@@ -100,10 +97,9 @@ final class GameActions {
     }
 
     /**
-     * {@code GET /api/hunger-games/round} - the open round's state, or empty when none is open.
+     * {@code GET /api/hunger-games/round}: the open round's state, or empty when none is open.
      *
-     * A round still {@code REGISTRATION} after a start is one that did not, which is when "start
-     * anyway" is worth offering. The count is players on the roster, not resolved participants.
+     * The count is players on the roster, not resolved participants.
      */
     void round(final Context ctx) {
         final Map<String, Object> answer = new LinkedHashMap<>();
@@ -126,9 +122,7 @@ final class GameActions {
     }
 
     /**
-     * {@code POST /api/hunger-games/start} - {@code {confirm}}.
-     *
-     * {@code confirm: true} is the second step, sent only after the browser has shown the numbers.
+     * {@code POST /api/hunger-games/start} with {@code {confirm}}, true only after the browser has shown the numbers.
      */
     void startRound(final Context ctx) {
         final JsonObject body = body(ctx);

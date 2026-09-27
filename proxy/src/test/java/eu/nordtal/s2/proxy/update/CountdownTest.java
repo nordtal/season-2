@@ -19,18 +19,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rules about when a player is spoken to before the network goes down.
+ * When a player is spoken to before the network goes down.
  *
- * All of them are here rather than in {@link RestartWatch} because they are the part that can be
- * wrong in a way nobody notices until an outage happens: too many messages, a number that is not the
- * truth, or a countdown that replays itself from the top when a proxy reconnects mid-way.
- *
- * <b>Planned once, on schedule.</b>
- * The class used to be asked "here is what is left, is there anything to say?" once per five-second
- * poll, so the number it spoke was whatever that poll happened to observe - {@code 27} where 30 was
- * asked for - and the last ten seconds could be spoken at most twice. It now plans the whole
- * countdown once and hands back a delay per beat, which is a thing a test can walk against a real
- * clock rather than against the poll interval it was written next to.
+ * The countdown is planned once, with a delay per beat, so a test can walk it against a clock.
  */
 class CountdownTest {
 
@@ -60,7 +51,7 @@ class CountdownTest {
 
     @Test
     void aFullCountdownIsPlannedOnce() {
-        // The real countdown constant, not a number typed here - a literal would pass while asserting nothing real.
+        // The real countdown constant, since a literal would assert nothing real.
         final List<Countdown.Beat> beats = beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN));
 
         assertEquals(
@@ -80,7 +71,7 @@ class CountdownTest {
 
     @Test
     void theThresholdsFitInsideTheCountdown() {
-        // A threshold longer than the countdown drops silently, so the two numbers are held against each other.
+        // A threshold longer than the countdown drops silently.
         for (final long threshold : Countdown.CHAT_THRESHOLDS) {
             assertTrue(
                     threshold <= UpdateDirectory.UPDATE_COUNTDOWN.toSeconds(),
@@ -89,7 +80,7 @@ class CountdownTest {
                             + " the beat is planned for an instant that has already passed and"
                             + " is dropped without a word");
         }
-        // The whole set is spoken by a countdown of exactly that length: fitting is not the same as being used.
+        // A countdown of exactly that length speaks the whole set.
         assertEquals(
                 Countdown.CHAT_THRESHOLDS,
                 seconds(kinds(beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN)), Announcement.Kind.COUNTDOWN)));
@@ -113,7 +104,7 @@ class CountdownTest {
 
     @Test
     void theOddMillisecondsAreTheReasonThisIsNotSeconds() {
-        // The countdown starts at now() + 30s on the database's clock; truncating to seconds puts every beat off.
+        // The countdown starts at now() + 30s on the database's clock; truncating to seconds shifts every beat.
         final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofMillis(29_640)));
 
         final Countdown.Beat five = kinds(beats, Announcement.Kind.TICK).stream()
@@ -129,18 +120,7 @@ class CountdownTest {
     /**
      * A first line that survives the latency between steward-worker's write and the proxy's read.
      *
-     * steward-worker writes now() + the countdown constant on the database's clock and notifies in
-     * the same statement, and the proxy reads that row a little later, so the window it actually
-     * has is a shade under the full duration. When that shortfall crosses a whole second, the
-     * first thing a player sees is the next line down rather than the top one - and it is not a
-     * latency that can be removed, because reading a row written by another process is never free.
-     *
-     * The countdown is spoken in whole seconds, so the question is not whether the full duration in
-     * milliseconds is left but whether a counter showing whole seconds still reads the top value.
-     *
-     * Written against the real countdown constant less a fixed latency rather than against a
-     * literal millisecond count, so that a change to the constant does not silently change what
-     * this test is measuring - only the latency itself is the thing this case is about.
+     * Measured against the real constant less a fixed latency, in whole seconds as spoken.
      */
     @Test
     void theFirstLineIsNotLostToLatency() {
@@ -154,14 +134,14 @@ class CountdownTest {
                 Duration.ZERO,
                 kinds(beats, Announcement.Kind.COUNTDOWN).getFirst().delay(),
                 "a beat whose instant has just passed is said now, not scheduled into the past");
-        // Asserted through the ticks: a run missing its first chat line also logs twelve beats in total.
+        // Asserted through the ticks: a run missing its first chat line also logs twelve beats.
         assertEquals(List.of(9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L), seconds(kinds(beats, Announcement.Kind.TICK)));
         assertEquals(Countdown.CHAT_THRESHOLDS.size() + 9 + 1, beats.size());
     }
 
     @Test
     void aCountdownJoinedLateDoesNotReplay() {
-        // A proxy that comes up with seven seconds left must not say "30 seconds" twenty-three seconds late.
+        // A proxy that comes up with seven seconds left must not say "30 seconds".
         final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(7)));
 
         assertTrue(kinds(beats, Announcement.Kind.COUNTDOWN).isEmpty(), "both chat thresholds are behind us");
@@ -214,7 +194,7 @@ class CountdownTest {
 
     @Test
     void reachingZeroIsNotCancelling() {
-        // The row leaves the counting-down set at zero; reading that as a withdrawal would call off every run.
+        // The row leaves the counting set at zero; reading that as a withdrawal would cancel every run.
         beatsFor(due(1L, Duration.ofSeconds(30)));
 
         assertEquals(
@@ -224,7 +204,7 @@ class CountdownTest {
 
     @Test
     void theZeroBeatIsNotRepeatedByThePoll() {
-        // The zero beat and a poll just after it both say "it is happening"; players must hear it once.
+        // The zero beat and a poll just after it both say it is happening; players hear it once.
         beatsFor(due(1L, Duration.ofSeconds(30)));
         countdown.zeroReached();
 
@@ -258,7 +238,7 @@ class CountdownTest {
 
     @Test
     void oneTitlePerSecond() throws Exception {
-        // A title reaches somebody mining with chat closed; a chat line with a title would collide with the tick.
+        // A title reaches somebody with chat closed; a chat line with it would collide with the tick.
         final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(30)));
 
         final List<Long> chat = seconds(kinds(beats, Announcement.Kind.COUNTDOWN));
@@ -269,7 +249,7 @@ class CountdownTest {
                             + " now: they would be drawn over one another");
         }
 
-        // The other half lives in RestartWatch#say, read as text since no test reaches a proxy directly.
+        // The other half lives in RestartWatch#say, read as text since no test reaches a proxy.
         final String say = Files.readString(Path.of("src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
         final int countdownCase = say.indexOf("case COUNTDOWN ->");
         assertTrue(countdownCase >= 0, "RestartWatch#say no longer has a COUNTDOWN case");

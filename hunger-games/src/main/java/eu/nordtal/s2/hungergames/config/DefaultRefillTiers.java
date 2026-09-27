@@ -6,18 +6,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The four refill tiers a fresh {@code config.yml} is written with.
+ * The four refill tiers a fresh {@code config.yml} is written with, basic to overpowered.
  *
- * 0h / 1h / 2h / 2h30, running basic to overpowered. Each pool stays small: these are the contents
- * of one shared chest at each point, restocked with one of each material, not a loot table with
- * quantities or randomness.
+ * Each is one shared chest's contents, one of each material, with no quantities or randomness.
  */
 final class DefaultRefillTiers {
 
     static final List<HungerGamesSpec.RefillTierSpec> LIST = List.of(
-            // 0h00 - basic, farming-oriented; the shield keeps an early fight from being a free kill.
+            // 0h00: basic farming gear; the shield keeps an early fight from being a free kill.
             tier(0, List.of("WOODEN_AXE", "STONE_SWORD", "SHIELD", "BREAD", "APPLE", "WHEAT_SEEDS")),
-            // 1h00 - iron-level PvP gear.
+            // 1h00: iron PvP gear.
             tier(
                     60,
                     List.of(
@@ -30,7 +28,7 @@ final class DefaultRefillTiers {
                             "ARROW",
                             "COOKED_BEEF",
                             "GOLDEN_CARROT")),
-            // 2h00 - diamond-level gear.
+            // 2h00: diamond gear.
             tier(
                     120,
                     List.of(
@@ -41,7 +39,7 @@ final class DefaultRefillTiers {
                             "GOLDEN_APPLE",
                             "SHIELD",
                             "ENDER_PEARL")),
-            // 2h30 - overpowered, so the last stretch rewards moving between points, not camping one chest.
+            // 2h30: overpowered, so the last stretch rewards moving between points rather than camping one chest.
             tier(
                     150,
                     List.of(

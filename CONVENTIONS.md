@@ -11,6 +11,11 @@ A comment says what the code cannot. It describes the code as it is now.
 - **A doc comment opens with one line**: one sentence stating what the element does or is, for
   types as for members. _(checked)_ A short paragraph may follow for the contract the signature
   cannot state: side effects, threading, ordering, units, failure cases. Never history.
+- **A doc comment in main code has at most four lines before its tags**, its `/**` line
+  included. _(checked)_
+- **No dash as punctuation**: no em or en dash in any file, and no hyphen with a space on each
+  side in a comment or in Markdown prose. Use a comma, a colon, parentheses or a new sentence. A
+  hyphen inside a word or at the start of a list item is fine. _(checked)_
 - **No sentence the signature already says.** If the name together with `@param`, `@return` and
   `@throws` explains the element, the doc comment has tags only, or does not exist.
 - **Present tense only.** No history, no dates, no "used to", "until", "since" or "no longer".

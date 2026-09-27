@@ -14,24 +14,9 @@ import eu.nordtal.s2.common.phase.PhaseChange;
 import java.util.Optional;
 
 /**
- * {@code /phase set <phase>} - the one command in the network that can disconnect everybody.
+ * {@code /phase set <phase>}: the one command that can disconnect everybody.
  *
- * This class does not confirm. {@link Declaration#irreversible()} is {@code true} for this command and the
- * <b>adapter</b> honours it, because the two surfaces confirm in shapes that have nothing in common:
- * Discord offers a button and only invokes this once it is clicked, the game asks for the command to
- * be typed again inside a short window. By the time {@link #run} is called the answer is already
- * yes. Putting the confirmation here would have meant inventing one shape and forcing the other
- * surface into it.
- *
- * It also does not write the {@code audit_log} row, and must not: {@code switchPhase} writes the
- * row, the audit entry and the {@code NOTIFY} in one statement, so there is no way to switch the
- * phase without the audit entry. A second call filing the same switch would file it twice.
- *
- * The phase name is parsed here rather than read as an enum because
- * {@code SeasonPhase.fromDatabase} answers {@code MAINTENANCE} to anything it does not recognise.
- * That is the right answer for a value read out of a row - an unreadable phase must never be more
- * permissive than the real one - and the worst possible answer for a value that arrived from
- * outside, where a name this build does not know would silently lock the whole network out.
+ * Parses the name itself: {@code SeasonPhase.fromDatabase} maps anything unknown to {@code MAINTENANCE}.
  */
 public final class SetPhase implements NordtalCommand<PhaseEffects> {
 
@@ -40,13 +25,7 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
         return PhaseCommands.SET;
     }
 
-    /**
-     * An unknown phase name, before the confirmation rather than after it.
-     *
-     * Without this, {@code /phase set NOT_A_PHASE} answers "this cannot be undone, type it again",
-     * takes the retype, and only then says the phase does not exist. The proxy's hand-written
-     * adapter parsed first for exactly that reason and the bot's did not.
-     */
+    /** Refuses an unknown phase name before the confirmation rather than after the retype. */
     @Override
     public java.util.Optional<MessageRef> problem(final Values values) {
         final String requested = values.string("phase");
@@ -112,7 +91,7 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
         return Optional.empty();
     }
 
-    /** What a switch to {@code phase} does to everybody online. */
+    /** Returns what a switch to {@code phase} does to everybody online. */
     public static MessageRef consequence(final SeasonPhase phase) {
         final Phase.Consequence consequence = MESSAGES.phase().consequence();
         return switch (phase) {

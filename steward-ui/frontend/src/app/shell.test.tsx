@@ -5,28 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Shell } from "@/app/shell"
 
 /**
- * Which of the four doors `/api/me` opens.
+ * Which of the doors `/api/me` opens: sign in on a 401, `DoorIsStuck` on a fault, setup without a key.
  *
- * There are exactly four answers; there used to be two. A 401 is the session being gone and is
- * the sign-in page. **Anything else is a fault**, and dressing it up as a missing session is worse
- * than useless: the only action the sign-in page offers - signing in again - cannot fix a 500 or a
- * 429, and the actual reason was nowhere on the screen. That is what `DoorIsStuck` is for; it
- * carries the same {@link Failure} every list uses, so it still names *which* of the three services
- * answered badly.
- *
- * The fourth is a signed-in account with no security key (V20), which reaches `/api/me` and nothing
- * else; it is drawn the setup page and no shell.
- *
- * These tests render the real `Shell`. They never reach the fifth case - an account that HAS a key -
- * which is deliberate: that branch needs a router and a sidebar and would test none of the sentences
- * above. What is asserted instead is the set of things that must never be true: that a fault offers
- * a sign-in button, that a missing session offers a retry button, or that somebody who is not
- * signed in at all is asked to register a key.
- *
- * `/api/me` is the one route the backend serves without a session (StewardUi.java excludes it from
- * the `before("/api/*")` filter), so in this deployment a 401 from it can only come from something
- * in front of Javalin. The branch is kept and tested anyway: a proxy that answers 401 is exactly
- * the case where an operator needs to be told to sign in rather than to press "Try again".
+ * The signed in branch needs a router that jsdom cannot carry, so it is not rendered here.
  */
 
 function answer(status: number, body: unknown): Response {
@@ -82,10 +63,7 @@ describe("Shell - the answer that means the session is gone", () => {
   })
 
   it("accuses nobody at all while the answer is still on its way", async () => {
-    /**
-     * Neither door. A shell drawn first and replaced a moment later flashes a sidebar full of
-     * pages that all answer 401, which reads as a broken interface rather than a missing session.
-     */
+    /** Neither door, so no sidebar of 401ing pages flashes up before the answer. */
     fetched.mockImplementation(() => new Promise<Response>(() => {}))
     draw()
 
@@ -96,10 +74,7 @@ describe("Shell - the answer that means the session is gone", () => {
 })
 
 describe("Shell - every other answer is a fault, not a missing session", () => {
-  /**
-   * 500 is the service itself, 502 is something it depends on, 429 is a rate limit and 403 is an
-   * account that will never be allowed in. Signing in again fixes none of the four.
-   */
+  /** 500, 502, 429 and 403, none of which signing in again would fix. */
   const faults: Array<[number, string]> = [
     [500, "Internal error."],
     [502, "steward-worker is not answering."],
@@ -114,17 +89,13 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
 
       await waitFor(() => expect(stuckDoor()).not.toBeNull())
       expect(signInButton()).toBeNull()
-      // The reason is on the screen, which is the entire complaint the old behaviour answered.
       expect(screen.getByRole("alert").textContent).toContain(message)
       expect(screen.getByRole("alert").textContent).toContain(`HTTP ${status}`)
     })
   }
 
   it("shows it when the request never arrived anywhere", async () => {
-    /**
-     * `api()` turns a rejected fetch into an ApiError with status 0 - a stopped steward-ui, a
-     * proxy in the way, a browser that is offline. Zero is not 401.
-     */
+    /** `api()` turns a rejected fetch into an ApiError with status 0, which is not 401. */
     fetched.mockRejectedValue(new TypeError("Failed to fetch"))
     draw()
 
@@ -134,11 +105,7 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 
   it("shows it for a failure that is not an ApiError at all", async () => {
-    /**
-     * 200 with a body that is not an object: `useMe` reads `me.csrf` off it and throws a
-     * TypeError, so `error instanceof ApiError` is false. The `instanceof` half of the condition
-     * is what catches this; a bare `error.isSignedOut` would have thrown reading the getter.
-     */
+    /** A body that is not an object makes `useMe` throw a TypeError, which the `instanceof` half catches. */
     fetched.mockResolvedValue(answer(200, null))
     draw()
 
@@ -147,7 +114,7 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 
   it("offers to ask again, and asking again is a second request", async () => {
-    // The one action that can help. A sign-in page would have offered the one that cannot.
+    // The one action that can help.
     fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 
@@ -161,10 +128,7 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 
   it("keeps the shell out of the way even though the pages could report it themselves", async () => {
-    /**
-     * Not a matter of taste: the CSRF token arrives with this answer, so without it every write
-     * in the interface is refused, one confusing page at a time.
-     */
+    /** The CSRF token arrives with this answer, so without it every write would be refused. */
     fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 
@@ -198,21 +162,14 @@ describe("Shell - signed in, and still not in", () => {
     draw()
 
     await waitFor(() => expect(setupPage()).not.toBeNull())
-    /**
-     * Not a page being withheld: without a key every route but this answer is a 403, so a shell
-     * here would be a sidebar of eleven links to refusals.
-     */
+    /** Without a key every other route is a 403, so no shell is drawn. */
     expect(screen.queryByRole("navigation")).toBeNull()
     expect(signInButton()).toBeNull()
     expect(stuckDoor()).toBeNull()
   })
 
   it("does not draw it for somebody who is not signed in at all", async () => {
-    /**
-     * ORDERING, and it is the whole of this test: `keys` is ABSENT for a signed-out answer, so a
-     * gate written as `keys?.length ?? 0` placed above the signed-out branch sends everybody to a
-     * page whose register button needs the session it is standing in front of.
-     */
+    /** `keys` is absent when signed out, so the key gate must come after the signed out branch. */
     fetched.mockResolvedValue(answer(200, { signedIn: false, webauthn: "required" }))
     draw()
 
@@ -229,10 +186,7 @@ describe("Shell - signed in, and still not in", () => {
   })
 
   it("does not draw it when the request failed and nobody knows about any keys", async () => {
-    /**
-     * `me.data` is undefined here. A gate that reads through it without the `!me.data` return
-     * above throws, and a gate defaulting to zero turns every 500 into "register a key".
-     */
+    /** `me.data` is undefined here, and a key gate defaulting to zero would ask for a key on every 500. */
     fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 
@@ -240,14 +194,3 @@ describe("Shell - signed in, and still not in", () => {
     expect(setupPage()).toBeNull()
   })
 })
-
-/*
- * What is NOT here, and why: the signed-in branch.
- *
- * The three refusals above are all reachable; the fourth branch - an account that HAS a key - is
- * not. Past it the Shell renders `<Outlet/>`, a sidebar and `useRouterState`, so it needs a
- * router - and a router needs a route tree, a memory history and a `window.matchMedia` jsdom does
- * not have. A test that renders it without one gets as far as the loading skeleton and then throws
- * asynchronously inside TanStack Router, which passes while asserting nothing. That the shell
- * appears for an operator holding a registered key is therefore still only known by looking at it.
- */

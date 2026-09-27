@@ -19,12 +19,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-/**
- * {@link AlertWatch}, with the worker and the push protocol replaced by a fake this test drives.
- *
- * A traffic-light change reaches every subscription as a send, and a 404/410
- * ({@link PushSender.Result#EXPIRED}) removes that subscription.
- */
+/** {@link AlertWatch}, with the worker and the push protocol replaced by a fake this test drives. */
 class AlertWatchTest {
 
     private static PostgreSQLContainer<?> postgres;
@@ -36,7 +31,7 @@ class AlertWatchTest {
     private FakeSender sender;
     private AlertWatch watch;
 
-    /** The same three numbers steward-ui.yml ships with - see UiSpec.AlertSpec. */
+    /** The same three numbers steward-ui.yml ships with, see UiSpec.AlertSpec. */
     private static final Alerts.Thresholds THRESHOLDS = new Alerts.Thresholds(85, 90, 36);
 
     @BeforeAll

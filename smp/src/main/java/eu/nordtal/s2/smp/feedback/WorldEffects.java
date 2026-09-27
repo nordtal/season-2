@@ -21,27 +21,17 @@ import org.bukkit.plugin.Plugin;
 /**
  * The one place in {@code smp} that names a particle or spawns a firework.
  *
- * One place so that a call site cannot name its own particle; {@code WorldEffectVocabularyTest} in {@code :common}
- * enforces it. Effects are code while sounds are config because four effects at four call sites would make a config
- * file ceremony rather than compression.
- *
- * A rocket carrying explosion effects deals damage where it bursts, whoever launched it, so every rocket spawned
- * here is stamped in its persistent data and {@link #onDamage} refuses damage from a stamped one. Burst height is
- * not a safety measure - a player under a ceiling defeats it.
+ * Every rocket spawned here is stamped, and {@link #onDamage} refuses damage from a stamped one.
  */
 public final class WorldEffects implements Listener {
 
     /** How far from the player the milestone rockets go up, in blocks. */
     private static final double RING_RADIUS = 2.5;
 
-    /** Three of them: enough to read as a ring, few enough that forty players is not a lag spike. */
+    /** Three: enough to read as a ring, few enough that forty players is not a lag spike. */
     private static final int RING_ROCKETS = 3;
 
-    /**
-     * The palette the rockets burst in - the resource pack's own accent and highlight, plus white.
-     *
-     * Not random colours: everything else drawn this season comes out of the same two-colour palette.
-     */
+    /** The palette the rockets burst in: the resource pack's accent and highlight, plus white. */
     private static final List<Color> PALETTE = List.of(
             Color.fromRGB(176, 138, 74), // accent
             Color.fromRGB(78, 86, 104), // highlight
@@ -54,10 +44,9 @@ public final class WorldEffects implements Listener {
     }
 
     /**
-     * A milestone, around one player. Main thread.
+     * A milestone around one player, on the main thread.
      *
-     * Called once per online player rather than once for the server: the point is that it happens where <em>you</em>
-     * are.
+     * Called once per online player, so it happens where each of them is.
      */
     public void celebrate(final Player player) {
         final Location at = Objects.requireNonNull(player.getLocation());
@@ -86,10 +75,7 @@ public final class WorldEffects implements Listener {
     /**
      * Nothing this class launched may damage anything.
      *
-     * {@code LOWEST} so that a protection plugin later in the chain sees an already-cancelled event rather than a live
-     * one, and {@code ignoreCancelled} left off because a damage event somebody else has already cancelled costs
-     * nothing
-     * to cancel again.
+     * {@code LOWEST}, so later protection plugins see an already cancelled event.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDamage(final EntityDamageByEntityEvent event) {

@@ -10,11 +10,7 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The only implementation of {@link PhaseDirectory}.
- *
- * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
- */
+/** The only implementation of {@link PhaseDirectory}; it borrows the pool it is given and owns nothing. */
 final class JdbiPhaseDirectory implements PhaseDirectory {
 
     private final PhaseDao dao;

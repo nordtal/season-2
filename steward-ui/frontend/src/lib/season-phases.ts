@@ -1,25 +1,13 @@
-/**
- * The five names `eu.nordtal.s2.common.SeasonPhase` knows, and what each one means - in one place.
- *
- * Two separate lists that agree with neither each other nor the backend is the failure mode this
- * avoids: a page carrying its own list can invent phases the backend does not have and miss real
- * ones, so a phase only that list did not know would reach the screen as the bare enum constant -
- * `PRE_LAUNCH`, versals and an underscore, in an interface that otherwise speaks in sentences.
- *
- * There is now exactly one list, and both pages read it. `season-phases.test.ts` reads
- * `SeasonPhase.java` itself and holds this list against it in both directions: every real name has
- * a label here, and - the direction that actually would have caught the defect - nothing here names
- * a phase the backend does not have.
- */
+/** The five phases of `eu.nordtal.s2.common.SeasonPhase`; `season-phases.test.ts` holds this list against it. */
 export type SeasonPhaseName = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "MAINTENANCE"
 
 export interface SeasonPhaseInfo {
   name: SeasonPhaseName
-  /** A sentence fragment fit for a page title or a tile - never the constant itself. */
+  /** A sentence fragment for a page title or a tile, never the constant itself. */
   label: string
   /** The admission rule, in the words of `SeasonPhase` in `:common`. */
   who: string
-  /** Where a player lands, or "—" while nobody may join at all. */
+  /** Where a player lands, or an em dash while nobody may join at all. */
   where: string
 }
 
@@ -28,7 +16,7 @@ export const SEASON_PHASES: SeasonPhaseInfo[] = [
     name: "PRE_LAUNCH",
     label: "Before launch",
     who: "Admins only. Everybody else sees a countdown to the launch date.",
-    where: "—",
+    where: "\u2014",
   },
   {
     name: "PRE_EVENT",
@@ -56,13 +44,7 @@ export const SEASON_PHASES: SeasonPhaseInfo[] = [
   },
 ]
 
-/**
- * The sentence for a phase value read off the wire.
- *
- * Falls back to the raw value rather than throwing - a value the backend sends and this list does
- * not yet know about must still render as *something*, and `season-phases.test.ts` is what keeps
- * that fallback from ever actually being needed, not a runtime check here.
- */
+/** The sentence for a phase value off the wire, or the raw value when this list does not know it. */
 export function seasonPhaseLabel(phase: string): string {
   return SEASON_PHASES.find((candidate) => candidate.name === phase)?.label ?? phase
 }

@@ -19,7 +19,7 @@ final class ErrorHandlers {
                 (missing, ctx) ->
                         ctx.status(403).json(Map.of("error", missing.getMessage(), "code", "SECOND_FACTOR_MISSING")));
 
-        // The refusal the interface recovers from: it runs the ceremony and retries the request.
+        // The interface recovers from this one: it runs the ceremony and retries the request.
         cfg.routes.exception(
                 SecondFactor.SecondFactorRequired.class,
                 (required, ctx) -> ctx.status(403)
@@ -27,7 +27,6 @@ final class ErrorHandlers {
                                 "error", required.getMessage(), "code", "SECOND_FACTOR_REQUIRED", "retryable", true)));
 
         cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
-            // Names which half is down; an empty table would not.
             log.warn("{} did not answer: {}", failure.where(), failure.getMessage());
             ctx.status(failure.status() == 0 ? 502 : failure.status())
                     .json(Map.of(

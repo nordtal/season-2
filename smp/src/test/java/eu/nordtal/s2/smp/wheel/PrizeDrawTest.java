@@ -8,13 +8,7 @@ import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
 
-/**
- * The wheel's weighted draw, and the thresholds that earn extra spins.
- *
- * The wheel is the only reward channel in this design that pays out actual items, so it is the one worth abusing and
- * the one worth getting arithmetically right. Given a seeded {@link Random}, "roughly the right distribution"
- * becomes something that can be asserted rather than hoped for.
- */
+/** The wheel's weighted draw, and the thresholds that earn extra spins, asserted with a seeded {@link Random}. */
 class PrizeDrawTest {
 
     @Test

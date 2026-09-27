@@ -88,24 +88,9 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Owns the season 2 phase state machine, the access login gate and the network-wide play-time
- * counter.
+ * Wires the season 2 proxy: the login gate, phase routing, play time, the pack station and update handling.
  *
- * What is wired up here: {@link LoginGate}, the phase-aware login decision, one database round
- * trip carrying both the access state and the {@link SeasonPhase}; {@link PhaseWatch} plus a
- * {@link NotificationListener}, the 30-second poll and a dedicated {@code LISTEN nordtal_phase}
- * connection outside the pool - the poll is the guarantee, the listener only makes a switch feel
- * instant; {@code PhaseCommand}, the emergency {@code /phase}, authorised by
- * {@code discord_user.admin} through {@link LoginRoster}; {@link PlaytimeWriter},
- * {@code player_playtime}, written on disconnect and periodically in between;
- * {@link MisconfiguredGate}, the fail-closed handler, below; {@code PlayerRouter}, the limbo-first
- * login route and the phase-change re-route; and {@link PackStation}, the forced resource-pack
- * offer, the {@code nordtal:limbo} channel and the release out of the waiting room.
- *
- * Configuration failure fails closed: a bad {@code database.yml} or {@code gate.yml} registers a
- * {@code LoginEvent} handler that refuses everybody, which is the per-plugin disable Velocity does
- * not have. Admins are not exempted and cannot be - the admin flag lives in the database a bad
- * {@code database.yml} cannot reach.
+ * A bad {@code database.yml} or {@code gate.yml} fails closed: every login is refused, admins included.
  */
 @Plugin(
         id = "proxy",
@@ -125,24 +110,13 @@ public final class ProxyPlugin {
     private AccessDirectory access;
     private NotificationListener phaseListener;
 
-    /**
-     * Assigned after the listener above is started, and read by it.
-     *
-     * Volatile because the listener's own thread calls its refreshes the moment it connects,
-     * which is before this line is reached - the same window {@code commandInbox} has, answered the
-     * same way. The five-second poll covers it.
-     */
+    /** Assigned after the listener starts, which may already call it; volatile, and the poll covers the gap. */
     private volatile RestartWatch restartWatch;
     private volatile Evacuation evacuation;
 
-    /**
-     * Commands another process asked this one to run.
-     *
-     * A field because the notification listener is built before it and refers to it: the listener
-     * carries {@code nordtal_command} alongside the phase and admin channels, on one connection.
-     */
+    /** Commands another process asked this one to run; built after the listener that refers to it. */
     private volatile CommandInbox commandInbox;
-    /** {@code :commands}' bundle as the inbox renders it - a second view of the same files. */
+    /** {@code :commands}' bundle as the inbox renders it, a second view of the same files. */
     private Messages sharedMessages;
     private PlaytimeWriter playtime;
     private com.velocitypowered.api.scheduler.ScheduledTask heartbeat;
@@ -190,7 +164,7 @@ public final class ProxyPlugin {
         this.pool = AccessPool.open(databaseConfig);
         this.access = AccessDirectory.using(pool);
 
-        // The five reply colours, read once, here, the same as network.yml and gate.yml - see ColoursSpec.
+        // The five reply colours, read once here; see ColoursSpec.
         final ToneColours colours = ToneColours.parse(Configs.declared(coloursConfig), logger::warn);
 
         final PhaseDirectory phases = PhaseDirectory.using(pool);
@@ -198,10 +172,10 @@ public final class ProxyPlugin {
         final FallbackCache fallback = new FallbackCache(Duration.ofMinutes(gateConfig.fallbackCacheWindowMinutes()));
         final LoginRoster roster = new LoginRoster();
 
-        // PlayerRouter is the phase-change listener; ONE PhaseServers for the whole plugin, not one per caller.
+        // One PhaseServers for the whole plugin, not one per caller.
         final PhaseServers phaseServers = PhaseServers.from(gateConfig);
 
-        // Which of the two proxies this is: both containers are the same image; nothing can be worked out by looking.
+        // Both proxies are the same image, so the role comes from configuration.
         final ProxyRole role = ProxyRole.of(networkConfig.standby());
         final PhaseRouting routing = new PhaseRouting(phaseServers, role);
         final java.net.InetSocketAddress publicAddress =
@@ -216,7 +190,7 @@ public final class ProxyPlugin {
         try {
             parked = new ParkedSeats(swaps.takeAllSeats(), Clock.systemUTC().instant());
         } catch (final RuntimeException failure) {
-            // Not fatal: a seat only changes where an admin lands, and refusing to start over that trades the network.
+            // Not fatal: a seat only changes where an admin lands.
             logger.warn("Could not read where players were standing before the last proxy swap; "
                     + "everybody will be routed by the season phase", failure);
             parked = new ParkedSeats(java.util.List.of(), Clock.systemUTC().instant());
@@ -258,12 +232,12 @@ public final class ProxyPlugin {
                 packMessages, packConfig, offer, book, backendHealth);
         packs.registerChannel();
 
-        // Every destination this plugin chooses is recorded, every other refused - Velocity's /server was open to all.
+        // Every destination this plugin chooses is recorded, and every other refused.
         final RouteIntents intents =
                 new RouteIntents(roster, phaseServers, logger);
         proxy.getEventManager().register(this, intents);
 
-        // The way back has a voice too: one object for both returns, one sentence said twice on the same register.
+        // One object for both returns, so each moved player is told once.
         final Homecoming homecoming = new Homecoming(logger, messages, roster, phaseServers);
 
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
@@ -285,7 +259,7 @@ public final class ProxyPlugin {
 
         final Duration pollInterval = Duration.ofSeconds(gateConfig.phasePollIntervalSeconds());
 
-        // The admin roster rides the phase's two signals; the whole set is re-derived, rerouteAll only on change.
+        // The admin roster rides the phase's signals; rerouteAll runs only on a change.
         final Runnable refreshAdmins = () -> {
             final int changed = roster.refreshAdmins(access.admins());
             if (changed > 0) {
@@ -306,7 +280,7 @@ public final class ProxyPlugin {
                 .schedule();
 
         if (gateConfig.phaseListenEnabled()) {
-            // One connection, every refresh on every signal - see eu.nordtal.s2.common.notify.
+            // One connection, every refresh on every signal; see eu.nordtal.s2.common.notify.
             this.phaseListener = new NotificationListener(
                     PostgresNotifications.connector(databaseConfig.jdbcUrl(),
                             databaseConfig.username(), databaseConfig.password(),
@@ -318,7 +292,6 @@ public final class ProxyPlugin {
                     java.util.List.of(
                             new NotificationListener.Refresh("the season phase", phaseWatch::refresh),
                             new NotificationListener.Refresh("the admin roster", refreshAdmins),
-                            // One connection, three channels: every refresh runs on every signal regardless.
                             new NotificationListener.Refresh("the command inbox", () -> {
                                 // Null until the command layer is built further down; the poll covers that window.
                                 final CommandInbox inbox = commandInbox;
@@ -326,14 +299,14 @@ public final class ProxyPlugin {
                                     inbox.drain();
                                 }
                             }),
-                            // The countdown, same reason and null guard: latency here would drop the "30s" beat.
+                            // Latency here would drop the 30 second beat; null until built, like the inbox.
                             new NotificationListener.Refresh("the restart countdown", () -> {
                                 final RestartWatch watch = restartWatch;
                                 if (watch != null) {
                                     watch.check();
                                 }
                             }),
-                            // And the evacuation on the same signal: an eight-second window makes it matter.
+                            // The evacuation rides the same signal.
                             new NotificationListener.Refresh("the update evacuation", () -> {
                                 final Evacuation moving = evacuation;
                                 if (moving != null) {
@@ -379,7 +352,7 @@ public final class ProxyPlugin {
                 snapshots, messages, Clock.systemUTC(),
                 eu.nordtal.s2.proxy.ping.ServerIcon.load(dataDirectory, logger)));
 
-        // This proxy already knows every connection; it writes counts and who is connected in one pass per tick.
+        // This proxy knows every connection, so it writes the counts and who is connected.
         final OnlineWriter onlineWriter = new OnlineWriter(proxy, phaseServers,
                 OnlineDirectory.using(pool), OnlineRoster.using(pool), role, logger);
         onlineWriter.write();
@@ -399,7 +372,7 @@ public final class ProxyPlugin {
                 .repeat(flushInterval)
                 .schedule();
 
-        // The proxy is the only process that sees every player, so it warns them, towards the row's own instant.
+        // Only the proxy sees every player, so it gives the warning, counting towards the row's instant.
         this.restartWatch = new RestartWatch(this, proxy, logger,
                 UpdateDirectory.using(pool), roster, messages, phaseServers, Clock.systemUTC());
         proxy.getScheduler().buildTask(this, this.restartWatch::check)
@@ -407,36 +380,36 @@ public final class ProxyPlugin {
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();
 
-        // Warning is half of it; the other half moves players into the waiting room, its own task off the countdown.
+        // Moves players into the waiting room, on its own task beside the countdown.
         this.evacuation = new Evacuation(proxy, logger,
                 UpdateDirectory.using(pool), phaseServers, homecoming);
         packs.whenUpdating(this.evacuation::isMoving);
         packs.whenHeld(this.evacuation::isHeld);
-        // The counts get their fast cadence from the countdown, not the move - see OnlineWriter#tick.
+        // The counts hurry from the countdown on, not from the move; see OnlineWriter#tick.
         onlineWriter.whenHurrying(() ->
                 this.restartWatch.isCountingDown() || this.evacuation.isAnyMoving());
-        // The moment, not the window: the countdown already schedules a task on the instant, handed on here.
+        // The countdown already schedules a task on the zero instant; the evacuation rides it.
         proxy.getScheduler().buildTask(this, this.evacuation::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();
 
-        // What Evacuation cannot do, since its own process is being stopped; `role` decides which of the two acts.
+        // Parks the network when this proxy itself stops; `role` decides which half acts.
         final ProxySwap swap = new ProxySwap(proxy, logger, UpdateDirectory.using(pool), swaps,
                 role, standbyAddress, Clock.systemUTC());
-        // On the same moment, and second: the order is the order a player travels, backends first then the network.
+        // Second at zero: backends first, then the network, the order a player travels.
         this.restartWatch.whenZeroReached(() -> {
             this.evacuation.check();
             swap.check();
         });
-        // And the announcement learns whether there is a standby: loading screen or thrown out, once per countdown.
+        // Lets the announcement say whether a standby catches players, once per countdown.
         this.restartWatch.standbyProxyAnswers(swap::canPark);
         proxy.getScheduler().buildTask(this, swap::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();
 
-        // The park is a moment, the door a state: an arrival in the gap gets a sentence and goes to the standby too.
+        // An arrival between zero and the stop gets a sentence and goes to the standby too.
         proxy.getEventManager().register(this,
                 new RestartGate(logger, swap::isStopping, parkedSeats::holds, swap::park,
                         gateMessages, fallback));
@@ -448,7 +421,7 @@ public final class ProxyPlugin {
                 .repeat(StandbyReturn.INTERVAL)
                 .schedule();
 
-        // Said at start, not on the day it matters: a silent swap failure looks like a network that just went down.
+        // Logged at start: a silent swap failure would look like a network that just went down.
         if (role.isStandby()) {
             logger.info("THIS IS THE STANDBY PROXY. Arrivals are held in '{}' and transferred back "
                             + "to {} as soon as it answers again; no player counts are written "
@@ -499,7 +472,7 @@ public final class ProxyPlugin {
         PhaseCommands.all().forEach(command -> tree.local(command, phaseEffects));
         NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
 
-        // /update is Target.LOCAL: the proxy writes the row itself, and the watcher is not optional for the answer.
+        // /update is Target.LOCAL: the proxy writes the row, and the watcher prints the answer.
         final eu.nordtal.s2.proxy.update.UpdateWatch updateWatch =
                 new eu.nordtal.s2.proxy.update.UpdateWatch(this, proxy, logger,
                         UpdateDirectory.using(pool), Clock.systemUTC());
@@ -512,10 +485,10 @@ public final class ProxyPlugin {
                         updateWatch::watch);
         eu.nordtal.s2.commands.update.UpdateCommands.all()
                 .forEach(command -> tree.local(command, updateEffects));
-        // The five a player types, natively: plain Velocity Brigadier, not built through `tree`, and not admin-only.
+        // The five a player types, as plain Velocity Brigadier outside `tree`, not admin-only.
         final PrivateMessages privateMessages =
                 new PrivateMessages(proxy, roster, messages, () -> colours, logger);
-        // A listener as well as a command: it holds who last spoke to whom, for /r, dropped when somebody leaves.
+        // Also a listener: it tracks who last spoke to whom for /r, dropped when somebody leaves.
         proxy.getEventManager().register(this, privateMessages);
 
         // The invite is gate.yml's, the same string every login screen already uses.
@@ -534,10 +507,10 @@ public final class ProxyPlugin {
         registered.forEach(command -> commands.register(
                 commands.metaBuilder(command).plugin(this).build(), command));
 
-        // The proxy's own inbox: /network reload is a request row; /phase does not travel, the row is the state.
+        // The proxy's own inbox: /network reload arrives as a request row; /phase does not travel.
         commandInbox = new CommandInbox(Target.PROXY,
                 CommandRequests.borrowing(pool),
-                // :commands' bundle alone - the layered `messages` allows MiniMessage an admin would read literally.
+                // :commands' bundle alone; the layered one allows MiniMessage an admin would read literally.
                 sharedMessages,
                 eu.nordtal.s2.commands.remote.CommandInbox.AdminCheck.of(
                         access::admins, access::adminMinecraftAccounts),
@@ -571,13 +544,9 @@ public final class ProxyPlugin {
     }
 
     /**
-     * The container readiness marker - see {@link Readiness}, and note where this call sits.
+     * Starts the container readiness marker (see {@link Readiness}) as the last step of {@link #start}.
      *
-     * It is the last thing {@link #start} does, and {@link #failClosed} does not call it at all.
-     * That is the whole point on this service: a proxy whose configuration is broken is up,
-     * bound to 25565 and answering pings, while refusing every login there is. "The proxy is up and
-     * the gate is off" announced itself nowhere until this marker existed - a port check cannot see
-     * it, because the port is exactly what still works.
+     * {@link #failClosed} never calls it, so a proxy refusing every login never reports ready.
      */
     private void startHeartbeat() {
         final Readiness readiness = Readiness.onDefaultPath(logger::warn);
@@ -587,10 +556,7 @@ public final class ProxyPlugin {
                 .schedule();
     }
 
-    /**
-     * The fail-closed rule: nothing else has been registered by the time this runs, so this handler
-     * is the only thing that sees a login, and it refuses every one of them.
-     */
+    /** Registers the only login handler, which refuses everybody. */
     private void failClosed(final Exception failure) {
         logger.error("proxy could not start, so NOBODY will be let onto this network. "
                 + "Fix the configuration and restart the proxy.");
@@ -618,7 +584,7 @@ public final class ProxyPlugin {
     @Subscribe
     public void onProxyShutdown(final ProxyShutdownEvent event) {
         if (playtime != null) {
-            // The last slice of every connected session, so a planned restart costs nobody time since their last flush.
+            // The last slice of every session, so a planned restart costs nobody play time.
             logger.info("Flushed play time for {} players on shutdown", playtime.flushAll());
         }
         closeResources();
@@ -634,7 +600,7 @@ public final class ProxyPlugin {
             phaseListener.close();
             phaseListener = null;
         }
-        // access.close() is a no-op (it never owns the pool); this proxy built the pool with AccessPool and closes it.
+        // access.close() never owns the pool; this proxy built it with AccessPool and closes it.
         if (pool != null) {
             pool.close();
             pool = null;

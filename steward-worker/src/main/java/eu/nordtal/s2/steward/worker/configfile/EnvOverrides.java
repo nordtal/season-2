@@ -11,13 +11,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Reads the {@code <name>.env-overrides.txt} a service writes beside its own config file.
  *
- * {@link eu.nordtal.s2.common.config.EnvOverrideFile} owns the naming rule and the format; this class only adapts
- * its {@code List} into the {@code Set} membership is tested against, and turns a read failure into "nothing to
- * report" instead of a broken page.
- *
- * Absent is not the same as empty: a missing file means the service behind {@code ymlFile} has never reported which
- * paths the environment overlays, and {@link ConfigEntry#environmentOverridden()} has to stay {@code null} for it
- * rather than {@code false} - the silent wrong answer this mechanism exists to prevent.
+ * A missing file means the service never reported, so the entry stays {@code null} rather than {@code false}.
  */
 final class EnvOverrides {
 
@@ -26,9 +20,10 @@ final class EnvOverrides {
     private EnvOverrides() {}
 
     /**
+     * Reads the paths the environment overrides.
+     *
      * @param ymlFile the configuration file
-     * @return the dotted paths its neighbour file names, or empty when there is none to read - the
-     *         same "no schema yet" shape {@link Schemas#read} answers with, for the same reason
+     * @return the dotted paths its neighbour file names, or empty when there is none to read
      */
     static Optional<Set<String>> read(final Path ymlFile) {
         try {

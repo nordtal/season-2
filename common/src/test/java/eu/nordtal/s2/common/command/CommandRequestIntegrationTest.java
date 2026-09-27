@@ -25,18 +25,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * The command inbox, against a real PostgreSQL running the real migrations.
+ * Exercises the command inbox against a real PostgreSQL running the real migrations.
  *
- * <b>Why this cannot be an in-memory test</b>
- *
- * Almost everything worth asserting here is evaluated by the database and by nothing else: the
- * atomic claim is one {@code UPDATE ... FOR UPDATE SKIP LOCKED} whose whole point is what happens
- * when two connections run it at once, the expiry boundary is {@code expires > now()} in the
- * server's clock, and the five constraints are the reason an adapter cannot write a row that means
- * nothing. {@code FakeRequests} in {@code :commands} enforces the same transitions so the unit tests
- * there are not testing against a more permissive world - this class is what proves the two agree.
- *
- * It skips itself when no Docker daemon is reachable, like every other integration test here.
+ * It proves {@code FakeRequests} agrees with the database's rules; it skips itself without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CommandRequestIntegrationTest {
@@ -284,14 +275,7 @@ class CommandRequestIntegrationTest {
         assertThrows(IllegalArgumentException.class, () -> requests.deleteSettledOlderThan(0));
     }
 
-    /**
-     * That the row was refused, and by <em>which</em> constraint.
-     *
-     * Any {@code SQLException} would also be thrown by a column rename, a wrong type or an
-     * unrelated {@code NOT NULL} - so a test that only asks for one stays green even after the
-     * CHECK it is named after is gone. {@code AccessDirectoryIntegrationTest} already names its
-     * constraints; this is the same rule.
-     */
+    /** Asserts that the row was refused by the named constraint, not by any {@code SQLException}. */
     private static void refusedBy(final String constraint, final org.junit.jupiter.api.function.Executable insert) {
         final SQLException refused = assertThrows(SQLException.class, insert);
         assertTrue(

@@ -16,12 +16,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-/**
- * {@code steward_push_preference} against a real PostgreSQL.
- *
- * The one rule that is not SQL: a missing row is the type's own default. Modelled on
- * {@link PushSubscriptionsTest}, the table beside it.
- */
+/** {@code steward_push_preference} against a real PostgreSQL, where a missing row is the type's default. */
 class PushPreferencesTest {
 
     private static PostgreSQLContainer<?> postgres;
@@ -67,7 +62,7 @@ class PushPreferencesTest {
     void anAccountWithNoRowsGetsTheDefaults() {
         final Map<AlertType, Boolean> mine = preferences.of("42");
 
-        // The critical cases plus disk and memory are on, the rest is off. "The rest" is exactly drift.
+        // Everything but drift is on.
         assertEquals(
                 Map.of(
                         AlertType.SERVICE, true,

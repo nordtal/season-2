@@ -19,29 +19,14 @@ import org.junit.jupiter.api.Test;
 /**
  * What a player looks like on the three surfaces they appear on.
  *
- * The composition is the most visible thing in the season - it is in front of every chat line and above every head -
- * and it is also the easiest to get subtly wrong, because the three surfaces show <em>different subsets</em> of the
- * same six elements. The one that matters most is the nametag's omission: aura changes on every death, every hand-in
- * and every duel, and carrying it on a nametag would mean a packet to everyone in range each time.
- *
- * <b>The name's colour</b>
- *
- * {@link #twoDifferentPrestigeTiersAreColouredDifferently} asserts that two identities differing only in play time
- * produce components whose name segment carries a different colour, proving {@code PlayerComposition#name} actually
- * reads the prestige palette rather than a fixed grey.
+ * Each surface shows a different subset; the nametag leaves aura out, since it would cost a packet per change.
  */
 class PlayerCompositionTest {
 
     private final PlayerComposition composition =
             new PlayerComposition(Prestige::defaults, () -> PrestigeColours.DEFAULTS);
 
-    /**
-     * The ladder is asked for on every render, not captured once.
-     *
-     * The hours live in {@code prestige.yml} beside the colours now and reload with them, and <b>this supplier is the
-     * whole of what makes that true</b>: a {@code PlayerComposition} holding a {@code Prestige} would take the new file
-     * and keep the old table.
-     */
+    /** The ladder is asked for on every render, not captured, so a reloaded {@code prestige.yml} takes effect. */
     @Test
     void theLadderIsReadThroughTheSupplierEveryTime() {
         final java.util.concurrent.atomic.AtomicReference<Prestige> ladder =
@@ -72,12 +57,7 @@ class PlayerCompositionTest {
         return new Identity(Locale.GERMAN, false, false, 42, 0L);
     }
 
-    /**
-     * Finds the colour of whichever child component's own text is exactly {@code name}.
-     *
-     * {@code PlayerComposition#name} sets it explicitly, so a child that lost track of its own colour would show
-     * up here as {@code null} rather than silently inheriting one from a sibling.
-     */
+    /** Finds the colour set on the child whose own text is exactly {@code name}, null if it set none. */
     private static TextColor colourOfName(final Component root, final String name) {
         if (root instanceof TextComponent text && name.equals(text.content())) {
             return text.color();
@@ -136,11 +116,7 @@ class PlayerCompositionTest {
         assertFalse(plain.contains(Glyphs.BADGE_DONOR_STAR));
     }
 
-    /**
-     * Everybody has a crest from their first minute - {@link Prestige#tierOf} floors at tier one.
-     *
-     * So the composition never has to reflow around a missing piece.
-     */
+    /** Everybody has a crest from their first minute: {@link Prestige#tierOf} floors at tier one. */
     @Test
     void everybodyHasACrestAndItRisesWithTime() {
         final String fresh = plain(composition.nameTag("Alex", ordinary()));
@@ -179,12 +155,7 @@ class PlayerCompositionTest {
                         + " by looking at a name");
     }
 
-    /**
-     * Every tier gets the hex {@code prestige.yml} declares for it, on every surface the name is drawn on.
-     *
-     * The "everywhere" that is asked for follows from all three calling the same {@code name} method, and this
-     * pins that down for each surface individually.
-     */
+    /** Every tier gets the hex {@code prestige.yml} declares for it, on every surface the name is drawn on. */
     @Test
     void everySurfacePaintsTheSameTierTheSameColour() {
         final Identity tierFive =
@@ -196,12 +167,7 @@ class PlayerCompositionTest {
         assertEquals(expected, colourOfName(composition.tabList("Cara", tierFive), "Cara"));
     }
 
-    /**
-     * The admin colour wins over the tier, on every surface.
-     *
-     * It is not a fourteenth tier, so an admin at tier 13 must not show tier 13's colour just because it is the
-     * highest.
-     */
+    /** The admin colour wins over the tier on every surface, even at tier 13. */
     @Test
     void theAdminColourWinsOverTheProminentTier() {
         final Identity adminAtTopTier =

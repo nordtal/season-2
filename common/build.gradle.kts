@@ -4,9 +4,8 @@ plugins {
     id("nordtal.java-base")
 }
 
-// The plugins compose boss bar pills and menu rows, so they carry how wide every glyph of those
-// fonts is. The tables are derived from the assembled pack on every build and never committed: a
-// redrawn glyph reaches the plugins with the next build, and cannot leave a stale copy behind.
+// The plugins size pills and menu rows from these glyph advance tables, derived from the assembled pack on
+// every build and never committed.
 val assembledPack = configurations.resolvable("packForAdvances") { extendsFrom(configurations["resourcePack"]) }
 
 val bossbarAdvances =
@@ -27,8 +26,7 @@ sourceSets.main {
     resources.srcDir(files(layout.buildDirectory.dir("generated/advances")).builtBy(bossbarAdvances, menuAdvances))
 }
 
-// Files outside this module's source sets that :common's tests read as text. Without these
-// declarations an edit to one of them leaves :common:test UP-TO-DATE and the drift goes unnoticed.
+// Files outside this module that :common's tests read, so an edit to one reruns :common:test.
 repositoryRootTestInputs {
     reads("resource-pack/src/pack.mcmeta")
     reads("smp/src/main/resources/paper-plugin.yml")
@@ -45,11 +43,7 @@ repositoryRootTestInputs {
 
     reads("gradle/libs.versions.toml")
 
-    // Every message bundle in the repository, for EveryBundleIsCompleteTest. The test finds them by
-    // walking the tree, but Gradle cannot see a walk - without these fourteen lines an edit to a
-    // bundle leaves :common:test UP-TO-DATE and the parity guard never runs on the change that
-    // broke it. A new module's bundle needs a line here and nothing else; the test itself picks it
-    // up on its own.
+    // Every message bundle, for EveryBundleIsCompleteTest: Gradle cannot see the test's own tree walk.
     reads("commands/src/main/resources/messages/commands/en.properties")
     reads("commands/src/main/resources/messages/commands/de.properties")
     reads("discord-bot/src/main/resources/messages/access/en.properties")
@@ -86,32 +80,21 @@ repositoryRootTestInputs {
 
     readsTree("discord-bot/src/main/resources/messages")
 
-    // ConfigSpecExplanationTest walks every *Spec.java under a config/ directory in every module,
-    // looking for @Order without @Explain/@NoExplanationNeeded. smp, limbo, hunger-games and
-    // proxy are already covered above by their whole src/main tree; these three are not
-    // read anywhere else, and without declaring them here an edit inside one would leave
-    // :common:test UP-TO-DATE.
+    // The config packages ConfigSpecExplanationTest walks that no tree above covers.
     readsTree("discord-bot/src/main/java/eu/nordtal/s2/discordbot/config")
     readsTree("steward-ui/src/main/java/eu/nordtal/s2/steward/ui/config")
     readsTree("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/config")
 }
 
 dependencies {
-    // The assembled pack, which the tests read through the nordtal.pack system property and the
-    // two advance tables above are derived from.
+    // The assembled pack, which the tests read through the nordtal.pack system property.
     "resourcePack"(project(":resource-pack", "pack"))
 
-    // NullAway's own annotations reference this at the class-file level (TypeUseLocation), so
-    // without it on the compile classpath javac cannot fully resolve them and -Werror turns that
-    // into a build failure. Version matches what NullAway 0.14.2 itself pulls in
-    // (org.checkerframework:dataflow-nullaway's own checker-qual dependency); not in the version
-    // catalog because nothing here uses the library directly. The test source set compiles under
-    // the same checks, and compileOnly does not reach it.
+    // NullAway's annotations reference checker-qual at class-file level; this is the version NullAway pulls in.
     compileOnly("org.checkerframework:checker-qual:4.2.3")
     testCompileOnly("org.checkerframework:checker-qual:4.2.3")
 
-    // Adventure comes from paper-api / velocity-api at runtime on both platforms,
-    // so it is compile-only here and never shaded.
+    // Adventure comes from the platform at runtime and is never shaded.
     compileOnly(libs.adventure.api)
     compileOnly(libs.adventure.minimessage)
 
@@ -120,42 +103,23 @@ dependencies {
 
     testImplementation(libs.gson)
 
-    // The access API (eu.nordtal.s2.common.access) talks to PostgreSQL directly, because the
-    // database is the source of truth for access and the proxy has to read it on the login path.
-    //
-    // These are compileOnly ON PURPOSE: as `implementation` they would be shaded into every
-    // consumer of :common, including hunger-games and limbo, which never touch a database. A module
-    // that actually uses the access API opts in with `implementation(libs.bundles.access.persistence)`
-    // plus `runtimeOnly(libs.postgresql.driver)`; one that forgets fails with a NoClassDefFoundError
-    // the first time it calls that API. That is the accepted trade.
-    //
-    // jcore is deliberately not used here even though it wraps the same stack: its dependency block
-    // (config system, Flyway, commons-*, gson, snakeyaml) is far heavier. The versions are pinned to
-    // jcore's own in gradle/libs.versions.toml so the bot, which has both on its classpath, resolves
-    // one copy of each.
-    //
-    // Nothing from these libraries appears on :common's public API - the factories take a
-    // javax.sql.DataSource or a JDBC URL, both JDK types.
+    // compileOnly, so no consumer shades the database stack; one that needs it adds libs.bundles.access.persistence.
     compileOnly(libs.jdbi.core)
     compileOnly(libs.jdbi.sqlobject)
     compileOnly(libs.jdbi.postgres)
     compileOnly(libs.hikaricp)
     compileOnly(libs.slf4j.api)
 
-    // eu.nordtal.s2.common.notify unwraps org.postgresql.PGConnection to call
-    // getNotifications(timeout): pgjdbc has no callback API, so a LISTEN loop cannot be written
-    // against java.sql alone.
+    // The notify package unwraps PGConnection, because pgjdbc has no callback API for LISTEN.
     compileOnly(libs.postgresql.driver)
 
-    // Flyway is a test dependency only: :common never migrates anything at runtime, the bot owns
-    // that, and Flyway must never reach a plugin jar.
+    // Test-only: :common never migrates, and Flyway must never reach a plugin jar.
     testImplementation(libs.bundles.access.persistence)
 
     testImplementation(libs.flyway.core)
     testImplementation(libs.flyway.postgresql)
     testImplementation(libs.testcontainers.postgresql)
-    // Compile scope, not runtimeOnly: the integration test builds a PGSimpleDataSource by hand so
-    // that it can hand the same pool to Flyway, to AccessDirectory and to its own setup SQL.
+    // Compile scope: the integration tests build a PGSimpleDataSource by hand.
     testImplementation(libs.postgresql.driver)
     testRuntimeOnly(libs.logback.classic)
 }

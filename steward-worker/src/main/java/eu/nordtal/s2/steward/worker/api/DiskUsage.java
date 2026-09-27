@@ -20,20 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * How much of the disk one service's volume takes, for the Disk field on its page.
+ * How much of the disk one service's volume takes, by {@code du -sk}, for the Disk field on its page.
  *
- * Only the four services whose volume this container mounts have a number - smp, proxy, limbo and hunger-games,
- * under {@code <volumes-root>/<name>}. postgres, caddy and the rest have no volume here, and they get no field
- * rather than a zero: 0 bytes would be a statement, and a false one.
- *
- * It is {@code du -sk}, not a walk in Java, because the number on the page is meant to be the one {@code du} prints
- * on the host - allocated blocks, not the sum of file lengths. It follows the {@code plugins/} mount beneath each
- * volume, so the number is the world plus its jars.
- *
- * Measured on the dev host: {@code du -s} over all four volumes took a fraction of a second, smp alone several GB.
- * Cheap enough that the first ask may wait for it; every later one is handed the last answer and a refresh starts
- * beside it ( {@link Refreshed}), so a world that has grown until {@code du} is slow makes the number older, never
- * the page slower. The age travels with it.
+ * Only services whose volume is mounted here get a number; after the first, each ask gets the last one and a refresh.
  */
 final class DiskUsage {
 
@@ -82,7 +71,7 @@ final class DiskUsage {
         return measured.bytes().isPresent() ? Optional.of(measured) : Optional.empty();
     }
 
-    /** {@code du -sk}, in bytes. Empty when it fails or takes longer than half a minute. */
+    /** {@code du -sk}, in bytes; empty when it fails or takes longer than half a minute. */
     static OptionalLong du(final Path path) {
         try {
             final Process process = new ProcessBuilder("du", "-sk", path.toString())

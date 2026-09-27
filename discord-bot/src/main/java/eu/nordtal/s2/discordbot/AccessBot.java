@@ -59,59 +59,36 @@ import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 /**
- * Entry point and owner of everything with a lifecycle.
+ * Entry point and owner of the pool, the JDA session, the listeners and the timers.
  *
- * That means the connection pool, the JDA session, the payment listener and the sweeps.
- *
- * The startup order is deliberate: configuration first, so a bad value stops the process here naming the file and
- * the setting; then the database, so bad credentials and a schema this jar was not built against are found before a
- * Discord session exists ( {@link SchemaCheck}); then Discord, and only once it is ready the managed messages, the
- * reconciles and the timers.
+ * Starts configuration first, then the database and its {@link SchemaCheck}, then Discord, then everything else.
  */
 @Slf4j
 public class AccessBot implements AutoCloseable {
 
-    /** Where the message bundles live on the classpath - one {@code <tag>.properties} per language. */
+    /** Classpath root of the message bundles, one {@code <tag>.properties} per language. */
     private static final String MESSAGE_ROOT = "messages/access";
 
     private final Database database;
     private final AccessDirectory access;
     private final JDA jda;
 
-    /** How long the access inbox waits before reading the queue again without being told to. */
     private static final Duration ACCESS_POLL = Duration.ofSeconds(30);
 
     /**
-     * {@code LISTEN nordtal_payment}: what makes the payment seam feel instant.
-     *
-     * A dedicated connection, never the pool's: {@code LISTEN} is session state and a pool hands sessions back out. It
-     * carries no guarantee of its own; the timer in {@link #schedule} does that, and this only decides when.
+     * {@code LISTEN nordtal_payment} on its own connection, since {@code LISTEN} is session state a pool would lose.
      */
     private final NotificationListener paymentListener;
 
     /**
-     * The {@code nordtal_access} half.
-     *
-     * A second listener rather than a second channel on the payment one: they are configured from different places,
-     * the payment poll from the access config and this one from the inbox's own, and sharing one wait interval would
-     * silently favor whichever of the two happened to be passed in.
+     * {@code LISTEN nordtal_access}, separate from the payment listener because the two poll at different intervals.
      */
     private final NotificationListener accessListener;
 
-    /**
-     * Bounds a database that has gone away without closing the socket.
-     *
-     * It is not the wait: pgjdbc overrides the socket timeout for the duration of a {@code getNotifications} call, so
-     * this only applies to the liveness check and the reconnect.
-     */
+    /** Bounds the liveness check and reconnect only; pgjdbc overrides it while waiting for notifications. */
     private static final int LISTENER_SOCKET_TIMEOUT_SECONDS = 30;
 
-    /**
-     * Everything that blocks: the database work behind an interaction, and the REST calls that follow it.
-     *
-     * JDA's gateway threads must not do either - an interaction that is not acknowledged within three seconds is
-     * dead, and a gateway thread waiting on anything stalls every other interaction in the guild.
-     */
+    /** Runs everything that blocks, since a gateway thread must acknowledge an interaction within three seconds. */
     private final ExecutorService worker = Executors.newFixedThreadPool(4, runnable -> {
         final Thread thread = new Thread(runnable, "access-bot-worker");
         thread.setDaemon(true);
@@ -124,7 +101,6 @@ public class AccessBot implements AutoCloseable {
         return thread;
     });
 
-    /** The message bundles, the price list and the payment queue: everything read from configuration, not Discord. */
     private record CoreServices(
             Languages languages,
             Messages messages,
@@ -133,7 +109,6 @@ public class AccessBot implements AutoCloseable {
             PaymentRequests requests,
             Purchases purchases) {}
 
-    /** Every long-lived object the Discord wiring produces, so the constructor can thread it onward by name. */
     private record DiscordWiring(
             AdminLog admin,
             AccessRoles roles,
@@ -153,13 +128,13 @@ public class AccessBot implements AutoCloseable {
 
         boolean started = false;
         try {
-            // The bot does not migrate; this refuses a bot started against an unmigrated database here, by name.
+            // The bot does not migrate; this refuses an unmigrated database by name.
             SchemaCheck.validate(database.dataSource());
 
-            // Borrows the pool the bot already owns; closing a borrowed pool is a no-op, so ownership stays here.
+            // Borrows the bot's pool; closing a borrowed pool is a no-op.
             this.access = AccessDirectory.using(database.dataSource());
             final PhaseDirectory phases = PhaseDirectory.using(database.dataSource());
-            // steward-worker's inbox: the bot writes requests into it and reads the answers back, never updating it.
+            // steward-worker's inbox: the bot writes requests and reads answers, never updating them.
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
             final CoreServices core = loadCoreServices(accessConfig);
@@ -181,7 +156,6 @@ public class AccessBot implements AutoCloseable {
         }
     }
 
-    /** The two listeners a running bot keeps open until it shuts down. */
     private record Listeners(NotificationListener payment, NotificationListener access) {}
 
     private Listeners finishStartup(
@@ -201,17 +175,16 @@ public class AccessBot implements AutoCloseable {
                 Clock.systemUTC(),
                 wiring.announcements());
 
-        // start() reads the table once so the feed begins at the last run rather than at a season of history.
+        // start() reads the table once so the feed begins at the last run.
         final UpdateFeed updateFeed = new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.messages());
         updateFeed.start();
 
         schedule(accessConfig, wiring.processor(), wiring.purchaseFlow(), wiring.roles(), status, updateFeed);
 
-        // Started last of the payment wiring: it refreshes immediately on connect and touches JDA.
+        // Started last: it refreshes immediately on connect and touches JDA.
         final NotificationListener payment =
                 listenForPayments(databaseConfig, accessConfig, wiring.processor(), wiring.purchaseFlow());
 
-        // Every access change, whoever asked for it, through the same effects the command inbox uses.
         final NotificationListener access = listenForAccess(
                 databaseConfig,
                 new AccessInbox(
@@ -220,7 +193,7 @@ public class AccessBot implements AutoCloseable {
                         log),
                 wiring.adminRole());
 
-        // Last on purpose: a marker on disk then means this bot got all the way through its constructor.
+        // Last on purpose: a marker on disk means the constructor finished.
         final Readiness readiness = Readiness.onDefaultPath(log::warn);
         repeat(guarded("readiness marker", readiness::refresh), 0, Readiness.BEAT.toSeconds(), TimeUnit.SECONDS);
 
@@ -228,9 +201,8 @@ public class AccessBot implements AutoCloseable {
     }
 
     private CoreServices loadCoreServices(final AccessSpec accessConfig) {
-        // A config question, not a code one: adding a language is an edit to access.yml plus a properties file.
         final Languages languages = Languages.of(accessConfig);
-        // Two roots: :commands' shared bundle underneath this module's own; this module's keys win a collision.
+        // :commands' shared bundle underneath this module's own; this module's keys win a collision.
         final Messages messages = Messages.load(
                 AccessBot.class.getClassLoader(),
                 java.util.List.of("messages/commands", MESSAGE_ROOT),
@@ -241,7 +213,7 @@ public class AccessBot implements AutoCloseable {
                         "the message override names {}, which no bundle declares - it is stored"
                                 + " and never used; check the spelling",
                         key));
-        // The same files as ONE root, for remote answers: this module's keys are allowed Discord markdown.
+        // The same files as one root, for remote answers: this module's keys are allowed Discord markdown.
         final Messages sharedMessages = Messages.load(
                 AccessBot.class.getClassLoader(),
                 "messages/commands",
@@ -249,7 +221,7 @@ public class AccessBot implements AutoCloseable {
                 languages.locales());
         final Tiers tiers = Tiers.of(accessConfig);
 
-        // Names what is not configured; the bunq key itself lives in steward-worker, read here as a row.
+        // The bunq key lives in steward-worker and is read here as a row.
         Configured.report(accessConfig, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.jdbi());
         final Purchases purchases = new Purchases(requests, tiers, accessConfig);
@@ -258,7 +230,7 @@ public class AccessBot implements AutoCloseable {
     }
 
     private JDA connectJda(final BotSpec botConfig) throws InterruptedException {
-        // GUILD_MEMBERS is privileged in Discord's developer portal; without it both reconciles read nothing.
+        // GUILD_MEMBERS is privileged; without it both reconciles read nothing.
         final JDA connected = JDABuilder.createLight(botConfig.token())
                 .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MODERATION)
                 .setMemberCachePolicy(MemberCachePolicy.ALL)
@@ -282,7 +254,6 @@ public class AccessBot implements AutoCloseable {
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
         final AccessRoles roles = new AccessRoles(jda, accessConfig, access, core.messages(), admin, database.jdbi());
-        // Books what steward-worker has already found and attributed, and posts what it could not act on.
         final PaymentProcessor processor = new PaymentProcessor(
                 core.languages(),
                 core.requests(),
@@ -300,11 +271,10 @@ public class AccessBot implements AutoCloseable {
         final AdminRole adminRole = new AdminRole(jda, accessConfig, adminTree, admin);
         final Teams teams = new Teams(database.jdbi());
 
-        // Built before the listener list because the command effects below hand it the watch.
         final UpdateCommand updateCommand =
                 new UpdateCommand(updates, admin, database.jdbi(), core.messages(), worker, timers);
 
-        // Held, not only registered: the payment seam reaches back in to finish messages waiting for a link.
+        // Held because the payment seam finishes messages waiting for a link.
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
                 accessConfig, core.tiers(), core.purchases(), core.requests(), core.messages(), roles, admin, worker);
 
@@ -363,7 +333,7 @@ public class AccessBot implements AutoCloseable {
                 wireCommandInbox(jda, core.sharedMessages(), core.languages(), inboxEffects);
 
         final List<CommandData> commands = new ArrayList<>();
-        // Only what the bot registers natively - a player's own self-service, not an admin command.
+        // Only a player's own self-service is registered natively.
         commands.addAll(LinkFlow.commands());
         jda.updateCommands().addCommands(commands).queue();
 
@@ -376,7 +346,7 @@ public class AccessBot implements AutoCloseable {
             final Messages sharedMessages,
             final Languages languages,
             final BotAccessEffects inboxEffects) {
-        // Not a slash command: a /access grant typed on a console arrives here as a command_request row.
+        // Not a slash command: a console /access grant arrives as a command_request row.
         final eu.nordtal.s2.common.command.CommandRequests commandRequests =
                 eu.nordtal.s2.common.command.CommandRequests.borrowing(database.dataSource());
 
@@ -389,7 +359,7 @@ public class AccessBot implements AutoCloseable {
                         access::admins, access::adminMinecraftAccounts),
                 (message, failure) -> log.warn(message, failure));
         AccessCommands.all().forEach(command -> inbox.register(command, inboxEffects));
-        // The servers' line into the announcement channels: `announce <language> <text>` rows, posted verbatim.
+        // `announce <language> <text>` rows from the servers, posted verbatim.
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =
                 new eu.nordtal.s2.discordbot.announce.Announcements(jda, languages, Runnable::run, log);
         eu.nordtal.s2.commands.announce.AnnounceCommands.all()
@@ -412,12 +382,7 @@ public class AccessBot implements AutoCloseable {
         wiring.adminRole().reconcile();
     }
 
-    /**
-     * The recurring timers.
-     *
-     * Each task is wrapped because the scheduler cancels a task that throws, and the failure mode of that is a bot
-     * that looks healthy and stops booking payments.
-     */
+    /** Starts the recurring timers, each guarded because the scheduler silently cancels a task that throws. */
     private void schedule(
             final AccessSpec config,
             final PaymentProcessor processor,
@@ -425,7 +390,7 @@ public class AccessBot implements AutoCloseable {
             final AccessRoles roles,
             final StatusChannels status,
             final UpdateFeed updateFeed) {
-        // Unconditional: it reads two queues in this database, so a deployment with no bunq has two empty ones.
+        // Unconditional: without bunq both queues are simply empty.
         final int poll = config.payment().pollIntervalSeconds();
         repeat(
                 guarded("payment seam", () -> {
@@ -439,7 +404,7 @@ public class AccessBot implements AutoCloseable {
         final int reconcile = config.roleReconcileIntervalMinutes();
         repeat(guarded("role reconcile", roles::reconcile), reconcile, reconcile, TimeUnit.MINUTES);
 
-        // Cheap and infrequent on purpose: an hour means a reminder is at most an hour late, against a three-day lead.
+        // An hour late at most, against a three-day lead.
         repeat(
                 guarded("expiry sweep", () -> {
                     roles.sweepExpiryNotices();
@@ -449,14 +414,14 @@ public class AccessBot implements AutoCloseable {
                 1,
                 TimeUnit.HOURS);
 
-        // Almost always free: the tick only calls Discord when the rendered name differs from the last one set.
+        // The tick only calls Discord when the rendered name changed.
         if (status.configured()) {
             repeat(guarded("status channels", status::tick), 0, 1, TimeUnit.MINUTES);
         } else {
             log.info("No language has a status-channel; the sidebar status is off");
         }
 
-        // The timer thread only hands this off: it is the one tick that reads the database every pass.
+        // The one tick that reads the database every pass, so it runs on worker.
         repeat(
                 guarded("update feed", () -> updateFeed.submit(worker)),
                 UpdateFeed.INTERVAL.toSeconds(),
@@ -467,15 +432,7 @@ public class AccessBot implements AutoCloseable {
     /**
      * Starts the {@code nordtal_payment} listener.
      *
-     * Two refreshes, because two different things are waiting on the same signal: money that has been attributed and
-     * not
-     * yet booked, and an ephemeral message that has been promised a payment link. Both are handed to {@code worker}
-     * rather than run on the listener thread - they call Discord, and a listener thread inside a REST call is a
-     * listener
-     * that is not listening.
-     *
-     * Every refresh also runs on connect and on every reconnect, before anything is waited for, which is what covers a
-     * notification published while this process was not connected.
+     * Both refreshes run on {@code worker}, and on every connect and reconnect before waiting.
      */
     private NotificationListener listenForPayments(
             final DatabaseSpec databaseConfig,
@@ -505,17 +462,9 @@ public class AccessBot implements AutoCloseable {
     }
 
     /**
-     * Starts the {@code nordtal_access} listener.
+     * Starts the {@code nordtal_access} listener, which also carries {@code nordtal_admin}.
      *
-     * It carries {@code nordtal_admin} as well, for the admin role: every wake re-reads both, which is what one
-     * connection for several channels means.
-     *
-     * Each refresh is handed to {@code worker} rather than run on the listener thread: carrying a grant out calls
-     * Discord four times, and a listener thread inside a REST call is a listener that is not listening.
-     *
-     * The wait is the poll, and the poll is the guarantee - the notification only makes a change feel instant. Thirty
-     * seconds rather than the payment seam's configured interval: an access change is nearly always announced, and the
-     * poll exists for the case where the announcement was lost, not for the ordinary one.
+     * Each refresh runs on {@code worker}; the thirty-second poll is the guarantee, the notification only speeds it up.
      */
     private NotificationListener listenForAccess(
             final DatabaseSpec databaseConfig, final AccessInbox accessInbox, final AdminRole adminRole) {
@@ -539,7 +488,6 @@ public class AccessBot implements AutoCloseable {
         return listener;
     }
 
-    // Every task is wrapped by guarded(), so the returned future carries nothing a caller needs to check.
     private void repeat(final Runnable task, final long initialDelay, final long delay, final TimeUnit unit) {
         var _ = timers.scheduleWithFixedDelay(task, initialDelay, delay, unit);
     }
@@ -555,10 +503,9 @@ public class AccessBot implements AutoCloseable {
     }
 
     /**
-     * Stops the timers, ends the Discord session and closes the connection pool.
+     * Stops the timers, ends the Discord session and closes the pool.
      *
-     * The readiness beat is one of those timers, so this is also where the container stops being told this process is
-     * up. The marker is deliberately not deleted: going stale is the signal.
+     * The readiness marker is left to go stale, which is the signal.
      */
     @Override
     public void close() {
@@ -585,13 +532,7 @@ public class AccessBot implements AutoCloseable {
                 .build();
     }
 
-    /**
-     * How long a bot that cannot possibly start waits before letting the container exit.
-     *
-     * The restart policy brings it straight back, and repeated bad logins are what Discord rate-limits, while the
-     * fix for a wrong token is a person editing {@code .env}. A minute, so the container still comes back promptly
-     * once it is fixed.
-     */
+    /** How long a bot that cannot start waits before exiting, so Discord does not rate-limit repeated bad logins. */
     private static final java.time.Duration FATAL_BACKOFF = java.time.Duration.ofSeconds(60);
 
     public static void main(final String[] args) throws InterruptedException {
@@ -600,27 +541,24 @@ public class AccessBot implements AutoCloseable {
         try {
             bot = new AccessBot();
         } catch (final ConfigException e) {
-            // Deliberately not a stack trace: the message names the file, the setting and what is wrong with it.
+            // Not a stack trace: the message names the file, the setting and what is wrong.
             log.error("access-bot is not starting because its configuration could not be read.");
             log.error("{}", e.getMessage());
             System.exit(1);
             return;
         } catch (final net.dv8tion.jda.api.exceptions.InvalidTokenException badToken) {
-            // Treated like a refused config: the token is a setting, and Discord has said it is wrong.
+            // Treated like a refused config: the token is a setting Discord has rejected.
             log.error("access-bot is not starting: Discord rejected the bot token.");
             log.error("Check NORDTAL_BOT_TOKEN in .env against the token in the Discord developer"
                     + " portal - a regenerated token invalidates the old one immediately.");
             backOffThenExit();
             return;
         }
-        // Stopped by SIGTERM from the container runtime, so the shutdown hook is where the pool closes.
+        // The container runtime stops it with SIGTERM, so the pool closes in the shutdown hook.
         Runtime.getRuntime().addShutdownHook(new Thread(bot::close, "access-bot-shutdown"));
     }
 
-    /**
-     * Waits, then exits 1, so the restart policy retries in minutes rather than seconds.
-     * Interruptible on purpose: a container that ignores SIGTERM for a minute is worse.
-     */
+    /** Waits, then exits 1; interruptible, so SIGTERM is not ignored for a minute. */
     private static void backOffThenExit() {
         log.error(
                 "Waiting {}s before exiting, so this container does not retry a login Discord has"

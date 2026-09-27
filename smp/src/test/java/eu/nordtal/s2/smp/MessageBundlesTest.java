@@ -16,15 +16,9 @@ import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 
 /**
- * That the SMP's two language files stay the same file in two languages.
+ * That the SMP's two language files stay the same file in two languages, placeholders included.
  *
- * The same guard {@code hunger-games} grew for the same reason: {@code Messages} degrades to the key
- * rather than throwing, so a key present in one language and absent in the other reaches a player as the literal
- * string {@code smp.balloon.locked} at the worst possible moment. That is the right runtime behaviour and exactly
- * why it has to fail here instead.
- *
- * Placeholder symmetry is checked as well: a translation that spells {@code {minutes}} as {@code {minute}} prints
- * the braces to somebody rather than a number.
+ * {@code Messages} degrades to the key rather than throwing, so a missing key has to fail here instead.
  */
 class MessageBundlesTest {
 
@@ -34,14 +28,7 @@ class MessageBundlesTest {
             Messages.load(MessageBundlesTest.class.getClassLoader(), ROOT, Locale.ENGLISH, Locale.GERMAN);
 
     /**
-     * The one message in this bundle that carries a MiniMessage tag rather than plain text.
-     *
-     * The wheel used to print {@code IRON_INGOT} - the enum name - at every player in both languages. It now passes
-     * {@code Material#translationKey()} into a {@code <lang:...>} tag, so the client renders the item's own name in the
-     * client's own language and neither bundle has to carry an item list. That is a trick, and a trick nothing
-     * exercises
-     * is a trick that breaks quietly: {@code MessageRenderer} substitutes before it deserialises, so a change to either
-     * half would turn this back into literal text rather than into an error.
+     * The one message carrying a {@code <lang:...>} tag still renders it as a translated item name, not literal text.
      */
     @Test
     void theWheelNamesItsPrizeInTheClientsOwnLanguage() {
@@ -112,17 +99,9 @@ class MessageBundlesTest {
     }
 
     /**
-     * The component slots, which are the other half of {@link #thePlaceholdersOfATranslationMatchItsOriginal()}.
+     * The component slots: a {@code <_name>} tag dropped by a translation renders as nothing, silently.
      *
-     * A {@code <_name>} tag is where something that is already a component goes - the sender's flag and crest,
-     * vanilla's
-     * own death message, an advancement's title. It is written with a leading underscore precisely so a test can find
-     * it: every other angle bracket in these files is a MiniMessage style tag, which the two languages are entitled to
-     * differ on.
-     *
-     * The failure it catches is worse than a printed {@code {name}}. A translation that drops {@code <_death>} does not
-     * print the tag - MiniMessage silently renders nothing for an unresolved tag, so German readers would get a death
-     * line with no death in it and the server would log nothing at all.
+     * The leading underscore is what tells them apart from style tags, which the languages may differ on.
      */
     @Test
     void theComponentSlotsOfATranslationMatchItsOriginal() throws IOException {

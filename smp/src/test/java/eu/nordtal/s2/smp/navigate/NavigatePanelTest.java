@@ -17,13 +17,7 @@ import java.util.Set;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
-/**
- * Walks {@code /navigate} 's composed window with the pack's own advances.
- *
- * The cursor walk itself is {@link PanelWalk}, shared with the other panels' tests - see its own
- * comment for why the walk rather than the intent is what gets asserted. What is here is only what is true of
- * <em>this</em> menu.
- */
+/** Walks {@code /navigate}'s composed window with the pack's own advances, through {@link PanelWalk}. */
 class NavigatePanelTest {
 
     private static final List<NavigatePanel.Entry> THREE = List.of(

@@ -9,14 +9,7 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/**
- * Every invariant {@link Declaration} actually enforces, and the one question it answers.
- *
- * These are all the shapes that would otherwise fail late: a greedy argument in the wrong place
- * parses and never works, a required argument behind an optional one describes a command nobody can
- * type, and two arguments with one name lose the first one silently. None of them is visible from a
- * command's own source, which is why the check is in the type every command has to build.
- */
+/** Every invariant {@link Declaration} enforces, and the one question it answers. */
 class DeclarationTest {
 
     private static Declaration of(final List<Argument> arguments) {
@@ -84,7 +77,7 @@ class DeclarationTest {
 
     @Test
     void remoteIsDecidedByTheAskingProcessNotByTheSurface() {
-        // The case that made the earlier signature wrong: Surface.GAME is four different processes.
+        // Surface.GAME is four different processes, so the surface cannot decide it.
         final Declaration start = new Declaration(
                 List.of("hg", "start"),
                 Target.HUNGER_GAMES,

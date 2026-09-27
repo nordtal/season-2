@@ -17,18 +17,9 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * This plugin's bundle: the same file in two languages, and complete in both.
+ * This plugin's bundle: the same keys in both languages.
  *
- * <b>English is the fallback for everything</b>, so a key with no German is answered in
- * English: nothing throws, nothing is logged, and a German player gets one English line in the
- * middle of German text. That is the quiet failure, which is why it needs a test; a key missing in
- * English too is the louder one and prints the key itself.
- *
- * The parity question is also asked repository-wide, once, by {@code EveryBundleIsCompleteTest}
- * in {@code :common}. This test stays because the pass below it is a different question: the
- * other module's version also walks the command classes to check that every key <i>named in
- * code</i> exists, which is not reproduced here, because this plugin reaches its bundle through
- * {@code GateMessages} and {@code PackMessages} rather than from the command classes directly.
+ * A key missing in German quietly falls back to English, which is why this needs a test.
  */
 class MessageBundlesTest {
 
@@ -66,7 +57,7 @@ class MessageBundlesTest {
 
         for (final String key : english.stringPropertyNames()) {
             if (german.getProperty(key) == null) {
-                continue; // everyKeyExistsInBothLanguages says this, and says it better
+                continue; // everyKeyExistsInBothLanguages covers this
             }
             assertEquals(
                     placeholders(english.getProperty(key)),

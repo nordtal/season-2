@@ -66,16 +66,10 @@ public interface BoardSpec {
     @Name("Width")
     @Key("width")
     @Comment({
-        "How wide the frame is drawn, in pixels of the board's own text - 32 to 240.",
-        "",
-        "This is a number somebody picks by looking at the board, not one the plugin can",
-        "work out: the width of a line of text is decided by the vanilla font's per-",
-        "character advances, which live in the client and not in this repository. A line",
-        "that outgrows the frame draws over the right-hand edge, which is visible at once",
-        "and is fixed here without a release. See BoardFrame."
+        "How wide the frame is drawn, in pixels of the board's own text, 32 to 240.",
+        "Picked by eye: the client owns the font's widths. A line that outgrows it draws past the edge."
     })
-    @Explain(
-            "Nobody can compute this from the text - the client owns the font's per-character widths. A line that outgrows it draws past the right edge until this is widened.")
+    @Explain("The client owns the font's per-character widths, so this is picked by looking at the board.")
     default int width() {
         return 180;
     }

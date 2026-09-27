@@ -3,17 +3,7 @@ package eu.nordtal.s2.smp.region;
 /**
  * One axis-aligned box in one world, inclusive on both corners.
  *
- * The shape behind both {@code spawn-regions} and {@code balloons}: a spawn is a box you may not build in, a
- * balloon is a box that opens a GUI. Neither needs claims, flags or ownership, which is why there is no region
- * system here.
- *
- * @param world the world name this box is in
- * @param minX lowest x, inclusive
- * @param minY lowest y, inclusive
- * @param minZ lowest z, inclusive
- * @param maxX highest x, inclusive
- * @param maxY highest y, inclusive
- * @param maxZ highest z, inclusive
+ * It backs both {@code spawn-regions} and {@code balloons}, neither of which needs claims or ownership.
  */
 public record Box(String world, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
 
@@ -27,17 +17,15 @@ public record Box(String world, int minX, int minY, int minZ, int maxX, int maxY
         }
     }
 
-    /** Whether the given block position is inside this box. Both corners count as inside. */
+    /** Whether the given block position is inside this box, corners included. */
     public boolean contains(final String world, final int x, final int y, final int z) {
         return this.world.equals(world) && x >= minX && x <= maxX && y >= minY && y <= maxY && z >= minZ && z <= maxZ;
     }
 
     /**
-     * The distance from a point on the horizontal plane to this box's centre, ignoring height.
+     * The horizontal distance from a point to this box's centre, ignoring height.
      *
-     * Nordtal's balloon must stand outside radius 10 and inside radius 21.5 of the border centre: that is what makes
-     * the
-     * opening border of 20 withhold travel and the first expansion to 43 hand it over.
+     * Balloon placement uses it: outside radius 10 and inside 21.5 of the border centre.
      */
     public double horizontalDistanceFrom(final double centreX, final double centreZ) {
         final double dx = (minX + maxX) / 2.0 - centreX;

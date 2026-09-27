@@ -9,16 +9,12 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code config/database.yml} - this plugin's own connection to the shared PostgreSQL database.
- *
- * A separate pool from every other process's, even though all of them point at the same instance. This plugin never
- * migrates anything and never writes at all: the schema is owned by {@code discord-bot}, and the only query the
- * waiting room makes is the one behind {@code PlayerLocales} - a player's language, read once at join.
+ * {@code config/database.yml}: this plugin's own pool, used only for a player's language at join.
  */
 @ConfigSpec(
         header = {
             "-------------------------------------------------------------------",
-            "  limbo - PostgreSQL connection",
+            "  limbo: PostgreSQL connection",
             "-------------------------------------------------------------------",
             "In production the password belongs in the environment, not in this",
             "file. Every setting can be overridden with",
@@ -63,10 +59,7 @@ public interface DatabaseSpec {
     @Order(4)
     @Name("Connection pool size")
     @Key("maximum-pool-size")
-    @Comment({
-        "Upper bound of the HikariCP pool. Smaller than the other modules' on purpose: this",
-        "one makes a single indexed lookup per join and nothing else, ever."
-    })
+    @Comment({"Upper bound of the HikariCP pool. Small on purpose: one indexed lookup per join, nothing else."})
     @NoExplanationNeeded
     default int maximumPoolSize() {
         return 3;
@@ -76,17 +69,12 @@ public interface DatabaseSpec {
     @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
     @Comment({
-        "How long this plugin waits for the database before giving up - applied BOTH to",
-        "acquiring a connection from the pool and, through the PostgreSQL driver's own",
-        "socketTimeout, to a query that is already running. Without the second one a database",
-        "that accepts a connection and then hangs is not caught by the first at all.",
-        "",
-        "The one query this plugin makes is off the main thread, but that bounds where the",
-        "wait happens, not how long it lasts: a struggling database should fail fast onto the",
-        "English fallback rather than queue joins behind itself."
+        "How long this plugin waits for the database before giving up. Applies BOTH to acquiring",
+        "a connection and, through the driver's socketTimeout, to a query already running.",
+        "Kept short so a struggling database fails fast onto the English fallback."
     })
     @Explain(
-            "Limits both waiting for a free connection and a query already running - a low value falls back to the English messages faster.")
+            "Limits both waiting for a free connection and a query already running; lower falls back to English faster.")
     default int queryTimeoutSeconds() {
         return 3;
     }

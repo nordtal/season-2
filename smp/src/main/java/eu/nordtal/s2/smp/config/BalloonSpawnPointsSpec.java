@@ -24,12 +24,8 @@ public interface BalloonSpawnPointsSpec {
     @Order(3)
     @Name("Nether")
     @Key("nether")
-    @Comment({
-        "Where it lands in the Nether. The one point with a known way to be wrong: a Y",
-        "chosen without looking is inside the roof or inside solid rock."
-    })
-    @Explain(
-            "The one point with a known way to be wrong: a Y chosen without checking the actual terrain often lands inside the Nether roof or inside solid rock.")
+    @Comment("Where it lands in the Nether. Check the Y against the terrain: a guess lands in the roof or in rock.")
+    @Explain("A Y chosen without checking the terrain often lands inside the Nether roof or inside solid rock.")
     default SpawnPointSpec nether() {
         return DefaultSmp.BALLOON_SPAWN_POINT_NETHER;
     }
@@ -37,10 +33,7 @@ public interface BalloonSpawnPointsSpec {
     @Order(4)
     @Name("End")
     @Key("end")
-    @Comment({
-        "Where it lands in the End. The balloon is the only way in, so this is the only",
-        "arrival point players ever see there."
-    })
+    @Comment("Where it lands in the End, the only arrival point there, since the balloon is the only way in.")
     @NoExplanationNeeded
     default SpawnPointSpec end() {
         return DefaultSmp.BALLOON_SPAWN_POINT_END;

@@ -9,7 +9,7 @@ import net.kyori.adventure.text.format.TextColor;
  */
 public final class MenuPalette {
 
-    /** What a row's own subject is written in - a POI's name, a button's label on a light plate. */
+    /** What a row's own subject is written in: a POI's name, a button's label on a light plate. */
     public static final TextColor INK = TextColor.color(0x2A2A30);
 
     /** The second thing on a row: a distance, a count, a page number. */
@@ -18,7 +18,7 @@ public final class MenuPalette {
     /** A label on a dark or saturated plate, where {@link #INK} would not read. */
     public static final TextColor ON_PLATE = TextColor.color(0xFFFFFF);
 
-    /** A control that is there but cannot be used - a page button with no page behind it. */
+    /** A control that is there but cannot be used, such as a page button with no page behind it. */
     public static final TextColor DISABLED = TextColor.color(0x8C8C90);
 
     /** A progress bar written as text, coloured so the full and empty halves differ by more than shape. */

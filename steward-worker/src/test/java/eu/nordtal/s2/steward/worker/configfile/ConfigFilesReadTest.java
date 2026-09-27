@@ -20,11 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Reading a jcore-written file back as a form.
  *
- * The fixtures are produced by calling jcore, not by typing YAML into a text block: this parser only has to read
- * what jcore writes, and the only honest statement of what jcore writes is what jcore wrote. Two of its habits would
- * not have been guessed and are asserted below, because a parser written against a guess breaks silently -
- * {@link #aNestedSectionsKeyCarriesNoCommentAboveItAnyMore()} and {@link #jcoreWritesNoCommentCharacterAtAll()} -
- * see {@code ConfigFilesSchemaTest} for the schema-driven text that replaces what jcore no longer writes.
+ * The fixtures are written by jcore itself, since this parser only has to read what jcore writes.
  */
 class ConfigFilesReadTest {
 
@@ -96,12 +92,7 @@ class ConfigFilesReadTest {
         assertEquals(List.of(), entry(document, "second").comments());
     }
 
-    /**
-     * A nested section's key is still indented to its own column, which is YAML nesting, not comments.
-     *
-     * jcore puts no comment line above it. Pinned so a jcore change that brought comments back would show up as a
-     * failure here rather than as a page quietly gaining text nobody asked for.
-     */
+    /** A nested section's key sits at its own indent column with no comment above it. */
     @Test
     void aNestedSectionsKeyCarriesNoCommentAboveItAnyMore() throws IOException {
         final List<String> lines = Files.readAllLines(fixture);
@@ -132,7 +123,7 @@ class ConfigFilesReadTest {
         assertEquals(ConfigEntry.Type.DECIMAL, entry(document, "ratio").type());
         assertEquals(ConfigEntry.Type.BOOLEAN, entry(document, "enabled").type());
         assertEquals(ConfigEntry.Type.STRING, entry(document, "public-url").type());
-        // '12' - quoted by jcore because the spec method returns a String, and read back as one.
+        // '12', quoted by jcore because the spec method returns a String, and read back as one.
         assertEquals(ConfigEntry.Type.STRING, entry(document, "build-number").type());
         assertEquals("12", entry(document, "build-number").value());
         assertEquals(ConfigEntry.Type.STRING, entry(document, "api-token").type());
@@ -240,7 +231,7 @@ class ConfigFilesReadTest {
 
         final ConfigDocument document = ConfigFiles.read(file);
 
-        // jcore writes no header - StewardSpec's own header text is gone from the file itself.
+        // jcore writes no header; StewardSpec's own header text is not in the file.
         assertEquals(List.of(), document.header());
         assertEquals(ConfigEntry.Type.INTEGER, entry(document, "api.port").type());
         assertEquals("8082", entry(document, "api.port").value());
@@ -251,13 +242,7 @@ class ConfigFilesReadTest {
         assertEquals(Kind.LIST, entry(document, "backup.volumes").kind());
     }
 
-    /**
-     * The same shapes again, hand-made.
-     *
-     * It duplicates the test above on purpose. That one loads a real spec, so it drifts with the spec and would go
-     * quiet if somebody deleted the key it was asserting on; this one pins the shapes - a list, two sections, a
-     * comment above a key - in a fixture that is only ever changed by somebody meaning to change it.
-     */
+    /** The same shapes again, in a hand-made fixture that does not drift with the real spec. */
     @Test
     void aWorkerStyleFileWithAListAndTwoSectionsReadsBack() throws IOException {
         final Path file = directory.resolve("steward.yml");

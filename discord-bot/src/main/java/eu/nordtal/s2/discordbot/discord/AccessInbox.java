@@ -10,19 +10,9 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Carries out whatever {@code access_request} holds.
+ * Carries out whatever {@code access_request} holds, since only this process holds a JDA session.
  *
- * A grant is four things - a row, a Discord role, a direct message in the recipient's own language and a line in the
- * admin channel - and only this process holds a JDA session. So every surface writes a row and this reads it, rather
- * than carrying out any of the four itself.
- *
- * The poll is the guarantee, the notification only makes it immediate, and every wake-up and every reconnect drains
- * the queue in full rather than trusting the signal to have arrived. {@link #drain()} is therefore safe to call at
- * any time and from any of those reasons.
- *
- * A request that throws is written back {@code FAILED} with the message, and the loop carries on to the next row. It
- * is not retried: the effects are not idempotent - a retried grant is a second grant - and the row carrying its own
- * failure is what lets a surface say so rather than wait.
+ * A request that throws is written back {@code FAILED} and never retried, since a retried grant is a second grant.
  */
 public final class AccessInbox {
 
@@ -37,15 +27,12 @@ public final class AccessInbox {
     }
 
     /**
-     * Claims and carries out every request waiting, oldest first.
-     *
-     * Loops until the claim comes back empty rather than taking one row per wake-up: one notification can stand for
-     * several rows, and a notification can be missed altogether.
+     * Claims and carries out every waiting request, oldest first, until the claim comes back empty.
      *
      * @return how many requests were carried out or failed in this pass
      */
     public int drain() {
-        // Not tidiness: a row past its patience is dead, and a dead PENDING row looks like open work otherwise.
+        // A row past its patience is dead, and would otherwise look like open work.
         final int given = inbox.expireDue();
         if (given > 0) {
             log.warn("{} access request(s) were never picked up in time and have been given up on", given);
@@ -64,13 +51,13 @@ public final class AccessInbox {
             inbox.finish(request.id(), true, run(request, by));
             log.info("access request {} ({} for {}) carried out", request.id(), request.kind(), request.subject());
         } catch (final RuntimeException failure) {
-            // The message, not the stack trace: a web interface reads the row, and a trace in a toast helps nobody.
+            // The message, not the stack trace: a web interface reads the row.
             log.error("access request {} ({} for {}) failed", request.id(), request.kind(), request.subject(), failure);
             inbox.finish(request.id(), false, json("error", String.valueOf(failure.getMessage())));
         }
     }
 
-    /** @return the answer, as JSON, in the row's own shape. */
+    /** Returns the answer as JSON, in the row's own shape. */
     private String run(final AccessRequest request, final Actor by) {
         return switch (request.kind()) {
             case GRANT -> {
@@ -81,7 +68,7 @@ public final class AccessInbox {
             case UNLINK -> json("unlinked", String.valueOf(effects.unlink(request.subject(), by)));
             case SETTLE -> {
                 final AccessEffects.Settled settled = effects.settle(request.subject(), by);
-                // `until` is null for both refusals; a surface reading this must tell "booked" from "nothing to book".
+                // `until` is null for both refusals; a surface must tell "booked" from "nothing to book".
                 yield json(
                         "outcome",
                         settled.outcome().name(),
@@ -102,18 +89,14 @@ public final class AccessInbox {
                     throw new IllegalStateException(
                             "the message bundles could not be re-read;" + " the running ones are unchanged");
                 }
-                // The typos, by name: an override key no bundle declares does nothing silently, so this prints them.
+                // Names the override keys no bundle declares, which would otherwise do nothing silently.
                 yield json("unknown", String.join(",", effects.unknownOverrideKeys()));
             }
         };
     }
 
     /**
-     * The smallest JSON writer that is still correct.
-     *
-     * A dependency would be Jackson, which this project took out of {@code jcore} on purpose, and the whole of what
-     * is written here is a flat map of strings. What it does do properly is escape, because an exception message
-     * contains a quotation mark sooner or later, and a result column that does not parse is one nobody can read.
+     * Writes a flat map of strings as JSON, escaping properly.
      *
      * @param pairs key, value, key, value. A {@code null} value is written as JSON null
      */

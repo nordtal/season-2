@@ -5,9 +5,7 @@ import java.util.List;
 /**
  * The guard on {@code reset}, the one command that deletes something that cannot be rebuilt.
  *
- * On smp the volume holds Nordtal, a hand-built world that is in no repository and in no release. So a
- * service has to be named, and the name has to be typed back: not "yes", which is what somebody types
- * who has stopped reading.
+ * The service's name has to be typed back, not "yes": smp's volume holds a hand-built world.
  */
 final class ResetGuard {
 

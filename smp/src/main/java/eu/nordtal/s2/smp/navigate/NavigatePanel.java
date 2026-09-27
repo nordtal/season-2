@@ -9,29 +9,9 @@ import java.util.List;
 import net.kyori.adventure.text.Component;
 
 /**
- * Draws {@code /navigate} 's surface: five destinations, one per chest row, and a row of controls.
+ * Draws {@code /navigate}'s surface: five destinations, one per chest row, and a row of controls.
  *
- * <b>What the picture is</b>
- *
- * Design {@code N1} from the owner's menu artifact. One entry per row, each a full-width pill
- * carrying a kind icon, the destination's name and - right-aligned - how far away it is; the entry currently being
- * navigated to wears a white frame. The bottom row is a red {@code stop} plate on the left and a page back / page
- * number / page forward group on the right.
- *
- * <b>Why five per page and not forty-five</b>
- *
- * Because the name is the thing somebody is looking for. Ten entries fit if each is half a window wide, and at that
- * width "Baeckerei am Fluss" is "BAECKERE.." - so the menu would be a list of things you cannot read, and the only
- * way to find one would be to hover every slot. Five readable names and a distance beat ten truncated ones; paging
- * is needed either way, because the old menu simply stopped at whatever the window held and said nothing about the
- * rest.
- *
- * <b>The geometry, and where it is decided</b>
- *
- * Everything below is derived from {@link SlotGeometry} and {@link #INSET}, which is the same arrangement
- * {@code TravelPanel} has and for the same reason: the pack draws the pill and the buttons from those numbers, and
- * {@code NavigatePanelTest} reads the PNGs and the row fonts back and asserts the two sides still agree. Nothing
- * here restates a pixel the pack decides.
+ * Five per page so the names stay readable; the geometry must match the pack, as {@code NavigatePanelTest} asserts.
  */
 public final class NavigatePanel {
 
@@ -60,7 +40,7 @@ public final class NavigatePanel {
     /** The name starts one pixel past the icon's box, which is where a button's label starts too. */
     private static final int NAME_X = ICON_X + ICON_SIZE + 5;
 
-    /** Where the distance's right edge lands - x 164, the artifact's own number. */
+    /** Where the distance's right edge lands: x 164. */
     private static final int DISTANCE_RIGHT = PILL_X + PILL_WIDTH - 3;
 
     /** How much clear space is kept between a name and the distance beside it. */
@@ -100,7 +80,7 @@ public final class NavigatePanel {
      *
      * @param icon     one of {@code Glyphs.GUI_ROW_ICON_*}
      * @param name     the destination's name, folded and shortened here
-     * @param distance what stands at the right edge - a distance, or "another world"
+     * @param distance what stands at the right edge: a distance, or "another world"
      * @param active   whether this is the destination the player is currently being pointed at
      */
     public record Entry(String icon, String name, String distance, boolean active) {}
@@ -167,14 +147,7 @@ public final class NavigatePanel {
         return canvas.build(title);
     }
 
-    /**
-     * One page button, drawn greyed when there is no page on that side.
-     *
-     * Drawn greyed rather than left off: a control that vanishes moves nothing, but a player who saw it a second ago
-     * now
-     * has to work out whether it was ever there. The click on a greyed one is refused with the refusal sound, which is
-     * what says "this is a button and it is not for you right now".
-     */
+    /** One page button, drawn greyed when there is no page on that side, so a control never vanishes. */
     private static void pageButton(
             final MenuTitle.Canvas canvas, final int x, final String arrow, final boolean enabled) {
         canvas.rowArt(enabled ? Glyphs.GUI_ROW_BUTTON_SMALL : Glyphs.GUI_ROW_BUTTON_SMALL_OFF, CONTROL_ROW, x, null);

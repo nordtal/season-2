@@ -37,29 +37,11 @@ import org.slf4j.Logger;
 /**
  * The network's own private messages: {@code /msg}, {@code /whisper} and {@code /r}.
  *
- * The proxy owns them because it is the only process that can see both people: vanilla's
- * {@code /tell} is per-server, so a conversation would end the moment one side crosses to another
- * backend, and on this network crossing is normal. The proxy also already holds what a line has to
- * be drawn from, the language each side reads and their admin flag, both out of
- * {@link LoginRoster}.
- *
- * {@code /whisper} is built from the same method as {@code /msg}, registered a second time rather
- * than aliased through a Brigadier redirect, so tab completion, the usage line and the command
- * allowlist see two ordinary commands.
- *
- * The message travels through {@link MessageRenderer}'s component slot rather than a substituted
- * string, so the player's text never reaches the MiniMessage parser and nobody can colour a line
- * about themselves. A line carries the flag and the admin tag, both already held from the login
- * query, but never the SMP's prestige crest or aura, which would mean a database query per message
- * on the process that must not make one; it also keeps a whisper from looking exactly like
- * ordinary chat, which somebody could otherwise answer in public by mistake.
- *
- * Nothing is written down: no log line carries the text, no admin channel is told, no table is
- * touched. The only state here is who last spoke to whom, in memory, dropped on disconnect.
+ * The proxy sees both sides across backends. Nothing is logged or stored; reply partners live in memory only.
  */
 public final class PrivateMessages {
 
-    /** The name of the recipient argument, which is also what tab completion offers against. */
+    /** The recipient argument's name, which tab completion offers against. */
     static final String PLAYER = "player";
 
     /** Everything after the name, taken whole. */
@@ -71,15 +53,7 @@ public final class PrivateMessages {
     private final Supplier<ToneColours> colours;
     private final Logger logger;
 
-    /**
-     * Who each connected player last exchanged a private message with, for {@code /r}.
-     *
-     * Set by both sides of every message, which is what makes an answer possible without either of
-     * them having typed a name. It is held here and dies with the process: writing it down would
-     * mean a table of who talks to whom, which is a record of exactly the thing this feature is
-     * built not to keep. The cost is that a proxy restart makes everybody's next {@code /r} say
-     * there is nobody to reply to.
-     */
+    /** Who each connected player last exchanged a private message with, for {@code /r}; lost on restart by design. */
     private final ConcurrentHashMap<UUID, UUID> partners = new ConcurrentHashMap<>();
 
     public PrivateMessages(
@@ -112,7 +86,7 @@ public final class PrivateMessages {
 
         final RequiredArgumentBuilder<CommandSource, ?> who =
                 BrigadierCommand.requiredArgumentBuilder(PLAYER, StringArgumentType.word());
-        // A map lookup and never a query - Brigadier evaluates this while building the client's tree.
+        // A map lookup and never a query: Brigadier evaluates this while building the client's tree.
         who.suggests((context, builder) -> {
             proxy.getAllPlayers().forEach(online -> builder.suggest(online.getUsername()));
             return builder.buildFuture();
@@ -190,7 +164,7 @@ public final class PrivateMessages {
         }
     }
 
-    /** Both halves of one message, and the reply partner on both sides. */
+    /** Delivers both halves of one message and sets the reply partner on both sides. */
     private void deliver(final Player sender, final Player recipient, final String text) {
         sender.sendMessage(line(Half.SENT, localeOf(sender), recipient, text));
         recipient.sendMessage(line(Half.RECEIVED, localeOf(recipient), sender, text));
@@ -206,16 +180,15 @@ public final class PrivateMessages {
     }
 
     /**
-     * One half of a message, drawn.
+     * Draws one half of a message.
      *
-     * @param half   which of the two copies
-     * @param reader the language of the side this line is for, which is never necessarily the
-     *               language of the side it is about - the flag is the other one's
-     * @param about  the other person: their name, their flag and their admin tag
+     * @param half which of the two copies
+     * @param reader the language of the side this line is for
+     * @param about the other person, whose name, flag and admin tag are shown
      */
     Component line(final Half half, final Locale reader, final Player about, final String text) {
         final String flag = Glyphs.flagFor(localeOf(about));
-        // A component and never a substituted string, so the text never reaches the MiniMessage parser.
+        // A component, so the text never reaches the MiniMessage parser.
         final Component message = Component.text(text);
         final ProxyMessages.Chat.Msg msg = ProxyMessages.MESSAGES.chat().msg();
         return MessageRenderer.of(messages)
@@ -229,36 +202,19 @@ public final class PrivateMessages {
                         });
     }
 
-    /**
-     * Who these two would answer with {@code /r}, from now on.
-     *
-     * Both directions, which is what makes an answer possible without either of them having typed
-     * a name.
-     */
+    /** Sets these two as each other's {@code /r} partner. */
     void remember(final UUID one, final UUID other) {
         partners.put(one, other);
         partners.put(other, one);
     }
 
-    /**
-     * Drops both directions of every conversation this player was in.
-     *
-     * Both, and not only their own entry: leaving somebody pointed at a UUID that has gone would
-     * make their next {@code /r} say "they are not here" forever rather than "nobody has written to
-     * you".
-     */
+    /** Drops both directions of every conversation this player was in. */
     void forget(final UUID gone) {
         partners.remove(gone);
         partners.values().removeIf(gone::equals);
     }
 
-    /**
-     * The console is refused: these carry {@code Surface.GAME} and nothing else.
-     *
-     * A line from the console would arrive signed by nobody, with no session there to hold a reply partner.
-     *
-     * @return the player who typed it, or {@code null} when the source is not one
-     */
+    /** Returns the player who typed it, or {@code null} for the console, which these commands refuse. */
     private @Nullable Player sender(final CommandContext<CommandSource> context) {
         if (context.getSource() instanceof Player player) {
             return player;
@@ -269,13 +225,9 @@ public final class PrivateMessages {
     }
 
     /**
-     * The same two lines {@code VelocityCommands} printed for an incomplete command.
+     * Prints the usage line and the description for an incomplete command.
      *
-     * What to type, and what the command is for.
-     *
-     * The usage string is written out here rather than derived from a {@code Declaration}.
-     * {@code PrivateMessagesTest} parses each tree and asserts the two agree, so the derivation is
-     * replaced by a check rather than by trust.
+     * {@code PrivateMessagesTest} checks the hand-written usage against each tree.
      */
     private int usage(final CommandContext<CommandSource> context, final String usage, final MessageRef describe) {
         final NordtalUser who = context.getSource() instanceof Player player
@@ -290,13 +242,7 @@ public final class PrivateMessages {
         return new VelocityUser(player, roster, messages, colours);
     }
 
-    /**
-     * The admin tag with the space in front of it, or nothing at all.
-     *
-     * Substituted as a {@code {admin}} parameter rather than composed here, so the bundle decides
-     * where in the line it sits. It is a private-use code point out of {@code Glyphs} and never
-     * written into a {@code .properties} file - the rule this repository has for every glyph.
-     */
+    /** The admin tag with a leading space, or nothing, substituted as {@code {admin}}. */
     private String adminTag(final Player player) {
         return roster.isAdmin(player.getUniqueId()) ? " " + Glyphs.TAG_ADMIN : "";
     }
@@ -311,7 +257,7 @@ public final class PrivateMessages {
         forget(event.getPlayer().getUniqueId());
     }
 
-    /** @return who this player would answer with {@code /r}, for a test */
+    /** Returns who this player would answer with {@code /r}, for a test. */
     Optional<UUID> partnerOf(final UUID player) {
         return Optional.ofNullable(partners.get(player));
     }

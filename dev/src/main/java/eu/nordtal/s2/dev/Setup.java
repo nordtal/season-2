@@ -12,8 +12,7 @@ import java.util.Optional;
 /**
  * {@code init}: writes {@code deploy/dev.env} from the example, generates its four secrets and asks the rest.
  *
- * The example stays the base: some three hundred lines of local paths, ports and profiles nobody should be
- * asked about. What a person is asked is {@link LocalQuestions}, and nothing else.
+ * The example supplies every other value; only {@link LocalQuestions} is asked.
  */
 final class Setup {
 
@@ -46,7 +45,7 @@ final class Setup {
         } else {
             copyExample(env.path());
             SECRETS.forEach(secret -> generate(env, secret));
-            // Reading containers and creating them are different privileges; one token for both is no boundary.
+            // Reading and creating containers are separate privileges, so separate tokens.
             if (env.value("STEWARD_API_TOKEN").equals(env.value("STEWARD_DEPLOYER_TOKEN"))) {
                 throw new Processes.Failure("STEWARD_API_TOKEN and STEWARD_DEPLOYER_TOKEN came out the same.");
             }
@@ -128,7 +127,7 @@ final class Setup {
     /**
      * Derives {@code STEWARD_WEBAUTHN_RP_ID} from the address, which steward-ui refuses to start without agreeing.
      *
-     * A single label other than {@code localhost} is refused at startup, so it is said here instead.
+     * steward-ui refuses a single label other than {@code localhost}, so that is warned about now.
      */
     private void deriveRelyingParty(final EnvFile env) {
         final Optional<String> url = env.value("STEWARD_UI_PUBLIC_URL").filter(LocalQuestions::looksLikeBrowserUrl);

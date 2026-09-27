@@ -7,11 +7,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-/**
- * The only implementation of {@link PluginDirectory}.
- *
- * It borrows the pool it is given and owns nothing, so there is no {@code close()}.
- */
+/** The only implementation of {@link PluginDirectory}; it borrows the pool and owns nothing. */
 final class JdbiPluginDirectory implements PluginDirectory {
 
     private final PluginDao dao;
@@ -31,7 +27,6 @@ final class JdbiPluginDirectory implements PluginDirectory {
 
     @Override
     public List<ManagedPlugin> on(final String service) {
-        // Its own query, so one service's list does not read the whole table.
         return dao.on(Objects.requireNonNull(service, "service"));
     }
 

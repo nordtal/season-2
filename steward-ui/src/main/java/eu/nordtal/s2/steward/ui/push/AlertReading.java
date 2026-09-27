@@ -4,13 +4,7 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What {@code GET /api/alert-level} answers.
- *
- * Everything steward-worker found wrong, and the three numbers it measured but did not judge.
- * Not steward-worker's own {@code AlertLevel.Reading}: this module does not depend on that jar, so
- * the two services talk JSON instead. Strings rather than enums for {@code kind} and {@code level},
- * since the worker already turns its own enums into lowercase text; {@link AlertType#of} does the
- * one translation needed and answers null for a word it does not know.
+ * What {@code GET /api/alert-level} answers: everything the worker found wrong, and three numbers it did not judge.
  *
  * @param diskPercent    percent of the disk in use, or null when the worker could not read it
  * @param memoryPercent  percent of host memory in use, or null for the same reason
@@ -27,6 +21,6 @@ public record AlertReading(
         triggers = List.copyOf(triggers);
     }
 
-    /** One thing the worker found wrong. {@code kind} is {@link AlertType}'s own key, or unknown. */
+    /** One thing the worker found wrong; {@code kind} is an {@link AlertType} key, or unknown. */
     public record Trigger(String kind, String level, String subject, String path) {}
 }

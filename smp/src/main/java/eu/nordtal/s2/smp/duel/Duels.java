@@ -38,23 +38,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Duels: two 3 x 3 platforms at the spawn, an arena that appears above it, and one short fight.
  *
- * The rules, each of them deliberate:
- *
- * - <b>Separate everything.</b> Inventory, health, effects and experience inside the arena are the duel's own; the
- *   player's real state is untouched. It is also the one place with no grave, because nothing real was ever at
- *   stake.
- *
- * - <b>A single fight</b>, no best-of. Short, decisive, and nothing has to survive a restart.
- *
- * - <b>Identical loadouts from config.</b> Nobody wins by being richer.
- *
- * - <b>Disconnecting is a defeat and the aura is booked.</b> Otherwise logging out is a free escape from losing.
- *
- * - <b>Arenas are visible and spectators are welcome.</b> Duels are the only competition on this server; hiding them
- *   would waste the one thing that gives the tab-list number a story.
- *
- * The arena is a small glass box, built when the duel starts, removed when it ends, and swept at start in case a
- * crash left one standing.
+ * The duel's inventory, health and effects are its own, the loadouts are identical, and a disconnect is a defeat.
  */
 public final class Duels {
 
@@ -72,53 +56,36 @@ public final class Duels {
     private final WorldEffects effects;
     private final ArenaSlots slots;
 
-    /** Who is standing on which platform right now, so a second arrival starts a duel. */
     private final Map<DuelType, UUID> waiting = new HashMap<>();
 
-    /** Pairs still waiting for an arena to free up, in the order they stepped on. */
     private final List<Queued> queue = new ArrayList<>();
 
-    /** player -> the duel they are in. */
     private final Map<UUID, ActiveDuel> byPlayer = new HashMap<>();
 
     /**
-     * Fighters put back on the platform they came from, who must step off before duelling again.
+     * Fighters put back on their platform, who must step off before duelling again.
      *
-     * A teleport counts as a move, so without this the restore re-registers a fighter on the platform and the next duel
-     * starts in the tick the last one ended. Cleared by {@link #steppedOff}, which is the physical act the rule is
-     * about.
+     * The restore is a teleport, which counts as a move and would otherwise start the next duel at once.
      */
     private final java.util.Set<UUID> settled = new java.util.HashSet<>();
 
     /**
-     * Fighters who died in the arena, and the state waiting for them on the other side of the respawn screen.
+     * Fighters who died in the arena, and the state waiting for them until {@link #respawned}.
      *
-     * A duel loser is <b>dead</b> when the duel is settled, and an inventory written onto a dead player is thrown away
-     * by the respawn, which hands back the arena's loadout instead. Their state waits here until {@link #respawned}
-     * .
+     * The respawn overwrites an inventory written onto a dead player with the arena's loadout.
      */
     private final Map<UUID, SavedState> pending = new HashMap<>();
 
-    /**
-     * How long the outcome stands on the screen.
-     *
-     * Longer than the ceremony's fade-in and shorter than its hold.
-     */
     private static final Title.Times OUTCOME = Title.Times.times(
             java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(2), java.time.Duration.ofMillis(600));
 
-    /**
-     * Where a duel ends, for both fighters.
-     *
-     * The spawn, not the platform they came from: standing them back on the pad restarts the duel immediately.
-     */
+    /** Where a duel ends, for both fighters: the spawn, because the platform would restart the duel. */
     private @Nullable Location spawn() {
         return worlds.world(WorldRole.NORDTAL)
                 .map(world -> eu.nordtal.s2.smp.world.LandingSite.safeAt(world, world.getSpawnLocation()))
                 .orElse(null);
     }
 
-    /** Every block this plugin placed for an arena, so a teardown removes exactly those. */
     private final Map<Integer, List<Location>> placed = new HashMap<>();
 
     public Duels(
@@ -143,18 +110,13 @@ public final class Duels {
         this.slots = new ArenaSlots(config.concurrentDuelLimit(), config.duelArenaBaseY(), config.duelArenaSpacing());
     }
 
-    /** A pair that stepped on while every arena was busy. The type has to travel with them. */
+    /** A pair that stepped on while every arena was busy. */
     private record Queued(UUID first, UUID second, DuelType type) {}
 
     /**
      * One running duel.
      *
-     * <b> {@code discordIds} is captured when the duel starts</b>, because {@code Identities} is a per-session cache
-     * that {@code JoinGate} 's quit handler clears before {@code DuelListener} ever sees the disconnect - so reading it
-     * at settle time books neither stake, silently.
-     *
-     * Capturing rather than reordering the two listeners: a duel's participants cannot change once it is running, and
-     * the alternative makes the aura depend on registration order.
+     * discordIds is captured at the start: JoinGate clears Identities on quit before a disconnect is settled.
      */
     private record ActiveDuel(
             UUID first,
@@ -170,12 +132,11 @@ public final class Duels {
         }
     }
 
-    /** Whether a player is fighting - the grave listener's one question. */
+    /** Whether a player is fighting. */
     public boolean isInArena(final Player player) {
         return byPlayer.containsKey(player.getUniqueId());
     }
 
-    /** A player stepped onto a platform. */
     public void steppedOn(final Player player, final DuelType type) {
         if (isInArena(player) || settled.contains(player.getUniqueId())) {
             return;
@@ -187,7 +148,7 @@ public final class Duels {
         }
         if (other == null) {
             waiting.put(type, player.getUniqueId());
-            // SELECT: the same meaning a menu click has - the server noticed which one you chose.
+            // SELECT, as for a menu click: the server noticed the choice.
             tell(player, MESSAGES.smp().duel().waiting(), Feedback.SELECT);
             return;
         }
@@ -212,12 +173,7 @@ public final class Duels {
     /**
      * Gives a dead fighter their own life back, on the other side of the respawn screen.
      *
-     * The respawn location is set on the event, because Minecraft has already chosen a bed or a world spawn by then;
-     * the
-     * inventory goes on one tick later, because the respawn writes the player's contents after this event returns and
-     * would overwrite anything set inside it.
-     *
-     * @param event the respawn, so its location can be redirected
+     * The location is set on the event and the inventory one tick later, after the respawn has written its own.
      */
     public void respawned(final org.bukkit.event.player.PlayerRespawnEvent event) {
         final SavedState state = pending.remove(event.getPlayer().getUniqueId());
@@ -236,7 +192,6 @@ public final class Duels {
         });
     }
 
-    /** A player stepped off every platform. */
     public void steppedOff(final Player player) {
         waiting.entrySet().removeIf(entry -> entry.getValue().equals(player.getUniqueId()));
         settled.remove(player.getUniqueId());
@@ -266,7 +221,7 @@ public final class Duels {
         saved.put(first.getUniqueId(), SavedState.of(first));
         saved.put(second.getUniqueId(), SavedState.of(second));
 
-        // Read now, while both fighters are online - see ActiveDuel#discordIds.
+        // Read now, while both fighters are online.
         final Map<UUID, String> discordIds = new HashMap<>();
         identities.discordIdOf(first.getUniqueId()).ifPresent(id -> discordIds.put(first.getUniqueId(), id));
         identities.discordIdOf(second.getUniqueId()).ifPresent(id -> discordIds.put(second.getUniqueId(), id));
@@ -292,12 +247,7 @@ public final class Duels {
         countdown(duel, COUNTDOWN_SECONDS);
     }
 
-    /**
-     * Unwinds a duel that never started.
-     *
-     * Both fighters go back as they were, the arena is gone, the slot is free, and nothing was booked. Nothing was
-     * staked, so nothing is refunded and no sound is played.
-     */
+    /** Unwinds a duel that never started: both fighters go back as they were, and nothing is booked. */
     private void abort(final ActiveDuel duel) {
         byPlayer.remove(duel.first());
         byPlayer.remove(duel.second());
@@ -308,9 +258,9 @@ public final class Duels {
     }
 
     /**
-     * @return whether the player is actually standing in the arena. A false here is a fighter left
-     *         outside it in ADVENTURE mode holding a free loadout, in a duel that would still be
-     *         scored - which is why the caller aborts on it rather than carrying on
+     * Puts a fighter into the arena with the loadout.
+     *
+     * @return whether the player is standing in the arena; the caller aborts on false
      */
     private boolean enter(final Player player, final Location at, final DuelType type) {
         SavedState.clear(player);
@@ -387,7 +337,7 @@ public final class Duels {
         }
     }
 
-    /** A fighter was defeated - by damage, or by disconnecting, which counts the same. */
+    /** A fighter was defeated, by damage or by disconnecting. */
     public void decide(final Player loser) {
         final ActiveDuel duel = byPlayer.get(loser.getUniqueId());
         if (duel == null) {
@@ -410,8 +360,9 @@ public final class Duels {
     }
 
     /**
-     * @param feedback {@link Feedback#BIG_SUCCESS} for the winner, {@link Feedback#LOSS} for the
-     *                 loser, {@code null} for a duel that was called off - see stop()
+     * Gives a fighter their own state back.
+     *
+     * @param feedback the winner's or loser's sound, or {@code null} for a duel called off by stop()
      */
     private void restore(final ActiveDuel duel, final UUID playerId, final @Nullable Feedback feedback) {
         final SavedState state = duel.saved().get(playerId);
@@ -462,9 +413,7 @@ public final class Duels {
     /**
      * Books the stake and records the duel.
      *
-     * The stake is symmetrical: the winner gains it, the loser loses it. A death in the arena costs nothing beyond
-     * this;
-     * that exception lives in the grave listener.
+     * The stake is symmetrical: the winner gains it, the loser loses it.
      */
     private void book(final UUID winnerId, final UUID loserId, final ActiveDuel duel) {
         // From the duel, not Identities: on a disconnect the cache is already cleared by the time this runs.
@@ -518,12 +467,7 @@ public final class Duels {
         placed.put(slot, blocks);
     }
 
-    /**
-     * Places one block, and only into air.
-     *
-     * "Far above anything anybody builds" is a configured number and a season is long. Refusing to overwrite means the
-     * worst case is an arena with a hole in it, not a hole in somebody's tower.
-     */
+    /** Places one block, and only into air, so the worst case is a hole in the arena and never in a build. */
     private @Nullable Location place(final Location centre, final int dx, final int dy, final int dz) {
         final Location at = centre.clone().add(dx, dy, dz);
         if (!at.getBlock().getType().isAir()) {
@@ -545,7 +489,7 @@ public final class Duels {
         });
     }
 
-    /** Ends every duel and removes every arena. Called at disable. */
+    /** Ends every duel and removes every arena, at disable. */
     public void stop() {
         List.copyOf(byPlayer.values()).forEach(duel -> {
             byPlayer.remove(duel.first());
@@ -576,9 +520,9 @@ public final class Duels {
     }
 
     /**
-     * The same, plus a sound. Main thread, like every other path in this class.
+     * The same, plus a sound.
      *
-     * {@code null} is ordinary: only the moments that change what the player can do get a sound.
+     * A {@code null} feedback is ordinary: only moments that change what the player can do get one.
      */
     private void tell(final Player player, final MessageRef message, final @Nullable Feedback feedback) {
         player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()), message));

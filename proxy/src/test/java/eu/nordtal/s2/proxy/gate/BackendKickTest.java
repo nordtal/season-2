@@ -7,12 +7,7 @@ import com.velocitypowered.api.event.player.KickedFromServerEvent.DisconnectPlay
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
-/**
- * The decision on its own.
- *
- * See {@link BackendKick} for why it has to be static to be testable at all, and see {@link BackendKickLoopTest}
- * for what {@link BackendKick.Decision#TO_LIMBO} is for.
- */
+/** The decision on its own. */
 class BackendKickTest {
 
     private static final Component REASON = Component.text("The server cannot reach its database right now.");
@@ -27,7 +22,7 @@ class BackendKickTest {
 
     @Test
     void aKickWithNoReasonGoesToLimbo() {
-        // No reason means the connection died rather than a deliberate kick; the network is still standing.
+        // No reason means the connection died; the network is still standing.
         assertEquals(
                 BackendKick.Decision.TO_LIMBO,
                 BackendKick.decide(DisconnectPlayer.create(Component.text("Unable to connect to smp.")), null));
@@ -35,7 +30,7 @@ class BackendKickTest {
 
     @Test
     void everyOtherResultIsUntouched() {
-        // Turning Notify or Redirect into a disconnect or limbo trip would be a routing change dressed as wording.
+        // Turning Notify or Redirect into a disconnect would change routing, not wording.
         assertEquals(
                 BackendKick.Decision.LEAVE, BackendKick.decide(KickedFromServerEvent.Notify.create(REASON), REASON));
         assertEquals(BackendKick.Decision.LEAVE, BackendKick.decide(KickedFromServerEvent.Notify.create(REASON), null));

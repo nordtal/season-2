@@ -12,14 +12,9 @@ import eu.nordtal.s2.common.phase.SeasonDates;
 import java.util.Objects;
 
 /**
- * {@code /access settle <reference>} - book a payment by hand.
+ * {@code /access settle <reference>}: books by hand a payment the automatic path sent to the admin channel.
  *
- * The one manual path out of the automatic one: a payment on a reference that is not
- * {@code OPEN} is never booked automatically; it goes to the
- * admin channel, and this is what an admin runs afterwards. So the two refusals below are the whole
- * point of the command: an unknown reference is a typo, and a reference that is not open is the
- * automatic path having already dealt with it - which are opposite problems and must not share a
- * sentence.
+ * An unknown reference and one that is not open are opposite problems, with separate sentences.
  */
 public final class SettlePayment implements NordtalCommand<AccessEffects> {
 

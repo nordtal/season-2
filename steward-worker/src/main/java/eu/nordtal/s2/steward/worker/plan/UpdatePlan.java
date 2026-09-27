@@ -6,22 +6,12 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The whole answer to "what would a run do", and nothing more: resolving writes nothing.
+ * What a run would do, as a value that resolving produces without writing anything.
  *
- * Keeping the plan as a value, separate from anything that acts on it, is what makes the dangerous half testable:
- * every trap in the sources - a {@code -sources.jar}, a pre-release, an unmounted volume, a renamed asset - is a
- * property of this object and is asserted against recorded API responses, without a container, a network or a
- * server.
- *
- * @param seasonTag the release tag that was actually resolved. Printed even when nothing changed, because "latest"
- *     resolving to last week's tag is what a forgotten draft release looks like from in here.
- * @param seasonPrerelease true only when an operator pinned a pre-release by tag; {@code /releases/latest} never
- *     returns one.
- * @param unclaimed jars in a {@code plugins/} folder that no row accounts for. Never touched, always reported: an
- *     unclaimed jar is either installed by hand or the same plugin under a changed name, which is the one way this
- *     module can end up installing a second copy of something.
- * @param notes things the resolve worked out that belong to no single service or artefact. Decided here and only
- *     drawn by {@link PlanReport}, so that no surface composes a second opinion of its own.
+ * @param seasonTag the release tag actually resolved, printed even when nothing changed
+ * @param seasonPrerelease true only when an operator pinned a pre-release by tag
+ * @param unclaimed jars in a {@code plugins/} folder no row accounts for, never touched and always reported
+ * @param notes findings that belong to no single service, drawn only by {@link PlanReport}
  */
 public record UpdatePlan(
         Instant resolvedAt,
@@ -36,10 +26,7 @@ public record UpdatePlan(
     /**
      * The row that makes a run leave {@code service} alone entirely, or {@code null} when a run would apply its work.
      *
-     * A failure on anything but the server jar or the pack: one unreadable plugin makes the whole set untrustworthy,
-     * while a server jar that could not be checked leaves the build in {@code .server/} running and the plugins
-     * free to move. The applier acts on this, and the report and the plugin list draw it, so all three agree on
-     * what a run would install.
+     * Any failure but the server jar or the pack blocks it; the applier, report and plugin list all read this.
      */
     public @Nullable Change blocker(final String service) {
         return blocker(changes.stream()
@@ -73,19 +60,9 @@ public record UpdatePlan(
     }
 
     /**
-     * The same plan reduced to what a bootstrap may install.
+     * The same plan reduced to what a bootstrap may install: {@link Change.Status#MISSING} and every unresolved row.
      *
-     * {@link Change.Status#MISSING} plus every row that could not be resolved at all.
-     *
-     * MISSING and not {@code isWork()}, because a container coming back up must come back on exactly the jars it was
-     * running: a bootstrap cannot express "upgrade", so a crash restart at three in the morning has nothing to move.
-     * Filtering here makes that a property of the plan rather than a promise in a caller.
-     *
-     * The unresolved rows stay. Dropping them turns a half-finished bootstrap into a report of unbroken success -
-     * an API outage would leave a service with no season jar on it and nothing saying so. Kept, the existing
-     * all-or-nothing rule empties that service's folder and the entrypoint's empty-plugins guard catches it.
-     *
-     * {@code unclaimed} is carried over untouched, so a bootstrap's report agrees with an apply's for the same volumes.
+     * A bootstrap never upgrades, and unresolved rows stay so an outage empties the folder rather than hiding.
      */
     public UpdatePlan onlyMissing() {
         final List<Change> keep = changes.stream()
@@ -96,21 +73,9 @@ public record UpdatePlan(
     }
 
     /**
-     * The same plan narrowed to some of the services.
+     * The same plan narrowed to some of the services, without the resource pack.
      *
-     * Why the plan and not only the report: {@code Runs#apply} installs what is in the plan. Narrowing only the
-     * report would give a run that stops one server, says it is updating one server, and moves every jar in the
-     * network - which is worse than not having the feature.
-     *
-     * The resource pack is not in a scoped run: {@link Change#service()} is null for the pack, and a scope names
-     * services. Carrying it through would mean "update smp" also rewrote the proxy's {@code pack.yml} - a change to a
-     * service nobody asked about. An unscoped run is unaffected: it never calls this.
-     *
-     * {@code unclaimed} is narrowed with it, so the report of a scoped run does not name jars in folders this run never
-     * looked in.
-     *
-     * @param services compose service names; empty hands the plan back untouched, because empty is the whole network
-     *     everywhere else in this mechanism too
+     * @param services compose service names; empty hands the plan back untouched, since empty is the whole network
      */
     public UpdatePlan onlyServices(final java.util.Collection<String> services) {
         if (services.isEmpty()) {
@@ -121,7 +86,7 @@ public record UpdatePlan(
                 resolvedAt,
                 seasonTag,
                 seasonPrerelease,
-                // Load-bearing twice: drops the resource pack (see above), and Set.copyOf's contains(null) throws.
+                // Drops the resource pack, and keeps null away from Set.copyOf's contains(), which throws.
                 changes.stream()
                         .filter(change -> change.service() != null && wanted.contains(change.service()))
                         .toList(),
@@ -130,16 +95,7 @@ public record UpdatePlan(
     }
 
     /**
-     * The same plan with some services taken out of it.
-     *
-     * The mirror of {@link #onlyServices}, and it exists for a different reason: A scope is what somebody asked for;
-     * this is what they asked for earlier. A service being held down is a standing decision, and an update run that
-     * installed a new jar into it would have to start it to verify - which is the one thing the hold says must not
-     * happen. So the held services leave the plan before anything is stopped, and the run says in a note which ones it
-     * left alone rather than silently doing less than its scope said.
-     *
-     * Unlike {@code onlyServices}, an empty argument here is "take nothing out" rather than "the whole network":
-     * the two empties mean opposite things because the two lists do.
+     * The same plan with some services taken out of it, so a run never installs into a held service.
      *
      * @param services compose service names to leave out; empty hands the plan back untouched
      */
@@ -160,11 +116,7 @@ public record UpdatePlan(
                 notes);
     }
 
-    /**
-     * Whether anything here is actually absent, as opposed to merely unknown.
-     *
-     * A plan carrying nothing but unresolved rows has no work in it, and a bootstrap must not announce one.
-     */
+    /** Whether anything here is actually absent, as opposed to merely unknown. */
     public boolean hasMissing() {
         return changes.stream().anyMatch(change -> change.status() == Change.Status.MISSING);
     }

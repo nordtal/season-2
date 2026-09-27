@@ -5,10 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.hungergames.config.DatabaseSpec;
 
 /**
- * Builds this plugin's own HikariCP pool, the same way {@code proxy}'s {@code AccessPool}
- * builds its own rather than using {@code AccessDirectory.open(String, String, String)}'s small
- * fixed pool - see that class for the full reasoning on why a plugin needing its own tuning still
- * builds this by hand.
+ * Builds this plugin's own HikariCP pool, tuned from {@link DatabaseSpec}, as {@code proxy}'s {@code AccessPool} does.
  */
 public final class HungerGamesPool {
 
@@ -25,7 +22,7 @@ public final class HungerGamesPool {
         // DriverManager cannot see a driver in this plugin's classloader, so "No suitable driver" without it.
         hikari.setDriverClassName("org.postgresql.Driver");
 
-        // Bounds a query already running, not just connection acquisition - the pairing proxy's AccessPool uses.
+        // Bounds a query already running, not only connection acquisition.
         hikari.addDataSourceProperty("socketTimeout", String.valueOf(config.queryTimeoutSeconds()));
 
         return new HikariDataSource(hikari);

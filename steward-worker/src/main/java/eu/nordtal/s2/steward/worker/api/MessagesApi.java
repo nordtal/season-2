@@ -31,38 +31,22 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The two routes over {@code eu.nordtal.s2.steward.worker.configfile.MessageBundles}.
- *
- * Deliberately its own class rather than three more methods on {@link ConfigApi}: a bundle is not a config file - it
- * has no YAML shape, no schema, and its own key-by-key override rule - and the interface is asked to draw it as its
- * own card, beside the configuration cards rather than inside them. Keeping the two APIs apart is what makes that
- * true on this side of the wire as well: nothing a bundle needs changes what {@code GET /api/config} answers.
- */
+/** The two routes over the message bundles, kept apart from {@link ConfigApi} since a bundle is not a config file. */
 public final class MessagesApi {
 
     private static final Logger log = LoggerFactory.getLogger(MessagesApi.class);
 
-    /**
-     * The one bundle whose reload does not go through a console.
-     *
-     * The bot is not a Minecraft server, so it is asked through the inbox it already listens on. Every other
-     * bundle is in {@code ConfigApi}'s table.
-     */
+    /** The one bundle whose reload goes through the access inbox, since the bot has no console. */
     private static final String RELOADABLE_SERVICE = "discord-bot";
 
     /**
      * How long the browser waits for the bot, and how long the row waits for the bot.
      *
-     * The two are the same number on purpose. A row that outlived the answer would be carried out by a bot that came
-     * back a minute later, after this interface had already said "takes effect after a restart" - and then both
-     * sentences would be true at different moments, which is the one outcome worse than either. Five seconds is far
-     * longer than a listening bot needs: the insert carries its own {@code pg_notify}, so the wake-up is not waiting on
-     * a poll.
+     * The same number, so a late bot cannot apply a reload the page already called a restart.
      */
     private static final Duration ANSWER_WITHIN = Duration.ofSeconds(5);
 
-    /** How often the answer is looked for while waiting - see {@link #ANSWER_WITHIN}. */
+    /** How often the answer is looked for while waiting. */
     private static final Duration LOOK_EVERY = Duration.ofMillis(100);
 
     private static final Pattern COMMA = Pattern.compile(",");
@@ -70,10 +54,7 @@ public final class MessagesApi {
     /**
      * Who the row is filed under.
      *
-     * A fixed name, unlike the other five kinds, and that is not laziness: a reload sends no direct message and writes
-     * no admin line, so the only thing the requester would be used for is the row itself. This process does not know
-     * which browser asked - steward-ui holds the session and the worker sees a service token - and inventing a person
-     * here would be the kind of plausible-looking lie an audit trail is exactly the wrong place for.
+     * A fixed name, since this process does not know which browser asked and must not invent a person.
      */
     private static final String ASKED_BY = "steward-ui";
 
@@ -89,9 +70,10 @@ public final class MessagesApi {
     }
 
     /**
-     * @param inbox the access inbox the bot listens on, or {@code null} in a deployment with no
-     *              database - {@link #reload} then answers that a restart is needed, which is what
-     *              is actually true there
+     * Builds the API.
+     *
+     * @param inbox the access inbox the bot listens on, or {@code null} without a database, which makes {@link #reload}
+     *     ask for a restart
      * @param console the Minecraft services' consoles, which a saved bundle's reload goes through
      */
     public MessagesApi(
@@ -105,12 +87,12 @@ public final class MessagesApi {
         this.console = console;
     }
 
-    /** {@code GET /api/messages} - every bundle found, without opening a single jar. */
+    /** {@code GET /api/messages}: every bundle found, without opening a single jar. */
     public void list(final Context ctx) {
         ctx.json(locations().stream().map(MessagesApi::describe).toList());
     }
 
-    /** {@code GET /api/messages/<bundle>} - one bundle, packaged text and override side by side. */
+    /** {@code GET /api/messages/<bundle>}: one bundle, packaged text and override side by side. */
     public void one(final Context ctx) {
         final MessageBundleLocation location = locate(ctx);
         try {
@@ -122,18 +104,9 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code PUT /api/messages/<bundle>} - apply changes to both languages' override files at once.
+     * {@code PUT /api/messages/<bundle>}: applies changes to both languages' override files at once.
      *
-     * The body is {@code {"changes": {"key": {"en": "new text", "de": null}}}}. A {@code null} value resets that key -
-     * it is removed from the override rather than filled with the packaged text, so the line goes back to following
-     * the jar.
-     *
-     * A dropped placeholder is a warning, never a refusal, the same rule the raw editor gives a syntax error. The
-     * response always carries {@code warnings}, empty when there was nothing to say.
-     *
-     * A placeholder the schema does not declare is a refusal, and nothing of the request is written: the plugin fills
-     * the declared arguments and nothing else, so the line would draw its {@code {name}} literally. The 400 names the
-     * key.
+     * A {@code null} resets a key; a dropped placeholder is a warning, an undeclared one a 400 that writes nothing.
      */
     public void save(final Context ctx) {
         final MessageBundleLocation location = locate(ctx);
@@ -180,15 +153,9 @@ public final class MessagesApi {
     }
 
     /**
-     * Asks the service that owns a just-saved bundle to re-read it.
+     * Asks the service that owns a just-saved bundle to re-read it, answered like {@code ConfigApi#reload}.
      *
-     * Answered under {@code reload} in the save's own response, in the vocabulary {@code ConfigApi#reload} already
-     * gave a config file - {@code APPLIED}, {@code NO_ANSWER} or
-     * {@code RESTART_REQUIRED} plus a {@code message} - and a Minecraft bundle goes through that same table and that
-     * same console. The bot has no console, so its bundle rides the inbox it already listens on.
-     *
-     * One field is added: {@code unknown}, the keys the override file declares that the bundle has never heard of. Only
-     * the bot reports it; a typo there does nothing at all and says nothing at all otherwise.
+     * The bot's answer adds {@code unknown}: the keys its override file declares that the bundle does not know.
      */
     private Map<String, Object> reload(final MessageBundleLocation location) {
         if (!RELOADABLE_SERVICE.equals(location.service())) {
@@ -246,8 +213,10 @@ public final class MessagesApi {
     }
 
     /**
-     * @return the row once it has stopped being pending, or {@code null} if it has not within
-     *         {@link #ANSWER_WITHIN} - which is a bot that is not running, and is not an error
+     * Polls the row until it settles.
+     *
+     * @return the row once it is no longer pending, or {@code null} after {@link #ANSWER_WITHIN}, which means the bot
+     *     is not running
      */
     private @Nullable AccessRequest waitFor(final AccessRequests requests, final long id) {
         final long giveUpAt = System.nanoTime() + ANSWER_WITHIN.plusSeconds(1).toNanos();
@@ -269,9 +238,7 @@ public final class MessagesApi {
     /**
      * The {@code unknown} field of the bot's own answer, split back into a list.
      *
-     * The row carries the bot's JSON verbatim - see {@code AccessRequests#finish} on why no surface composes a second
-     * rendering of it - and the bot writes one comma-joined string because {@code AccessInbox#json} takes pairs of
-     * strings. Splitting it here is the whole translation, and an empty string is no keys rather than one empty key.
+     * An empty string is no keys rather than one empty key.
      */
     private static List<String> unknownIn(final @Nullable String result) {
         if (result == null || result.isBlank()) {
@@ -323,18 +290,14 @@ public final class MessagesApi {
         }
     }
 
-    /**
-     * A dropped placeholder for every changed key that had one.
-     *
-     * Checked against the packaged text - the "original" this means, not whatever the override said a moment ago.
-     */
+    /** A dropped placeholder for every changed key that had one, checked against the packaged text. */
     private static List<String> warningsOf(
             final MessageBundle before, final String language, final Map<String, String> changes) {
         final List<String> warnings = new ArrayList<>();
         for (final Map.Entry<String, String> change : changes.entrySet()) {
             final String edited = change.getValue();
             if (edited == null) {
-                // A reset. There is no new text to check placeholders against.
+                // A reset has no new text to check placeholders against.
                 continue;
             }
             final MessageEntry entry = before.entries().stream()
@@ -399,7 +362,7 @@ public final class MessagesApi {
     private static Map<String, Object> describe(final MessageEntry entry) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("key", entry.key());
-        // Gson drops a null-valued map entry rather than writing `null`, so absence IS the "no text" signal here.
+        // Gson drops a null map entry, so absence is the "no text" signal here.
         putIfPresent(row, "english", entry.english());
         putIfPresent(row, "german", entry.german());
         putIfPresent(row, "overrideEnglish", entry.overrideEnglish());
@@ -441,11 +404,7 @@ public final class MessagesApi {
         }
     }
 
-    /**
-     * The changes split by language, English first.
-     *
-     * {@code {"changes": {"key": {"en": "text", "de": null}}}} - {@code null} resets that language of that key.
-     */
+    /** The changes split by language, English first; {@code null} resets that language of that key. */
     private static Map<String, Map<String, String>> changesOf(final JsonObject body) {
         final JsonElement changes = body.get("changes");
         if (changes == null || !changes.isJsonObject()) {

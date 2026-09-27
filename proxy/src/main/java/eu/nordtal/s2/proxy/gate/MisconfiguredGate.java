@@ -19,24 +19,9 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
 /**
- * The per-plugin disable Velocity does not have.
+ * Refuses every login because {@code proxy}'s own configuration could not be read.
  *
- * A {@code LoginEvent} handler that refuses <b>everybody</b> because {@code proxy}'s own configuration could
- * not be read.
- *
- * Failing closed is the point. "The proxy is up but nobody can join" announces itself within
- * seconds of the first player trying; "the proxy is up and the gate is off" announces itself never,
- * and a single mistyped key would silently open the network.
- *
- * Admins cannot be exempted: the admin flag is a column in the database a broken
- * {@code database.yml} is the reason we cannot reach, and an exemption would mean inventing a second
- * notion of who is an admin inside the file that is itself broken. The recovery path is a human
- * fixing the file and restarting the proxy.
- *
- * The screen is bilingual because the table that stores every player's language is unreachable.
- * It also answers the ping, since the MOTD lives in {@code network.yml} and that is one of the files
- * that can be broken - the line comes from the message bundle, a classpath resource and therefore
- * the one thing still readable when the configuration is the problem.
+ * Failing closed is the point: a mistyped key must not silently open the network, so nobody is exempt.
  */
 public final class MisconfiguredGate {
 
@@ -44,14 +29,9 @@ public final class MisconfiguredGate {
     private final Component screen;
     private final Component motd;
 
-    /** How many logins have been refused, so the log line can say "and 400 others" rather than 400 lines. */
+    /** How many logins were refused, so the log says "and 400 others" rather than 400 lines. */
     private final AtomicLong refused = new AtomicLong();
 
-    /**
-     * @param logger   the plugin logger
-     * @param messages the bundle; loading it needs no configuration, only the classpath, which is
-     *                 what makes a translated screen possible on a path where nothing else works
-     */
     public MisconfiguredGate(final Logger logger, final Messages messages) {
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(messages, "messages");
@@ -62,16 +42,12 @@ public final class MisconfiguredGate {
                         .format(Locale.GERMAN, MESSAGES.gate().misconfigured())
                         .color(NamedTextColor.GRAY)
                         .decorate(TextDecoration.ITALIC));
-        // English only: a ping carries no player, so there is no language to pick.
+        // English only: a ping carries no player to take a language from.
         this.motd = MiniMessage.miniMessage()
                 .deserialize(messages.format(Locale.ENGLISH, MESSAGES.motd().misconfigured()));
     }
 
-    /**
-     * What the server browser shows while nobody can join.
-     *
-     * Deliberately not the configured MOTD - the configuration is what failed.
-     */
+    /** What the server browser shows while nobody can join, never the configured MOTD. */
     @Subscribe
     public void onPing(final ProxyPingEvent event) {
         event.setPing(event.getPing().asBuilder().description(motd).build());
@@ -84,17 +60,9 @@ public final class MisconfiguredGate {
     }
 
     /**
-     * The decision itself, without the Velocity event around it.
+     * Refuses, counts, and logs the first refusal and every {@value #REPEAT_LOG_EVERY}th after that.
      *
-     * Refuse, count, and log the first one and every {@value #REPEAT_LOG_EVERY}th after that.
-     *
-     * Package-visible so a test can assert it without constructing a {@code LoginEvent} and a
-     * {@code Player}, neither of which exists outside a running proxy.
-     *
-     *
-     * @param mcUuid   who tried
      * @param username their name, for the log line
-     * @return the screen they get, which is the same screen every time
      */
     Component refuse(final UUID mcUuid, final String username) {
         final long count = refused.incrementAndGet();
@@ -109,7 +77,7 @@ public final class MisconfiguredGate {
         return screen;
     }
 
-    /** @return how many logins have been refused by this handler, for tests and for the shutdown log */
+    /** How many logins this handler has refused. */
     public long refusedCount() {
         return refused.get();
     }

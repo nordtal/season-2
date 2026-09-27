@@ -18,12 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * What {@link ServicesApi} does with what {@link OnlineDirectory} and {@link OnlineRoster} hand back.
- *
- * Entirely in memory, against fake directories, the same way {@code PlaytimeWriterTest} drives
- * {@code PlaytimeStore} without a database.
- */
+/** What {@link ServicesApi} makes of what {@link OnlineDirectory} and {@link OnlineRoster} hand back, in memory. */
 class ServicesApiTest {
 
     private static final Instant NOW = Instant.parse("2026-09-17T12:00:00Z");
@@ -67,7 +62,7 @@ class ServicesApiTest {
 
     @Test
     void aRowOlderThanTheCutoffIsTreatedExactlyLikeNoRowAtAll() {
-        // A stopped-writing service is the case the class exists for, never mind what number the row last held.
+        // A service that stopped writing is dropped, whatever its row last held.
         final Instant tooOld = NOW.minus(ServicesApi.STALE_AFTER).minusSeconds(1);
 
         assertFalse(
@@ -215,7 +210,7 @@ class ServicesApiTest {
                 : players.stream().map(OnlinePlayer::name).toList();
     }
 
-    /** Answers whatever it was constructed with; there is no database behind this test. */
+    /** Answers whatever it was constructed with. */
     private static final class FakeDirectory implements OnlineDirectory {
 
         private final Map<String, OnlineCount> rows;
@@ -255,11 +250,7 @@ class ServicesApiTest {
         }
     }
 
-    /**
-     * Moves on by a second every time it is asked.
-     *
-     * That is what {@link #theCountsAndTheRosterAreReadAgainstOneInstantNotTwo} catches.
-     */
+    /** A clock that moves on by a second every time it is asked. */
     private static final class SteppingClock extends Clock {
 
         private Instant now;

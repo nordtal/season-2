@@ -11,32 +11,9 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useSidebar } from "@/components/ui/sidebar"
 
 /**
- * The frame everything signed-in is drawn inside.
+ * The signed in frame: {@link DesktopFrame} from 640px up, {@link PhoneFrame} below.
  *
- * <h2>Two shapes, picked out of four</h2>
- * An unfinished-looking sidebar - uneven gaps, an island that jumped as the column opened -
- * led to four directions being built side by side to compare on a phone. Two were chosen,
- * one per kind of screen: the island at the top left over a column that
- * slides in beneath it for a desktop or a tablet ({@link DesktopFrame}), and a dock at the bottom
- * that grows upward into the navigation for a phone ({@link PhoneFrame}). The two not chosen
- * are deleted rather than kept behind a query parameter.
- *
- * The line between them is `useIsMobile`'s 640px, the same line the sidebar provider already keeps
- * its two open states apart by: `open` for the column, `openMobile` for the dock.
- *
- * <h2>One axis</h2>
- * Everything measures from `--gutter`, the page content's own margin: the island's left edge, the
- * dock's two edges, the column's list and the content. The toggle, each row's icon and the first
- * letter of a page title therefore stand on lines that do not depend on which state the
- * navigation is in.
- *
- * <h2>What is fixed and what scrolls</h2>
- * The document itself never scrolls. The chrome is fixed and only {@link Content} moves, so an
- * operator watching a log window and a service table at the same time does not lose their place.
- *
- * <h2>Where the search is</h2>
- * Beside the account, on both devices: top right on a desktop, in the dock on a phone. A phone has
- * no `⌘K`, so a frame with nothing to tap has no command palette at all.
+ * Everything aligns on `--gutter`, and only {@link Content} scrolls, never the document.
  */
 export function AppFrame({ me }: { me: Me }) {
   const nav = useNav()
@@ -79,16 +56,9 @@ function useNav() {
 }
 
 /**
- * THE DESKTOP AND THE TABLET: an island that never moves, over a column that slides in beneath it.
+ * The desktop and tablet frame: a fixed island over a column that slides in beneath it.
  *
- * Closed, the island is a small bordered surface carrying the toggle, the mark and the path of the
- * page. Opening the navigation does not move or resize anything in it: the column slides in under
- * it, the island drops its surface and the path folds away, so what is left - toggle and mark - is
- * the head of the column without ever having been a second thing. The toggle is where the pointer
- * already is, in both states.
- *
- * The list starts one group gap below the island's row: the head is spaced from "Overview" exactly
- * as "Overview" is spaced from "Services", which is the evenness the first round lacked.
+ * Opening moves nothing in the island; it drops its surface and path, becoming the column's head.
  */
 function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
   const { shown, toggle } = nav
@@ -117,10 +87,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
       >
         <NavToggle shown={shown} onToggle={toggle} glyph="panel" />
         <Brand />
-        {/*
-          While the column is open the list answers "where am I" better than a trail does, and two
-          answers to one question is the weaker one winning half the time - so the path folds away.
-        */}
+        {/* While the column is open the list says where you are, so the path folds away. */}
         <div
           aria-hidden={shown}
           inert={shown}
@@ -148,15 +115,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
   )
 }
 
-/**
- * THE PHONE: everything within the thumb's reach.
- *
- * Steward is used from an iPhone first, and the top corners are the two places on it a thumb
- * reaches worst. So the chrome is one dock floating above the home indicator, carrying the menu,
- * the name of the page, search and account, and the top of every page is the page. Opening the
- * navigation grows the same dock upward into a panel holding the list, its own row staying where it
- * was, so the finger that opened it closes it without moving.
- */
+/** The phone frame: one dock above the home indicator that grows upward into the navigation. */
 function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
   const { shown, toggle, follow, close } = nav
   const page = usePageLabel()
@@ -183,8 +142,7 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
         </div>
         <div className="flex items-center gap-1 p-1">
           <NavToggle shown={shown} onToggle={toggle} glyph="menu" />
-          {/* The page's name is a second, larger target for the same toggle; the button is the one
-              a keyboard or a screen reader uses, so this one is left out of both. */}
+          {/* A larger target for the same toggle, left out of keyboard and screen reader order. */}
           <button
             type="button"
             onClick={toggle}

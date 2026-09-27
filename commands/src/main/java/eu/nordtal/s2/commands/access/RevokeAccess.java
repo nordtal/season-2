@@ -9,13 +9,7 @@ import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Tone;
 
-/**
- * {@code /access revoke <member>} - every running grant, at once.
- *
- * Zero revoked is a legitimate answer and gets its own sentence: an admin who runs this on the
- * wrong person should be told nothing happened rather than reading "revoked 0 grants" and having
- * to work out what that means.
- */
+/** {@code /access revoke <member>}: every running grant at once, with its own sentence for none. */
 public final class RevokeAccess implements NordtalCommand<AccessEffects> {
 
     @Override
@@ -43,7 +37,7 @@ public final class RevokeAccess implements NordtalCommand<AccessEffects> {
                                     ? MESSAGES.access().revokedSection().one()
                                     : MESSAGES.access().revoked(revoked),
                     revoked == 0 ? Feedback.REFUSED : Feedback.SMALL_SUCCESS,
-                    // Nothing to revoke is WARN and not BAD: the command did what it was asked and found no grant.
+                    // Nothing to revoke is WARN, not BAD: the command did what it was asked.
                     revoked == 0 ? Tone.WARN : Tone.GOOD);
         });
     }

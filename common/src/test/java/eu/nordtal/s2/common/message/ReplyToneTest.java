@@ -18,30 +18,9 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every reply a command sends names a {@link Tone}, and the exceptions are named here.
+ * Checks that every reply a command sends names a {@link Tone}, apart from the files named here.
  *
- * <b>Why this is a text search and not a signature</b>
- *
- * Because the compiler cannot make it one. {@code NordtalUser#reply} has to keep the two-argument
- * overload - {@code RemoteUser}, {@code ConsoleUser} and the Discord adapter all implement it, and
- * the {@link Tone} overloads default onto it - so a call that names no tone compiles, runs, and
- * produces a line in whatever colour the client happened to be using. There is no version of that
- * failure a running server shows you: the sentence is right, the language is right, and the only
- * thing missing is the one signal that tells a refusal from a confirmation at a glance.
- *
- * It is the same shape as {@code OneMessageFormatTest} and {@code SoundVocabularyTest}, and for
- * the same reason both of those give: written while the answer is complete, an allowlist is a list
- * of decisions; written afterwards, it is an argument.
- *
- * <b>What it does not check</b>
- *
- * <b>Whether the tone is the right one.</b> Nothing can: {@code Tone.GOOD} on a failure compiles
- * and reads perfectly well. What this catches is the case that actually happens - a reply added to
- * an existing command, copied from the line above it, with the tone left off.
- *
- * {@code discord-bot} is deliberately not walked. Discord ignores a tone (an embed has one
- * colour for the whole of it), so a tone there would be ceremony, and requiring one would teach the
- * next reader that a tone is paperwork rather than a colour somebody sees.
+ * A text search, since the two-argument {@code reply} must stay; Discord ignores a tone, so it is not walked.
  */
 class ReplyToneTest {
 
@@ -54,13 +33,7 @@ class ReplyToneTest {
             "smp/src/main/java",
             "limbo/src/main/java");
 
-    /**
-     * The files that may send a reply without naming a tone, and why.
-     *
-     * Both entries are cases where naming one here would be <em>wrong</em> rather than merely
-     * unnecessary. Keep it that way: an entry added because a tone was hard to choose is an entry
-     * that makes the next one easy to add.
-     */
+    /** The files that may send a reply without naming a tone, where naming one would be wrong. */
     private static final Map<String, String> ALLOWED = Map.of(
             "commands/src/main/java/eu/nordtal/s2/commands/update/UpdateFollower.java",
             "it forwards the tone the worker's own report put on each line - it does not pick one",
@@ -110,7 +83,7 @@ class ReplyToneTest {
         }
     }
 
-    /** @return the text between {@code (} at {@code open} and its matching {@code )} */
+    /** Returns the text between {@code (} at {@code open} and its matching {@code )}. */
     private static String arguments(final String text, final int open) {
         int depth = 0;
         for (int i = open; i < text.length(); i++) {

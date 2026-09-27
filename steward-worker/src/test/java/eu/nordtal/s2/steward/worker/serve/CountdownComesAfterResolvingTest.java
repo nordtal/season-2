@@ -12,20 +12,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The countdown happens after the plan is known, and only when the plan has work in it.
  *
- * Why this is a text search and not a run: {@code Runner#update} resolves a plan, which means asking GitHub,
- * Modrinth and PaperMC what the newest version of nine artefacts is. There is no way to reach the branch this is
- * about from a JVM with no network in it, and mocking the resolver would mean asserting the order of calls on a mock
- * - which is this same assertion with more machinery in front of it.
- *
- * What the mechanism itself does is driven for real in {@code :common} 's {@code UpdateDirectoryIntegrationTest},
- * against a PostgreSQL running the real migrations: a claimed row gets a countdown, the countdown is cancellable,
- * and committing it ends the window. What no test there can see is whether {@code Runner} calls those in the right
- * order, and the wrong order is not a crash - it is thirty seconds of "the servers are going down" shown to
- * everybody playing, followed by "everything is already current". That is the ordinary outcome of
- * {@code /update now}, so the wrong order would be the common case rather than the rare one.
- *
- * What it would catch: Somebody hoisting {@code countDown(...)} above the {@code isWork()} guard to "start the
- * warning earlier", which is exactly the shape the code had before this test and reads as an improvement.
+ * Read as source text, since resolving a plan needs GitHub, Modrinth and PaperMC.
  */
 class CountdownComesAfterResolvingTest {
 
@@ -73,20 +60,7 @@ class CountdownComesAfterResolvingTest {
                 "the cancelled branch must leave the sequence, not fall through it");
     }
 
-    /**
-     * The body of {@code update}, so an ordering assertion cannot straddle two methods.
-     *
-     * {@code countDown(request.id()} and {@code run.stop(planned, runtime)} each appear three times in this file - in
-     * {@code update}, in {@code backupUnderLock} and in {@code restartUnderLock}. Searching the whole source would
-     * compare a call in one method against a call in another and pass while proving nothing about either.
-     *
-     * The end of the bracket is the method that really follows {@code update}. It was {@code restartUnderLock}
-     * once, five methods further down: this said it bracketed one method and actually spanned six,
-     * including both of the others that call {@code countDown}. The assertions below were right anyway, but only by
-     * accident - {@link #at} takes the first occurrence and {@code update} happens to come first in the file. Moving
-     * {@code update} below {@code backup} would have turned every one of them into a comparison between two different
-     * methods, still green.
-     */
+    /** The body of {@code update}, so an ordering assertion cannot straddle two methods. */
     private String sequenceRun() {
         return slice(sequence, "static Outcome run(", "\n    private static UpdateReport openUpdateStandbys(");
     }
@@ -113,13 +87,7 @@ class CountdownComesAfterResolvingTest {
         return source.substring(from, to);
     }
 
-    /**
-     * Where {@code token} is, refusing {@code -1}.
-     *
-     * The reason this is not {@code indexOf} at the call site: a missing token answers -1, and -1 is smaller than every
-     * real position - so an ordering assertion goes green the moment the call it protects is deleted. That is the
-     * failure mode this whole file exists to prevent, arriving through the file itself.
-     */
+    /** Where {@code token} is, refusing {@code -1} so a deleted call cannot pass an ordering check. */
     private static int at(final String haystack, final String token) {
         final int index = haystack.indexOf(token);
         assertTrue(

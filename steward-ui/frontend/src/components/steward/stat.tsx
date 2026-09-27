@@ -4,16 +4,9 @@ import { cn } from "cn"
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
 /**
- * One labelled number.
+ * One labelled number, with the caveat as a hint underneath.
  *
- * The label is small and quiet, the figure is large and `tabular-nums`, and the hint underneath is
- * where the caveat goes - "share of the host, no container has a limit" belongs next to the number
- * it qualifies and nowhere else.
- *
- * **`value` is optional, and that is the waiting shape.** The label is known before
- * the figure is - it is written into the page, not fetched - so a stat that is still waiting shows
- * its label and a bar where the number will be. Nothing moves when the number lands, and the page
- * already reads as itself while it is empty.
+ * Without `value` it shows the label and a bar where the number will be, so nothing moves when it lands.
  */
 export function Stat({
   label,
@@ -47,12 +40,7 @@ export function Stat({
   )
 }
 
-/**
- * A bar for something that has a ceiling - disk, memory.
- *
- * shadcn's `Progress` is the official component and is what this uses; what it does not have is the
- * colour change at a threshold, which is the entire reason an operator glances at a bar at all.
- */
+/** A bar for something with a ceiling, like disk or memory, that changes colour at a threshold. */
 export function UsageBar({
   used,
   total,

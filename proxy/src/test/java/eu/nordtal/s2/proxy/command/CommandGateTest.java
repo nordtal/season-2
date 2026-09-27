@@ -15,19 +15,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * What the shipped allowlist actually lets through, held against the command surface it is a list of.
+ * What the shipped allowlist lets through, held against the catalogue of player commands.
  *
- * <b>Why the list and the catalogue have to be compared by a test.</b>
- * They are two descriptions of the same thing written in two places: {@code network.yml} says what a
- * player may type, and {@code Catalogue} says which commands are not admin-only. A command declared
- * for players and left out of the list is refused with "that command does not exist" - which is
- * exactly the sentence that makes it undiscoverable, so nobody would ever report it. Nothing else in
- * the build compares them.
- *
- * The other direction is deliberately <b>not</b> asserted. The list carries {@code /navigate},
- * {@code /poi} and the SMP's own {@code /aura}, none of which is a {@link Declaration} at all: they
- * are Brigadier trees a Paper plugin builds for itself. A list that could only name catalogue
- * entries would be a list that cannot name most of what a player types.
+ * Only one direction is asserted: the list also names Paper-only trees that are no {@link Declaration}.
  */
 class CommandGateTest {
 
@@ -66,7 +56,7 @@ class CommandGateTest {
 
     @Test
     void theVanillaAndProxySurfaceIsGone() {
-        // /server is finding 148 itself: Velocity refuses only on an explicit FALSE; the rest are Paper defaults.
+        // Velocity refuses /server only on an explicit FALSE; the rest are Paper defaults.
         assertFalse(SHIPPED.allows("/server hunger-games"));
         assertFalse(SHIPPED.allows("/glist"));
         assertFalse(SHIPPED.allows("/send Someone smp"));

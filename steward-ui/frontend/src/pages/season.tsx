@@ -26,14 +26,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 /**
- * The season: which phase the network is in, and the two dates that hang off it.
+ * The season page: the phase, which decides who may join and where, and its two dates.
  *
- * **The phase is not a label, it is the door policy.** It decides who may join and where they
- * land, and every process reads it out of one row rather than caching it - so a switch made here
- * is in force on the next join, with no restart anywhere. That is also why it is the one setting
- * in this interface that asks twice before it changes.
+ * Every process reads the phase from one row, so a switch applies on the next join; that is why it asks twice.
  */
-
 export function SeasonPage() {
   const season = useSeason()
 
@@ -101,17 +97,10 @@ function PhaseCard({ season }: { season?: Season }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {/*
-          Only while the dialog is shut. A refused switch leaves it open - `setAsked(null)` is in
-          `onSuccess` and nowhere else - so this card is behind a modal at exactly the moment it
-          has something to say, and Radix marks everything out here aria-hidden on top of that.
-          The refusal is repeated inside the dialog; see below. It is the same mistake command-card
-          was just corrected for, one file over.
-        */}
+        {/* Only while the dialog is shut; a refused switch keeps it open and repeats the refusal inside. */}
         {change.error && asked === null ? <Failure error={change.error} /> : null}
 
-        {/* The five phases are written into this file, so the whole list is drawn at once and
-            only the one thing that is fetched - which of them is current - waits. */}
+        {/* The five phases are static, so only which one is current waits. */}
         {PHASES.map((phase) => {
           const active = phase.name === season?.phase
           return (
@@ -147,11 +136,7 @@ function PhaseCard({ season }: { season?: Season }) {
         })}
       </CardContent>
 
-      {/*
-        The reason is cleared with the dialog, not only after a successful switch. A cancelled
-        sentence left in the field is not a harmless leftover: the next confirmation sends it, and
-        the journal then records the reason for a phase change that nobody gave it.
-      */}
+      {/* The reason is cleared with the dialog, or the next confirmation would send a cancelled one. */}
       <ResponsiveAlertDialog
         open={asked !== null}
         onOpenChange={(open) => {
@@ -256,11 +241,7 @@ function DateField({
   const dirty = local !== saved
   const [removing, setRemoving] = useState(false)
 
-  /**
-   * The field is mounted before the answer, so its initial state is the empty string
-   * and `useState` would keep it there for ever. Nothing is overwritten that somebody typed: this
-   * only runs while the field is still exactly what it was initialised with.
-   */
+  /** The field mounts before the answer, so it takes the saved value only while still untouched. */
   if (local === "" && saved !== "") setLocal(saved)
 
   return (
@@ -292,10 +273,7 @@ function DateField({
         >
           Save
         </Button>
-        {/*
-          Reset while something is typed, Remove while nothing is: never both, so the row stays
-          one field and two buttons and does not wrap into three lines on a phone.
-        */}
+        {/* Reset while something is typed, Remove otherwise, so the row never wraps on a phone. */}
         {dirty ? (
           <Button type="button" variant="ghost" size="sm" onClick={() => setLocal(toLocalInput(at))}>
             Reset
@@ -354,11 +332,9 @@ function pad(value: number): string {
 }
 
 /**
- * An instant as `datetime-local` wants it: local wall-clock, no zone, minute precision.
+ * An instant as `datetime-local` wants it: local wall clock, no zone, minute precision.
  *
- * Done by hand rather than with `toISOString().slice(0, 16)`, which is the obvious version and is
- * wrong - that string is UTC, so in Berlin it would show a time one or two hours off and save it
- * back as the time it showed.
+ * `toISOString().slice(0, 16)` would be UTC and off by the zone offset.
  */
 function toLocalInput(at?: string): string {
   if (!at) return ""

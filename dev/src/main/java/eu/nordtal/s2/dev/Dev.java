@@ -7,8 +7,7 @@ import java.util.List;
 /**
  * The local season 2 network: the same compose.yml, Dockerfiles and steward-worker production runs, on local jars.
  *
- * Runs from IntelliJ's Run menu or as {@code sh gradlew -q :dev:run --args="<command>"}, on Windows, macOS and
- * Linux alike; it needs Java and Docker and nothing else.
+ * Runs as {@code sh gradlew -q :dev:run --args="<command>"} on any OS with Java and Docker.
  */
 public final class Dev {
 

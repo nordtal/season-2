@@ -4,43 +4,34 @@ import eu.nordtal.s2.commands.access.AccessEffects;
 import java.time.Instant;
 
 /**
- * The five things an access change can be, as the one process that can carry them out does them.
+ * The five access changes as the bot carries them out, for a caller with only an {@link Actor}.
  *
- * This is not {@link AccessEffects}: that is a command's view, carrying a {@code NordtalUser}, a
- * reply channel and a permission answer, because a command has all three. A row in
- * {@code access_request} has none of them - the asker's HTTP call returned long before the bot
- * read it - and the only thing the two views share is what actually happens. This is that, and
- * nothing else: five verbs, an {@link Actor} and a result.
- *
- * It is also what makes {@link AccessInbox} testable at all. The implementation is a JDA session,
- * a database and a guild; the dispatch is five cases and a JSON line, and the second one should
- * not need the first one to be exercised.
+ * It is what {@link AccessInbox} dispatches to, so the inbox is testable without JDA.
  */
 public interface AccessChanges {
 
-    /** Add days of access, apply the role, and tell them. @return when access now runs until */
+    /** Adds days of access, applies the role and tells them, returning when access now runs until. */
     Instant grant(String discordId, int days, Actor by);
 
-    /** Take every running grant away, remove the role, and tell them. @return how many went */
+    /** Takes every running grant away, removes the role and tells them, returning how many went. */
     int revoke(String discordId, Actor by);
 
-    /** Break the link between a Discord account and a Minecraft one. */
+    /** Breaks the link between a Discord account and a Minecraft one. */
     boolean unlink(String discordId, Actor by);
 
-    /** Book a payment by hand. */
+    /** Books a payment by hand. */
     AccessEffects.Settled settle(String reference, Actor by);
 
-    /** Write somebody's total play time, in seconds - the unit the column holds. */
+    /** Writes somebody's total play time, in seconds. */
     void setPlaytime(String discordId, long seconds, Actor by);
 
     /**
-     * Re-read the message bundles.
+     * Re-reads the message bundles, keeping the running ones on failure.
      *
-     * @return {@code true} when the re-read succeeded. A failure leaves the running bundles
-     *         unchanged, which is the only safe thing to do with a file that no longer parses
+     * @return {@code true} when the re-read succeeded
      */
     boolean reloadMessages();
 
-    /** Override keys the bundles do not declare, after a reload. Empty when there are none. */
+    /** Returns the override keys the bundles do not declare, after a reload. */
     java.util.List<String> unknownOverrideKeys();
 }

@@ -15,19 +15,16 @@ import javax.imageio.ImageIO;
 /**
  * Derives every glyph's advance from a font file and its PNGs, the way the client does.
  *
- * One rule, three tests: a {@code space} provider's number, or a bitmap cell's rightmost column
- * with any alpha, plus one for that column and one the client adds after every glyph - scaled by
- * {@code height / cellHeight}, which is 1 for everything this pack draws. The first provider to
- * declare a code point wins. {@code BoardFrameTest} and {@code MenuTitleTest} each had their own
- * copy of this walk; {@code BossBarAdvancesTest} and {@code BossBarLineTest} share this one.
+ * A {@code space} provider's number, or a cell's rightmost alpha column plus two; the first provider wins.
  */
 public final class PackAdvances {
 
     private PackAdvances() {}
 
     /**
+     * Returns code point to advance, in declaration order.
+     *
      * @param fontFile the font's path from the repository root
-     * @return code point to advance, in declaration order
      */
     public static Map<Integer, Integer> of(final String fontFile) {
         final Map<Integer, Integer> table = new LinkedHashMap<>();

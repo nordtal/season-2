@@ -19,14 +19,7 @@ import java.util.Set;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
-/**
- * Walks the grave's composed window and holds it against the five slabs the pack drew.
- *
- * The two that carry rules rather than measurements are {@link #everyFooterCellIsClaimed} - a free footer cell is
- * where a shift-clicked item lands and is then lost on close, silently - and
- * {@link #theSlabIsExactlyTheContentRows}, because a slab one row out is a row of items sitting on bare panel or a
- * row of empty recesses under the footer, and neither fails anywhere.
- */
+/** Walks the grave's composed window and holds it against the five slabs the pack drew. */
 class GravePanelTest {
 
     @Test

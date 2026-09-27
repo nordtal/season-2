@@ -5,12 +5,7 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What came of asking the container runtime for the project's services.
- *
- * Two answers rather than an {@code Optional}, because "the daemon did not answer" is the one that has to stop the
- * whole run before anything is touched, and the sentence explaining it is what a person reads days later. An empty
- * list from a daemon that did answer is a different thing entirely - a project with no containers - and would be
- * silently identical under an {@code Optional}.
+ * What came of asking the runtime for the project's services; an unreached daemon differs from an empty project.
  *
  * @param reached whether the runtime could be read at all
  * @param services what was found, empty when it could not
@@ -33,7 +28,7 @@ public record RuntimeResult(
         return new RuntimeResult(false, List.of(), message);
     }
 
-    /** @return the entry for that compose service, if the project has a container for it */
+    /** Returns the entry for that compose service, if the project has a container for it. */
     public Optional<ServiceRuntime> service(final String name) {
         return services.stream().filter(entry -> entry.service().equals(name)).findFirst();
     }

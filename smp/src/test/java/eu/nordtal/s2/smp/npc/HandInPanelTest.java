@@ -20,10 +20,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Walks the deposit screen and holds it against the tray the pack drew.
  *
- * The one that carries a rule rather than a measurement is {@link #theTrayCoversEverySlotAPlayerCanFill}: this
- * window's whole claim is that the area you throw into is <em>one</em> surface, so a tray that stops one pixel short
- * of a slot is a slot a player can drop into that does not look like part of the tray - and neither the drop nor the
- * hand-in fails, so nothing anywhere says so.
+ * {@link #theTrayCoversEverySlotAPlayerCanFill} matters most: a gap is a slot that silently looks outside the tray.
  */
 class HandInPanelTest {
 

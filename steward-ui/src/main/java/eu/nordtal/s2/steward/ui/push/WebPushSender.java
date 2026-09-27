@@ -8,13 +8,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link PushSender} over the real protocol.
+ * {@link PushSender} over the real protocol, built by {@code com.interaso.webpush}.
  *
- * VAPID's ES256 JWT and the aes128gcm envelope, both built by {@code com.interaso.webpush}.
- * {@code WebPush.SubscriptionState.EXPIRED} is the 404/410 the ticket asks a sender to notice; the
- * library maps both status codes to it already, so nothing here matches a status code by hand.
- * {@code catch (Exception)}, not the library's own checked type, since the library declares no
- * checked exceptions at all for this call to catch more narrowly.
+ * The library maps both 404 and 410 to {@code SubscriptionState.EXPIRED}, and declares no checked exception to catch.
  */
 final class WebPushSender implements PushSender {
 

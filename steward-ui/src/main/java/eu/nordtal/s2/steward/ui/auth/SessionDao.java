@@ -8,15 +8,14 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * The SQL behind {@link Sessions}. Package-private: {@code Sessions} is the API.
+ * The SQL behind {@link Sessions}, which is the API.
  *
- * Every read carries its own {@code expires_at > now()} check; the hourly sweep is housekeeping,
- * not what makes an expired session stop working.
+ * Every read checks {@code expires_at > now()} itself; the hourly sweep is only housekeeping.
  */
 @RegisterConstructorMapper(Sessions.Session.class)
 interface SessionDao {
 
-    /** The row that exists between {@code /auth/login} and {@code /auth/callback}, no account yet. */
+    /** The row between {@code /auth/login} and {@code /auth/callback}, with no account yet. */
     @SqlUpdate("""
             INSERT INTO steward_session (id, oauth_state, csrf, created_at, expires_at)
             VALUES (:id, :state, :csrf, now(), now() + make_interval(secs => :seconds))
@@ -27,12 +26,7 @@ interface SessionDao {
             @Bind("csrf") String csrf,
             @Bind("seconds") long seconds);
 
-    /**
-     * Reads the one-time OAuth state and clears it atomically, so a replayed callback finds nothing.
-     *
-     * The self-join with {@code FOR UPDATE} carries out the old value: plain {@code RETURNING}
-     * answers with the new row, whose {@code oauth_state} is already the {@code NULL} just written.
-     */
+    /** Reads the one-time OAuth state and clears it atomically; the self-join returns the old value, not the NULL. */
     @SqlQuery("""
             UPDATE steward_session AS s
             SET oauth_state = NULL
@@ -49,7 +43,7 @@ interface SessionDao {
             """)
     Optional<String> consumeState(@Bind("id") String id);
 
-    /** A fresh, signed-in row. The id is new - see {@link Sessions#signIn}. */
+    /** A fresh, signed-in row under a new id; see {@link Sessions#signIn}. */
     @SqlUpdate("""
             INSERT INTO steward_session
                 (id, discord_id, display_name, roles, csrf, created_at, expires_at)
@@ -82,12 +76,7 @@ interface SessionDao {
             """)
     int startCeremony(@Bind("id") String id, @Bind("request") String request);
 
-    /**
-     * The ceremony this browser started, readable exactly once, so a replayed finish is refused.
-     *
-     * Same shape as {@link #consumeState}, for the same reason. Ten minutes in the {@code WHERE},
-     * not a sweep, well past the browser's own two-minute dialog.
-     */
+    /** The ceremony this browser started, readable once within ten minutes, as {@link #consumeState} does it. */
     @SqlQuery("""
             UPDATE steward_session AS s
             SET webauthn_request = NULL,
@@ -106,7 +95,7 @@ interface SessionDao {
             """)
     Optional<String> consumeCeremony(@Bind("id") String id);
 
-    /** Records that this browser has just held its key, on PostgreSQL's clock, not the JVM's. */
+    /** Records that this browser has just held its key, on PostgreSQL's clock. */
     @SqlUpdate("""
             UPDATE steward_session
             SET verified_at = now()
@@ -118,24 +107,15 @@ interface SessionDao {
     @SqlUpdate("DELETE FROM steward_session WHERE id = :id")
     void end(@Bind("id") String id);
 
-    /**
-     * Every session of one account, gone. Half of {@code forget-factors}, so no session outlives its keys.
-     *
-     * @return how many browsers were signed out
-     */
+    /** Ends every session of one account and answers how many, so no session outlives its keys. */
     @SqlUpdate("DELETE FROM steward_session WHERE discord_id = :discordId")
     int endAllOf(@Bind("discordId") String discordId);
 
-    /** Housekeeping. Returns how many rows went, so the log line can be about something. */
+    /** Deletes expired rows and answers how many. */
     @SqlUpdate("DELETE FROM steward_session WHERE expires_at < now()")
     int sweep();
 
-    /**
-     * Only for the tests that have to age a session without waiting for one.
-     *
-     * Moves {@code created_at} back too: {@code expires_at > created_at} is a constraint, so
-     * setting the expiry alone cannot age a session.
-     */
+    /** Ages a session for a test, moving {@code created_at} too, which a check constraint requires. */
     @SqlUpdate("""
             UPDATE steward_session
             SET expires_at = CAST(:at AS timestamptz),
@@ -145,7 +125,7 @@ interface SessionDao {
             """)
     void expireAt(@Bind("id") String id, @Bind("at") Instant at);
 
-    /** The same, for the ceremony clock: a challenge aged past its window without a ten-minute wait. */
+    /** Ages the ceremony clock for a test. */
     @SqlUpdate("UPDATE steward_session SET webauthn_started_at = :at WHERE id = :id")
     void ceremonyStartedAt(@Bind("id") String id, @Bind("at") Instant at);
 }

@@ -4,9 +4,7 @@ import java.util.Optional;
 
 /**
  * Why a player is sitting in the waiting room, the whole content of {@code limbo}'s screen.
- *
- * The proxy decides and tells {@code limbo} over {@link LimboProtocol#CHANNEL}. {@link #name()} travels,
- * so renaming a constant breaks a proxy against a backend of another version.
+ * {@link #name()} travels on the wire, so renaming a constant breaks a proxy against another version.
  */
 public enum WaitReason {
 
@@ -20,22 +18,14 @@ public enum WaitReason {
     MAINTENANCE,
 
     /**
-     * An update run has the player's backend stopped, and will have it back in a few minutes.
-     *
-     * Distinct from {@link #BACKEND} even though the proxy cannot tell the two apart by looking
-     * at the server - both are "the destination is not taking connections". The difference is the
-     * one the person on the black screen cares about: this one is somebody doing something on
-     * purpose and is nearly over, and the other is an accident of unknown length. Getting that
-     * wrong in either direction is what makes a waiting room feel broken, so the proxy decides it
-     * from the update row rather than from the connection.
+     * An update run has the player's backend stopped and will have it back in a few minutes.
+     * Unlike {@link #BACKEND} it is on purpose and nearly over, which the proxy reads from the update row.
      */
     UPDATE,
 
     /**
-     * Somebody stopped the player's backend on purpose and it stays stopped until they start it again.
-     *
-     * Unlike {@link #UPDATE} it promises no automatic return; the waiting room releases the player once the
-     * backend takes a connection again.
+     * Somebody stopped the player's backend on purpose, with no automatic return.
+     * The player is released once the backend takes a connection again.
      */
     HELD,
 

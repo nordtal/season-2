@@ -4,14 +4,7 @@ import java.io.IOException;
 import java.net.URI;
 import lombok.Getter;
 
-/**
- * A request that reached a server and came back as something other than success.
- *
- * Separate from a plain {@link IOException} because the two mean opposite things to whoever reads the report: an
- * {@code IOException} is "the network was not there and it may be there in a minute", while this is "the server
- * answered, and the answer was no". A 404 on {@code /releases/latest} is not an outage - it is a repository with no
- * published release, which is a thing a person has to go and do.
- */
+/** A server answered with something other than success, unlike an {@link IOException}, where none answered. */
 @Getter
 public class HttpException extends IOException {
 
@@ -43,7 +36,7 @@ public class HttpException extends IOException {
                         + " shares its address.");
             default -> {}
         }
-        // Trimmed hard: an error body is one useful sentence in a page of JSON, and this ends up in a Discord embed.
+        // Trimmed hard: an error body is one sentence in a page of JSON, and this ends up in a Discord embed.
         final String trimmed = body == null ? "" : body.strip();
         if (!trimmed.isEmpty()) {
             message.append(" Body: ").append(trimmed.length() > 300 ? trimmed.substring(0, 300) + "..." : trimmed);

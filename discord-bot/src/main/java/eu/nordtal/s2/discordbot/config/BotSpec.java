@@ -9,28 +9,14 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
- * {@code config/bot.yml} - the Discord token.
+ * {@code config/bot.yml}: the Discord token, validated at startup.
  *
- * Declared here so it is validated once at startup rather than surfacing as an invalid login minutes later.
- *
- * It is meant to come from the environment ({@code NORDTAL_BOT_TOKEN}): the default is empty and
- * the bot refuses to start while it is.
- *
- * The bunq credentials - {@code bunq.api-key}, {@code bunq.account-id},
- * {@code bunq.context-path} - live as {@code bunq:} in {@code steward-worker}'s {@code steward.yml}
- * instead, supplied as {@code NORDTAL_STEWARD_BUNQ_*}; this process has neither the key nor the
- * bunq SDK on its classpath. The bot asks for a payment link by writing a row and is told the
- * answer the same way.
- *
- * Nothing here reads the old {@code NORDTAL_BOT_BUNQ_*} names: jcore drops an unknown key with a
- * warning and a {@code .bak}, and a bunq that is simply absent is a valid season.
- * steward-worker's start line says so out loud, and the bot repeats it, through
- * {@code bot_setting}, in {@link Configured#report}.
+ * It comes from {@code NORDTAL_BOT_TOKEN}; the bunq credentials belong to {@code steward-worker}.
  */
 @ConfigSpec(
         header = {
             "-------------------------------------------------------------------",
-            "  access-bot - credentials",
+            "  access-bot: credentials",
             "-------------------------------------------------------------------",
             "LEAVE THIS EMPTY. Supply it through the environment instead:",
             "",
@@ -40,11 +26,8 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
             "written here does end up in the config volume, so only do that for a",
             "local checkout.",
             "",
-            "The bot will not start while it is empty.",
-            "",
-            "The bunq key is NOT here any more. It belongs to steward-worker as",
-            "NORDTAL_STEWARD_BUNQ_API_KEY / NORDTAL_STEWARD_BUNQ_ACCOUNT_ID, and",
-            "that container is the only one in the network that holds it."
+            "The bot will not start while it is empty. The bunq key belongs to",
+            "steward-worker, as NORDTAL_STEWARD_BUNQ_API_KEY."
         })
 public interface BotSpec {
 

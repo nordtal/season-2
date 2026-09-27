@@ -3,16 +3,9 @@ import { describe, expect, it } from "vitest"
 import { breadcrumbsFor } from "@/app/shell"
 
 /**
- * A URL nobody can read must not be a blank page.
+ * A malformed URL segment is shown as it arrived rather than blanking the page.
  *
- * `decodeURIComponent` throws on a malformed escape, and `/services/%` is enough to produce one.
- * Calling it while the header renders would mean a mistyped address or a link that lost a
- * character takes the whole interface down rather than showing an ugly crumb. The guard is a
- * `try`/`catch`, and this is what tests it.
- *
- * The distinction the last group asserts is the one that matters: the segment is shown *as it
- * arrived*. A breadcrumb is not a value anything is computed from, so the honest answer to an
- * undecodable segment is the segment.
+ * `decodeURIComponent` throws on `/services/%`; the header's `try`/`catch` is what this tests.
  */
 describe("breadcrumbsFor", () => {
   it("is just Overview at the root", () => {
@@ -36,7 +29,7 @@ describe("breadcrumbsFor", () => {
   })
 
   it("survives a malformed escape and shows the segment as it arrived", () => {
-    // This is the whole finding. Before the fix this threw during render, and the screen was blank.
+    // Throwing here, during render, would blank the whole screen.
     expect(() => breadcrumbsFor("/services/%")).not.toThrow()
     expect(breadcrumbsFor("/services/%").at(-1)).toEqual({
       label: "%",

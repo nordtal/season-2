@@ -10,22 +10,9 @@ import java.util.List;
 import net.kyori.adventure.text.Component;
 
 /**
- * Draws a grave: a slab of recesses holding what somebody left, and a footer that empties it.
+ * Draws a grave: a slab with a recess per stack, and a footer with the head, the experience and "take everything".
  *
- * A stone slab with <b>a recess per slot</b>, as many rows as the grave has stacks; the row under it carries the
- * dead player's own head, the experience waiting to be claimed, and a "take everything" button.
- *
- * The recess per slot is deliberate and differs from the hand-in tray: a grave is an inventory you <em>take out
- * of</em>, and the separate cells say these are distinct stacks any one of which may be taken. The hand-in tray is a
- * thing you throw into, where the cell means nothing.
- *
- * The footer row is what makes the experience visible - it is otherwise credited silently on the last item leaving -
- * and what "take everything" needs a slot for. It costs one row, so a grave of exactly 45 stacks would not fit; a
- * player carries at most forty-one, which {@link #MAX_CONTENT_ROWS} asserts.
- *
- * <b>Every footer slot must hold something.</b> A shift-click from the player's own inventory goes into the first
- * free slot of the window, so an empty footer cell would swallow the item outside the content slots {@code Graves}
- * writes back - lost on close, with nothing failing.
+ * Every footer slot must hold something, or a shift-click would put an item where {@code Graves} never reads.
  */
 public final class GravePanel {
 
@@ -35,7 +22,7 @@ public final class GravePanel {
     /** Pixels between a piece of furniture and the slot cells that make it clickable. */
     public static final int INSET = 2;
 
-    /** The slab is drawn from the slot cell's own corner, because it <em>is</em> the cells. */
+    /** The slab is drawn from the slot cell's own corner, because it is the cells. */
     public static final int SLAB_X = SlotGeometry.ORIGIN_X;
 
     public static final int SLAB_WIDTH = SlotGeometry.COLUMNS * SlotGeometry.PITCH;
@@ -51,8 +38,7 @@ public final class GravePanel {
     /**
      * How many rows of recesses a grave with {@code stacks} stacks needs.
      *
-     * At least one, so an experience-only grave - a death that dropped nothing but levels - is a window rather than a
-     * footer floating on its own.
+     * At least one, so an experience-only grave is still a window.
      */
     public static int contentRows(final int stacks) {
         final int rows = (Math.max(0, stacks) + SlotGeometry.COLUMNS - 1) / SlotGeometry.COLUMNS;
@@ -84,7 +70,7 @@ public final class GravePanel {
         return SlotGeometry.slot(0, footerRow(contentRows));
     }
 
-    /** The four cells the experience line is written across - hoverable, and never free. */
+    /** The four cells the experience line is written across: hoverable, and never free. */
     public static List<Integer> experienceSlots(final int contentRows) {
         final List<Integer> slots = new ArrayList<>(4);
         for (int column = 1; column <= 4; column++) {

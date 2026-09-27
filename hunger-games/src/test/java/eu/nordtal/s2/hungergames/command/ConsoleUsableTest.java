@@ -10,24 +10,9 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
- * That {@code /hg} can still be run from the console.
+ * Checks by text search that {@code /hg} can still be run from the console.
  *
- * Why a text search, and why it is worth having: the same reason {@code AdminWatchWiringTest} and
- * {@code ReadinessWiringTest} are text searches: what it protects cannot be reached from a JVM with
- * no server in it. Building the tree needs
- * {@code io.papermc.paper.command.brigadier.Commands}, running a handler needs a
- * {@code CommandSourceStack}, and the thing that has to hold - <em>the console reaches the handler
- * at all</em> - is a property of a {@code requires} predicate evaluated by a running server.
- *
- * The regression is not hypothetical. Every subcommand once carried
- * {@code .requires(source -> source.getSender() instanceof Player)} and every handler opened with a
- * cast to {@code Player}, so the console could run none of {@code /hg} - and the start of the
- * season's flagship event therefore depended on one client being able to connect and stay connected,
- * with no second path and nothing anywhere saying so. Re-adding one of those lines while
- * refactoring is a two-character change that would restore exactly that state, silently.
- *
- * {@code /hg ready} is the deliberate exception and is named here rather than excluded quietly:
- * it marks <em>the sender</em> ready for a game, and the console is registered for none.
+ * Only a running server evaluates the {@code requires} predicates; {@code /hg ready} is exempt.
  */
 class ConsoleUsableTest {
 

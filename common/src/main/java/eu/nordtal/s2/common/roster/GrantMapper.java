@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
-/** Maps an {@code access_grant} row; see {@link PersonMapper} for why it is written out. */
+/** Maps an {@code access_grant} row. */
 public final class GrantMapper implements RowMapper<Grant> {
 
     @Override

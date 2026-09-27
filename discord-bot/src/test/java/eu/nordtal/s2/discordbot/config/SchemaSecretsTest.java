@@ -9,17 +9,9 @@ import eu.nordtal.jcore.config.schema.SchemaWriter;
 import org.junit.jupiter.api.Test;
 
 /**
- * A credential that is not declared {@code @Secret} is not masked by the schema at all.
+ * Every credential in a bot config is declared {@code @Secret}, which is what masks it in the schema.
  *
- * It is only masked by steward-worker's leaf-key heuristic ( {@code ConfigEntry.isSecretKey}, which matches
- * {@code token} / {@code password} / {@code key} / {@code secret} substrings and stays in force underneath
- * either way).
- *
- * The explicit declaration is what a schema search exclusion keys off; the heuristic is not a substitute for it.
- *
- * Deliberately built straight from the {@code @ConfigSpec} interfaces with {@link SchemaWriter#build}, not through
- * {@link Configs}: whether the annotation is present is a property of the interface alone, and does not need a file
- * on disk to demonstrate.
+ * Built from the {@code @ConfigSpec} interfaces directly, since the annotation is a property of the interface alone.
  */
 class SchemaSecretsTest {
 
@@ -32,7 +24,7 @@ class SchemaSecretsTest {
 
     @Test
     void botYmlDeclaresNoBunqCredentialAtAllAnyMore() {
-        // Asserted in the negative: re-adding a bunq block to BotSpec would put a bank credential here, unannotated.
+        // Asserted in the negative: a bunq block in BotSpec would be an unannotated bank credential.
         assertNull(
                 SchemaWriter.build(BotSpec.class).children().get("bunq"),
                 "BotSpec declares a bunq block again. The key belongs to steward-worker - see"

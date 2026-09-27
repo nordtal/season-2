@@ -16,20 +16,9 @@ import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
 /**
- * Running a staging: the order, the spacing, the cancel, and the sound that is not played.
+ * Tests running a staging: the order, the spacing, the cancel, and the sound that is not played.
  *
- * <b>Why this can be tested at all</b>
- *
- * A staged moment is titles, a potion effect and a sound on a real client, and none of that exists
- * in a JVM with no server in it. What made it testable is the split: {@link Cinematics} holds every
- * decision and reaches the world through {@link Cinematics.Scheduler} and {@link CinematicStage},
- * both of which a test can be. So the four things that can actually go wrong - a frame on the wrong
- * tick, a frame after a cancel, two stagings at once, and a sound played when the configuration says
- * silence - are answerable here rather than by watching somebody join.
- *
- * What it still cannot say is whether a title of twenty ticks with no fade reads as an animation
- * or as a flicker, and whether three seconds of blindness on a first join is welcoming or alarming.
- * Those need a client and are in the owner's checklist outside this repository.
+ * Whether it looks right on a client is not answerable here.
  */
 class CinematicsTest {
 
@@ -276,14 +265,7 @@ class CinematicsTest {
         }
     }
 
-    /**
-     * A scheduler with a hand-turned clock.
-     *
-     * {@link #advanceTo} runs everything due up to that tick, in tick order. That is what makes
-     * "the second frame is due at 5, not before it" a thing a test can say at all - with a real
-     * scheduler it would be a sleep, and a sleep that passes on a fast machine and fails on a busy
-     * one is worse than no test.
-     */
+    /** A scheduler with a hand-turned clock; {@link #advanceTo} runs everything due up to that tick, in order. */
     private static final class FakeScheduler implements Cinematics.Scheduler {
 
         /** A plain class rather than a record: the cancelled flag is the one thing that changes. */

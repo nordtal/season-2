@@ -10,13 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Polls the traffic light and pushes every subscribed browser that asked for that kind of news.
+ * Polls the traffic light and pushes each type that moved to every browser whose account left it on.
  *
- * This side polls rather than steward-worker pushing: only this process holds a browser's
- * subscription and the VAPID private key that signs every send. A poll compares each
- * {@link AlertType} against the same type in the previous poll, so a browser only hears about a
- * type its account left switched on. The first poll never sends: there is nothing yet to compare
- * it against.
+ * The first poll never sends, since there is nothing yet to compare it against.
  */
 public final class AlertWatch {
 
@@ -29,7 +25,7 @@ public final class AlertWatch {
     private final PushSender sender;
     private final Alerts.Thresholds thresholds;
 
-    /** Null until the first successful poll - see the class note on why that poll never sends. */
+    /** Null until the first successful poll. */
     private volatile @Nullable Map<AlertType, Alerts.Alert> last;
 
     AlertWatch(
@@ -45,7 +41,7 @@ public final class AlertWatch {
         this.thresholds = Objects.requireNonNull(thresholds, "thresholds");
     }
 
-    /** The public constructor: the real worker, the real database, the real push protocol. */
+    /** Wires the real worker, database and push protocol. */
     public AlertWatch(
             final eu.nordtal.s2.steward.ui.internal.InternalClient worker,
             final PushSubscriptions subscriptions,
@@ -66,8 +62,7 @@ public final class AlertWatch {
     /**
      * One cycle: read the state, and tell every subscribed browser about each type that moved.
      *
-     * A failure to reach the worker is logged and swallowed, since a background poll that throws
-     * stops running forever on a {@code ScheduledExecutorService}, silently.
+     * A failure is logged and swallowed, since a throwing task stops its {@code ScheduledExecutorService} for good.
      */
     public void poll() {
         final AlertReading reading;
@@ -107,12 +102,9 @@ public final class AlertWatch {
     }
 
     /**
-     * One notification of one type, to one browser, on request - the dialog's own test send.
+     * Sends one sample notification of {@code type} to one browser, ignoring {@link PushPreferences}.
      *
-     * Deliberately ignores {@link PushPreferences}: the switch only governs what arrives unbidden.
-     *
-     * @return what the push service said, so that the route can report a dead subscription rather
-     *         than a silent success
+     * @return what the push service said, so the route can report a dead subscription
      */
     public Delivery sendSample(final PushSubscriptions.Subscription subscription, final AlertType type) {
         final PushSender.Result result = send(subscription, payloadOf(type, sample(type), null));
@@ -123,18 +115,13 @@ public final class AlertWatch {
         return result == PushSender.Result.SENT ? Delivery.SENT : Delivery.FAILED;
     }
 
-    /**
-     * What one deliberate send came back as - {@link PushSender.Result} said outside this package.
-     *
-     * {@code PushSender} is package-private, the seam a test stands in front of; this is the one
-     * enum that crosses the package line so a route can tell "it went" from "that browser is gone".
-     */
+    /** {@link PushSender.Result} outside this package, so a route can tell "it went" from "that browser is gone". */
     public enum Delivery {
         /** The push service took it. */
         SENT,
         /** The push service says that subscription no longer exists; the row has been removed. */
         GONE,
-        /** Neither - a network failure, or a status the library did not expect. */
+        /** Neither: a network failure, or a status the library did not expect. */
         FAILED
     }
 
@@ -150,7 +137,7 @@ public final class AlertWatch {
             final PushSender.Result result = send(subscription, payload);
             switch (result) {
                 case SENT -> subscriptions.touchSent(subscription.endpoint());
-                // A dead subscription (404/410) has to be removed, not just detected, or it keeps failing forever.
+                // A dead subscription (404/410) is removed, or it keeps failing forever.
                 case EXPIRED -> subscriptions.expired(subscription.endpoint());
                 case FAILED -> log.warn("push to {} failed (not a 404/410)", subscription.endpoint());
             }
@@ -166,7 +153,7 @@ public final class AlertWatch {
         }
     }
 
-    /** A real-looking alert of that type rather than the word "test", to show what it looks like. */
+    /** A real-looking alert of that type, to show what one looks like. */
     private static Alerts.Alert sample(final AlertType type) {
         return switch (type) {
             case SERVICE -> new Alerts.Alert(type, "down", "smp", "/services/smp");
@@ -177,12 +164,7 @@ public final class AlertWatch {
         };
     }
 
-    /**
-     * The push body.
-     *
-     * A null {@code alert} is a type that stopped being true and is still sent as a real
-     * notification; {@code cleared} keeps the subject so an all-clear names what it clears.
-     */
+    /** The push body; a null {@code alert} with a {@code cleared} one is an all-clear naming what it clears. */
     private static String payloadOf(
             final AlertType type, final Alerts.@Nullable Alert alert, final Alerts.@Nullable Alert cleared) {
         final Alerts.Alert named = alert != null ? alert : cleared;

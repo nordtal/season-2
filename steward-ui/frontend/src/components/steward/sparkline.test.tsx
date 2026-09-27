@@ -5,16 +5,9 @@ import { Sparkline } from "@/components/steward/sparkline"
 import { asElement } from "@/lib/test-elements"
 
 /**
- * The one thing worth pinning about a decorative chart: it must not throw on the input the metric
- * row actually hands it, which is "nothing yet" on every first render - and, once there is data,
- * that it actually reaches for the SVG rather than silently drawing nothing.
+ * The chart must not throw on the empty first render, and must reach for the SVG once there is data.
  *
- * jsdom does no layout at all, so `getBoundingClientRect` answers all zeroes for every element
- * regardless of CSS - recharts' `ResponsiveContainer` measures its wrapper on mount and refuses to
- * draw into a zero-sized box (`SeriesChart` would hit the exact same wall; nothing in this
- * repository has rendered a real chart under vitest before this file). The stub below is a test-only
- * fix for a jsdom gap, not a Sparkline concern - `initialDimension` on the component itself is the
- * real-browser safeguard against the first-paint flash, and it does not need faking here.
+ * jsdom measures every box as zero, which `ResponsiveContainer` refuses to draw into; the stub below fills that gap.
  */
 const rect = (width: number, height: number): DOMRect => ({
   width,
@@ -54,7 +47,7 @@ describe("Sparkline", () => {
   it("is decorative - a screen reader gets nothing from it, the number beside it already said it", () => {
     const { container } = render(<Sparkline points={[{ at: "2026-09-15T00:00:00Z", value: 12 }]} />)
 
-    // No jest-dom in this project (see recreate.test.tsx) - the DOM API rather than a matcher.
+    // No jest-dom here, so the DOM API rather than a matcher.
     expect(container.firstElementChild?.hasAttribute("aria-hidden")).toBe(true)
   })
 })

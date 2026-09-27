@@ -12,21 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-/**
- * The one page an account with no security key can reach.
- *
- * It is the whole window rather than a dialog, for the same reason the sign-in is: there is
- * nothing behind it. Every call but `/api/me` answers 403 until a key exists, so a shell drawn
- * underneath would be a sidebar full of pages that cannot load - which reads as a broken interface
- * rather than as one step that has not been taken.
- *
- * Why anything at all is asked for after a successful sign-in: Discord confirms who somebody is
- * and this interface can stop servers and type into consoles, so it wants something nobody can
- * steal by reading a message.
- *
- * As little text as possible, everywhere: the warning about losing the key does not belong on
- * this, the registration page. Only who is signed in stays on screen.
- */
+/** The one page an account with no security key can reach, the whole window since nothing behind it would load. */
 export function SecurityKeyPage({ me }: { me: Me }) {
   const [label, setLabel] = useState("")
   const register = useRegisterKey()
@@ -78,11 +64,7 @@ export function SecurityKeyPage({ me }: { me: Me }) {
                   maxLength={64}
                   autoComplete="off"
                 />
-                {/*
-                  A name, not a formality. The one question this label has to answer later is
-                  "which of these two do I still have", and an authenticator's own name for itself
-                  is either absent or a marketing string. That used to be written on the screen.
-                */}
+                {/* A name, since the label later has to answer which of two keys is still there. */}
               </div>
 
               <Button type="submit" size="lg" disabled={!supported || register.isPending}>
@@ -119,13 +101,7 @@ export function SecurityKeyPage({ me }: { me: Me }) {
   )
 }
 
-/**
- * A name for the key, guessed from the device.
- *
- * Only a placeholder: it is what the field offers, not what it fills in, so nobody ends up with
- * three keys called "iPhone" because nobody typed anything. The guess is deliberately coarse -
- * the user agent is a poor witness and the person holding the key is a good one.
- */
+/** A name guessed from the device, offered only as a placeholder so nobody gets three keys called "iPhone". */
 function suggestedLabel(): string {
   if (typeof navigator === "undefined") return "My security key"
   const agent = navigator.userAgent

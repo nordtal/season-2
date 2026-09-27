@@ -37,18 +37,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * What steward-ui is allowed to ask this container.
+ * What steward-ui may ask this container, which owns the docker socket the interface never gets.
  *
- * Why this exists at all: §3 of the concept keeps the docker socket away from the web interface, and this is the
- * other end of that decision: the interface owns no socket, so everything it knows about a container - state,
- * health, image drift, the log, a console line - arrives through here. The trade is named rather than hidden:
- * whoever takes over steward-ui can call these endpoints, so what they can reach is exactly this list and no more.
- * Stopping, starting and recreating are not on it; those happen by writing a row into {@code update_request}, which
- * is countable, cancellable and carries a countdown every player sees.
- *
- * The token is not optional: The service refuses to serve without one, for the same reason steward-deployer does: a
- * console that anybody on the network can type into is a remote shell with a nicer font. It is a shared secret in
- * the host's {@code .env}, given to both containers.
+ * Stopping and starting are not here; they are rows in {@code update_request}. A token is required.
  */
 public final class WorkerApi implements AutoCloseable {
 
@@ -64,11 +55,9 @@ public final class WorkerApi implements AutoCloseable {
     /**
      * What {@code backup.at} and {@code update.at} say, and in which zone.
      *
-     * So the interface can offer "tonight" and show when either clock fires next.
-     *
-     * @param at       {@code HH:mm} in this container's own time zone, or blank for no nightly backup
-     * @param updateAt the same for the scheduled update, blank - the default - for none
-     * @param zone     this container's zone - compose sets {@code TZ}, and it is not the browser's
+     * @param at {@code HH:mm} in this container's own time zone, or blank for no nightly backup
+     * @param updateAt the same for the scheduled update, blank (the default) for none
+     * @param zone this container's zone, set by compose's {@code TZ}, not the browser's
      */
     public record Nightly(String at, List<String> days, String updateAt, List<String> updateDays, ZoneId zone) {
 
@@ -81,15 +70,10 @@ public final class WorkerApi implements AutoCloseable {
     /** Asked on every request, because a save of steward.yml changes it without a restart. */
     private final Supplier<Nightly> nightly;
 
-    /**
-     * The plugin list, the Modrinth search, and the two buttons.
-     *
-     * Null in a deployment with no database, because the added plugins are a table. Every route of it then answers 503
-     * rather than an empty list - see the constructor.
-     */
+    /** The plugin routes, or null without a database, when every route answers 503. */
     private final @Nullable PluginsApi managedPlugins;
 
-    /** The live console SSE stream and its shutdown ordering; see {@link LogFollows} for why it is its own class. */
+    /** The live console SSE stream and its shutdown ordering. */
     final LogFollows logFollows;
 
     private final ServiceRows serviceRows;
@@ -97,9 +81,7 @@ public final class WorkerApi implements AutoCloseable {
     /**
      * How long a registry answer is good for.
      *
-     * A minute, because drift is caused by a push and not by a page refresh, and because the answer is read by whoever
-     * is looking at the start page - which refreshes on a timer. The response carries {@code driftCheckedAt} so the
-     * interface can say how old the comparison is rather than implying it was made just now.
+     * The response carries {@code driftCheckedAt}, so the page says how old the comparison is.
      */
     private static final Duration DRIFT_TTL = Duration.ofMinutes(1);
     /** The console's steps are 1000, 5000 and 10000 lines; counting past the top one buys nothing. */
@@ -107,22 +89,10 @@ public final class WorkerApi implements AutoCloseable {
 
     private static final Duration LOG_CAPACITY_TTL = Duration.ofMinutes(5);
 
-    /**
-     * One comparison and the moment it was made, as one value.
-     *
-     * They were two fields, read one after the other: {@code services()} took the result and {@code serviceTable()}
-     * then read the timestamp, with a TTL expiry possible in between. The page could therefore draw a green tick
-     * from one comparison beside the words "compared a minute ago" belonging to another - this column exists because
-     * image drift went unnoticed for four releases, so a row and its age have to be the same reading.
-     */
+    /** One comparison and the moment it was made, as one value, so a row and its age always match. */
     private record Drift(ImageResult result, Instant checkedAt) {}
 
-    /**
-     * One thread, and it belongs to nobody's request.
-     *
-     * A daemon, because a registry call in flight must not hold this process up on the way out, and one rather than a
-     * pool because {@link Refreshed} never has two refreshes going at once.
-     */
+    /** One daemon thread for background refreshes, which never run two at once. */
     private final ExecutorService driftRefresh = Executors.newSingleThreadExecutor(runnable -> {
         final Thread thread = new Thread(runnable, "steward-worker-drift");
         thread.setDaemon(true);
@@ -132,23 +102,9 @@ public final class WorkerApi implements AutoCloseable {
     private final Refreshed<Drift> drift;
 
     /**
-     * How long a resolve is good for, and why this is hours rather than the minute drift gets.
+     * How long a resolve is good for.
      *
-     * What it answers, and what it still must not do: {@code UpdateServer} opens with "the first rule of this module
-     * is that nothing updates on a schedule", and that rule is untouched here: looking is not running.
-     * This asks Modrinth, GitHub and the Fill API what is newest and compares it with the jars in the volumes - the
-     * same {@code Runs#resolve} a run starts with, which writes nothing, anywhere. No row is written into
-     * {@code update_request} and no container is touched. A run is still only ever a row somebody asked for.
-     *
-     * Why a cache and not a clock: A timer would ask on a schedule whether or not anybody wanted to know, which is
-     * the shape that gets a token rate-limited for nothing. {@link Refreshed} asks when the page is opened and hands
-     * the previous answer over while a new one is fetched behind it, so ten admins looking at once cost one round of
-     * API calls and nobody waits on the network. A week nobody opens the page is a week nothing is asked - correct,
-     * because there was nobody to show it to.
-     *
-     * Six hours, because a plugin release is a thing that happens a few times a month and the answer carries
-     * {@code checkedAt} beside it. The page says how old the reading is rather than implying it was taken just now,
-     * exactly as the drift column does one field up.
+     * Looking is not running: the resolve writes nothing, and a page open asks at most every six hours.
      */
     private static final Duration AVAILABLE_TTL = Duration.ofHours(6);
 
@@ -156,12 +112,9 @@ public final class WorkerApi implements AutoCloseable {
     record Available(UpdatePlan plan, Instant checkedAt) {}
 
     /**
-     * The resolve, or {@code null} where this API has no sources to ask - every test that builds a {@link WorkerApi}
-     * without one, and any deployment where the wiring chose not to.
+     * The resolve, or {@code null} where this API has no sources to ask.
      *
-     * Null rather than a supplier returning an empty plan, because the two are different answers: an empty plan says
-     * "everything is current" and there is nothing behind it to say that. The endpoint answers 503 instead, which the
-     * page can draw as "could not look" - the distinction {@link Change.Status#UNRESOLVED} exists for, one level up.
+     * Null rather than an empty plan, which would claim everything is current; the endpoint answers 503.
      */
     final @Nullable Refreshed<Available> available;
 
@@ -193,20 +146,12 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     /**
-     * @param volumesRoot where the four Minecraft volumes are mounted - see
-     *                    {@code StewardSpec#volumesRoot}. It is only ever read for one thing: finding
-     *                    the jar a standalone module's message bundle lives in, since that jar (unlike
-     *                    a Paper or Velocity plugin's) is not under {@code configs}. {@code null}
-     *                    skips that second lookup rather than failing - a bundle whose jar cannot be
-     *                    found is left off the list (see {@code MessageBundles#discover}), not this
-     *                    process refusing to start over a mount most tests do not need.
-     * @param updates     {@code update_request}, already opened over this process's own pool - see
-     *                    {@code StewardWorker#serve} for why one directory is shared between this API
-     *                    and the run loop rather than two directories over the same table
-     * @param audit       {@code audit_log}, opened the same way. Both feed {@link ActionsApi}; the
-     *                    update directory is read once more, for the holds - see {@code ServiceRows}
-     *                    for why that one reading is worth the exception to "this class talks to
-     *                    Docker and the filesystem, never the database" (§3)
+     * Builds the API without player counts.
+     *
+     * @param volumesRoot where the four Minecraft volumes are mounted, used only to find a standalone module's bundle
+     *     jar; {@code null} skips it
+     * @param updates {@code update_request}, sharing one directory with the run loop
+     * @param audit {@code audit_log}, for {@link ActionsApi}
      */
     public WorkerApi(
             final Docker docker,
@@ -225,12 +170,9 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     /**
-     * @param online where the player counts and the player list come from, or {@code null} for a
-     *               deployment with no database behind this API. A {@link ServicesApi} and not the
-     *               two directories behind it: what it reads (two tables today) is its business,
-     *               and what this class needs is one answer per response. See {@link ServicesApi}
-     *               for why a subject it cannot vouch for is left out of the answer rather than
-     *               sent as {@code 0} or an empty list.
+     * Adds the player counts.
+     *
+     * @param online where the player counts and the player list come from, or {@code null} without a database
      */
     public WorkerApi(
             final Docker docker,
@@ -264,13 +206,9 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     /**
-     * @param resolve what is newest, asked of Modrinth, GitHub and the Fill API and compared with
-     *                the jars in the volumes - {@code Runs#resolve}, which writes nothing anywhere.
-     *                {@code null} leaves {@code GET /api/updates/available} answering 503 rather
-     *                than an empty plan; see {@link #available} for why those are not the same
-     *                answer. It is a supplier and not a resolved plan because this API must never
-     *                hold one from process start - a jar installed an hour ago has to stop being
-     *                reported as available, and the only way it does is by asking again.
+     * Adds the resolve behind {@code GET /api/updates/available}.
+     *
+     * @param resolve {@code Runs#resolve}, asked again when the cache ages; {@code null} makes the endpoint answer 503
      */
     public WorkerApi(
             final Docker docker,
@@ -307,12 +245,9 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     /**
-     * @param managedPlugins the four routes behind "the plugins on this server", or {@code null} in
-     *                       a deployment with no database - they then answer 503, for the reason
-     *                       {@link #available} gives: an empty
-     *                       plugin list and a worker that cannot read the table are different
-     *                       answers, and guessing the friendlier one would be a lie about what is
-     *                       installed
+     * Adds the plugin routes.
+     *
+     * @param managedPlugins the plugin routes, or {@code null} without a database, when they answer 503
      */
     public WorkerApi(
             final Docker docker,
@@ -350,9 +285,10 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     /**
-     * @param accessInbox the bot's request inbox, or {@code null} in a deployment with no database
-     *                    - saving the bot's messages then answers that a restart is needed, which
-     *                    is what is true there
+     * Adds the bot's inbox.
+     *
+     * @param accessInbox the bot's request inbox, or {@code null} without a database, when a bot bundle save asks for a
+     *     restart
      */
     public WorkerApi(
             final Docker docker,
@@ -392,11 +328,11 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     /**
-     * @param nightly   the schedule as it stands right now - a supplier, because it changes when
-     *                  steward.yml is saved
-     * @param reReadOwn what a save of this worker's own {@code steward.yml} runs once the file is
-     *                  written: re-read it and re-arm the clocks. It may throw; the save has
-     *                  already happened, and the answer then says the change waits for a restart.
+     * Adds the schedule and its re-read hook.
+     *
+     * @param nightly the schedule as it stands right now, changed when steward.yml is saved
+     * @param reReadOwn what a save of this worker's own {@code steward.yml} runs; it may throw, and the save then waits
+     *     for a restart
      */
     public WorkerApi(
             final Docker docker,
@@ -424,13 +360,13 @@ public final class WorkerApi implements AutoCloseable {
         this.backups = backups;
         this.token = token;
         this.nightly = nightly;
-        // Lives here, not in steward-ui: every file it touches is 0600 root:root, and steward-ui is not root.
+        // Here, not in steward-ui: every file it touches is 0600 root:root, and steward-ui is not root.
         this.configs = new ConfigApi(configs, console::send, java.util.Map.of(ConfigApi.OWN_CONFIG, reReadOwn));
-        // Not a config file - see MessagesApi's own javadoc for why it is kept apart rather than folded in here.
+        // Not a config file, so it has its own API.
         this.messages = new MessagesApi(configs, volumesRoot, accessInbox, console::send);
-        // See ActionsApi's own javadoc for why this is one query over two tables and not a frontend-side merge.
+        // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
-        // Its own virtual thread per refresh, not driftRefresh: a queued du must not age behind a registry call.
+        // Its own virtual thread per refresh, so a du never waits behind a registry call.
         this.disk = new DiskUsage(
                 volumesRoot, runnable -> Thread.ofVirtual().name("disk-usage").start(runnable));
         this.archive = new LogArchive(volumesRoot);
@@ -439,7 +375,7 @@ public final class WorkerApi implements AutoCloseable {
         // Here rather than at the field, because it reads `ops`, which is a constructor argument.
         this.drift =
                 new Refreshed<>(() -> new Drift(ops.images(), Instant.now()), DRIFT_TTL, driftRefresh, Instant::now);
-        // The same background thread as drift: both are slow calls nobody asked for, and Refreshed never runs two.
+        // The same background thread as drift: both are slow calls nobody asked for.
         this.available = resolve == null
                 ? null
                 : new Refreshed<>(
@@ -457,7 +393,7 @@ public final class WorkerApi implements AutoCloseable {
 
         log.info("the internal API is on {} - steward-ui reads the daemon through it", port);
 
-        // Once, before anybody asks: without this, the first /api/services blocks on the registry call itself.
+        // Once, before anybody asks, so the first /api/services does not block on the registry.
         driftRefresh.execute(() -> {
             try {
                 drift.get();
@@ -467,13 +403,7 @@ public final class WorkerApi implements AutoCloseable {
         });
     }
 
-    /**
-     * The plugin routes, or a refusal that says why there are none.
-     *
-     * 503, not an empty list, for the same reason {@code /api/updates/available} answers 503: "no plugins" and
-     * "this worker cannot read the table" are different sentences, and drawing the friendlier one claims a server
-     * runs nothing.
-     */
+    /** The plugin routes, or a 503, since "no plugins" and "cannot read the table" are different answers. */
     PluginsApi plugins() {
         if (managedPlugins == null) {
             throw new io.javalin.http.ServiceUnavailableResponse(
@@ -482,16 +412,9 @@ public final class WorkerApi implements AutoCloseable {
         return managedPlugins;
     }
 
-    /**
-     * The service table, with the age of the drift comparison beside it.
-     *
-     * An envelope rather than a bare array, because the interface has to be able to say "images compared a minute ago".
-     * A page that draws a green tick next to an answer cached for an unknown length of time is making a promise it
-     * cannot keep - and image drift going unnoticed for four releases is the failure this whole column exists to
-     * prevent.
-     */
+    /** The service table, with the age of the drift comparison beside it. */
     Map<String, Object> serviceTable() {
-        // Taken once, for the rows AND for the sentence about them.
+        // Taken once, for the rows and for the sentence about them.
         final Drift drift = drift();
         final List<Map<String, Object>> rows = serviceRows.rows(drift.result());
         final Map<String, Object> answer = new LinkedHashMap<>();
@@ -509,13 +432,7 @@ public final class WorkerApi implements AutoCloseable {
         return answer;
     }
 
-    /**
-     * The drift answer as it stands, which is not necessarily the newest one there could be.
-     *
-     * See {@link Refreshed} for why this no longer reads the registry on the caller's thread. The short of it: it
-     * used to, and steward-ui's ten-second deadline ran out on one request in every sixty while the interface
-     * logged that a healthy service could not be reached.
-     */
+    /** The drift answer as it stands, refreshed in the background rather than on the caller's thread. */
     private Drift drift() {
         return drift.get();
     }
@@ -557,7 +474,7 @@ public final class WorkerApi implements AutoCloseable {
         final Nightly nightly = this.nightly.get();
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("backupAt", nightly.at().isBlank() ? null : nightly.at());
-        // The weekdays as the file says them, not as the clock understood them - a schedule being reported.
+        // The weekdays as the file says them, not as the clock understood them.
         answer.put("backupDays", nightly.days());
         answer.put("zone", nightly.zone().getId());
         answer.put(
@@ -565,7 +482,7 @@ public final class WorkerApi implements AutoCloseable {
                 NightlyClock.next(nightly.at(), nightly.days(), nightly.zone(), ZonedDateTime.now(nightly.zone()))
                         .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                         .orElse(null));
-        // The optional update clock, read the same way - a blank update.at is no schedule and no next moment.
+        // The optional update clock, read the same way; a blank update.at is no schedule.
         answer.put("updateAt", nightly.updateAt().isBlank() ? null : nightly.updateAt());
         answer.put("updateDays", nightly.updateDays());
         answer.put(
@@ -604,7 +521,7 @@ public final class WorkerApi implements AutoCloseable {
         } catch (DockerException e) {
             answer.put("dockerDiskUnreadable", e.getMessage());
         }
-        // No container sets a memory limit, so a percentage is a share of the whole machine, not a container budget.
+        // No container sets a memory limit, so a percentage is a share of the whole machine.
         answer.put(
                 "containerLimits",
                 "No container sets a memory limit, so every percentage here is a share of the whole host.");
@@ -614,21 +531,14 @@ public final class WorkerApi implements AutoCloseable {
     /**
      * `/api/updates/available`'s body: the whole resolve, flattened, plus the age of the reading.
      *
-     * Every row is carried, not only the ones with work in them: A list of "what is outdated" cannot be told apart from
-     * a list of "what could not be asked", and those two must never look alike - that is the entire reason
-     * {@link Change.Status#UNRESOLVED} is a status and not an omission. So the answer is one row per artefact with its
-     * status on it, and what the page shows is the page's decision.
-     *
-     * {@code hasWork} and {@code hasFailures} are sent rather than counted in the browser for the same reason
-     * {@code PlanReport} exists: the worker is the only thing that decides what an update means, and a second opinion
-     * assembled from the rows is how the two drift apart.
+     * Every row is carried with its status, so outdated and unresolved never look alike.
      */
     Map<String, Object> availability(final Available reading) {
         final UpdatePlan plan = reading.plan();
         final List<Map<String, Object>> changes = new ArrayList<>();
         for (final Change change : plan.changes()) {
             final Map<String, Object> row = new LinkedHashMap<>();
-            // The pack has no service - see PlanReport. Left off rather than sent as "" to avoid an empty name.
+            // The pack has no service, so the key is left off rather than sent empty.
             if (change.service() != null) {
                 row.put("service", change.service());
             }
@@ -644,7 +554,7 @@ public final class WorkerApi implements AutoCloseable {
                 row.put("installed", change.installed());
             }
             if (change.wanted() != null) {
-                // Version for a person, filename for the comparison: PacketEvents' `2.13.0+spigot` files differently.
+                // Version for a person, filename for the comparison, since some files carry a suffix.
                 row.put("version", change.wanted().version());
                 row.put("fileName", change.wanted().fileName());
             }
@@ -676,13 +586,7 @@ public final class WorkerApi implements AutoCloseable {
     /**
      * `/api/alert-level`'s body: everything that is wrong, and the three raw measurements.
      *
-     * Measurements, never verdicts, for the three configured thresholds: {@code diskPercent}, {@code memoryPercent} and
-     * {@code backupAgeHours} are readings and not alarms: the numbers they would be compared against live in
-     * steward-ui's own {@code UiSpec.AlertSpec} and are sent nowhere. See {@link AlertLevel}'s class note for how a
-     * threshold alarm reaches a lock screen without a second copy of the threshold in this process's own config file.
-     *
-     * {@code level}, {@code subject} and {@code path} stay at the top level, unchanged, for a reader that only wants
-     * "how bad is it right now". They are the worst of {@code triggers} and are not a separate opinion.
+     * The thresholds live in steward-ui; {@code level}, {@code subject} and {@code path} are the worst trigger.
      */
     Map<String, Object> alertLevel() {
         final AlertLevel.Reading reading =
@@ -701,7 +605,7 @@ public final class WorkerApi implements AutoCloseable {
             triggers.add(row);
         }
         answer.put("triggers", triggers);
-        // Absent, not a number, when nothing could be measured: a missing key reads "nobody looked", not a zero.
+        // Absent, not a number, when nothing could be measured.
         if (reading.diskPercent() != null) {
             answer.put("diskPercent", reading.diskPercent());
         }
@@ -720,11 +624,7 @@ public final class WorkerApi implements AutoCloseable {
         String command;
     }
 
-    /**
-     * Stops every open log follow, then the drift refresh, then Jetty.
-     *
-     * See {@link LogFollows#close()} for why the follows come first and in that particular order.
-     */
+    /** Stops every open log follow, then the drift refresh, then Jetty. */
     @Override
     public void close() {
         logFollows.close();

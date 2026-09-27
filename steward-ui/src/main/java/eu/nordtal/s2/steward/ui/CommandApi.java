@@ -31,12 +31,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The admin commands that also exist in the game, asked for from a browser.
- *
- * Writes a {@code command_request} row addressed to the process that owns the command and reads
- * the answer out of the same row; this process holds no connection to any server.
- */
+/** The admin commands that also exist in the game, asked for from a browser through {@code command_request} rows. */
 final class CommandApi {
 
     private static final Logger log = LoggerFactory.getLogger(CommandApi.class);
@@ -44,10 +39,8 @@ final class CommandApi {
     /** How long the asker waits before the row is EXPIRED. */
     private static final Duration PATIENCE = Duration.ofMinutes(2);
 
-    /** Null only in a test that never calls a route on this class. */
     private final @Nullable Data data;
 
-    /** Who is asking. The same seam {@code StewardUi} uses, so a test can stand in front of it. */
     private final Function<Context, DiscordAuth.Account> accounts;
 
     CommandApi(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
@@ -55,17 +48,16 @@ final class CommandApi {
         this.accounts = accounts;
     }
 
-    /** The database, for a route that cannot be reached without one. */
     private Data data() {
         return Objects.requireNonNull(data, "no database - this route is not available without one");
     }
 
-    /** {@code GET /api/commands} - what this interface may ask for, and what each one needs. */
+    /** {@code GET /api/commands}: what this interface may ask for, and what each one needs. */
     void list(final Context ctx) {
         ctx.json(available().stream().map(CommandApi::describe).toList());
     }
 
-    /** {@code POST /api/commands} - write the row, answer with its id. */
+    /** {@code POST /api/commands}: writes the row and answers with its id. */
     void ask(final Context ctx) {
         final JsonObject body = bodyOf(ctx);
         final String name = text(body, "name");
@@ -87,20 +79,15 @@ final class CommandApi {
         ctx.status(202).json(answer);
     }
 
-    /**
-     * Writes one row for {@code declaration} and its journal line, and returns the row's id.
-     *
-     * The one door every button that reaches a Paper server goes through.
-     */
+    /** Writes one row for {@code declaration} and its journal line, and returns the row's id. */
     long submit(final Context ctx, final Declaration declaration, final @Nullable JsonObject sent) {
         if (!declaration.surfaces().contains(Surface.WEB)) {
-            // Saying it now rather than as an expired row two minutes from now.
             throw new BadRequestResponse(declaration.name() + " is not released to the interface.");
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
         final String arguments = encode(declaration, sent);
 
-        // requested_by is varchar(64) for a person to read; actor is varchar(32), so the id goes there.
+        // requested_by is for a person to read; the id goes into actor, which is varchar(32).
         final String requestedBy = who.name() + " (" + who.id() + ")";
 
         // One statement: a committed row with no journal line would run a command silently.
@@ -113,7 +100,7 @@ final class CommandApi {
                                 "WEB",
                                 requestedBy,
                                 Optional.of(who.id()),
-                                // Not looked up: the target re-reads what it needs from the Discord id.
+                                // The target re-reads what it needs from the Discord id.
                                 Optional.empty(),
                                 "de",
                                 Instant.now().plus(PATIENCE)),
@@ -129,7 +116,7 @@ final class CommandApi {
         return id;
     }
 
-    /** {@code GET /api/commands/{id}} - what became of it. */
+    /** {@code GET /api/commands/{id}}: what became of it. */
     void outcome(final Context ctx) {
         final long id;
         try {
@@ -192,7 +179,7 @@ final class CommandApi {
                     || (sent.isJsonPrimitive() && sent.getAsString().isBlank())) {
                 continue;
             }
-            // Every branch below calls getAsString(), which throws on an object or array otherwise.
+            // getAsString() below throws on an object or array.
             if (!sent.isJsonPrimitive()) {
                 throw new BadRequestResponse(argument.name() + " is a single value, not a "
                         + (sent.isJsonArray() ? "list" : "structure") + ".");
@@ -208,14 +195,13 @@ final class CommandApi {
                                         + argument.min() + " and " + argument.max() + ".");
                             }
                         }
-                        // No roster of online players to pick a PLAYER from; ACCOUNT sends a Discord id instead.
+                        // No roster of online players to pick one from.
                         case PLAYER ->
                             throw new BadRequestResponse(declaration.name()
                                     + " takes a Minecraft player, and this interface has no way to pick one."
                                     + " Use the command in the game.");
                         case ACCOUNT -> {
                             final String id = sent.getAsString().strip();
-                            // Checked here too, so a typo is a sentence rather than an exception two layers down.
                             if (!id.chars().allMatch(digit -> digit >= '0' && digit <= '9')) {
                                 throw new BadRequestResponse(
                                         argument.name() + " is a Discord id - pick the person from the list.");

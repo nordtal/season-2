@@ -13,18 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * {@link CommandInbox.AdminCheck#of} on its own, which is the authorisation of the whole transport.
  *
- * {@code CommandInboxTest} builds its inboxes with {@code request -> admin} - a flag, so that its
- * cases are about what the inbox does with a yes and a no rather than about how the yes is reached.
- * That is the right shape for those tests and it left the shared check itself covered by nothing.
- *
- * The check is not incidental. It is the second of the two admin reads a travelling command gets,
- * and the one that matters: the first happens where the command was typed, and the flag can be
- * revoked while the row waits. A hole here is a revoked admin's command running on the far side,
- * minutes later, on a server they can no longer reach any other way.
- *
- * The hole it is written against: reading an absent Discord id as {@code CONSOLE} would authorise
- * it unconditionally, but an id is only required for {@code source='DISCORD'} - {@code limbo}
- * writes {@code GAME} rows with no id at all, because a waiting room holds no account links.
+ * It runs when a row is claimed, so an admin flag revoked while the row waited must refuse it.
  */
 class AdminCheckTest {
 
@@ -51,7 +40,7 @@ class AdminCheckTest {
 
     @Test
     void theConsoleIsTheOperatorAndIsIdentifiedByBeingTheConsole() {
-        // By source and not by "has no identity": the schema pins a CONSOLE row to having no identity at all.
+        // By source, not by missing identity: the schema pins a CONSOLE row to having none.
         assertTrue(check.isAdmin(request("CONSOLE", null, null)));
     }
 
@@ -63,14 +52,14 @@ class AdminCheckTest {
 
     @Test
     void aGameRowWithNoDiscordIdFallsBackToTheMinecraftAccount() {
-        // limbo's rows. It holds no account links, so this is the only identity they carry.
+        // limbo's rows carry no account link, so this is their only identity.
         assertTrue(check.isAdmin(request("GAME", null, ADMIN_MC)));
         assertFalse(check.isAdmin(request("GAME", null, OTHER_MC)));
     }
 
     @Test
     void aRowWithNeitherIdentityIsRefusedAndUsedToBeAdmitted() {
-        // The original orElse(true). A GAME row is allowed to have no Discord id.
+        // A GAME row may have no Discord id, and with neither identity it is refused.
         assertFalse(check.isAdmin(request("GAME", null, null)));
     }
 

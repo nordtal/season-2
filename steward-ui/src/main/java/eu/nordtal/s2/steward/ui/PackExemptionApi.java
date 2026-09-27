@@ -15,8 +15,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Letting one player through without the resource pack, and taking that back.
  *
- * The proxy reads the flag with the login state, so either change takes effect at the player's
- * next login. Journals {@code EXEMPT_PACK} or {@code ENFORCE_PACK} naming the admin who clicked.
+ * A change takes effect at the player's next login and is journalled with the admin who clicked.
  */
 final class PackExemptionApi {
 
@@ -35,14 +34,14 @@ final class PackExemptionApi {
         this.accounts = accounts;
     }
 
-    /** {@code POST /api/pack-exemptions/exempt} - {@code {discordId}}. */
+    /** {@code POST /api/pack-exemptions/exempt} with {@code {discordId}}. */
     void exempt(final Context ctx) {
         final String target = discordId(ctx);
         final DiscordAuth.Account who = accounts.apply(ctx);
         answer(ctx, exemptions.exempt(who.id(), target), "EXEMPT_PACK", who, target, "They play without it already.");
     }
 
-    /** {@code POST /api/pack-exemptions/enforce} - {@code {discordId}}. */
+    /** {@code POST /api/pack-exemptions/enforce} with {@code {discordId}}. */
     void enforce(final Context ctx) {
         final String target = discordId(ctx);
         final DiscordAuth.Account who = accounts.apply(ctx);

@@ -1,35 +1,17 @@
 /**
- * The one door to the backend.
+ * The one door to the backend: every request goes through here, and nothing else calls `fetch`.
  *
- * Nothing in this interface calls `fetch` itself. Three things have to be true of every request and
- * are true exactly once here: a write carries the CSRF token, a 401 means "the session is gone" and
- * not "the list is empty", and an error says **which of the three services** is down. That last one
- * is the whole reason `ApiError.where` exists: an empty service table and a stopped daemon look
- * identical on screen, and only one of them is a reason to run to the server.
+ * A write carries the CSRF token, a 401 means the session is gone, and an error names which service is down.
  */
 
-/**
- * Which service answered badly.
- *
- * Three, because the deployment is three (concept §3): the interface, the one process that holds
- * the docker socket, and the one process allowed to create a container. They fail differently and
- * mean different things - a stopped worker is a stack nobody can see, a stopped deployer is a
- * stack nobody can change - so the sentence on screen must not collapse them into "something is
- * kaputt".
- */
+/** Which of the three services answered badly: a stopped worker hides the stack, a stopped deployer freezes it. */
 export type Where = "steward-ui" | "steward-worker" | "steward-deployer"
 
 export class ApiError extends Error {
   readonly status: number
   readonly where: Where
   readonly detail: string
-  /**
-   * The backend's machine-readable name for this refusal, when it has one.
-   *
-   * Two values use it - `SECOND_FACTOR_MISSING` and `SECOND_FACTOR_REQUIRED` - and they are codes
-   * rather than matched sentences because the sentences are English prose that somebody will
-   * improve, and a `startsWith("This account has no")` would break the interface when they did.
-   */
+  /** The backend's machine-readable name for this refusal, matched instead of its English sentence. */
   readonly code: string
 
   constructor(status: number, message: string, where: Where, detail = "", code = "") {
@@ -41,27 +23,20 @@ export class ApiError extends Error {
     this.code = code
   }
 
-  /** The session ran out or was never there. The shell turns this into the sign-in page. */
+  /** The session ran out or was never there; the shell turns this into the sign-in page. */
   get isSignedOut(): boolean {
     return this.status === 401
   }
 
-  /**
-   * Signed in, and one ceremony short of being allowed in.
-   *
-   * Deliberately NOT `isSignedOut`: sending this person back to Discord would send them round a
-   * loop they have already completed. The shell draws the key setup instead.
-   */
+  /** Signed in, and one key registration short of being allowed in, so not {@link isSignedOut}. */
   get needsASecurityKey(): boolean {
     return this.status === 403 && this.code === "SECOND_FACTOR_MISSING"
   }
 
   /**
-   * Signed in, HAS a key, and has not held it recently enough for this.
+   * Signed in with a key that has not been held recently enough for this.
    *
-   * Told apart from {@link needsASecurityKey} because the two need different screens: one account
-   * has no key and must register one, the other has a key and must hold it. Answering both the
-   * same way would send somebody with a key to a setup page that refuses them.
+   * Told apart from {@link needsASecurityKey}, since one needs a setup page and the other a tap.
    */
   get needsTheKeyAgain(): boolean {
     return this.status === 403 && this.code === "SECOND_FACTOR_REQUIRED"
@@ -69,15 +44,9 @@ export class ApiError extends Error {
 }
 
 /**
- * The one place a refused request is turned back into a working one.
+ * The one place a refused request is turned back into a working one, installed by the shell.
  *
- * **Why a registered function rather than a call.** The ceremony needs a dialog on screen and a
- * fresh tap from the person in front of it - Safari will not open the key dialog without one - and
- * this file knows nothing about React and should not start. So the shell installs its handler once
- * and this file calls it: one place that retries, one place that draws.
- *
- * A handler resolves when the key has been held and rejects when it has not. Nothing is installed
- * in a test, which is the honest default: without a way to hold a key, a 403 is a 403.
+ * A handler resolves once the key is held and rejects otherwise; with none installed, a 403 stays a 403.
  */
 type StepUp = () => Promise<unknown>
 
@@ -87,24 +56,15 @@ export function onSecondFactorRequired(handler: StepUp | null): void {
   stepUp = handler
 }
 
-/**
- * Whether a refusal of this request may be recovered from by holding the key.
- *
- * The ceremony itself is made of two `POST`s, and they are the two requests that must never be
- * retried this way: a recursion here would be a dialog that reopens itself forever, and the
- * routes are `SIGNED_IN` anyway, so they cannot produce this refusal. Written out rather than
- * relied upon.
- */
+/** Whether a refusal of this request may be recovered by holding the key; never for the ceremony's own two `POST`s. */
 function mayStepUp(path: string): boolean {
   return stepUp !== null && !path.startsWith("/auth/")
 }
 
 /**
- * The CSRF token of this session.
+ * The CSRF token of this session, handed out by `/api/me` and sent back on every write.
  *
- * It is handed out by `/api/me` and sent back in a header on every write - the double-submit half
- * the browser is allowed to see. Kept in a module variable rather than in the query cache because
- * a mutation must be able to read it synchronously while it builds its request.
+ * A module variable rather than the query cache, so a mutation can read it synchronously.
  */
 let csrfToken: string | null = null
 
@@ -127,12 +87,9 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
     return await send<T>(path, options)
   } catch (refusal) {
     /**
-     * THE WHOLE OF "ONE TAP, NOT TWO". The request is sent, refused because the key has not been
-     * held recently enough, the key is held, and the SAME request goes again - so somebody who
-     * taps Update taps Update, rather than tapping Update, then a dialog, then Update again.
+     * One tap, not two: a request refused for want of a fresh key is retried once after the key is held.
      *
-     * Exactly once. A second refusal after a successful ceremony is not a stale window, it is
-     * something else entirely, and retrying it again would hide whatever that is behind a loop.
+     * A second refusal is something else, and retrying again would hide it behind a loop.
      */
     if (refusal instanceof ApiError && refusal.needsTheKeyAgain && mayStepUp(path)) {
       await stepUp!()
@@ -158,10 +115,7 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
       signal: options.signal,
     })
   } catch (cause) {
-    /**
-     * The request never arrived anywhere. That is this interface being unreachable - a stopped
-     * steward-ui, a proxy in the way, or a browser that is offline - and never the worker.
-     */
+    /** The request never arrived: this interface, a proxy or the browser is offline, never the worker. */
     throw new ApiError(0, "The interface cannot be reached.", "steward-ui", String(cause))
   }
 
@@ -174,11 +128,7 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
 
   if (!response.ok) {
     const body: Record<string, unknown> | null = isRecord(parsed) ? parsed : null
-    /**
-     * The backend's InternalClient.Failure handler answers with the name of whichever service
-     * did not answer, which is the only way this end can tell "the daemon did not answer" from
-     * "this service threw".
-     */
+    /** The backend names whichever service did not answer, which tells a silent daemon from a throwing service. */
     const where: Where =
       body?.where === "steward-worker" || body?.where === "steward-deployer" ? body.where : "steward-ui"
     const message = (body && messageOf(body)) ?? `${response.status} ${response.statusText}`
@@ -191,14 +141,9 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
 }
 
 /**
- * Narrows an untyped value to `T` wherever one enters typed code - the backend's JSON, or a local
- * store that only ever promises `unknown`.
+ * Narrows an untyped value to `T` wherever one enters typed code, by a guard rather than a cast.
  *
- * A type guard is a checked narrowing, never an assertion: the compiler only accepts `value` as
- * `T` because `guard` proved it, so nothing downstream inherits a cast that could be wrong. What
- * `guard` proves is up to the caller - `send` above only knows that a 204 is empty and a 200
- * answered *something*, so that is all it checks; a caller that needs its own shape held to, such
- * as `useGlyphs` or `useDraft`, writes a guard that says so.
+ * What `guard` proves is up to the caller; `send` only knows that a 204 is empty.
  */
 export function shapedAs<T>(value: unknown, guard: (value: unknown) => value is T, context: string): T {
   if (!guard(value)) {
@@ -219,7 +164,7 @@ function safeJson(text: string): unknown {
   }
 }
 
-/** Javalin's own error bodies use `title`; ours use `error`. Both are one sentence. */
+/** Javalin's own error bodies use `title`, ours use `error`; both are one sentence. */
 function messageOf(body: Record<string, unknown>): string | null {
   for (const key of ["error", "title", "message"]) {
     const value = body[key]
@@ -228,34 +173,20 @@ function messageOf(body: Record<string, unknown>): string | null {
   return null
 }
 
-/**
- *
- * What the endpoints answer.
- *
- * Written out rather than inferred, because the backend builds these maps by hand: a field that is
- * only present on a running container is optional HERE too, and a `?` that is missing is a crash
- * on the one day a container is stopped.
- *
- */
+/** What the endpoints answer, written out since the backend builds these maps by hand. */
 
 /** One registered security key, as `/api/me` lists it. */
 export type SecurityKey = {
-  /**
-   * The credential id, base64url - what names this key when it is renamed or removed.
-   *
-   * Not a secret: it is handed to any browser that starts a sign-in, because it is what tells the
-   * authenticator which credential to use. The routes that act on it check the account as well.
-   */
+  /** The credential id, base64url, which names this key when it is renamed or removed; not a secret. */
   id: string
   label: string
   registeredAt: string
   lastUsedAt?: string
   transports?: string[]
   /**
-   * Whether this key is synced somewhere - an iCloud passkey is, a YubiKey is not.
+   * Whether this key is synced somewhere, as an iCloud passkey is and a YubiKey is not.
    *
-   * Absent when the authenticator did not say, which is NOT the same as "no": only a key that
-   * answered "no" is a key whose loss is final, and only that case is worth a second key.
+   * Absent when the authenticator did not say, which is not "no".
    */
   backedUp?: boolean
 }
@@ -269,62 +200,42 @@ export type Me = {
   expiresAt?: string
   signInUnavailable?: string
   webauthn: string
-  /**
-   * The security keys of this account, oldest first. **Empty is the whole of the setup page.**
-   *
-   * Absent rather than empty when nobody is signed in: `/api/me` answers the signed-out question
-   * without ever touching this table, and a `[]` there would be a claim about an account there
-   * is none of.
-   */
+  /** The security keys of this account, oldest first; absent rather than empty when nobody is signed in. */
   keys?: SecurityKey[]
-  /** Whether a key has been held in THIS session. */
+  /** Whether a key has been held in this session. */
   verified?: boolean
   verifiedAt?: string
   /** The domain keys are registered against, for the page to name rather than guess. */
   relyingPartyId?: string
-  /**
-   * How many minutes one touch of the key covers.
-   *
-   * From the server so that the dialog says the number this service actually enforces, rather than
-   * a literal here that would disagree with it the day somebody changes one of the two.
-   */
+  /** How many minutes one touch of the key covers, as this service enforces it. */
   stepUpMinutes?: number
   /**
-   * The picture Discord holds for this account, when the access list happens to carry one.
+   * The picture Discord holds for this account, when the access list carries one.
    *
-   * **Absent is the ordinary case, not an error**: somebody can be signed into Steward
-   * and not be in the access list at all, and Discord itself does not always have a picture. The
-   * island then draws the initials, stays tappable, and nothing about the page changes - which is
-   * the fallback rather than a degraded state. So the query that fills this
-   * must never be allowed to fail the answer.
+   * Absent is the ordinary case; the island then draws initials.
    */
   discordAvatarUrl?: string
 }
 
-/** `GET /api/web-push/public-key`'s body - the VAPID public key, base64url, already the shape
- * `PushManager.subscribe()`'s `applicationServerKey` wants once decoded. */
+/** `GET /api/web-push/public-key`'s body: the VAPID public key, base64url. */
 export type WebPushPublicKey = {
   publicKey: string
 }
 
 /**
- * What a notification can be about - `AlertType`'s own keys, spelled the same way.
+ * What a notification can be about, spelled as `AlertType`'s own keys.
  *
- * A union and not `string`: the notifications dialog draws one row per type with a label of its
- * own, and a type added on the server without a label here should be a type error rather than a
- * switch with no words next to it.
+ * A union, so a server type added without a label here is a type error.
  */
 export type AlertTypeKey = "service" | "backup" | "disk" | "memory" | "drift"
 
-/** `GET /api/web-push/preferences` - every type, with this account's effective answer. */
+/** `GET /api/web-push/preferences`: every type, with this account's effective answer. */
 export type WebPushPreferences = Record<AlertTypeKey, boolean>
 
 /**
- * One row of `GET /api/web-push/devices` - a browser this account has subscribed.
+ * One row of `GET /api/web-push/devices`, a browser this account has subscribed.
  *
- * `device` is absent when the row predates the column or the browser sent no User-Agent; the
- * interface writes its own words for that rather than the server storing a placeholder. `endpoint`
- * is what this browser compares its own subscription against to know which row is itself.
+ * `device` is absent without a User-Agent; `endpoint` is how this browser finds its own row.
  */
 export type PushDevice = {
   endpoint: string
@@ -333,7 +244,7 @@ export type PushDevice = {
   lastSentAt?: string
 }
 
-/** Docker's own words, passed through. `state` is the container state, `status` its sentence. */
+/** Docker's own words, passed through: `state` is the container state, `status` its sentence. */
 export type Service = {
   service: string
   containerId: string
@@ -348,39 +259,23 @@ export type Service = {
   memoryLimitBytes?: number
   cpuPercent?: number
   /**
-   * How many people are connected, on the four services that have an answer to that.
+   * How many people are connected, on the four services that can say.
    *
-   * **Absent is not zero.** `smp`, `hunger-games` and `limbo` each carry their own,
-   * `proxy` the network's total, and every other service has no such field at all -
-   * neither does one of those four while the proxy has not written recently enough for the
-   * worker to trust the row. So the optional marker here is load-bearing: `players ?? 0` is the
-   * one thing a reader must not write, because it turns "nobody has said" into "nobody is on".
+   * Absent is not zero, so never write `players ?? 0`.
    */
   players?: number
-  /**
-   * Who is connected, on the rows that have a list - `proxy` carries the whole network,
-   * a backend carries its own. **Absent is not empty**, the same rule `players`
-   * follows one line above: a row with no `roster` is one nobody wrote a list for.
-   */
+  /** Who is connected: the whole network on `proxy`, its own on a backend. Absent is not empty. */
   roster?: Array<{ uuid?: string; name?: string }>
   /**
    * Set when somebody stopped this service on purpose and it must stay stopped.
    *
-   * **Absent is not false**, the same rule `players` follows: a row with no `hold` is a service
-   * nobody is holding, and a stopped container without one fell over rather than being put down.
-   * That difference cannot be read off the container - it only exists in `service_hold` - so this
-   * field is the only thing that can draw it.
+   * Absent is not false: a stopped container without one fell over, which only `service_hold` can say.
    */
   hold?: { since: string; by?: string | null }
   /**
-   * Set on the services that live in the `standby` compose profile and are meant to be stopped:
-   * `proxy-standby` and `limbo-standby`.
+   * Set on the `standby` profile's services, which are meant to be stopped.
    *
-   * **Absent is not false**, the same rule `players` and `hold` follow. A stopped standby and a
-   * crashed backend are the same container state to Docker, so nothing about the row itself can
-   * tell them apart - only the worker knows, out of `Topology.standbyNames()`, and this is it
-   * saying so. Without it the front page reports two faults on a completely healthy stack, which
-   * is how a fault counter stops being read at all.
+   * Absent is not false; without it a healthy stack would show two faults.
    */
   standby?: true
   unreadable?: string
@@ -398,9 +293,7 @@ export type Service = {
 /**
  * The service table, with the age of the drift comparison beside it.
  *
- * The worker caches the registry answer for a minute, so `checkedAt` is how old the image
- * comparison is - not how old the rest of the row is. The page says so out loud: a green tick over
- * an answer of unknown age is the failure this column exists to catch.
+ * `checkedAt` is how old the image comparison is, not the rest of the row.
  */
 export type ServiceTable = {
   services: Service[]
@@ -429,16 +322,15 @@ export type Host = {
 }
 
 /**
- * The worker's own nightly clock, read from the worker rather than guessed here.
+ * The worker's nightly clock, read from the worker rather than guessed here.
  *
- * `nextBackupAt` is an ISO instant with an offset, so it can be turned into a moment; `backupAt`
- * and `zone` are for saying it out loud. All three are null / "off" when `backup.at` is empty.
+ * `nextBackupAt` is an ISO instant; `backupAt` and `zone` are for saying it. All three are null or "off" when unset.
  */
 export type Schedule = {
   backupAt: string | null
   zone: string
   nextBackupAt: string | null
-  /** The optional update clock: null `updateAt` is no schedule, which is the default. */
+  /** The optional update clock: a null `updateAt` is no schedule, the default. */
   updateAt?: string | null
   updateDays?: string[]
   nextUpdateAt?: string | null
@@ -459,38 +351,29 @@ export type ReportChange = {
   from?: string
   to?: string
   /**
-   * `MOVING` or `UNSUPPORTED` - see `UpdateReport.Change.State` in `:common`.
+   * `MOVING` or `UNSUPPORTED`, see `UpdateReport.Change.State` in `:common`.
    *
-   * Optional, and that is a real difference between two shapes of the same data: the JSON stored in
-   * `update_request.result` omits the field when it is `MOVING`, because `UpdateReports` only writes
-   * it for `UNSUPPORTED`. This interface parses the column into the record and re-serialises it, so
-   * what arrives HERE normally has it - but a reader that treats a missing `state` as "not moving"
-   * would be wrong against the column and right against the endpoint, which is a bug waiting for the
-   * day the two are ever compared.
+   * Optional, since the stored JSON omits `MOVING`; never read an absent `state` as "not moving".
    */
   state?: string
 }
 
 /**
- * One service, or - in a BACKUP run - one volume.
+ * One service, or one volume in a BACKUP run.
  *
- * `state` is `UpdateReport.State`: UNCHANGED, PLANNED, STOPPED, INSTALLED, SAVED, STARTING,
- * HEALTHY, FAILED.
+ * `state` is `UpdateReport.State`.
  */
 export type ReportLine = {
   service: string
   state: string
   changes: ReportChange[]
-  /**
-   * Absent rather than null when there is none: Javalin's Gson mapper drops nulls, so a field with
-   * no value simply is not in the object.
-   */
+  /** Absent rather than null when there is none, since Gson drops nulls. */
   detail?: string
 }
 
-/** `update_request.result`, parsed by the backend. Mirrors UpdateReport in :common. */
+/** `update_request.result`, parsed by the backend; mirrors UpdateReport in :common. */
 export type Report = {
-  /** RESOLVING, PLANNED, COUNTDOWN, STOPPING, BACKING_UP, INSTALLING, STARTING, VERIFYING, DONE, NOTHING_TO_DO, FAILED, CANCELLED. */
+  /** `UpdateReport.Phase`, from RESOLVING to CANCELLED. */
   stage: string
   services: ReportLine[]
   notes: string[]
@@ -502,12 +385,12 @@ export type Run = {
   status: string
   source: string
   requestedBy: string
-  /** The services this run is for. Empty is the whole network. */
+  /** The services this run is for; empty is the whole network. */
   scope: string[]
   /**
-   * `requestedBy`, already picked apart on the backend - see `StewardUi.ActorFields`, the same
-   * reading `ActionEntry` gives the unified actions feed. Never absent: an empty string is "none of
-   * this applies", not "the backend has not been asked yet" (Gson never drops one).
+   * `requestedBy`, already picked apart as in `StewardUi.ActorFields`.
+   *
+   * Never absent: an empty string means "none of this applies".
    */
   actorDiscordId: string
   actorLabel: string
@@ -521,20 +404,13 @@ export type Run = {
   resultText?: string
 }
 
-/** `GET /api/updates/active`: the one open run, or `null`. There is never more than one. */
+/** `GET /api/updates/active`: the one open run, or `null`. */
 export type ActiveRun = { run: Run | null }
 
 /**
  * One artefact in the resolve, and what a run would do about it.
  *
- * `status` is the worker's own `Change.Status`, and the four that matter are told apart on the
- * page rather than lumped into "something to do": OUTDATED and MISSING are work, UP_TO_DATE is
- * nothing, UNSUPPORTED is "no build exists for this Minecraft version" (CoreProtect), and
- * UNRESOLVED / MOUNT_MISSING mean the answer is unknown - which must never be drawn like
- * "nothing to do".
- *
- * `work` and `failure` come from the backend rather than being derived here, because the worker is
- * the only thing allowed to decide what a status means.
+ * `status` is the worker's `Change.Status`; UNRESOLVED and MOUNT_MISSING are unknown, never "nothing to do".
  */
 export type AvailableChange = {
   /** Absent for the resource pack, which belongs to no service. */
@@ -546,16 +422,16 @@ export type AvailableChange = {
   /** Work a run would not do, because another row of the same service could not be checked. */
   held?: boolean
   installed?: string
-  /** The version as its publisher states it - for reading, never for comparing. */
+  /** The version as its publisher states it, for reading and never for comparing. */
   version?: string
-  /** The filename, which is the actual identity of what would be installed. */
+  /** The filename, which is the identity of what would be installed. */
   fileName?: string
   note?: string
 }
 
-/** `GET /api/updates/available` - what a run would do, without a run. */
+/** `GET /api/updates/available`: what a run would do, without a run. */
 export type Available = {
-  /** When this reading was taken. It can be hours old; the page says so. */
+  /** When this reading was taken; it can be hours old, and the page says so. */
   checkedAt: string
   resolvedAt: string
   seasonTag?: string
@@ -570,24 +446,14 @@ export type Available = {
 /**
  * One plugin on one Minecraft server.
  *
- * **`running` and `removable` are two different questions and neither implies the other.**
- * `running` is a jar on the disk; `removable` is a row in `service_plugin`. A plugin the network
- * gives is running and not removable - there is no row to delete, which is what makes "fixed"
- * true rather than merely drawn grey. A plugin somebody just installed is removable and not yet
- * running: installing writes the row and the jar arrives with the next update run.
+ * `running` is a jar on disk and `removable` a `service_plugin` row; neither implies the other.
  */
 export type ServicePlugin = {
-  /**
-   * The title for an added plugin and for any jar Modrinth published; the jar's filename prefix
-   * for the rest.
-   */
+  /** The title for an added plugin and any jar Modrinth published; otherwise the jar's filename prefix. */
   name: string
-  /**
-   * Which of the three lists it belongs in. `nordtal` is a jar this repository builds,
-   * `preinstalled` one the network gives from elsewhere, `added` one somebody installed here.
-   */
+  /** Which list it belongs in: `nordtal` built here, `preinstalled` given by the network, `added` installed here. */
   group?: "nordtal" | "preinstalled" | "added"
-  /** A Nordtal plugin's place in its list, before the alphabet; display-tags leads. */
+  /** A Nordtal plugin's place in its list, before the alphabet. */
   rank?: number
   running: boolean
   removable: boolean
@@ -595,17 +461,12 @@ export type ServicePlugin = {
   fileName?: string
   version?: string
   /**
-   * `plugins/<dataFolder>/` - read out of the jar's own descriptor, not guessed from its name.
+   * `plugins/<dataFolder>/`, read from the jar's own descriptor.
    *
-   * **Absent means the worker could not read it**, and the confirmation has to say so rather than
-   * name a folder nobody verified: removing deletes this directory, and it is the only
-   * hand-edited thing in the installation.
+   * Absent when the worker could not read it, and the removal must then say so.
    */
   dataFolder?: string
-  /**
-   * On an added plugin the Modrinth slug, and the id the remove button sends; on a plugin the
-   * network gives that is not on the disk, its artefact id in the update check.
-   */
+  /** An added plugin's Modrinth slug, or a given plugin's artefact id when it is not on disk. */
   artifact?: string
   projectId?: string
   added?: string
@@ -614,13 +475,13 @@ export type ServicePlugin = {
   pageUrl?: string
 }
 
-/** `GET /api/services/{name}/plugins` */
+/** `GET /api/services/{name}/plugins`. */
 export type ServicePlugins = {
   service: string
-  /** `paper` or `velocity` - what the search on this page is filtered to. */
+  /** `paper` or `velocity`, what the search on this page is filtered to. */
   loader: string
   gameVersion: string
-  /** False when this worker cannot see the volume, which is not the same as an empty server. */
+  /** False when this worker cannot see the volume, which is not an empty server. */
   mounted: boolean
   plugins: ServicePlugin[]
 }
@@ -641,7 +502,7 @@ export type PluginHit = {
   fixed: boolean
 }
 
-/** `GET /api/services/{name}/plugins/search` */
+/** `GET /api/services/{name}/plugins/search`. */
 export type PluginSearch = {
   service: string
   loader: string
@@ -666,24 +527,9 @@ export type Season = {
 }
 
 /**
- * One person the bot knows.
+ * One person the bot knows; an absent field is absent, never null, since Gson omits nulls.
  *
- * **The absent fields are optional, not nullable, and that is not a style choice.** Javalin is
- * wired to `JavalinGson(new Gson(), true)` and Gson omits nulls, so a person with no linked
- * Minecraft account arrives WITHOUT `minecraftUuid` rather than with `null`. Typing these
- * `string | null` compiled fine and let `x !== null` through - which is true for every unlinked
- * person and would have made a "linked only" filter quietly show everybody.
- *
- * `accessUntil` is the latest `valid_until` over ALL grants, revoked ones included, while
- * `accessActive` is the full login predicate. The pair is deliberate: a revoked person showing no
- * date at all would look exactly like a stranger who never had access.
- *
- * **The eight profile fields are what discord-bot and the proxy last
- * observed, each with its own timestamp.** All eight are independently absent - an account nobody
- * has mirrored a Discord profile onto, one that left the guild, or one that was never seen joining
- * reads with the corresponding fields simply missing, never with an empty string standing in. They
- * feed `PersonIdentity` (`@/components/steward/identity`), the one place a raw id or uuid may be
- * shown - see that module's header comment for the rule.
+ * `accessUntil` covers revoked grants too, while `accessActive` is the full login predicate.
  */
 export type Person = {
   discordId: string
@@ -713,9 +559,7 @@ export type Person = {
   /**
    * Total online time across the network, in seconds, out of `player_playtime`.
    *
-   * Absent - not zero - for somebody who has never been online: the proxy writes the row on its
-   * first flush, so "no row" and "no time" are different facts and the list says so. The prestige
-   * tier is derived from this number and stored nowhere, which is why a roster prints it.
+   * Absent, not zero, for somebody never online.
    */
   playtimeSeconds?: number | null
 }
@@ -757,13 +601,9 @@ export type JournalEntry = {
 }
 
 /**
- * One row of steward-worker's `/api/actions` - a run from `update_request` or a line
- * from `audit_log`, already merged and sorted by the worker into one feed, newest first.
+ * One row of steward-worker's `/api/actions`: a run or an audit line, newest first.
  *
- * `actorDiscordId` and `actorLabel` are `""`, never absent, when there is nothing to show in that
- * slot - `eu.nordtal.s2.steward.worker.api.ActionEntry`'s own header comment says why a record's
- * field cannot simply be left out the way a map's can. `system` decides between the two: true means
- * neither field means anything and `PersonIdentity`'s `system` prop draws Steward instead of either.
+ * `actorDiscordId` and `actorLabel` are `""` when empty; `system` means neither applies.
  */
 export type Action = {
   kind: string
@@ -775,17 +615,9 @@ export type Action = {
 }
 
 /**
- * One config file under the mount.
+ * One config file under the mount, identified by `path` such as `smp/nordtal-smp/config.yml`.
  *
- * `path` is the identity - `steward-worker/steward.yml`, or `smp/nordtal-smp/config.yml` for a
- * plugin's file inside a server's data directory. It is what goes in a URL, and it is compared
- * against the list the backend found rather than resolved, which is why a `..` in it is a 404 and
- * not a question about decoding.
- *
- * `readable` and `writable` are both measured, not assumed, and they are two different failures.
- * A form that only finds out at Save that the file is read-only has wasted somebody's typing; a
- * row that opens into an error alert because the service may not read the file at all has wasted
- * their time and told them nothing. The listing asks before it draws.
+ * `readable` and `writable` are measured, so the listing can say before it draws.
  */
 export type ConfigLocation = {
   service: string
@@ -795,25 +627,21 @@ export type ConfigLocation = {
   writable: boolean
   /** Who wrote the file, by the plugins tab's Nordtal set. */
   origin?: "nordtal" | "third-party"
-  /** The plugin whose data folder holds it - Nordtal's by the plugins tab's name, any other by its folder. */
+  /** The plugin whose data folder holds it, by name if Nordtal's and by folder otherwise. */
   plugin?: string | null
 }
 
 /**
- * The allowed (or suggested) values of a setting, from its schema.
+ * The allowed or suggested values of a setting, from its schema.
  *
- * `strict` closes the list to exactly these values - the form draws a select and nothing else.
- * Otherwise it is a suggestion: a select beside a free-text field that still accepts anything.
+ * `strict` closes the list and draws a select; otherwise it suggests beside a free-text field.
  */
 export type ConfigChoices = {
   values: string[]
   strict: boolean
 }
 
-/**
- * Identifies the one section of a `SECTIONS` entry that a save must never be allowed to remove -
- * from the schema's `@Protected`, e.g. `{ field: "tag", value: "en" }` for `languages`.
- */
+/** The one section of a `SECTIONS` entry a save may never remove, from the schema's `@Protected`. */
 export type ConfigProtectedEntry = {
   field: string
   value: string
@@ -822,19 +650,7 @@ export type ConfigProtectedEntry = {
 /**
  * One key of a config file, as the form draws it.
  *
- * **`value` and `items` are absent for a secret and that is the point.** A key whose name says
- * credential - token, password, secret, key - is sent with `filled` alone, so the page can say
- * "set" without the bot token ever being in this browser. Typing a new one still works; it is
- * only reading the old one that does not.
- *
- * `filled` is sent for every key, secret or not, so there is one rule to draw rather than two.
- *
- * **Since jcore 4.0.0, `explanation` and `choices` come from the `<name>.schema.json`
- * beside the file, not from `comments` any more** - a file that generation of jcore wrote carries no
- * comments at all. `comments` is what is left for a file with no schema, or one nothing ever wrote a
- * schema for. `inSchema` is `true` whenever there is nothing to be missing from (no schema at all)
- * and `false` only when a schema exists here and does not mention this key - the file still wins
- * and the key is still sent, just marked.
+ * A secret carries `filled` alone, never `value` or `items`; `inSchema` is false only where a schema omits the key.
  */
 export type ConfigEntry = {
   path: string
@@ -843,71 +659,43 @@ export type ConfigEntry = {
   comments: string[]
   /** The schema's short `@Explain` text. Empty when no schema entry covers this key. */
   explanation: string
-  /** The schema says explicitly that this needs no explanation - draw no text, not empty text. */
+  /** The schema says this needs no explanation, so draw no text rather than empty text. */
   noExplanationNeeded: boolean
   filled: boolean
-  /** Absent when `secret`. A scalar's text; for a block scalar, with the newlines it holds. */
+  /** Absent when `secret`; a scalar's text, with a block scalar's newlines. */
   value?: string
-  /** Absent when `secret`. The entries of a LIST; empty for every other kind. */
+  /** Absent when `secret`; the entries of a LIST, empty for every other kind. */
   items?: string[]
-  /**
-   * **`SECTIONS` does not exist on the worker yet.** It is a sequence of mappings -
-   * `languages` in `discord-bot/access.yml` is the case this was invented for - and today's worker
-   * has no way to describe one: {@link ConfigFiles#collect} in `steward-worker` only recurses into
-   * a `MappingNode`, never into the items of a `SequenceNode`, so a list of sections currently
-   * arrives as an ordinary `LIST` with `items: []` (its scalars collector finds none) and
-   * `editable: false`. This value, and {@link template} and {@link sections} below, are this
-   * mechanism's frontend half, built so the worker side has a concrete shape to send
-   * once it exists.
-   */
+  /** A sequence of mappings, such as `languages` in `discord-bot/access.yml`, drawn as cards. */
   kind: "SCALAR" | "LIST" | "MAP" | "SECTIONS"
   type: "STRING" | "INTEGER" | "DECIMAL" | "BOOLEAN"
   line: number
   /** False for a nested section, which has no value, and for a list of sections. */
   editable: boolean
   secret: boolean
-  /** Whether the schema declares this key. Always `true` when the file has no schema at all. */
+  /** Whether the schema declares this key; always `true` when the file has no schema. */
   inSchema: boolean
   /**
-   * Whether an environment variable has taken this key over, so that editing the file here changes
-   * the file and not the running service.
+   * Whether an environment variable overrides this key, so editing the file does not change the service.
    *
-   * jcore's `ConfigHandle` overlays `NORDTAL_<PREFIX>_<PATH>` on load and never writes the value
-   * back; measured on this host, seven keys of `discord-bot`'s `access.yml` are overridden that
-   * way, `languages` among them. The field stays **editable** on purpose - the point is to be able
-   * to prepare the file for the day the variable goes - but it must say so, which is what this
-   * carries.
-   *
-   * Absent means the service did not say, not that it is unaffected: an older worker or service
-   * answers nothing here, and drawing "not overridden" from that would be the
-   * silent wrong answer this whole field exists to prevent.
+   * The field stays editable; absent means the service did not say, not that it is unaffected.
    */
   environmentOverridden?: boolean
   /** The schema's allowed or suggested values, or absent when it names none. */
   choices?: ConfigChoices
   /**
-   * For a `SECTIONS` entry: the schema's own shape of one section, in display order - the field set
-   * every existing section is drawn with, and the blank template a new "Add" starts from. Absent
-   * when the schema does not describe this list's shape closely enough to draw a card from (mixed
-   * shapes in one sequence) - the form then falls back to raw text rather than a card that would
-   * swallow whatever does not fit the first section it saw. Undefined for every other kind.
+   * For a `SECTIONS` entry: one section's fields in display order, and the blank template "Add" starts from.
+   *
+   * Absent when the sections have mixed shapes, so the form falls back to raw text.
    */
   template?: ConfigEntry[]
-  /**
-   * For a `SECTIONS` entry: one array of field entries per existing section, in file order, each
-   * shaped like {@link template}. Empty for an empty list. Undefined for every other kind.
-   */
+  /** For a `SECTIONS` entry: one field array per existing section, in file order. */
   sections?: ConfigEntry[][]
-  /**
-   * For a `SECTIONS` entry whose schema carries `@Protected`: which section must not
-   * be removed. The worker itself refuses that removal - see `ConfigFiles.removeSection` - so this
-   * is here for the interface to grey the option out up front rather than let an operator confirm a
-   * removal that only fails once it reaches the worker. Undefined when there is no such rule.
-   */
+  /** For a `SECTIONS` entry: the section the worker refuses to remove, so the option can be greyed out. */
   protectedEntry?: ConfigProtectedEntry
 }
 
-/** One announcement row, the SMP's or an admin's - `GET /api/announcements`. */
+/** One announcement row, the SMP's or an admin's: `GET /api/announcements`. */
 export type Announcement = {
   id: string
   language: string
@@ -925,9 +713,7 @@ export type Announcements = { recent: Announcement[] }
 /**
  * One role or channel of the guild, as the pickers offer it.
  *
- * `type` is Discord's own channel type and is absent for a role. It is carried rather than
- * interpreted here so the picker can group a category (type 4) apart from the channels under it -
- * "general" under Info and "general" under Season are two channels with one name.
+ * `type` is Discord's channel type, absent for a role, so a category groups apart from its channels.
  */
 export type GuildEntry = {
   id: string
@@ -938,10 +724,7 @@ export type GuildEntry = {
 /**
  * What the guild is made of, or why that could not be answered.
  *
- * **Never an error.** No bot token, an unreachable Discord and a rate limit all arrive here as
- * `available: false` with a sentence, because a configuration page whose pickers cannot be filled
- * is still a configuration page - the id can be typed. A 500 for this would be a bug report about
- * something working as designed.
+ * Never an error: without it the id can still be typed.
  */
 export type GuildList = {
   available: boolean
@@ -950,11 +733,9 @@ export type GuildList = {
 }
 
 /**
- * A file steward could not split into keys - a foreign file the worker's broadened `discover()`
- * finds (a plugin's `README.txt`, a `.properties` file), or a `.yml` with a mistake in it.
- * There is no `revision` and no `entries`: nothing here was parsed, so there is
- * nothing a save could be checked against. The interface shows the bytes as text and offers no
- * save button for them - `writable` on the location is beside the point.
+ * A file steward could not split into keys: a foreign file, or a `.yml` with a mistake in it.
+ *
+ * Nothing was parsed, so there is no revision and no save.
  */
 export type RawConfigDocument = ConfigLocation & {
   raw: true
@@ -965,12 +746,9 @@ export type RawConfigDocument = ConfigLocation & {
 export type ParsedConfigDocument = ConfigLocation & {
   raw?: never
   /**
-   * What the file said when it was read, and what the next save has to still be about.
+   * The revision the file was read at, which the save sends back.
    *
-   * It goes back out with the PUT. If somebody else wrote the file in between - a second admin, an
-   * hour of somebody reading the comments in a long form - the save is refused with a 409 rather
-   * than applying this browser's changes to a file it has not seen. Without it the later save wins
-   * silently and the earlier change is simply gone.
+   * A write in between makes the save a 409 instead of silently overwriting it.
    */
   revision: string
   header: string[]
@@ -979,39 +757,29 @@ export type ParsedConfigDocument = ConfigLocation & {
 
 export type ConfigDocument = RawConfigDocument | ParsedConfigDocument
 
-/**
- * What a PUT sends: a string is a scalar, a string array is a list, and an array of records is a
- * `SECTIONS` entry - one record per card, in order. None of the three are
- * interchangeable.
- */
-/** A value, a list of values, or a list of sections - which may hold lists of sections again. */
+/** What a PUT sends: a string is a scalar, a string array a list, a record array a `SECTIONS` entry. */
+/** A value, a list of values, or a list of sections, which may hold lists of sections again. */
 export type ConfigChangeValue = string | string[] | { [key: string]: ConfigChangeValue }[]
 export type ConfigChanges = Record<string, ConfigChangeValue>
 
 /**
- * One admin command the interface may ask for (concept §10b).
+ * One admin command the interface may ask for, as the backend lists it.
  *
- * The list comes from the backend rather than being written here, because it IS the set of
- * declarations carrying `Surface.WEB` - a copy in this file would be a second list to keep
- * truthful, and the failure mode is a button for a command nothing will run.
+ * The list is the declarations carrying `Surface.WEB`, so no copy is kept here.
  */
 export type AdminCommand = {
   name: string
   path: string[]
   target: string
   adminOnly: boolean
-  /** The adapters owe a confirmation on these. Here that means an AlertDialog. */
+  /** The adapters owe a confirmation on these; here that means an AlertDialog. */
   irreversible: boolean
   arguments: CommandArgument[]
 }
 
 export type CommandArgument = {
   name: string
-  /**
-   * ACCOUNT and REFERENCE are the two this interface fills from a list rather than a field -
-   * `/api/people` and `/api/payments/open`. Both are declared kinds and not names, so a command
-   * added later gets the picker without anybody remembering to wire it.
-   */
+  /** ACCOUNT and REFERENCE are filled from `/api/people` and `/api/payments/open` rather than a field. */
   kind: "WORD" | "GREEDY_STRING" | "INTEGER" | "PLAYER" | "CHOICE" | "ACCOUNT" | "REFERENCE"
   required: boolean
   min?: number
@@ -1020,10 +788,9 @@ export type CommandArgument = {
 }
 
 /**
- * One `access_request` row, as `GET /api/access/requests/{id}` answers it. The bot writes `result`
- * as a flat object of strings - `until` for a grant, `revoked` for a revoke, `unlinked` for an
- * unlink, `outcome`/`days`/`until`/`was` for a settle, `seconds` for a play time, `error` when it
- * failed.
+ * One `access_request` row, as `GET /api/access/requests/{id}` answers it.
+ *
+ * `result` is a flat object of strings the bot writes, with `error` when it failed.
  */
 export type AccessRequestRun = {
   id: string
@@ -1035,9 +802,7 @@ export type AccessRequestRun = {
 /**
  * What became of a request.
  *
- * PENDING and RUNNING both mean keep waiting and mean different things when the wait runs out: a
- * row nobody ever claimed is a target that is down, one claimed and never settled is a target that
- * is up and stuck. EXPIRED is therefore a diagnosis, not a failure.
+ * Out of time, PENDING means the target is down and RUNNING that it is stuck, so EXPIRED is a diagnosis.
  */
 export type CommandRun = {
   id: string
@@ -1046,7 +811,7 @@ export type CommandRun = {
   result?: string
 }
 
-/** `GET /api/smp/track` - the active milestones and their objectives, as the SMP holds them. */
+/** `GET /api/smp/track`: the active milestones and their objectives. */
 export type SmpTrack = {
   active: {
     key: string
@@ -1060,24 +825,15 @@ export type SmpTrack = {
   }[]
 }
 
-/** `GET /api/hunger-games/round` - the open round, or nothing when none is open. */
+/** `GET /api/hunger-games/round`: the open round, or nothing. */
 export type HungerGamesRound = {
   state?: "REGISTRATION" | "COUNTDOWN" | "RUNNING"
   registered?: number
 }
 
-/**
- *
- * steward-deployer: one question and one verb (§10a.4).
- *
- */
+/** steward-deployer: one question and one verb. */
 
-/**
- * Whether the recreate button may be drawn at all.
- *
- * Asked before anybody clicks, because a stack whose setup script has not run yet has no shared
- * secret for the deployer - and "not configured" is a different sentence from "broken".
- */
+/** Whether the recreate button may be drawn, since an unconfigured deployer is not a broken one. */
 export type DeployerState = {
   available: boolean
   /** Present only when `available` is false, and it is the whole explanation. */
@@ -1094,17 +850,14 @@ export type DeployerJob = {
   started: string
   finished?: string
   exitCode?: number
-  /** compose's own output, in order. Only `GET /api/deployer/jobs/{id}` carries it. */
+  /** compose's own output, in order; only `GET /api/deployer/jobs/{id}` carries it. */
   lines?: string[]
 }
 
 /**
  * Where one message bundle lives.
  *
- * `path` is `<service>/<module>`, or just `<service>` when the bundle sits directly in the
- * service's own jar rather than a plugin's - the identity `/api/messages/<path>` is called with.
- * `module` is `""` in that case, the same convention `ConfigLocation.service` uses for a file with
- * no service.
+ * `path` is `<service>/<module>`, or `<service>` with an empty `module` for a bundle in the service's own jar.
  */
 export type MessageBundleLocation = {
   service: string
@@ -1116,13 +869,7 @@ export type MessageBundleLocation = {
 /**
  * One key of a bundle, packaged text and operator override side by side.
  *
- * **The worker reads the packaged text out of the module's jar, never off disk** - disk only ever
- * holds an override, and almost nothing on a fresh deploy. `english`/`german` are therefore what
- * ships; `overrideEnglish`/`overrideGerman` are absent, not empty, when nothing overrides that
- * language - the same "absence is the signal" convention `ConfigEntry.value` uses for a secret.
- *
- * `inBundle` is `false` for a key an override file mentions that the packaged text does not (any
- * more) - the module was updated and an old override key is now stale rather than wrong.
+ * An override is absent, not empty, when none applies; `inBundle` is false for a stale override key.
  */
 export type MessageEntry = {
   key: string
@@ -1134,7 +881,7 @@ export type MessageEntry = {
   /** From the jar's `schema.json`; absent for a key the schema does not describe. */
   name?: string
   description?: string
-  /** The placeholders the text is filled with; `component` ones are written `<name>`, the rest `{name}`. */
+  /** The placeholders the text is filled with: `component` ones are `<name>`, the rest `{name}`. */
   args: MessageArg[]
   /** The names of the sections around the key, outermost first. */
   section: (string | null)[]
@@ -1144,10 +891,7 @@ export type MessageEntry = {
   shown?: string
 }
 
-/**
- * One placeholder. A role's property is dotted (`winner.name`) and carries its context `type`
- * (`player`); a `global` one (`server.name`, `season.number`) every message may use.
- */
+/** One placeholder: a role's is dotted (`winner.name`) with a context `type`, a `global` one fits any message. */
 export type MessageArg = {
   name: string
   component: boolean
@@ -1158,10 +902,7 @@ export type MessageArg = {
 /** `GET /api/message-examples`: an example value per context type and property, from real data. */
 export type MessageExamples = Record<string, Record<string, string>>
 
-/**
- * One named glyph of the resource pack, as `/glyphs/manifest.json` lists it: its texture sits next
- * to the manifest, `height` and `ascent` are in the pack's own pixels.
- */
+/** One named glyph of the resource pack; `height` and `ascent` are in the pack's own pixels. */
 export type GlyphInfo = {
   name: string
   codePoint: number
@@ -1190,51 +931,35 @@ export type MessageBundle = MessageBundleLocation & {
   entries: MessageEntry[]
 }
 
-/**
- * What a save answers: the bundle as it now reads, plus every dropped-placeholder warning.
- *
- * A warning never blocks the save - the response carries both the written
- * result and the sentence, rather than the interface having to infer one from the other.
- */
+/** What a save answers: the bundle as it now reads, plus every dropped placeholder warning, none blocking. */
 export type MessageSaveResult = MessageBundle & {
   warnings: string[]
   /**
-   * What became of asking the owning service to re-read what was just saved. `unknown` is the keys the override file declares that the bundle has never
-   * heard of; a typo there does nothing at all and says nothing at all, which is the only way a
-   * message can be edited and still not change.
+   * What became of asking the owning service to re-read the save.
+   *
+   * `unknown` lists override keys the bundle never heard of, where a typo silently does nothing.
    */
   reload?: BundleReloadOutcome
 }
 
 /**
- * `ConfigReloadOutcome` for a message bundle, with the one field a bundle has and a config has not.
+ * `ConfigReloadOutcome` for a message bundle, with the same three statuses.
  *
- * The three statuses are deliberately the same three and not a second vocabulary: the person
- * looking at the page sees the same three situations whichever editor they are in, and
- * `announceSave` already knows how to draw them. `NO_ANSWER` covers both a bot that never answered
- * and a bot that answered it could not re-read the file - both mean the row was written and the
- * text is not in force, and the `message` says which. `RESTART_REQUIRED` means nothing was asked of
- * anybody. A Minecraft service is asked through its console, the bot through its inbox.
+ * `NO_ANSWER` means the row is written but the text is not in force; `message` says why.
  */
 export type BundleReloadOutcome = ConfigReloadOutcome & {
   unknown: string[]
 }
 
-/**
- * What a PUT to `/api/messages/<path>` sends: both languages of a key in one call. `null` resets
- * that language of that key rather than filling it.
- */
+/** What a PUT to `/api/messages/<path>` sends: both languages of a key; `null` resets one. */
 export type MessageChanges = {
   changes: Record<string, { en?: string | null; de?: string | null }>
 }
 
 /**
- * What became of asking the affected service to pick up a just-saved change.
+ * What became of asking the affected service to pick up a saved change.
  *
- * The three values are deliberately not two: `APPLIED` and `NO_ANSWER` both mean a command was
- * sent, and must not be told apart only by reading `message` closely. `RESTART_REQUIRED` means
- * nothing was sent at all - there is no live command this file's own reload path would answer to,
- * so nothing here restarts anything on its own; that stays a deliberate click.
+ * `APPLIED` and `NO_ANSWER` both sent a command; `RESTART_REQUIRED` sent nothing.
  */
 export type ConfigReloadOutcome = {
   status: "APPLIED" | "NO_ANSWER" | "RESTART_REQUIRED"
@@ -1244,49 +969,26 @@ export type ConfigReloadOutcome = {
 /**
  * `ParsedConfigDocument` widened by two fields.
  *
- * `restartRequired` is on every GET as well as every PUT - the "no live reload reaches this file"
- * fact is a property of the file, known before anybody types anything, and shown at the file
- * rather than only after a save. `reload` exists only on a PUT's answer, because only a save asks
- * a service to do anything - reading a file asks nothing of it.
- *
- * Its own type rather than a change to `ParsedConfigDocument` itself: other work is landing in
- * this file tonight, and appending a new type is what stays out of its way.
+ * `restartRequired` is on every answer, `reload` only on a PUT's, since only a save asks anything.
  */
 export type ReloadAwareConfigDocument = ParsedConfigDocument & {
   restartRequired: boolean
   reload?: ConfigReloadOutcome
 }
 
-/**
- * `RawConfigDocument` widened with the revision the raw editor's save needs.
- *
- * `RawConfigDocument` itself stays with no revision and no save button, because
- * that was true of every raw document until the worker gained a write path for one. The
- * worker now sends `revision` on every raw document too (`ConfigApi#rawDocument`), computed the
- * same way a parsed file's is; this is its own type rather than a change to `RawConfigDocument`
- * for the same reason `ReloadAwareConfigDocument` is its own type above it - other work lands in
- * this file the same night, and appending stays out of its way.
- */
+/** `RawConfigDocument` widened with the revision the raw editor's save needs. */
 export type EditableRawConfigDocument = RawConfigDocument & {
   revision: string
 }
 
 /**
- * What `PUT /api/config-raw/<file>` answers: the file as it now reads, plus every
- * syntax warning the save found.
+ * What `PUT /api/config-raw/<file>` answers: the file as it now reads, plus every syntax warning.
  *
- * A warning never blocks the save - the same rule `MessageSaveResult` already carries for a
- * dropped placeholder. `warnings` is empty rather than absent when there was nothing to say, so a
- * caller never has to tell "no field" apart from "empty list".
+ * A warning never blocks the save, and `warnings` is empty rather than absent.
  */
 export type RawConfigSaveResult = EditableRawConfigDocument & {
   warnings: string[]
 }
 
-/**
- * The four formats the raw editor tells apart, by the file's own name - never its content, and
- * never guessed from what parsed and what did not. Mirrors `RawSyntax.Format` on the worker;
- * the two are independent (a frontend module cannot import a worker enum) and
- * agreeing is a matter of both reading the same four extensions, not of sharing code.
- */
+/** The four formats the raw editor tells apart by file name, mirroring `RawSyntax.Format` on the worker. */
 export type RawConfigFormat = "yaml" | "json" | "toml" | "properties" | "text"

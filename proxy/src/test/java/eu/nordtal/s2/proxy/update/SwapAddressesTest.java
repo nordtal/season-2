@@ -13,7 +13,7 @@ class SwapAddressesTest {
 
     @Test
     void theAddressStaysAName() {
-        // Unresolved on purpose: the transfer packet uses getHostName(), a blocking reverse lookup when resolved.
+        // Unresolved: the transfer packet uses getHostName(), a blocking reverse lookup when resolved.
         final InetSocketAddress address =
                 SwapAddresses.publicAddress("play.nordtal.eu:25565").orElseThrow();
         assertTrue(address.isUnresolved());
@@ -23,7 +23,7 @@ class SwapAddressesTest {
 
     @Test
     void thePortIsNotOptional() {
-        // A SRV record hides the port, and nothing looks one up for a transfer, so guessing 25565 could be wrong.
+        // A SRV record hides the port and nothing looks one up for a transfer, so 25565 would be a guess.
         assertEquals(Optional.empty(), SwapAddresses.publicAddress("play.nordtal.eu"));
         assertEquals(Optional.empty(), SwapAddresses.publicAddress("play.nordtal.eu:"));
         assertEquals(Optional.empty(), SwapAddresses.publicAddress("play.nordtal.eu:no"));
@@ -59,7 +59,7 @@ class SwapAddressesTest {
 
     @Test
     void theSamePortIsNoStandby() {
-        // PROXY_STANDBY_PORT and PROXY_PORT are two variables in one .env; equal by a keystroke moves nobody.
+        // PROXY_STANDBY_PORT and PROXY_PORT are two variables; equal ones would move nobody.
         final InetSocketAddress home =
                 SwapAddresses.publicAddress("play.nordtal.eu:25565").orElseThrow();
         assertFalse(SwapAddresses.standbyAddress(home, 25565).isPresent());

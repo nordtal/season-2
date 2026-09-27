@@ -20,73 +20,30 @@ import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Stop the servers, do the work, start them again, and prove they came back.
+ * Stops the servers, does the work, starts them again, and proves they came back.
  *
- * Why an update is one sequence and not three separate steps: a check, an install and a restart run independently
- * would install jars into {@code plugins/} while the servers are running - the running JVM's jar is replaced
- * underneath it and every class it has not yet loaded is gone. {@code onDisable} can die halfway through a live
- * deployment; what is lost is whatever state that shutdown hook was tearing down, up to and including a player's
- * inventory. The gap between stopping and starting is where jars are safe to move, and nothing but this class can
- * create one: a project-level redeploy does stop and start in a single request, which leaves no gap at all.
- *
- * What it will not do:
- *
- * - Begin without a container runtime. The very first thing is a read of the project's runtime, and a run that
- *   cannot read it stops there having touched nothing. Swapping anyway would be the defect this class exists to
- *   remove, performed as a fallback.
- * - Stop a server with nothing to install. An outage with nothing to show for it is worse than no update, and the
- *   plan already knows which services move.
- * - Stop itself. Steward-worker is in the same compose project, so a project-wide call would kill the process
- *   running this sequence - which is exactly why that shape could never report whether anything came back. Its own
- *   new jar is placed and picked up at its next start, the same way every other service's is.
- * - Roll back. A rollback that fails is the worst state of all, and a server that will not start needs somebody
- *   reading its log. The replaced jars are kept rather than deleted and the report names where.
+ * It never starts without a runtime, stops a server with nothing to install, stops itself or rolls back.
  */
 @Slf4j
 final class UpdateRun {
 
-    /**
-     * How long a service may take to come back before the run calls it a failure.
-     *
-     * Five minutes. A Paper server with a generated world takes well over a minute on a cold start, and the
-     * readiness marker this waits for is refreshed every 30 seconds - so the number has to leave room for a slow
-     * start plus a heartbeat, and still be short enough that somebody watching an embed learns something.
-     */
+    /** How long a service may take to come back before the run calls it a failure: a cold start plus a heartbeat. */
     static final Duration HEALTH_PATIENCE = Duration.ofMinutes(5);
 
-    /** How often the runtime is re-read while waiting. Cheap: one call over the local socket. */
+    /** How often the runtime is re-read while waiting: one call over the local socket. */
     private static final Duration HEALTH_POLL = Duration.ofSeconds(5);
 
     private final ContainerOps containers;
     private final Snapshots snapshots;
     private final Consumer<UpdateReport> progress;
 
-    /**
-     * Stops this run made, whose ending nobody could read, in the order they were made.
-     *
-     * Docker's stop call succeeds whether the container shut down or was killed at the end of the grace period, so
-     * {@code DockerOps#stop} inspects afterwards - and that inspect can itself fail, at which point this run has a
-     * stopped container and no idea whether the server finished writing. Refusing there would take the network
-     * down over an unreadable inspect, and calling it an ordinary success would make the report unusable. So the
-     * run carries on, and every archive it then writes gets a mark beside it naming what could not be confirmed:
-     * see {@link Snapshots#markUnverified}.
-     */
+    /** Stops this run made whose ending nobody could read, in order; see {@link Snapshots#markUnverified}. */
     private final List<String> unverifiedStops = new ArrayList<>();
 
     /**
-     * Services running the image they already had because the recreate could not be done.
+     * Services left on their old image because the recreate failed, each with the known half of its report line.
      *
-     * Each is kept with the half of its report line that was known before the wait.
-     *
-     * They are {@code FAILED} lines - the update did not happen - and they are also lines this process asked
-     * Docker to start, which is a different claim from "the service is back". {@link #start} only knows that the
-     * daemon accepted the request; a container that exits on the first tick or never passes its healthcheck is
-     * accepted just as readily. So the names are kept here and {@link #verify} waits for them on exactly the same
-     * healthcheck as everything else, and then finishes the sentence with which of the two happened.
-     *
-     * The first half is kept here rather than read back off the report line, because reading it back would make the
-     * finished sentence depend on nobody having rewritten that line in between - true today at all six call sites, and
-     * one edit away from a report that reads "null, and it is back on that old version".
+     * {@link #verify} waits for them like everything else, then finishes the sentence with what it saw.
      */
     private final Map<String, String> fellBack = new LinkedHashMap<>();
 
@@ -96,12 +53,7 @@ final class UpdateRun {
         this.progress = progress;
     }
 
-    /**
-     * Reads the project's runtime, or hands back the reason the run must not start.
-     *
-     * Called before anything is resolved, downloaded or moved. That ordering is the whole of decision Q14: an update
-     * that cannot stop a server has no safe way to continue.
-     */
+    /** Reads the project's runtime, or hands back the reason the run must not start, before anything moves. */
     RuntimeResult check() {
         return containers.runtime();
     }
@@ -109,9 +61,7 @@ final class UpdateRun {
     /**
      * Stops every service the report has work for, in the order the report lists them.
      *
-     * @return the services actually stopped, which is what {@link #start} and {@link #verify} act on - a service that
-     *     could not be stopped is not in it, because starting something that was never stopped is how one failure
-     *     becomes two
+     * @return the services actually stopped, which {@link #start} and {@link #verify} act on
      */
     Stopped stop(final UpdateReport planned, final RuntimeResult runtime) {
         UpdateReport report = planned.withStage(UpdateReport.Stage.STOPPING);
@@ -159,20 +109,10 @@ final class UpdateRun {
     }
 
     /**
-     * Saves every volume, with the servers already stopped.
-     *
-     * One at a time, and that is a change: The version that asked a panel over HTTP started every snapshot at once and
-     * then waited for all of them, because it was asking somebody else to do the work and could not do it faster by
-     * waiting differently. A local {@code tar} is this container's own CPU and this host's own disk: running eight of
-     * them at once would not shorten the outage, it would lengthen it by making them fight for the same disk. So they
-     * run in order, and the report shows each one finishing.
-     *
-     * Saved means a file exists, not that something was asked for: every line carries the size and the duration. A
-     * volume that produced nothing is FAILED even if every call succeeded, so a backup can never report success
-     * while having saved zero volumes.
+     * Saves every volume, one at a time, with the servers already stopped.
      *
      * @param volumes the Docker volume names, from {@code steward.yml#backup.volumes}
-     * @return the report with one line per volume, each {@code SAVED} or {@code FAILED}
+     * @return one line per volume, {@code SAVED} with size and duration, or {@code FAILED}
      */
     UpdateReport save(final UpdateReport stopped, final List<String> volumes) {
         UpdateReport report = stopped.withStage(UpdateReport.Stage.BACKING_UP);
@@ -189,7 +129,7 @@ final class UpdateRun {
             final SnapshotResult result = snapshots.save(volume);
             String detail = result.ok() ? null : result.message();
             if (result.ok() && result.file() != null && !unverifiedStops.isEmpty()) {
-                // The archive is kept: it is very probably fine, and somebody has to be told that before restoring it.
+                // The archive is kept: it is probably fine, and somebody must be told before restoring it.
                 final String why = "The servers were stopped for this backup and the end of "
                         + String.join(", ", unverifiedStops) + " could not be read back, so nothing"
                         + " here knows whether the world had finished saving. The archive is"
@@ -213,39 +153,25 @@ final class UpdateRun {
     /**
      * Which of this run's stops had an ending nobody could read, or empty when every one was clean.
      *
-     * Read by {@code Runner} to settle the run. A stop like this is not a failure of anything this process did - which
-     * is why the service line stays {@code STOPPED} - and a backup taken over it is still a real archive of a real
-     * volume. What it is not is something to report as an ordinary success: a green report over a backup nobody
-     * should have trusted. The run settles {@code FAILED}, so that nothing downstream - a report, a retention count,
-     * an operator reading the list - counts an archive nobody can vouch for as one.
+     * {@code Runner} settles such a run {@code FAILED}, so nothing downstream trusts its archives.
      */
     List<String> unverifiedStops() {
         return List.copyOf(unverifiedStops);
     }
 
     /**
-     * Starts everything this run stopped, and says so.
+     * Starts everything this run stopped, recreating each service whose image {@link ImageResult} calls outdated.
      *
-     * Two ways back up, and the image decides which: A {@code start} hands the container back to Docker on exactly the
-     * image it was created from. That is right for the ordinary case and wrong for the one where the image itself has
-     * moved: the jars would be new and {@code entrypoint.sh}, the JRE and every change to {@code compose.yml} would
-     * still be whatever was pulled at the last deploy. A service {@link ImageResult} calls outdated is therefore
-     * recreated - its image is pulled and the container is brought back up from that - and every other one is started
-     * exactly as before.
-     *
-     * The recreate is asked for one service at a time and reported before it is asked for, so a run that never comes
-     * back from one names it. That matters more here than anywhere else in this class: the call can take steward-worker
-     * down with it if compose considers it a diverged dependency, and then this line is the last thing written.
+     * Each recreate is reported before it is asked for, so a run that never returns from one names it.
      */
     UpdateReport start(final Stopped state) {
         return start(state, ImageResult.of(java.util.Map.of()));
     }
 
     /**
-     * @param images which services are running a stale image and must be recreated rather than
-     *               started. Empty on every path that is putting the network back the way it was -
-     *               an abort, a restart, a backup: all three promise to change no version, and
-     *               pulling an image during one would change the biggest version there is
+     * Starts everything this run stopped.
+     *
+     * @param images the services to recreate on a newer image; empty on every path that promises no version change
      */
     UpdateReport start(final Stopped state, final ImageResult images) {
         UpdateReport report = state.report().withStage(UpdateReport.Stage.STARTING);
@@ -276,9 +202,9 @@ final class UpdateRun {
         return report;
     }
 
-    // A recreate this process cannot do is not a reason to leave a server off: the old image is put back.
+    // A recreate this process cannot do is no reason to leave a server off: the old image is put back.
     private UpdateReport startOutdated(final UpdateReport before, final Stopped state, final String service) {
-        // Written before the call: a recreate that never returns leaves this as the report's last word.
+        // Written before the call, so a recreate that never returns leaves this as the report's last word.
         final UpdateReport report = before.with(before.line(service)
                 .at(UpdateReport.State.STARTING)
                 .withDetail("pulling its image and recreating the container"));
@@ -307,12 +233,7 @@ final class UpdateRun {
     }
 
     /**
-     * Waits until every started service reports back, or says which one did not.
-     *
-     * Running is not back: a container whose plugin threw in {@code onEnable} is {@code running} with an open port
-     * and no season on it. What is waited for is the healthcheck, which reads the readiness marker every one of the
-     * five processes writes and refreshes; see {@code common/…/health/Readiness.java}. This is the first thing in
-     * the network that reads that evidence and can act on it.
+     * Waits until every started service passes its healthcheck, or says which one did not.
      *
      * @param clock how "now" is told, so the wait can be driven in a test without sleeping
      */
@@ -404,17 +325,12 @@ final class UpdateRun {
     /** What {@link #stop} produced, carried to the two steps after it. */
     record Stopped(UpdateReport report, List<String> services, RuntimeResult runtime) {}
 
-    /**
-     * The clock and the wait, as one seam.
-     *
-     * Only so that {@link #verify} can be driven without five real minutes passing. The real one sleeps; the test one
-     * advances an instant and answers immediately, which is what makes the timeout branch reachable at all.
-     */
+    /** The clock and the wait, as one seam, so {@link #verify}'s timeout can be tested without real minutes. */
     interface Waiting {
 
         Instant now();
 
-        /** @return false when interrupted, which ends the wait rather than swallowing it */
+        /** Sleeps, and returns false when interrupted, which ends the wait rather than swallowing it. */
         boolean sleep(Duration duration);
 
         static Waiting real() {

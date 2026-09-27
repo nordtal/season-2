@@ -8,10 +8,8 @@ import javax.imageio.ImageIO
 /**
  * How far every glyph of one font moves the cursor, derived from the font file and its PNGs the way the client does.
  *
- * A `space` provider's number, or a bitmap cell's rightmost column with any alpha, plus one for that
- * column and one the client adds after every glyph, scaled by `height / cellHeight`. The first
- * provider to declare a code point wins. `PackAdvances` in `:common`'s tests applies the same rule
- * independently, so the two implementations hold each other.
+ * A `space` provider's number, or a bitmap cell's rightmost alpha column plus two, scaled by
+ * `height / cellHeight`. The first provider to declare a code point wins.
  */
 object GlyphAdvances {
     /** @return code point to advance for the font [font], whose textures resolve against [assets] */

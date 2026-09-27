@@ -22,14 +22,6 @@ import { SegmentEditor } from "@/app/designs/translations/segment-editor"
 import { SourceEditor } from "@/app/designs/translations/source-editor"
 import { VisualEditor } from "@/app/designs/translations/visual-editor"
 
-/**
- * The three translation editors, on real bundles, saving through the same API the service page
- * uses: A types into the text as it looks, B edits the source with its syntax coloured, C builds
- * the text piece by piece. All three edit one text, so switching between them mid-edit loses
- * nothing - which is also the fairest way to compare them. Deleted with the rest of
- * `app/designs/` once one is picked.
- */
-
 type Editor = "visual" | "source" | "segments"
 
 export type TranslationsSearch = { bundle?: string; key?: string; editor?: Editor; lang?: Language }
@@ -53,6 +45,11 @@ const EDITORS: { value: Editor; mark: string; name: string }[] = [
   { value: "segments", mark: "C", name: "Pieces" },
 ]
 
+/**
+ * The three translation editors on real bundles: A visual, B source, C segments, all editing one text.
+ *
+ * Switching mid-edit loses nothing. Deleted with the rest of `app/designs/` once one is picked.
+ */
 export function TranslationsPage() {
   const search = useSearch({ from: "/designs/translations" })
   const navigate = useNavigate({ from: "/designs/translations" })
@@ -268,11 +265,9 @@ function Workbench({
 }
 
 /**
- * The runs an editor edits, kept next to the text rather than re-read from it on every key: the
- * segment list must not merge rows under the author's finger, and the caret mapping must see the
- * runs it drew. They are re-read only when the text changed from outside - another editor, Undo.
- * A text whose runs read the same as what was stored is written back as it was stored, so opening
- * and closing a text in the visual editor never rewrites how its tags are nested.
+ * The runs an editor edits, kept beside the text so rows do not merge under the caret.
+ *
+ * Re-read only when the text changes from outside; runs equal to the stored ones write back the stored text unchanged.
  */
 function useRuns(
   text: string,

@@ -8,20 +8,11 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The bot's inbox for access changes, carried out by the only process holding a Discord session.
- *
- * A request is a row plus a {@code pg_notify}, so it survives a restarting bot; the poll is the guarantee.
- * Every row expires: {@link #claim()} refuses a row past it and {@link #outcome(long)} writes {@code EXPIRED}.
+ * A request is a row plus a {@code pg_notify}; every row expires, and the poll is the guarantee.
  */
 public interface AccessRequests {
 
-    /**
-     * How long a request waits for the bot before it is given up on.
-     *
-     * Two minutes, the same patience {@code command_request} has. It is a constant rather than a
-     * setting for the reason {@code Channels} gives about its own: nothing is gained by making it
-     * settable, and what is lost is being able to tell a misconfigured deployment from a working
-     * one. A surface that needs its own can pass one to {@link #submit(NewAccessRequest, Duration)}.
-     */
+    /** How long a request waits for the bot before it is given up on. */
     Duration PATIENCE = Duration.ofMinutes(2);
 
     /** What a surface hands in. */
@@ -41,7 +32,7 @@ public interface AccessRequests {
             return new NewAccessRequest(kind, subject, null, source, requestedBy);
         }
 
-        /** The two that do - days for a grant, seconds for a play time. */
+        /** The two that do: days for a grant, seconds for a play time. */
         public static NewAccessRequest of(
                 final AccessRequestKind kind,
                 final String subject,
@@ -57,44 +48,41 @@ public interface AccessRequests {
         return new JdbiAccessRequests(dataSource);
     }
 
-    /** Write a request and wake the bot. */
+    /** Writes a request and wakes the bot. */
     AccessRequest submit(NewAccessRequest request);
 
-    /** The same, with a patience of this caller's own instead of {@link #PATIENCE}. */
+    /** Writes a request with a patience of this caller's own instead of {@link #PATIENCE}. */
     AccessRequest submit(NewAccessRequest request, Duration patience);
 
     /** Claims the oldest unexpired request; call it until empty, as one notification may stand for several. */
     Optional<AccessRequest> claim();
 
     /**
-     * Settle a claimed request.
+     * Settles a claimed request.
      *
-     * @param ok     whether it was carried out; {@code false} records it as {@code FAILED}
-     * @param result what happened, as JSON - the row carries its own answer so that no surface
-     *               composes a second rendering of it
+     * @param ok whether it was carried out; {@code false} records it as {@code FAILED}
+     * @param result what happened, as JSON, so no surface composes a second rendering of it
      */
     void finish(long id, boolean ok, String result);
 
     /**
-     * What became of a request, or empty if there is no such row.
-     *
-     * Expires the overdue first, which is what makes a row stop waiting when the bot is not
-     * running at all.
+     * Returns what became of a request, or empty if there is no such row.
+     * It expires the overdue first, so a row stops waiting even when the bot is down.
      */
     Optional<AccessRequest> outcome(long id);
 
-    /** Every row still waiting, oldest first - what a listener reads on every wake-up. */
+    /** Returns every row still waiting, oldest first, which a listener reads on every wake-up. */
     List<AccessRequest> pending();
 
     /**
-     * Give up on every pending row whose patience has run out.
+     * Gives up on every pending row whose patience has run out.
      *
      * @return how many rows this call expired
      */
     int expireDue();
 
     /**
-     * Delete every settled request older than {@code age}.
+     * Deletes every settled request older than {@code age}.
      *
      * @return how many rows went
      */

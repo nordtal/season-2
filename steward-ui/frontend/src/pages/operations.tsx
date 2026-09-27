@@ -43,24 +43,12 @@ import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /**
- * The vocabulary of a run, shared by Updates, Backups and a service's own page (concept §10a).
+ * The vocabulary of a run, shared by Updates, Backups and a service's own page.
  *
- * **A run is a row in `update_request`, never a call to a container.** Every button here writes one
- * and stops; the worker claims it once `not_before` has passed. That is what makes a run
- * schedulable and what puts a countdown in front of every player before anything is stopped - and
- * it is why the toasts below speak of a row being written rather than of an update having started.
+ * A run is a row in `update_request`, never a call to a container; the worker claims it.
  */
 
-// --- the vocabulary of a report
-
-/**
- * The stages in the order `UpdateReport.Stage` declares them, without the four endings.
- *
- * Shown in full for every kind rather than filtered per kind. Which stages a BACKUP walks and which
- * an UPDATE walks is the worker's decision, and a trail that guessed it would be quietly wrong on
- * the day the worker changes - so the trail shows all of them and the line underneath says that not
- * every run passes every one.
- */
+/** The stages in `UpdateReport.Stage` order, without the four endings, shown in full for every kind. */
 const TRAIL = [
   "RESOLVING",
   "PLANNED",
@@ -87,17 +75,10 @@ const STAGE_LABEL: Record<string, string> = {
   CANCELLED: "Cancelled",
 }
 
-/** The four stages a run stops at. `NOTHING_TO_DO` is one of them and is not a kind of "done". */
+/** The four stages a run stops at; `NOTHING_TO_DO` is not a kind of "done". */
 export const ENDINGS = new Set(["DONE", "NOTHING_TO_DO", "FAILED", "CANCELLED"])
 
-/**
- * `NOTHING_TO_DO` is grey, not green, and that is the whole point of this function.
- *
- * A run that found nothing to do stopped no server and installed nothing. Painting it in the same
- * colour as a finished update makes the two indistinguishable in a list - and the difference
- * between "it was updated" and "there was nothing to update" is exactly what somebody scanning
- * this table is looking for.
- */
+/** Grey for `NOTHING_TO_DO`, so a run that changed nothing never looks like a finished update. */
 function stageTone(stage: string): Tone {
   if (stage === "DONE") return "ok"
   if (stage === "FAILED") return "down"
@@ -122,20 +103,14 @@ const LINE_STATE: Record<string, { label: string; tone: Tone }> = {
 
 function LineState({ state }: { state: string }) {
   const known = LINE_STATE[state]
-  /**
-   * An unknown state keeps its enum name rather than disappearing: a worker newer than this jar is
-   * a thing to notice, not a thing to hide behind a neutral badge with no text.
-   */
+  /** An unknown state keeps its enum name, so a newer worker is noticed rather than hidden. */
   return <StatusBadge tone={known?.tone ?? "idle"}>{known?.label ?? state}</StatusBadge>
 }
 
 /**
  * One artefact, and what is happening to it.
  *
- * `UpdateReport.Change.State` has exactly two values, MOVING and UNSUPPORTED, and `to` carries the
- * sentinel `"-"` for the second one. (`src/lib/api.ts` calls the second value UNCHANGED in a
- * comment; the enum in `:common` has no such value. This branches on what the worker actually
- * writes and falls through to the raw words for anything a newer one might add.)
+ * Branches on MOVING and UNSUPPORTED, whose `to` is `"-"`, and shows the raw words for anything newer.
  */
 function Change({ change }: { change: ReportChange }) {
   if (change.state === "UNSUPPORTED") {
@@ -146,11 +121,7 @@ function Change({ change }: { change: ReportChange }) {
     )
   }
   return (
-    /**
-     * `flex-wrap`: MEASURED at 390px on a run's own page. A jar name, the old
-     * version, an arrow and the new one is 180px of unbreakable content more than the card has,
-     * and a flex row with nowhere to break puts the last two off the right edge of the phone.
-     */
+    /** `flex-wrap`, so a long jar name and both versions wrap instead of leaving a phone's edge. */
     <span className="flex flex-wrap items-center gap-1.5">
       <code className="text-xs">{change.artefact}</code>
       {change.from ? (
@@ -166,21 +137,13 @@ function Change({ change }: { change: ReportChange }) {
   )
 }
 
-/**
- * A fingerprint rather than a version: forty hex characters and nothing else.
- *
- * The resource pack is the artefact this exists for. It has no version - its
- * hash IS its version - so the worker reports the SHA-1 that was installed
- * before the run, and forty characters of it used to sit in the middle of a table cell on a phone.
- */
+/** A fingerprint rather than a version, as the resource pack reports its SHA-1. */
 const FINGERPRINT = /^[0-9a-f]{32,64}$/i
 
 /**
  * What was there before this change: a version, or the first eight characters of a fingerprint.
  *
- * Shortened rather than dropped. Which pack was on the proxy is the one fact a report can offer
- * about a pack, and it is what tells two runs of the same release apart; the whole hash is on the
- * title, where somebody comparing it against `pack.yml` can still reach it.
+ * The whole hash is on the title.
  */
 function Was({ value }: { value: string }) {
   if (!FINGERPRINT.test(value)) {
@@ -196,17 +159,13 @@ function Was({ value }: { value: string }) {
 /**
  * Whether a change row is a file actually moving.
  *
- * Deliberately not `state === "MOVING"`. `UpdateReports` omits the field entirely when it is MOVING
- * and writes it only for UNSUPPORTED - measured against real runs in this host's database -
- * while steward-ui parses that JSON into the record and re-writes it through Gson,
- * which puts the field back. "Anything that is not UNSUPPORTED" is true of both shapes; a literal
- * comparison is true of one of them, and silently counts nothing on the other.
+ * Not `state === "MOVING"`, since the worker omits the field for MOVING and a Gson round trip puts it back.
  */
 function isMoving(change: ReportChange): boolean {
   return change.state !== "UNSUPPORTED"
 }
 
-/** How long a run took - or, while it is still going, how long it has been going. */
+/** How long a run took, or how long it has been going so far. */
 export function runSeconds(run: Run): number | null {
   const started = parseInstant(run.started)
   if (started == null) return null
@@ -215,19 +174,9 @@ export function runSeconds(run: Run): number | null {
 }
 
 /**
- * Whether this row is one the backend would still take back.
+ * Whether the backend would still take this row back.
  *
- * THE SAME CONDITION AS THE SQL, and it has to stay that way: `UpdateDirectory#cancelCountdown`
- * takes `status IN ('PENDING','RUNNING') AND kind IN ('RESTART','UPDATE','BACKUP','DOWN') AND
- * not_before > now()`. A button drawn under any wider rule is a button that answers "too late" -
- * which is honest, but it is a tap somebody made for nothing.
- *
- * The moment is the row's own `not_before`, not its age: a run entered for tonight sits PENDING
- * for hours and is cancellable the whole time, while one whose countdown has run out is RUNNING
- * with its moment in the past and is not. Those two look the same in every other column.
- *
- * `now` is a parameter because this is the piece with arithmetic in it and the page has to draw
- * the same answer as the backend a second later.
+ * Must match `UpdateDirectory#cancelCountdown`: a cancellable kind, PENDING or RUNNING, `not_before` ahead.
  */
 export function cancellable(run: Run, now = new Date()): boolean {
   if (run.status !== "PENDING" && run.status !== "RUNNING") return false
@@ -236,29 +185,14 @@ export function cancellable(run: Run, now = new Date()): boolean {
   return moment !== null && moment.getTime() > now.getTime()
 }
 
-/**
- * The kinds a countdown is run for, and therefore the only ones there is a window to cancel in.
- *
- * REPORT and START stop nothing and are over before anybody could press anything; APPLY was
- * retired. The worker's SQL lists these four by name, so this list is a mirror rather than a
- * judgement - if one is ever added there, it is added here.
- */
+/** The kinds a countdown runs for, mirroring the list in the worker's SQL. */
 const CANCELLABLE_KINDS = new Set(["RESTART", "UPDATE", "BACKUP", "DOWN"])
 
-/**
- * What a run did, one fact per line in the table's Result cell.
- *
- * Counted out of the report rather than taken from a sentence, because there is no sentence: the
- * worker writes structure and every surface renders its own summary (`UpdateReport`'s own comment
- * says so).
- *
- * Each fact gets its own line rather than a shared one joined with a middle dot -
- * that separator is ruled out of the UI entirely.
- */
+/** What a run did, one fact per line, counted out of the report since the worker writes no sentence. */
 export function summaryOf(run: Run): string[] {
   if (run.resultText) return ["report unreadable"]
   const report = run.report
-  if (!report) return [run.status === "PENDING" ? "nothing written yet" : "–"]
+  if (!report) return [run.status === "PENDING" ? "nothing written yet" : "\u2013"]
   if (report.stage === "NOTHING_TO_DO") return ["nothing to do"]
 
   const parts: string[] = []
@@ -287,18 +221,13 @@ const SOURCE_LABEL: Record<string, string> = {
   CONSOLE: "Interface/console",
 }
 
-// --- asking for a run
-
 type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
 
 const ASKS: Record<Kind, { title: string; what: string; warning?: string; icon: typeof ArrowsClockwiseIcon }> = {
   UPDATE: {
     title: "Update",
     what: "Stops what changes, swaps its jars and starts it again.",
-    /**
-     * Its own symbol, not Recreate's: the two sit side by side on a service page, and a button
-     * that looks like another one is a risk on a phone.
-     */
+    /** Its own symbol, so it is not mistaken for Recreate beside it on a service page. */
     icon: ArrowCircleUpIcon,
   },
   BACKUP: {
@@ -329,9 +258,7 @@ const ASKS: Record<Kind, { title: string; what: string; warning?: string; icon: 
 /**
  * One button, one confirmation: Now or Cancel.
  *
- * The dialog is not a formality - all of these stop servers - so it names what will happen in at
- * most two short lines before it happens. A run for later is the backend's `not_before`, which
- * carries the countdown; this page no longer offers one.
+ * Every run stops servers, so the dialog names what will happen in at most two short lines.
  */
 export function AskButton({
   kind,
@@ -347,10 +274,7 @@ export function AskButton({
 }: {
   kind: Kind
   variant?: "default" | "outline"
-  /**
-   * Which compose services this run is for. Left off for the whole network,
-   * which is what every button on /operations means.
-   */
+  /** The compose services this run is for; left off for the whole network. */
   services?: string[]
   /** Overrides the button's own word, for a page where "Update" alone would be ambiguous. */
   label?: string
@@ -358,10 +282,7 @@ export function AskButton({
   /** Lets a page hide the word below a breakpoint; the button keeps it as its accessible name. */
   labelClassName?: string
   className?: string
-  /**
-   * The dialog, steerable from outside: the service page's ⋯ menu opens the same
-   * confirmation a button would, rather than a second copy of it.
-   */
+  /** The dialog's open state, so the service page's ⋯ menu opens the same confirmation. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
   /** `false` draws the dialog alone, for a caller that opens it from somewhere else. */
@@ -435,19 +356,9 @@ export function AskButton({
 }
 
 /**
- * Taking a run back, on the row it belongs to.
+ * Taking a run back, on its row, without a confirmation since it undoes one.
  *
- * **No confirmation in front of it.** Every other button on this page opens a dialog because every
- * other button starts something; this one undoes what a dialog already asked about. A second "are
- * you sure" in front of an undo is a countdown running out while somebody reads it.
- *
- * It sits beside the status badge rather than in a column of its own: the button is only there for
- * one row at a time, and an eighth column would be an empty cell on every other row - which on a
- * phone, where each row is a card and a cell is a line, is seven blank lines.
- *
- * The 409 is a normal answer, not a failure of this interface: between the tap and the request the
- * countdown can run out, and then nothing was cancelled and nothing was broken either. The backend
- * sends the sentence; it is shown as it came.
+ * A 409 means the countdown ran out first; the backend's sentence is shown as it came.
  */
 export function CancelButton({ run }: { run: Run }) {
   const cancel = useCancelRun()
@@ -477,13 +388,10 @@ export function CancelButton({ run }: { run: Run }) {
   )
 }
 
-// --- /operations/updates/$id
-
 /**
- * One run, drawn rather than dumped - every kind but BACKUP, which has its own page under Backups.
+ * One run, drawn rather than dumped, for every kind but BACKUP.
  *
- * `useRun` polls every two seconds while the run is unfinished and stops by itself, so the report
- * grows on screen without a socket or an interval of this page's own.
+ * `useRun` polls while the run is unfinished, so the report grows on screen.
  */
 export function UpdateRunPage() {
   const { id } = useParams({ from: "/operations/updates/$id" })
@@ -510,10 +418,7 @@ export function UpdateRunPage() {
           note={`"${id}" is not a number. A run is addressed by the number of its row.`}
         />
       ) : (
-        /**
-         * The worker answers a missing row with a 404, which arrives as a failure with the number
-         * in it, and an answered query with no body is not a state this route can produce.
-         */
+        /** A missing row arrives as a 404 failure, and an answered query always has a body. */
         <QueryState query={run}>{(data) => <RunDetail run={data} />}</QueryState>
       )}
     </div>
@@ -628,10 +533,7 @@ function RunDetail({ run }: { run?: Run }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {!run ? (
-            /**
-             * The card keeps its place while the row is read: it is the tallest thing on the page,
-             * and a Report card that appears after the head above it would move the whole page.
-             */
+            /** A placeholder the size of the Report card, so the page does not jump when it loads. */
             <Loading rows={4} />
           ) : run.resultText ? (
             <>
@@ -662,23 +564,15 @@ function RunDetail({ run }: { run?: Run }) {
 }
 
 /**
- * Which stations a finished run of each kind really walked.
+ * The stages a finished run of each kind walked, since its report keeps only the last one.
  *
- * A finished run's report keeps only its last stage, so the trail behind it has to be derived -
- * and it used to be derived as "all", which drew a completed backup as having passed through
- * "Resolving" and "Installing". Neither is something a backup does: `RESOLVING` and `INSTALLING`
- * belong to an update (`Runner#update`), `BACKING_UP` to a backup (`Runner#backup`, the one caller
- * of `UpdateRun#save`), and a restart walks none of the three.
- *
- * A run that ended any other way than DONE gets no ticks at all. `NOTHING_TO_DO` stopped nothing
- * and installed nothing, and a `FAILED` or `CANCELLED` run stopped somewhere this report no longer
- * says - and a grey trail is the honest shape of "not known".
+ * A run that did not end DONE gets no ticks, because where it stopped is no longer known.
  */
 const WALKED: Record<string, ReadonlySet<string>> = {
   UPDATE: new Set(TRAIL),
   BACKUP: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "BACKING_UP", "STARTING", "VERIFYING"]),
   RESTART: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
-  // A DOWN ends at STOPPING and never walks the starting half - that is the whole of what it is.
+  // A DOWN ends at STOPPING and never walks the starting half.
   DOWN: new Set(["PLANNED", "COUNTDOWN", "STOPPING"]),
   START: new Set(["STARTING", "VERIFYING"]),
 }
@@ -692,10 +586,7 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
   return (
     <ol className="flex flex-wrap items-center gap-x-2 gap-y-3">
       {TRAIL.map((step, index) => {
-        /**
-         * A running run has walked everything before its current stage. A finished one has walked
-         * what its kind walks - which is not all of them, and not anything at all unless it is DONE.
-         */
+        /** A running run has walked everything before its stage; a finished one what its kind walks, if DONE. */
         const past = ending ? (walked?.has(step) ?? false) : reached >= 0 && index < reached
         const now = index === reached
         return (
@@ -755,13 +646,10 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
             <TableCell data-label="State">
               <LineState state={line.state} />
             </TableCell>
-            {/* `whitespace-normal`: the Table component puts `whitespace-nowrap` on every cell,
-                which is right for a service name and wrong for a list of them. MEASURED
-                2026-09-14 at 1440px: a failed run of proxy drew this table 1922px wide
-                on a 1440px screen, because six artefact changes were one unbreakable line. */}
+            {/* `whitespace-normal`, so a long list of changes wraps instead of widening the table. */}
             <TableCell data-label="Changes" className="whitespace-normal">
               {line.changes.length === 0 && !line.detail ? (
-                <span className="text-muted-foreground">–</span>
+                <span className="text-muted-foreground">{"\u2013"}</span>
               ) : (
                 <div className="flex flex-col gap-1 py-1.5">
                   {line.changes.map((change) => (
@@ -784,7 +672,7 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
   )
 }
 
-/** What the report has to say that hangs on no service: the pack, the migration, the reason. */
+/** What the report says that belongs to no service: the pack, the migration, the reason. */
 export function Notes({ notes }: { notes: string[] }) {
   if (notes.length === 0) return null
   return (
@@ -801,13 +689,7 @@ export function Notes({ notes }: { notes: string[] }) {
   )
 }
 
-/**
- * Copy to clipboard, with the failure spelled out rather than swallowed.
- *
- * `navigator.clipboard` only exists in a secure context. Behind Caddy that is always true, but a
- * button that silently does nothing on the one day it is not would be worse than no button - so the
- * command stays selectable in the block beside it and a failure says why.
- */
+/** Copy to clipboard, with a failure spelled out, since `navigator.clipboard` needs a secure context. */
 export function CopyButton({ text, disabled }: { text: string; disabled?: boolean }) {
   const [copied, setCopied] = useState(false)
 

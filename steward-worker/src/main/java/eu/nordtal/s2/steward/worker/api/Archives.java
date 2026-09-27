@@ -19,14 +19,13 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** The backup list, one archive's download, and the console's log capacity - split out of {@link WorkerApi}. */
+/** The backup list, one archive's download, and the console's log capacity. */
 final class Archives {
 
     private static final Logger log = LoggerFactory.getLogger(Archives.class);
 
     private Archives() {}
 
-    /** Every row of the backup list, newest first. */
     static List<Map<String, Object>> list(final Path backups) {
         final List<Map<String, Object>> all = new ArrayList<>();
         if (!Files.isDirectory(backups)) {
@@ -45,19 +44,9 @@ final class Archives {
     }
 
     /**
-     * Streams one archive or dump out of {@code backups}, for the backup detail page.
+     * Streams one archive or dump out of {@code backups}, never buffered.
      *
-     * Two checks, not one: {@link TarSnapshots#isFinishedArchive} refuses anything that is not a finished archive
-     * name - but that regex's {@code .} matches a {@code /} exactly as readily as any other character, so
-     * {@code ../../etc/passwd-20260913T044507Z.tar.zst} matches it too (proven in {@code TarSnapshotsTest}). The
-     * second check is the one that actually stops that: resolve the name against {@code backups} and refuse
-     * anything whose normalised path has left that directory. Neither check alone is the defence; both together are.
-     *
-     * Streamed, never buffered: These files are hundreds of megabytes, so the body is an open
-     * {@link java.io.InputStream} handed to {@code ctx.result} rather than a byte array read in full first.
-     * Javalin's own documentation says {@code ctx.result(InputStream)} writes and closes the stream for the
-     * caller; that was not independently re-verified against the Javalin 7.2.3 jar in this session and is worth
-     * a second look before this route sees real traffic.
+     * The name must match a finished archive and resolve inside {@code backups}; the regex alone lets {@code ../} in.
      */
     static void download(final Context ctx, final Path backups, final String name) {
         if (!TarSnapshots.isFinishedArchive(name)) {
@@ -66,7 +55,7 @@ final class Archives {
         final Path resolved = backups.resolve(name).normalize();
         final Path parent = resolved.getParent();
         if (!resolved.startsWith(backups.normalize()) || parent == null || !parent.equals(backups.normalize())) {
-            // Never reached by a plain filename - the second, independent check the javadoc above promises.
+            // Never reached by a plain filename: the second, independent check.
             throw new BadRequestResponse("not the name of a finished backup: " + name);
         }
         if (!Files.isRegularFile(resolved)) {
@@ -115,18 +104,7 @@ final class Archives {
     /**
      * One row of the archive list, or nothing if that entry is not a file any more.
      *
-     * One stat, not four: This used to ask the filesystem five separate questions about one path -
-     * {@code isRegularFile}, {@code size} twice, {@code getLastModifiedTime} - and a backup directory is the one
-     * place where the answers genuinely change between them. The writer grows the {@code .partial} while this
-     * runs and renames it over the finished name when done, so the old code could report {@code bytes} from one
-     * moment and {@code human} from another: a row reading "8 294 001 bytes (7.6 MB)" where the two halves
-     * disagree. Read once, report that one moment.
-     *
-     * An entry that vanished loses its row, not the listing: The same rename makes a path from the directory
-     * stream disappear before it can be read, and {@code Files.size} on it throws. Thrown out of the loop, that
-     * turned "one archive finished while you were looking" into an empty backup page - read by an admin as "the
-     * backups are gone". It is the most ordinary moment there is in that directory, so it ends the entry and
-     * nothing more.
+     * One stat per entry, so a file growing or renamed meanwhile cannot yield a row that disagrees with itself.
      */
     static Optional<Map<String, Object>> row(final Path entry) {
         final BasicFileAttributes attributes;
@@ -143,7 +121,7 @@ final class Archives {
         row.put("bytes", attributes.size());
         row.put("human", SnapshotResult.human(attributes.size()));
         row.put("modified", attributes.lastModifiedTime().toInstant().toString());
-        // A .partial is running now or died halfway - showing it is the point; hiding it would be a lie.
+        // A .partial is running now or died halfway, and showing it is the point.
         row.put("partial", entry.getFileName().toString().endsWith(".partial"));
         return Optional.of(row);
     }

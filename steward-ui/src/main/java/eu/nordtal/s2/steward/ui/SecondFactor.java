@@ -54,12 +54,7 @@ final class SecondFactor {
         return Objects.requireNonNull(webauthn, "no database - this route is not available without one");
     }
 
-    /**
-     * The door in front of everything this interface can do.
-     *
-     * An account with no registered key reaches {@code /api/me} and nothing else, and the refusal
-     * is a 403 with a machine-readable code rather than a 401, since the caller is already signed in.
-     */
+    /** Refuses an account with no registered key, which reaches only {@code /api/me}, with a 403 and a code. */
     void requireAKey(final Sessions.Session who) {
         if (credentials == null || credentials().any(who.signedInDiscordId())) {
             return;
@@ -67,12 +62,7 @@ final class SecondFactor {
         throw new SecondFactorMissing();
     }
 
-    /**
-     * The key has to have been held in this session, not merely registered.
-     *
-     * Refuses with {@link SecondFactorRequired}, the same refusal the step-up uses, so the
-     * interface recovers from both the same way: run the ceremony, send the request again.
-     */
+    /** Refuses a session that has not held its key, with the refusal the interface recovers from by holding it. */
     void requireKeyHeld(final Sessions.Session who) {
         if (who.verified()) {
             return;
@@ -81,9 +71,9 @@ final class SecondFactor {
     }
 
     /**
-     * Held within the last {@link StewardUi#STEP_UP}, counted from the ceremony and not sliding.
+     * Refuses unless the key was held within the last {@link StewardUi#STEP_UP}, counted from the ceremony.
      *
-     * A sliding window would be indistinguishable from no window for anybody working continuously.
+     * The window does not slide, or anybody working continuously would never be asked.
      */
     void requireKeyRecently(final Sessions.Session who) {
         final Instant held = who.verifiedAt();
@@ -98,8 +88,7 @@ final class SecondFactor {
     /**
      * The refusal the interface recovers from: hold the key, then send the same request again.
      *
-     * Its own code, {@code SECOND_FACTOR_REQUIRED}, tells it apart from {@link SecondFactorMissing},
-     * since the two need different pages.
+     * Its code, {@code SECOND_FACTOR_REQUIRED}, tells it apart from {@link SecondFactorMissing}.
      */
     static final class SecondFactorRequired extends RuntimeException {
 
@@ -108,7 +97,7 @@ final class SecondFactor {
         }
     }
 
-    /** The one shape of 403 the interface recovers from rather than reports. */
+    /** The account has no key yet; the interface sends it to the setup page. */
     static final class SecondFactorMissing extends RuntimeException {
 
         SecondFactorMissing() {
@@ -120,9 +109,7 @@ final class SecondFactor {
     /**
      * Hands this browser a registration challenge.
      *
-     * The first key is reachable with a Discord session alone; every further one requires that
-     * this session has already held one, since adding a second authenticator is as powerful as
-     * having the first.
+     * A further key needs one already held this session, since adding an authenticator is as powerful as having one.
      */
     void beginRegistration(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
@@ -133,15 +120,14 @@ final class SecondFactor {
         final WebAuthn.Ceremony ceremony =
                 webauthn().startRegistration(who.signedInDiscordId(), who.signedInDisplayName());
         sessions().startCeremony(who.id(), ceremony.parked());
-        // The library's own JSON, straight through: see WebAuthn's class note on the boundary.
+        // The library's own JSON, straight through: see WebAuthn on the boundary.
         ctx.contentType("application/json").result(ceremony.forBrowser());
     }
 
     /**
      * Takes the browser's answer, verifies it and writes the key down.
      *
-     * The credential arrives as a {@code String} field rather than a nested object, since only
-     * the library may parse it and Gson must never see it.
+     * The credential is a {@code String} field, since only the library may parse it and Gson must never see it.
      */
     void finishRegistration(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
@@ -167,9 +153,9 @@ final class SecondFactor {
             ctx.status(400).json(Map.of("error", refused.getMessage()));
             return;
         }
-        // Registering a key is holding it: the same ceremony an authentication would need.
+        // Registering a key is holding it.
         sessions().markVerified(who.id());
-        // audit_log.actor is varchar(32), so the actor is the Discord id, never the composed name.
+        // audit_log.actor is varchar(32), so the actor is the Discord id.
         data().audit()
                 .record(
                         "REGISTER_KEY",
@@ -180,7 +166,7 @@ final class SecondFactor {
         ctx.json(Map.of("label", key.label(), "userVerified", key.userVerified(), "backedUp", key.backedUp()));
     }
 
-    /** The body of {@code /auth/webauthn/register/finish}. See the method's note on the string. */
+    /** The body of the WebAuthn finish routes; {@code credential} stays a string. */
     private static final class Answer {
         private @Nullable String label;
         private @Nullable String credential;
@@ -202,8 +188,7 @@ final class SecondFactor {
     /**
      * Takes the answer, verifies it, and stamps this session as one that has held its key.
      *
-     * {@code verified_at = now()} is a column, not a field in the process's heap, so a restart of
-     * this container is never a way to be asked less.
+     * The stamp is a column, so a restart of this container is never a way to be asked less.
      */
     void finishAssertion(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
@@ -235,7 +220,7 @@ final class SecondFactor {
         ctx.json(Map.of("label", held.label(), "userVerified", held.userVerified()));
     }
 
-    /** The credential id out of the path, base64url as it left this service in {@code /api/me}. */
+    /** The credential id out of the path, base64url as {@code /api/me} lists it. */
     private static ByteArray keyIdOf(final Context ctx) {
         try {
             return ByteArray.fromBase64Url(ctx.pathParam("id"));
@@ -245,7 +230,7 @@ final class SecondFactor {
         }
     }
 
-    /** {@code PUT /api/keys/{id}} - what this key is called, so two can be told apart. */
+    /** {@code PUT /api/keys/{id}}: what this key is called, so two can be told apart. */
     void renameKey(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final Answer body = ctx.bodyAsClass(Answer.class);
@@ -267,7 +252,7 @@ final class SecondFactor {
         ctx.json(Map.of("label", label));
     }
 
-    /** {@code DELETE /api/keys/{id}} - one key, gone. Removing the last one is allowed. */
+    /** {@code DELETE /api/keys/{id}}: removes one key, the last one included. */
     void removeKey(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
         final ByteArray id = keyIdOf(ctx);

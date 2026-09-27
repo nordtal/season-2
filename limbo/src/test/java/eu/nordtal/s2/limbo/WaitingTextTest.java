@@ -10,14 +10,9 @@ import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
- * That the waiting room can actually say every one of the things it can be told to say, in both languages.
+ * The waiting room can say every one of the things it can be told to say, in both languages.
  *
- * This is the only test this module can have, and it is worth having. Everything else here is Bukkit - a world, a
- * title, a potion effect, a plugin message - and none of it can be exercised without a running server; what
- * <em>can</em> go wrong without a server is a {@link WaitReason} added on one side of the repository and not
- * translated on the other, which would show a player the literal string {@code limbo.wait.backend.title} on an
- * otherwise black screen. Messages degrades to the key rather than throwing, precisely so that this failure is
- * survivable at runtime - and that is exactly why it needs to fail here instead.
+ * A {@link WaitReason} missing a translation shows the bare key at runtime, so it has to fail here.
  */
 class WaitingTextTest {
 
@@ -82,17 +77,7 @@ class WaitingTextTest {
         }
     }
 
-    /**
-     * The title with its MiniMessage tags taken off - what the client actually has to fit.
-     *
-     * The raw value differs once a title carries a tag: {@code <white>Resource-Pack wird geladen</white>} is 41 raw
-     * characters and 25 drawn ones. A test that counted tags instead would be a test that forbids colour, which is
-     * not what this one is about.
-     *
-     * Stripped by regular expression rather than by parsing: this module compiles against no Adventure at all, and
-     * the four values here are ours - a tag in one is a tag somebody typed on purpose, not arbitrary text that has
-     * to be tokenised safely.
-     */
+    /** The title without its MiniMessage tags, which is what the client has to fit. */
     private static String drawn(final String raw) {
         return raw.replaceAll("</?[a-zA-Z_#][a-zA-Z0-9_:.#'\\-]*>", "");
     }

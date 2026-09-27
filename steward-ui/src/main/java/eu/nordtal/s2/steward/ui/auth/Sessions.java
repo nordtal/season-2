@@ -17,22 +17,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Who is signed in, kept in PostgreSQL rather than this JVM's memory.
+ * Who is signed in, kept in PostgreSQL so a redeploy signs nobody out.
  *
- * A redeploy does not sign everybody out.
- *
- * The id is rotated at sign-in rather than reused, to avoid session fixation: {@link #signIn}
- * writes a new row with a new id and the caller drops the old one. This class holds no cookie - it
- * takes and returns ids; the cookie itself belongs to the web layer.
+ * The id is rotated at sign-in against session fixation; this class takes and returns ids and holds no cookie.
  */
 public final class Sessions {
 
     private static final Logger log = LoggerFactory.getLogger(Sessions.class);
 
-    /** The cookie this service issues; deliberately not {@code JSESSIONID}, since this is not a servlet session. */
+    /** The cookie this service issues, deliberately not {@code JSESSIONID}. */
     public static final String COOKIE = "steward_session";
 
-    /** 256 bits; base64url of 32 bytes is 43 characters and needs no padding, so it is safe in a cookie. */
+    /** 256 bits, whose unpadded base64url is safe in a cookie. */
     private static final int BYTES = 32;
 
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -54,11 +50,7 @@ public final class Sessions {
                 .onDemand(SessionDao.class);
     }
 
-    /**
-     * Starts a sign-in: a row carrying only the one-time state Discord will hand back.
-     *
-     * @return the id to put in the browser's cookie
-     */
+    /** Starts a sign-in with a row carrying only Discord's one-time state, and answers the cookie's id. */
     public String begin(final String oauthState) {
         final String id = random();
         dao.begin(id, Objects.requireNonNull(oauthState, "oauthState"), random(), seconds);
@@ -68,8 +60,7 @@ public final class Sessions {
     /**
      * The state this sign-in started with, readable exactly once.
      *
-     * Empty means there is nothing to match - no such row, an expired one, or an already-used
-     * state - and all three answer the same way on purpose.
+     * Empty for a missing, expired or already used state alike, on purpose.
      */
     public Optional<String> consumeState(final @Nullable String id) {
         return id == null ? Optional.empty() : dao.consumeState(id);
@@ -78,8 +69,7 @@ public final class Sessions {
     /**
      * Records a completed sign-in as a new row, and answers its id.
      *
-     * The caller is expected to {@link #end} the row the sign-in started in and replace the
-     * browser's cookie with what this returns.
+     * The caller {@link #end}s the row the sign-in started in and replaces the cookie.
      */
     public String signIn(final String discordId, final String name, final List<String> roles) {
         final String id = random();
@@ -102,11 +92,7 @@ public final class Sessions {
         return dao.find(id).filter(Session::signedIn);
     }
 
-    /**
-     * Hands this browser a WebAuthn ceremony to answer, replacing any it had not finished.
-     *
-     * @param request the library's own JSON - see {@code WebAuthn}, the only class that reads it
-     */
+    /** Hands this browser a WebAuthn ceremony, replacing any unfinished one; {@code request} is the library's JSON. */
     public void startCeremony(final @Nullable String id, final String request) {
         Objects.requireNonNull(request, "request");
         if (id != null && !id.isBlank()) {
@@ -114,46 +100,34 @@ public final class Sessions {
         }
     }
 
-    /**
-     * The ceremony this browser started, readable exactly once.
-     *
-     * Empty means there is nothing to finish - none started, already answered, or the session is
-     * gone - the same as {@link #consumeState}.
-     */
+    /** The ceremony this browser started, readable exactly once, empty as in {@link #consumeState}. */
     public Optional<String> consumeCeremony(final @Nullable String id) {
         return id == null || id.isBlank() ? Optional.empty() : dao.consumeCeremony(id);
     }
 
-    /** Records that this browser has just proved a key. */
+    /** Records that this browser has just held its key. */
     public void markVerified(final @Nullable String id) {
         if (id != null && !id.isBlank()) {
             dao.markVerified(id);
         }
     }
 
-    /** Ends one session. Used by sign-out, and by the sign-in dropping the row it started in. */
+    /** Ends one session, on sign-out or when a sign-in drops the row it started in. */
     public void end(final @Nullable String id) {
         if (id != null && !id.isBlank()) {
             dao.end(id);
         }
     }
 
-    /**
-     * Signs every browser of one account out. See {@link SessionDao#endAllOf}.
-     *
-     * @return how many sessions were ended
-     */
+    /** Signs every browser of one account out, and answers how many. */
     public int endAllOf(final String discordId) {
         return dao.endAllOf(Objects.requireNonNull(discordId, "discordId"));
     }
 
     /**
-     * Deletes everything past its expiry.
+     * Deletes everything past its expiry and answers how many.
      *
-     * Housekeeping only: {@link #find} already refuses an expired row. This clears the rows
-     * nobody ever comes back for, such as a sign-in abandoned at Discord.
-     *
-     * @return how many rows went
+     * Housekeeping only: {@link #find} already refuses an expired row.
      */
     public int sweep() {
         final int gone = dao.sweep();
@@ -163,12 +137,12 @@ public final class Sessions {
         return gone;
     }
 
-    /** Only for tests: moves a session's expiry, so one can be aged without waiting for it. */
+    /** Moves a session's expiry, for a test. */
     void expireAt(final String id, final Instant at) {
         dao.expireAt(id, at);
     }
 
-    /** Only for tests: ages the ceremony clock, so the ten-minute window can be walked past. */
+    /** Ages the ceremony clock, for a test. */
     void ceremonyStartedAt(final String id, final Instant at) {
         dao.ceremonyStartedAt(id, at);
     }
@@ -182,7 +156,7 @@ public final class Sessions {
     /**
      * One row of {@code steward_session}, as everything above the sign-in sees it.
      *
-     * @param roles the role ids held at sign-in - a snapshot, see {@code V19}
+     * {@code roles} is a snapshot of the role ids held at sign-in.
      */
     public record Session(
             String id,
@@ -194,33 +168,25 @@ public final class Sessions {
             @ColumnName("expires_at") Instant expiresAt,
             @ColumnName("verified_at") @Nullable Instant verifiedAt) {
 
-        /** False for a row that is still between {@code /auth/login} and a completed callback. */
+        /** False while the row is between {@code /auth/login} and a completed callback. */
         public boolean signedIn() {
             return discordId != null && displayName != null;
         }
 
-        /** {@link #discordId}, for a session already known to be {@link #signedIn}. */
         public String signedInDiscordId() {
             return Objects.requireNonNull(discordId, "a signed-in session always carries a discord id");
         }
 
-        /** {@link #displayName}, for a session already known to be {@link #signedIn}. */
         public String signedInDisplayName() {
             return Objects.requireNonNull(displayName, "a signed-in session always carries a display name");
         }
 
-        /** The account, for everything that was written against Discord's answer directly. */
         public DiscordAuth.Account account() {
             return new DiscordAuth.Account(
                     Objects.requireNonNull(discordId), Objects.requireNonNull(displayName), roleList());
         }
 
-        /**
-         * Whether a security key has been held in this session at all.
-         *
-         * Not the step-up's question of whether it was held recently - this is the door: a session
-         * that never saw a key reaches only the setup page.
-         */
+        /** Whether a security key has been held in this session at all, which is the door rather than the step-up. */
         public boolean verified() {
             return verifiedAt != null;
         }

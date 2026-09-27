@@ -7,14 +7,6 @@ import { UpdatesPage } from "@/pages/updates"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import type { Available, AvailableChange } from "@/lib/api"
 
-/**
- * Shows what a run would install, without running one.
- *
- * A row whose source could not be asked is drawn as such, and the card says the list is
- * incomplete. "No build for this Minecraft version" is neither work nor a failure. Nothing on this
- * page starts a run; the forced re-read is a parameter on the same GET.
- */
-
 function requestUrl(input: RequestInfo | URL): string {
   if (typeof input === "string") return input
   if (input instanceof URL) return input.href
@@ -106,6 +98,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** Shows what a run would install without running one; the forced re-read is a parameter on the same GET. */
 describe("the available card", () => {
   it("names the jump rather than the filename and the version", async () => {
     vi.stubGlobal(
@@ -130,19 +123,12 @@ describe("the available card", () => {
     expect(screen.getByText("1.5.3")).toBeTruthy()
     expect(screen.getByText("1.5.4")).toBeTruthy()
     expect(screen.getByText("outdated")).toBeTruthy()
-    /**
-     * The two columns this replaced. The filename is bookkeeping, and it is what the operator was
-     * reading a version out of by eye before this.
-     */
+    /** The filename column is gone, since the version was being read out of it by eye. */
     expect(screen.queryByText("Chunky-Bukkit-1.5.3.jar")).toBeNull()
   })
 
   it("leaves out everything a run would not touch", async () => {
-    /**
-     * The card listed thirty rows to say one thing. Everything that is up to date is now absent,
-     * and absent means "there is nothing to do about it" - which is why the states that are NOT
-     * work have their own tests below.
-     */
+    /** Up to date rows are absent, so the states that are not work have their own tests below. */
     vi.stubGlobal(
       "fetch",
       backend(
@@ -224,10 +210,7 @@ describe("the available card", () => {
   })
 
   it("keeps the artefact with no build for this version, and calls it unsupported", async () => {
-    /**
-     * Neither work nor a failure, and still on the list: it is the answer to "why is CoreProtect
-     * not here", and a row that disappears when it is nothing to worry about cannot give it.
-     */
+    /** Still listed though neither work nor a failure, since it answers why CoreProtect has no update. */
     vi.stubGlobal(
       "fetch",
       backend(
@@ -249,10 +232,7 @@ describe("the available card", () => {
     await screen.findByText("coreprotect")
     expect(screen.getByText("unsupported")).toBeTruthy()
     expect(screen.queryByText(/incomplete/)).toBeNull()
-    /**
-     * The note is a paragraph about stable releases and platforms. It belongs on the dash as a
-     * title and in the badge, not in a table cell.
-     */
+    /** The note belongs in the title and the badge, not in a table cell. */
     expect(screen.queryByText(/no stable release/)).toBeNull()
   })
 
@@ -280,11 +260,7 @@ describe("the available card", () => {
   })
 
   it("asks the sources again when the button is pressed, and redraws from that answer", async () => {
-    /**
-     * The reading is cached for six hours in the worker, and this button is the only way to
-     * shorten that from the interface. It has to replace what is on screen, or an operator who
-     * pressed it has no way of telling whether anything happened.
-     */
+    /** The only way to skip the worker's six hour cache, so it must replace what is on screen. */
     const wired = backend(
       available({
         changes: [

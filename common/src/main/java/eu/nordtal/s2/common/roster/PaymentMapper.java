@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
-/** Maps a {@code payment_request} row; see {@link PersonMapper} for why it is written out. */
+/** Maps a {@code payment_request} row. */
 public final class PaymentMapper implements RowMapper<Payment> {
 
     @Override

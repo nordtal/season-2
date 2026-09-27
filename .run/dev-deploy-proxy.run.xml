@@ -1,7 +1,7 @@
 <!--
   dev deploy proxy
 
-  Rebuild :proxy, replace the jar, restart that one container.
+  Rebuilds :proxy, replaces its jar and restarts that container.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev deploy proxy" type="Application" factoryName="Application" folderName="dev: build and deploy">

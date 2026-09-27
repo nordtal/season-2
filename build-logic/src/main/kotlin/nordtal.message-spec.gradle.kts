@@ -1,7 +1,5 @@
-// Writes messages/<bundle>/schema.json into the jar from the module's message spec: the names,
-// placeholders and sections steward-worker shows next to the texts it reads from the same jar.
-// The classpath is the resource source directories, not the processed resources, because
-// processResources is what picks the schema up, and depending on its output would be a cycle.
+// Writes messages/<bundle>/schema.json from the module's message spec, for steward-worker to show.
+// The classpath is the resource source directories, since processed resources would be a cycle.
 
 plugins {
     java

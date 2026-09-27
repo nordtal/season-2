@@ -1,9 +1,8 @@
 <!--
   gradlew :resource-pack:chooseMinecraftInstance
 
-  Opens a folder dialog for the Minecraft instance the pack goes into, and remembers the answer
-  in resource-pack/minecraft-instance.properties, which is not committed. Run it once per machine,
-  and again to switch instances.
+  Asks for the Minecraft instance to install the pack into and remembers it in the uncommitted
+  resource-pack/minecraft-instance.properties.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="pack: 1. choose Minecraft instance" type="GradleRunConfiguration" factoryName="Gradle" folderName="resource pack">

@@ -13,12 +13,9 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.slf4j.Logger;
 
 /**
- * The bot's end of {@code announce <language> <text>}: post the line into that language's announcement channel.
+ * Posts {@code announce <language> <text>} lines into that language's announcement channel.
  *
- * Two callers. The command inbox, for lines a server sent as a {@code command_request} row - a milestone, a phase
- * change - with {@code Runnable::run} as the executor because the inbox settles the row when the command returns.
- * And the bot itself, for a phase change it noticed on its own status tick, through {@link #postAll}. Neither
- * renders anything: the text arrives finished, in the language of the channel it goes into.
+ * The text arrives finished; the command inbox calls it inline, and the bot's status tick through {@link #postAll}.
  */
 public final class Announcements implements AnnounceEffects {
 
@@ -48,7 +45,7 @@ public final class Announcements implements AnnounceEffects {
     public boolean post(final String languageTag, final String text) {
         final Optional<Languages.Language> language = languages.byTag(languageTag);
         if (language.isEmpty() || !language.get().hasAnnouncementChannel()) {
-            // The default, and not a fault: a language without a channel gets no announcements.
+            // Not a fault: a language without a channel gets no announcements.
             return false;
         }
         final String channelId = language.get().announcementChannelId();
@@ -62,7 +59,7 @@ public final class Announcements implements AnnounceEffects {
                     text);
             return false;
         }
-        // Waited for, not queued: "posted" must mean Discord took it, and every caller here is a worker thread.
+        // Waited for, so "posted" means Discord took it; every caller is a worker thread.
         try {
             channel.sendMessage(text).submit().get(POST_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
             log.debug("Announced in '{}': {}", languageTag, text);
@@ -72,7 +69,7 @@ public final class Announcements implements AnnounceEffects {
             log.warn("Interrupted while announcing in '{}'", languageTag);
             return false;
         } catch (final ExecutionException | TimeoutException failure) {
-            // A timeout is reported as a failure even though JDA may still deliver the message afterwards.
+            // A timeout counts as a failure even though JDA may still deliver the message.
             log.warn(
                     "Could not announce in '{}': {} - it would have carried \"{}\"",
                     languageTag,
@@ -82,11 +79,10 @@ public final class Announcements implements AnnounceEffects {
         }
     }
 
-    /** How long Discord gets to accept an announcement before it counts as not posted. */
     private static final java.time.Duration POST_TIMEOUT = java.time.Duration.ofSeconds(15);
 
     /**
-     * Posts one line per language that has a channel - for a moment the bot noticed itself.
+     * Posts one line per language that has a channel.
      *
      * @param render the line for one language
      */

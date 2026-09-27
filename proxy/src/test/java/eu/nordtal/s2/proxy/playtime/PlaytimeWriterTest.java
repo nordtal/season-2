@@ -20,12 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The play-time counter's arithmetic, in memory.
- *
- * What goes into {@code player_playtime} is entirely a matter of subtracting instants. The SQL itself is not
- * exercised here; the store is a functional interface precisely so this class can be driven by a list.
- */
+/** The play-time counter's arithmetic, in memory, against a recording store. */
 class PlaytimeWriterTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PlaytimeWriterTest.class);
@@ -91,7 +86,7 @@ class PlaytimeWriterTest {
 
     @Test
     void subSecondRemaindersSurviveAFlushInsteadOfBeingThrownAway() {
-        // Flushing every 60s at 60.4s intervals would otherwise lose 0.4s each time - six minutes a day.
+        // Flushing every 60s at 60.4s intervals would otherwise lose 0.4s each time.
         join(PLAYER, DISCORD_ID);
 
         clock.advance(Duration.ofMillis(60_400));
@@ -207,7 +202,7 @@ class PlaytimeWriterTest {
 
     @Test
     void oneSessionIsNeverCountedTwice() throws Exception {
-        // flushAll runs on the scheduler, disconnect on the event thread; unsynchronised, both could double-count.
+        // flushAll runs on the scheduler and disconnect on the event thread; unsynchronised, both could count twice.
         join(PLAYER, DISCORD_ID);
         clock.advance(Duration.ofMinutes(10));
 

@@ -12,14 +12,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * The rules that make a wrong sound harmless.
- *
- * None of this needs a server, which is exactly why it is worth pinning here: the behaviour these
- * cases describe only ever shows up on a real one, at the moment somebody has mistyped a key in a
- * production {@code config.yml} - and then the difference between "that chime is missing" and "the
- * server is stopping" is the whole of it.
- */
+/** Pins the rules that make a mistyped sound key harmless rather than an error on a player path. */
 class FeedbackSoundsTest {
 
     @Test
@@ -66,14 +59,7 @@ class FeedbackSoundsTest {
                 "the complaint has to name the value, or nobody can find it in the file");
     }
 
-    /**
-     * The custom-sound case, and the one that must <b>not</b> be treated as an error.
-     *
-     * A key in our own namespace names a sound that only exists once the resource pack is
-     * applied. The server has never heard of it and never will; the client either plays it or does
-     * not. Refusing it here would make the pack's own sounds unusable, which is half the reason the
-     * config carries keys rather than enum constants.
-     */
+    /** Checks that a key in our own namespace is accepted, since it names a sound only the pack defines. */
     @Test
     void aKeyTheServerHasNeverHeardOfIsKeptBecauseThatIsAPackSound() {
         final List<String> problems = new ArrayList<>();
@@ -112,13 +98,7 @@ class FeedbackSoundsTest {
         assertEquals(1, problems.size(), problems.toString());
     }
 
-    /**
-     * The other half of "never an exception on a player path".
-     *
-     * A sound that throws once throws every time, so the adapter reports it once and the category
-     * goes quiet. The alternative is that stack trace per click, which is what turns one bad config
-     * value into an unreadable log.
-     */
+    /** Checks that a sound that throws is reported once and its category goes quiet. */
     @Test
     void aCategoryThatFailedToPlayIsReportedOnceAndThenStaysSilent() {
         final List<String> problems = new ArrayList<>();

@@ -22,9 +22,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The bundles a module ships in its jar, merged with an operator's override.
  *
- * Fixture jars are built with real {@link JarOutputStream} entries rather than fixtures loaded off the test's own
- * classpath - this class opens an arbitrary path as a zip, and the point being tested is exactly that opening, so a
- * fixture that only ever lived on the classpath would not be testing the same code path a real deployment exercises.
+ * Fixture jars are written as real zips, since opening an arbitrary path as a zip is what is under test.
  */
 class MessageBundlesTest {
 
@@ -51,7 +49,7 @@ class MessageBundlesTest {
 
     @Test
     void aStandaloneJarsBundleHasNoModuleAndItsJarIsFoundInTheVolumesMount() throws IOException {
-        // discord-bot's own jar is not under the configs mount at all - only its data is.
+        // discord-bot's own jar is not under the configs mount at all, only its data is.
         Files.createDirectories(configs.resolve("discord-bot/messages"));
         writeJar(
                 volumes.resolve("discord-bot/discord-bot-0.9.1.jar"),
@@ -70,7 +68,7 @@ class MessageBundlesTest {
     @Test
     void aMessagesDirectoryWithNoJarToMatchItIsSkippedNotReportedBroken() throws IOException {
         Files.createDirectories(configs.resolve("limbo/limbo/messages"));
-        // No jar anywhere - a deployment mid-way through installing this module for the first time.
+        // No jar anywhere: a deployment installing this module for the first time.
 
         assertEquals(List.of(), MessageBundles.discover(configs, volumes));
     }

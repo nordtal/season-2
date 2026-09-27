@@ -14,53 +14,21 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * How long a backup is kept - the arithmetic, with no directory under it.
- *
- * Two rules, and the order they compose in: {@code daily} days are kept in full, then one copy a week for
- * {@code weekly} weeks, then one a month for {@code monthly} months. The second rule is in no standard tool - "in
- * the end one backup a day is left, at most the last of them". Several runs in one day are normal here (somebody
- * takes one by hand
- * before touching something, and the nightly one arrives anyway), and a few days later only the last of that day
- * survives.
- *
- * The day collapses first, and the schedule then counts days. The other order is what a flat retention does today
- * and it is the bug this replaces: three runs on one Tuesday would spend three of the fourteen slots, so a busy week
- * would silently shorten the history to a few days. Once the day is one file, {@code daily} is a number of days and
- * means what it says on the page.
- *
- * The grace period, which is the part that needs a reason: {@code collapseAfterDays} is how long the extra runs of a
- * day are left alone. Zero would delete the backup somebody took by hand five minutes ago the moment the nightly one
- * lands - which is the one moment they are certainly still working on whatever they took it for. The collapse
- * happens a few days later rather than immediately, so the grace is a setting and its default is three.
- *
- * Nothing inside the grace window is ever deleted by this class, for any reason: it is the newest couple of days,
- * {@code daily} is at least 1, and a sweep that can reach into "yesterday" is a sweep whose worst bug is
- * unrecoverable.
- *
- * Why this is separate from {@link TarSnapshots}: That class owns a directory, a clock, a naming scheme and a list
- * of files that may or may not be archives. What should be deleted is arithmetic on timestamps, and that is where
- * the mistakes are: a sweep wrong by one week deletes six months of history on its next run, and nobody finds out
- * until a restore. The arithmetic is here and is checked against dates written out by hand in {@code RetentionTest};
- * the files stay there.
+ * Decides which backups expire: each day collapses to its last run, then days, weeks and months are kept.
  *
  * @param daily how many of the most recent days are kept in full
  * @param weekly how many ISO weeks keep their newest surviving day
  * @param monthly how many calendar months keep their newest surviving day
- * @param collapseAfterDays how long several runs of one day are all kept before only the last of that day survives
+ * @param collapseAfterDays how long several runs of one day are all kept before only the last survives
  */
 public record Retention(int daily, int weekly, int monthly, int collapseAfterDays) {
 
-    /**
-     * One archive, as this class needs it: something to name in a report and the moment it stands for.
-     *
-     * The moment comes from the stamp in the file name rather than from an mtime - a file copied off this host and
-     * back has a new mtime and the same age.
-     */
+    /** One archive: a name for the report and the moment taken from the stamp in its file name, not its mtime. */
     public record Dated(String name, Instant taken) {}
 
     public Retention {
         if (daily < 1) {
-            // Refused rather than obeyed: zero deletes every backup, and it is likely an unset config value read as 0.
+            // Zero would delete every backup and is likely an unset value read as 0.
             throw new IllegalArgumentException("backup.retention.daily must be at least 1, was " + daily);
         }
         if (weekly < 0 || monthly < 0) {
@@ -74,14 +42,10 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
     }
 
     /**
-     * Which of these archives may go, oldest first.
+     * Returns which archives of one series may go, oldest first; nothing inside the grace window ever goes.
      *
-     * One series at a time - the caller groups by volume, and the database dump is a series of its own. Counting two
-     * volumes together would keep fourteen copies of whichever was written last and none of the other, which is the
-     * failure that looks exactly like a working retention.
-     *
-     * @param all everything of one series that is on the disk, in any order
-     * @param now the moment the sweep is running, which decides what is still inside the grace
+     * @param all everything of one series on the disk, in any order
+     * @param now the moment of the sweep, which decides what is still inside the grace
      */
     public List<Dated> expired(final List<Dated> all, final Instant now) {
         final Instant settledBefore = now.minus(Duration.ofDays(collapseAfterDays));
@@ -96,15 +60,15 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
         final Set<Dated> keep = new HashSet<>();
         final Map<LocalDate, Dated> perDay = new LinkedHashMap<>();
         for (final Dated one : newestFirst) {
-            // The first one this loop meets on a given day is the last one taken, and stands for the day from here on.
+            // The first one met on a given day is the last one taken and stands for the day.
             perDay.putIfAbsent(LocalDate.ofInstant(one.taken(), ZoneOffset.UTC), one);
-            // Inside the grace, every run survives - a day that has not settled yet is not collapsed by the schedule.
+            // Inside the grace every run survives; an unsettled day is not collapsed.
             if (!one.taken().isBefore(settledBefore)) {
                 keep.add(one);
             }
         }
 
-        // A day's representative survives only if the schedule keeps its day, which makes `daily` a window, not "ever".
+        // A day's representative survives only if the schedule keeps its day.
         final List<Dated> days = List.copyOf(perDay.values());
 
         keep.addAll(days.stream().limit(daily).toList());
@@ -121,12 +85,9 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
     }
 
     /**
-     * The newest day of each of the {@code buckets} newest buckets, where a bucket is a week or a month.
+     * Returns the newest day of each of the {@code buckets} newest weeks or months.
      *
-     * Counted from the newest bucket rather than from the end of the daily window, which is the convention every
-     * other backup tool uses: eight weekly copies means eight weeks of history, not eight weeks on top of the daily
-     * ones. The buckets the daily window already covers therefore keep nothing extra, and that is why the total is
-     * "at most daily + weekly + monthly" rather than exactly it.
+     * Counted from the newest bucket, so the total is at most {@code daily + weekly + monthly}.
      */
     private static List<Dated> newestOfEach(
             final List<Dated> daysNewestFirst,

@@ -57,7 +57,7 @@ final class Stack {
         compose.requireEnv();
         build(chosen);
         chosen.forEach(this::install);
-        // restart reuses the container and the environment it was created with, which is why `up` follows an env edit.
+        // restart keeps the container's old environment; `up` picks up an env edit.
         terminal.log("restarting: " + String.join(" ", chosen));
         final List<String> restart = new ArrayList<>(List.of("restart"));
         restart.addAll(chosen);
@@ -103,8 +103,7 @@ final class Stack {
     /**
      * The interface with hot reload: the stack in the background, Vite in front on :5173.
      *
-     * Caddy stays out by naming the three steward services instead of a profile; locally it has no name to get
-     * a certificate for. Stopping this stops Vite and leaves the containers running.
+     * Naming the steward services keeps Caddy out; stopping this leaves the containers running.
      */
     void ui() {
         compose.requireEnv();
@@ -128,8 +127,7 @@ final class Stack {
     /**
      * A console that works in any window: the server's log scrolls by, and every line typed is sent as a command.
      *
-     * The server runs inside tmux in its container; a real terminal can attach to it with
-     * {@code docker compose exec <service> console}, IntelliJ's run console cannot.
+     * A real terminal can attach with {@code docker compose exec <service> console}; IntelliJ's run console cannot.
      */
     void console(final String service) {
         final Process logs = processes.start(compose.command("logs", "-f", "--tail", "30", service), false);

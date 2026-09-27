@@ -15,14 +15,7 @@ import org.bukkit.WorldCreator;
 /**
  * The SMP's four worlds: finding them, creating the ones that are missing, and holding their borders.
  *
- * Nordtal is expected to exist already - it is the {@code level-name} world, it carries the built spawn. The other
- * two are created here if the server has never seen them.
- *
- * <b>Where a created world lands is not where the old Bukkit layout put it.</b> Measured on Paper 26.2 build 121:
- * a world created through {@code WorldCreator} appears at
- * {@code <level-name>/dimensions/minecraft/<name>}, inside the primary world rather than beside it. Nothing here
- * hard-codes a path because of that; anything that needs a world's folder asks {@link World#getWorldFolder()}, so
- * the layout can move again without this breaking quietly.
+ * A created world lands under {@code <level-name>/dimensions/}, so ask {@link World#getWorldFolder()} for its folder.
  */
 public final class Worlds {
 
@@ -42,15 +35,9 @@ public final class Worlds {
     }
 
     /**
-     * Where the balloon puts a player down in that world.
+     * Where the balloon puts a player down in that world, a configured point rather than the world spawn.
      *
-     * <b>Not the world spawn.</b> The balloon used to travel to {@code World#getSpawnLocation}; it now
-     * travels to a configured point per role, and the world spawn keeps whatever else it means - a bed-less respawn, a
-     * compass needle - without the balloon moving with it.
-     *
-     * The point is a coordinate and not a promise, exactly like the world spawn was: it is put through
-     * {@code LandingSite#findSafeAt} at the call site, which is what keeps a wrong Y in the Nether from being a death
-     * rather than a landing.
+     * The caller puts it through {@code LandingSite#findSafeAt}.
      */
     public SpawnPointSpec balloonSpawnPoint(final WorldRole role) {
         final BalloonSpawnPointsSpec points = config.balloonSpawnPoints();
@@ -84,10 +71,7 @@ public final class Worlds {
     }
 
     /**
-     * Loads or creates the three worlds that are not Nordtal.
-     *
-     * Nordtal is deliberately not created here. If it is absent, something is wrong with the deployment - the spawn is
-     * built into it - and inventing an empty replacement would hide that behind a world nobody recognises.
+     * Loads or creates the three worlds that are not Nordtal, which is never created because it carries the spawn.
      *
      * @return the Nordtal world, or empty when it does not exist
      */
@@ -110,15 +94,7 @@ public final class Worlds {
         Bukkit.createWorld(new WorldCreator(name).environment(environment));
     }
 
-    /**
-     * Puts every fixed border in place and centres Nordtal's.
-     *
-     * Nordtal's <em>size</em> is not set here: it comes from the milestone track and moves when a milestone unlocks,
-     * which is {@link #expandNordtal} below. Everything else is a constant from {@code config.yml}.
-     *
-     * The two secondary worlds are centred on 0/0, which is where {@link #balloonSpawnPoint} defaults to - Nordtal is
-     * the only world whose centre is a built place and therefore the only one that needs a configured one.
-     */
+    /** Puts every fixed border in place and centres Nordtal's, whose size {@link #expandNordtal} sets. */
     public void applyFixedBorders() {
         world(WorldRole.NORDTAL).ifPresent(world -> {
             final WorldBorder border = world.getWorldBorder();
@@ -138,12 +114,6 @@ public final class Worlds {
 
     /**
      * Sets Nordtal's border, animating the change when it is a growth.
-     *
-     * Minecraft does the interpolation itself, which is why there is no tick loop here: given a duration it moves
-     * the wall at a steady speed and every client renders it. The speed comes from
-     * {@code border-expansion-blocks-per-second}, deliberately about a quarter to a half of walking pace - the final
-     * expansion's 1 550 blocks then take somewhere between a quarter of an hour and half an hour to travel, which is
-     * meant to be a ceremony rather than a hiccup.
      *
      * @param diameter the new diameter
      * @param animate false when putting the border back after a restart, true on a real unlock

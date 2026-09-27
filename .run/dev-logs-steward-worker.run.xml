@@ -1,9 +1,8 @@
 <!--
   dev logs steward-worker
 
-  The service that applies the schema, fills empty volumes and runs the nightly backup. The
-  first place to look when `dev up` seems to hang: it retries a failing database connection every
-  three seconds and says so every time.
+  Follows steward-worker, which applies the schema and fills empty volumes. Look here when `dev up`
+  seems to hang.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev logs steward-worker" type="Application" factoryName="Application" folderName="dev: logs">

@@ -64,7 +64,7 @@ class AnnounceCommandTest {
 
     @Test
     void announceIsRegisteredByNoCommandTreeAndIsAskableFromSteward() {
-        // SYSTEM: the SMP writes a row at a milestone and nobody types it. WEB: the owner wanted the same line askable.
+        // SYSTEM: the SMP writes a row at a milestone. WEB: an admin can ask for the same line.
         assertEquals(Set.of(Surface.SYSTEM, Surface.WEB), AnnounceCommands.ANNOUNCE.surfaces());
     }
 }

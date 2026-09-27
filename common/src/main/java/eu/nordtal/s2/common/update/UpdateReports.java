@@ -7,24 +7,9 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * {@link UpdateReport} to and from the JSON that lives in {@code update_request.result}.
+ * {@link UpdateReport} to and from the JSON in {@code update_request.result}, written by hand.
  *
- * <b>Hand-written, and that is the cheaper choice here</b>
- *
- * {@code :common} is compiled against no platform and declares its whole persistence stack
- * {@code compileOnly} so that a plugin taking one class does not take a megabyte. A JSON library
- * would be the first dependency in this module that exists purely to move four record types across
- * a text column - and a reflective record mapper is exactly the shape {@code Json} in the updater
- * argues against by name: an upstream field that stops arriving comes back as a silent {@code null}
- * rather than as an error. The whole grammar here is objects, arrays, strings and one enum, and the
- * writer and the reader are on the same side of the wire in the same build.
- *
- * <b>An unreadable row is not an error</b>
- *
- * {@link #parse} answers empty rather than throwing. The rows this reads are written by another
- * process, possibly an older one mid-deployment, and the caller is a Discord embed or a chat line:
- * failing to draw a report is a worse outcome than drawing the raw text, which is what every caller
- * falls back to.
+ * {@link #parse} answers empty for an unreadable row, and every caller falls back to the raw text.
  */
 public final class UpdateReports {
 
@@ -81,7 +66,7 @@ public final class UpdateReports {
         return out.toString();
     }
 
-    /** {@code null} becomes the JSON literal, which is how "nothing installed" survives the trip. */
+    /** Quotes a value; {@code null} becomes the JSON literal, which is how nothing installed survives the trip. */
     private static String quote(final @Nullable String value) {
         if (value == null) {
             return "null";
@@ -124,13 +109,7 @@ public final class UpdateReports {
         }
     }
 
-    /**
-     * A cursor over the text, reading only the shape {@link #toJson} writes.
-     *
-     * Not a general JSON parser and not trying to be one: it accepts what this class produces
-     * and rejects everything else by throwing, which {@link #parse} turns into "this is not a
-     * report".
-     */
+    /** A cursor that reads only the shape {@link #toJson} writes and throws on anything else. */
     private static final class Reader {
 
         private final String text;
@@ -230,7 +209,7 @@ public final class UpdateReports {
             }
         }
 
-        /** @return whether a comma followed; consumes the closing brace when it did not */
+        /** Returns whether a comma followed, consuming the closing brace when it did not. */
         private boolean more(final char close) {
             skipSpace();
             if (peek() == ',') {

@@ -9,10 +9,7 @@ import java.util.List;
 /**
  * A spec that exists only so jcore writes a file with one of everything in it.
  *
- * The fixtures in this package are written by jcore itself, never typed out by hand where that is avoidable. A
- * parser that claims to read the output of a library has to be tested against the output of that library: every
- * hand-written fixture is a guess at what jcore does, and a guess is exactly the thing that is wrong the day jcore
- * changes. Two of jcore's habits found this way were surprises - see {@link ConfigFilesReadTest}.
+ * The fixtures here come from jcore itself, since a hand-written one is only a guess at what jcore writes.
  */
 @ConfigSpec(header = {"A fixture, written by jcore.", "", "The second paragraph of the header, after a blank line."})
 public interface FixtureSpec {

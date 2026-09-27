@@ -8,18 +8,11 @@ import { registerServiceWorker } from "@/lib/push"
 import { router } from "@/router"
 import "@/index.css"
 
-/**
- * One QueryClient for the process. Nothing fetches yet - the client is wired now so that the first
- * page that does has somewhere to put its cache, and so that the retry/staleness policy is a
- * decision made once rather than per call site.
- */
+/** One QueryClient for the process, so retry and staleness are decided once. */
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      /**
-       * An operator's dashboard is read constantly and must not fight the network on every focus
-       * change; the pages that need to be live will subscribe rather than poll harder.
-       */
+      /** A dashboard read constantly must not refetch on every focus change. */
       staleTime: 5_000,
       refetchOnWindowFocus: false,
       retry: 1,
@@ -27,26 +20,14 @@ const queryClient = new QueryClient({
   },
 })
 
-/**
- * How tall the window is and how deep iOS's blurred band reaches - two numbers CSS gets wrong on a
- * home screen and nowhere else. Started before the first render so nothing is drawn at a height
- * that is then corrected; never stopped, because the page outlives it.
- *
- * This runs before `createRoot`, and runs guarded - a wrong guess about a
- * height is a grey stripe, but an unguarded exception here, thrown before anything has rendered,
- * would be a black screen with nothing behind it. Nothing this function does is worth that trade.
- */
+/** Tracks window height and iOS's blur band before the first render, guarded since a throw here is a black screen. */
 try {
   trackAppFrame()
 } catch (error) {
   console.error("trackAppFrame failed to start; the layout will use its CSS fallback instead", error)
 }
 
-/**
- * Registered early and unconditionally: a service worker needs no permission and asks
- * for none, so it does not have to wait for the tap `subscribeToPush` does - see lib/push.ts's
- * module note. A browser too old to have `serviceWorker` at all skips this silently.
- */
+/** Registered at once, since a service worker needs no permission; a browser without one skips this. */
 registerServiceWorker().catch((error: unknown) => {
   console.error("the service worker did not register; web push will not be available", error)
 })

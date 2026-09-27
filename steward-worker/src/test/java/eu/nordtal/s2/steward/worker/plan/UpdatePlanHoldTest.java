@@ -10,12 +10,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link UpdatePlan#withoutServices} - what a run must not touch because somebody is holding it down.
+ * {@link UpdatePlan#withoutServices}: what a run must not touch because somebody is holding it down.
  *
- * It is the mirror of {@link UpdatePlan#onlyServices} and the two empties mean opposite things, which is exactly the
- * mistake this file is here to catch: an empty scope is the whole network, an empty hold list is nothing at all. One
- * line copied from the other would give a run that either installs into a service somebody stopped on purpose, or
- * installs into nothing whatsoever.
+ * An empty hold list holds nothing, while an empty {@link UpdatePlan#onlyServices} scope means everything.
  */
 class UpdatePlanHoldTest {
 
@@ -51,7 +48,7 @@ class UpdatePlanHoldTest {
 
     @Test
     void theResourcePackSurvivesAHoldNoHoldIsEverAboutIt() {
-        // Opposite of onlyServices: the pack has no service, no hold row names it - a hold must not stop it too.
+        // Unlike onlyServices, the pack has no service and no hold row names it, so a hold must not stop it.
         final Change pack = new Change(null, "pack", Change.Status.OUTDATED, "abc1234", null, null);
         final UpdatePlan plan = planOf(List.of(on("limbo", "limbo"), pack), List.of());
 

@@ -13,13 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Logging out of a duel has to cost the same as losing one.
  *
- * Disconnecting is a defeat and the aura is booked, otherwise logging out is a free escape from losing. The trap:
- * {@code Identities} is a per-session cache that {@code JoinGate} 's quit handler clears, and {@code JoinGate} is
- * registered first - so a booking that reads ids from it at settle time finds nothing and silently writes neither
- * stake.
- *
- * The ids are therefore captured when the duel starts, rather than the two listeners being reordered: registration
- * order is a fact nothing states and any later edit to {@code onEnable} can reverse.
+ * The ids are captured at duel start, since {@code JoinGate}'s quit handler clears {@code Identities} first.
  */
 class DuelStakeSurvivesAQuitTest {
 

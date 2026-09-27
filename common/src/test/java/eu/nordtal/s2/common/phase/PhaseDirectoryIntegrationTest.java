@@ -32,18 +32,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Exercises {@link PhaseDirectory} against a real PostgreSQL instance running the real migrations.
+ * Exercises {@link PhaseDirectory} against a real PostgreSQL running the real migrations.
  *
- * None of this can be done in memory. The singleton is a primary key plus a {@code CHECK}; the
- * switch, its audit entry and its {@code NOTIFY} are one statement whose whole point is that
- * PostgreSQL executes all three or none; and the "previous phase" the statement returns depends on
- * every sub-statement of a {@code WITH} seeing the same snapshot. There is no in-JVM stand-in for
- * any of it.
- *
- * Testcontainers is driven by hand from {@link BeforeAll} for the same reason
- * {@code AccessDirectoryIntegrationTest} does it - the {@code org.testcontainers:junit-jupiter}
- * extension is built against JUnit 5 and this repo is on the JUnit 6 BOM - and these tests
- * <b>skip themselves</b> when no Docker daemon is reachable.
+ * The CHECK, the atomic switch with its audit and NOTIFY are database behaviour; tests skip without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PhaseDirectoryIntegrationTest {

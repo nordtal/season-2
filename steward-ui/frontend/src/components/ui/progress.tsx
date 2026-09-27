@@ -6,10 +6,7 @@ function Progress({ className, value, ...props }: React.ComponentProps<typeof Pr
   return (
     <ProgressPrimitive.Root
       data-slot="progress"
-      /**
-       * Destructured out of `props` above, so without this the root is handed nothing: the bar
-       * moves and a screen reader is told the progress is indeterminate.
-       */
+      /** `value` was destructured out of `props`, so without this a screen reader hears an indeterminate bar. */
       value={value}
       className={cn("relative flex h-1 w-full items-center overflow-x-hidden rounded-full bg-muted", className)}
       {...props}

@@ -43,14 +43,7 @@ export function serviceSearch(search: Record<string, unknown>): ServiceSearch {
 
 type Tab = "console" | "settings" | "plugins"
 
-/**
- * Which tabs this service has, or `undefined` while that is not known yet.
- *
- * **A tab with nothing behind it is not there.** Settings needs a config file or a
- * message bundle of this service - or a listing that failed, because then the failure is what the
- * tab has to show. Plugins needs the worker's `hasPlugins`, so the tab is decided by one answer
- * instead of being drawn and taken away again when `/plugins` comes back 404.
- */
+/** Which tabs this service has, or `undefined` until known; a tab with nothing behind it is not there. */
 export function useServiceTabs(name: string): Tab[] | undefined {
   const service = useService(name)
   const configs = useConfigs()
@@ -68,13 +61,7 @@ export function useServiceTabs(name: string): Tab[] | undefined {
   ]
 }
 
-/**
- * One service: a head with its actions and who is on it, and three tabs under it.
- *
- * Every service gets the same page. The six that are not Minecraft servers get the same head and
- * the same Console, and simply have fewer tabs - two layouts to keep would be the more expensive
- * half of that decision.
- */
+/** One service: a head with its actions and who is on it, and its tabs; every service gets this page. */
 export function ServicePage() {
   const { name } = useParams({ from: "/services/$name" })
   const search = useSearch({ from: "/services/$name" })
@@ -84,10 +71,7 @@ export function ServicePage() {
   const tab: Tab = search.tab ?? "console"
   const { run } = useRunLock()
 
-  /**
-   * A tab the service does not have - typed in, or left over from another service - goes back to
-   * Console, replacing the entry so Back does not return to it.
-   */
+  /** A tab the service lacks goes back to Console, replacing the entry so Back skips it. */
   useEffect(() => {
     if (tabs && !tabs.includes(tab)) {
       void navigate({ search: {}, replace: true })
@@ -105,10 +89,7 @@ export function ServicePage() {
       <Tabs
         value={tab}
         onValueChange={(next) =>
-          /**
-           * A tab change replaces the entry, so Back leaves the page rather than walking back
-           * through every tab somebody looked at.
-           */
+          /** A tab change replaces the entry, so Back leaves the page rather than walking through tabs. */
           void navigate({
             search: (previous) =>
               next === "console"
@@ -143,10 +124,7 @@ export function ServicePage() {
               ) : null}
             </TabsList>
           ) : (
-            /**
-             * One tab is not a choice: postgres and the rest get the Console bar alone, so the page
-             * still says what it is showing.
-             */
+            /** One tab is still drawn, so the page says what it shows. */
             <TabsList className="w-full sm:w-fit">
               <TabsTrigger value="console" className="sm:px-3">
                 <TerminalWindowIcon aria-hidden />
@@ -159,8 +137,7 @@ export function ServicePage() {
         )}
 
         <TabsContent value="console" className="flex flex-col gap-6">
-          {/* The "unknown service" case is a 404 from the worker and arrives as a failure, which
-              says the same thing with the name of the service in it. */}
+          {/* An unknown service is a 404 from the worker, which names the service. */}
           <QueryState query={service}>{(data) => <ServiceHead service={data} name={name} />}</QueryState>
           {/* Their own area, not the header: the header's actions are about the container. */}
           {name === "smp" ? <SmpActions /> : null}
@@ -192,11 +169,9 @@ export function ServicePage() {
 }
 
 /**
- * Update, Take down (or Start), Recreate - each with its own symbol.
+ * Update, Take down or Start, and Recreate, each with its own symbol.
  *
- * From `sm` up all three stand with their word. Below it Update stays as a symbol and the other
- * two move into a ⋯ menu, which opens exactly the confirmation the button would have: the dialogs
- * are the buttons' own, steered from here, not a second copy.
+ * Below `sm` the last two move into a menu that opens the buttons' own dialogs.
  */
 function ServiceActions({
   name,
@@ -208,20 +183,13 @@ function ServiceActions({
   const [dialog, setDialog] = useState<"hold" | "recreate" | null>(null)
   const gate = useRecreateGate(name)
   const lock = useRunLock()
-  /**
-   * Take down and Start are one switch, and which half is offered follows `hold`
-   * and nothing else. While the row is loading neither is drawn: a Take down that turns into Start
-   * under somebody's finger is worse than a button that arrives late.
-   */
+  /** Take down and Start are one switch following `hold`; neither is drawn while the row loads. */
   const hold = service === undefined ? undefined : service.hold ? "START" : "DOWN"
   const recreatable = name !== "steward-deployer"
   const HoldIcon = hold === "START" ? PlayIcon : PowerIcon
   const holdLabel = hold === "START" ? "Start" : "Take down"
 
-  /**
-   * All three arrive together: until the row is here each one is a button-sized shape, hidden
-   * below sm exactly like the button it stands for.
-   */
+  /** Until the row arrives each button is a shape, hidden below `sm` like the button it stands for. */
   if (service === undefined) {
     return (
       <div className="flex items-center gap-2" aria-hidden>
@@ -235,8 +203,7 @@ function ServiceActions({
 
   return (
     <div className="flex items-center gap-2">
-      {/* A run for this service alone, offered on every page - a run with
-          nothing to install ends at "Nothing to do", which is a true answer. */}
+      {/* A run for this service alone; with nothing to install it ends at "Nothing to do". */}
       <AskButton
         kind="UPDATE"
         services={[name]}
@@ -291,10 +258,7 @@ function ServiceActions({
   )
 }
 
-/**
- * The run that is open, on every service page - it is what locks the buttons beside it, so the page
- * says which run that is. Its stage while it has one, and Cancel while the countdown still runs.
- */
+/** The open run, which locks the buttons beside it: its stage, and Cancel while the countdown runs. */
 export function ActiveRunLine({ run, name }: { run: Run | null; name: string }) {
   if (!run) return null
   const stage = run.report && !ENDINGS.has(run.report.stage) ? run.report.stage : null
@@ -311,7 +275,7 @@ export function ActiveRunLine({ run, name }: { run: Run | null; name: string }) 
   )
 }
 
-/** Why this service's log may end on purpose - see `ServiceConsole`'s `offline`. */
+/** Why this service's log may end on purpose; see `ServiceConsole`'s `offline`. */
 export function offline(run: Run | null, name: string, state: string | undefined): "going" | "gone" | undefined {
   if (run && run.kind !== "START" && run.status === "RUNNING" && touches(run, name)) {
     return "going"
@@ -319,22 +283,16 @@ export function offline(run: Run | null, name: string, state: string | undefined
   return state !== undefined && state !== "running" ? "gone" : undefined
 }
 
-/**
- * The head of a service page, exported for its own test: a field that
- * must be *absent* rather than zero, and that is only observable on a rendered head.
- */
+/** The head of a service page, exported for its test, since some fields must be absent rather than zero. */
 export function ServiceHead({
   service,
   name,
 }: {
-  /** Absent while `/api/services/{name}` is out. Every field below then draws its own shape. */
+  /** Absent while `/api/services/{name}` is out, each field then drawing its own shape. */
   service?: NonNullable<ReturnType<typeof useService>["data"]>
   name: string
 }) {
-  /**
-   * The same six hours the start page draws, per service since the sampler already writes one
-   * series per container.
-   */
+  /** The same six hours the start page draws, one series per container. */
   const cpu = useMetrics(name, "cpu_percent", 6)
   const memory = useMetrics(name, "memory_bytes", 6)
   return (
@@ -342,10 +300,7 @@ export function ServiceHead({
       <div className="col-span-2 flex flex-col gap-2">
         <span className="text-xs font-medium font-heading text-muted-foreground">State</span>
         <div className="flex flex-wrap items-center gap-2">
-          {/* The hold is part of the state badge, rather than a second badge
-              beside it: a service put down on purpose is not "exited" in red plus an explanation,
-              it is one reading, and it is now the same reading the sidebar and the network view
-              draw for it. Since and by moved into that badge's title with it. */}
+          {/* The hold is part of the state badge, the same reading the sidebar and network view draw. */}
           {service ? (
             <ServiceState state={service.state} health={service.health} hold={service.hold} />
           ) : (
@@ -358,7 +313,7 @@ export function ServiceHead({
             service.startedAt ? (
               since(service.startedAt)
             ) : (
-              "–"
+              "\u2013"
             )
           ) : (
             <SkeletonText width="short" className="h-[1lh]" />
@@ -373,8 +328,7 @@ export function ServiceHead({
         <Stat label="RAM" value={service ? bytes(service.memoryBytes) : undefined} />
         <Sparkline points={memory.data?.points} />
       </div>
-      {/* Only the four services with a volume here have a number; the rest get no field, because
-          0 bytes would be a claim. A measurement older than two minutes says how old it is. */}
+      {/* Only services with a volume have a number, since 0 bytes would be a claim; an old one says its age. */}
       {service?.diskBytes === undefined ? null : (
         <Stat label="Disk" value={bytes(service.diskBytes)} hint={diskAge(service.diskMeasuredAt)} />
       )}

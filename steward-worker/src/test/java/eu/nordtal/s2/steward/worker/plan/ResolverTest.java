@@ -28,11 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * The whole of step 1, against recorded API responses and a volume tree on disk.
- *
- * Fixtures are real payloads whose release carries the scaffold jars - the situation this module targets.
- */
+/** The whole of step 1, against recorded API responses and a volume tree on disk. */
 class ResolverTest {
 
     /** The SHA-1 the release's .zip.sha1 asset is made to contain in these tests. */
@@ -149,7 +145,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        // A different loader, a different jar, from Modrinth.PRE_RELEASE_EXCEPTIONS - asserts the exception is reached.
+        // A different loader and jar, from Modrinth.PRE_RELEASE_EXCEPTIONS: asserts the exception is reached.
         final Change change = changeFor(plan, "proxy", "voicechat-velocity");
         assertEquals(Change.Status.UP_TO_DATE, change.status(), Report.render(plan));
         assertEquals("voicechat-velocity-2.6.18.jar", change.installed());
@@ -432,7 +428,7 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
         final Change smp = changeFor(plan, "smp", "smp");
 
-        // The release answered but has no file for this jar - that is NOT_IN_RELEASE, not a failed lookup.
+        // The release answered but has no file for this jar: NOT_IN_RELEASE, not a failed lookup.
         assertEquals(Change.Status.NOT_IN_RELEASE, smp.status(), Report.render(plan));
         assertEquals("smp-0.1.0.jar", smp.installed());
         assertFalse(smp.status().isFailure(), Report.render(plan));

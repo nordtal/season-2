@@ -8,17 +8,7 @@ import { CommandCard, accountOptions } from "@/components/steward/command-card"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton, asElement } from "@/lib/test-elements"
 
-/**
- * A refusal has to be where the operator is looking.
- *
- * While the confirmation is open it covers the card, so a `Failure` rendered in the row behind it
- * is a refusal nobody reads - and the button that produced it is still sitting there in the dialog
- * looking as though the click did nothing. That is the one thing these tests are about: the same
- * error, in whichever of the two places is on top at the time, and never in both.
- *
- * Nothing here knows what a command does; the catalogue comes from `/api/commands`, which is what
- * keeps this card from becoming a second, quietly diverging copy of the declarations.
- */
+/** A refusal shows wherever the operator is looking: in the open dialog, else in the row, never both. */
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -45,10 +35,7 @@ const IRREVERSIBLE: AdminCommand = {
   arguments: [],
 }
 
-/**
- * The three routes the card uses. POST and GET share a prefix, so they are told apart by method -
- * `/api/commands/{id}` is the poll and `/api/commands` is the request.
- */
+/** The three routes the card uses; `/api/commands/{id}` is the poll and `/api/commands` the request. */
 function backend(
   over: {
     commands?: AdminCommand[]
@@ -81,7 +68,6 @@ function draw(node: ReactNode) {
   )
 }
 
-/** The row of one command, found by the `<span class="font-mono">` carrying its name. */
 async function row(name: string): Promise<HTMLElement> {
   const label = await screen.findByText(name)
   const found = label.closest("div.rounded-md")
@@ -96,10 +82,7 @@ afterEach(() => {
 
 describe("CommandCard - a command that refuses to be written", () => {
   it("shows the refusal inside the confirmation, where the operator is looking", async () => {
-    /**
-     * The defect: the dialog covers the card, so the `Failure` in the row behind it was a sentence
-     * nobody could read, under a button that looked as though nothing had happened.
-     */
+    /** The dialog covers the card, so a `Failure` in the row behind it would go unread. */
     vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
     draw(<CommandCard />)
 
@@ -109,19 +92,12 @@ describe("CommandCard - a command that refuses to be written", () => {
 
     await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeNull())
     expect(within(dialog).getByRole("alert").textContent).toContain("The database is not answering.")
-    /**
-     * And in exactly one place. `hidden: true` is not padding: Radix marks everything outside the
-     * open dialog `aria-hidden`, so a second copy left in the row behind the overlay is invisible
-     * to a default `getAllByRole` and this assertion would pass over the very thing it is for.
-     */
+    /** `hidden: true` counts the copy behind the overlay, which Radix marks `aria-hidden`. */
     expect(screen.getAllByRole("alert", { hidden: true })).toHaveLength(1)
   })
 
   it("leaves the confirmation open, because the command has not been written", async () => {
-    /**
-     * Closing it on failure would look like success. `setConfirming(false)` is deliberately in
-     * `onSuccess` and nowhere else.
-     */
+    /** The dialog stays open on failure, since closing it would look like success. */
     vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
     draw(<CommandCard />)
 
@@ -135,10 +111,7 @@ describe("CommandCard - a command that refuses to be written", () => {
   })
 
   it("moves the refusal into the row once the confirmation is gone", async () => {
-    /**
-     * The other half of the `!confirming` condition: with nothing covering the card the sentence
-     * belongs where the button is.
-     */
+    /** With nothing covering the card, the refusal belongs next to its button. */
     vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
     draw(<CommandCard />)
 
@@ -170,11 +143,7 @@ describe("CommandCard - a command that refuses to be written", () => {
 
 describe("CommandCard - what became of a row that was written", () => {
   it("says that nothing claimed the row, which is not the same as having failed", async () => {
-    /**
-     * EXPIRED means the service that owns the command is not listening. That is a different
-     * errand from FAILED, and collapsing the two into "it did not work" sends somebody to the
-     * wrong log.
-     */
+    /** EXPIRED means the owning service is not listening, a different errand from FAILED. */
     vi.stubGlobal(
       "fetch",
       backend({
@@ -192,10 +161,7 @@ describe("CommandCard - what became of a row that was written", () => {
   })
 
   it("shows the failure and a way back when the poll itself cannot be answered", async () => {
-    /**
-     * The row exists and the command may well be running; what is broken is the asking. Drawing
-     * "Being carried out." here would be an assertion nothing supports.
-     */
+    /** The row exists and the command may be running; only the asking failed. */
     vi.stubGlobal(
       "fetch",
       backend({
@@ -245,7 +211,7 @@ describe("CommandCard - what it will not let be pressed", () => {
     const button = asButton(within(only).getByRole("button", { name: /Run/ }))
     expect(button.disabled).toBe(true)
 
-    // Whitespace is not an argument - `.trim()` in `missing` is what makes that true.
+    // `.trim()` in `missing` keeps whitespace from counting as an argument.
     fireEvent.change(within(only).getByLabelText("player"), { target: { value: "   " } })
     expect(button.disabled).toBe(true)
 
@@ -254,10 +220,7 @@ describe("CommandCard - what it will not let be pressed", () => {
   })
 
   it("says so plainly when no command is released for the interface at all", async () => {
-    /**
-     * The list is the declarations carrying Surface.WEB. An empty one is a statement, not a
-     * loading state.
-     */
+    /** An empty list of WEB declarations is a statement, not a loading state. */
     vi.stubGlobal("fetch", backend({ commands: [] }))
     draw(<CommandCard />)
 
@@ -266,10 +229,7 @@ describe("CommandCard - what it will not let be pressed", () => {
 })
 
 describe("accountOptions - the picker names people, not snowflakes", () => {
-  /**
-   * The options live inside a Radix `Select`, which does not open under jsdom - so the labelling
-   * rule is held on the function that builds them rather than on the popup.
-   */
+  /** A Radix `Select` does not open under jsdom, so the labelling is held on the function that builds the options. */
   const PEOPLE = [
     {
       discordId: "214906139328839681",
@@ -308,7 +268,7 @@ describe("accountOptions - the picker names people, not snowflakes", () => {
     expect(screen.getByText("linked")).toBeTruthy()
     expect(screen.getAllByText("not linked")).toHaveLength(2)
     expect(document.body.textContent).not.toMatch(/\d{17,20}/)
-    // The id is still what gets submitted - it is just not what a human reads while picking.
+    // The id is still what gets submitted, only not what a human reads.
     expect(options.map((option) => option.value)).toEqual([
       "214906139328839681",
       "300000000000000002",

@@ -12,11 +12,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks that a season plugin which cannot start shuts its server down.
+ * Checks that a season plugin which cannot start shuts its server down, by searching for {@code shutdown}.
  *
- * A text search, since it needs a running server: {@code disablePlugin} must be followed by
- * {@code shutdown}. Docker restarts nothing on health alone. Only these dedicated backends follow this
- * rule; {@code papermc-display-tags} runs on other people's servers and must not.
+ * {@code papermc-display-tags} runs on other people's servers and is exempt.
  */
 class FatalPathsStopTheServerTest {
 

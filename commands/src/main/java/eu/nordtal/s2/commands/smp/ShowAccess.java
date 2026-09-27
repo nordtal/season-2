@@ -17,21 +17,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * {@code /smp access <player>} - why can this person not get in?
+ * {@code /smp access <player>}: why this person cannot get in, answered to the asker alone.
  *
- * The third line is the one that pays for the command: "they have not paid" and "they are in the
- * middle of paying" produce the same disconnect screen and the same complaint, and only one of them
- * means the admin should wait rather than act. It is readable at all because the purchase flow's
- * state is a row and not a cache.
- *
- * Read-only, and answered to the asker alone: it carries somebody's Discord id and a payment
- * reference, which this network's admins already see in the admin channel and are not things to
- * print into a shared chat - so there is no broadcast and no log line.
- *
- * A failure to read the payment does not discard the rest.
- *
- * The two reads are separate on purpose. The access line is the one an admin came for; losing it
- * because the second query failed would be the wrong trade.
+ * Separates "not paid" from "mid-payment", and a failed payment read still leaves the access line.
  */
 public final class ShowAccess implements NordtalCommand<SmpEffects> {
 

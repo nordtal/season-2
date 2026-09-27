@@ -18,26 +18,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
-/**
- * One repeatable card, drawn from a `SECTIONS` entry.
- *
- * `languages` in `discord-bot/access.yml` is the case this was built for:
- * a YAML sequence of mappings, each carrying the same handful of fields. `SECTIONS` exists on
- * the worker too - append and remove both round-trip through
- * `PUT /api/config/<file>` a byte-identical file plus or minus exactly one entry.
- *
- * A card holds no field the schema did not put in `template` - a generic mechanism has no way to
- * know which field of an arbitrary section would make a good title, so by default the only label is
- * the plain "Entry N" every card has always had. `sectionTitle` and the incompleteness check below
- * are the two places that generic promise runs out, and both are opt-in props the caller supplies
- * rather than anything this component infers from a section's own values - see each prop's own
- * comment for why.
- */
-
-/**
- * One section's fields as the record a card edits: text for a value, a list of text for a list,
- * and for a list of sections - the objectives of a milestone - the same record one level down.
- */
+/** One section's fields as a card edits them, a list of sections holding the same record one level down. */
 export type SectionValues = { [key: string]: string | string[] | SectionValues[] }
 
 /** A stable identity for "no template", so a memo keyed on it does not recompute every render. */
@@ -53,12 +34,12 @@ function fieldsToValues(fields: ConfigEntry[]): SectionValues {
   return values
 }
 
-/** The document's own sections, as a card's draft starts from - `entry.sections`, as records. */
+/** The document's own sections, as records, which a card's draft starts from. */
 export function sectionsFromEntry(entry: ConfigEntry): SectionValues[] {
   return (entry.sections ?? []).map(fieldsToValues)
 }
 
-/** A brand new, empty section - every key `template` names, empty, lists included. */
+/** A brand new section with every key `template` names, empty. */
 export function blankSection(template: ConfigEntry[]): SectionValues {
   const values: SectionValues = {}
   for (const field of template) {
@@ -83,6 +64,7 @@ function sectionsOf(value: string | string[] | SectionValues[] | undefined): Sec
   return Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null) ? value : []
 }
 
+/** The entries of a `SECTIONS` value as cards, each drawn from `template`, appended and removed one at a time. */
 export function RepeatableCards({
   entry,
   value,
@@ -99,60 +81,28 @@ export function RepeatableCards({
   roles: GuildList | undefined
   channels: GuildList | undefined
   onChange: (value: SectionValues[]) => void
-  /**
-   * What to call a card instead of "Entry N" - `configuration.tsx` is the only caller
-   * that passes one, keyed on `entry.path === "languages"`, because a language's tag is not a
-   * concept this component or the schema knows about. Absent for every other `SECTIONS` entry
-   * (`tiers`, today), which keeps the plain index.
-   */
+  /** What to call a card instead of "Entry N"; the caller decides, since the schema knows no titles. */
   sectionTitle?: (section: SectionValues, index: number) => string
-  /**
-   * Set for a list drawn inside another card: its entries are divided by a rule instead of being
-   * cards themselves, since a card inside a card is one frame too many. The value is the parent
-   * card's title, which names this list's add button.
-   */
+  /** Set for a list inside another card, whose entries are divided by a rule; it names the add button. */
   within?: string
 }) {
   const template = entry.template ?? NO_TEMPLATE
-  /**
-   * What a field started from, per section - the only thing `ScalarControl`'s secret placeholder
-   * needs `edited` for, and there is no schema-shaped default to fall back to beside "the file's
-   * own copy", the same way the top-level form uses the document rather than a hardcoded default.
-   */
+  /** The file's own copy of each section, which the secret placeholder compares against. */
   const original = useMemo(() => sectionsFromEntry(entry), [entry])
 
-  /**
-   * Which of a section's fields are a channel the schema does not call optional -
-   * "missing a channel is visibly incomplete" - computed once per template, not per section, since
-   * it only reads field shape and never a value.
-   */
+  /** The channel fields not marked optional, whose absence marks a card incomplete. */
   const requiredChannelFields = useMemo(() => template.filter((field) => isRequiredChannel(field)), [template])
 
-  /**
-   * Removing is a two-step action: the trash icon arms it, and only the dialog's own confirmation
-   * splices the draft. `null` is "nothing armed". Every removal still gets the same dialog, and
-   * what it shows is `explanationOf(entry)` - whatever the schema already says about the whole
-   * list - because the confirmation is about the list in general, not about the one entry below
-   * that cannot actually be removed.
-   */
+  /** The index armed for removal, which only the dialog's confirmation splices out. */
   const [pendingRemoval, setPendingRemoval] = useState<number | null>(null)
   const listExplanation = explanationOf(entry)
 
-  /**
-   * The one entry the schema names as protected, if any is currently in the draft -
-   * `en` in `languages`. The worker refuses this removal too (`ConfigFiles.removeSection`), so
-   * this is a courtesy: greying the button out up front is a better answer than letting somebody
-   * confirm a removal that only fails once the save reaches the worker.
-   */
+  /** The entry the schema protects, greyed out here since the worker refuses its removal too. */
   const protectedIndex = entry.protectedEntry
     ? value.findIndex((section) => textOf(section, entry.protectedEntry!.field) === entry.protectedEntry!.value)
     : -1
 
-  /**
-   * The ticket's own escape hatch: a schema that could not describe one shape for every entry sends
-   * no template, and a card that pretended it had one would just be the field set of whichever
-   * entry happened to come first, silently dropping the rest. Raw text, clearly marked, beats that.
-   */
+  /** A schema with no single shape for every entry sends no template, so the list is edited as raw text. */
   if (template.length === 0) {
     return (
       <div className="flex flex-col gap-2">
@@ -176,11 +126,7 @@ export function RepeatableCards({
     )
   }
 
-  /**
-   * A card is named by the caller if it asked to, else by its own `key` - the one field every
-   * repeating structure here that has a natural name keeps it under (a milestone, an objective) -
-   * and only then by its position.
-   */
+  /** A card's title: the caller's, else its own `key` field, else its position. */
   const titleOf = (section: SectionValues, index: number) =>
     sectionTitle?.(section, index) ?? (textOf(section, "key").trim() || `Entry ${index + 1}`)
 
@@ -236,10 +182,7 @@ export function RepeatableCards({
                   />
                 )
               } else if (field.kind === "SECTIONS") {
-                /**
-                 * The file's own copy of this very list, so the nested cards know what "edited"
-                 * and "protected" mean for it; a card added in this draft has none yet.
-                 */
+                /** The file's copy of this nested list; a card added in this draft has none yet. */
                 const own = entry.sections?.[index]?.find((f) => f.key === field.key)
                 control = (
                   <RepeatableCards

@@ -4,15 +4,7 @@ import eu.nordtal.s2.common.message.MessageRef;
 
 /**
  * A command: its {@link Declaration}, and what it does with an effect the platform supplies.
- *
- * {@code E} is the effect interface of the process that owns the command, so the decision half
- * lives here (and is testable with a fake effect and a fake {@link NordtalUser}) while the acting
- * half stays in the JVM that can carry it out. Three things must therefore not appear here: a
- * platform type (this module compiles against no platform, so a {@code Player} in a signature is
- * a command the Discord adapter can never call), a sentence (every string a command produces is a
- * message key rendered against the asker's locale), and a blocking call ({@link #run} is invoked
- * from a Brigadier handler on the main thread and from a JDA gateway thread, so work that waits
- * belongs behind the effect).
+ * It holds no platform type, no sentence and no blocking call.
  *
  * @param <E> the effect interface of the process that runs this command
  */
@@ -22,11 +14,7 @@ public interface NordtalCommand<E> {
     Declaration declaration();
 
     /**
-     * Do it.
-     *
-     * Authorisation has already been checked by the caller against
-     * {@link Declaration#adminOnly()} - twice for a command that travelled, since the admin flag can
-     * change while a request row waits. A command does not re-check it.
+     * Runs the command; the caller has already checked {@link Declaration#adminOnly()}.
      *
      * @param user    who asked, in which language, and where to answer
      * @param values  the arguments, already parsed and validated against the declaration
@@ -35,37 +23,22 @@ public interface NordtalCommand<E> {
     void run(NordtalUser user, Values values, E effects);
 
     /**
-     * Whether the arguments are wrong in a way this command can see before doing anything.
+     * Returns what is wrong with the arguments alone, asked before any confirmation.
      *
-     * Separate from {@link #run} because an irreversible command is confirmed before it runs;
-     * every adapter asks this first, so {@code /phase set NOT_A_PHASE} is refused instead of
-     * demanding a retype and only then rejecting the name.
-     *
-     * Only for what the arguments say, never for the world: "that is not a phase name" belongs
-     * here, "no milestone is active" does not - the second needs the effects and can change between
-     * the question and the answer.
-     *
-     * @return the message naming the problem - or empty when
-     *         the arguments are usable
+     * @return the message naming the problem, or empty when the arguments are usable
      */
     default java.util.Optional<MessageRef> problem(final Values values) {
         return java.util.Optional.empty();
     }
 
-    /**
-     * Everything wrong with the arguments: the checks every command gets, then {@link #problem}.
-     *
-     * A {@link Argument.Kind#CHOICE} is validated here rather than per adapter because Brigadier
-     * has no enum type - both chat adapters type a choice as a plain word and would accept anything
-     * typed.
-     */
+    /** Returns everything wrong with the arguments: an undeclared choice, then {@link #problem}. */
     default java.util.Optional<MessageRef> check(final Values values) {
         for (final Argument argument : declaration().arguments()) {
             if (argument.kind() != Argument.Kind.CHOICE) {
                 continue;
             }
             final java.util.Optional<Object> supplied = values.raw(argument.name());
-            // Values has already normalised a recognised choice, so this only asks whether it is one at all.
+            // Values has already normalised a recognised choice, so this only asks whether it is one.
             if (supplied.isPresent()
                     && argument.match(String.valueOf(supplied.get())).isEmpty()) {
                 return java.util.Optional.of(CommandMessages.MESSAGES

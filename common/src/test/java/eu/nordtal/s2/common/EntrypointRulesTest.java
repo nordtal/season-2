@@ -11,27 +11,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rules {@code deploy/minecraft/entrypoint.sh} was taught the hard way, kept from being untaught.
+ * Holds {@code deploy/minecraft/entrypoint.sh} to the rules its container drills established.
  *
- * <b>Why a text test for a shell script</b>
- *
- * Because there is no other kind available here and the alternative is nothing. Every rule below was
- * established by running a container and watching it fail, each is a single line that looks
- * removable, and each has a failure mode that is invisible from outside: a container that reports
- * the wrong exit status, or one whose crash cause reaches no log at all, or one that cannot be
- * killed. The container drills that produced them are in {@code deploy/README.md}; this is what
- * notices when a line goes missing between them.
+ * Each rule is one line that looks removable, and losing it fails invisibly; {@code deploy/README.md} has the drills.
  */
 class EntrypointRulesTest {
 
-    /**
-     * The script with every full-line comment removed.
-     *
-     * It has to be, and the first version of this test proved why by failing on all four rules:
-     * the file explains each of them at length, so a search for {@code /proc/1/fd/1} finds the
-     * paragraph forbidding it, and a search for {@code remain-on-exit} finds the paragraph saying
-     * where it has to go. What is being asserted here is what the script <em>does</em>.
-     */
+    /** The script without its full-line comments, which explain every rule and would match every search. */
     private static String script;
 
     @BeforeAll

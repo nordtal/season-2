@@ -7,26 +7,21 @@ export const ACCESS_FILE = "discord-bot/access.yml"
 export const FALLBACK_LANGUAGES = ["en", "de"]
 
 export type AnnouncementTargets = {
-  /** Each language of the file, in file order, with its channel id - empty when it has none. */
+  /** Each language of the file, in file order, with its channel id, or empty for none. */
   languages: { tag: string; channel: string }[]
-  /**
-   * The host environment sets `languages`, so the file is not what the bot runs with and its
-   * channels are not shown as where a line will land.
-   */
+  /** True when the host environment sets `languages`, so the file's channels are not where a line lands. */
   overridden: boolean
 }
 
-/**
- * Where an announcement lands, per language, out of `discord-bot/access.yml`.
- *
- * Null when the file does not carry `languages` as cards - raw, or a worker too old to describe a
- * list of sections - and the page then writes in {@link FALLBACK_LANGUAGES} without naming a
- * channel. The bot's answer on each row still says whether it posted.
- */
 function field(section: ConfigEntry[], key: string) {
   return section.find((candidate) => candidate.key === key)?.value?.trim() ?? ""
 }
 
+/**
+ * Where an announcement lands per language, read from `discord-bot/access.yml`.
+ *
+ * Null when the file has no `languages` cards; the page then writes in {@link FALLBACK_LANGUAGES} with no channel.
+ */
 export function announcementTargets(document: ConfigDocument | undefined): AnnouncementTargets | null {
   if (!document || document.raw) return null
   const entry = document.entries.find((candidate) => candidate.path === "languages")

@@ -10,20 +10,9 @@ import eu.nordtal.jcore.config.schema.SchemaWriter;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code backup.remote} - the offsite target on the backup page.
+ * {@code backup.remote}, the offsite target on the backup page.
  *
- * The page draws a form out of this section and saves it back through {@code ConfigApi}, so two properties of the
- * schema are load-bearing for something a person can see. The first is that the two credentials are declared
- * {@code @Secret}: a secret is sent as {@code filled: true} with no value, which is the whole reason the page can
- * show that a key is set without the key being in the browser. {@code ConfigEntry.isSecretKey} would catch both
- * names by its own heuristic as well - the point of the annotation is that the masking does not depend on what the
- * key is called.
- *
- * The second is that the endpoint is empty by default. A deployment with no offsite copy must look like one, rather
- * than like a target somebody has to check before believing the archives are only on this disk.
- *
- * Built straight from the interface with {@link SchemaWriter#build} rather than through {@link Configs}: whether the
- * annotation is there is a property of the interface and needs no file on disk to demonstrate.
+ * The credentials are {@code @Secret} so the browser never sees them, and the endpoint is empty by default.
  */
 class BackupRemoteSpecTest {
 

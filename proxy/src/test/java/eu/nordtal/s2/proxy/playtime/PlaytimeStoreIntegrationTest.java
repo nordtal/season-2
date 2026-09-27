@@ -24,20 +24,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * {@link PlaytimeStore}'s one statement, against a real PostgreSQL running the real {@code V4}.
+ * {@link PlaytimeStore}'s one statement, against PostgreSQL with the real {@code V4}.
  *
- * {@link PlaytimeWriterTest} covers the counting; this covers the writing, and the two are separate
- * because only one of them needs Docker. What cannot be checked in memory is that the row is
- * created on first use, that a second call <b>adds</b> rather than replaces, that the foreign key
- * onto {@code discord_user} holds, and that two flushes racing produce the sum of both slices
- * instead of one of them - which is the property {@code V4}'s comment claims for {@code bigint}
- * seconds over an {@code interval}.
- *
- *
- * Testcontainers is driven by hand from {@link BeforeAll} for the reason {@code :common}'s tests
- * give: the {@code org.testcontainers:junit-jupiter} extension is built against JUnit 5 and this
- * repo is on the JUnit 6 BOM. These tests <b>skip themselves</b> when no Docker daemon is
- * reachable, so a green build on a machine without Docker proves nothing about any of this.
+ * Covers row creation, addition, the foreign key and racing flushes; skips without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PlaytimeStoreIntegrationTest {
@@ -66,7 +55,7 @@ class PlaytimeStoreIntegrationTest {
         dataSource.setUser(postgres.getUsername());
         dataSource.setPassword(postgres.getPassword());
 
-        // The real migrations, off the classpath: :common is shaded here, so db/migration is where the bot finds it.
+        // The real migrations, off the classpath, where :common's shading puts them.
         Flyway.configure(PlaytimeStoreIntegrationTest.class.getClassLoader())
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
@@ -124,7 +113,7 @@ class PlaytimeStoreIntegrationTest {
 
     @Test
     void concurrentFlushesAddUpInsteadOfOverwritingEachOther() throws Exception {
-        // Two proxies, or a sweep racing a disconnect: PostgreSQL evaluates the addition, both slices land.
+        // Two proxies, or a sweep racing a disconnect: PostgreSQL adds, so both slices land.
         final int writers = 8;
         final ExecutorService pool = Executors.newFixedThreadPool(writers);
         final CountDownLatch go = new CountDownLatch(1);
@@ -148,7 +137,7 @@ class PlaytimeStoreIntegrationTest {
 
     @Test
     void aDiscordAccountTheDatabaseHasNeverSeenIsRefusedByTheForeignKey() {
-        // Enforced, not a convention: a play-time row for a user that does not exist is a total nobody could own.
+        // A play-time row for a user that does not exist is refused.
         assertThrows(RuntimeException.class, () -> store.add("999999999999999999", 60));
     }
 

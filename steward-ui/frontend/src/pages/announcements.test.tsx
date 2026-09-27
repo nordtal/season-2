@@ -9,10 +9,7 @@ import { AnnouncementsPage, senderName } from "@/pages/announcements"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton, asTextArea } from "@/lib/test-elements"
 
-/**
- * One form writes every language, nothing leaves until every language has its text, and the page
- * says where each line lands - next to what was announced lately, the SMP's lines included.
- */
+/** One form writes every language, nothing is sent until each has its text, and each line's destination is shown. */
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {

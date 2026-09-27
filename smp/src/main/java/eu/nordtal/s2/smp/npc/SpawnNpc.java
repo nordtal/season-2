@@ -13,18 +13,7 @@ import org.bukkit.entity.Mannequin;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The figure in the tavern: click it to open the objective list and hand items in.
- *
- * A vanilla {@link Mannequin}: a player-shaped {@code LivingEntity} with no AI, no despawning and no wandering, so
- * no third-party NPC plugin is needed.
- *
- * A later 3D model replaces how the NPC is <em>drawn</em> and nothing about how it is clicked, which is why the
- * interaction lives in its own listener rather than in here.
- *
- * Spawned non-persistent and removed at disable, so the tavern never accumulates a second one - and any left by a
- * crash are swept at start.
- */
+/** The figure in the tavern, a vanilla {@link Mannequin}: click it to open the objective list and hand items in. */
 public final class SpawnNpc {
 
     private final Plugin plugin;
@@ -36,7 +25,7 @@ public final class SpawnNpc {
         this.config = config;
     }
 
-    /** Puts the figure in place, removing any this plugin left behind first. Main thread. */
+    /** Puts the figure in place, removing any this plugin left behind first, on the main thread. */
     public void spawn() {
         final NpcSpec spec = config.npc();
         final World world = Bukkit.getWorld(spec.world());
@@ -69,12 +58,7 @@ public final class SpawnNpc {
         spawned = figure.getUniqueId();
     }
 
-    /**
-     * Wears somebody's skin, resolved from Mojang.
-     *
-     * Deliberately neither fatal nor blocking: a default skin is cosmetic, a server that will not start because Mojang
-     * is slow is an outage.
-     */
+    /** Wears somebody's skin, resolved from Mojang, never fatal and never blocking. */
     private void applySkin(final Mannequin mannequin, final String skinName) {
         if (skinName == null || skinName.isBlank()) {
             return;
@@ -108,7 +92,7 @@ public final class SpawnNpc {
         spawned = null;
     }
 
-    /** Whether an entity is this NPC - the listener's one question. */
+    /** Whether an entity is this NPC. */
     public boolean is(final UUID entityId) {
         return spawned != null && spawned.equals(entityId);
     }

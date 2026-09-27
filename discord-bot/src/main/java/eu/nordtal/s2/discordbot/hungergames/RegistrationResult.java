@@ -6,10 +6,6 @@ import org.jspecify.annotations.Nullable;
 /**
  * The outcome of registering a team, from {@link Teams#register(String, String)}.
  *
- * A record rather than an exception, the same reasoning as {@code LinkRedemption} in {@code :common}: a taken name
- * or a second registration attempt are ordinary outcomes of a modal submission, not failures worth a stack
- * trace.
- *
  * @param teamId null unless {@link #status()} is {@link Status#REGISTERED}
  */
 public record RegistrationResult(Status status, @Nullable UUID teamId) {
@@ -32,7 +28,7 @@ public record RegistrationResult(Status status, @Nullable UUID teamId) {
 
     public enum Status {
         REGISTERED,
-        /** Outside the 3-15 character range the modal already enforces - a second guard, not the first. */
+        /** Outside the 3 to 15 character range the modal already enforces. */
         INVALID_NAME,
         NAME_TAKEN,
         /** Already OWNER, INVITED or ACCEPTED on some team in the open game. */

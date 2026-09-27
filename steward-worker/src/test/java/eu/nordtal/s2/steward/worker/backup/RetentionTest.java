@@ -16,18 +16,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The retention decision, without a disk under it.
  *
- * Two parts: the first is the grandfather-father-son schedule every backup tool has: keep N
- * daily, M weekly and K monthly copies. The second is in no standard tool - "in the end one backup a
- * day is left, at most the last of them", translated: several runs on one day are normal (a manual one beside the
- * nightly), and a few days later only the last of that day survives. The two rules compose in one direction only,
- * which is what most of this file is about: the day is collapsed to its last run first, and the schedule then counts
- * days rather than files. Counting files first would let three runs of one Tuesday eat the whole daily window.
- *
- * Why the decision is a pure function and the deleting is not: {@link TarSnapshots#prune} owns a directory, a clock
- * and a list of names that may or may not be archives. What it should delete is arithmetic on timestamps, and
- * arithmetic is where the mistakes are: a sweep that is wrong by one week deletes six months of history on its next
- * run and nobody finds out until a restore. So the arithmetic is here, it is checked against dates written out by
- * hand, and {@code TarSnapshots} is left with the files.
+ * A day collapses to its last run before the schedule counts days, so one busy day cannot eat the daily window.
  */
 class RetentionTest {
 
@@ -47,7 +36,7 @@ class RetentionTest {
         return policy.expired(all, NOW).stream().map(Retention.Dated::name).toList();
     }
 
-    /** Daily runs, `days` of them, ending yesterday - the ordinary history of a nightly backup. */
+    /** Daily runs, `days` of them, ending yesterday. */
     private static List<Retention.Dated> nightly(final int days) {
         final List<Retention.Dated> all = new ArrayList<>();
         for (int back = 1; back <= days; back++) {
@@ -107,7 +96,7 @@ class RetentionTest {
         final Retention policy = new Retention(2, 3, 0, 0);
         final List<String> gone = deleted(policy, nightly(30));
 
-        // The newest day of each of the three newest ISO weeks survives; the fourth week does not - that is "three".
+        // The newest day of each of the three newest ISO weeks survives, and the fourth week does not.
         assertTrue(gone.stream().noneMatch(name -> name.startsWith("20260916")), "yesterday");
         assertTrue(gone.stream().noneMatch(name -> name.startsWith("20260915")), "the day before");
         assertTrue(

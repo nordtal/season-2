@@ -10,12 +10,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link UpdatePlan#onlyServices} - what a run for one service is allowed to move.
+ * {@link UpdatePlan#onlyServices}: what a run for one service is allowed to move.
  *
- * The filter is on the plan and not only on the report, and that is the whole reason this file exists:
- * {@code Runs#apply} installs what is in the plan. A scope that narrowed the report alone would give a run that
- * stops one server, says it is updating one server, and moves every jar in the network - which is worse than not
- * having the feature at all.
+ * The filter is on the plan, not only the report, since {@code Runs#apply} installs what the plan holds.
  */
 class UpdatePlanScopeTest {
 
@@ -67,7 +64,7 @@ class UpdatePlanScopeTest {
 
     @Test
     void anEmptyScopeIsTheWholeNetworkUntouched() {
-        // Nothing named means "do not narrow anything", not "no services" - the same meaning the column and API carry.
+        // Nothing named means "do not narrow", not "no services", as the column and the API mean it.
         final UpdatePlan plan = planOf(List.of(on("smp", "smp"), on("limbo", "limbo")), List.of());
 
         assertSame(

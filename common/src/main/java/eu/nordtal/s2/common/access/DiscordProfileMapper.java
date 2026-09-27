@@ -5,8 +5,7 @@ import java.sql.SQLException;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
-/** Maps the six profile-cache columns of a {@code discord_user} row. See {@link AccessGrantMapper}
- * for why this is written by hand rather than reached for with {@code ConstructorMapper}. */
+/** Maps the six profile-cache columns of a {@code discord_user} row. */
 public final class DiscordProfileMapper implements RowMapper<DiscordProfile> {
 
     @Override

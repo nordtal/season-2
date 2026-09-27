@@ -10,17 +10,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The credentials {@code steward.yml} carries, and the annotation that keeps them out of a browser.
  *
- * Every credential in this schema needs its own assertion here: moving a credential without moving its guard is a
- * change that costs nothing at the time and everything later, with nobody asserting anything about the new setting.
- *
- * What the annotation actually buys: A value that is not declared {@code @Secret} is not masked by the schema at
- * all. It is still masked by the leaf-key heuristic in this module's own {@code ConfigEntry.isSecretKey} - which
- * matches {@code token}, {@code password}, {@code key} and {@code secret} as substrings, and would catch
- * {@code api-key} by accident - and that heuristic stays in force underneath either way. It is not a substitute: the
- * heuristic is a guess about a name, the annotation is a statement about a value.
- *
- * Built straight from the {@code @ConfigSpec} interface with {@link SchemaWriter#build} rather than through
- * {@link Configs}: whether the annotation is present is a property of the interface alone and needs no file on disk.
+ * {@code ConfigEntry.isSecretKey} only guesses from a name; {@code @Secret} is a statement about the value.
  */
 class SchemaSecretsTest {
 

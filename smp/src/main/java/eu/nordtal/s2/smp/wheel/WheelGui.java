@@ -24,28 +24,9 @@ import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The wheel itself: twelve prizes travelling round a ring, slowing down, and stopping on the one that was already won.
+ * The wheel itself: twelve prizes travelling round a ring, slowing down, and stopping on the one already won.
  *
- * It was once a chat line - the spin resolved in SQL and the player was told what they got. Everything
- * that made it worth building is in the five seconds this class adds, and nothing in it decides anything:
- * {@link WheelStrip} explains why the outcome is settled before the first frame is drawn. The surface is
- * {@link WheelPanel}, design {@code W3} with the ring moved two slot columns left so the controls have somewhere to
- * be.
- *
- * <b>The payout can only happen once, and it always happens</b>
- *
- * The spin is spent before the window opens, so the prize is owed from that moment - which means every way out of
- * this animation has to end in the same payout. There are three: the strip runs to the end, the player closes the
- * window early, or they log off. All three call {@link #finish}, which is a one-shot latch; the difference between
- * them is only whether anybody is there to hear the strike.
- *
- * <b>"Again" is a button that does not exist yet when the window opens</b>
- *
- * A chest's title is fixed once it is open, so the plate under the button is painted from the first frame. What is
- * <em>not</em> there until the wheel stops is the item in those three slots: while the animation runs they carry a
- * tooltip saying to wait, and {@link #finish} swaps it for the one that spins again. That is the whole guard against
- * the failure the design artifact names - a double click buying two spins at once - and it is a swap rather than a
- * flag because a player who hovers a dead button wants to be told why.
+ * Every way out calls {@link #finish}, a one-shot latch that pays; "again" is live only once the wheel stops.
  */
 public final class WheelGui implements Surface {
 
@@ -57,16 +38,18 @@ public final class WheelGui implements Surface {
     private final Messages messages;
     private final Locale locale;
 
-    /** What to run when the player asks for another spin - null while there is none to give. */
+    /** What to run when the player asks for another spin, or null while there is none to give. */
     private final @Nullable Runnable again;
 
     private final AtomicBoolean finished = new AtomicBoolean();
     private @Nullable BukkitTask task;
 
     /**
+     * Builds the window for one spin.
+     *
      * @param spinsLeft how many spins the player has after this one, which is what the hub shows
-     * @param earnAt    the lowest contribution share that earns an extra spin, in percent
-     * @param again     runs another spin, or null when this player has none left
+     * @param earnAt the lowest contribution share that earns an extra spin, in percent
+     * @param again runs another spin, or null when this player has none left
      */
     public WheelGui(
             final Messages messages,
@@ -113,18 +96,13 @@ public final class WheelGui implements Surface {
         return inventory;
     }
 
-    /** Opens the window and runs the animation. Main thread. */
+    /** Opens the window and runs the animation, on the main thread. */
     public void start(final Plugin plugin, final Player player) {
         player.openInventory(inventory);
         step(plugin, player, 0);
     }
 
-    /**
-     * A click inside this window.
-     *
-     * Nothing here is ever picked up, so the caller cancels the event whatever this answers; what this decides is only
-     * whether the click was the "again" button and whether it may run yet.
-     */
+    /** A click inside this window: runs another spin if it hit the "again" button and the wheel has stopped. */
     public void click(final Player player, final int rawSlot) {
         if (!WheelPanel.AGAIN_SLOTS.contains(rawSlot)) {
             return;
@@ -141,9 +119,7 @@ public final class WheelGui implements Surface {
     /**
      * Ends the spin exactly once: stops the animation, and pays.
      *
-     * @param celebrate whether the player is still watching - the strike is for the moment the
-     *                  wheel stops, and playing it into an empty screen after somebody has already
-     *                  walked away is worse than silence
+     * @param celebrate whether the player is still watching, so the strike plays
      */
     public void finish(final Player player, final boolean celebrate) {
         if (!finished.compareAndSet(false, true)) {

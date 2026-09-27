@@ -14,12 +14,7 @@ import eu.nordtal.s2.common.phase.SeasonDates;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * {@code /access status <member>} - access, donor, language, every grant and every purchase.
- *
- * The long form of {@code /smp access}, which answers only "can they get in right now". Both
- * exist on purpose; neither is the other truncated.
- */
+/** {@code /access status <member>}: access, donor, language, every grant and every purchase. */
 public final class ShowStatus implements NordtalCommand<AccessEffects> {
 
     @Override

@@ -11,28 +11,7 @@ import net.kyori.adventure.text.Component;
 /**
  * Draws the wheel: twelve prizes in a ring round a hub, and the controls beside it.
  *
- * <b>What the picture is</b>
- *
- * Design {@code W3} - the ring, twelve cells - <b>moved two slot columns to the left</b> (owner decision), so the
- * four columns it frees carry the "again" button and the two things a player needs to know: how many spins they have
- * left, and what earns another one. On a nine-by-five grid a circle is a rounded square: three cells along the top,
- * three down each side, three along the bottom, and the corners stay frame.
- *
- * <b>The pointer became a frame, and that is a consequence of the move</b>
- *
- * {@code W3} marks the resting cell with a triangle above it at y 13-16 - which is <em>inside the title bar</em>,
- * and works only because at x 85 it sits to the right of the readable title. At x 49 it does not: the window's own
- * title runs to about x 58 in both languages, so the two would meet on the title's last pixel row and nothing short
- * of a client could say by how much. The pack already has a word for "this one" - the two-pixel white frame
- * {@code travel_here} uses - so the resting cell wears that instead, over the lighter backing {@code W3} gives it
- * anyway. Both cues, no collision, and nothing outside the window. <b>This is a decision that is the owner's to
- * confirm</b>; what is not open is that the triangle cannot stay where it was.
- *
- * <b>Why the ring is a whole panel</b>
- *
- * Because a circle on this grid is the band <em>between</em> the cells, not something that lands on any one of them
- * - there is no row a ring belongs to. So it is a window of its own like the balloon's, and everything drawn on top
- * of it is a row glyph as usual.
+ * Design {@code W3} moved two slot columns left; the resting cell wears the {@code travel_here} frame, not a pointer.
  */
 public final class WheelPanel {
 
@@ -42,23 +21,18 @@ public final class WheelPanel {
     /** Pixels between a piece of furniture and the slot cells that make it clickable. */
     public static final int INSET = 2;
 
-    /**
-     * The twelve prize cells, clockwise from the leftmost of the three along the top.
-     *
-     * Index 0 is where the winner comes to rest, which is what {@link #shape()} tells {@link WheelStrip} and what the
-     * panel's baked frame marks.
-     */
+    /** The twelve prize cells, clockwise from the leftmost along the top; index 0 is where the winner rests. */
     private static final int[][] CELLS = {
         {2, 0}, {3, 0}, {4, 1}, {4, 2}, {4, 3}, {3, 4}, {2, 4}, {1, 4}, {0, 3}, {0, 2}, {0, 1}, {1, 0},
     };
 
-    /** The slot each cell is, in the same order - what the animation writes its icons into. */
+    /** The slot each cell is, in the same order, which the animation writes its icons into. */
     public static final List<Integer> CELL_SLOTS = cellSlots();
 
     /** The cell in the middle of the ring: the hub, which carries the number and the tooltip. */
     public static final int HUB_SLOT = SlotGeometry.slot(2, 2);
 
-    /** Where the hub's number is centred - the middle of the hub's own slot cell. */
+    /** Where the hub's number is centred: the middle of the hub's own slot cell. */
     private static final int HUB_CENTRE_X = SlotGeometry.x(2) + SlotGeometry.PITCH / 2;
 
     private static final int HUB_ROW = 2;
@@ -80,7 +54,7 @@ public final class WheelPanel {
     public static final List<Integer> AGAIN_SLOTS =
             List.of(SlotGeometry.slot(6, AGAIN_ROW), SlotGeometry.slot(7, AGAIN_ROW), SlotGeometry.slot(8, AGAIN_ROW));
 
-    /** The four cells the three text lines are written across - hoverable, and never free. */
+    /** The four cells the three text lines are written across, hoverable and never free. */
     public static final List<Integer> INFO_SLOTS = infoSlots();
 
     private WheelPanel() {}
@@ -93,12 +67,12 @@ public final class WheelPanel {
     /**
      * The whole surface, as the inventory title.
      *
-     * @param title    the readable window title, already translated
-     * @param spins    what stands in the hub - the spins left after this one, as a bare number
-     * @param left     the line naming those spins in words
-     * @param ruleTop  the first line of "one spin per n % share"
+     * @param title the readable window title, already translated
+     * @param spins the spins left after this one, as a bare number for the hub
+     * @param left the line naming those spins in words
+     * @param ruleTop the first line of "one spin per n % share"
      * @param ruleFoot the second line of it
-     * @param again    the button's label
+     * @param again the button's label
      */
     public static Component title(
             final Component title,
@@ -131,15 +105,7 @@ public final class WheelPanel {
         return List.copyOf(slots);
     }
 
-    /**
-     * The four cells under the three lines of text.
-     *
-     * They hold a {@code BlankItem} rather than nothing for the reason the grave's footer does: a shift-click from the
-     * player's own inventory goes into the first free slot of the window, and the wheel cancels every click but does
-     * not
-     * stop the move landing somewhere it is then drawn over the text. Filling them also gives the two sentences a
-     * tooltip, which is where the exact thresholds can be spelled out.
-     */
+    /** The four cells under the text, holding a {@code BlankItem} so a shift-click never lands under the text. */
     private static List<Integer> infoSlots() {
         final java.util.List<Integer> slots = new java.util.ArrayList<>();
         for (final int row : new int[] {SPINS_ROW, RULE_TOP_ROW, RULE_BOTTOM_ROW}) {

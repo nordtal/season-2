@@ -18,15 +18,11 @@ import org.slf4j.Logger;
 /**
  * Where {@code proxy}'s config files live, and every rule about what a valid value is.
  *
- * Same shape as {@code access-bot}'s {@code Configs}: each file gets its own environment
- * namespace, and every check runs once at startup rather than being discovered mid-login. A
- * Velocity plugin has no {@code getDataFolder()} the way a Paper plugin does, so the directory is
- * handed in by the caller - Velocity injects it as {@code @DataDirectory Path}, which is
- * {@code plugins/proxy/} for a normal install.
+ * Each file gets its own environment namespace, and every check runs once at startup.
  */
 public final class Configs {
 
-    /** A SHA-1 as the pack's own {@code .sha1} file writes it: 40 hex characters, no prefix. */
+    /** A SHA-1 as the pack's {@code .sha1} file writes it: 40 hex characters, no prefix. */
     private static final Pattern SHA1 = Pattern.compile("[0-9a-fA-F]{40}");
 
     private Configs() {}
@@ -62,14 +58,9 @@ public final class Configs {
     }
 
     /**
-     * {@code network.yml} - the MOTD and the one player limit.
+     * Loads {@code network.yml}: the MOTD, the player limit and the command allowlist.
      *
-     * There is nothing to cross-check here: {@code max-players} is written into the backends from
-     * the same {@code .env} variable this file is overridden with, so nothing can drift and nothing
-     * needs guarding. A {@code network.yml} in a volume that still carries {@code backend-limit}
-     * stops the proxy with that key named, which is jcore's ordinary strict behaviour and the right
-     * one here: the key meant something, and a file still carrying it is a deployment that has not
-     * been told.
+     * A file that still carries a removed key stops the proxy with that key named.
      */
     public static ConfigHandle<NetworkSpec> network(final Path directory, final Logger logger) throws ConfigException {
         return load(directory, logger, "network", NetworkSpec.class, "NORDTAL_PROXY_NETWORK", config -> {
@@ -81,7 +72,7 @@ public final class Configs {
                         + " meant");
             }
             for (final String entry : config.commandAllowlist()) {
-                // A blank line is dropped silently: the file looks like ten entries, the network acts on nine.
+                // A blank entry would be dropped silently: the file looks like ten entries, the network acts on nine.
                 if (entry == null || entry.isBlank()) {
                     throw new IllegalArgumentException("command-allowlist has a blank entry. Delete"
                             + " the line rather than emptying it - an empty one allows nothing and"
@@ -111,7 +102,7 @@ public final class Configs {
         return load(directory, logger, "pack", PackSpec.class, "NORDTAL_PROXY_PACK", config -> {
             requirePositive("apply-timeout-seconds", config.applyTimeoutSeconds());
             if (!config.enabled()) {
-                // Deliberately nothing else checked: refusing to start over an unused value defeats the escape hatch.
+                // Nothing else is checked: refusing to start over an unused value defeats the escape hatch.
                 return;
             }
             requireText("url", config.url());
@@ -131,11 +122,9 @@ public final class Configs {
     }
 
     /**
-     * Loads the tone colours.
+     * Loads the tone colours, once at proxy start.
      *
-     * No validator: {@code ToneColours#parse} corrects a bad hex value where it parses it, so a typo here is never a
-     * reason to refuse a login. Read once at proxy start - see {@code ColoursSpec}'s own javadoc for why this file has
-     * no reload path.
+     * No validator: {@code ToneColours#parse} corrects a bad hex value where it parses it.
      */
     public static ConfigHandle<ColoursSpec> colours(final Path directory, final Logger logger) throws ConfigException {
         return load(directory, logger, "colours", ColoursSpec.class, "NORDTAL_PROXY_COLOURS", config -> {});
@@ -144,8 +133,7 @@ public final class Configs {
     /**
      * {@code ColoursSpec}'s five accessors, as the map {@code ToneColours} parses.
      *
-     * An exhaustive {@code switch} with no {@code default}, so a sixth {@link Tone} stops this compiling rather than
-     * silently leaving it unpainted.
+     * The {@code switch} has no {@code default}, so a sixth {@link Tone} stops this compiling.
      */
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
@@ -191,8 +179,7 @@ public final class Configs {
     /**
      * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file.
      *
-     * So steward-worker can warn that editing an overridden setting there has no effect until the variable is
-     * removed. Best-effort: a UI nicety, not a reason for a correctly loaded config to refuse to start the proxy.
+     * Best-effort: steward-worker only uses it to warn that an overridden setting cannot be edited there.
      */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {

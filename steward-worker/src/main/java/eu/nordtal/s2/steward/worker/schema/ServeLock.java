@@ -10,52 +10,17 @@ import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * "Exactly one steward-worker is serving", held by PostgreSQL for the life of the process.
+ * Ensures exactly one steward-worker serves, through a PostgreSQL advisory lock held for the process's life.
  *
- * What it is protecting: {@code UpdateServer.settleOrphans()} takes every row left {@code RUNNING} and closes it,
- * and its justification is a claim about the world: "Nothing is running those rows: the only process that claims one
- * is a worker, and this one has just started." That is true of one serve and false of two. With two, a second one
- * starting marks the first one's in-flight {@code APPLY} as {@code FAILED}; the real worker then calls
- * {@code finish(...)}, whose {@code WHERE status = 'RUNNING'} no longer matches, and the actual report is lost. What
- * the operator reads is "steward-worker stopped while this request was running" about a run that was at that moment
- * installing jars.
- *
- * A second serve was not hypothetical: {@code docker compose run --rm steward-worker} inherited the service's
- * {@code command} and started one every time somebody asked for the read-only report. That is fixed on its own, by
- * giving the report a name. This is the other half - the premise settleOrphans reasons from, made true by force
- * instead of by assumption.
- *
- * Why this rather than a column or a timeout: A {@code claimed_by} column plus a liveness check against
- * {@code pg_stat_activity} would be more precise and costs a migration, a column and a privilege. A timeout replaces
- * a wrong assumption with a guessed number - too short and a long {@code apply} is torn away from itself, too long
- * and a real orphan sits {@code RUNNING} for hours. Only {@code serve} ever writes a {@code RUNNING} row (
- * {@code claimNext} is called from nowhere else; {@code apply} deliberately writes no request at all), so one serve
- * is exactly the invariant that makes settleOrphans correct.
- *
- * Session-scoped like {@link RunLock}, and for the same reason: PostgreSQL drops it when the connection goes,
- * whether that was a clean shutdown, a killed container or a redeploy. There is no state to clean up after a crash -
- * which matters most here, because the thing that would be stuck is the container that fixes things.
+ * {@code UpdateServer.settleOrphans()} closes every {@code RUNNING} row, which is only safe with one serve.
  */
 @Slf4j
 public final class ServeLock implements AutoCloseable {
 
-    /**
-     * The ASCII bytes of {@code nordtalS}, as a signed 64-bit integer.
-     *
-     * Deliberately not {@link RunLock} 's key. They mean different things and are held for different lengths of time:
-     * this one for the whole life of the daemon, that one for the minutes an install takes. Sharing a key would make
-     * {@code serve} unable to run its own bootstrap.
-     */
+    /** The ASCII bytes of {@code nordtalS}, as a signed 64-bit integer, apart from {@link RunLock}'s key. */
     private static final long KEY = 0x6E6F726474616C53L;
 
-    /**
-     * How long to keep asking before giving up.
-     *
-     * Not zero, and the reason is the ordinary case rather than an exotic one: on a redeploy the replacement
-     * container starts while the old one is still inside its graceful shutdown, so the lock is legitimately held for
-     * a moment by a process that is on its way out. Failing straight away would turn every redeploy into at least
-     * one crash-restart cycle.
-     */
+    /** How long to keep asking, since on a redeploy the old container still holds the lock while it shuts down. */
     private static final Duration PATIENCE = Duration.ofSeconds(30);
 
     private static final Duration BETWEEN_TRIES = Duration.ofSeconds(1);
@@ -70,15 +35,14 @@ public final class ServeLock implements AutoCloseable {
      * Takes the serve lock, waiting up to {@link #PATIENCE} for a predecessor to let go.
      *
      * @param dataSource the pool to borrow a connection from
-     * @return the held lock, or empty when another {@code serve} still has it after the wait -
-     *         which means this process must not start
+     * @return the held lock, or empty when another {@code serve} still has it, so this process must not start
      * @throws SQLException if the database could not be asked at all
      */
     public static Optional<ServeLock> acquire(final DataSource dataSource) throws SQLException {
         return acquire(dataSource, PATIENCE);
     }
 
-    /** Package-visible so a test can watch the refusal without waiting half a minute for it. */
+    /** Package-visible so a test can watch the refusal without waiting half a minute. */
     static Optional<ServeLock> acquire(final DataSource dataSource, final Duration patience) throws SQLException {
         final long deadline = System.nanoTime() + patience.toNanos();
         boolean waited = false;
@@ -143,7 +107,7 @@ public final class ServeLock implements AutoCloseable {
         try {
             connection.close();
         } catch (final SQLException ignored) {
-            // Returning a connection to a pool that is already unhappy; nothing useful to add.
+            // The pool is already unhappy; nothing useful to add.
         }
     }
 }

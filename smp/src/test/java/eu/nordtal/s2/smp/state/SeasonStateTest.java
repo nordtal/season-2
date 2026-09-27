@@ -10,14 +10,7 @@ import eu.nordtal.s2.smp.milestone.Unlock;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Where the database's progress and the file's definition meet.
- *
- * The database stores which milestone keys are finished; what each of them <em>unlocked</em> lives in
- * {@code milestones.yml}. Everything the rest of the plugin asks - is the Nether open, how big is Nordtal's border -
- * is derived from putting those two together, on every portal ignition and every balloon click, which is why it is
- * derived once here and not queried at the point of use.
- */
+/** Where the database's progress and the file's definition meet. */
 class SeasonStateTest {
 
     private static final MilestoneTrack TRACK = new MilestoneTrack(List.of(
@@ -61,10 +54,7 @@ class SeasonStateTest {
         assertEquals(99, state.borderDiameter());
     }
 
-    /**
-     * An admin completing a milestone out of order is an escape hatch the design keeps on purpose.
-     * It must not shrink the world on the next restart.
-     */
+    /** An admin completing a milestone out of order must not shrink the world on the next restart. */
     @Test
     void anOutOfOrderCompletionCannotShrinkTheWorld() {
         final SeasonState state = new SeasonState();
@@ -82,12 +72,7 @@ class SeasonStateTest {
         assertFalse(state.isUnlocked(Unlock.END), "the End is its own milestone");
     }
 
-    /**
-     * A key in the database that the file no longer declares contributes nothing rather than throwing.
-     *
-     * By the time somebody is standing at a balloon it is far too late to complain about the config;
-     * {@code TrackValidation} does that at load, when it can still be acted on.
-     */
+    /** A key in the database that the file no longer declares contributes nothing rather than throwing. */
     @Test
     void aCompletedKeyTheTrackNoLongerDeclaresIsIgnored() {
         final SeasonState state = new SeasonState();

@@ -24,40 +24,22 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
- * The five lines a player reads all day - said, joined, left, died, earned - rendered here rather than by vanilla.
+ * Renders the five lines a player reads all day (said, joined, left, died, earned) per reader, in their language.
  *
- * Vanilla broadcasts each one as a bare name with no flag or icon, in the server's own language.
- * Each of these five is rendered per reader, in that reader's own language instead.
- *
- * A death message and an advancement title keep vanilla's own {@code TranslatableComponent}: the
- * client renders it, so each reader gets it in their own language, with the mob's name and the
- * killer's weapon in it, off the same packet. The wording is vanilla's and the line is ours - and on
- * the hunger games that line is also the kill feed.
- *
- * A death is announced exactly when vanilla would have announced it: {@code
- * event.deathMessage()} being {@code null} already means the death is not news, whether because it
- * is an arena death reported elsewhere or because {@code /gamerule showDeathMessages false} silenced
- * the whole server. Reading that instead of asking every subsystem in turn keeps this class from
- * needing to know about duels.
+ * A death whose {@code deathMessage()} is {@code null} is not news: an arena death, or the gamerule off.
  */
 public final class SystemLines implements Listener {
 
     /**
-     * How this server draws a player in a line about them.
+     * Draws a player in a line about them, the one thing that differs between servers.
      *
-     * The one thing that genuinely differs between the two servers: the SMP draws a flag, a name
-     * and a prestige crest earned over a season, the hunger games draw a flag and a name because
-     * nobody has been there longer than an hour. Everything else about these five lines is the
-     * same, which is why this is an argument rather than a subclass.
-     *
-     * Called on the main thread for the four broadcast lines and on Paper's chat thread for the
-     * chat line, so an implementation must read from a cache and never from a database.
+     * Called on the main thread and on Paper's chat thread, so it reads from a cache, never a database.
      */
     @FunctionalInterface
     public interface Composition {
 
         /**
-         * @param player whoever the line is about - <b>not</b> whoever is reading it
+         * @param player whoever the line is about, not whoever reads it
          * @return their name as this server draws it, already styled
          */
         Component of(Player player);
@@ -74,12 +56,9 @@ public final class SystemLines implements Listener {
     }
 
     /**
-     * The chat line: the composition, a hairline rule, and what was typed.
+     * Renders the chat line per recipient: the speaker's flag, a hairline rule, and what was typed.
      *
-     * Paper calls the renderer once per recipient, which is what makes "in the reader's
-     * language" free. The two languages in one line are deliberate and are two different people's:
-     * the flag belongs to whoever is <em>speaking</em>, because it says what to greet them in, and
-     * the words around it belong to whoever is reading.
+     * The flag belongs to the speaker and the words around it to the reader.
      */
     @EventHandler(ignoreCancelled = true)
     public void onChat(final AsyncChatEvent event) {
@@ -89,47 +68,28 @@ public final class SystemLines implements Listener {
                 renderer.format(localeOf(viewer), MESSAGES.system().chat().line(sender, Glyphs.SEPARATOR, message)));
     }
 
-    /**
-     * Suppresses the vanilla line.
-     *
-     * <b>The replacement is not sent from here</b>, see {@link #announceJoin(Player)}.
-     */
+    /** Suppresses the vanilla line; {@link #announceJoin(Player)} sends the replacement. */
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
         event.joinMessage(null);
     }
 
     /**
-     * The join line, once the joining player's language is known.
+     * Announces a join once the player's locale has loaded.
      *
-     * Called by each module's presence listener from the callback that loads the locale, and not
-     * from a join handler, because a join handler is exactly one moment too early: the language is a
-     * database read taken off the main thread, so a line broadcast at join would render in English
-     * for the very player it is about. Everything else on either server - the HUD, the boards, the
-     * tab list - is redrawn on a timer and picks the language up by itself; this is the one message
-     * with a single moment.
-     *
-     * @param player the player who has just arrived, and whose locale has just landed
+     * Called from each module's locale callback, since a line sent at join would be English for the joining player.
      */
     public void announceJoin(final Player player) {
         broadcast(MESSAGES.system().join(Glyphs.ICON_JOIN, composition.of(player)), viewer -> true);
     }
 
-    /**
-     * {@code LOWEST}, and the priority is load-bearing rather than tidy.
-     *
-     * {@code smp}'s {@code JoinGate#onQuit} forgets the identity at the default priority, and the
-     * identity is what carries the flag and the crest - so a handler that ran after it would
-     * announce a departure with a default English flag and a tier-1 crest for everybody. The one
-     * ordering this class depends on is therefore written down here rather than left to registration
-     * order.
-     */
+    /** Announces a quit at {@code LOWEST}, before {@code JoinGate#onQuit} forgets the flag and the crest. */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onQuit(final PlayerQuitEvent event) {
         event.quitMessage(null);
         final Player leaving = event.getPlayer();
         final Component who = composition.of(leaving);
-        // Not to the person leaving: they are already on a disconnect screen, unable to read it.
+        // Not to the person leaving: they are already on a disconnect screen.
         broadcast(MESSAGES.system().leave(Glyphs.ICON_LEAVE, who), viewer -> !viewer.equals(leaving));
     }
 
@@ -145,7 +105,7 @@ public final class SystemLines implements Listener {
 
     @EventHandler
     public void onAdvancement(final PlayerAdvancementDoneEvent event) {
-        // Nullable by design in Paper: null for a recipe unlock, a silent advancement, or the gamerule off.
+        // Null for a recipe unlock, a silent advancement, or the gamerule off.
         if (event.message() == null) {
             return;
         }
@@ -161,27 +121,15 @@ public final class SystemLines implements Listener {
     }
 
     /**
-     * One system line, from somewhere other than a Bukkit event.
+     * Announces one system line from outside a Bukkit event, such as an offline hunger games kill.
      *
-     * The five handlers above cover everything vanilla announces. This is for a death vanilla
-     * does <em>not</em> announce: a hunger games participant killed through the armor stand standing
-     * in for them while they are offline, which carries no {@code EntityDeathEvent} death message.
-     * The caller supplies the wording; the icon, the per-reader language and the shape stay here, so
-     * such a line cannot drift away from the ones beside it.
-     *
-     * @param message a message from the caller's own spec, its {@code icon} one of {@link Glyphs}'
-     *                icons
+     * @param message a message from the caller's own spec, its {@code icon} one of {@link Glyphs}' icons
      */
     public void announce(final MessageRef message) {
         broadcast(message, viewer -> true);
     }
 
-    /**
-     * Renders {@code message} once per reader, in that reader's language.
-     *
-     * Per reader rather than once: a locale is a cache lookup and these fire a handful of times
-     * an hour, which is the opposite end of the scale from the boss bar's four renders a second.
-     */
+    /** Renders {@code message} once per reader, in that reader's language. */
     private void broadcast(final MessageRef message, final Predicate<Player> to) {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         for (final Player viewer : Bukkit.getOnlinePlayers()) {
@@ -193,13 +141,7 @@ public final class SystemLines implements Listener {
         }
     }
 
-    /**
-     * The reader's language, or English for an audience that is not a player.
-     *
-     * The console is such an audience, and so is anything else that has been given a copy of
-     * chat; neither has a row in {@code discord_user}, so there is nothing to look up rather than
-     * something missing.
-     */
+    /** Returns the reader's language, or English for an audience that is not a player. */
     private Locale localeOf(final net.kyori.adventure.audience.Audience viewer) {
         return viewer instanceof Player player
                 ? locales.of(player.getUniqueId())

@@ -18,32 +18,11 @@ import org.junit.jupiter.api.Test;
 /**
  * Every process registers {@code /update} itself, because nothing else will.
  *
- * Every other command in the network is served by exactly one process and reached from the others
- * through a {@code command_request} row - so forgetting to register one somewhere is impossible:
- * the inbox that owns it is the only place it can run. {@code /update} is the exception by design.
- * Its effect is a row in a table all five processes already have a pool for, so it never travels;
- * and the price of never travelling is that each adapter has to opt in by hand.
- *
- * A process that forgets simply has no {@code /update}. Nothing fails, nothing is logged, and the
- * way it is found is an admin typing it on the one server where it is missing - which, for a
- * command whose whole reason to be local is "the network is misbehaving", is the worst possible
- * moment.
+ * It never travels, so a process that forgets has no {@code /update} and nothing fails or logs.
  */
 class UpdateIsServedEverywhereTest {
 
-    /**
-     * The four places a command tree is wired, and each one can forget.
-     *
-     * {@code discord-bot} is deliberately not among them: a process has to opt in because nothing
-     * carries {@code /update} to it, but opting in only means anything where the process has a
-     * surface to be typed on. Discord is not a surface any declaration carries any more; it has no
-     * console, and a {@link Target#LOCAL} command never arrives through an inbox. Registering it
-     * there would not have been an opt-in, it would have been a line of code that reads like one.
-     *
-     * That is not the same as saying an admin has lost a way to start a run. Steward starts one
-     * from a page, and the bot still reports every run in the admin channel through
-     * {@code UpdateFeed}, which is its own listener and was never part of the catalogue.
-     */
+    /** The four places a command tree is wired; {@code discord-bot} has no surface a declaration carries. */
     private static final List<String> ADAPTERS = List.of(
             "smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/command/HungerGamesCommand.java",
@@ -63,7 +42,7 @@ class UpdateIsServedEverywhereTest {
 
     @Test
     void everyUpdateCommandIsLocalAdminOnlyAndConsoleOnly() {
-        // Every admin command loses GAME and DISCORD, /update included: being able to update alone from one of those.
+        // Every admin command loses GAME and DISCORD, /update included.
         for (final Declaration declaration : UpdateCommands.declarations()) {
             assertEquals(
                     Target.LOCAL,
@@ -85,7 +64,7 @@ class UpdateIsServedEverywhereTest {
 
     @Test
     void theFourThatStopServersAreConfirmedTheOtherThreeAreNot() {
-        // /update down is the strongest case in the list: the other three take a server away and give it back.
+        // /update down takes servers away; the other three take them away and give them back.
         assertEquals(
                 List.of("/backup now", "/update down", "/update now", "/update restart"),
                 UpdateCommands.declarations().stream()
@@ -101,7 +80,7 @@ class UpdateIsServedEverywhereTest {
 
     @Test
     void everyKindThatStopsServersHasACommandThatAsksForIt() {
-        // The gap this closes has happened once already, on the other side: a kind configured.
+        // A kind that stops servers must be reachable from some command.
         final java.util.Set<eu.nordtal.s2.common.update.UpdateKind> asked = new java.util.HashSet<>();
         for (final eu.nordtal.s2.commands.NordtalCommand<eu.nordtal.s2.commands.update.UpdateEffects> command :
                 UpdateCommands.all()) {
@@ -112,7 +91,7 @@ class UpdateIsServedEverywhereTest {
         }
         for (final eu.nordtal.s2.common.update.UpdateKind kind : eu.nordtal.s2.common.update.UpdateKind.values()) {
             if (kind == eu.nordtal.s2.common.update.UpdateKind.APPLY) {
-                // Retired and deliberately unreachable - see UpdateKind.APPLY, named so putting it back is visible.
+                // Retired and deliberately unreachable; see UpdateKind.APPLY.
                 continue;
             }
             if (!kind.stopsServers()) {

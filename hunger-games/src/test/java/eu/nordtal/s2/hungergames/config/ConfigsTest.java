@@ -20,20 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * That {@code hunger-games}' three config files can be written into an empty directory and read back.
+ * Checks that {@code hunger-games}' three config files can be written into an empty directory and read back.
  *
- * Why this file exists at all: this module was once the last one in the repository with configs
- * and no {@code ConfigsTest} - the gap {@code smp}'s own {@code ConfigsTest} was written to close
- * and that nobody then checked for anywhere else. What it cost {@code smp} was the whole plugin:
- * four nested interfaces carried no {@code @ConfigSpec}, so writing a fresh {@code config.yml} fell
- * through to Gson's reflective adapter over the interface proxy and died on
- * {@code java.lang.reflect.Proxy#h} - {@code onEnable} threw on every start, and Paper disabled the
- * plugin while the server carried on. A green test suite said nothing about it, because not one
- * test had ever called {@link Configs#load}.
- *
- * Nothing was actually wrong here when this was written; all three of {@code HungerGamesSpec}'s
- * nested interfaces are annotated. That is the point - the check is cheap and the failure it guards
- * against is silent, server-side and total.
+ * A nested interface without {@code @ConfigSpec} fails only when a fresh file is written.
  */
 class ConfigsTest {
 
@@ -42,13 +31,7 @@ class ConfigsTest {
     @TempDir
     Path directory;
 
-    /**
-     * Every handle, an empty directory, and nothing else.
-     *
-     * Loading is what writes the file, and writing is what serialises every nested spec - so a
-     * missing {@code @ConfigSpec} anywhere below these roots stops here rather than in
-     * {@code onEnable}.
-     */
+    /** Loads every handle into an empty directory, which serialises every nested spec. */
     @Test
     void aFreshDirectoryGetsAllThreeFiles() throws Exception {
         final HungerGamesSpec config = Configs.load(directory, LOGGER).get();
@@ -86,15 +69,7 @@ class ConfigsTest {
     /**
      * {@code config.yml} does not carry the sounds, and a config that still does loses the block.
      *
-     * This is asserted by name because the <em>reason</em> it has to stay true is invisible from
-     * {@link HungerGamesSpec}: a sounds block back in {@code config.yml} would be read once at
-     * enable and never again, because {@code /hg reload} deliberately re-reads nothing out of that
-     * file. The escape hatch of blanking a key would then silently need a restart of the event
-     * server, in the middle of the one hour a year it is used.
-     *
-     * An earlier jcore version stopped the plugin on such a block and this asserted that. The half
-     * that matters is unchanged: the key does not survive a load, so it cannot become a second
-     * source of sounds by somebody declaring it in {@code HungerGamesSpec}.
+     * {@code /hg reload} re-reads nothing from {@code config.yml}, so sounds there would need a restart.
      */
     @Test
     void configYmlDropsASoundsBlock() throws Exception {
@@ -114,15 +89,7 @@ class ConfigsTest {
                 "a sounds block in config.yml has to be gone after one load, not merely ignored");
     }
 
-    /**
-     * The same rule stated directly, so that it holds whatever the test JVM has open.
-     *
-     * The round trip above only fails on a missing annotation because {@code java.lang.reflect}
-     * is closed to the test worker, which is a property of the JVM the build happens to start and
-     * not of the code. A future toolchain that opened it would make the round trip pass on a plugin
-     * that still dies on a real server. This walks the same interfaces and asks the question
-     * outright.
-     */
+    /** Checks every nested interface for {@code @ConfigSpec} directly, whatever the test JVM has open. */
     @Test
     void everyNestedSpecInterfaceCarriesTheAnnotation() {
         final List<String> missing = new ArrayList<>();

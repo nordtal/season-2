@@ -18,22 +18,13 @@ import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 /**
- * Keeps the three servers' tab list frames from becoming three pictures.
+ * Keeps the three servers' tab list frames alike, since the client carries one across servers.
  *
- * The tab list is the one surface a player carries unchanged across limbo, the hunger games and
- * the SMP: the client never clears it, each backend simply overwrites it. So a difference between
- * the three is not a difference somebody sees side by side and judges - it is the header jumping
- * while a player walks through a portal, which reads as a glitch rather than as a design. The
- * composition is shared ({@link TabList}); the wording is three files, and this is what holds
- * them together.
- *
- * <b>limbo's footer is the one permitted difference</b>, and it is asserted as a difference
- * rather than tolerated as one: everybody there is hidden from everybody else, so the list above
- * the footer holds exactly one name and a player count would contradict it.
+ * Only limbo's footer differs: everybody there is hidden, so a player count would contradict the list.
  */
 class TabListTest {
 
-    /** module -> its bundle directory, in the order a player meets them. */
+    /** Each module's bundle directory, in the order a player meets them. */
     private static final Map<String, String> BUNDLES = new LinkedHashMap<>(Map.of(
             "limbo", "limbo/src/main/resources/messages/limbo",
             "hunger-games", "hunger-games/src/main/resources/messages/hunger-games",

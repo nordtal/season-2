@@ -41,28 +41,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * {@code :paper-common}'s {@code PaperCommands}, for Velocity.
  *
- * A second class rather than a shared one because the two platforms resolve different Brigadier
- * artefacts - {@code com.mojang:brigadier} on Paper, {@code com.velocitypowered:velocity-brigadier}
- * here - so no module can be compiled against both, and one compiled against neither cannot name
- * {@code CommandSource}. Only the tree building is duplicated; the declarations, decisions, messages
- * and confirmation are shared. The two are kept in the same shape - same method names, same order -
- * so a rule added to one is findable in the other.
- *
- * The proxy does not register the backends' commands. Velocity answers a command it knows before
- * the packet reaches a backend, so registering {@code /smp} here would shadow the SMP's own and turn
- * a local command into a round trip through a request row.
- *
- * This class has {@link #local} and no counterpart to {@code PaperCommands}' {@code remote}: there
- * is no second registration path here that could filter a declaration by its surfaces, so what
- * {@code PaperCommands#remote} does - registering a travelling command on {@code GAME} or
- * {@code CONSOLE} rather than on {@code GAME} alone - has nothing to mirror on this side. Everything
- * handed to {@code local} is built into the tree whatever its surfaces say.
- *
- * The surface is decided while the tree is built, by {@link #gate(Node)}: a node whose every
- * command lost {@link Surface#GAME} is gated against every {@link Player}, so it is not in the tree
- * a client receives and the person typing reads "Unknown command". {@link #run} keeps the same
- * check as the lock behind that gate, but it is no longer the single place that answers the
- * question.
+ * The two platforms' Brigadier artefacts differ, so only the tree building is duplicated, in the same shape.
  */
 public final class VelocityCommands {
 
@@ -108,7 +87,7 @@ public final class VelocityCommands {
         return this;
     }
 
-    /** What to offer for one argument. Must be in memory - see {@code PaperCommands#suggest}. */
+    /** What to offer for one argument; must be in memory, see {@code PaperCommands#suggest}. */
     public VelocityCommands suggest(
             final Declaration declaration, final String argument, final Supplier<Collection<String>> values) {
         if (declaration.arguments().stream().noneMatch(a -> a.name().equals(argument))) {
@@ -164,16 +143,9 @@ public final class VelocityCommands {
     }
 
     /**
-     * What has to be true of a source for this node to exist at all, or {@code null} when open to everyone.
+     * What a source needs for this node to exist, or {@code null} when open to everyone.
      *
-     * {@code PaperCommands#gate} is the same method, and the two are kept in the same shape on purpose.
-     *
-     * A node whose every command lost {@link Surface#GAME} is gated against every {@link Player},
-     * so it is not in the tree the proxy sends a client and the person typing reads Brigadier's own
-     * "Unknown command" rather than a sentence naming the command as off-limits.
-     *
-     * Not a player means the console here, which {@link #mayUse} lets through unconditionally - so
-     * the console keeps every one of these, which is the one surface that may never be lost.
+     * Mirrors {@code PaperCommands#gate}. A node off {@link Surface#GAME} is hidden from players; the console keeps it.
      */
     private @Nullable Predicate<CommandSource> gate(final Node node) {
         if (offGame(node)) {
@@ -436,19 +408,9 @@ public final class VelocityCommands {
     }
 
     /**
-     * A map lookup, never a query.
+     * Whether a source may use an admin node: a map lookup, never a query, since Brigadier calls it building the tree.
      *
-     * Brigadier evaluates this while building the command tree it sends to a client, not a place for a blocking
-     * JDBC call.
-     *
-     * The console passes here unconditionally and is refused later, per command, by its surface
-     * set: a {@code requires} that hid a command from the console would hide it from tab completion
-     * as well, and "the console may not run this one" is worth a sentence rather than a command
-     * that appears not to exist.
-     *
-     * The reverse direction is a {@code requires} instead - see {@link #gate(Node)}. "A player may
-     * not type this one" is answered by leaving the node out of their tree: a command taken off the
-     * game is to be gone, while the console is the one surface that is never taken away.
+     * The console always passes here and is refused later, per command, by its surface set.
      */
     private boolean mayUse(final CommandSource source) {
         if (source instanceof Player player) {

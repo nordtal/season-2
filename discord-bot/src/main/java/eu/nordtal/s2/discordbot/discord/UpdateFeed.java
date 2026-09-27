@@ -22,63 +22,27 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Every update run in the admin channel, including the ones nobody in Discord started.
+ * Draws every update run in the admin channel that was not started from Discord, in English.
  *
- * A run started elsewhere - typed in game, or run from a server console - has no embed of its own,
- * so without this feed the admin channel sees nothing while the four servers go down and come back.
- * This closes that gap: it remembers the highest id it has drawn and asks
- * {@link UpdateDirectory#since(long)} for what came after it.
- *
- * {@code DISCORD} rows are skipped, deliberately: a run started here already has an embed - the
- * asker's own, edited in place by {@link UpdateCommand} for as long as it works. Posting a second
- * copy of the same run into the same guild would put two drawings of one row in front of the same
- * people, and the moment one of them stops updating (the interaction token expires after fifteen
- * minutes; a channel message does not) they would disagree.
- *
- * It draws, it does not decide: the embed is {@link UpdateCommand#fields}, the same one the asker
- * sees, plus three fields naming the run, who asked and from where.
- *
- * The admin channel has many readers and one text. Every {@code AdminLog} line in this bot is
- * English for that reason, and a run drawn in whichever language the person who typed it happens to
- * use would be the one exception.
+ * Runs started here are skipped, since the asker's own embed already draws them.
  */
 @Slf4j
 public final class UpdateFeed {
 
-    /** How often the table is asked what is new. Two seconds; a run moves stage by stage. */
+    /** How often the table is asked what is new. */
     public static final Duration INTERVAL = Duration.ofSeconds(2);
 
-    /**
-     * How far back a start looks for runs that ended while this bot was down.
-     *
-     * Twelve minutes, the same patience every other surface gives the worker. Anything older is
-     * history somebody would read the log for rather than news for a channel - and posting it would
-     * mean a bot that crash-loops filling the channel with the same finished run.
-     */
+    /** How far back a start posts runs that ended while this bot was down. */
     public static final Duration CATCH_UP = Duration.ofMinutes(12);
 
-    /**
-     * Where a run is drawn.
-     *
-     * Everything below is a decision - which rows are worth posting, where a restart picks up, when
-     * an edit has something new to say - and each one is answerable only by watching a real guild
-     * during a real update, which is one place per season. The interface is two methods wide and
-     * {@link #of(AdminLog)} is the only implementation that ships.
-     */
+    /** Where a run is drawn; {@link #of(AdminLog)} is the only implementation that ships. */
     public interface Board {
 
         void post(MessageEmbed embed, java.util.function.Consumer<String> sentId);
 
         void edit(String messageId, MessageEmbed embed);
 
-        /**
-         * A line that mentions the admin role.
-         *
-         * Separate from {@link #post} because an edit notifies nobody: a run that goes wrong at
-         * five in the morning would otherwise turn a green embed red on a screen nobody is looking
-         * at. Only a failure uses this - a successful run that pings is a ping people learn to
-         * ignore, which is the same as no ping at all.
-         */
+        /** Posts a line mentioning the admin role, used only for a failed run since an edit notifies nobody. */
         void alert(String text);
 
         static Board of(final AdminLog admin) {
@@ -101,27 +65,19 @@ public final class UpdateFeed {
         }
     }
 
-    /** A run being drawn: the message showing it, and the report that message currently shows. */
     private record Drawn(String messageId, @Nullable String showing) {}
 
     private final UpdateDirectory updates;
     private final Board board;
     private final Messages messages;
 
-    /** The highest id already handled. Only the tick thread writes it. */
+    /** The highest id already handled; only the tick thread writes it. */
     private volatile long lastSeen;
 
-    /**
-     * The runs still moving, by request id.
-     *
-     * Concurrent because the message id arrives on a JDA thread, after the tick that posted it
-     * has returned. A run whose post has not been acknowledged yet sits here with a {@code null}
-     * message id and is simply not edited until it has one - which is an ordinary state and not an
-     * error, because the row is the record and the embed is a drawing of it.
-     */
+    /** The runs still moving, by request id; the message id arrives later on a JDA thread. */
     private final ConcurrentHashMap<Long, Drawn> drawing = new ConcurrentHashMap<>();
 
-    /** Whether a pass is running. See {@link #tick()} for why this is a flag and not a lock. */
+    /** Whether a pass is running; see {@link #submit} for why this is a flag and not a lock. */
     private final java.util.concurrent.atomic.AtomicBoolean ticking = new java.util.concurrent.atomic.AtomicBoolean();
 
     public UpdateFeed(final UpdateDirectory updates, final Board board, final Messages messages) {
@@ -130,26 +86,19 @@ public final class UpdateFeed {
         this.messages = Objects.requireNonNull(messages, "messages");
     }
 
-    /**
-     * Picks up where the last instance of this bot left off.
-     *
-     * Two halves, and the second is the one that is easy to leave out. Starting from
-     * {@code max(id)} is what stops a restart posting a season of history into the channel - and it
-     * is also what would silently drop the run that finished during that restart, whose id is below
-     * the mark. So finished rows inside {@link #CATCH_UP} are posted once, as results.
-     */
+    /** Starts from the highest id, posting finished runs inside {@link #CATCH_UP} once so a restart loses none. */
     public void start() {
         try {
             final long mark = updates.latestId();
             for (final UpdateRequest request : updates.finishedWithin(CATCH_UP)) {
-                // A row with id > mark finished between the two reads above; tick() finds it on its own pass.
+                // A row with id > mark finished between the two reads above; tick() finds it.
                 if (request.source() == UpdateSource.DISCORD || request.id() > mark) {
                     continue;
                 }
-                // Posted and forgotten: it is over, so there is nothing left to edit into it.
+                // Posted and forgotten: it is over.
                 board.post(embed(request), messageId -> {});
             }
-            // A run still going falls through both loops above; registering it here is what makes tick() follow it.
+            // A run still going falls through both loops above; registering it here makes tick() follow it.
             for (final UpdateRequest request : updates.since(0L)) {
                 if (request.source() == UpdateSource.DISCORD || request.status().isFinished() || request.id() > mark) {
                     continue;
@@ -159,21 +108,12 @@ public final class UpdateFeed {
             }
             lastSeen = mark;
         } catch (final RuntimeException failure) {
-            // Not fatal: the feed starts from whatever it managed to read, zero in the worst case.
+            // Not fatal: the feed starts from whatever it managed to read.
             log.error("Could not read the update history; the feed starts from {}", lastSeen, failure);
         }
     }
 
-    /**
-     * One pass. Scheduled every {@link #INTERVAL}, and never two at once.
-     *
-     * The guard is not about correctness of the drawing - {@code drawing} is concurrent and
-     * `lastSeen` only grows. It is about the thread. This runs on a worker rather than on the
-     * single timer thread, because a slow database call here would otherwise hold up the payment
-     * poll, the role reconciliation, the expiry sweep, the status channels and the readiness
-     * marker, all of which share that one thread. Handing the work to a pool without this flag
-     * would then let a slow pass be overtaken by the next one and post a row twice.
-     */
+    /** Runs one pass, scheduled every {@link #INTERVAL}. */
     public void tick() {
         if (!ticking.compareAndSet(false, true)) {
             return;
@@ -185,21 +125,7 @@ public final class UpdateFeed {
         }
     }
 
-    /**
-     * Hands one pass to {@code worker}, and only if no pass is outstanding.
-     *
-     * The flag has to be taken before the hand-over, not inside it. {@link #tick} takes it
-     * on the worker thread, which is one thread too late: the timer submits every
-     * {@link #INTERVAL} regardless, so four workers busy with payments for a minute leave thirty
-     * queued passes in an unbounded queue. Each of them then finds the flag free - they run one
-     * after another - and makes its own database round trip. Nothing is posted twice, because
-     * {@code lastSeen} only grows; the cost is a burst of pointless queries at exactly the moment
-     * the pool is already the thing that is struggling.
-     *
-     * A rejected submission releases the flag rather than leaving the feed switched off for the
-     * rest of the season, which is what a plain {@code compareAndSet} with no {@code catch} would
-     * do the first time the executor is shutting down.
-     */
+    /** Hands one pass to {@code worker} unless one is outstanding, releasing the flag if the submission is rejected. */
     public void submit(final Executor worker) {
         Objects.requireNonNull(worker, "worker");
         if (!ticking.compareAndSet(false, true)) {
@@ -243,7 +169,7 @@ public final class UpdateFeed {
                 if (over) {
                     return;
                 }
-                // Only now is there something to edit: before this, an edit would target an unacknowledged message id.
+                // Only now is there a message id to edit.
                 drawing.put(request.id(), new Drawn(messageId, request.result()));
             });
         }
@@ -262,13 +188,13 @@ public final class UpdateFeed {
                 continue;
             }
             if (row.isEmpty()) {
-                // Deleted by hand: nothing to draw, and nothing to say that the message on screen does not.
+                // Deleted by hand: nothing to draw.
                 drawing.remove(id);
                 continue;
             }
             final UpdateRequest request = row.get();
             final Drawn drawn = entry.getValue();
-            // Only when it has something new to say: Discord rate-limits edits, and this polls every two seconds.
+            // Discord rate-limits edits, and this polls every two seconds.
             if (!java.util.Objects.equals(drawn.showing(), request.result())) {
                 board.edit(drawn.messageId(), embed(request));
                 drawing.put(id, new Drawn(drawn.messageId(), request.result()));
@@ -280,19 +206,7 @@ public final class UpdateFeed {
         }
     }
 
-    /**
-     * Mentions the admin role when a run ended badly, and says nothing at all when it did not.
-     *
-     * Called exactly once per run: from {@link #tick()} for a row that was already over when it
-     * was first seen, and from {@link #redraw()} at the moment a run being followed finishes, just
-     * before it stops being followed. The two paths are exclusive - a row that arrives finished is
-     * never registered for redrawing.
-     *
-     * A cancellation is not a failure: somebody typed {@code /update cancel} and already knows.
-     * What this is for is the backup that gave up waiting after thirty minutes and the update that
-     * could not stop a server - the cases where the network is in a state nobody asked for and the
-     * only other trace is an edit to a message from five minutes ago.
-     */
+    /** Mentions the admin role once when a run failed; a cancellation is not a failure. */
     private void alertIfFailed(final UpdateRequest request) {
         if (request.status() != UpdateStatus.FAILED) {
             return;
@@ -307,13 +221,7 @@ public final class UpdateFeed {
         }
     }
 
-    /**
-     * One run, drawn.
-     *
-     * A row with no parsable report is one that has only just been written, or one whose report is
-     * not structured. Either way the stage a reader wants is "somebody has asked for this", which
-     * is what {@code RESOLVING} says.
-     */
+    /** Draws one run; a row with no parsable report reads as {@code RESOLVING}. */
     private MessageEmbed embed(final UpdateRequest request) {
         final UpdateReport report =
                 UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));

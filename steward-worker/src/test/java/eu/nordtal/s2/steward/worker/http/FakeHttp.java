@@ -12,9 +12,7 @@ import java.util.Map;
 /**
  * An {@link Http} backed by responses recorded from the live APIs.
  *
- * Routing is by substring (longest match wins) rather than by exact URL on purpose: the tests are about what the
- * parsers do with a real payload, not about how a query string is spelled. The one place the spelling matters -
- * Modrinth's bracketed JSON filters - is asserted directly in {@link #requested()}.
+ * Routing is by substring, longest match first; {@link #requested()} checks how Modrinth's filters are spelled.
  */
 public final class FakeHttp implements Http {
 
@@ -28,7 +26,7 @@ public final class FakeHttp implements Http {
         return this;
     }
 
-    /** Serves a literal body - for the pack's 41-byte .sha1 asset and for hand-built edge cases. */
+    /** Serves a literal body, for the pack's 41-byte .sha1 asset and hand-built edge cases. */
     public FakeHttp answering(final String match, final String body) {
         routes.put(match, body);
         return this;

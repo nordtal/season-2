@@ -6,9 +6,7 @@ author: nordtal
 website: https://nordtal.eu
 api-version: "26.2"
 
-# DisplayTags owns every nametag on this network; its API is an interface over the running plugin,
-# so it must be installed and load first. required: true so a server missing it fails at start
-# rather than running with plain nametags nobody notices. PacketEvents comes with DisplayTags.
+# DisplayTags owns every nametag; required so a server without it fails at start.
 dependencies:
   server:
     DisplayTags:

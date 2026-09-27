@@ -29,14 +29,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * Exercises {@link UpdateDirectory} against a real PostgreSQL running the real migrations.
  *
- * Nothing here has an in-memory stand-in. The claim is {@code FOR UPDATE SKIP LOCKED} inside a
- * data-modifying CTE; the countdown is {@code now() + make_interval(...)} evaluated by the database
- * clock; the {@code NOTIFY} rides in the same statement as the {@code INSERT} and either commits
- * with it or not at all. All three are PostgreSQL behaviour, not Java behaviour.
- *
- * Testcontainers is driven by hand from {@link BeforeAll}, like every other integration test in
- * this module - the {@code junit-jupiter} extension is built against JUnit 5 and this repo is on
- * the JUnit 6 BOM - and these tests <b>skip themselves</b> when no Docker daemon is reachable.
+ * The claim, the countdown clock and the NOTIFY are database behaviour; tests skip without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UpdateDirectoryIntegrationTest {
@@ -75,14 +68,7 @@ class UpdateDirectoryIntegrationTest {
         dataSource = null;
     }
 
-    /**
-     * Both tables, because one references the other.
-     *
-     * {@code service_hold.request_id} points at {@code update_request}, and PostgreSQL refuses
-     * to truncate a table something references unless the referencing table goes with it. Naming
-     * both is the honest version of that - {@code CASCADE} would silently take whatever else grows
-     * a foreign key here later.
-     */
+    /** Both tables, since {@code service_hold} references {@code update_request}; {@code CASCADE} would take more. */
     private static final String FRESH_INBOX = "TRUNCATE TABLE service_hold, update_request RESTART IDENTITY";
 
     @BeforeEach
@@ -91,11 +77,7 @@ class UpdateDirectoryIntegrationTest {
         updates = UpdateDirectory.using(dataSource);
     }
 
-    /**
-     * A row written straight into the table, past the one-run rule that {@code submit} enforces.
-     * For the tests about what the table does with several open rows - a state the table still
-     * allows, and which only submitting refuses.
-     */
+    /** Writes a row straight into the table, past the one-run rule that {@code submit} enforces. */
     private UpdateRequest queued(
             final UpdateKind kind, final UpdateSource source, final String by, final Duration delay) {
         try (Connection connection = dataSource.getConnection();
@@ -200,19 +182,9 @@ class UpdateDirectoryIntegrationTest {
     }
 
     /**
-     * {@code startCountdown()} announces itself on the channel, exactly like {@code submit()} does.
+     * Checks that {@code startCountdown()} notifies the channel like {@code submit()} does.
      *
-     * {@code submit()} rides a {@code pg_notify} in the same statement that writes the row, so
-     * the proxy's {@code LISTEN} hears about a fresh request immediately. If
-     * {@code startCountdown()} did not do the same, the one notification a listener actually
-     * receives would fire <em>before</em> a plan is even resolved, when the row is not yet counting
-     * down at all - and {@code RestartWatch} would have no way to learn that {@code not_before}
-     * became {@code now() + 30s} except its own five-second poll.
-     *
-     * {@code Countdown#beats} requires {@code millisLeft >= 30_000} to schedule the thirty-second
-     * chat line at all, so any of those up to five seconds already spent by the time the poll
-     * catches up is that line gone for good, never the ten-second one behind it. This applies to
-     * every kind that counts down, not just {@code BACKUP}.
+     * Otherwise the proxy learns of the countdown only by its poll, and the thirty-second line can be lost.
      */
     @Test
     void startingTheCountdownAnnouncesItselfOnTheChannel() throws Exception {
@@ -466,14 +438,7 @@ class UpdateDirectoryIntegrationTest {
         assertEquals("stop", updates.find(submitted.id()).orElseThrow().result());
     }
 
-    /**
-     * Everything that stops a server counts down, and the list is asked rather than copied.
-     *
-     * This test does not restate the list. It asks {@link UpdateKind#stopsServers()} - the
-     * same property the worker uses to decide whether there is anything to stop - and requires that
-     * every kind answering yes is visible to whoever announces the outage. A new kind that stops
-     * servers is therefore covered on the day it is written.
-     */
+    /** Checks that every kind that stops servers counts down, asking {@link UpdateKind#stopsServers()} for the list. */
     @Test
     void everythingThatStopsServersCountsDown() {
         for (final UpdateKind kind : UpdateKind.values()) {
@@ -497,11 +462,7 @@ class UpdateDirectoryIntegrationTest {
         }
     }
 
-    /**
-     * Every countdown that can be started can be called off again.
-     *
-     * {@code cancelCountdown} is checked separately because it scopes the kinds by its own query.
-     */
+    /** Checks that every countdown that can be started can be called off again. */
     @Test
     void everyCountdownThatCanBeStartedCanBeCalledOff() {
         for (final UpdateKind kind : UpdateKind.values()) {
@@ -528,7 +489,7 @@ class UpdateDirectoryIntegrationTest {
         }
     }
 
-    /** The complement: a kind that stops nothing must never make players hear a countdown. */
+    /** Checks that a kind that stops nothing never makes players hear a countdown. */
     @Test
     void aKindThatStopsNothingIsNotAnnounced() {
         final UpdateRequest submitted = updates.submit(UpdateKind.REPORT, UpdateSource.GAME, "Alex", Duration.ZERO);

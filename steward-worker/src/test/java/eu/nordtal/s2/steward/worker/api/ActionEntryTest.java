@@ -14,11 +14,7 @@ import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * The mapping from a raw row of either table to one {@link ActionEntry}.
- *
- * The extent computed from an {@code UpdateReport}, and who gets credited with a run or a journal line.
- */
+/** The mapping from a raw row of either table to one {@link ActionEntry}, its extent and who is credited. */
 class ActionEntryTest {
 
     private static final Instant REQUESTED = Instant.parse("2026-09-16T12:00:00Z");
@@ -41,7 +37,7 @@ class ActionEntryTest {
 
     @Test
     void countsHealthyAndSavedLinesAgainstEverythingTouched() {
-        // One HEALTHY, one SAVED, one FAILED, one UNCHANGED and one PLANNED not touched - so total is 3, successful 2.
+        // One HEALTHY, SAVED, FAILED and UNCHANGED each, plus an untouched PLANNED: total 3, successful 2.
         final String report = "{\"stage\":\"DONE\",\"services\":["
                 + "{\"service\":\"a\",\"state\":\"HEALTHY\",\"changes\":[]},"
                 + "{\"service\":\"b\",\"state\":\"SAVED\",\"changes\":[]},"

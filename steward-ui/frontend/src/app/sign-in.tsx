@@ -7,17 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 
-/**
- * The sign-in mask.
- *
- * It is the whole page rather than a dialog over a blurred interface, because there is nothing
- * behind it: signed out, every API call but this one answers 401, so a shell drawn underneath
- * would be a sidebar full of pages that cannot load.
- *
- * As little text as possible everywhere in this app - it is about
- * data and overview, not explanatory copy, and an admin who does not already know why a sign-in
- * needs the guild's role can ask.
- */
+/** The sign-in mask, a whole page since signed out every other API call answers 401. */
 export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
   const missing = me?.signInUnavailable
 

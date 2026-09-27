@@ -13,45 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The heartbeat timer decides when a comment is written, and never writes one itself.
  *
- * What this is protecting: Every open log follow schedules its heartbeat on {@code heartbeats}, which is one thread
- * for the whole process. {@code SseClient#sendComment} writes into a socket, and a socket whose reader has stopped
- * reading eventually has nowhere to put the bytes. Done on the timer thread, a write that cannot proceed is a write
- * that holds the only thread every other follow's heartbeat is queued on - so one reader that stopped reading would
- * silence every log view in the stack, and Jetty would drop each of them thirty seconds later. That is a worse
- * failure than the one the heartbeat was added to prevent, because it belongs to somebody who did nothing wrong.
- *
- * Why this is a text search and not a run, which is the uncomfortable part: A test that opened two follows, stalled
- * the first and counted the second's heartbeats was written first, and it passed on the old code as well. That is
- * not a subtlety to leave in a comment somewhere, so here is what this host measures against Javalin 7.2.3, Jetty
- * 12.1.12 and Java 25, with the timer thread's stack sampled throughout:
- *
- * - A follow of {@code smp} - 1.8 MB of backlog waiting - read through a socket whose receive buffer was set to 4 KB
- * and then never read. Back-pressure was real and was confirmed rather than assumed: emptying the buffer once
- * refilled it with another 4 096 bytes. A second follow kept its heartbeats throughout, and
- * {@code steward-worker-sse-heartbeat} was in {@code DelayedWorkQueue.take} at every sample - idle, never inside a
- * write.
- *
- * - A follow with no log traffic at all, beating every 5 ms until the unread reader's buffer froze at 5 248 bytes
- * and stayed there. A second follow received 538 comments in three seconds, where 600 were due. Again the timer
- * thread was idle at every sample.
- *
- * The reason is in Javalin's own bytecode. {@code Emitter.emit(String)} - the comment path, as opposed to the
- * three-argument event path - is not synchronised, so a comment does not queue behind the log writer on the same
- * connection; and it wraps {@code print} and {@code flushBuffer} in {@code catch (IOException) { closed = true }},
- * after which {@code sendComment} closes the client. Between Jetty's aggregating output buffer and the kernel's send
- * buffer there is roughly 48 KB of somewhere-to-put-it, and what was observed when that ran out was the stalled
- * follow's own heartbeat stopping - not the timer parking. Pushing harder than that (a beat every millisecond)
- * stopped being a test of anything: it took the test JVM down through the shutdown storm {@code LogFollows#follows}
- * describes.
- *
- * So the danger is latent rather than live: it rests on Javalin continuing not to synchronise that path and on Jetty
- * continuing to buffer, neither of which this project controls or would hear about. Doing the write somewhere it is
- * allowed to block is still the right shape, and the shape is the only part of it a test on this machine can hold.
- * This file says so out loud instead of dressing a green run up as proof of something it did not reach.
- *
- * What it would catch: Somebody folding {@code beat(...)} back into the one-liner it replaced - which reads like
- * tidying up, because on a healthy connection the two behave identically and no test but this one can tell them
- * apart.
+ * A source search, since a blocked write could not be provoked here; it catches {@code beat} being inlined.
  */
 class HeartbeatLeavesTheTimerTest {
 
@@ -115,13 +77,7 @@ class HeartbeatLeavesTheTimerTest {
                         + " decorative: the next tick is free to start immediately");
     }
 
-    /**
-     * The body of {@code serve} on its own, so "does not write a comment" cannot be answered by the whole file.
-     *
-     * {@code sendComment} legitimately appears further down, inside {@code beat} - which is the entire point - so
-     * searching the source for it would make the assertion in
-     * {@link #aCommentStillOnItsWayOutMeansTheNextTickIsSkippedNotQueued} permanently false.
-     */
+    /** The body of {@code serve} on its own, since {@code sendComment} legitimately appears inside {@code beat}. */
     private String serveMethod() {
         final int from = logFollows.indexOf("void serve(final SseClient client");
         assertTrue(
@@ -152,12 +108,7 @@ class HeartbeatLeavesTheTimerTest {
         return logFollows.substring(from, to);
     }
 
-    /**
-     * Where {@code token} is, refusing {@code -1}.
-     *
-     * Not {@code indexOf} at the call site: a token that is not there answers -1, which is smaller than every real
-     * position - so an ordering assertion turns green the moment the call it is protecting is deleted.
-     */
+    /** Where {@code token} is, refusing {@code -1} so a deleted call cannot pass an ordering assertion. */
     private static int at(final String haystack, final String token) {
         final int index = haystack.indexOf(token);
         assertTrue(

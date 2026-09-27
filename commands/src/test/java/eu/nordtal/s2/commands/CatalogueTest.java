@@ -12,16 +12,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
-/**
- * Properties of the whole command surface, which no single command can be asked about.
- *
- * The one that matters most is the description: the help output names
- * {@link Declaration#describeKey()} without checking whether it exists, because checking at the
- * point of use would mean either a silent fallback - which is how a reader ends up being told that
- * {@code /smp aura} is for {@code command.describe.smp.aura} - or a branch that only runs when
- * somebody mistypes. Asserting it here instead means a new command cannot ship without its
- * sentence, in both languages.
- */
+/** Properties of the whole command surface, which no single command can be asked about. */
 class CatalogueTest {
 
     private static final Messages MESSAGES =
@@ -46,7 +37,7 @@ class CatalogueTest {
 
     @Test
     void aRootDefaultIsRunnableBare() {
-        // Whatever is put in that map has to be a command the adapters can dispatch from the bare root: two segments.
+        // A default has to be dispatchable from the bare root, so it sits two segments deep.
         final java.util.Set<String> roots = Catalogue.all().stream()
                 .map(declaration -> declaration.path().getFirst())
                 .collect(java.util.stream.Collectors.toSet());
@@ -67,7 +58,7 @@ class CatalogueTest {
         }
         assertEquals(2, found, "exactly /phase and /update have a default today; changing that is a" + " decision");
         assertEquals(java.util.Optional.of(PhaseCommands.SHOW), Catalogue.rootDefault("phase", true));
-        // /update alone is the report: it had to become /update check because Discord cannot run a root that has.
+        // /update alone runs the report.
         assertEquals(
                 java.util.Optional.of(eu.nordtal.s2.commands.update.UpdateCommands.REPORT),
                 Catalogue.rootDefault("update", true));
@@ -144,7 +135,6 @@ class CatalogueTest {
 
     @Test
     void thereIsOneAdminList() {
-        // discord_user.admin, mirrored from the Discord role.
         assertEquals(
                 List.of(),
                 Catalogue.all().stream()

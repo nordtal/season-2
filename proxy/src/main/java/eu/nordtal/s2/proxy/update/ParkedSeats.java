@@ -12,40 +12,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Where each player was standing before the proxy swapped out from under them, in memory.
+ * Where each player stood before a proxy swap, held in memory for the minute after a restart.
  *
- * For the one minute after a restart when anybody is coming back.
- *
- * Filled once from {@link SwapStore#takeAllSeats()} while the plugin starts - before Velocity
- * binds its listener, so no login can race the read - and emptied a player at a time as they
- * arrive. Nothing refills it: a seat is a fact about one run, and the run is over.
- *
- * Whose seat actually changes anything is a shorter list than it looks. Routing on this network is
- * a total function of the season phase: {@code PhaseRouting} sends every non-admin to the one
- * backend their phase names, on every login and on every phase change. So for a player who is not
- * an admin, the seat and the phase's own answer agree by construction - the seat says {@code smp}
- * because the phase said {@code smp} and still does. Honouring it would change nothing, and
- * honouring it in the one case where they disagree - the phase moved during the swap - would put
- * somebody on a backend the current phase does not allow, past the check that exists to stop
- * precisely that.
- *
- * So a seat is honoured for an admin and for nobody else. An admin is the one player routing
- * deliberately does not move: they get around with {@code /server}, they are the reason
- * {@code RouteIntents} has an exemption at all, and "I was on hunger-games looking at something and
- * came back on the SMP" is the one way this feature is noticeably wrong for somebody.
- *
- * Every seat is still written, admin or not. It costs one statement for a table that is
- * emptied on the next start, and what it buys is a record of who was actually parked - which is the
- * thing somebody will want the morning after a swap that went badly.
+ * Filled once before Velocity binds and emptied as players arrive; only an admin's seat is honoured.
  */
 public final class ParkedSeats {
 
     private final Map<UUID, String> seats = new ConcurrentHashMap<>();
 
     /**
+     * Keeps the seats that are still fresh.
+     *
      * @param rows every row {@link SwapStore#takeAllSeats()} returned, stale ones included
-     * @param now  the proxy's clock; a row older than {@link SwapStore#SEAT_VALID_FOR} is dropped
-     *             here rather than at the database, so that the statement stays one statement
+     * @param now the proxy's clock; rows older than {@link SwapStore#SEAT_VALID_FOR} are dropped here
      */
     public ParkedSeats(final List<SwapStore.Seat> rows, final Instant now) {
         Objects.requireNonNull(rows, "rows");
@@ -59,34 +38,24 @@ public final class ParkedSeats {
         seats.putAll(fresh);
     }
 
-    /**
-     * @param player who has just arrived
-     * @return whether a seat is being held for them - they are coming back from the swap rather
-     *         than walking into it. Asked by {@code RestartGate} and not consuming: the seat is
-     *         spent when the waiting room lets them out, which is a second or two later
-     */
+    /** Returns whether a seat is held for this player, without consuming it. */
     public boolean holds(final UUID player) {
         return seats.containsKey(player);
     }
 
-    /** @return how many seats were carried over - for the startup log line, never a decision */
+    /** Returns how many seats were carried over, for the startup log line only. */
     public int size() {
         return seats.size();
     }
 
     /**
-     * Where the waiting room should let this player out to.
+     * Where the waiting room should let this player out to, consuming the seat.
      *
-     * Consuming: a seat is used once. A player who is released, fails to connect and is released
-     * again goes by the phase the second time, which is the safe direction - the seat was already
-     * tried and the phase's answer is the one that is true now.
-     *
-     * @param player           who is being released
-     * @param admin            whether they carry {@code discord_user.admin} - see the class comment
-     *                         on why this is the whole of the permission
+     * @param player who is being released
+     * @param admin whether they carry {@code discord_user.admin}, the only thing that lets a seat count
      * @param phaseDestination where {@code PhaseRouting#decideRelease} says they go
-     * @param available        the backends registered on this proxy
-     * @param servers          the backend names
+     * @param available the backends registered on this proxy
+     * @param servers the backend names
      * @return where to actually connect them
      */
     public String releaseTo(
@@ -100,15 +69,9 @@ public final class ParkedSeats {
     }
 
     /**
-     * The rule on its own, so the four ways to get it wrong are all assertable.
+     * Returns an admin's seat when it names a registered backend that is not a waiting room, else the phase's.
      *
-     * Honouring a seat for somebody routing owns, honouring one naming a backend this proxy does not have,
-     * honouring one naming a waiting room - which would release a player into the room they are standing in, a
-     * black screen with a stale title - and losing one that was fine.
-     *
-     * @param seat where they were, or {@code null} for every login that is not the far end of a
-     *             swap
-     * @return the seat when it may be honoured, otherwise {@code phaseDestination} unchanged
+     * @param seat where they were, or {@code null} for every login that is not the far end of a swap
      */
     static String destination(
             final @Nullable String seat,

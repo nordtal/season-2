@@ -20,12 +20,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The loop, without a network, a database or four volumes.
  *
- * Two things here are worth a test and the rest is plumbing. The first is the arithmetic that decides when to wake
- * up: a restart sits in the table for a minute while the proxy counts players down towards it, and a loop that
- * sleeps for its poll interval regardless would fire the restart after the counter had already reached zero. The
- * second is that a drain empties the queue rather than taking one row per wake-up - the case that matters is a
- * request written while the worker was busy with the previous one, whose notification arrived during the run and was
- * never waited for.
+ * It checks when the loop wakes for a due restart, and that a drain empties the queue rather than taking one row.
  */
 class UpdateServerTest {
 
@@ -113,14 +108,14 @@ class UpdateServerTest {
 
     @Test
     void aHandedOverRunGoesBackToTheInboxAndThisWorkerTakesNothingElse() {
-        // The next worker finishes it; this one is about to exit and must not start a second request on its way out.
+        // This worker is about to exit and must not start a second request.
         final UpdateRequest update = directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
         directory.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "b", Duration.ZERO);
 
         final List<UpdateKind> ran = new ArrayList<>();
         final UpdateServer server = server((request, progress) -> {
             ran.add(request.kind());
-            // Once: a loop that claimed the handed-over row again would otherwise never return from drain().
+            // Once, or a loop claiming the handed-over row again never returns from drain().
             return ran.size() == 1 ? Outcome.handedOver("{\"stage\":\"RESOLVING\"}") : Outcome.done("again");
         });
         server.drain();
@@ -134,12 +129,12 @@ class UpdateServerTest {
 
     @Test
     void serveReturnsOnceItHasHandedARunOver() throws Exception {
-        // Returning is what ends the process, and a container that exits is what Docker starts again on the new jar.
+        // Returning ends the process, and Docker restarts the container on the new jar.
         directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
         final UpdateServer server = server((request, progress) -> Outcome.handedOver("{}"));
 
         final Thread thread = new Thread(server::serve, "test-update-server");
-        // A daemon, so that the failure this test looks for fails the test instead of keeping the JVM alive.
+        // A daemon, so a hang fails the test instead of keeping the JVM alive.
         thread.setDaemon(true);
         thread.start();
         thread.join(Duration.ofSeconds(5).toMillis());

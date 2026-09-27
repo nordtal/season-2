@@ -16,13 +16,9 @@ import org.bukkit.Material;
 import org.slf4j.Logger;
 
 /**
- * Where {@code hunger-games}'s config files live, and every rule about what a valid value is.
+ * Where {@code hunger-games}'s config files live, and what a valid value is.
  *
- * One environment namespace per file, every check run once at startup.
- *
- * {@code sounds.yml} is a separate file because {@code /hg reload} re-reads it in the middle of
- * a game and re-reads nothing out of {@code config.yml} - a border parameter must not move while
- * players are running from it.
+ * {@code /hg reload} re-reads only {@code sounds.yml}, so a border parameter never moves mid-game.
  */
 public final class Configs {
 
@@ -76,12 +72,7 @@ public final class Configs {
         return handle;
     }
 
-    /**
-     * Loads the sounds.
-     *
-     * No validator on purpose: {@code FeedbackSounds} corrects or silences a bad value where it
-     * parses it, so a typo in a chime is never the reason the event server is down.
-     */
+    /** Loads the sounds, with no validator: {@code FeedbackSounds} corrects or silences a bad value itself. */
     public static ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger) throws ConfigException {
         final Path file = dataFolder.resolve("sounds.yml");
         final boolean fresh = !java.nio.file.Files.isRegularFile(file);
@@ -92,21 +83,13 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            // Not the "almost certainly not what you want" line the other two carry: these defaults are usable as-is.
             logger.info("No sounds config existed at {} - the ten defaults were written", file.toAbsolutePath());
         }
         recordEnvironmentOverrides(handle, logger);
         return handle;
     }
 
-    /**
-     * Loads the tone colours.
-     *
-     * No validator, the same reason {@link #sounds} has none: {@code ToneColours#parse} corrects a
-     * bad hex value where it parses it, so a typo here is never the reason the event server is
-     * down. Read once at enable - see the class's own javadoc on {@code ColoursSpec} for why this
-     * file has no {@code /hg reload} path yet.
-     */
+    /** Loads the tone colours, with no validator: {@code ToneColours#parse} corrects a bad hex value itself. */
     public static ConfigHandle<ColoursSpec> colours(final Path dataFolder, final Logger logger) throws ConfigException {
         final Path file = dataFolder.resolve("colours.yml");
         final boolean fresh = !java.nio.file.Files.isRegularFile(file);
@@ -124,11 +107,9 @@ public final class Configs {
     }
 
     /**
-     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file.
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, best effort.
      *
-     * So steward-worker can warn that editing an overridden setting there has no effect until the
-     * variable is removed. Best-effort: this is a UI nicety, not a reason for a correctly loaded
-     * config to refuse to enable the plugin.
+     * steward-worker reads it to warn that an overridden setting cannot be edited there.
      */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {
@@ -141,9 +122,7 @@ public final class Configs {
     /**
      * {@code ColoursSpec}'s five accessors, as the map {@code ToneColours} parses.
      *
-     * An exhaustive {@code switch} with no {@code default} - the same guard {@code HungerGamesSounds}'
-     * own {@code specOf} uses for {@code Feedback} - so a sixth {@link Tone} stops this compiling
-     * rather than silently leaving it unpainted.
+     * The exhaustive {@code switch} makes a sixth {@link Tone} a compile error.
      */
     public static Map<Tone, String> declared(final ColoursSpec spec) {
         final Map<Tone, String> declared = new EnumMap<>(Tone.class);
@@ -169,7 +148,7 @@ public final class Configs {
 
     private static void validateScalars(final HungerGamesSpec config) {
         requirePositive("countdown-seconds", config.countdownSeconds());
-        // Zero or negative would not disable the watcher - it would poll once per second for the server's life.
+        // Zero or negative would not disable the watcher, it would poll once per second.
         requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
         if (config.softMinimumParticipants() < HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS) {
             throw new IllegalArgumentException(

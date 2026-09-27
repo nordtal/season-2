@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
-/** Maps a {@code link_code} row. See {@link AccessGrantMapper} for why this is written by hand. */
+/** Maps a {@code link_code} row. */
 public final class LinkCodeMapper implements RowMapper<LinkCode> {
 
     @Override

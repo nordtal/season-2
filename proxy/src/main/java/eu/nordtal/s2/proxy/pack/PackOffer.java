@@ -11,22 +11,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The resource-pack offer itself: one {@link ResourcePackInfo} per language, built once and handed out.
+ * The resource-pack offer: one {@link ResourcePackInfo} per language, built once.
  *
- * <b>Why per language.</b>
- * The prompt line inside the client's own pack dialog is a {@code Component}, and every string a
- * player reads comes out of {@code Messages} against their database locale (docs/i18n.md). Nothing
- * else about the offer varies, so the infos are cached by language rather than built per login.
- *
- * <b>The id.</b>
- * Derived from the pack's SHA-1 rather than random, so that the same pack is the same pack across
- * proxy restarts and across proxies. The client uses the id to recognise a pack it already has;
- * a fresh random id on every start would ask every player to re-apply what they already applied.
- *
- * <b>The hash.</b>
- * Comes from {@code pack.yml#sha1} and is sent alongside the URL. It is what lets a client skip the
- * download when it has this pack cached, and it is what makes the client refuse a zip that is not
- * the one we meant. It is never hardcoded and never guessed - see {@code PackSpec}.
+ * The id derives from the SHA-1, so a client recognises the same pack across restarts and proxies.
  */
 public final class PackOffer {
 
@@ -38,12 +25,6 @@ public final class PackOffer {
 
     private final Map<String, ResourcePackInfo> byLanguage = new ConcurrentHashMap<>();
 
-    /**
-     * @param proxy    the proxy, which owns the {@code ResourcePackInfo} builder
-     * @param config   a {@code pack.yml} that has passed validation, so the URL is an http(s) URL
-     *                 and the hash is 40 hex characters
-     * @param messages the prompt line, per language
-     */
     public PackOffer(final ProxyServer proxy, final PackSpec config, final PackMessages messages) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.config = Objects.requireNonNull(config, "config");
@@ -55,6 +36,8 @@ public final class PackOffer {
     }
 
     /**
+     * The offer to send a player of {@code locale}.
+     *
      * @param locale the player's language
      * @return the offer to send them
      */
@@ -70,13 +53,13 @@ public final class PackOffer {
                         .build());
     }
 
-    /** @return the id every offer this proxy sends carries, derived from the pack's own hash */
+    /** The id every offer carries, derived from the pack's own hash. */
     public UUID packId() {
         return packId;
     }
 
     private static byte[] decodeHex(final String hex) {
-        // Already validated by Configs#pack; fails loudly rather than risk a silently wrong hash later.
+        // Already validated by Configs#pack; fails loudly rather than risk a silently wrong hash.
         if (hex == null || hex.length() != 40) {
             throw new IllegalArgumentException("A pack SHA-1 is 40 hex characters, got: " + hex);
         }

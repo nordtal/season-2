@@ -21,11 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.yaml.snakeyaml.Yaml;
 
-/**
- * The deployment, backup and standby half of {@link TopologyTest}, split out to keep both files under the line limit.
- *
- * It reads compose.yml itself rather than sharing TopologyTest's fixture, because the two run as separate classes.
- */
+/** The deployment, backup and standby half of {@link TopologyTest}, which reads compose.yml on its own. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyDeploymentTest {
 
@@ -399,12 +395,7 @@ class TopologyDeploymentTest {
                         + " out of another, so the dump is saved where nothing ever looks for it.");
     }
 
-    /**
-     * The volume behind a service's mount at {@code path}, insisting it is not read-only.
-     *
-     * The destination is parsed from the right: a mount's default value can itself contain colons, so splitting on the
-     * first one finds a piece of the default instead of the actual destination.
-     */
+    /** The volume behind a service's mount at {@code path}, insisting it is not read-only. */
     private String writableMountAt(final String service, final String path) {
         @SuppressWarnings("unchecked")
         final Map<String, Object> definition = (Map<String, Object>) services.get(service);
@@ -596,7 +587,7 @@ class TopologyDeploymentTest {
                         + " setting somebody can write and nothing can apply.");
     }
 
-    /** The host side of a compose mount - everything before the last colon-separated field pair. */
+    /** The host side of a compose mount, everything before the last colon-separated field pair. */
     private static String sourceOf(final String mount) {
         final int split = mount.lastIndexOf(':');
         return mount.substring(0, split);

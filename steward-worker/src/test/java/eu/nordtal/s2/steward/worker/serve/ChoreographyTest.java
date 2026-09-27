@@ -16,11 +16,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * The stage directions of a run.
+ * The stage directions of a run: the standbys it needs, what a failed one costs, and players still online.
  *
- * Which standbys it needs, what a standby that will not come up costs, and what happens when the players are still
- * there. Every clock here is driven rather than slept through - a ten-second cap and a three-minute patience are
- * both things a test must reach in microseconds or not assert at all.
+ * Every clock is driven rather than slept through.
  */
 class ChoreographyTest {
 
@@ -35,7 +33,7 @@ class ChoreographyTest {
                 Choreography.standbysFor(Set.of("limbo", "proxy")),
                 "the order is SERVICES_WITH_STANDBY's, so a swap always starts the proxy first");
 
-        // A run that moves the SMP needs a waiting room the whole time - and if it leaves limbo alone, limbo IS it.
+        // A run that moves the SMP needs a waiting room the whole time, and if it leaves limbo alone, limbo IS it.
         assertEquals(
                 List.of(),
                 Choreography.standbysFor(Set.of("smp")),

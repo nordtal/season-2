@@ -24,19 +24,7 @@ import { RUN_KIND } from "@/components/steward/status"
 import { Actor } from "@/components/steward/entity"
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
-/**
- * The five-item feed (`ActionsApi` on steward-worker's side, `useActions()` here). One row, drawn
- * once so the icon, the outcome and the person are the same shape everywhere
- * this list is used - today that is only {@code OverviewPage}'s "Latest actions" panel, but a second
- * place would otherwise be the seam where the icon map and {@link RUN_KIND} quietly drift apart.
- */
-
-/**
- * A journal action this list draws a dedicated icon and label for. Anything not in here still shows
- * - as its own raw {@link Action.kind} string and a generic icon - because {@code audit_log.action}
- * has no schema (see {@code AuditEntry}'s own javadoc): a value this map has not been told about yet
- * is a fact about the database, not a reason to draw nothing.
- */
+/** A journal action with its own label; others show their raw string, since `audit_log.action` has no schema. */
 const AUDIT_LABEL: Record<string, string> = {
   GRANT_ACCESS: "Access granted",
   REVOKE_ACCESS: "Access revoked",
@@ -48,18 +36,11 @@ const AUDIT_LABEL: Record<string, string> = {
   REGISTER_KEY: "Security key added",
   REMOVE_KEY: "Security key removed",
   FORGET_FACTORS: "Security reset",
-  /**
-   * Not "Run CANCELLED": what the journal records is a person taking a run back, and the run's
-   * own row says the rest.
-   */
+  /** Not "Run CANCELLED", since the journal records a person taking a run back. */
   CANCEL_RUN: "Run cancelled",
 }
 
-/**
- * One icon per {@link Action.kind}. The three run kinds reuse the exact icons `operations.tsx`
- * already draws them with ({@link ArrowsClockwiseIcon}, {@link ArchiveIcon}, {@link ArrowCounterClockwiseIcon}) - a second choice
- * for the same fact would be the interface disagreeing with itself between two pages.
- */
+/** One icon per {@link Action.kind}; the run kinds reuse the icons `operations.tsx` draws them with. */
 const KIND_ICON: Record<string, Icon> = {
   UPDATE: ArrowsClockwiseIcon,
   BACKUP: ArchiveIcon,
@@ -97,10 +78,7 @@ export function ActionRow({
   action?: Action
   now: number
 }) {
-  /**
-   * A property access rather than a bare identifier, so the icon this row picks reads as
-   * selecting an existing component, not defining a new one in place.
-   */
+  /** A property access, so the chosen icon reads as an existing component rather than one defined in place. */
   const icons = { Icon: action ? iconOf(action.kind) : PulseIcon }
 
   return (

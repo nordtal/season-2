@@ -8,24 +8,19 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code colours.yml} - the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is painted with.
+ * {@code colours.yml}: the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is painted with.
  *
- * Every value below is deliberately the same as {@code smp}'s and {@code limbo}'s, so the network
- * reads as one server rather than several. Read once at proxy start, the same as
- * {@code network.yml} and {@code gate.yml}: there is no reload command here, and widening
- * {@code /network reload} to touch it would be a change to the shared {@code NetworkEffects}
- * interface in {@code :commands}. A change here needs a proxy restart.
+ * The same values as {@code smp}'s and {@code limbo}'s. Read once at proxy start; a change needs a restart.
  */
 @ConfigSpec(
         header = {
-            "proxy - tone colours",
+            "proxy: tone colours",
             "",
-            "The five colours a reply can be painted with. Every reply through NordtalUser#reply names",
-            "one of GOOD, BAD, WARN, MUTED or NEUTRAL, and this file is what each of those five looks",
-            "like on this proxy. Identical to smp's and limbo's own colours.yml on purpose.",
+            "The five colours a reply can be painted with: GOOD, BAD, WARN, MUTED and NEUTRAL.",
+            "Identical to smp's and limbo's colours.yml on purpose.",
             "",
-            "EVERY VALUE IS A HEX COLOUR, like #8ba888. A value that is not a parseable hex colour is",
-            "reported in the console and the default takes its place - it never stops the proxy.",
+            "EVERY VALUE IS A HEX COLOUR, like #8ba888. An invalid one is reported in the console",
+            "and the default takes its place; it never stops the proxy.",
             "",
             "READ ONCE AT PROXY START. There is no reload command for this file, the same as network.yml",
             "and gate.yml.",
@@ -47,7 +42,7 @@ public interface ColoursSpec {
     @Order(2)
     @Name("Bad")
     @Key("bad")
-    @Comment("Leaving: it failed. The one tone that has to be findable in a list of forty lines.")
+    @Comment("Leaving: it failed. The one tone that has to stand out in a long list.")
     @Explain("For a reply that fails. Needs to stand out in a long list.")
     default String bad() {
         return "#a8888b";
@@ -56,8 +51,8 @@ public interface ColoursSpec {
     @Order(3)
     @Name("Warning")
     @Key("warn")
-    @Comment("Not a failure, but not what was asked for either - stopped, too late, still waiting.")
-    @Explain("Not a failure, but not what was asked for either - stopped, too late, still waiting.")
+    @Comment("Not a failure, but not what was asked for either: stopped, too late, still waiting.")
+    @Explain("Not a failure, but not what was asked for either: stopped, too late, still waiting.")
     default String warn() {
         return "#b08a4a";
     }
@@ -65,7 +60,7 @@ public interface ColoursSpec {
     @Order(4)
     @Name("Neutral")
     @Key("neutral")
-    @Comment("An ordinary reply - nothing to flag. Lighter than muted, so the two are distinguishable.")
+    @Comment("An ordinary reply with nothing to flag. Lighter than muted, so the two stay distinguishable.")
     @Explain("An ordinary reply with nothing to flag.")
     default String neutral() {
         return "#c9c9c9";

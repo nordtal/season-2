@@ -6,11 +6,11 @@ import eu.nordtal.s2.commands.CommandEffects;
 public interface AnnounceEffects extends CommandEffects {
 
     /**
-     * @param languageTag the language whose announcement channel the line belongs in, as in
-     *                    {@code access.yml#languages[].tag}
+     * Posts a line into one language's announcement channel.
+     *
+     * @param languageTag the language, as in {@code access.yml#languages[].tag}
      * @param text        the line, already rendered in that language, plain text
-     * @return whether it was posted - {@code false} when no channel is configured for that
-     *         language, which is the default and not a fault
+     * @return whether it was posted; {@code false} when no channel is configured for that language
      */
     boolean post(String languageTag, String text);
 }

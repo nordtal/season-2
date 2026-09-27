@@ -42,10 +42,7 @@ class SoundVocabularyTest {
     /** A bare {@code Sound.SOMETHING} constant, without matching {@code FeedbackSound.} and friends. */
     private static final Pattern BARE_SOUND_CONSTANT = Pattern.compile("(?<![A-Za-z0-9_.])Sound\\.");
 
-    /**
-     * The files that may name a sound, and why: one adapter per Paper module that plays anything.
-     * An entry that is <em>not</em> an adapter is the thing this list exists to make visible.
-     */
+    /** The files that may name a sound: one adapter per Paper module; anything else here is visible. */
     private static final Map<String, String> ALLOWED = Map.of(
             "smp/src/main/java/eu/nordtal/s2/smp/feedback/SmpSounds.java",
             "smp's sound adapter - the one place in the module that turns a category into a packet",
@@ -161,8 +158,7 @@ class SoundVocabularyTest {
     /**
      * Returns the source with every comment blanked, so a comment explaining the rule does not fail it.
      *
-     * Blanked rather than deleted, so no two lines are joined. A {@code //} inside a string literal can only
-     * cause a false pass on the rest of that line.
+     * Blanked rather than deleted, so no two lines are joined.
      */
     private static String withoutComments(final String source) {
         final StringBuilder out = new StringBuilder(source.length());

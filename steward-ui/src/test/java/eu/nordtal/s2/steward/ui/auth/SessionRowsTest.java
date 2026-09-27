@@ -21,16 +21,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * The three one-time values {@code steward_session} carries, against a real PostgreSQL.
  *
- * Why these are not asserted through HTTP like everything else
- * Two of them are about time - a session past its expiry, a ceremony past its window - and
- * the only honest way to reach those through a browser is to wait ten minutes. The rows can be aged
- * instead, which is what {@code expireAt} and {@code ceremonyStartedAt} are for, and which is why
- * those two live on the DAO rather than in a test writing its own SQL: a test with its own
- * {@code UPDATE} is a second place that has to change when a column moves, and the first thing it
- * stops noticing is a column it no longer writes.
- *
- * The third is the {@code RETURNING} trap, and it is asserted here in one line rather than
- * inferred from a sign-in that fails four layers up. See {@code SessionDao#consumeState}.
+ * Rows are aged through the DAO rather than waited out, and the third value is the {@code RETURNING} trap.
  */
 class SessionRowsTest {
 
@@ -110,7 +101,7 @@ class SessionRowsTest {
 
         sessions.expireAt(id, Instant.now().minusSeconds(1));
 
-        // The row is still there - nothing has swept - and it is already not a session.
+        // The row is still there, since nothing has swept, and it is already not a session.
         assertTrue(sessions.find(id).isEmpty(), "an expired row was handed out as a session");
         assertEquals(1, sessions.sweep(), "and the sweep is what actually removes it");
     }

@@ -1,5 +1,4 @@
-// The local season 2 network as one Java program, so that nothing on Windows, macOS or Linux needs
-// bash to run it. The run configurations in .run/ are Application configurations of Dev.
+// The local network as a Java program, so no OS needs bash. .run/ starts Dev.
 
 plugins {
     id("nordtal.java-base")

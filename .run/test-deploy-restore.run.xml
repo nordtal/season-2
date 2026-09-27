@@ -1,7 +1,7 @@
 <!--
   gradlew checkRestore
 
-  `deploy/restore-test.sh` — deploy/restore.sh's guards. It empties a volume before it fills it, and one of those volumes is Nordtal.
+  Tests deploy/restore.sh's guards.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: checkRestore" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">

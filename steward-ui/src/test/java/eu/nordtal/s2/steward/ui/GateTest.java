@@ -28,25 +28,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/**
- * A route that nobody decided about breaks the build.
- *
- * Runs when somebody writes an endpoint, rather than when somebody calls one, so it survives the
- * next person who adds a route without having read the second factor's rules. It starts the real
- * service rather than reading the source, since a regular expression over {@code StewardUi.java}
- * would miss every route registered elsewhere - what is asked here is what Javalin actually routed.
- */
+/** Fails the build on a route nobody decided about, asking the real service what Javalin routed. */
 class GateTest {
 
     private static Javalin app;
 
-    /**
-     * The service with no database at all.
-     *
-     * Every route is registered before anything is asked of {@code Data}, which is what makes
-     * this cheap: no Postgres, no Docker, no migrations - just the routing table. The nulls are the
-     * documented "a test about the proxy" shape of the constructor.
-     */
+    /** The service with no database, which is enough since every route is registered before {@code Data} is asked. */
     @BeforeAll
     static void start() {
         // Every section at its default; jcore's @ConfigSpec leaves the getters abstract otherwise.
@@ -103,7 +90,7 @@ class GateTest {
         }
     }
 
-    /** Every route Javalin has, with the decision it carries - and there are no undecided ones. */
+    /** Every route Javalin has, with the decision it carries; none is undecided. */
     @Test
     void everyRouteCarriesExactlyOneDecision() {
         final List<String> undecided = new ArrayList<>();
@@ -124,11 +111,7 @@ class GateTest {
     /**
      * Writing is {@link Gate#KEY_FRESH}, with exactly three named exceptions.
      *
-     * This is the half of package E that {@link #everyRouteCarriesExactlyOneDecision} cannot
-     * see: a new {@code POST} with a decision is fine by that test whatever the decision
-     * says, and "somebody chose ANYONE because it was quicker" is the failure this one is for. The
-     * exceptions are written out here rather than derived, so adding a fourth means editing a list
-     * that a person has to look at.
+     * The exceptions are written out rather than derived, so adding a fourth means editing a list a person reads.
      */
     @Test
     void theOnlyWritesOutsideTheKeyAreTheOnesThatHandItOut() {
@@ -173,7 +156,7 @@ class GateTest {
                 // The two halves of the Discord redirect.
                 "GET /auth/login",
                 "GET /auth/callback",
-                // Answer "nothing at this address" and nothing else - no more than a closed door shows a stranger.
+                // Answer "nothing at this address" and nothing else, no more than a closed door shows a stranger.
                 "GET /api/<path>",
                 "GET /auth/<path>");
 
@@ -194,7 +177,7 @@ class GateTest {
                         + String.join("\n  ", loose));
     }
 
-    /** The routing table is not empty - which is what this whole class would otherwise pass on. */
+    /** The routing table is not empty, which every other assertion here would pass on. */
     @Test
     void thereAreRoutesToCheckAtAll() {
         // A GateTest that enumerates nothing is green about nothing: an empty list passes every assertion.

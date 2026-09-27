@@ -14,12 +14,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-/**
- * The example values an editor fills placeholders with.
- *
- * Real rows first, the admin's own before anybody else's, and a fixed value per type when the
- * table is empty.
- */
+/** The values an editor fills placeholders with: the admin's own rows, others', then a fixed value per type. */
 class ExampleValuesTest {
 
     private static PostgreSQLContainer<?> postgres;

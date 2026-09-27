@@ -30,11 +30,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The far end of a travelling command.
  *
- * Every case here is one nobody can rehearse: producing them against real processes means running
- * two containers on different versions, or
- * revoking somebody's admin role in the half-second a request is in flight. They are also the cases
- * that matter most: a command that travelled and silently did nothing is indistinguishable, from
- * where it was typed, from one that worked.
+ * A command that travelled and silently did nothing looks, from where it was typed, like one that worked.
  */
 class CommandInboxTest {
 
@@ -208,7 +204,7 @@ class CommandInboxTest {
 
     @Test
     void aCommandThatThrowsSettlesItsRow() {
-        // Otherwise the row stays RUNNING for ever and the asker waits out its whole timeout for an answer that was.
+        // Otherwise the row stays RUNNING for ever and the asker waits out its whole timeout.
         final Effects effects = new Effects(new ArrayList<>());
         final long id = submit("smp reload", "");
         inbox(true)
@@ -258,7 +254,7 @@ class CommandInboxTest {
 
     @Test
     void aRequestThatExpiredWhileItQueuedIsNeverClaimed() {
-        // The asker has stopped listening. Running it anyway is how somebody's aura gets corrected twice.
+        // The asker has stopped listening; running it anyway is how somebody's aura gets corrected twice.
         final Effects effects = new Effects(new ArrayList<>());
         requests.submit(new NewCommandRequest(
                 Target.SMP.name(),
@@ -309,7 +305,7 @@ class CommandInboxTest {
 
     @Test
     void effectsThatHandTheirWorkToAnotherThreadAreRefusedAtRegistration() {
-        // The failure this prevents is silent and only visible on the surface furthest from the logs: a stuck row.
+        // The failure this prevents is a stuck row, visible only on the surface furthest from the logs.
         record Scheduled(java.util.concurrent.ExecutorService pool) implements CommandEffects {
             @Override
             public void async(final Runnable work) {
@@ -346,7 +342,7 @@ class CommandInboxTest {
 
     @Test
     void aSchedulerThatFinishesBeforeItReturnsIsStillAScheduler() {
-        // The race this pins: a pool thread that picks the task up between `async` returning and the flag being read.
+        // A pool thread may finish the task between `async` returning and the flag being read.
         record Eager() implements CommandEffects {
             @Override
             public void async(final Runnable work) {

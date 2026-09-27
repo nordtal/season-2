@@ -20,15 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * Everything {@code /access} decides, without a guild, a bank or a bot.
- *
- * These four commands lived as JDA handlers building English strings with a
- * {@code StringBuilder}, so "what does {@code /access settle} say when the reference is already
- * paid?" needed a real guild, a real admin and a real payment. Two of the answers below were also
- * simply absent before: there was no admin check at all, and no sentence for a member who has left
- * the guild.
- */
+/** Everything {@code /access} decides, without a guild, a bank or a bot. */
 class AccessCommandsTest {
 
     private static final String DISCORD = "100000000000000009";
@@ -120,7 +112,6 @@ class AccessCommandsTest {
 
     @Test
     void theAdminCheckThatWasMissing() {
-        // grant-access, revoke-access, access-status and settle ran on Discord's own DefaultMemberPermissions.
         for (final Declaration declaration : AccessCommands.declarations()) {
             assertTrue(declaration.adminOnly(), declaration.name());
         }
@@ -138,7 +129,6 @@ class AccessCommandsTest {
 
     @Test
     void grantIsBounded() {
-        // It hand-checked "greater than zero" and had no upper bound at all.
         final var days = AccessCommands.GRANT.arguments().getLast();
         assertEquals(1, days.min());
         assertEquals(365, days.max());
@@ -146,7 +136,7 @@ class AccessCommandsTest {
 
     @Test
     void consoleAndWebOnly() {
-        // Every admin command is off Surface.GAME and Surface.DISCORD - /access status and /access reload included.
+        // Every admin command is off GAME and DISCORD, including the read-only /access status and /access reload.
         for (final Declaration declaration : AccessCommands.declarations()) {
             assertTrue(
                     declaration.surfaces().contains(Surface.CONSOLE),
@@ -161,7 +151,6 @@ class AccessCommandsTest {
 
     @Test
     void nothingIsInDiscordAnyMore() {
-        // Every admin command is off Discord, /access status and /access reload included even though both only read.
         assertEquals(
                 Set.of(),
                 AccessCommands.declarations().stream()
@@ -173,7 +162,6 @@ class AccessCommandsTest {
 
     @Test
     void theSubjectIsADiscordAccount() {
-        // Written as a PLAYER argument for half an afternoon, which resolves through account_link on both surfaces.
         for (final Declaration declaration : AccessCommands.declarations()) {
             final long subjects = declaration.arguments().stream()
                     .filter(argument -> argument.name().equals("member"))
@@ -182,7 +170,7 @@ class AccessCommandsTest {
                             argument.kind(),
                             declaration.name() + " resolves its subject through account_link"))
                     .count();
-            // Counted, because a filter that matches nothing passes a forEach silently: renaming the argument from.
+            // Counted, because a filter that matches nothing would pass silently after a rename.
             if (declaration.equals(AccessCommands.SETTLE) || declaration.equals(AccessCommands.RELOAD_MESSAGES)) {
                 assertEquals(0, subjects, declaration.name() + " takes no member");
                 continue;
@@ -193,7 +181,7 @@ class AccessCommandsTest {
 
     @Test
     void aDepartedMemberIsItsOwnAnswerNotUnlinked() {
-        // The link is still a row and the person is gone; folding the two would send an admin looking for a link.
+        // The link is still a row and the person is gone, which is a different answer from unlinked.
         bot.status = null;
         assertEquals(
                 List.of("access.no-such-member"),
@@ -257,7 +245,7 @@ class AccessCommandsTest {
 
     @Test
     void revokingNothingIsADifferentSentenceFromRevokingSomething() {
-        // "Revoked 0 grant(s)" is a sentence an admin has to work out. An admin who ran this on the wrong person.
+        // "Revoked 0 grant(s)" is a sentence an admin has to work out.
         bot.revoked = 0;
         assertEquals(
                 List.of("access.revoked.none"),
@@ -276,7 +264,7 @@ class AccessCommandsTest {
                 List.of("access.settle.unknown"),
                 run(new SettlePayment(), Map.of("reference", "NT-ZZZZZZ")).keys());
 
-        // Not open is the automatic path having already dealt with it - the opposite problem from a typo.
+        // Not open means the automatic path already settled it.
         bot.settlement = new AccessEffects.Settled(AccessEffects.Settlement.NOT_OPEN, null, 60, "PAID");
         final FakeUser notOpen = run(new SettlePayment(), Map.of("reference", "NT-A1B2C3"));
         assertEquals("access.settle.not-open", notOpen.only().key());

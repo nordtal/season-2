@@ -21,9 +21,7 @@ import org.junit.jupiter.api.Test;
 /**
  * One row per language, in the shape the bot's inbox decodes, rendered from the real bundle.
  *
- * What this pins is the seam: the SMP writes {@code announce de <text>} and the bot reads it back through
- * {@code RequestArguments#decode}. A row the decoder refuses is a row that settles as FAILED in a table nobody
- * watches, so the encoding is asserted by decoding it here.
+ * The encoding is asserted by decoding it with {@code RequestArguments#decode}, as the bot does.
  */
 class AnnouncerTest {
 
@@ -43,14 +41,7 @@ class AnnouncerTest {
             return submitted.size();
         }
 
-        /**
-         * Not this surface's.
-         *
-         * The SMP writes announcements, and an announcement is not an admin action anybody audits - there is no
-         * journal line to write beside it. Refusing loudly rather than delegating keeps that true: if something
-         * here ever starts journalling, this fake must be told what to do with the line rather than silently
-         * dropping it.
-         */
+        /** Not this surface's: announcements write no journal line, so this fake refuses rather than dropping one. */
         @Override
         public long submit(final NewCommandRequest request, final AuditLine journal) {
             throw new UnsupportedOperationException(

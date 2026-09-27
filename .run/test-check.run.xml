@@ -1,11 +1,7 @@
 <!--
   gradlew check
 
-  Every test in the repository: the JVM suites, the Steward frontend's vitest run, and all five
-  deploy script suites. What CI runs on a push.
-
-  THE SLOW ONE, and the folders beside this are how not to wait for it - `tests: jvm`, `tests: ui`
-  and `tests: deploy scripts` are the same suites split the way they are actually worked on.
+  Runs every test: the JVM suites, vitest and the deploy script suites. CI runs the same.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: check (everything)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: all">

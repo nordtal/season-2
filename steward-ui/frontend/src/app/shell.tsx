@@ -18,121 +18,53 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 export { breadcrumbsFor } from "@/app/breadcrumbs"
 
 /**
- * The shell: a fixed viewport, one scrolling column, and a navigation that is a column on a
- * desktop and a dock at the bottom of a phone - both in `app/frames.tsx`.
+ * The shell: a fixed viewport with one scrolling column, and navigation from `app/frames.tsx`.
  *
- * **There is no header.** It is gone in both states, with
- * its border; `the-header-is-gone.test.ts` is what keeps it from growing back.
- *
- * The document itself does not scroll. An operator watching a log window and a service table at
- * the same time should not lose their place to do it, so only the content column moves.
- *
- * **The height is measured, not asked for** (`lib/app-frame.ts`). On an
- * iPhone home screen, at `h-svh` the page and the sidebar sheet would both be cut off about a fifth
- * above the bottom edge, so the viewport unit is not the window there. `--app-height` is the
- * visible viewport and falls back to `100svh` before any script has run and anywhere without a
- * `visualViewport`, which is every desktop browser this is used from.
- *
- * **The safe areas are given back here, at the edges.** `index.html` asks for `viewport-fit=cover`
- * and a translucent status bar, which means iOS draws this behind the notch and the home indicator
- * rather than letterboxing it; every edge that touches one puts the inset back with
- * `env(safe-area-inset-*)`. On anything that is not a phone those are zero and none of it applies.
+ * Its height is `--app-height`, measured by `lib/app-frame.ts`, and every edge gives back its safe area inset.
  */
 export function Shell() {
   const me = useMe()
   const isMobile = useIsMobile()
 
-  /**
-   * Nothing is drawn until this has answered. A shell rendered first and replaced a moment later
-   * would flash a sidebar full of pages that every answer 401 - which reads as a broken interface
-   * rather than as a missing session.
-   */
+  /** Draws nothing until `/api/me` answers, so no sidebar of 401ing pages flashes up first. */
   if (me.isPending) return <SignInPage loading />
 
-  /**
-   * A 401 here IS the signed-out state; `useMe` is the one route that answers without a session.
-   * Anything else that fails is a fault, and it must not be dressed up as one: a 500 or a 429 from
-   * `/api/me` used to draw the sign-in page, where the only offered action - signing in again -
-   * cannot fix it, and the actual reason was nowhere on screen.
-   */
+  /** Only a 401 is the signed out state; any other failure is a fault and must not draw the sign in page. */
   const signedOut = me.data ? !me.data.signedIn : me.error instanceof ApiError && me.error.isSignedOut
   if (signedOut) return <SignInPage me={me.data} />
 
-  /**
-   * The shell is not drawn on a failed `/api/me` either, and not because the pages could not report
-   * it themselves: the CSRF token arrives with this answer, so without it every write in the
-   * interface would be refused, one confusing page at a time.
-   */
+  /** A failed `/api/me` also withholds the shell, since the CSRF token arrives with it. */
   if (!me.data) return <DoorIsStuck error={me.error} onRetry={() => void me.refetch()} />
 
-  /**
-   * SIGNED IN AND STILL NOT IN. An account with no registered security key reaches /api/me and
-   * nothing else (V20), so this is not a page being withheld - it is the only page that answers.
-   * Drawing the shell here would be a sidebar of eleven links to 403s.
-   *
-   * `keys` is absent, not empty, when nobody is signed in - which cannot happen here, because
-   * `signedOut` above already returned. An account that HAS keys always sends an array.
-   */
+  /** An account without a security key reaches only `/api/me`, so the key page is the only one that answers. */
   if ((me.data.keys?.length ?? 0) === 0) return <SecurityKeyPage me={me.data} />
 
-  /**
-   * SIGNED IN, HAS A KEY, AND HAS NOT HELD IT HERE. Package C, and the sentence "Discord alone is
-   * not enough" in one line: a session that has completed the Discord redirect and nothing else
-   * reaches /api/me and is refused everywhere else, so this is again the only page that answers.
-   * `verified` is per SESSION and not per account - signing out and back in lands here.
-   */
+  /** A session that has not held its key here is refused everywhere else; `verified` is per session. */
   if (!me.data.verified) return <HoldKeyPage me={me.data} />
 
   return <SignedIn me={me.data} isMobile={isMobile} />
 }
 
-/**
- * Everything past the four doors, in one place - and the only place the shell is chosen.
- *
- * It is a component of its own rather than the tail of {@link Shell} for a plain reason: it reads
- * the router, and the four answers above are drawn without one. `shell.test.tsx` renders `Shell`
- * with no route tree at all, which is exactly what makes those four testable.
- */
+/** Everything past the four doors, apart from {@link Shell} since it reads the router and they do not. */
 function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider
-        /**
-         * WHAT THE SIDEBAR REMEMBERS. The provider writes this cookie whenever the sidebar is
-         * opened or closed and never reads it back - reading it is the application's job, and
-         * skipping that job is what makes a collapsed sidebar spring open again on every reload.
-         * The phone's sheet is a different piece of state (`openMobile`) and is untouched by it,
-         * which is what lets one sidebar be both things.
-         */
+        /** The provider writes this cookie but never reads it, so reading it keeps a collapsed sidebar collapsed. */
         defaultOpen={sidebarDefaultOpen(document.cookie)}
       >
         <AppFrame me={me} />
-        {/*
-          Bottom right on a desktop, bottom centre on a phone - a thumb is in the middle, and a
-          corner toast on a narrow screen covers whatever control is in that corner. One Toaster
-          with a chosen position, not two hidden from each other: `toast()` reaches every mounted
-          one, so a second would be a second notification nobody sees but the screen reader.
-        */}
+        {/* Bottom centre on a phone, where a corner toast covers a control; one Toaster, as `toast()` reaches all. */}
         <Toaster position={isMobile ? "bottom-center" : "bottom-right"} richColors closeButton />
         <CommandPalette />
-        {/*
-          Mounted once, here, and drawn only when something asks for it. It is inside the shell
-          rather than above it because the two pages above - the setup and the key - are the two
-          screens on which nothing can ask: everything they call is SIGNED_IN.
-        */}
+        {/* Inside the shell, since the setup and key pages call nothing that could ask for it. */}
         <StepUp />
       </SidebarProvider>
     </TooltipProvider>
   )
 }
 
-/**
- * `/api/me` answered, and it was not a no.
- *
- * The whole interface hangs off this one route, so there is nothing useful to draw behind this and
- * nothing to do but say what happened and offer to ask again. {@link Failure} is the same component
- * every list uses, for the same reason: it names *which* of the three services answered badly.
- */
+/** `/api/me` failed with something other than a 401, and {@link Failure} names which service answered. */
 function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return (
     <div className="flex min-h-(--app-height) items-center justify-center bg-background px-6 py-12">

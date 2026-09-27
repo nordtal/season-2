@@ -14,14 +14,9 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
 /**
- * Right-clicking the wheel in the tavern spins it.
+ * Right-clicking the wheel in the tavern spins it; closing the spin window pays out.
  *
- * The wheel is inside a spawn-protected region, where block interaction is otherwise refused, so this handler runs
- * at the default priority and cancels the event itself - the protection listener sits at {@code LOW} and will have
- * already stopped anything else the click could have done.
- *
- * It also owns the two ends of the spin window that {@link WheelGui} opened: a click inside the wheel, which is
- * refused, and a close, which pays out whatever the animation had not reached yet.
+ * Runs at default priority and cancels the event itself, since spawn protection at {@code LOW} refused it.
  */
 public final class WheelListener implements Listener {
 
@@ -50,17 +45,9 @@ public final class WheelListener implements Listener {
     }
 
     /**
-     * Nothing in the wheel is takeable.
+     * Refuses every click in the wheel, then asks the window whether it was "spin again".
      *
-     * The strip is prize icons being drawn and redrawn twenty-two times, so a player who managed to pick one up would
-     * be
-     * holding a real item the server never decided to give them - and the ring, the hub and the button are paint. Every
-     * click in this window is refused, including a shift-click from the player's own inventory, which would otherwise
-     * push an item into a slot the next frame overwrites.
-     *
-     * The cancellation is unconditional and the window is asked afterwards what the click <em>meant</em> - which for
-     * exactly one group of slots is "spin again". Doing it the other way round, letting the button's own handler decide
-     * whether to cancel, is how a menu ends up handing somebody a prize icon on the day a slot map moves.
+     * Unconditional, because the strip shows real items a player must never pick up.
      */
     @EventHandler
     public void onClick(final InventoryClickEvent event) {
@@ -73,14 +60,9 @@ public final class WheelListener implements Listener {
     }
 
     /**
-     * A window closed before the wheel stopped still owes a prize.
+     * A window closed before the wheel stopped still pays out, without the strike.
      *
-     * {@code MONITOR}, because this changes nothing about the event and only reacts to a close that has actually
-     * happened - and {@code WheelGui#finish} is a latch, so arriving here after the animation already paid is a no-op
-     * rather than a second prize.
-     *
-     * No strike is played: the player has walked away from the wheel, and a fanfare into a screen nobody is looking at
-     * is worse than silence.
+     * At {@code MONITOR}, since it only reacts; {@code WheelGui#finish} is a latch, so a second call is a no-op.
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onClose(final InventoryCloseEvent event) {

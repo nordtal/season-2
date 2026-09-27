@@ -3,66 +3,20 @@ import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import type { ConfigEntry } from "@/lib/api"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 
-/**
- * A hex colour, picked with a wheel or typed by hand, previewed on the background it will actually
- * be read against.
- *
- * **Why this exists.** Five settings carry a hex value - `#8ba888` and friends, `smp`/`hunger-games`/`limbo`/`proxy`
- * each with their own `colours.yml` - and a bare text field is a worse interface for a colour than
- * for almost anything else this page draws: a wrong role id is still readable as a role id, but a
- * wrong hex string looks like nothing until it is rendered somewhere.
- *
- * **The wheel never replaces the number.** Somebody who already knows the six digits types them,
- * the same way `SnowflakePicker` still takes a pasted snowflake when the guild cannot be listed -
- * the native swatch below is an addition, not a gate in front of the text field.
- *
- * **The preview sits on Minecraft's own chat background, not on this card's.** Picking
- * a chat colour on a white field and looking at it in game, all thirteen prestige colours
- * end up looking the same - a light
- * tone reads fine on white and vanishes on what the game actually paints behind it.
- *
- * **And it starts hidden, behind an eye in the hex field.** A preview shown unconditionally would
- * be hard to place well: full width reads as a second
- * input, one word wide reads as a stray dark band. Neither is a problem once the thing is only drawn
- * when somebody asks for it - and asked for, it may have the whole width, which is the size at
- * which a colour is actually worth judging.
- */
-
-/**
- * Minecraft's own chat background - black, not fully opaque.
- *
- * Source: minecraft.wiki, the `Options.txt` page, `textBackgroundOpacity` (default `0.5`, added in
- * 19w11a / 1.14) paired with `backgroundForChatOnly` (default `true`, meaning the opacity setting
- * applies to chat text and nothing else). That is
- * `rgba(0, 0, 0, 0.5)`, not a rounder-looking dark grey guessed to stand in for it.
- */
+/** Minecraft's chat background: black at the default `textBackgroundOpacity` of 0.5. */
 export const MINECRAFT_CHAT_BACKGROUND = "rgba(0, 0, 0, 0.5)"
 
-/**
- * The word the preview paints, and it is **one word on purpose**.
- *
- * A longer sample text does not work well here: at 390px
- * a sample like "Nordtal - sample chat text", in a `colourRuns` column
- * (`min-w-28`, so 112-150px on a phone), wraps onto three lines. Five tones drawn
- * side by side precisely so they can be compared would then stand at three different heights, with the
- * fifth - alone on the next line, therefore full width - at one. The colours would be the one thing the
- * row is not showing.
- *
- * A single word cannot wrap, and the server's own name is a word this interface already says
- * everywhere. It is also the shape the colour is actually used in for half of these files: a
- * prestige colour paints a player's *name*, not a sentence.
- */
+/** The word the preview paints, one word so five tones side by side never wrap to different heights. */
 export const SAMPLE_TEXT = "Nordtal"
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i
 
-/** A syntactically valid `#rrggbb`, or `null` while the field holds anything else - including empty,
- * or a value still being typed. Used for both the native swatch (which refuses anything else) and
- * the preview's own colour. */
+/** A valid `#rrggbb`, or `null` for anything else, including an empty or half typed value. */
 function validHex(value: string): string | null {
   return HEX_COLOUR.test(value) ? value : null
 }
 
+/** A hex colour, typed or picked, with a preview on Minecraft's chat background shown behind an eye. */
 export function ColourControl({
   id,
   value,
@@ -80,10 +34,7 @@ export function ColourControl({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        {/* The browser's own picker - a wheel, an eyedropper on platforms that offer one, and a hex
-            field of its own that stays in sync with the text `Input` beside it. It refuses a value
-            that is not exactly `#rrggbb`, which is why it falls back to black rather than mirroring
-            `value` (mid-edit, or blank) straight through. */}
+        {/* The native picker only takes `#rrggbb`, so it falls back to black rather than mirroring `value`. */}
         <input
           type="color"
           aria-label="Pick a colour"
@@ -92,10 +43,7 @@ export function ColourControl({
           onChange={(event) => onChange(event.target.value)}
           className="h-9 w-9 shrink-0 cursor-pointer rounded border border-input bg-transparent p-0.5 disabled:cursor-not-allowed disabled:opacity-50"
         />
-        {/* `h-9` because the group is `h-8` by default and the swatch beside it is not: a picker and
-            its field standing at two heights is the first thing an eye catches in a row of them.
-            The eye stays usable while the field is disabled - a read-only view still has a colour
-            worth looking at, and the button writes nothing. */}
+        {/* `h-9` to stand level with the swatch; the eye stays usable while disabled, as it writes nothing. */}
         <InputGroup className="h-9 min-w-0 flex-1">
           <InputGroupInput
             id={id}
@@ -118,11 +66,7 @@ export function ColourControl({
           </InputGroupAddon>
         </InputGroup>
       </div>
-      {/* One line, and the same box whether or not the six digits are complete yet - so nothing
-          below it moves while somebody retypes them. Not monospace: Minecraft's own font is not, and
-          the hex value directly above this is - two mono blocks in a column read as two fields
-          rather than as a field and a preview. Full width, because it is now a thing somebody
-          switched on rather than something standing under every colour on the page. */}
+      {/* The same box whether or not the digits are complete, so nothing below moves while retyping. */}
       {shown ? (
         <div
           role="img"
@@ -148,23 +92,9 @@ function parentOf(entry: ConfigEntry): string {
 }
 
 /**
- * Consecutive scalar entries, sharing a parent, that all look like a colour: what `colourRuns`
- * groups into one row instead of a stack. It is where `colourValue` (`config-controls.tsx`) earns
- * the qualifier in its own name - the four `colours.yml` files this shipped for are exactly five
- * such entries each, in file order, with no heading between them.
+ * Consecutive colour entries sharing a parent, which `colourRuns` draws as one row.
  *
- * **`isColour` is a parameter, not an import of `colourValue` itself.** `config-controls.tsx`
- * already imports `ColourControl` from this file to draw a lone colour field; importing
- * `colourValue` back from there would close a cycle between the two. Taking the predicate as an
- * argument keeps this file knowing nothing about `config-controls.tsx` at all, in either direction.
- *
- * **What breaks it.** A blank member - `isColour` returning `false` for a value it cannot read as
- * `#rrggbb` - splits the run rather than joining it: that key falls back to being drawn as its own
- * ordinary field, not part of the row, and not even offered the picker (see `colourValue`'s own
- * comment on why an empty value is never assumed to be a colour). None of the four files this
- * shipped for hits that today - every default is already a valid hex string - but a colour saved
- * blank by hand would hit it, and the honest answer is: it drops out of the row until it holds a
- * hex value again.
+ * A blank member splits the run; `isColour` is a parameter to avoid an import cycle with `config-controls.tsx`.
  */
 export function colourRuns(entries: ConfigEntry[], isColour: (entry: ConfigEntry) => boolean): ConfigEntry[][] {
   const runs: ConfigEntry[][] = []

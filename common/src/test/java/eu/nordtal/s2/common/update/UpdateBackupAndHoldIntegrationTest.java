@@ -71,11 +71,7 @@ class UpdateBackupAndHoldIntegrationTest {
     }
 
     /**
-     * The one volume line that makes a report a backup, and the one that does not.
-     *
-     * Built through {@link UpdateReports#toJson} rather than written out as a string, because
-     * what is being asserted is that the reader and the writer agree - a literal here would pass
-     * for as long as somebody remembered to edit it.
+     * The one volume line that makes a report a backup, built through {@link UpdateReports#toJson} so both sides agree.
      */
     private static UpdateReport report(final UpdateReport.State volume) {
         return UpdateReport.at(UpdateReport.Stage.DONE)
@@ -87,13 +83,7 @@ class UpdateBackupAndHoldIntegrationTest {
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));
     }
 
-    /**
-     * A23: every service back, nothing snapshotted, and the row says DONE.
-     *
-     * This is the shape that made the check necessary. Run 23 reported a successful backup
-     * having saved zero volumes, and no surface anywhere drew a difference between that and a night
-     * that worked.
-     */
+    /** A run with every service back, nothing snapshotted, and the row DONE, which is no backup. */
     private static UpdateReport reportWithNoVolumes() {
         return UpdateReport.at(UpdateReport.Stage.DONE)
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));

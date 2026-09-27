@@ -10,63 +10,31 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import java.util.List;
 
 /**
- * {@code plugins/smp/milestones.yml} - the track, and the one file the season's shape is read out of.
+ * {@code plugins/smp/milestones.yml}: the track, reloadable, while the progress lives in the database.
  *
- * A file rather than code because the definition is versioned here while the <em>progress</em> lives in the
- * database: adding a milestone is a file edit plus {@code /smp reload}, with no release and no restart. Appending
- * one is the <b>planned response to a track that finishes early</b>, since a target that moves overnight reads as a
- * shifted goalpost.
- *
- * Three things about the format:
- *
- * - <b>A list of milestones, each with a list of objectives</b> - two levels of nesting through jcore, which is the
- *   repository's standing config system. The alternative, a flat list of objectives each naming its milestone, would
- *   have been easier for the loader and worse for every human being who ever edits this file: the thing being edited
- *   is a milestone, and its objectives belong inside it.
- *
- * - <b>One record shape for all three objective types</b>, with the fields that do not apply left empty. A jcore
- *   spec is an interface with a fixed set of keys and cannot be polymorphic; {@code TrackShape} is what makes the
- *   legal combinations legal, and it says plainly when a field belongs to another type, because a leftover
- *   {@code items} list is what a half-finished type change looks like.
- *
- * - <b>The pot is per milestone, not per objective.</b> It is derived rather than chosen -
- *   {@code pot = round((budget ÷ objectives) × 5, to 10)} - and a per-objective pot would let that derivation drift
- *   one objective at a time until nobody could say what the ramp was.
- *
- * Every number here is a default: the <em>rules</em> that produced the track are the decision. The items and
- * advancements are worked examples and are expected to be corrected; what must survive a correction is the shape.
+ * One record shape serves all three objective types, and the pot is per milestone so its derivation cannot drift.
  */
 @ConfigSpec(
         header = {
             "-------------------------------------------------------------------",
-            "  smp - the milestone track",
+            "  smp: the milestone track",
             "-------------------------------------------------------------------",
-            "The community unlocks its own world by finishing shared objectives.",
-            "This file is the whole of what those objectives are; the PROGRESS",
-            "lives in the database (smp_milestone, smp_objective), and the two are",
-            "matched by key.",
+            "The shared objectives that unlock the world. The PROGRESS lives in",
+            "the database (smp_milestone, smp_objective), matched by key.",
             "",
-            "RELOAD WITH /smp reload. The reload is validated against the stored",
-            "progress and is REFUSED if it would orphan any: renaming a milestone",
-            "or an objective key, deleting one that has progress, or changing an",
-            "objective's type. What it explicitly DOES allow is lowering the",
-            "`target` of an objective that has not completed - that is the finest",
-            "of the three escape hatches for an objective that turns out to be",
-            "impossible, and if the collected progress is already at or above the",
-            "new target the objective completes at once and pays its FULL pot.",
+            "RELOAD WITH /smp reload. A reload that would orphan progress is",
+            "REFUSED: renaming a key, deleting one that has progress, or changing",
+            "an objective's type. Lowering the `target` of an objective that has",
+            "not completed is allowed; if its progress already reaches the new",
+            "target, it completes at once and pays its FULL pot.",
             "",
-            "APPENDING A MILESTONE IS THE PLANNED ANSWER TO A TRACK THAT FINISHES",
-            "EARLY. The track is sized against 8 active players in week three, not",
-            "against the 15-30 who show up on day one, so a strong turnout gets",
-            "through it faster than the estimates - and the answer to that is one",
-            "more milestone at the end, never a target that moves overnight.",
+            "A track that finishes early gets one more milestone appended, never",
+            "a target that moves overnight.",
             "",
-            "Border sizes are DIAMETERS, because that is what Minecraft's world",
-            "border takes.",
+            "Border sizes are DIAMETERS.",
             "",
             "Every setting can be overridden with an environment variable named",
-            "NORDTAL_SMP_MILESTONES_<PATH>. Nobody should ever want to: a list of",
-            "milestones is not something to express in the environment."
+            "NORDTAL_SMP_MILESTONES_<PATH>."
         })
 public interface MilestonesSpec {
 
@@ -74,9 +42,7 @@ public interface MilestonesSpec {
     @Name("Milestones")
     @Key("milestones")
     @Comment({
-        "The track, in order. The order in this file IS the order of the season - there is no",
-        "ordering column in the database, deliberately, because storing it would create a",
-        "second answer that a file edit could contradict.",
+        "The track, in order. The order in this file IS the order of the season.",
         "",
         "Each entry:",
         "  key              the milestone's identity, and its primary key in smp_milestone.",
@@ -88,12 +54,9 @@ public interface MilestonesSpec {
         "                   alone, which is the opening expansion at the start of the season.",
         "  objectives       what has to be finished; ALL of them, before the milestone unlocks.",
         "",
-        "The Nether and the End are their own milestones and carry no border step. The",
-        "dimension is the reward and it is larger than any number; pairing it with a border",
-        "step would chain the one to the other."
+        "The Nether and the End are their own milestones and carry no border step."
     })
-    @Explain(
-            "The track, in order - the file's order IS the season's order. Renaming an entry that has progress is refused on reload.")
+    @Explain("The track, in order: the file's order IS the season's order. Renaming one with progress is refused.")
     default List<MilestoneEntry> milestones() {
         return DefaultTrack.LIST;
     }
@@ -135,14 +98,9 @@ public interface MilestonesSpec {
         @Key("objective-pot")
         @Comment({
             "The aura pot of EACH objective below, not of the milestone as a whole.",
-            "Derived rather than chosen: pot = round((budget / objectives) * 5, to 10). The",
-            "budget is COMMUNITY play hours against a pessimistic population - the final",
-            "milestone is 8 players x 14 days x 1.5 h = 170 hours - so retuning this is",
-            "arithmetic rather than a fresh argument. There is deliberately no minimum pot:",
-            "a minimum flattens the ramp the track exists to create."
+            "Derived: pot = round((community play hours / objectives) * 5, to 10). No minimum."
         })
-        @Explain(
-                "The aura pot of EACH objective below, derived from community play hours - not of the milestone as a whole.")
+        @Explain("The aura pot of EACH objective below, derived from community play hours.")
         default int objectivePot() {
             return 0;
         }
@@ -160,23 +118,16 @@ public interface MilestonesSpec {
         @Name("Objectives")
         @Key("objectives")
         @Comment({
-            "All of them must be finished before the milestone unlocks. Exactly ONE of them",
-            "must be an ADVANCEMENT - the participation gate. It is the only type that counts",
-            "distinct players rather than a total, and therefore the only one three",
-            "industrious people cannot finish alone; it is also the only one whose progress",
-            "survives a player leaving, because progress lives in the database and is never",
-            "recomputed.",
-            "",
-            "The opening two milestones have none at all."
+            "All of them must be finished before the milestone unlocks. Exactly ONE must be an",
+            "ADVANCEMENT, the participation gate, since it counts distinct players. The opening two have none."
         })
-        @Explain(
-                "All must finish before this milestone unlocks; exactly one must be type ADVANCEMENT, the participation gate.")
+        @Explain("All must finish before this milestone unlocks; exactly one is an ADVANCEMENT, the gate.")
         default List<ObjectiveEntry> objectives() {
             return List.of();
         }
     }
 
-    /** One objective. Which of the fields below apply depends on `type`. */
+    /** One objective; which of the fields below apply depends on {@code type}. */
     @ConfigSpec
     interface ObjectiveEntry {
 
@@ -195,12 +146,11 @@ public interface MilestonesSpec {
         @Comment({
             "HAND_IN     items delivered at the spawn NPC; a share is what that player handed in.",
             "STATISTIC   a vanilla statistic summed across players; a share is that player's own",
-            "            increase since the objective started. ACTIVE STATISTICS ONLY - never",
-            "            distance walked or time played, which would pay every present player a",
-            "            share simply for being online.",
+            "            increase since the objective started. ACTIVE STATISTICS ONLY, never",
+            "            distance walked or time played.",
             "ADVANCEMENT how many DISTINCT players earned it; a share is 1 or 0."
         })
-        @Explain("HAND_IN, STATISTIC or ADVANCEMENT - decides which of the fields below apply.")
+        @Explain("HAND_IN, STATISTIC or ADVANCEMENT; decides which of the fields below apply.")
         @AllowedValues({"HAND_IN", "STATISTIC", "ADVANCEMENT"})
         default String type() {
             return "HAND_IN";
@@ -211,12 +161,9 @@ public interface MilestonesSpec {
         @Key("role")
         @Comment({
             "What this objective is FOR: gathering, mining, combat, production, exploration,",
-            "participation. The engine never reads it and it is required anyway - it is what",
-            "stops a correction from accidentally producing four mining objectives, which only",
-            "works if it is there to read in the diff."
+            "participation. Never read by the engine; it keeps an edit from duplicating a category."
         })
-        @Explain(
-                "What this objective is for, e.g. gathering, mining, combat. Never read by the engine - only to keep a correction from duplicating a category.")
+        @Explain("What this objective is for, e.g. gathering. Never read by the engine; it keeps categories apart.")
         default String role() {
             return "";
         }
@@ -225,13 +172,8 @@ public interface MilestonesSpec {
         @Name("Target")
         @Key("target")
         @Comment({
-            "What has to be reached. For ADVANCEMENT it is a count of DISTINCT PLAYERS, and it",
-            "falls across the track (10, 10, 8, 8, 6, 5) because the population does.",
-            "",
-            "Lowering this on a live objective is the first escape hatch and is always allowed;",
-            "if the collected progress is already at or above the new value, the objective",
-            "completes on reload and pays its full pot. Changing it on one that has already",
-            "completed is refused - that would rewrite the arithmetic behind aura already paid."
+            "What has to be reached. For ADVANCEMENT it is a count of DISTINCT PLAYERS.",
+            "Lowering it on a live objective is always allowed; changing a completed one is refused."
         })
         @Explain(
                 "Lowering this on a live objective is always allowed; changing it on one that already completed is refused.")
@@ -243,12 +185,10 @@ public interface MilestonesSpec {
         @Name("Items")
         @Key("items")
         @Comment({
-            "HAND_IN only. Any of these counts, which is how 'logs, any kind' and 'bulk",
-            "building blocks' are expressed. Bukkit material names; they are resolved once at",
-            "startup and an unknown one stops the plugin with the name in the message."
+            "HAND_IN only. Bukkit material names, any of which counts.",
+            "An unknown one stops the plugin at startup with the name in the message."
         })
-        @Explain(
-                "HAND_IN only - Bukkit material names, any of which counts. An unknown name stops the plugin at startup.")
+        @Explain("HAND_IN only: Bukkit material names, any of which counts. An unknown name stops the plugin.")
         default List<String> items() {
             return List.of();
         }
@@ -257,7 +197,7 @@ public interface MilestonesSpec {
         @Name("Statistic")
         @Key("statistic")
         @Comment("STATISTIC only. A Bukkit statistic name, e.g. MINE_BLOCK, KILL_ENTITY, CRAFT_ITEM.")
-        @Explain("STATISTIC only - a Bukkit statistic name, e.g. MINE_BLOCK.")
+        @Explain("STATISTIC only: a Bukkit statistic name, e.g. MINE_BLOCK.")
         default String statistic() {
             return "";
         }
@@ -267,11 +207,9 @@ public interface MilestonesSpec {
         @Key("subjects")
         @Comment({
             "STATISTIC only, and summed. The materials or entity types the statistic is counted",
-            "over - a list, because the track asks for 'hostile mobs' and 'raider', which are",
-            "groups rather than one entity. May be empty for a statistic that has no",
-            "substatistic at all."
+            "over. Empty for a statistic that has no substatistic."
         })
-        @Explain("STATISTIC only - the materials or entity types the statistic is summed over; may be empty.")
+        @Explain("STATISTIC only: the materials or entity types the statistic is summed over; may be empty.")
         default List<String> subjects() {
             return List.of();
         }
@@ -280,7 +218,7 @@ public interface MilestonesSpec {
         @Name("Advancement")
         @Key("advancement")
         @Comment("ADVANCEMENT only. The advancement key, e.g. minecraft:story/mine_diamond.")
-        @Explain("ADVANCEMENT only - the advancement key, e.g. minecraft:story/mine_diamond.")
+        @Explain("ADVANCEMENT only: the advancement key, e.g. minecraft:story/mine_diamond.")
         default String advancement() {
             return "";
         }

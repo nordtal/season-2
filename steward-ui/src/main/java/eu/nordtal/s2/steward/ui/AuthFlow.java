@@ -87,21 +87,21 @@ final class AuthFlow {
             return;
         }
         final DiscordAuth.Account who = Objects.requireNonNull(outcome.account());
-        // Whether they may in is the admin tree's answer; a tree with nobody in it lets the first sign-in claim root.
+        // A tree with nobody in it lets the first sign-in claim root.
         final String signingIn = who.id();
         if (admins == null || !(admins().isAdmin(signingIn) || claimRoot(who))) {
             log.info("refused {} ({}): not an admin", who.name(), signingIn);
             ctx.status(403).json(Map.of("error", who.name() + " is in the guild but is not an admin"));
             return;
         }
-        // A new row with a new id; the one the sign-in started in is dropped to avoid session fixation.
+        // A new session id, so the one the sign-in started in cannot be fixated.
         final String id = sessions().signIn(who.id(), who.name(), who.roles());
         sessions().end(started);
         setSessionCookie(ctx, id);
         ctx.redirect("/");
     }
 
-    /** The bootstrap: true when this sign-in just became the root of an empty admin tree. */
+    /** True when this sign-in just became the root of an empty admin tree. */
     private boolean claimRoot(final DiscordAuth.Account who) {
         if (!admins().claimRootIfNobody(who.id())) {
             return false;
@@ -114,12 +114,7 @@ final class AuthFlow {
         return true;
     }
 
-    /**
-     * The hourly sweep, with its failure swallowed on purpose.
-     *
-     * {@code scheduleWithFixedDelay} cancels the schedule for good the first time the task throws,
-     * silently; catching here keeps it alive across a briefly unreachable database.
-     */
+    /** Sweeps expired sessions, swallowing a failure, which would otherwise cancel the schedule for good. */
     void sweepSessions() {
         try {
             sessions().sweep();
@@ -129,10 +124,9 @@ final class AuthFlow {
     }
 
     /**
-     * Sets the session cookie, marking it {@code Secure} whenever the request arrived over TLS.
+     * Sets the session cookie, {@code Secure} whenever the request arrived over TLS.
      *
-     * {@code X-Forwarded-Proto} can only ever turn the flag on, and a forged one only costs its
-     * forger their own session.
+     * {@code X-Forwarded-Proto} can only turn the flag on, so a forged one costs only its forger's session.
      */
     private void setSessionCookie(final Context ctx, final String id) {
         final Cookie cookie = new Cookie(

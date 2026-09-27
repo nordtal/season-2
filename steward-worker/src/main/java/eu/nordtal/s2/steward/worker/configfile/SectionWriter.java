@@ -12,20 +12,9 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Rewrites the fields of a {@link Kind#SECTIONS} entry that actually changed.
+ * Rewrites only the fields of a {@link Kind#SECTIONS} entry that changed, leaving every comment and key in place.
  *
- * Every other field, and with it every comment and the key order around it, is left untouched.
- *
- * A field already on its own line is rewritten the way {@link ScalarWriter#scalar} rewrites a top-level one: only
- * the characters of that value move. A field whose sent value equals what {@code entry.sections()} already read is
- * not touched at all, which is what keeps the surrounding comments and key order of an entry nobody asked to change
- * provably still there afterwards, byte for byte.
- *
- * A field can be a list itself, of values or of sections one level down, rewritten by this same class. Adding or
- * removing more than one entry of the same list in one save is refused: {@code incoming} may name exactly as many
- * entries as {@code entry.sections()} already has (an ordinary field edit), or exactly one more or one fewer.
- * Anything else is a diff this class does not try to read: guessing which of several changed entries was added,
- * removed or edited is how a config editor becomes untrustworthy.
+ * A save may add or remove at most one entry of a list; a larger diff is refused rather than guessed at.
  */
 final class SectionWriter {
 
@@ -86,7 +75,7 @@ final class SectionWriter {
 
     private static Map<String, Object> applyEdits(
             final Parsed parsed, final List<String> lines, final List<PendingEdit> edits) {
-        // Bottom of the file upwards: a field rewritten as a block shifts every span below it otherwise.
+        // Bottom upwards: a field rewritten as a block shifts every span below it.
         final List<PendingEdit> ordered = new ArrayList<>(edits);
         ordered.sort(Comparator.comparingInt(
                         (final PendingEdit edit) -> spanOf(parsed, edit.field()).keyLine())
@@ -125,11 +114,7 @@ final class SectionWriter {
                 parsed.spans().get(field.path()), "collect() puts a span for every entry it adds");
     }
 
-    /**
-     * A sent value in the shape {@code field} holds, or a refusal naming both.
-     *
-     * A {@link String} for a scalar, a list of strings for a list, a list of records for a list of sections.
-     */
+    /** A sent value in the shape {@code field} holds (string, list of strings or list of records), or a refusal. */
     private static Object shapedFor(final ConfigEntry field, final Object value) {
         return switch (field.kind()) {
             case SCALAR -> {
@@ -175,12 +160,7 @@ final class SectionWriter {
         };
     }
 
-    /**
-     * The field set a new entry of {@code entry} is written with.
-     *
-     * The last existing entry's own, so the file keeps its order, or the schema's template for a list with nothing
-     * in it yet. Empty when neither exists.
-     */
+    /** The fields a new entry is written with: the last entry's, else the schema's template, else empty. */
     private static List<ConfigEntry> shapeOf(final ConfigEntry entry) {
         if (!entry.sections().isEmpty()) {
             return entry.sections().getLast();
@@ -189,20 +169,9 @@ final class SectionWriter {
     }
 
     /**
-     * Appends one new entry to a {@link Kind#SECTIONS} list.
+     * Appends one new entry to a {@link Kind#SECTIONS} list, refusing anything but a pure append.
      *
-     * Only a pure append is accepted: {@code incoming} has to carry every existing entry completely unchanged, in
-     * order, plus exactly one more entry at the end.
-     *
-     * The new entry's shape is copied from the existing last entry, never invented: the same field keys, in the
-     * same order, at the same two columns, preceded by a blank line only if the last entry already was. The last
-     * entry, rather than the first, is the safe one to copy - the first is the one entry that might carry a comment
-     * the new one must not inherit.
-     *
-     * A list with no entries at all has no shape to copy. When the schema describes one, the template is used and
-     * the entry is written the way jcore writes a list, {@code - } at the key's own column; {@code objectives: []}
-     * becomes {@code objectives:} with the block under it. Without a schema this refuses rather than inventing a
-     * shape.
+     * The entry copies the last entry's shape (not the first's, which may carry a comment), or the schema's template.
      */
     private static List<Map<String, Object>> appendSection(
             final Parsed parsed,
@@ -293,18 +262,12 @@ final class SectionWriter {
                             + keyLine.substring(keyBody.length()));
             LineEdits.insertLinesAfter(lines, span.keyLine(), newLines);
         } else {
-            // The end of THIS list's own block, not of the file, so what follows still ends up after the new entry.
+            // The end of this list's block, not the file's, so what follows stays after the new entry.
             LineEdits.insertLinesAfter(lines, LineEdits.sequenceExtent(lines, span.keyLine(), span.start()), newLines);
         }
     }
 
-    /**
-     * Writes one new entry into {@code out}, and answers with what it reads back as.
-     *
-     * {@code - } sits at {@code dashColumn} and every further field at {@code fieldColumn}. The written text is
-     * quoted where the value needs it, while the answer holds the logical value a re-read of that line comes back
-     * as, which is what the save's own verification compares against.
-     */
+    /** Writes one new entry into {@code out} and answers with the logical value a re-read gives back. */
     private static Map<String, Object> renderSection(
             final List<ConfigEntry> shape,
             final Map<String, Object> values,
@@ -413,13 +376,9 @@ final class SectionWriter {
     }
 
     /**
-     * Removes exactly one entry from a {@link Kind#SECTIONS} list.
+     * Removes exactly one entry from a {@link Kind#SECTIONS} list, with its own comments and not the next one's.
      *
-     * Only a pure removal is accepted, for the same reason {@link #appendSection} only accepts a pure append. The
-     * comment lines that belong to the removed entry go with it, and none that belong to the next one: a comment
-     * directly above the next entry's {@code - } line belongs to that one, and the extent stops before it.
-     * Everything nested inside the entry goes with it. Removing the last entry of a list leaves {@code key: []},
-     * never a bare {@code key:} that would read back as null.
+     * Removing the last entry leaves {@code key: []}, never a bare {@code key:} that reads back as null.
      */
     private static List<Map<String, Object>> removeSection(
             final Parsed parsed,
@@ -438,7 +397,7 @@ final class SectionWriter {
             }
         }
         if (removedIndex < 0) {
-            // Every named entry matched exactly; the missing one is the extra entry at the end of `existing`.
+            // Every named entry matched; the missing one is the extra at the end of `existing`.
             removedIndex = existing.size() - 1;
         }
         boolean ok = true;
@@ -475,12 +434,7 @@ final class SectionWriter {
         return List.copyOf(written);
     }
 
-    /**
-     * The last line of the entry whose {@code - } sits on {@code startLine} at {@code dashColumn}.
-     *
-     * Everything indented past the dash, down to the next line that is not - but not the comment lines directly
-     * above that next line, which belong to whatever follows.
-     */
+    /** The last line of the entry starting on {@code startLine}, excluding the comments above the next entry. */
     private static int entryExtent(final List<String> lines, final int startLine, final int dashColumn) {
         int last = startLine;
         for (int i = startLine + 1; i < lines.size(); i++) {
@@ -496,13 +450,7 @@ final class SectionWriter {
         return last;
     }
 
-    /**
-     * Refuses to remove the one section {@code entry}'s schema names as protected.
-     *
-     * Nothing here assumes which list this is or what the protected value means: it only reads
-     * {@code entry.protectedEntry()} and one field of {@code removed}, the same way every other rule in this class
-     * reads the schema rather than hardcoding a list's name.
-     */
+    /** Refuses to remove the one section {@code entry}'s schema names as protected. */
     private static void refuseIfProtected(final ConfigEntry entry, final List<ConfigEntry> removed) {
         final ConfigEntry.Protected protectedEntry = entry.protectedEntry();
         if (protectedEntry == null) {
@@ -510,7 +458,7 @@ final class SectionWriter {
         }
         for (final ConfigEntry field : removed) {
             if (field.key().equals(protectedEntry.field()) && field.value().equals(protectedEntry.value())) {
-                // An error says what happened; the page already shows the schema's explanation next to the list.
+                // The page already shows the schema's explanation next to the list.
                 throw new IllegalArgumentException(entry.path() + ": the entry whose "
                         + protectedEntry.field() + " is '" + protectedEntry.value() + "' cannot be"
                         + " removed - the schema marks it as required.");
@@ -542,9 +490,7 @@ final class SectionWriter {
         return Collections.unmodifiableMap(row);
     }
 
-    /**
-     * The same shape {@link #sections} writes, read back out of an already-parsed {@link Kind#SECTIONS} entry.
-     */
+    /** The same shape {@link #sections} writes, read back out of a parsed {@link Kind#SECTIONS} entry. */
     static List<Map<String, Object>> sectionValuesOf(final ConfigEntry entry) {
         return entry.sections().stream().map(SectionWriter::rowOf).toList();
     }

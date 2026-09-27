@@ -1,8 +1,6 @@
-// season-2 produces no artifact of its own; every deployable is a module and a release attaches
-// each module's own build output. Keep this file free of `subprojects {}` — shared configuration
-// lives in build-logic's convention plugins.
+// No artifact of its own. Shared configuration lives in build-logic, never in `subprojects {}`.
 
-// `base` gives the root project a `check` task, which `checkEntrypoint` below hangs off.
+// `base` gives the root a `check` task for the script tests below.
 plugins {
     base
     id("nordtal.root-conventions")
@@ -22,10 +20,7 @@ tasks.register("releaseArtifacts") {
     )
 }
 
-// Four of the five image directories are empty until Gradle has run: their Dockerfiles COPY a jar
-// out of `build/libs`, and steward-deployer also copies `compose.yml` out of `build/compose`.
-// Separate from `releaseArtifacts` because none of steward-ui's or steward-deployer's output is a
-// release asset.
+// Fills what the image Dockerfiles COPY: jars from `build/libs` and the deployer's `build/compose`.
 tasks.register("imageContexts") {
     group = "distribution"
     description = "Builds what the image Dockerfiles COPY, so `docker build` has something to find."
@@ -38,8 +33,7 @@ tasks.register("imageContexts") {
     )
 }
 
-// `deploy/minecraft/entrypoint.sh` decides whether a world folder is deleted, on a container that
-// starts by itself with no second chance to notice it decided wrong; see entrypoint-test.sh.
+// The entrypoint decides whether a world folder is deleted.
 val entrypointScript = layout.projectDirectory.file("deploy/minecraft/entrypoint.sh")
 val entrypointTest = layout.projectDirectory.file("deploy/minecraft/entrypoint-test.sh")
 
@@ -62,9 +56,7 @@ val checkEntrypoint =
         }
     }
 
-// deploy/nordtal.sh waits until what the domain resolves to matches this host before deploying;
-// getting that comparison wrong in the lenient direction produces a host whose certificate can
-// never be issued, so nordtal-test.sh checks the comparison and the menu around it.
+// nordtal.sh compares the domain's address with this host's; too lenient and no certificate is issued.
 val setupScript = layout.projectDirectory.file("deploy/nordtal.sh")
 val setupTest = layout.projectDirectory.file("deploy/nordtal-test.sh")
 
@@ -86,7 +78,7 @@ val checkSetup =
         }
     }
 
-// deploy/restore.sh empties a volume before it fills it, the same hazard as `dev reset`.
+// deploy/restore.sh empties a volume before it fills it.
 val restoreScript = layout.projectDirectory.file("deploy/restore.sh")
 val restoreTest = layout.projectDirectory.file("deploy/restore-test.sh")
 
@@ -108,10 +100,7 @@ val checkRestore =
         }
     }
 
-// Unlike the other three, this has no single script it tests: it scans every `pipefail` script
-// under deploy/ for an early-exiting pipe reader (`| head`, `| grep -q`, and the like), which turns
-// that reader's SIGPIPE into the whole pipeline's exit status. See deploy/pipe-safety-test.sh for
-// the exception list of hits that are harmless.
+// Scans every `pipefail` script under deploy/ for an early-exiting pipe reader such as `| head`.
 val pipeSafetyTest = layout.projectDirectory.file("deploy/pipe-safety-test.sh")
 
 val checkPipeSafety =
@@ -132,9 +121,7 @@ val checkPipeSafety =
         }
     }
 
-// The scripts these four test run on the Linux host and in the containers, and need bash 4. A machine
-// without it - Windows, or a Mac with only the system bash 3.2 - skips them with a line saying so;
-// CI always has it.
+// These four suites need bash 4; a machine without it, such as Windows or a stock Mac, skips them.
 listOf(checkEntrypoint, checkSetup, checkRestore, checkPipeSafety).forEach { suite ->
     suite.configure {
         onlyIf("bash 4 or later is on the PATH") {

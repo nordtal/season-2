@@ -7,59 +7,28 @@ import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
- * WHO IS IN THE GAME, AT THE TOP OF THE START PAGE.
+ * Who is in the game, at the top of the start page: up to three faces, then `+N`, then the count in words.
  *
- * The word "Overview" at the top of the start page is a label on a page nobody
- * reached by accident, so it is gone. What takes its place is the one thing about this stack that
- * changes minute to minute and that no tile below says - how many people are actually in the game
- * right now, shown as a shape (up to three faces, then a `+N`, then the count in words), with
- * alternatives considered explicitly including one with Minecraft heads overlapping as a
- * triangle rather than sitting in a pill. The three below are those alternatives.
- *
- * <h2>The count is real; the faces are not available yet, and that is not a bug in this file</h2>
- * `online_count` is counts and nothing else - its own migration says so in as many words: *"an
- * identifier, not prose … never a container id and never a player name."* proxy knows who
- * is connected (it has the Velocity API and a `LoginRoster`), but nothing writes that down, so
- * Steward can know that seven people are playing and cannot know which seven.
- *
- * Rather than draw invented faces, the shape is built the other way round: **the `+N` is the
- * general case and a face is the enrichment.** With no roster at all, the stack is a single circle
- * reading `+7` beside "7 players online" - the same object, the same size, the same line, and not
- * one pixel of it is a claim the data does not support. The day a roster exists, three heads move
- * in front of it and the `+N` becomes `+4` on its own, once a roster exists.
- *
- * <h2>Nobody online is the normal case on this host, so it is drawn, not handled</h2>
- * The number is the anchor of all three variants and the faces are what hangs off it, which is
- * exactly why none of them falls apart at zero: `0 players online` is a sentence about a fact.
- * What must never happen is the other thing - a settled `0` where the truth is "proxy has
- * not written recently enough to be believed". That is a dash, everywhere, the same rule
- * `ServicesApi` and the metric row already follow. `players` being absent is load-bearing and
- * `players ?? 0` is the one expression this file may not contain.
+ * An unknown count is a dash, never a settled `0`, so `players ?? 0` must not appear here.
  */
 
-/** One person in the game. Both fields are optional because a roster may know only one of them. */
+/** One person in the game; a roster may know only one of the two fields. */
 export type OnlinePlayer = { uuid?: string; name?: string }
 
 /** The three Minecraft services that carry their own count, in the order a player passes them. */
 const SERVERS = ["limbo", "hunger-games", "smp"] as const
 
 export type Online = {
-  /** The network total, from `proxy`. `undefined` means nobody has said, not nobody. */
+  /** The network total, from `proxy`; `undefined` means nobody has said, not nobody. */
   total?: number
-  /** Per server, in {@link SERVERS} order, and only the ones that answered. */
+  /** Per server, in {@link SERVERS} order, only those that answered. */
   servers: Array<{ service: string; players: number }>
-  /** Who, if anything ever writes it down. Empty today - see the note at the top of this file. */
+  /** Who is online, where a roster exists; the `+N` covers everyone else. */
   roster: OnlinePlayer[]
   pending: boolean
 }
 
-/**
- * The one query all three variants read, so they are compared on the same numbers.
- *
- * The total is `proxy`'s own row rather than the sum of the three servers: a player is on
- * exactly one backend, so the two agree whenever every row is fresh - and when one is not, the sum
- * silently drops that server's people while the proxy's own count still has them.
- */
+/** The one query all three variants read; the total is `proxy`'s own row, not the sum of the servers. */
 export function useOnline(roster?: OnlinePlayer[]): Online {
   const services = useServices()
   const rows = services.data?.services ?? []
@@ -70,46 +39,25 @@ export function useOnline(roster?: OnlinePlayer[]): Online {
       const row = rows.find((service) => service.service === name)
       return row?.players === undefined ? [] : [{ service: name, players: row.players }]
     }),
-    /**
-     * From the same row the total comes from, and not from a parameter nobody
-     * passed: `useOnline()` called with no argument should still draw a face, not just a count,
-     * whenever the roster is available on the network row already. An explicit
-     * argument still wins, for a caller that has a better list than the network's.
-     */
+    /** The proxy row's roster unless the caller passes a better one. */
     roster: roster ?? proxy?.roster ?? [],
     pending: services.isPending,
   }
 }
 
-/** "7 players online", "1 player online", "0 players online" - and a dash for "nobody has said". */
+/** "7 players online", "1 player online", or a dash when nobody has said. */
 function said(total: number | undefined): { number: string; word: string } {
-  if (total === undefined) return { number: "–", word: "players online" }
+  if (total === undefined) return { number: "\u2013", word: "players online" }
   return { number: count(total), word: total === 1 ? "player online" : "players online" }
 }
 
-/**
- * The faces, overlapping, with the overflow as the last circle.
- *
- * <h2>What the web had to say, and what was taken from it</h2>
- * Three to five faces before the rest collapse is the going figure; three is
- * the tight end of it and right for a line that also has to hold a number at 390px. The part worth
- * taking was about the overflow: **`+N` is not decoration.** It is a fact nobody can otherwise
- * reach, so it carries its own name for a screen reader, and the stack itself is a list with one
- * entry per person rather than a row of identical unnamed images.
- */
+/** The faces, overlapping, with the overflow as a named last circle. */
 function Stack({ online, size = "size-8", base }: { online: Online; size?: string; base: string | undefined }) {
   const shown = online.roster.slice(0, 3)
-  /**
-   * Never negative, and never computed from the faces alone: with no roster the overflow IS the
-   * whole count, which is the state this interface is actually in today.
-   */
+  /** Never negative; with no roster the overflow is the whole count. */
   const rest = Math.max((online.total ?? 0) - shown.length, 0)
 
-  /**
-   * `pending` is read here as a single circle, because one circle is the shape this stack has on
-   * almost every day of the season - and because an invented number of them would be a guess about
-   * how busy the server is.
-   */
+  /** Pending draws a single circle, since any more would guess how busy the server is. */
   if (online.pending) {
     return (
       <ul className="flex shrink-0 items-center -space-x-2">
@@ -148,7 +96,7 @@ function Stack({ online, size = "size-8", base }: { online: Online; size?: strin
   )
 }
 
-/** Where they are, as numbers - the one thing the heading can add that the tiles below do not. */
+/** Where they are, per server, which the tiles below do not say. */
 function Where({ online, className }: { online: Online; className?: string }) {
   if (online.pending) {
     return (
@@ -171,18 +119,7 @@ function Where({ online, className }: { online: Online; className?: string }) {
   )
 }
 
-/**
- * VARIANT A - a line without the pill.
- *
- * Faces, the overflow, then the count in words, all on one line. It is the reference shape from
- * shadcnstudio's avatar 20 and 21 with one change:
- * no pill around it. The pill is what turns a group of people into a control, and nothing here is
- * tappable.
- *
- * The number carries the weight the `h1` it replaces used to carry - this is the top of the page,
- * and a line of small grey text there reads as a caption for the tiles rather than as the page's
- * own first statement.
- */
+/** Variant A: faces, overflow and count on one line, without a pill, since nothing here is tappable. */
 export function OnlineLine({ online }: { online: Online }) {
   const base = useAvatarBaseUrl().data
   const { number, word } = said(online.total)
@@ -207,19 +144,7 @@ export function OnlineLine({ online }: { online: Online }) {
   )
 }
 
-/**
- * VARIANT B - a triangle of faces.
- *
- * Three heads, overlapping, two below and one above the gap between them. It is the only variant
- * whose shape says something the number does not: a cluster
- * reads as a group of people standing together, where a row reads as a list of them. The overflow
- * sits at the lower right of the cluster rather than in line with it, because a fourth circle in
- * the row would flatten the triangle back into a stack.
- *
- * It is also the variant with the most to lose: with nobody in the game there is no cluster, and
- * what is left is the number and the word. That is not a failure of the idea, it is what the idea
- * costs, and it is the reason all three are being shown rather than one.
- */
+/** Variant B: three faces as a triangle, with the overflow at its lower right. */
 export function OnlineCluster({ online }: { online: Online }) {
   const base = useAvatarBaseUrl().data
   const { number, word } = said(online.total)
@@ -268,14 +193,7 @@ export function OnlineCluster({ online }: { online: Online }) {
   )
 }
 
-/**
- * VARIANT C - the number is the heading, the faces are the footnote.
- *
- * The figure at the size a page title has, the word under it, and the faces small and to the side.
- * It is the variant that reads the same whether three people are on or none, because nothing about
- * its shape depends on there being faces at all - the empty case costs it nothing, and the full
- * case gains it least. That is the trade, stated so it can be chosen rather than discovered.
- */
+/** Variant C: the number as the heading, the faces small beside it. */
 export function OnlineFigure({ online }: { online: Online }) {
   const base = useAvatarBaseUrl().data
   const { number, word } = said(online.total)
@@ -295,13 +213,7 @@ export function OnlineFigure({ online }: { online: Online }) {
   )
 }
 
-/**
- * The row the heading stands in.
- *
- * It is a `header` with no border, no background and no height of its own - the page's own
- * {@link PageHeader} is gone from the start page, and what replaces it must not become a bar. The
- * actions a page header carried on the right are not reinstated here: the start page had none.
- */
+/** The row the heading stands in: a `header` with no border, background or height of its own. */
 function Heading({ children }: { children: ReactNode }) {
   return <header className="flex flex-col gap-1.5">{children}</header>
 }
@@ -309,11 +221,7 @@ function Heading({ children }: { children: ReactNode }) {
 /**
  * The same line on a service page, counted for that service alone.
  *
- * The faces come from the roster row *of this service* - `ServicesApi.freshRoster` already files
- * each player under the backend they are on, and `proxy`'s row is the whole network. The line is
- * missing entirely where the row carries no `players`: six of the ten services never do, and a
- * line that arrives and leaves again on most pages is worse than one that arrives late on four. So
- * there is no skeleton either.
+ * Undefined where the row carries no `players`, so there is no skeleton.
  */
 export function useServiceOnline(name: string): Online | undefined {
   const service = useService(name)

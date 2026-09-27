@@ -7,11 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * The arithmetic behind {@code online_count}, in memory.
- *
- * See {@link OnlineCounts} for why it never touches a real {@code ProxyServer}.
- */
+/** The arithmetic behind {@code online_count}, in memory. */
 class OnlineCountsTest {
 
     @Test
@@ -33,7 +29,7 @@ class OnlineCountsTest {
 
     @Test
     void anUnregisteredBackendIsAbsent() {
-        // hunger-games is not in playersByServer at all - the proxy has no such server right now.
+        // hunger-games is not in playersByServer: the proxy has no such server right now.
         final Map<String, Integer> counts = OnlineCounts.of(4, Map.of("smp", 4));
 
         assertFalse(

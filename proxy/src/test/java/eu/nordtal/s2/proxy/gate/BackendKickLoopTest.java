@@ -15,13 +15,7 @@ import org.junit.jupiter.api.Test;
 /**
  * A backend that immediately kicks again must not bounce the player between {@code limbo} and itself.
  *
- * Nothing here can build a real {@code KickedFromServerEvent} or a real connection - see
- * {@link BackendKick} and {@code PackStation} for why the pieces that can be asserted are the pure
- * ones. What this composes instead is exactly the seam {@code PackStation#evaluate} walks in
- * production: {@link BackendKick#decide} says what a kick with no reason becomes,
- * {@link BackendHealth} is what that decision suspends, and {@link LimboHold#reason} is what a
- * suspended destination turns into on the waiting room's own screen. Together they are the whole
- * mechanism; nothing below is mocked.
+ * Composes {@link BackendKick#decide}, {@link BackendHealth} and {@link LimboHold#reason}, with nothing mocked.
  */
 class BackendKickLoopTest {
 
@@ -29,7 +23,7 @@ class BackendKickLoopTest {
 
     @Test
     void withoutTheBreakerASecondKickWouldFollowImmediately() {
-        // Without BackendHealth, "available" only asks whether registered; a crash-looping container still passes.
+        // Without BackendHealth, a crash-looping container still counts as available.
         assertEquals(
                 BackendKick.Decision.TO_LIMBO,
                 BackendKick.decide(DisconnectPlayer.create(Component.text("kicked")), null));
@@ -41,7 +35,7 @@ class BackendKickLoopTest {
                 "with no health signal, the waiting room sees nothing standing between the player "
                         + "and the backend that just kicked them - which is the bounce");
 
-        // And the second kick follows, exactly like the first - this is the "pendelt" outcome.
+        // And the second kick follows exactly like the first: the player bounces.
         assertEquals(
                 BackendKick.Decision.TO_LIMBO,
                 BackendKick.decide(DisconnectPlayer.create(Component.text("kicked again")), null));
@@ -58,7 +52,7 @@ class BackendKickLoopTest {
                 BackendKick.decide(DisconnectPlayer.create(Component.text("kicked")), null));
         health.suspend(SMP);
 
-        // 'smp' is still registered, but the breaker is open, so the player is held with the same BACKEND title.
+        // 'smp' is still registered, but the breaker holds the player with the same BACKEND title.
         assertEquals(
                 Optional.of(WaitReason.BACKEND),
                 LimboHold.reason(true, SeasonPhase.SMP, false, false, !health.isSuspended(SMP), false, false),
@@ -70,7 +64,7 @@ class BackendKickLoopTest {
                 Optional.of(WaitReason.BACKEND),
                 LimboHold.reason(true, SeasonPhase.SMP, false, false, !health.isSuspended(SMP), false, false));
 
-        // The retry window passes; the next sweep may try again - "regelmäßig prüfen", not a second kick.
+        // The retry window passes; the next sweep may try again.
         clock.advance(java.time.Duration.ofSeconds(1));
         assertEquals(
                 Optional.empty(),
@@ -78,7 +72,7 @@ class BackendKickLoopTest {
                 "once the retry window has passed the player may be released - this is the actual "
                         + "health check: a real connection attempt");
 
-        // PlayerRouter clears the breaker on the connection's own success - "wird verbunden, ohne etwas zu tun".
+        // PlayerRouter clears the breaker when the connection succeeds.
         health.clear(SMP);
         assertEquals(
                 Optional.empty(),

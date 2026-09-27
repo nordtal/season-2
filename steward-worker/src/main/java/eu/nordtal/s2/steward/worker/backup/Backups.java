@@ -3,20 +3,10 @@ package eu.nordtal.s2.steward.worker.backup;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The two halves of a backup, which are not alike.
- *
- * Why the database is not just another volume: Tarring a live {@code PGDATA} produces a torn copy that raises no
- * error at backup time and is a broken cluster at restore time. Stopping PostgreSQL for the length of a tar instead
- * is a nightly outage of every process in this stack. So the database is dumped, not snapshotted - and because a
- * dump is consistent as of the moment it starts, it can be taken before anything is stopped.
- *
- * That ordering is the whole reason this pair exists as one object: the run takes the dump while the servers are
- * still up, and only then stops them for the volumes. The outage is the volumes' length, not the sum.
+ * The two halves of a backup: the volumes, tarred with the servers down, and the database, dumped while they run.
  *
  * @param volumes the tar of each volume, with the servers down
- * @param database the dump, or {@code null} when {@code backup.database-service} is empty. Null is reported as "not
- *     dumped" rather than quietly skipped: a backup that silently omits the database is the one nobody notices until
- *     a restore
+ * @param database the dump, or {@code null} when {@code backup.database-service} is empty, reported as not dumped
  */
 public record Backups(Snapshots volumes, @Nullable DatabaseDump database) {
 

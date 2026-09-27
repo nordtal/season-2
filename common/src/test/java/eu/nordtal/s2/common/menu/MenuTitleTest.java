@@ -26,19 +26,9 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.junit.jupiter.api.Test;
 
 /**
- * The menu panel's offset arithmetic, measured against the real {@code nordtal:gui} font.
+ * Measures the menu panel's offset arithmetic against the real {@code nordtal:gui} font.
  *
- * <b>Why this is worth a test</b>
- *
- * Nothing about a wrong offset fails, logs, or throws. The menu opens, the panel is drawn, and it
- * is a few pixels out - which looks like art that does not quite fit rather than like arithmetic
- * that is wrong, so it gets attributed to the placeholder and survives. The one number people get
- * wrong is the advance: a 176px glyph moves the cursor 177, because every bitmap glyph carries a
- * trailing pixel. Assume 176 and every menu on the server is one pixel out in the same direction.
- *
- * So the assertions below do not restate {@code MenuTitle}'s constants back at it. They read
- * {@code gui.json} and the panel PNGs and derive the advance from the pack, which is the only way
- * this test can disagree with the code.
+ * A wrong offset fails nowhere, so the advances are derived from {@code gui.json} and the panel PNGs, not restated.
  */
 class MenuTitleTest {
 
@@ -50,7 +40,7 @@ class MenuTitleTest {
     /** Code point to the advance a panel glyph carries, derived from its PNG and its provider. */
     private static final Map<Integer, Integer> PANELS = new LinkedHashMap<>();
 
-    /** Code point to the advance an overlay glyph carries - anything narrower than a window. */
+    /** Code point to the advance an overlay glyph carries, for anything narrower than a window. */
     private static final Map<Integer, Integer> OVERLAYS = new LinkedHashMap<>();
 
     /** Code point to the {@code ascent} its provider declares. */

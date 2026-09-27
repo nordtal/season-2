@@ -17,34 +17,16 @@ import {
 } from "@/components/ui/responsive-dialog"
 
 /**
- * The question in front of anything that changes something.
+ * The key question in front of any write, so a stale session costs one tap and the same request goes again.
  *
- * **What it buys is one tap rather than two.** Steward refuses a write whose session has not held
- * its key in the last few minutes, with a code rather than a sentence; `lib/api.ts` catches that
- * code, waits for this, and then sends **the same request again**. So somebody who taps Update
- * taps Update - they are asked for the key in between, and the run starts. They do not tap Update,
- * read a refusal, hold the key, find the page again and tap Update.
- *
- * **Why a dialog and not just the browser's own.** Safari will not open the key dialog without a
- * fresh tap from the person in front of it, and the tap that started the request is spent by the
- * time the server has refused it. A button here is that tap. It is also the only screen on which
- * the sentence "Steward asks for your key before anything that changes something" can be read by
- * somebody who is meeting it for the first time.
- *
- * **If the ceremony fails, the original request fails with it** - honestly, as itself. A dialog
- * that closed on a failed ceremony and reported nothing would be an interface in which pressing
- * Update sometimes does nothing at all, which is worse than one that says "try again".
+ * Safari opens the key dialog only on a fresh tap; a failed ceremony fails the original request with it.
  */
 export function StepUp() {
   const me = useMe()
   const [asking, setAsking] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  /**
-   * The promise `api()` is parked on. Kept in a ref rather than in state because it is not drawn:
-   * it is resolved by a click and rejected by a dismissal, and re-rendering on it would be a
-   * render for something nothing reads.
-   */
+  /** The promise `api()` is parked on, in a ref since nothing draws it. */
   const pending = useRef<{ resolve: () => void; reject: (cause: Error) => void } | null>(null)
 
   const settle = useCallback((outcome: Error | null) => {
@@ -61,22 +43,14 @@ export function StepUp() {
     onSecondFactorRequired(
       () =>
         new Promise<void>((resolve, reject) => {
-          /**
-           * A SECOND REFUSAL WHILE THE FIRST IS STILL ON SCREEN is a real case: the service table
-           * refreshes every ten seconds and a person can press two buttons. The second waiter
-           * replaces the first, and the first is told so rather than left hanging - a promise
-           * nobody settles is a spinner that never stops.
-           */
+          /** A second refusal replaces the first waiter, which is rejected rather than left spinning. */
           pending.current?.reject(new Error("Another request asked for the key first."))
           pending.current = { resolve, reject }
           setFailure(null)
           setAsking(true)
         }),
     )
-    /**
-     * Uninstalled on unmount so that a test, or a shell replaced by the sign-in page, does not
-     * leave `api()` waiting on a dialog that is no longer drawn.
-     */
+    /** Uninstalled on unmount, so `api()` never waits on a dialog no longer drawn. */
     return () => onSecondFactorRequired(null)
   }, [])
 
@@ -85,10 +59,7 @@ export function StepUp() {
     setFailure(null)
     try {
       await holdTheKey()
-      /**
-       * Refetched rather than assumed: `verifiedAt` is what everything else reads, and the shell
-       * is drawn from it.
-       */
+      /** Refetched, since the shell is drawn from `verifiedAt`. */
       await me.refetch()
       settle(null)
     } catch (refused) {

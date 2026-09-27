@@ -8,20 +8,11 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.Test;
 
-/**
- * The validations {@link Teams} can answer without ever reaching the database - the same reason {@code TiersTest}
- * and {@code LanguagesTest} stay in memory.
- *
- * Everything that actually reads or writes {@code hg_game} / {@code hg_team} / {@code hg_member} needs a real
- * PostgreSQL instance and is therefore untested here; see the note at the end of this session's summary.
- *
- * The {@link DataSource} handed to {@link Teams} throws on the first attempt to open a connection, which is what
- * proves these two checks run before any query - not just that they return the right answer.
- */
+/** The {@link Teams} validations that run before any query, against a database that throws on connect. */
 class TeamsTest {
 
     private static final Teams TEAMS = new Teams(Jdbi.create(new DataSource() {
-                // Reduced to the two methods JDBI's SqlObjectPlugin calls; every other throws, proving no reach.
+                // Only the two methods JDBI's SqlObjectPlugin calls; every other throws.
                 @Override
                 public Connection getConnection() {
                     throw new UnsupportedOperationException("this test must never reach the database");
@@ -85,7 +76,7 @@ class TeamsTest {
 
     @Test
     void aNameOfExactly3Or15CharactersPassesTheLengthCheck() {
-        // Both reach the stubbed, throwing database next, proving the length check accepted them.
+        // Both reach the throwing database next, so the length check accepted them.
         assertThrows(3, () -> TEAMS.register("1", "abc"));
         assertThrows(15, () -> TEAMS.register("1", "a".repeat(15)));
     }
@@ -102,7 +93,7 @@ class TeamsTest {
             throw new AssertionError(
                     "expected the stub database to be reached for a " + nameLength + "-character name");
         } catch (final RuntimeException expected) {
-            // UnsupportedOperationException from the stub DataSource, possibly wrapped by JDBI.
+            // The stub DataSource's UnsupportedOperationException, possibly wrapped by JDBI.
         }
     }
 }

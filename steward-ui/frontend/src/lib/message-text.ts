@@ -19,9 +19,9 @@ export function tokenOf(arg: MessageArg): string {
 const DECLARABLE = /\{[A-Za-z0-9_.-]+\}|<_[A-Za-z0-9_-]+>/g
 
 /**
- * The placeholders in `text` that the key's spec does not declare, in the order they appear - the
- * same answer as `MessageBundles.unknownPlaceholders` on the worker, which refuses a save that has
- * one. A key no spec describes is never checked, there as here.
+ * The placeholders in `text` its key's spec does not declare, in order, as `MessageBundles.unknownPlaceholders`.
+ *
+ * The worker refuses a save that has one. A key no spec describes is never checked.
  */
 export function unknownPlaceholders(entry: MessageEntry, text: string | null | undefined): string[] {
   if (entry.name == null || !text) return []

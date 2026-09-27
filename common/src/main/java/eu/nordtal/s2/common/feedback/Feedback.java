@@ -1,12 +1,8 @@
 package eu.nordtal.s2.common.feedback;
 
 /**
- * The whole sound vocabulary of the network. A call site picks one of these and nothing else.
- *
- * The emptiness is deliberate: no sound name, no pitch, no volume, no method. What a category
- * sounds like is a per-module {@code config.yml} decision parsed into {@link FeedbackSounds}, so a
- * call site can never name a sound of its own. The list is fixed - growing it to fit each new call
- * site is what would stop it being a vocabulary.
+ * The whole sound vocabulary of the network; a call site picks one of these and nothing else.
+ * What each category sounds like is a per-module {@code config.yml} decision.
  */
 public enum Feedback {
 

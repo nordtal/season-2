@@ -14,7 +14,7 @@ class BearingTest {
 
     @Test
     void targetBehindIsIndexEight() {
-        // Facing south, target due north (behind) -> 180 degrees -> index 8.
+        // Facing south, target due north (behind): 180 degrees, index 8.
         assertEquals(8, Bearing.arrowIndex(0, 0, 0, 0, -10));
     }
 

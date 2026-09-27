@@ -4,16 +4,11 @@ plugins {
     id("java-library")
 }
 
-// SharedBundleLoadedTest and MessageBundlesTest read other modules' sources as text: what they check
-// is a seam between two modules, which neither module's own tests can see. They are in no source set
-// of this module, so without these declarations Gradle cannot see them and an edit would leave
-// :commands:test UP-TO-DATE - the one check that would have caught the drift being the one that does
-// not run.
+// Other modules' sources that the seam tests read as text, so an edit to one reruns :commands:test.
 repositoryRootTestInputs {
     reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
     reads("smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java")
-    // UpdateIsServedEverywhereTest: /update is Target.LOCAL, so no inbox serves it and every
-    // process has to register it itself. These are the five places that can forget to.
+    // UpdateIsServedEverywhereTest: /update is Target.LOCAL, so each of these five registers it itself.
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/command/HungerGamesCommand.java")
     reads("limbo/src/main/java/eu/nordtal/s2/limbo/command/LimboCommand.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
@@ -25,9 +20,7 @@ repositoryRootTestInputs {
 dependencies {
     api(project(":common"))
 
-    // Messages logs a missing key through slf4j, and :common declares slf4j compileOnly - every
-    // process that consumes it brings its own backend. MessageBundlesTest actually loads the shared
-    // bundle, so this module's tests need one too; nothing ships with it.
+    // MessageBundlesTest loads the shared bundle, and :common leaves the slf4j backend to its consumers.
     testRuntimeOnly(libs.logback.classic)
 }
 

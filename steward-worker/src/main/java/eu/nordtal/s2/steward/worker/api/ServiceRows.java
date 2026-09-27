@@ -20,13 +20,9 @@ import java.util.concurrent.Future;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Builds one row of {@code /api/services} per running container, and the single row of {@code /api/services/{name}}.
+ * Builds the rows of {@code /api/services} and {@code /api/services/{name}}.
  *
- * The two measurements that made this worth writing carefully: {@code /containers/{id}/stats?stream=false} takes
- * about a second per container, because the daemon collects two samples to compute a CPU delta and there is no
- * one-shot call that still yields a real percentage. Nine running containers read one after another is a
- * nine-second request - slower than most of what it is describing. So the rows are read in parallel, one virtual
- * thread each, and the table costs about as long as its slowest row.
+ * Docker's stats call takes about a second per container, so rows are read in parallel on virtual threads.
  */
 final class ServiceRows {
 
@@ -46,12 +42,12 @@ final class ServiceRows {
         this.players = players;
     }
 
-    /** Every service row, sorted by name, read in parallel because each one costs about a second of Docker's time. */
+    /** Every service row, sorted by name, read in parallel. */
     List<Map<String, Object>> rows(final ImageResult drift) {
         final List<Docker.Container> containers = docker.containers(project).stream()
                 .filter(container -> container.service() != null)
                 .toList();
-        // Once for the whole table, not once per row: two reads could let two rows disagree about the same instant.
+        // Once for the whole table, so two rows cannot disagree about the same instant.
         final ServicesApi.Online counts = online();
         final Map<String, ServiceHold> holds = holds();
         final List<Map<String, Object>> all;
@@ -74,7 +70,7 @@ final class ServiceRows {
                 .toList();
     }
 
-    /** {@code update_request} and {@code service_hold}, taken once for the whole table rather than once per row. */
+    /** {@code update_request} and {@code service_hold}, taken once for the whole table. */
     Map<String, ServiceHold> holds() {
         final Map<String, ServiceHold> holds = new LinkedHashMap<>();
         for (final ServiceHold hold : updates.holds()) {
@@ -90,7 +86,7 @@ final class ServiceRows {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("reading one service was interrupted", e);
         } catch (final ExecutionException e) {
-            // describe() swallows a Docker failure into `unreadable`; anything here is a programming error.
+            // describe() turns a Docker failure into `unreadable`, so anything here is a programming error.
             throw new IllegalStateException("reading one service failed", e.getCause());
         }
     }
@@ -98,15 +94,7 @@ final class ServiceRows {
     /**
      * One row.
      *
-     * {@code players} is written only for a service {@code counts} actually names. A service it does not name has
-     * NO {@code players} key at all - not {@code 0} and not {@code null} - because "nobody is connected" and "the
-     * proxy has not said" are different answers and a dashboard that draws the second as the first is the failure
-     * {@code ImageResult.State.UNKNOWN} already exists to prevent.
-     *
-     * {@code roster} follows the same rule one step further: it appears only for a service that has fresh players,
-     * it is never an empty array, and it is never sent for a service nobody is on. It enriches {@code players} and
-     * never contradicts it - both come out of one {@link ServicesApi#read()} taken once for the whole response, so
-     * no two rows of one answer can disagree about the same instant.
+     * {@code players} and {@code roster} are absent, not zero or empty, for a service the proxy has not reported.
      */
     Map<String, Object> describe(
             final Docker.Container container,
@@ -125,7 +113,7 @@ final class ServiceRows {
         row.put("drift", drift.state(service).name());
         putOnline(row, service, counts);
         putStandby(row, service);
-        // Same rule as `players`: the key is absent when nobody holds it, not present and false.
+        // Same rule as `players`: the key is absent when nobody holds it.
         final ServiceHold hold = holds.get(service);
         if (hold != null) {
             final Map<String, Object> about = new LinkedHashMap<>();
@@ -150,22 +138,13 @@ final class ServiceRows {
         return row;
     }
 
-    /** The counts and the list as they stand, or nothing at all - never a guessed zero. */
+    /** The counts and the list as they stand, or nothing at all, never a guessed zero. */
     ServicesApi.Online online() {
         return players == null ? ServicesApi.Online.NONE : players.read();
     }
 
     /**
-     * Marks the row of a service whose normal state is stopped.
-     *
-     * A standby is not down, it is off. {@code proxy-standby} and {@code limbo-standby} live in the {@code standby}
-     * compose profile and are stopped for all but a minute of the season, so a dashboard that reads "not running"
-     * as a fault reports two faults on a perfectly healthy stack - every day, which is precisely how a fault
-     * counter stops being read and how the third fault goes unnoticed.
-     *
-     * It has to be said here because it cannot be seen anywhere else: to Docker a stopped standby and a crashed
-     * backend are the same container state, and the frontend has nothing but the name to go on.
-     * {@link Topology#standbyNames()} is the only thing that knows, and this is the one place it is asked.
+     * Marks the row of a standby service, whose normal state is stopped, so a dashboard does not call it down.
      *
      * @param service the compose service name this row is about
      */
@@ -176,9 +155,9 @@ final class ServiceRows {
     }
 
     /**
-     * Writes {@code players} and {@code roster} onto a row - or writes neither, which is the point.
+     * Writes {@code players} and {@code roster} onto a row, or neither.
      *
-     * @param service the compose service name this row is about - the key both maps are keyed by
+     * @param service the compose service name both maps are keyed by
      */
     static void putOnline(final Map<String, Object> row, final String service, final ServicesApi.Online online) {
         final Integer connected = online.counts().get(service);
@@ -191,13 +170,7 @@ final class ServiceRows {
         }
     }
 
-    /**
-     * The two fields of a player that leave this process, and no others.
-     *
-     * {@code updated} stays behind because it has already been used - {@link ServicesApi} spent it deciding
-     * whether this player is worth sending at all. {@code subject} stays behind because the row it is sitting in
-     * already is that subject.
-     */
+    /** The two fields of a player that leave this process. */
     private static List<Map<String, Object>> named(final List<OnlinePlayer> roster) {
         final List<Map<String, Object>> people = new ArrayList<>(roster.size());
         for (final OnlinePlayer player : roster) {

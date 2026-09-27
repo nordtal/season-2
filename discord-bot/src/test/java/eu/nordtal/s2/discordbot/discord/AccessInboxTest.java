@@ -20,16 +20,10 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-/**
- * What the bot does with a row somebody wrote.
- *
- * The half of the inbox that is not a database and not a guild: which of the five verbs a kind dispatches to, who it
- * is filed under, what goes into {@code result}, and what happens when one of them throws.
- * {@code AccessRequestsIntegrationTest} covers the row; this covers the decision.
- */
+/** Which verb a request row's kind dispatches to, who it is filed under, and what goes into {@code result}. */
 class AccessInboxTest {
 
-    /** Every call, in order, as text - so a test can say what happened without a mocking library. */
+    /** Every call, in order, as text. */
     private final List<String> carriedOut = new ArrayList<>();
 
     private final AccessChanges effects = new AccessChanges() {
@@ -140,12 +134,7 @@ class AccessInboxTest {
         assertTrue(inbox.ok.get(1L));
     }
 
-    /**
-     * A grant is not idempotent - running it twice gives somebody twice the days they paid for.
-     *
-     * So a failure is recorded and left, never retried. The row carrying its own failure is what lets the asking
-     * surface say so instead of waiting for ever.
-     */
+    /** A failed grant is recorded and never retried, because running it twice doubles the days. */
     @Test
     void aFailureIsRecordedOnTheRowAndTheNextOneStillRuns() {
         final AccessInbox throwing =
@@ -160,11 +149,7 @@ class AccessInboxTest {
         assertFalse(inbox.ok.get(2L), "the loop carries on rather than stopping at the first one");
     }
 
-    /**
-     * An argument that is not a number is a row that should never have been written.
-     *
-     * Carrying on with a zero would grant nobody anything and look exactly like success.
-     */
+    /** An argument that is not a number fails the row rather than granting zero and looking like success. */
     @Test
     void aMalformedArgumentFailsTheRowRatherThanGrantingNothing() {
         inbox.waiting.add(row(1, AccessRequestKind.GRANT, "400000000000000002", "thirty", "admin"));
@@ -175,11 +160,7 @@ class AccessInboxTest {
         assertTrue(carriedOut.isEmpty(), "nothing was granted");
     }
 
-    /**
-     * A row past its patience is already dead - the claim refuses it - unlike one still labelled PENDING.
-     *
-     * The bot is the only thing that looks at this table on a schedule, so the sweep rides on its pass.
-     */
+    /** A row past its patience is expired by the bot's pass rather than left PENDING. */
     @Test
     void everyPassGivesUpOnWhatWasNeverPickedUp() {
         subject.drain();
@@ -188,13 +169,7 @@ class AccessInboxTest {
         assertEquals(2, inbox.sweeps, "the sweep is part of a pass, not something a caller adds");
     }
 
-    /**
-     * The three answers a reload can give, as far as this side can produce them.
-     *
-     * Re-read with nothing to report, re-read with typos named, and a re-read that did not happen. The third is a
-     * FAILED row on purpose - a bundle that no longer parses leaves the running one in place, and "applied, nothing
-     * to report" would be a lie.
-     */
+    /** A reload answers with nothing to report, with typos named, or FAILED when the bundle no longer parses. */
     @Test
     void aReloadNamesTheKeysNobodyDeclaresAndAFailedOneIsAFailure() {
         inbox.waiting.add(row(1, AccessRequestKind.RELOAD_MESSAGES, "access", null, "admin"));
@@ -271,7 +246,7 @@ class AccessInboxTest {
         }
     }
 
-    /** The queue, without a database: claim takes from the front, finish records the answer. */
+    /** The queue without a database: claim takes from the front, finish records the answer. */
     private static final class Inbox implements AccessRequests {
 
         private final Deque<AccessRequest> waiting = new ArrayDeque<>();

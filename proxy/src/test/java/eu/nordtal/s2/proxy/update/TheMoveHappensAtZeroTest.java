@@ -13,17 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Nobody is moved before the counter reaches zero, and nothing waits for a poll to notice.
  *
- * A five-second sweep with an eight-second head start would guarantee one pass lands inside the window, at the
- * price of moving players while the counter still shows several seconds remaining, measurably before zero.
- *
- * The fix is two halves and each can be undone on its own, which is why both are asserted here
- * rather than left to the compiler. Taking the head start away without scheduling the sweep on zero
- * makes the move up to five seconds <em>late</em>; scheduling it without taking the head start away
- * changes nothing at all. Neither half fails a test that only knows about the other.
- *
- * These are source rules because the wiring is Velocity's scheduler and the thing being wired is
- * a method reference - there is no seam between them that does not need a running proxy, and a test
- * that needed one would not be run.
+ * Source rules, since the wiring is Velocity's scheduler and a method reference.
  */
 class TheMoveHappensAtZeroTest {
 
@@ -31,7 +21,7 @@ class TheMoveHappensAtZeroTest {
     void thereIsNoWindow() {
         final String source = read("proxy/src/main/java/eu/nordtal/s2/proxy/update/Evacuation.java");
 
-        // `countingDown()` is the row whose instant has NOT passed - reading it here is any head start by any name.
+        // `countingDown()` is the row whose instant has not passed, so reading it here is a head start.
         assertEquals(
                 -1,
                 body(source).indexOf("countingDown"),
@@ -62,7 +52,7 @@ class TheMoveHappensAtZeroTest {
                         + " the waiting room first, then the whole network onto the standby proxy."
                         + " Parking first would move everybody twice");
 
-        // Both sweeps stay behind it as the guarantee for a proxy restarted mid-countdown, which has no tasks.
+        // Both sweeps remain as the guarantee for a proxy restarted mid-countdown, which has no tasks.
         assertTrue(
                 plugin.contains("this.evacuation::check") && plugin.contains("swap::check"),
                 "the repeating sweeps are what catch a countdown whose scheduled beats were lost;"
@@ -97,7 +87,7 @@ class TheMoveHappensAtZeroTest {
                 "the fast cadence has to start with the countdown and not with the move: " + signal);
     }
 
-    /** Everything after the class declaration, so a javadoc may still name what the code may not. */
+    /** Everything after the class declaration, so a doc may still name what the code may not. */
     private static String body(final String source) {
         final int at = source.indexOf("public final class Evacuation");
         assertTrue(at > 0, "Evacuation's class declaration has changed shape");

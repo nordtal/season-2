@@ -8,21 +8,6 @@ import { BackupRunDetailPage, BackupsPage } from "@/pages/backups"
 import { asAnchor, asButton, asElement, asInput } from "@/lib/test-elements"
 import { changesOf } from "@/lib/query-fixtures"
 
-/**
- * The backup page: the
- * remote target and the schedule are dialogs, "Archives" counts files, "Initiated by"
- * goes through {@link PersonIdentity}, the whole run row is a link, and a run's
- * own archives are on its own detail page.
- *
- * Held to these things:
- *
- * - A secret is never drawn: the two remote keys are `@Secret` in `StewardSpec` and arrive with no
- *   value. A fixture below sends one anyway - which the real worker will not do - because the
- *   assertion worth having is about THIS page's own handling, not about the backend's good manners.
- * - A raw Discord id is never plain text on the page - `IDENTIFIER_PATTERN` catches a snowflake or
- *   a UUID anywhere in the rendered document, the same check `identity.test.tsx` holds every other
- *   consumer of {@link PersonIdentity} to.
- */
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -54,7 +39,7 @@ function entry(over: Record<string, unknown>) {
   }
 }
 
-/** `steward.yml` as the worker sends it - the schedule, the retention block and the remote keys. */
+/** `steward.yml` as the worker sends it: the schedule, the retention block and the remote keys. */
 function workerConfig(over: { secretValue?: string } = {}) {
   return {
     service: "steward-worker",
@@ -66,10 +51,7 @@ function workerConfig(over: { secretValue?: string } = {}) {
     header: [],
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
-      /**
-       * A LIST key, which is what `backup.days` is - `items`, no `value`. Two days rather than
-       * seven, so a test can tell "what the file says" apart from "everything, by default".
-       */
+      /** A LIST key with two days, so the file's value differs from the default of all seven. */
       entry({
         path: "backup.days",
         key: "days",
@@ -115,10 +97,7 @@ function workerConfig(over: { secretValue?: string } = {}) {
         label: "Access key",
         secret: true,
         filled: true,
-        /**
-         * A value on a secret is exactly what the worker does NOT send. It is here so that this
-         * page's own refusal to draw one is what the test proves.
-         */
+        /** A value the worker never sends on a secret, so the test proves this page's own refusal to draw it. */
         value: over.secretValue,
       }),
       entry({
@@ -217,7 +196,6 @@ function backend(
   })
 }
 
-/** A route this test never draws, only routes to. */
 const nothing = () => null
 
 function draw() {
@@ -260,6 +238,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** The backup page never draws a secret or a raw Discord id, even when a fixture sends one. */
 describe("BackupsPage - the destination dialog never draws a secret", () => {
   it("leaves a secret's field empty even when a value arrives with it", async () => {
     vi.stubGlobal("fetch", backend({ config: workerConfig({ secretValue: "AKIAsecret" }) }))
@@ -350,10 +329,7 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
 
     fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
 
-    /**
-     * The fixture's `backup.days` is Monday and Thursday. A dialog that drew all seven regardless
-     * is the thing this replaces, and it looked exactly like a working one.
-     */
+    /** The fixture's `backup.days` is Monday and Thursday, not all seven. */
     expect((await screen.findByRole("button", { name: "Mon" })).getAttribute("aria-pressed")).toBe("true")
     expect(screen.getByRole("button", { name: "Thu" }).getAttribute("aria-pressed")).toBe("true")
     expect(screen.getByRole("button", { name: "Tue" }).getAttribute("aria-pressed")).toBe("false")
@@ -377,11 +353,7 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
     await waitFor(() => expect(sent).toBeTruthy())
-    /**
-     * Monday, Tuesday, Thursday - the order of a week and not the order they were clicked in, and
-     * a list rather than a string: a list of one and a scalar are the same thing once flattened,
-     * which is how `stop-services: smp` gets written over a sequence.
-     */
+    /** In week order, not click order, and as a list, since a list of one flattens to a scalar. */
     expect(changesOf(sent)["backup.days"]).toEqual(["MONDAY", "TUESDAY", "THURSDAY"])
   })
 
@@ -455,7 +427,7 @@ describe("BackupsPage - the runs table (items 2, 3, 4)", () => {
     const { history } = draw()
 
     const row = asElement((await screen.findByText("#41")).closest("tr"))
-    // The "When" cell, deliberately not the run-number link itself.
+    // The "When" cell, not the run-number link.
     fireEvent.click(within(row).getByText(/2026/))
 
     await waitFor(() => expect(history.location.pathname).toBe("/operations/backups/41"))
@@ -524,7 +496,7 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
         backups: [
           backup({ name: "nordtal-s2_mc-smp-20260917T044505Z.tar.zst", modified: "2026-09-17T04:45:05Z" }),
           backup({ name: "nordtal-20260917T044550Z.dump", modified: "2026-09-17T04:45:50Z" }),
-          // Written the following night - outside this run's window, must not be listed here.
+          // Written the following night, outside this run's window.
           backup({ name: "nordtal-s2_mc-smp-20260918T044500Z.tar.zst", modified: "2026-09-18T04:45:00Z" }),
         ],
       }),

@@ -1,14 +1,8 @@
 <!--
   dev up
 
-  Builds the five jars and both images, installs the jars into plugins/, then `compose up -d`.
-
-  THE ANSWER AFTER EDITING deploy/dev.env, and `dev deploy` is not: deploy restarts the existing
-  container, which reuses the environment it was created with, so a changed setting that did not
-  take effect looks exactly like a setting that does not work.
-
-  The first run takes minutes - steward-worker fetches Paper, Velocity, the third-party plugins
-  and the SMP's two world-generation datapacks. Watch it with `dev logs`.
+  Builds the jars and images, installs the jars, then runs `compose up -d`. Run it after editing
+  deploy/dev.env. The first run downloads the platforms and plugins and takes minutes.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev up" type="Application" factoryName="Application" folderName="dev: stack">

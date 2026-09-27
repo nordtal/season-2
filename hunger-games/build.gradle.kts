@@ -5,8 +5,7 @@ plugins {
     id("nordtal.message-spec")
 }
 
-// Names start() and its field-assigning helpers as NullAway's initializers, since HungerGamesPlugin's fields are
-// set there, not in a constructor.
+// Names start() and its field-assigning helpers as NullAway's initializers.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option(
@@ -22,9 +21,7 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
-// Tests here read files that are in no source set, or read source rather than bytecode. Without
-// declaring them as inputs, editing one leaves :hunger-games:test UP-TO-DATE and the check never
-// runs.
+// Files outside any source set that tests read; undeclared, editing one leaves :hunger-games:test UP-TO-DATE.
 repositoryRootTestInputs {
     reads("compose.yml")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/command/HungerGamesCommand.java")
@@ -34,36 +31,28 @@ repositoryRootTestInputs {
 }
 
 repositories {
-    // jcore is published via JitPack, not Maven Central.
     maven("https://jitpack.io")
 }
 
 dependencies {
     implementation(project(":paper-common"))
-    // jcore brings the config system plus JDBI 3, HikariCP and the PostgreSQL driver. Flyway is
-    // excluded because this plugin never migrates anything (the bot owns the schema) and
-    // flyway-core drags in Jackson 3 databind.
+    // jcore brings the config system and the database stack; Flyway is excluded, since this plugin never migrates.
     implementation(libs.jcore) {
         exclude(group = "org.flywaydb")
     }
 
-    // The pool is built directly here so connectionTimeout and the driver's socketTimeout stay
-    // tunable. jcore declares HikariCP `implementation`, not `api`, so it must be redeclared to
-    // compile against it. Pinned to jcore's version via the catalog so exactly one copy resolves.
+    // Redeclared, since jcore declares HikariCP `implementation`; the pool is built here to tune its timeouts.
     implementation(libs.hikaricp)
 
     // HungerGamesDao installs JDBI's PostgresPlugin, which jcore only declares at runtime scope.
     implementation(libs.jdbi.postgres)
 
-    // KillCountsIntegrationTest drives HungerGamesDao#killCounts against a real PostgreSQL running
-    // the real migrations: the method is SQL plus JDBI column mapping, and count(*) is bigint
-    // against a Map<UUID, Integer> return - nothing in-memory can catch that.
+    // KillCountsIntegrationTest runs killCounts on the real migrations: count(*) is bigint, which no fake catches.
     testImplementation(libs.flyway.core)
     testImplementation(libs.flyway.postgresql)
     testImplementation(libs.testcontainers.postgresql)
 
-    // jcore puts the driver on the runtime classpath only; the test that builds a
-    // PGSimpleDataSource by hand needs it at compile time.
+    // jcore puts the driver on the runtime classpath only; a test builds a PGSimpleDataSource by hand.
     testImplementation(libs.postgresql.driver)
 }
 

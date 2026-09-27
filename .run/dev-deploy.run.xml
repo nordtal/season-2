@@ -1,12 +1,8 @@
 <!--
   dev deploy
 
-  Rebuilds all four plugins, swaps the jars and restarts those four containers. The four
-  single-server variants beside this one are the fast loop; this is the one after a change in
-  :common, which all four carry.
-
-  A JAR SWAP AND NOTHING ELSE: a changed deploy/dev.env does not reach a restarted container.
-  Use `dev up` after editing that file.
+  Rebuilds all four plugins, replaces their jars and restarts those containers.
+  A restarted container keeps its environment; after editing deploy/dev.env use `dev up`.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev deploy (all four)" type="Application" factoryName="Application" folderName="dev: build and deploy">

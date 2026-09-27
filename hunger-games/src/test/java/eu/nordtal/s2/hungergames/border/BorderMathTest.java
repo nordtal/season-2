@@ -51,7 +51,7 @@ class BorderMathTest {
     @Test
     void passiveShrinkDurationIsDeltaOverHourlyRate() {
         final long millis = BorderMath.passiveShrinkDurationMillis(250.0, 1.0, 15.0);
-        // 249 blocks at 15 blocks/hour = 16.6 hours
+        // 249 blocks at 15 blocks per hour is 16.6 hours.
         assertEquals(249.0 / 15.0 * 3_600_000.0, (double) millis, 1.0);
     }
 }

@@ -14,19 +14,9 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * That every {@code docker compose run --rm steward-worker} written down anywhere names what it does.
+ * Every documented {@code docker compose run --rm steward-worker} names what it does.
  *
- * Guards the documented command against reading as a harmless, no-op report when it is not.
- *
- * {@code compose.yml}, {@code steward-worker/Dockerfile}, {@code steward-worker/README.md} and
- * {@code deploy/README.md} must never document the bare command as printing a report and changing nothing. Compose
- * hands a {@code run} that names no command the service's own {@code command}, {@code serve}: a second
- * long-running daemon that migrates, bootstraps, listens on {@code nordtal_update} and never returns the terminal.
- * Removing {@code command} does not help either, since a bare {@code run} then inherits the image's {@code CMD}.
- *
- * The test reads the documents rather than the dispatch: {@link StewardWorker}'s own dispatch is correct -
- * {@code report} is what an argument-less run does - and a test of that dispatch alone cannot see five files
- * telling a person to type something that does the opposite of what they say.
+ * A bare {@code run} starts a second {@code serve} daemon, so no document may present it as a harmless report.
  */
 class DocumentedCommandsTest {
 

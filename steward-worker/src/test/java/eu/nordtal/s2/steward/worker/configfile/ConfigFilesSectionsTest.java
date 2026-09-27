@@ -15,15 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * A YAML sequence of mappings, read as {@link Kind#SECTIONS} and - for an existing entry's own field - written back.
+ * A YAML sequence of mappings, read as {@link Kind#SECTIONS} and written back field by field.
  *
- * {@link #TIERS_FIXTURE} is {@code tiers:} out of the bot's real {@code access.yml}, copied byte for byte (comments
- * included) rather than typed to be easy to parse - it is exactly the shape the old comment on {@link ConfigFiles}
- * 's single {@code Kind.LIST} branch warned a rewrite could not survive: a comment sitting between the two fields of
- * the first entry, and no comment at all on the second and third.
- * {@link #changingOneFieldLeavesEveryOtherEntryByteIdentical()} is the proof this class exists for - without it,
- * {@link ConfigChange.Sections} would not exist and this whole class would not compile, so "red" here started as a
- * compiler error against the old shape rather than a failing assertion.
+ * {@link #TIERS_FIXTURE} is {@code tiers:} from the bot's real {@code access.yml}, byte for byte.
  */
 class ConfigFilesSectionsTest {
 
@@ -82,7 +76,7 @@ class ConfigFilesSectionsTest {
     void withNoSchemaThereIsNoTemplateAndTheFieldsAreStillDelivered() throws IOException {
         final ConfigEntry tiers = entry(read(TIERS_FIXTURE), "tiers");
 
-        // No schema for this fixture, so there is no blank card shape to build - but the fields themselves are there.
+        // No schema for this fixture, so no blank card shape, but the fields themselves are there.
         assertEquals(List.of(), tiers.template());
         assertEquals(3, tiers.sections().size());
     }
@@ -201,14 +195,12 @@ class ConfigFilesSectionsTest {
         assertEquals(before, Files.readString(file));
     }
 
-    // Writing - appending and removing
+    // Writing: appending and removing
 
     /**
-     * On the append side: appending a fourth tier leaves the three existing entries byte-identical.
+     * Appending a fourth tier leaves the three existing entries byte-identical.
      *
-     * The new entry copies the shape (no comment, same indentation, no blank line before it) of the entry it was
-     * appended after. This is the test that has to fail against an editor that refuses to add an entry at all: a
-     * refusal fails this test with an exception rather than an assertion mismatch, which is the right kind of red.
+     * The new entry copies the shape of the entry it follows: no comment, same indentation, no blank line.
      */
     @Test
     void appendingAnEntryLeavesEveryExistingEntryByteIdenticalAndCopiesTheLastEntrysStyle() throws IOException {
@@ -293,9 +285,7 @@ class ConfigFilesSectionsTest {
     /**
      * The bot's real {@code access.yml} is a list of STRING fields, most of them empty.
      *
-     * The new entry's quoted file text ({@code ''}) must not be returned to {@link ConfigFiles#write}'s own
-     * verification as if it were the logical value, or an appended empty string reads back as {@code ''} instead of
-     * emptiness.
+     * An appended empty string must read back as empty, not as the file text {@code ''}.
      */
     @Test
     void appendingAnEmptyStringFieldReadsBackEmptyNotQuoted() throws IOException {
@@ -371,12 +361,7 @@ class ConfigFilesSectionsTest {
         assertEquals(before, Files.readString(file), "a refused write must not touch the file");
     }
 
-    /**
-     * The hard half of removal: which comment goes with which entry.
-     *
-     * A comment sitting directly above an entry's own {@code - } line belongs to that entry and is removed with it,
-     * and a comment above the next entry's {@code - } line is left standing when a different entry is removed.
-     */
+    /** A comment directly above an entry's own line goes with that entry when it is removed. */
     private static final String TIERS_WITH_A_COMMENT_BETWEEN_ENTRIES = """
             tiers:
             - days: 30
@@ -488,7 +473,7 @@ class ConfigFilesSectionsTest {
                         Map.of("tiers", ConfigChange.sections(List.of(Map.of("days", "30", "price-cents", "300"))))));
     }
 
-    // Writing - refusals
+    // Writing: refusals
 
     @Test
     void aFieldMissingFromASentEntryIsRefused() throws IOException {

@@ -27,16 +27,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Exercises {@link AccessDirectory} against a real PostgreSQL instance running the real migration.
+ * Exercises {@link AccessDirectory} against a real PostgreSQL running the real migrations.
  *
- * Nothing here can be done in memory: the append rule, the expiry comparison and the double-book
- * guard are all evaluated by PostgreSQL - {@code GREATEST(now(), ...)}, {@code make_interval} and
- * a partial unique index have no in-JVM stand-in. Testcontainers is driven by hand from
- * {@link BeforeAll} because the {@code org.testcontainers:junit-jupiter} extension is built
- * against JUnit 5 and this repo is on the JUnit 6 BOM.
- *
- * These tests <b>skip themselves</b> when no Docker daemon is reachable. A green build on a
- * machine without Docker proves nothing about any of this.
+ * The append rule, expiry and double-book guard are PostgreSQL's; it skips itself without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AccessDirectoryIntegrationTest {
@@ -96,7 +89,7 @@ class AccessDirectoryIntegrationTest {
         execute("UPDATE season_phase SET phase = '" + phase.name() + "' WHERE id");
     }
 
-    /** Announces when paid access starts running - {@code V9__smp_start.sql}, set by hand in life. */
+    /** Sets when paid access starts running, {@code smp_start}. */
     private static void smpStartsIn(final Duration fromNow) {
         execute("UPDATE season_phase SET smp_start = now() + interval '" + fromNow.toSeconds() + " seconds' WHERE id");
     }
@@ -665,11 +658,7 @@ class AccessDirectoryIntegrationTest {
         }
     }
 
-    /**
-     * Makes an account an admin: the first becomes the root, every later one is granted by it.
-     *
-     * Clearing drops the account's branch.
-     */
+    /** Makes an account an admin, granted by the root unless it is the first; clearing drops its branch. */
     private void setAdmin(final String discordId, final boolean admin) {
         final AdminTree tree = AdminTree.using(dataSource);
         if (!admin) {

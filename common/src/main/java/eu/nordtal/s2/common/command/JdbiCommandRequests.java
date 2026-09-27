@@ -8,7 +8,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-/** {@link CommandRequests} over JDBI. Package-private: {@code CommandRequests} is the API. */
+/** {@link CommandRequests} over JDBI. */
 final class JdbiCommandRequests implements CommandRequests {
 
     private final CommandRequestDao dao;

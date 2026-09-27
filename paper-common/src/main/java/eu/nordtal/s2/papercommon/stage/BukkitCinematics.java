@@ -13,25 +13,9 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
 /**
- * The Paper half of the staging device: a scheduler, a screen, and the two events that end one.
+ * The Paper half of the staging device; timing lives in {@link Cinematics}.
  *
- * Everything about <em>when</em> a frame appears, what a second staging does to a first, and
- * what a cancel has to undo lives in {@link Cinematics}, in {@code :common}, where it can be driven
- * by a fake clock. What is here is the three things that need a Paper type: turning a delay into a
- * {@code BukkitTask}, turning a frame into a title, and noticing that the player is gone.
- *
- * Both endings are cancellations. {@link PlayerQuitEvent} fires while the player is still
- * resolvable, which is what lets {@link PlayerStage#clear()} take the effect off before they are
- * written to disk - otherwise somebody who logs out mid-staging comes back blind. Dying is a
- * different moment: the respawn screen sits under the title, and blindness survives a death by
- * default, so the frames would otherwise go on playing over somebody's death screen.
- *
- * {@link EventPriority#MONITOR} on both: neither changes the event, and cancelling a staging must
- * not depend on whether something earlier in the chain cancelled something else.
- *
- * A moment's frames belong to the module that owns the moment: this class deliberately holds no
- * registry of named stagings or config file describing them, which would be a second place a font
- * key can be wrong.
+ * A quit or a death cancels it, and a quit clears the effect before the player is saved.
  */
 public final class BukkitCinematics implements Listener {
 
@@ -49,10 +33,9 @@ public final class BukkitCinematics implements Listener {
     }
 
     /**
-     * Starts one for this player. Main thread.
+     * Starts one for this player, on the main thread.
      *
-     * @return whether it started. {@code false} means this player is already in the middle of one -
-     * see {@link Cinematics#start}, which refuses rather than queues
+     * @return whether it started; {@code false} if this player is already in one
      */
     public boolean start(final Player player, final Cinematic cinematic) {
         return cinematics.start(player.getUniqueId(), cinematic, new PlayerStage(plugin, player.getUniqueId(), sounds));
@@ -73,11 +56,9 @@ public final class BukkitCinematics implements Listener {
     }
 
     /**
-     * Stops everything - what a plugin calls at disable.
+     * Stops everything, at plugin disable.
      *
-     * Paper disables plugins <b>before</b> it saves and disconnects players, so a staging still
-     * running at that point would be written to disk with its effect on. This is the one call that
-     * takes it off while there is still somebody to take it off.
+     * Paper disables plugins before it saves players, so this is the last chance to clear the effect.
      */
     public void stop() {
         cinematics.cancelAll();

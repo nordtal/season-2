@@ -28,11 +28,7 @@ class PaymentCoreStaysNeutralTest {
     /**
      * Package prefixes that must never be imported here, and the sentence each one gets when it is.
      *
-     * {@code eu.nordtal.jcore} is in the list for a different reason from the other three: it
-     * would compile, because the bot and the worker both have jcore. {@code :common} deliberately
-     * does not - see the dependency comment in {@code common/build.gradle.kts} - and one import
-     * here would put jcore's whole block (Flyway, gson, snakeyaml, commons-*) behind every plugin
-     * that touches a payment row.
+     * jcore would compile, but it would pull its whole dependency block into every plugin.
      */
     private static final Map<String, String> FORBIDDEN = Map.of(
             "com.bunq.",

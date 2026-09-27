@@ -11,13 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/**
- * The console, end to end, against the running stack.
- *
- * The whole point of §10a.2 is a round trip nobody has to take on trust: a line typed here comes out of the server's
- * own log. That is what this asserts, by typing {@code list} into the live SMP - a command that changes nothing,
- * names who is online, and is the smallest thing that proves the path.
- */
+/** The console, end to end: {@code list} typed into the live SMP comes out of the server's own log. */
 class ConsoleIntegrationTest {
 
     private static final String PROJECT = "nordtal-s2";
@@ -78,13 +72,7 @@ class ConsoleIntegrationTest {
         assertTrue(found != null, "typed `list` into the SMP and its answer never appeared in the log");
     }
 
-    /**
-     * Whether a log line was written after a given instant.
-     *
-     * The stream is asked for timestamps, so every line begins with one in RFC 3339. A line whose timestamp cannot be
-     * read is treated as OLD rather than new: the question this answers is "did my command cause this", and an
-     * unreadable timestamp is not evidence that it did.
-     */
+    /** Whether a log line was written after {@code instant}; an unreadable timestamp counts as old. */
     private static boolean isAfter(final String line, final Instant instant) {
         final int space = line.indexOf(' ');
         if (space <= 0) {

@@ -14,25 +14,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The database dump.
+ * The database dump, by {@code pg_dump} inside the postgres container, into a directory both mount.
  *
- * Why pg_dump and not a snapshot of the data directory: Taken from the sidecar's own reasoning, which is sound and
- * is not re-derived here: tarring a live {@code PGDATA} produces a torn copy that raises no error at backup time and
- * is a broken cluster at restore time - months later, on the day it is needed. Stopping PostgreSQL for the length of
- * a tar instead is a nightly outage of every process in the stack. {@code pg_dump} has neither problem: it takes an
- * MVCC snapshot, so the dump is consistent as of the moment it started, and nothing stops.
- *
- * Why it runs inside the postgres container: A pg_dump older than the server it dumps is refused outright. The
- * sidecar solved that by being built FROM the same postgres image; this solves it by running the binary that is
- * already in that image, which cannot be the wrong version by construction. It also keeps a postgres client - and a
- * version to keep in step - out of steward-worker's own image.
- *
- * The file is therefore written on the postgres container's side, into a directory both containers mount. Nothing
- * large travels through the socket: the exec carries the command and the exit code, not the dump.
- *
- * Partial, then verified, then named: The same three steps the sidecar used, for the same reason. A half-written
- * file that looks like every other dump in the directory is worse than no file at all: it is the one the retention
- * sweep keeps and the one a restore picks.
+ * Written as a partial, verified, then renamed, so a torn file never looks like a dump.
  */
 public final class DatabaseDump {
 
@@ -44,15 +28,10 @@ public final class DatabaseDump {
     /** The name a dump is saved under, so the report and the interface can speak of one thing. */
     public static final String NAME = "database";
 
-    /**
-     * {@code nordtal-<stamp>.dump}, in two halves.
-     *
-     * So that {@link TarSnapshots#prune} can build a pattern from the same strings this class writes: one per night
-     * on the disk that holds the only copy of the world is not a file to leave uncounted.
-     */
+    /** {@code nordtal-<stamp>.dump}, in two halves, so {@link TarSnapshots#prune} can match what this writes. */
     static final String PREFIX = "nordtal-";
 
-    /** @see #PREFIX */
+    /** The second half of {@link #PREFIX}. */
     static final String SUFFIX = ".dump";
 
     private final Docker docker;
@@ -62,8 +41,10 @@ public final class DatabaseDump {
     private final Clock clock;
 
     /**
-     * @param service   the compose service running PostgreSQL, normally {@code postgres}
-     * @param directory where the dump is written, as the POSTGRES container sees it
+     * Dumps through one service.
+     *
+     * @param service the compose service running PostgreSQL, normally {@code postgres}
+     * @param directory where the dump is written, as the postgres container sees it
      */
     public DatabaseDump(
             final Docker docker,
@@ -108,7 +89,7 @@ public final class DatabaseDump {
         return dumpAndVerify(containerId, finalPath, partialPath, started);
     }
 
-    // The directory, as root, before the dump: pg_dump runs as `postgres` while the volume's root belongs to root:root.
+    // As root, before the dump: pg_dump runs as `postgres` and the volume's root belongs to root.
     private @Nullable SnapshotResult prepareDirectory(final String containerId, final Instant started) {
         final Docker.ExecResult prepared = docker.exec(
                 containerId,
@@ -137,7 +118,7 @@ public final class DatabaseDump {
                     NAME, took(started), "pg_dump exited " + dumped.exitCode() + ": " + firstLine(dumped.output()));
         }
 
-        // Cheap integrity check: reading the archive's own table of contents back catches a truncated file early.
+        // Reading the archive's table of contents back catches a truncated file early.
         final Docker.ExecResult listed = run(containerId, "pg_restore --list " + quote(partialPath) + " > /dev/null");
         if (!listed.ok()) {
             remove(containerId, partialPath);
@@ -174,7 +155,7 @@ public final class DatabaseDump {
                 .findFirst();
     }
 
-    // As `postgres`: the official image trusts the local socket only for that user, and root cannot overwrite it later.
+    // As `postgres`: the official image trusts the local socket only for that user.
     private Docker.ExecResult run(final String containerId, final String script) {
         return docker.exec(containerId, List.of("sh", "-c", script), "postgres");
     }
@@ -202,7 +183,7 @@ public final class DatabaseDump {
         return Duration.between(started, clock.instant());
     }
 
-    /** Single quotes, with the one escape that matters. These are our paths, not user input. */
+    /** Single quotes, with the one escape that matters; these are our paths, not user input. */
     private static String quote(final String path) {
         return "'" + path.replace("'", "'\\''") + "'";
     }

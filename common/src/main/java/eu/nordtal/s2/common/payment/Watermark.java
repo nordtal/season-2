@@ -12,10 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The cut-off before which the payment poll ignores payments, forever.
- *
- * The first start writes its own instant with {@code ON CONFLICT DO NOTHING}, and nothing updates it. The
- * {@code payment.watermark} override wins when set, but the stored value is still written.
+ * The cut-off before which the payment poll ignores payments, written once by the first start.
+ * The {@code payment.watermark} override wins when set, but the stored value is still written.
  */
 public final class Watermark {
 
@@ -28,10 +26,7 @@ public final class Watermark {
     /**
      * Resolves the cut-off, writing the first-start value if there is none yet.
      *
-     * @param jdbi       the bot's database
-     * @param configured {@code payment.watermark} from {@code access.yml}; blank for the normal
-     *                   case
-     * @return the instant before which payments are ignored
+     * @param configured {@code payment.watermark} from {@code access.yml}, normally blank
      */
     public static Instant resolve(final Jdbi jdbi, final String configured) {
         final BotSettingDao dao = jdbi.onDemand(BotSettingDao.class);
@@ -62,18 +57,15 @@ public final class Watermark {
         return watermark;
     }
 
-    /** @return when the stored watermark was first written, for {@code /access-status}-style output */
+    /** Returns when the stored watermark was first written. */
     public static Optional<Instant> storedAt(final Jdbi jdbi) {
         return jdbi.onDemand(BotSettingDao.class).createdAt(KEY).map(OffsetDateTime::toInstant);
     }
 
-    /** {@code bot_setting}: values the bot decides once and must never decide again. */
+    /** {@code bot_setting}: values the bot decides once and never again. */
     interface BotSettingDao {
 
-        /**
-         * @return 1 when this call wrote the value, 0 when it was already there - which is what
-         *         makes "written exactly once" true across two containers rather than hoped for
-         */
+        /** Returns 1 when this call wrote the value, 0 when it was already there. */
         @SqlUpdate("""
                 INSERT INTO bot_setting (key, value)
                 VALUES (:key, :value)
@@ -88,7 +80,7 @@ public final class Watermark {
         Optional<OffsetDateTime> createdAt(@Bind("key") String key);
     }
 
-    /** @return the instant as {@code timestamptz} would see it, for tests and logging */
+    /** Returns the instant as {@code timestamptz} would see it. */
     static OffsetDateTime utc(final Instant instant) {
         return instant.atOffset(ZoneOffset.UTC);
     }

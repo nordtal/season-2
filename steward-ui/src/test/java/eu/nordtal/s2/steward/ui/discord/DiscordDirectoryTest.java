@@ -19,15 +19,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * The list of names behind the ids, against a stand-in Discord.
+ * The names behind the ids, against a stand-in Discord.
  *
- * What is worth testing here is not that Gson can read a JSON array. It is the four things that
- * decide whether a configuration page is usable or misleading: that a deployment with no token says
- * which value is missing rather than drawing an empty select; that {@code @everyone} is not offered
- * as a role somebody could give away; that the header is {@code Bot} and not {@code Bearer}, which
- * Discord answers 401 for with no hint that the prefix was the problem; and that a second call
- * inside the cache window does not become a second request, because a page with eleven pickers on
- * it would otherwise be eleven.
+ * A missing token is named, {@code @everyone} is not offered, the header is {@code Bot}, and the cache holds.
  */
 class DiscordDirectoryTest {
 
@@ -67,7 +61,7 @@ class DiscordDirectoryTest {
 
     @Test
     void everyoneIsNotARoleAnybodyMeansToConfigure() throws Exception {
-        // @everyone carries the guild's own id and pinging it is a thing done by accident exactly once.
+        // @everyone carries the guild's own id, and pinging it is done by accident exactly once.
         final DiscordDirectory directory = directoryFor("""
                 [{"id":"1","name":"@everyone","position":0},
                  {"id":"20","name":"Donor","position":3},

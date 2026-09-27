@@ -9,16 +9,11 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Who is connected right now, one row per player, written by the proxy in the same tick as the counts.
- *
- * Unlike {@link OnlineDirectory#write}, {@link #replace} deletes every row not given. An empty answer from
- * {@link #current()} may be stale; judging that is the reader's job.
+ * Unlike {@link OnlineDirectory#write}, {@link #replace} deletes every row not given.
  */
 public interface OnlineRoster {
 
-    /**
-     * @param dataSource the pool the caller already owns - proxy's, or steward-worker's
-     * @return a roster over that pool; it owns nothing and there is nothing to close
-     */
+    /** Returns a roster over a pool the caller owns; there is nothing to close. */
     static OnlineRoster using(final DataSource dataSource) {
         return new JdbiRoster(dataSource);
     }
@@ -32,11 +27,7 @@ public interface OnlineRoster {
      */
     void replace(Collection<Presence> connected);
 
-    /**
-     * @return every player proxy last wrote down, in no particular order - empty when
-     *         nobody was connected, and empty when nobody has written in a week. See the class
-     *         documentation for why this interface does not tell those two apart
-     */
+    /** Returns every player proxy last wrote down, in no order; an empty list may also be stale. */
     List<OnlinePlayer> current();
 
     /**

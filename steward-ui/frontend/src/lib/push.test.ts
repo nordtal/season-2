@@ -10,10 +10,9 @@ import {
 } from "@/lib/push"
 
 /**
- * The boundary conversion (base64url from the server into the bytes `applicationServerKey` wants)
- * and the orchestration around a fake `navigator.serviceWorker`, on the same pattern as
- * `webauthn.test.ts` - jsdom has no real Push API, so what is real here is that a given fake
- * sequence of calls produces the right subscribe/unsubscribe/query.
+ * Base64url into the bytes `applicationServerKey` wants, and the calls around a fake `navigator.serviceWorker`.
+ *
+ * jsdom has no Push API, so what is tested is that a fake call sequence gives the right result.
  */
 
 describe("the VAPID public key as the browser's API wants it", () => {
@@ -23,15 +22,12 @@ describe("the VAPID public key as the browser's API wants it", () => {
   })
 
   it("reads the two characters that differ from plain base64", () => {
-    // 0xfb 0xff 0xbe -> base64 "+/++", base64url "" (see webauthn.test.ts's own ALPHABET_TRAP).
+    // 0xfb 0xff 0xbe is base64 "+/++" and base64url "-_--", as in webauthn.test.ts's ALPHABET_TRAP.
     expect(urlBase64ToUint8Array("-_--")).toEqual(new Uint8Array([0xfb, 0xff, 0xbe]))
   })
 
   it("round-trips at every padding remainder a key length can land on", () => {
-    /**
-     * A P-256 point, uncompressed, is 65 bytes - not a multiple of 3 - so the un-padded case is the
-     * one this function is for; the shorter lengths cover the other two remainders.
-     */
+    /** A P-256 point is 65 bytes uncompressed, not a multiple of 3; the shorter lengths cover the other remainders. */
     const cases: Array<[string, number[]]> = [
       ["AQ", [1]],
       ["AQI", [1, 2]],

@@ -34,40 +34,16 @@ import {
 import { Switch } from "@/components/ui/switch"
 
 /**
- * Everything about notifications, in the one place somebody would look for it.
+ * Every notification setting, reached from the user popover so it is found.
  *
- * **Why this exists at all:** a switch that turns push on would be easy to miss as a card at the
- * bottom of `/settings`. This hangs off the round picture that already carries the security keys
- * rather than off a page in the navigation, so it is found.
- *
- * **Mounted outside the popover, like `SecurityKeyDialogs`** - and for the identical reason, which
- * that file states: a dialog rendered inside a popover is unmounted by the first outside click, and
- * a dialog's own overlay is an outside click. The state therefore lives above both, in
- * {@link useNotificationActions}.
- *
- * <h2>Five sections</h2>
- * This browser, which kinds this account wants, the numbers those kinds fire on, every browser
- * subscribed, and a test send. The thresholds exist because deciding *whether* to be told and
- * deciding *when* are the same sitting - a disk warning that reaches a phone is of little use if
- * there is nowhere to move the number that triggers it. The test send sits on the paper plane rather
- * than on a select beside the word "Devices", which would look like a filter of the list
- * under it.
- *
- * **Nothing here scrolls sideways.** On a phone that is always a layout fault and never a property
- * of the content, so every row is `min-w-0` with something in it allowed to truncate, and no fixed
- * width survives below `sm`.
+ * Mounted outside the popover like `SecurityKeyDialogs`: a popover unmounts a dialog on the first outside click.
  */
 export type NotificationActions = ReturnType<typeof useNotificationActions>
 
 /**
- * The words for {@link AlertTypeKey}, and the one place they exist.
+ * The words for {@link AlertTypeKey}.
  *
- * <h2>Two labels per type, because they answer two different questions</h2>
- * `label` is what a switch governs and stays a plural noun: a list of things to be told about.
- * `test` is what pressing it will actually put on a lock screen in a moment -
- * *not just "Service" but "Service down"*. The words come from `AlertWatch#sample`, which is what
- * the backend really sends for a test of that type, and `tone` is the level it sends with. A row
- * that promised something the push does not say would be the one lie this dialog could tell.
+ * `label` names what a switch governs; `test` and `tone` are what `AlertWatch#sample` really sends.
  */
 const TYPES: ReadonlyArray<{
   key: AlertTypeKey
@@ -85,11 +61,7 @@ const TYPES: ReadonlyArray<{
 export function useNotificationActions() {
   const supported = pushSupported()
   const [open, setOpen] = useState(false)
-  /**
-   * Nothing is fetched until the dialog has been opened once: an account that never opens it should
-   * not cost two queries on every page load, and the public key below is the one exception - it has
-   * to be in cache BEFORE the button is tapped (see useWebPushPublicKey).
-   */
+  /** Nothing is fetched until the dialog opens, except the public key, which must be cached before the tap. */
   const publicKey = useWebPushPublicKey(supported)
   const subscription = useWebPushSubscription(supported)
   const devices = useWebPushDevices(open)
@@ -120,11 +92,7 @@ export function useNotificationActions() {
 export function NotificationsDialog({ state }: { state: NotificationActions }) {
   return (
     <ResponsiveDialog open={state.open} onOpenChange={state.setOpen}>
-      {/*
-        `sm:max-w-md` and nothing below it: a sheet is as wide as the phone, and `overflow-x-hidden`
-        on the scroller is the belt to the braces of every row being `min-w-0` - a popover that
-        opens near the right edge must not be able to widen the sheet it hangs in.
-      */}
+      {/* `sm:max-w-md` only: below it a sheet is as wide as the phone, and no row may widen it. */}
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Notifications</ResponsiveDialogTitle>
@@ -146,11 +114,9 @@ export function NotificationsDialog({ state }: { state: NotificationActions }) {
 }
 
 /**
- * Whether the browser being read from is subscribed, and the one button that changes it.
+ * Whether this browser is subscribed, and the button that changes it.
  *
- * The `onClick` calls `.mutate` directly and never `await`s anything first: iOS only opens the
- * permission prompt `pushManager.subscribe()` asks for while the tap is still on the call stack.
- * The public key is already in cache - see `lib/push.ts`'s module note for the whole of it.
+ * `onClick` calls `.mutate` without awaiting first, since iOS only prompts while the tap is on the stack.
  */
 function ThisDevice({ state }: { state: NotificationActions }) {
   const subscribed = Boolean(state.subscription.data)
@@ -207,11 +173,7 @@ function Types({ state }: { state: NotificationActions }) {
             <Switch
               id={`notify-${type.key}`}
               className="shrink-0"
-              /**
-               * Undefined until the query has answered, and disabled until then: a switch drawn
-               * off before anything was read would show every type as off for a moment, which is
-               * the one reading this dialog must never give by accident.
-               */
+              /** Off until the query answers, and disabled until then, so no type ever reads as off by accident. */
               checked={chosen?.[type.key] ?? false}
               disabled={!chosen}
               onCheckedChange={(enabled) => state.choose.mutate({ type: type.key, enabled })}
@@ -228,30 +190,14 @@ function Types({ state }: { state: NotificationActions }) {
   )
 }
 
-/** The service and the file the three numbers live in - `UiSpec.AlertSpec`, keyed under `alerts`. */
+/** The service and file holding the three numbers: `UiSpec.AlertSpec`, keyed under `alerts`. */
 const ALERTS_SERVICE = "steward-ui"
 const ALERTS_FILE = "steward-ui.yml"
 
 /**
- * The three numbers the light - and therefore every push - fires on.
+ * The three numbers the light, and therefore every push, fires on, editable here.
  *
- * The threshold is settable inside this dialog rather than only
- * readable somewhere else. Simply showing them and pointing at the
- * configuration page would be a lesser answer: they are **server-side
- * rather than per-account**, but server-side does not
- * mean unreachable. `alerts.disk-percent` and its two neighbours are ordinary scalars in
- * `steward-ui/steward-ui.yml`, and the same PUT the configuration form uses writes them, revision
- * and all.
- *
- * <h2>Not a second form over one value</h2>
- * The configuration page still owns editing every other key in that file. What this is, is the three keys a notification is about, at the moment somebody
- * is reading a notification. The revision guard is what makes two ways in safe: a save from here
- * against a stale revision is refused with a 409 exactly as one from the form would be.
- *
- * <h2>When the file is not there</h2>
- * A deployment whose worker does not list `steward-ui/steward-ui.yml` - or lists it unwritable -
- * gets the read-only shape the ticket describes, with the link. A field that cannot write is worse
- * than no field, so there is no third state in which one is drawn hopefully.
+ * It writes `steward-ui.yml` with the configuration form's PUT, so a stale revision is refused with a 409.
  */
 function Thresholds({ state }: { state: NotificationActions }) {
   const client = useQueryClient()
@@ -303,11 +249,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
                 type="number"
                 min={1}
                 inputMode="numeric"
-                /**
-                 * Wide enough for three digits and no wider: this sits at the right edge of a
-                 * 390px sheet, and an input that keeps its desktop width there is exactly the box
-                 * that pushes the row past the screen.
-                 */
+                /** Three digits wide, so the row fits a 390px sheet. */
                 className="h-8 w-16 text-right"
                 value={edited[row.path] ?? row.entry?.value ?? ""}
                 onChange={(event) => setEdited((before) => ({ ...before, [row.path]: event.target.value }))}
@@ -329,12 +271,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
               {
                 onSuccess: () => {
                   setEdited({})
-                  /**
-                   * The traffic light reads the effective numbers from
-                   * `/api/settings`, which is a different cache entry from the file this just
-                   * wrote. Without this it keeps the old thresholds until something else
-                   * refetches them, and the dialog would look like it had not saved.
-                   */
+                  /** The light reads `/api/settings`, a different cache entry from the file just written. */
                   void client.invalidateQueries({ queryKey: keys.settings })
                 },
               },
@@ -353,7 +290,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
   )
 }
 
-/** The three keys, in the order the light reads them. `unit` is a word, never a second column. */
+/** The three keys, in the order the light reads them. */
 const THRESHOLDS: ReadonlyArray<{ key: string; path: string; label: string; unit: string }> = [
   { key: "disk", path: "alerts.disk-percent", label: "Disk in use", unit: "%" },
   { key: "memory", path: "alerts.memory-percent", label: "Memory in use", unit: "%" },
@@ -388,7 +325,7 @@ function ReadOnlyThresholds({
             <li key={row.key} className="flex items-center justify-between gap-2 py-1">
               <span className="min-w-0 truncate text-sm">{row.label}</span>
               <span className="shrink-0 text-sm text-muted-foreground">
-                {row.entry?.value ?? "—"} {row.unit}
+                {row.entry?.value ?? "\u2014"} {row.unit}
               </span>
             </li>
           ))}
@@ -411,15 +348,7 @@ function ReadOnlyThresholds({
   )
 }
 
-/**
- * Every browser on this account, and a test send to one of them.
- *
- * **The choice of WHICH notification is tested hangs off the paper plane.** A select beside the
- * word "Devices" would occupy the position a filter of the
- * list beneath it would occupy - and would make the header row of a 390px sheet carry a 144px control
- * it could not shrink. A popover on the button that does the sending says what it is for by being
- * where it is, and it costs the header nothing.
- */
+/** Every browser on this account, and a test send to one of them, chosen on the paper plane's popover. */
 function Devices({ state }: { state: NotificationActions }) {
   const mine = state.subscription.data
   const devices = state.devices.data ?? []
@@ -429,12 +358,7 @@ function Devices({ state }: { state: NotificationActions }) {
     <div className="flex flex-col gap-2">
       <span className="text-xs text-muted-foreground">Devices</span>
 
-      {/*
-        Drawing nothing at all while this list is loading would open the dialog at one
-        height and grow it a moment later - under a dropdown somebody had just aimed at. Two rows of
-        the right height are reserved instead: two is the ordinary number of browsers, and the
-        list is the last thing in the dialog, so being wrong by one costs nothing.
-      */}
+      {/* Two placeholder rows while loading, so the dialog does not grow under a pointer. */}
       {state.devices.isPending ? (
         <ul className="flex flex-col">
           {WAITING_DEVICES.map((index) => (
@@ -467,7 +391,7 @@ function Devices({ state }: { state: NotificationActions }) {
   )
 }
 
-/** Two rows while the subscriptions are read. Most accounts have one browser, some have two. */
+/** Two rows while the subscriptions are read. */
 const WAITING_DEVICES = [0, 1]
 
 function DeviceRow({
@@ -487,11 +411,7 @@ function DeviceRow({
     <li className="flex items-center gap-2 py-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm">{name}</span>
-        {/*
-          One line under the name, and "this device" wins it: which of several similar-looking
-          browsers is the one in your hand is the only question this list is ever asked, and a
-          second line saying both would be the separator this interface does not use.
-        */}
+        {/* One line under the name, and "this device" wins it. */}
         <span className="truncate text-xs text-muted-foreground">
           {isThisOne
             ? "this device"
@@ -513,10 +433,7 @@ function DeviceRow({
             <PaperPlaneTiltIcon aria-hidden />
           </Button>
         </PopoverTrigger>
-        {/*
-          `align="end"` and a width in `rem`, not a fraction: this opens against the right edge of a
-          390px sheet, and an end-aligned popover grows leftwards into the sheet instead of past it.
-        */}
+        {/* End-aligned with a `rem` width, so it grows left into the sheet instead of past it. */}
         <PopoverContent align="end" className="w-60 max-w-[calc(100vw-2rem)] p-1">
           <p className="px-2 py-1.5 text-xs text-muted-foreground">Test notifications</p>
           <ul className="flex flex-col">

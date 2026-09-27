@@ -4,45 +4,27 @@ import eu.nordtal.jcore.config.spec.Specs;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * The ten sounds a fresh {@code sounds.yml} is written with.
- *
- * Same mechanism and same caveat as {@link DefaultRefillTiers}: a nested spec is served by a
- * reflective proxy and {@code Specs.createUnsafe} does <b>not</b> apply defaults, so every key of
- * the spec has to appear in the map or it comes out null.
- *
- * <b>Every value here is byte-identical to {@code smp}'s {@code DefaultSounds}</b>, and that is
- * the decision rather than a copy nobody thought about: the point of one vocabulary is that a player
- * who is refused something on the event server and refused something on the SMP hears the same
- * refusal. Divergence is allowed - it is a config file - but it should be a thing somebody chose
- * after hearing both, not a thing that happened because two files were written a day apart.
- *
- * Nobody has heard any of them next to each other yet. {@code SoundsSpec} carries the reasoning;
- * this class is only the values.
- */
+/** The ten sounds a fresh {@code sounds.yml} is written with, as in {@code smp}; every key has to appear in the map. */
 final class DefaultSounds {
 
-    // One vanilla sound per Feedback category; SoundDefaultsTest re-resolves each against Bukkit on every build.
+    // One vanilla sound per Feedback category; SoundDefaultsTest resolves all ten.
 
-    /** A pickup, pitched up so it reads as lighter than the level-up. Here: a kill, a ready mark. */
+    /** A pickup, pitched up so it reads as lighter than the level-up: a kill, a ready mark. */
     static final SoundsSpec.SoundSpec SMALL_SUCCESS = sound("minecraft:entity.experience_orb.pickup", 1.4f);
 
-    /** The level-up chime. On this server exactly one player hears it, once, and they won. */
+    /** The level-up chime, heard once by the winner. */
     static final SoundsSpec.SoundSpec BIG_SUCCESS = sound("minecraft:entity.player.levelup", 1.0f);
 
-    /** A low note block. Short, unmistakably negative, and not the villager's groan. */
+    /** A low note block: short, negative, and not the villager's groan. */
     static final SoundsSpec.SoundSpec REFUSED = sound("minecraft:block.note_block.bass", 0.7f);
 
     /** The villager's "no", which everybody already reads as having lost something. */
     static final SoundsSpec.SoundSpec LOSS = sound("minecraft:entity.villager.no", 0.9f);
 
-    /** Unreachable on this server - see SoundsSpec. Kept identical to the SMP's all the same. */
     static final SoundsSpec.SoundSpec SURFACE_OPEN = sound("minecraft:block.barrel.open", 1.2f);
 
-    /** Unreachable on this server - see SoundsSpec. */
     static final SoundsSpec.SoundSpec SURFACE_CLOSE = sound("minecraft:block.barrel.close", 1.2f);
 
-    /** Unreachable on this server - see SoundsSpec. */
     static final SoundsSpec.SoundSpec SELECT = sound("minecraft:ui.button.click", 1.0f);
 
     static final SoundsSpec.SoundSpec TRAVEL = sound("minecraft:block.beacon.power_select", 1.0f);
@@ -53,15 +35,9 @@ final class DefaultSounds {
     /** The advancement toast, which is the one sound vanilla itself uses to mean "look". */
     static final SoundsSpec.SoundSpec NETWORK_EVENT = sound("minecraft:ui.toast.challenge_complete", 1.0f);
 
-    /**
-     * The one category with no sound. See {@code Feedback.STAGING}: the blank is the decision.
-     *
-     * Written through the same map as the others so the key still appears in a fresh file with
-     * its comment - an absent key would leave nobody anything to fill in.
-     */
+    /** No sound, deliberately (see {@code Feedback.STAGING}); written anyway so the key appears in a fresh file. */
     static final SoundsSpec.SoundSpec STAGING = sound("", 1.0f);
 
-    /** Unreachable on this server - see SoundsSpec. Kept identical to the SMP's all the same. */
     static final SoundsSpec.SoundSpec RECLAIMED = sound("minecraft:entity.skeleton.death", 1.0f);
 
     private DefaultSounds() {}

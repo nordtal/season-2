@@ -11,33 +11,18 @@ import java.util.Optional;
 import org.slf4j.Logger;
 
 /**
- * The 64 x 64 icon the server browser shows next to the MOTD.
+ * The 64 x 64 icon the server browser shows, from {@code plugins/proxy/icon.png}.
  *
- * The one surface of the first impression that needs no resource pack: a ping carries the icon
- * itself, base64, so it is seen by everybody who has the address and by nobody who has joined.
- * The file is {@code plugins/proxy/icon.png}; a first start copies the built-in one
- * there so that the operator finds a file to replace rather than a setting to discover.
- *
- * The built-in one is {@code resource-pack/src/pack.png}: 128 x 128 pixel art whose every 2 x 2
- * block is uniform, so the icon is every second pixel of it. Nearest neighbour at a whole-number
- * ratio restores the original pixels; a smoothing resampler turns 21 colours into hundreds and the
- * mark reads as a low-resolution photograph in a server list.
- *
- * Velocity refuses anything but 64 x 64, and a ping without an icon is a perfectly good ping -
- * so every failure here is a warning and an empty answer, never a proxy that does not start.
+ * The built-in one is {@code pack.png} at every second pixel; any failure is a warning and no icon.
  */
 public final class ServerIcon {
 
-    /** Where the built-in icon sits in the jar, and what the file is called in the data folder. */
+    /** Where the built-in icon sits in the jar, and the file's name in the data folder. */
     public static final String FILE_NAME = "icon.png";
 
     private ServerIcon() {}
 
-    /**
-     * @param dataDirectory the plugin's data folder
-     * @param logger        for the one warning a bad file produces
-     * @return the icon to put in every ping, or empty when there is none to be had
-     */
+    /** The icon for every ping, or empty when there is none to be had. */
     public static Optional<Favicon> load(final Path dataDirectory, final Logger logger) {
         Objects.requireNonNull(dataDirectory, "dataDirectory");
         final Path file = dataDirectory.resolve(FILE_NAME);

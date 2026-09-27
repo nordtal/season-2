@@ -17,14 +17,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * The way back, and who is told about it.
- *
- * Three rules, and each of them is a different way of being wrong in a player's chat box: a
- * sentence about a server coming back said to somebody who has just logged in, a counter shown to
- * somebody sitting in front of a "please wait" screen, and a return that happens with no warning at
- * all in the middle of a fight.
- */
+/** The way back, and who is told about it: nobody just logged in, nobody waiting, and never without warning. */
 class HomecomingTest {
 
     private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
@@ -47,7 +40,7 @@ class HomecomingTest {
         final UUID justLoggedIn = UUID.randomUUID();
         homecoming.owedNow(Set.of(moved));
 
-        // Limbo is where every login waits, so a release alone is not a homecoming to somebody who never saw it go.
+        // Every login waits in limbo, so a release alone is not a homecoming.
         assertFalse(homecoming.claim(justLoggedIn));
 
         assertTrue(homecoming.claim(moved));
@@ -76,7 +69,7 @@ class HomecomingTest {
         assertTrue(Homecoming.interrupts("smp", SERVERS));
         assertTrue(Homecoming.interrupts("hunger-games", SERVERS));
 
-        // Ten seconds of counting at somebody staring at "please wait" is ten more seconds of the thing ending it.
+        // Counting at somebody on a "please wait" screen only delays the thing ending it.
         assertFalse(Homecoming.interrupts("limbo", SERVERS));
         assertFalse(Homecoming.interrupts("limbo-standby", SERVERS));
         assertFalse(Homecoming.interrupts(null, SERVERS), "still connecting; there is no game yet");
@@ -89,7 +82,7 @@ class HomecomingTest {
         final List<Countdown.Beat> beats =
                 new Countdown().beats(1L, Homecoming.NOTICE).orElseThrow();
 
-        // One chat line at ten, nine subtitles, the transfer, and the ten-second tick dropped since chat draws it.
+        // One chat line at ten, nine subtitles, the transfer; the ten-second tick is dropped since chat draws it.
         assertEquals(Announcement.Kind.COUNTDOWN, beats.get(0).announcement().kind());
         assertEquals(10L, beats.get(0).announcement().seconds());
         assertEquals(java.time.Duration.ZERO, beats.get(0).delay(), "the first word is said now");
@@ -102,7 +95,7 @@ class HomecomingTest {
                 beats.get(beats.size() - 1).delay(),
                 "the transfer is the zero beat and nothing else moves anybody");
 
-        // A notice longer than Countdown's subtitle stretch means a chat line, silence, then a counter mid-wait.
+        // A notice longer than Countdown's subtitle stretch leaves silence, then a counter mid-wait.
         assertTrue(
                 Homecoming.NOTICE.toSeconds() <= Countdown.SUBTITLES_FROM,
                 "the notice has grown past the seconds Countdown counts");
@@ -110,7 +103,7 @@ class HomecomingTest {
 
     @Test
     void theSentenceComesBeforeTheTransfer() throws IOException {
-        // Read as source: in the other order the message reaches a connection the transfer already closed.
+        // Read as source: in the other order the message reaches a connection the transfer closed.
         final String source = Files.readString(Path.of("src/main/java/eu/nordtal/s2/proxy/update/StandbyReturn.java"));
         final int said = source.indexOf("voice.say(here, beat.announcement())");
         final int moved = source.indexOf("sendHome(here)");

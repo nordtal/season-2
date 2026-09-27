@@ -18,12 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The fail-fast for {@code proxy}'s own config files.
- *
- * Every value here must stop the gate from starting rather than surface as a confusing failure
- * later.
- */
+/** Every invalid value in the proxy's own config files stops the gate from starting. */
 class ConfigsTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigsTest.class);
@@ -176,7 +171,7 @@ class ConfigsTest {
 
     @Test
     void aFreshPackConfigIsEnabledButRefusesToStartUntilItIsFilledIn() throws Exception {
-        // Enabled by default because a production network has a pack, but empty, so a fresh install fails closed.
+        // Enabled but empty by default, so a fresh install fails closed.
         assertThrows(ConfigValidationException.class, () -> Configs.pack(directory, LOGGER));
         assertTrue(
                 Files.isRegularFile(directory.resolve("pack.yml")),
@@ -202,7 +197,7 @@ class ConfigsTest {
 
     @Test
     void aDisabledPackIsAllowedToLeaveTheUrlAndHashEmpty() throws Exception {
-        // The escape hatch for a development proxy: refusing to start over values nothing reads defeats the point.
+        // The escape hatch for a development proxy, which must not be refused over values nothing reads.
         writePack("", "", false, true, 180);
 
         final PackSpec config = Configs.pack(directory, LOGGER).get();
@@ -222,7 +217,7 @@ class ConfigsTest {
 
     @Test
     void aUrlTheClientCannotDownloadFromIsRejected() throws Exception {
-        // A path or a file: URL is a mistake made once, and the client answers INVALID_URL for every player at once.
+        // A path or a file: URL makes the client answer INVALID_URL for every player.
         writePack("/var/www/pack.zip", REAL_LOOKING_SHA1, true, true, 180);
 
         final ConfigValidationException error =
@@ -232,7 +227,7 @@ class ConfigsTest {
 
     @Test
     void aHashThatIsNotFortyHexCharactersIsRejected() throws Exception {
-        // Length and alphabet are all that can be checked here; whether it is the real hash only the client answers.
+        // Only length and alphabet can be checked here.
         for (final String wrong : new String[] {
             "deadbeef", REAL_LOOKING_SHA1 + "0", "sha1-" + REAL_LOOKING_SHA1, "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3g"
         }) {
@@ -246,7 +241,7 @@ class ConfigsTest {
 
     @Test
     void anUppercaseHashIsAccepted() throws Exception {
-        // Some tools write it uppercase. Refusing that would be a rule about typography, not safety.
+        // Some tools write it uppercase, which is not a safety concern.
         writePack(
                 "https://example.invalid/pack.zip",
                 REAL_LOOKING_SHA1.toUpperCase(java.util.Locale.ROOT),
@@ -261,7 +256,7 @@ class ConfigsTest {
 
     @Test
     void aZeroApplyTimeoutIsRejectedEvenWhenThePackIsOff() throws Exception {
-        // Checked before the enabled/disabled branch: the sweep reads the value regardless of `enabled`.
+        // Checked before the enabled branch, since the sweep reads it regardless.
         writePack("", "", false, true, 0);
 
         final ConfigValidationException error =
@@ -293,7 +288,7 @@ class ConfigsTest {
                 "a fresh load must write the defaults out - and this file is also the only place the"
                         + " placeholder list is documented");
 
-        // The nested MotdSpec has to survive the round trip: without its own @ConfigSpec the first write fails.
+        // The nested MotdSpec needs its own @ConfigSpec to survive the round trip.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             assertFalse(motdFor(config, phase).isBlank(), "no MOTD for " + phase);
         }
@@ -301,7 +296,7 @@ class ConfigsTest {
 
     @Test
     void everyPhaseGetsItsOwnMotdRatherThanOneSharedLine() throws Exception {
-        // Five values, five meanings; two ever equal by default means the file is not worth five keys.
+        // Two phases sharing a default would make five keys pointless.
         final NetworkSpec config = Configs.network(directory, LOGGER).get();
         final Set<String> distinct = new HashSet<>();
         for (final SeasonPhase phase : SeasonPhase.values()) {
@@ -315,7 +310,7 @@ class ConfigsTest {
 
     @Test
     void aNetworkConfigStillCarryingBackendLimitLosesTheLineRatherThanTheProxy() throws Exception {
-        // A deployed network.yml may still carry `backend-limit`; the loader drops it rather than refusing to start.
+        // A deployed network.yml may still carry `backend-limit`; the loader drops it.
         Files.writeString(directory.resolve("network.yml"), """
                 max-players: 500
                 backend-limit: 1000
@@ -355,7 +350,7 @@ class ConfigsTest {
 
     @Test
     void aBlankAllowlistEntryIsRejectedBecauseItWouldBeDroppedSilently() throws Exception {
-        // A blank line parses to no segments, and an entry with no segments would match every command there is.
+        // A blank entry has no segments and would match every command.
         Files.writeString(directory.resolve("network.yml"), """
                 max-players: 500
                 snapshot-refresh-seconds: 10
@@ -377,7 +372,7 @@ class ConfigsTest {
 
     @Test
     void anEmptyAllowlistIsAllowedBecauseLockingTheNetworkDownIsALegitimateThingToWant() throws Exception {
-        // Refused would be the easy rule and the wrong one: an empty allowlist is a legitimate thing to want.
+        // An empty allowlist is legitimate and is not refused.
         Files.writeString(directory.resolve("network.yml"), """
                 max-players: 500
                 snapshot-refresh-seconds: 10
@@ -421,12 +416,7 @@ class ConfigsTest {
         };
     }
 
-    /**
-     * Writes a complete, valid {@code gate.yml} with one line replaced.
-     *
-     * A key jcore does not recognise is refused or deleted, so every test needs the whole file
-     * rather than one value.
-     */
+    /** Writes a complete, valid {@code gate.yml} with one line replaced, since jcore refuses unknown keys. */
     private void writeGate(final String override) throws Exception {
         final String[] defaults = {
             "discord-invite-url: 'https://nordtal.eu'",

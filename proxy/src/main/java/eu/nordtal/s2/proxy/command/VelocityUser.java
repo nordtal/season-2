@@ -19,19 +19,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 /**
  * A connected player, as {@code :commands} sees them.
  *
- * <b>Everything comes out of the roster, and nothing out of a query.</b>
- * {@link LoginRoster} was filled by the login gate's own query - the one it makes anyway - and is
- * kept in step with {@code discord_user.admin} by the proxy's notification listener. So the Discord
- * id, the language and the admin flag are all map lookups here.
- *
- * That is not an optimisation. Brigadier evaluates a command's {@code requires} predicate while
- * building the tree it sends to a client, on a thread that must not block, and a JDBC call there
- * would be a database round trip per player per command tree.
- *
- * <b>The language is the database's, never the client's.</b>
- * docs/i18n.md settles it: a player's language is {@code discord_user.locale}, mirrored from their
- * Discord onboarding role. A Minecraft client's own setting is not consulted anywhere in this
- * repository, and this is not the place to start.
+ * Discord id, language and admin flag all come from {@link LoginRoster}, never a query.
  */
 public final class VelocityUser implements NordtalUser {
 

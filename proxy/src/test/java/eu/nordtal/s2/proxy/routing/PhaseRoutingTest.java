@@ -10,7 +10,6 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.MemberState;
 import eu.nordtal.s2.proxy.PhaseServers;
-import eu.nordtal.s2.proxy.PlayerRouter;
 import eu.nordtal.s2.proxy.routing.RouteDecision.Action;
 import java.time.Duration;
 import java.time.Instant;
@@ -22,12 +21,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Where each phase puts a player, asserted in memory.
  *
- * Two things are pinned here: a non-admin during {@code MAINTENANCE} is <b>connected to
- * {@code limbo}</b> rather than refused, and a switch to {@code SMP} <b>disconnects</b> a player
- * without access and must never become a redirect to {@code limbo}.
- *
- * This does not prove that Velocity connects anybody anywhere: {@link PlayerRouter} is the class
- * that talks to the proxy, and nothing here can drive one.
+ * {@code MAINTENANCE} holds a non-admin in {@code limbo}; {@code SMP} disconnects one without access.
  */
 class PhaseRoutingTest {
 
@@ -50,10 +44,10 @@ class PhaseRoutingTest {
         assertEquals("hunger-games", servers.forPhase(SeasonPhase.START_EVENT));
         assertEquals("smp", servers.forPhase(SeasonPhase.SMP));
         assertEquals("limbo", servers.forPhase(SeasonPhase.MAINTENANCE));
-        // PRE_LAUNCH has no backend of its own: limbo is the harmless place to name for players who never get that far.
+        // PRE_LAUNCH has no backend of its own, so limbo is the harmless name.
         assertEquals("limbo", servers.forPhase(SeasonPhase.PRE_LAUNCH));
 
-        // ...and an admin comes out of the waiting room onto the SMP in those two phases, everybody else in every other
+        // An admin leaves the waiting room for the SMP in those two phases.
         assertEquals("smp", servers.forAdmitted(SeasonPhase.MAINTENANCE, true));
         assertEquals("smp", servers.forAdmitted(SeasonPhase.PRE_LAUNCH, true));
         assertEquals("limbo", servers.forAdmitted(SeasonPhase.MAINTENANCE, false));
@@ -73,7 +67,7 @@ class PhaseRoutingTest {
 
     @Test
     void theNamesAreConfigurableEvenThoughTheMappingIsNot() {
-        // The names have to be settable, because velocity.toml chooses them; which phase uses which is not.
+        // velocity.toml chooses the names; which phase uses which is fixed.
         final PhaseServers renamed = new PhaseServers("wait", "wait-standby", "hg", "survival");
 
         assertEquals("wait", renamed.forPhase(SeasonPhase.MAINTENANCE));
@@ -137,7 +131,7 @@ class PhaseRoutingTest {
 
     @Test
     void aSwitchToSmpStillDisconnectsThemEvenWhenLimboIsPerfectlyAvailable() {
-        // The tempting bug: "we have a waiting room now" - not having bought access does not end by waiting.
+        // Not having bought access does not end by waiting.
         assertEquals(
                 Action.REFUSE_NO_ACCESS,
                 routing.decide(member(SeasonPhase.SMP, false), ALL).action());
@@ -187,7 +181,7 @@ class PhaseRoutingTest {
 
     @Test
     void maintenanceWithNoLimboServerFallsBackToTheDisconnectItUsedToBe() {
-        // "Route them to limbo" means "connect them to the configured backend", which may not be registered at all.
+        // Limbo may not be registered at all.
         final RouteDecision decision =
                 routing.decide(member(SeasonPhase.MAINTENANCE, false), Set.of("hunger-games", "smp"));
 
@@ -197,7 +191,7 @@ class PhaseRoutingTest {
 
     @Test
     void anAdminIsUnaffectedByAMissingLimbo() {
-        // They were never going there, so a missing waiting room must not lock out the admin maintaining it.
+        // A missing waiting room must not lock out the admin maintaining it.
         assertEquals(
                 Action.STAY,
                 routing.decide(state(SeasonPhase.MAINTENANCE, MemberState.MEMBER, false, true), Set.of())
@@ -232,7 +226,7 @@ class PhaseRoutingTest {
         for (final SeasonPhase phase : SeasonPhase.values()) {
             for (final boolean admin : new boolean[] {false, true}) {
                 if (phase == SeasonPhase.PRE_LAUNCH && !admin) {
-                    // Not a drift, an unreachable combination: before the opening the gate lets in only an admin.
+                    // Unreachable: before the opening the gate admits only admins.
                     continue;
                 }
                 final AccessState state = state(phase, MemberState.MEMBER, true, admin);
@@ -259,7 +253,7 @@ class PhaseRoutingTest {
 
     @Test
     void everyLoginLandsInTheWaitingRoomWhateverThePhase() {
-        // Every login lands in the waiting room; falling through to velocity.toml's own list would skip the pack.
+        // Every login lands in the waiting room; velocity.toml's own list would skip the pack.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             final RouteDecision decision = routing.decideInitial(phase, false, ALL);
 
@@ -270,7 +264,7 @@ class PhaseRoutingTest {
 
     @Test
     void anAdminGoesThroughTheWaitingRoomWhileTheNetworkIsClosedToo() {
-        // Not STAY: velocity.toml's own `try` list is the waiting room, so everybody goes through it regardless.
+        // Not STAY: velocity.toml's `try` list is the waiting room, so everybody passes through it.
         assertEquals(
                 "limbo",
                 routing.decideInitial(SeasonPhase.MAINTENANCE, true, ALL).server());
@@ -281,7 +275,7 @@ class PhaseRoutingTest {
 
     @Test
     void anAdminIsReleasedOntoTheSmpWhileTheNetworkIsClosed() {
-        // The SMP, fixed, no config key: it is the server built before the opening and worked on during maintenance.
+        // The SMP, fixed: it is the server built before the opening and worked on during maintenance.
         assertEquals(
                 "smp", routing.decideRelease(SeasonPhase.MAINTENANCE, true, ALL).server());
         assertEquals(
@@ -298,7 +292,7 @@ class PhaseRoutingTest {
 
     @Test
     void aReleaseNeverSaysStay() {
-        // STAY on a release is the black screen: "leave them where they are" keeps the last title the room drew.
+        // STAY on a release keeps the last title the room drew, a black screen.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             for (final boolean admin : new boolean[] {false, true}) {
                 assertNotEquals(
@@ -313,7 +307,7 @@ class PhaseRoutingTest {
 
     @Test
     void anAdminWithoutAWaitingRoomGoesStraightToTheSmp() {
-        // If a missing limbo locked admins out, nobody could register one; they skip the pack and PlayerRouter says so.
+        // If a missing limbo locked admins out, nobody could register one; PlayerRouter logs the skipped pack.
         assertEquals(
                 "smp",
                 routing.decideInitial(SeasonPhase.MAINTENANCE, true, Set.of("smp", "hunger-games"))
@@ -325,7 +319,7 @@ class PhaseRoutingTest {
         assertEquals(
                 "smp",
                 routing.decideInitial(SeasonPhase.SMP, true, Set.of("smp")).server());
-        // A non-admin never does - "everybody joined without the pack" is the outcome this refuses.
+        // A non-admin never skips the pack.
         assertEquals(
                 Action.REFUSE_MAINTENANCE_UNAVAILABLE,
                 routing.decideInitial(SeasonPhase.MAINTENANCE, false, Set.of("smp"))
@@ -333,7 +327,7 @@ class PhaseRoutingTest {
         assertEquals(
                 Action.REFUSE_NO_SERVER,
                 routing.decideInitial(SeasonPhase.SMP, false, Set.of("smp")).action());
-        // And an admin with neither is refused like anybody, because there is nowhere to send them.
+        // And an admin with neither is refused, since there is nowhere to send them.
         assertEquals(
                 Action.REFUSE_NO_SERVER,
                 routing.decideInitial(SeasonPhase.PRE_LAUNCH, true, Set.of("hunger-games"))
@@ -353,7 +347,7 @@ class PhaseRoutingTest {
 
     @Test
     void anAdminInEveryOtherPhaseGoesThroughTheWaitingRoomLikeEverybodyElse() {
-        // The admin exemption is about not being moved while closed, not about skipping the pack the same as anybody.
+        // The admin exemption is about not being moved while closed, not about skipping the pack.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             if (phase == SeasonPhase.MAINTENANCE || phase == SeasonPhase.PRE_LAUNCH) {
                 continue;
@@ -373,7 +367,7 @@ class PhaseRoutingTest {
                 routing.decideInitial(SeasonPhase.MAINTENANCE, false, withoutLimbo)
                         .action());
 
-        // The backend being registered is deliberately not enough - the waiting room is where the pack is applied.
+        // Registered is not enough: the waiting room is where the pack is applied.
         for (final SeasonPhase phase :
                 new SeasonPhase[] {SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT, SeasonPhase.SMP}) {
             final RouteDecision decision = routing.decideInitial(phase, false, withoutLimbo);
@@ -385,7 +379,7 @@ class PhaseRoutingTest {
 
     @Test
     void theInitialRouteIgnoresThePhasesOwnBackendEntirely() {
-        // Only limbo has to exist to get a player in; a down backend is the pack station's wait, not a login refusal.
+        // Only limbo must exist to get in; a down backend is the pack station's wait, not a refusal.
         assertEquals(
                 Action.CONNECT,
                 routing.decideInitial(SeasonPhase.SMP, false, Set.of("limbo")).action());
@@ -397,12 +391,12 @@ class PhaseRoutingTest {
 
     @Test
     void theInitialRouteAndTheReleaseRouteDisagreeInEveryPhaseButMaintenance() {
-        // The two methods exist because they differ; agreeing everywhere would send somebody back where they just left.
+        // The two methods differ; agreeing everywhere would send somebody back where they just left.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             final boolean same =
                     routing.decideInitial(phase, false, ALL).equals(routing.decideAdmitted(phase, false, ALL));
 
-            // The two phases whose destination is the waiting room are where the routes agree: nowhere else to release.
+            // The routes agree only where the destination is the waiting room.
             final boolean destinationIsLimbo = phase == SeasonPhase.MAINTENANCE || phase == SeasonPhase.PRE_LAUNCH;
             assertEquals(destinationIsLimbo, same, phase.toString());
         }

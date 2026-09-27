@@ -20,25 +20,13 @@ import org.junit.jupiter.api.Test;
 /**
  * The rule behind every countdown line, and the lines themselves.
  *
- * Two halves, and they fail for different reasons. The first is the table: which of the three
- * exits a player takes, given what the run stops and what is left standing. The second is the one
- * that would otherwise be found by a player rather than by a build - {@link RunShape.Occasion} and
- * {@link RunShape.Fate} are turned into message keys by string arithmetic, so a sixth occasion
- * compiles perfectly and prints {@code restart.countdown.rollback} into somebody's chat box. Every
- * key below is derived from the enum for exactly that reason: adding a constant without a line is
- * red here.
+ * Message keys are derived from the enums, so a constant without a line fails here.
  */
 class RunShapeTest {
 
     private static final String ROOT = "messages/proxy";
 
-    /**
-     * The backends this network has.
-     *
-     * Not derived from anything, because the proxy has no list of them either - it learns the names from the run's
-     * own report. A name with no line still works ({@code RestartWatch.what} falls back to the compose name), so
-     * this is the nudge and not a guard.
-     */
+    /** The backends this network has; a name without a line still falls back to its compose name. */
     private static final Set<String> SERVICES = Set.of("smp", "limbo", "hunger-games", "proxy");
 
     // the table
@@ -64,7 +52,7 @@ class RunShapeTest {
         assertEquals(RunShape.Fate.RECONNECT, caught.fateFor(null));
         assertTrue(caught.proxyMoves());
 
-        // Same run, nothing to hand the network to: the countdown is the only warning, and must say so plainly.
+        // Same run with nothing to hand the network to: the countdown is the only warning.
         final RunShape alone = RunShape.of(UpdateKind.UPDATE, Set.of("proxy"), true, false);
         assertEquals(RunShape.Fate.DISCONNECT, alone.fateFor("smp"));
         assertEquals(RunShape.Fate.DISCONNECT, alone.fateFor(null));
@@ -72,7 +60,7 @@ class RunShapeTest {
 
     @Test
     void theOwnServerComesFirst() {
-        // Both move and both exits are open, so the waiting room wins: the player sits there while the swap happens.
+        // Both exits are open, so the player sits in the waiting room during the swap.
         final RunShape shape = RunShape.of(UpdateKind.UPDATE, Set.of("smp", "proxy"), true, true);
 
         assertEquals(RunShape.Fate.WAITING_ROOM, shape.fateFor("smp"));
@@ -82,7 +70,7 @@ class RunShapeTest {
 
     @Test
     void nowhereToPutAnybody() {
-        // With the limbo itself in the run and no standby limbo, every kind is the same run to its players.
+        // With limbo in the run and no standby, every kind is the same run to its players.
         for (final UpdateKind kind : UpdateKind.values()) {
             final RunShape shape = RunShape.of(kind, Set.of("smp", "limbo"), false, false);
             assertEquals(RunShape.Occasion.MAINTENANCE, shape.occasion(), kind.name());
@@ -101,7 +89,7 @@ class RunShapeTest {
         assertEquals(RunShape.Occasion.BACKUP, occasionOf(UpdateKind.BACKUP));
         assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.UPDATE));
 
-        // REPORT, START and APPLY reach no player but are named anyway: a default here is a sentence someone reads.
+        // REPORT, START and APPLY reach no player but are named anyway.
         assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.REPORT));
         assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.START));
         assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.APPLY));
@@ -120,13 +108,13 @@ class RunShapeTest {
 
     @Test
     void theVoiceHintHasTwoConditions() {
-        // A hint before the process starts is only needed when players are on the SMP via proxy-standby.
+        // The hint is only needed when players are on the SMP via proxy-standby.
         assertTrue(RunShape.losesVoice(RunShape.Fate.RECONNECT, false));
         assertFalse(
                 RunShape.losesVoice(RunShape.Fate.RECONNECT, true),
                 "the waiting room has neither voice nor chat, so this would be noise there");
 
-        // The other three fates are not a swap seen from a player's seat; a disconnect already said everything.
+        // The other three fates are no swap from a player's seat.
         assertFalse(RunShape.losesVoice(RunShape.Fate.NOTHING, false));
         assertFalse(RunShape.losesVoice(RunShape.Fate.WAITING_ROOM, false));
         assertFalse(RunShape.losesVoice(RunShape.Fate.DISCONNECT, false));
@@ -134,7 +122,7 @@ class RunShapeTest {
 
     @Test
     void theHintIsSaidOnce() throws IOException {
-        // A source rule, like CountdownTest's: three repeats of a side-effect note would read as the main event.
+        // A source rule, like CountdownTest's: repeating a side note would make it read as the main event.
         final String source = Files.readString(Path.of("src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
         assertTrue(
                 source.contains("if (!saidVoice) {"),
@@ -169,7 +157,7 @@ class RunShapeTest {
             assertTrue(
                     countdown.contains("{seconds}"),
                     "a countdown that does not name the number is a line that never changes: " + countdown);
-            // {what} is optional: MAINTENANCE says "nordtal", since no one service is what a network-wide run is about.
+            // {what} is optional: MAINTENANCE says "nordtal", since a network-wide run is about no one service.
             final String now = english.getProperty("restart.now." + key(occasion));
             assertFalse(now.contains("{seconds}"), "zero is not a number worth printing: " + now);
         }
@@ -183,7 +171,7 @@ class RunShapeTest {
         for (final RunShape.Fate fate : RunShape.Fate.values()) {
             final String key = "restart.fate." + key(fate);
             if (fate == RunShape.Fate.NOTHING) {
-                // RestartWatch appends nothing in this case, and a line here would be dead text shown to nobody.
+                // RestartWatch appends nothing here, so a line would be dead text.
                 assertFalse(english.containsKey(key), key + " exists and is never printed");
                 assertFalse(german.containsKey(key), key + " exists and is never printed");
                 continue;
@@ -220,7 +208,7 @@ class RunShapeTest {
 
     // helpers
 
-    /** {@code RestartWatch.key}, and it has to stay the same arithmetic or this test proves nothing. */
+    /** {@code RestartWatch.key}, which this must match exactly. */
     private static String key(final Enum<?> value) {
         return value.name().toLowerCase(Locale.ROOT).replace('_', '-');
     }

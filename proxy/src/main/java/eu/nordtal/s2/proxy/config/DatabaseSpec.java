@@ -9,22 +9,14 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code config/database.yml} - the proxy's own connection to the access database.
+ * {@code config/database.yml}: the proxy's own pool on the season 2 database.
  *
- * This is a second, independent connection pool from the bot's - a different process, a different
- * container, its own credentials - even though both eventually point at the same PostgreSQL
- * instance. Nothing here is shared with {@code access-bot/config/database.yml}: the two modules
- * ship in different images and read different config volumes.
- *
- *
- * {@link #queryTimeoutSeconds()} bounds both HikariCP's connection acquisition and, through the
- * PostgreSQL driver's {@code socketTimeout}, a query that is already running: a login must fail
- * fast onto the fallback cache rather than queue behind a struggling database.
+ * {@link #queryTimeoutSeconds()} also bounds a running query, so a login fails fast onto the fallback cache.
  */
 @ConfigSpec(
         header = {
             "-------------------------------------------------------------------",
-            "  proxy - PostgreSQL connection",
+            "  proxy: PostgreSQL connection",
             "-------------------------------------------------------------------",
             "In production the password belongs in the environment, not in this",
             "file. Every setting can be overridden with",
@@ -35,16 +27,14 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
             "  NORDTAL_PROXY_DATABASE_PASSWORD",
             "",
             "An overridden value is never written back into this file. This is a",
-            "SEPARATE connection pool from access-bot's own config/database.yml -",
-            "different process, different container, its own credentials, even",
-            "though both usually point at the same PostgreSQL instance."
+            "SEPARATE connection pool from every other process's own database.yml."
         })
 public interface DatabaseSpec {
 
     @Order(1)
     @Name("JDBC URL")
     @Key("jdbc-url")
-    @Comment("JDBC URL of the PostgreSQL database that holds the access schema.")
+    @Comment("JDBC URL of the PostgreSQL database that holds the season 2 schema.")
     @Explain("The full JDBC connection string, including the database name.")
     default String jdbcUrl() {
         return "jdbc:postgresql://localhost:5432/nordtal";
@@ -84,9 +74,8 @@ public interface DatabaseSpec {
     @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
     @Comment({
-        "Bounds both connection acquisition and the query itself. A login attempt must not",
-        "wait long on a struggling database before the login gate falls back to the",
-        "short-lived in-memory cache - see gate.yml's fallback-cache-window-minutes."
+        "Bounds both connection acquisition and the query itself, so a login falls back",
+        "quickly to the in-memory cache (see gate.yml's fallback-cache-window-minutes)."
     })
     @Explain(
             "Limits both waiting for a free connection and the query itself, before the login gate falls back to its cache.")

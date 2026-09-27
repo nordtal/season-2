@@ -13,10 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The countdown the three {@code PRE_LAUNCH} screens and the server browser share.
  *
- * Every case here is one a player can actually see, and the two that matter most are the ones that
- * are not a duration at all: no date announced, and a date that has passed while nobody has
- * switched the phase yet. Both are normal states of a network before its opening, and both would
- * otherwise render as something that looks broken.
+ * No announced date and a passed date are normal states and must not render as faults.
  */
 class LaunchCountdownTest {
 
@@ -48,14 +45,14 @@ class LaunchCountdownTest {
 
     @Test
     void theLastMinuteReadsAsImminentRatherThanAsZero() {
-        // Below a minute there is nothing useful to count, and "0 minutes" reads as a fault.
+        // Below a minute there is nothing to count, and "0 minutes" reads as a fault.
         assertEquals("any moment now", render(Duration.ofSeconds(30)));
         assertEquals("any moment now", render(Duration.ZERO));
     }
 
     @Test
     void aPassedInstantNeverRendersNegative() {
-        // The normal state between the announced instant and an admin's switch; "-3 hours" would look like a bug.
+        // The normal state between the announced instant and an admin's switch.
         final String line = render(Duration.ofHours(-3));
 
         assertEquals("any moment now", line);
@@ -71,7 +68,7 @@ class LaunchCountdownTest {
 
     @Test
     void theNoDateFragmentCarriesNoMiniMessageTag() {
-        // Placeholders escapes whatever it inserts; a tag here would become literal "<gray>" text, not colour.
+        // Placeholders escapes what it inserts, so a tag here would show as literal text.
         final String line = LaunchCountdown.render(MESSAGES, Locale.ENGLISH, null, NOW);
 
         assertFalse(line.contains("<"), line);
@@ -79,7 +76,7 @@ class LaunchCountdownTest {
 
     @Test
     void theSentenceFormWrapsACountdownButNotTheNoDateLine() {
-        // Wrapping the two would double the sentence; contains, not startsWith, since a tag now opens the line.
+        // Wrapping would double the sentence; contains, since a tag opens the line.
         final String counting =
                 LaunchCountdown.sentence(MESSAGES, Locale.ENGLISH, NOW.plus(Duration.ofMinutes(20)), NOW);
         assertTrue(counting.contains("The network opens in"), counting);
@@ -91,7 +88,7 @@ class LaunchCountdownTest {
 
     @Test
     void germanIsTranslatedRatherThanFallingBackToEnglish() {
-        // The bundle falls back to English for a missing key, silently, which is how a half-translated screen ships.
+        // A missing key falls back to English silently, which is how a half-translated screen ships.
         assertEquals(
                 "42 Minuten", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW.plus(Duration.ofMinutes(42)), NOW));
         assertEquals("jedem Moment", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW, NOW));

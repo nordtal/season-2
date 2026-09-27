@@ -9,14 +9,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * A standby proxy puts arrivals in the standby waiting room, and that is the whole safety argument for running one.
+ * A standby proxy puts arrivals in the standby waiting room.
  *
- * A proxy swap does not touch the backends: {@code limbo} is up and registered throughout, so a
- * standby using the live rule would send every arrival there. But the arrivals are the players who
- * just left the live proxy, and some of them were standing in {@code limbo} when they did - the
- * same UUID leaving and rejoining one Paper server inside a second, which is the "You are already
- * logged in" the ticket names as the thing to reproduce before building anything. The other room
- * means nobody rejoins a backend they were on, so the unmeasured question cannot reach the code.
+ * Arrivals just left the live proxy, some from {@code limbo}, and must not rejoin a backend they were on.
  */
 class StandbyProxyRoutesToItsOwnRoomTest {
 
@@ -53,7 +48,7 @@ class StandbyProxyRoutesToItsOwnRoomTest {
         for (final SeasonPhase phase : SeasonPhase.values()) {
             assertEquals(
                     "limbo-standby", standby.decideInitial(phase, false, BOTH).server(), phase.toString());
-            // Admins too: sending a parked admin onward would strand them on the proxy about to be stopped.
+            // Admins too: sending a parked admin onward would strand them on a proxy about to stop.
             assertEquals(
                     "limbo-standby", standby.decideInitial(phase, true, BOTH).server(), phase.toString());
         }

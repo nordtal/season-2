@@ -7,16 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
-/**
- * The far half of {@code /discord} and {@code /rules}.
- *
- * <b>Why this test is in this module and not next to the commands.</b>
- * Because the seam runs between the two. {@code :commands} decides which key each command prints and
- * has a test for that; the value lives here, in the proxy's own bundle, because it wants a clickable
- * link and a colour and the shared bundle carries no markup at all. Neither module can see both
- * ends, so each pins its own - and without this half the failure is a player being shown the literal
- * string {@code info.rules}, which {@code Messages} produces rather than throwing.
- */
+/** The values behind {@code /discord} and {@code /rules}; {@code :commands} only picks the key. */
 class InfoTextTest {
 
     private static final Messages MESSAGES =
@@ -54,7 +45,7 @@ class InfoTextTest {
 
     @Test
     void theRulesAreNotInServiceYet() {
-        // The one way this ships wrong is quietly, with a plausible answer nobody checks again; deleted with the text.
+        // A wrong value ships quietly, as a plausible answer nobody checks again.
         assertTrue(
                 MESSAGES.get(Locale.ENGLISH, InfoTexts.RULES_TEXT.apply("").key())
                         .contains("PLACEHOLDER"),

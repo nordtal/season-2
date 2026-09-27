@@ -7,42 +7,26 @@ import org.jspecify.annotations.Nullable;
 /**
  * What to do with one player in the waiting room, right now.
  *
- * The output of {@link WaitingBook}, and the same shape as {@code RouteDecision} for the same reason: the rule is worth
- * asserting on its own, and it cannot be if the only way to observe it is a Velocity connection.
- *
- * @param action what should happen
  * @param reason the title to show, non-{@code null} exactly when the action is {@link Action#SHOW}
  */
 public record WaitingDecision(Action action, @Nullable WaitReason reason) {
 
-    /** The five things that can happen to somebody sitting on a black screen. */
     public enum Action {
 
-        /** Nothing to do. Either they are already looking at the right title, or they are not held. */
+        /** Nothing to do: they see the right title already, or they are not held. */
         IDLE,
 
         /** Send {@code limbo} a {@code WAIT} carrying {@link WaitingDecision#reason()}. */
         SHOW,
 
-        /**
-         * Disconnect them: the pack offer went out and the client never answered it at all.
-         *
-         * For longer than {@code pack.yml#apply-timeout-seconds}.
-         */
+        /** Disconnect them: the client never answered the pack offer within {@code pack.yml#apply-timeout-seconds}. */
         TIMED_OUT,
 
-        /** Hand them to the router. Everything that had to be true is true, {@code READY} included. */
+        /** Hand them to the router; everything had to be true is true, {@code READY} included. */
         RELEASE,
 
         /**
-         * Hand them to the router <b>without</b> {@code limbo}'s {@code READY}.
-         *
-         * Because it never came and the grace period is over.
-         *
-         * Distinct from {@link #RELEASE} so that the caller can say so out loud. A network where
-         * this is the normal case is a network whose backend-to-proxy channel is broken, and the
-         * only difference a player would notice is that nobody told them - which is how this became
-         * a deadlock nobody could see in the first place.
+         * Hand them to the router without {@code limbo}'s {@code READY}, after the grace period; the caller logs it.
          */
         RELEASE_UNCONFIRMED
     }
@@ -55,28 +39,18 @@ public record WaitingDecision(Action action, @Nullable WaitReason reason) {
         }
     }
 
-    /** @return the decision to do nothing */
     public static WaitingDecision idle() {
         return new WaitingDecision(Action.IDLE, null);
     }
 
-    /**
-     * @param reason the title the waiting room should now be showing
-     * @return the decision to send it
-     */
     public static WaitingDecision show(final WaitReason reason) {
         return new WaitingDecision(Action.SHOW, Objects.requireNonNull(reason, "reason"));
     }
 
-    /** @return the decision to disconnect a player whose client never answered the pack offer */
     public static WaitingDecision timedOut() {
         return new WaitingDecision(Action.TIMED_OUT, null);
     }
 
-    /**
-     * @param confirmed whether {@code limbo} confirmed the arrival with a {@code READY}
-     * @return the decision to connect the player onward
-     */
     public static WaitingDecision release(final boolean confirmed) {
         return new WaitingDecision(confirmed ? Action.RELEASE : Action.RELEASE_UNCONFIRMED, null);
     }

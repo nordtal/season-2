@@ -9,15 +9,7 @@ import eu.nordtal.s2.proxy.PhaseServers;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/**
- * "Is this player waiting" has two right answers now.
- *
- * The ticket's own warning is what this file is for: <em>half built is worse here than not
- * built.</em> Moving somebody to {@code limbo-standby} is easy; the hard part is that four separate
- * places decide "is this player in the waiting room" by comparing against the <b>one</b> limbo, and
- * a player on the standby is, to every one of them, somebody on an unrelated backend. They would
- * never be released.
- */
+/** Either limbo counts as the waiting room, so a player on the standby is still released. */
 class WaitingRoomIsEitherTest {
 
     private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
@@ -29,9 +21,9 @@ class WaitingRoomIsEitherTest {
 
         assertFalse(SERVERS.isWaitingRoom("smp"));
         assertFalse(SERVERS.isWaitingRoom("hunger-games"));
-        // Not a curiosity: getCurrentServer() is an Optional at every call site that asks this.
+        // getCurrentServer() is an Optional at every call site that asks this.
         assertFalse(SERVERS.isWaitingRoom(null));
-        // And not a prefix match - a server called "limbo-standby-2" is not this one.
+        // Not a prefix match: "limbo-standby-2" is another server.
         assertFalse(SERVERS.isWaitingRoom("limbo-standby-2"));
     }
 

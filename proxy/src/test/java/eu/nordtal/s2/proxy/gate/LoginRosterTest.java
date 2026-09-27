@@ -13,11 +13,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * What the login query is allowed to be remembered for.
+ * What the login query may be remembered for.
  *
- * The one assertion that matters is that an account the roster has never heard of is <b>not</b> an admin:
- * {@code /phase} is authorised off this, and a lookup that defaulted the other way would hand the emergency phase
- * switch to everybody.
+ * An account the roster has never heard of is not an admin, since {@code /phase} is authorised off this.
  */
 class LoginRosterTest {
 
@@ -80,11 +78,11 @@ class LoginRosterTest {
                 PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, admin, locale, SeasonPhase.SMP, null);
     }
 
-    // M9: revocation reaches a live session
+    // revocation reaches a live session
 
     @Test
     void aRevokedAdminLosesItWhileStillConnected() {
-        // An emergency revocation is exactly the case where waiting for a reconnect is the wrong direction.
+        // An emergency revocation must not wait for a reconnect.
         roster.remember(PLAYER, state(true, Locale.GERMAN));
         assertTrue(roster.isAdmin(PLAYER));
 
@@ -111,7 +109,7 @@ class LoginRosterTest {
 
     @Test
     void anUnchangedRefreshIsANoOp() {
-        // It rides the 30-second poll and the notification, so it usually finds nothing to do, cheaply.
+        // It rides the poll and the notification, so it usually finds nothing to do.
         roster.remember(PLAYER, state(true, Locale.ENGLISH));
 
         assertEquals(0, roster.refreshAdmins(java.util.Set.of(DISCORD_ID)));

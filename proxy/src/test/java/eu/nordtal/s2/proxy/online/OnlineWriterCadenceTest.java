@@ -10,11 +10,7 @@ import org.junit.jupiter.api.Test;
 /**
  * When a tick of {@link OnlineWriter} actually writes.
  *
- * Two cadences in two comparisons, and the reason they are worth a test of their own is that
- * both ways of getting them wrong are silent. Too slow and steward-worker's ten-second wait for a
- * service to empty decides on a number from before the players were moved - it waits the whole cap
- * every run and then reports a count that was never true. Too fast and this writes four rows a
- * second for the whole season to no end at all.
+ * Too slow misleads steward-worker's wait for an empty service; too fast writes rows to no end.
  */
 class OnlineWriterCadenceTest {
 
@@ -22,7 +18,7 @@ class OnlineWriterCadenceTest {
 
     @Test
     void theFirstTickWrites() {
-        // Otherwise every dashboard says "nothing known" for ten seconds, for no reason anybody chose.
+        // Else every dashboard says "nothing known" for ten seconds.
         assertTrue(OnlineWriter.isDue(null, NOON, false));
     }
 

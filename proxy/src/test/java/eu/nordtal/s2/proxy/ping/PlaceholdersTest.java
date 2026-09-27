@@ -13,16 +13,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * The MOTD placeholder substitution, which is the one piece of the ping path with any logic in it.
+ * The MOTD placeholder substitution, the only logic on the ping path.
  *
- * Everything else on that path is a field read by design - a ping is unauthenticated and arrives in
- * bursts - so this is where the behaviour worth pinning lives: what an unknown name does, what a
- * value containing MiniMessage syntax does, and what is shown when the database has never answered.
- *
- *
- * {@link ProxyServer} is served by a {@link Proxy} rather than a hand-written fake. The interface
- * has some twenty methods and this needs two of them; a fake implementing the rest to throw would
- * be longer than the class under test.
+ * {@link ProxyServer} is a {@link Proxy} since this needs two of its methods.
  */
 class PlaceholdersTest {
 
@@ -41,7 +34,7 @@ class PlaceholdersTest {
 
     @Test
     void aServerThisProxyDoesNotHaveIsZeroAndNotAnError() {
-        // A ping that throws would make the network look unreachable rather than merely misconfigured.
+        // A ping that throws would make the network look unreachable.
         assertEquals("0", apply("{players:does-not-exist}"));
     }
 
@@ -58,7 +51,7 @@ class PlaceholdersTest {
 
     @Test
     void anEmptySnapshotRendersZeroesRatherThanNothing() {
-        // What a proxy shows before its first successful refresh, and if one never succeeds. The MOTD stays a MOTD.
+        // What a proxy shows before its first successful refresh.
         assertEquals(
                 "0 teams,  running",
                 Placeholders.apply(
@@ -72,13 +65,13 @@ class PlaceholdersTest {
 
     @Test
     void anUnknownPlaceholderIsLeftStandingSoTheTypoIsVisible() {
-        // A typo that vanishes is a typo nobody finds. This matches how Messages treats a parameter it was not given.
+        // A typo that vanishes is never found; Messages treats an unknown parameter the same way.
         assertEquals("{hg-alve} and {nonsense}", apply("{hg-alve} and {nonsense}"));
     }
 
     @Test
     void aValueContainingATagCannotInjectMiniMessage() {
-        // Substitution before parsing is what lets a MOTD colour a number, at the cost of an injectable bracket.
+        // Substituting before parsing lets a MOTD colour a number, at the cost of an injectable bracket.
         final NetworkSnapshot hostile =
                 new NetworkSnapshot("", 0, 0, 0, 0, 0, "<red>everything after this", 0, 0, 0, 0L, 0);
 
@@ -110,7 +103,7 @@ class PlaceholdersTest {
         return Placeholders.apply(template, proxy(), SeasonPhase.SMP, 500, SNAPSHOT, "3 days 4 hours");
     }
 
-    /** A proxy with seven players online, three of them on {@code smp} and none in {@code limbo}. */
+    /** A proxy with seven players online, three on {@code smp} and none in {@code limbo}. */
     private static ProxyServer proxy() {
         final Map<String, Integer> perServer = Map.of("smp", 3, "limbo", 0);
         return (ProxyServer) Proxy.newProxyInstance(
@@ -130,7 +123,7 @@ class PlaceholdersTest {
                 RegisteredServer.class.getClassLoader(),
                 new Class<?>[] {RegisteredServer.class},
                 (instance, method, arguments) -> switch (method.getName()) {
-                    // nCopies, not List.of/copyOf: this only needs a size, and those factories reject the nulls.
+                    // nCopies, since List.of and copyOf reject nulls and only the size matters.
                     case "getPlayersConnected" -> Collections.nCopies(players, null);
                     default -> throw new UnsupportedOperationException(method.getName());
                 });

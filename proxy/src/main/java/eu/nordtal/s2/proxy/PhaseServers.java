@@ -8,13 +8,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Which backend a player in each phase belongs on.
  *
- * {@code PRE_EVENT} and {@code START_EVENT} are the {@code hunger-games} lobby and event,
- * {@code SMP} is the {@code smp} backend, and {@code MAINTENANCE} is {@code limbo}. The mapping is
- * not configurable; the names are, defaulting in {@link GateSpec#serverLimbo()} to the module
- * directory names.
- *
- * This class knows nothing about Velocity and nothing about whether a named server exists, which
- * keeps "which server should this player be on" separate from "does this proxy have it".
+ * The mapping is fixed; the names come from {@code gate.yml} and may name a server this proxy lacks.
  */
 public final class PhaseServers {
 
@@ -30,21 +24,14 @@ public final class PhaseServers {
         this.smp = requireName("smp", smp);
     }
 
-    /**
-     * @param config the loaded {@code gate.yml}
-     * @return the three names it carries
-     */
+    /** Reads the server names out of the loaded {@code gate.yml}. */
     public static PhaseServers from(final GateSpec config) {
         Objects.requireNonNull(config, "config");
         return new PhaseServers(
                 config.serverLimbo(), config.serverLimboStandby(), config.serverHungerGames(), config.serverSmp());
     }
 
-    /**
-     * @param phase the phase the network is in
-     * @return the name of the backend a player in that phase belongs on, never {@code null} and
-     *         never blank - but not necessarily a server this proxy has
-     */
+    /** Returns the backend a player in {@code phase} belongs on, never blank but not necessarily one this proxy has. */
     public String forPhase(final SeasonPhase phase) {
         Objects.requireNonNull(phase, "phase");
         return switch (phase) {
@@ -56,17 +43,9 @@ public final class PhaseServers {
     }
 
     /**
-     * Where a player the gate has admitted goes once the waiting room lets them out.
+     * Where an admitted player goes once the waiting room lets them out.
      *
-     * The same as {@link #forPhase} except for an admin while the network is closed. Those phases
-     * name {@code limbo} as the phase's backend, and releasing somebody from the waiting room into
-     * the waiting room is a black screen with a stale title and no timeout - so an admin is
-     * released onto the SMP, the server being worked on, and {@code /server} reaches the others
-     * from there.
-     *
-     * @param phase the phase the network is in
-     * @param admin whether the player carries {@code discord_user.admin}
-     * @return the server to connect them to once nothing is left to wait for
+     * The same as {@link #forPhase}, except that an admin in a closed phase goes to the SMP instead of limbo.
      */
     public String forAdmitted(final SeasonPhase phase, final boolean admin) {
         Objects.requireNonNull(phase, "phase");
@@ -76,40 +55,31 @@ public final class PhaseServers {
         return forPhase(phase);
     }
 
-    /** @return the name of the waiting room, which is also every "not yet" destination */
+    /** Returns the waiting room, which is also every "not yet" destination. */
     public String limbo() {
         return limbo;
     }
 
-    /**
-     * @return the name of the second waiting room, which stands in while {@link #limbo()} is
-     *         itself being updated
-     */
+    /** Returns the second waiting room, which stands in while {@link #limbo()} is being updated. */
     public String limboStandby() {
         return limboStandby;
     }
 
     /**
-     * Whether a backend name is a waiting room - either of them.
+     * Whether a backend name is either waiting room.
      *
-     * A player parked on the standby room counts as waiting too: comparing only against
-     * {@link #limbo()} would treat them as somebody on an unrelated backend instead, and nothing
-     * would ever release them from a room that already holds them. Ask this instead of
-     * {@code name.equals(servers.limbo())} everywhere.
-     *
-     * @param server a backend name, or {@code null}
-     * @return whether a player standing on it is a player who is waiting
+     * Use this instead of comparing against {@link #limbo()}, which would miss a player parked on the standby.
      */
     public boolean isWaitingRoom(final @Nullable String server) {
         return limbo.equals(server) || limboStandby.equals(server);
     }
 
-    /** @return the name of the PRE_EVENT / START_EVENT backend - see {@link #forPhase} */
+    /** Returns the {@code PRE_EVENT} and {@code START_EVENT} backend. */
     public String hungerGames() {
         return hungerGames;
     }
 
-    /** @return the name of the SMP backend - see {@link #forPhase} */
+    /** Returns the SMP backend. */
     public String smp() {
         return smp;
     }

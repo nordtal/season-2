@@ -13,39 +13,13 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * What the five shipped MOTDs may and may not contain.
+ * The shipped MOTDs carry no glyph, only resolvable placeholders, and two lines.
  *
- * <b>Why a MOTD needs a test at all.</b>
- * Because it is the one surface with no feedback loop. Nobody on the network sees it - a MOTD is
- * read by people who have not joined yet, in a list, once, and a mistake in it is invisible from
- * inside the server for as long as it lasts. Two of the three rules below have already been broken
- * in this file: the brand was coloured five different ways (see {@link BrandColourTest}), and a
- * placeholder that resolves to nothing is left standing on purpose so that it is visible - to
- * whoever is looking at the list, which is nobody we can ask.
- *
- * <b>The three rules.</b>
- *
- * <b>No glyph.</b> The server browser draws the MOTD in the client's own font, before any
- * resource pack has been offered, let alone applied - so a private-use code point renders as
- * a box. This is the same check {@code TabListTest} makes on the tab list frame and for the
- * opposite reason: there the glyph has to be a parameter, here it may not exist at all.
- *
- * <b>Every placeholder is one the build resolves.</b> {@code Placeholders} leaves an unknown
- * name standing rather than blanking it, deliberately, so a typo reaches the server list as
- * the literal text {@code {smp-milstone}}.
- *
- * <b>Two lines.</b> Every client draws exactly two, and the first is the brand, so a MOTD
- * with no {@code <newline>} says nothing about the phase at all.
+ * The server list draws a MOTD before any resource pack, so a private-use code point renders as a box.
  */
 class MotdTextTest {
 
-    /**
-     * The five defaults, built the same way {@code NetworkSpec#motd()} builds them.
-     *
-     * Read off a real instance rather than off the source: what a deployment gets is whatever
-     * {@code Specs.createDefault} returns, and a default body that is never called is a default
-     * that does not exist.
-     */
+    /** The five defaults, read off a real instance as a deployment gets them. */
     private final NetworkSpec.MotdSpec motd = Specs.createDefault(NetworkSpec.MotdSpec.class);
 
     /** Every name {@code Placeholders#resolve} answers, plus its one prefix form. */
@@ -120,11 +94,7 @@ class MotdTextTest {
         }
     }
 
-    /**
-     * Both private-use areas, not just the one this pack uses - the same rule {@code TabListTest}
-     * states: checking only the current range quietly stops catching a character pasted out of an
-     * older file.
-     */
+    /** Both private-use areas, so a character pasted from an older file is still caught. */
     private static boolean isPrivateUse(final int codePoint) {
         return (codePoint >= 0xE000 && codePoint <= 0xF8FF)
                 || (codePoint >= 0xF0000 && codePoint <= 0xFFFFD)

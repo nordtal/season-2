@@ -11,21 +11,9 @@ import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 
 /**
- * How long until the network opens, as a line somebody reads once.
+ * How long until the network opens, coarse on purpose: days and hours, or hours and minutes.
  *
- * Both places that show it are read-once surfaces: a disconnect screen, which is gone the moment
- * the player closes it, and the MOTD in the server browser, which refreshes on the client's own
- * schedule and not on ours. That is why this is deliberately coarse - days and hours, or hours and
- * minutes, never seconds. A number that is already stale by the time it is read should not pretend
- * to a precision it does not have.
- *
- * The instant comes from {@code season_phase.launch} ({@code V8__pre_launch.sql}) and may be
- * absent: a phase without an announced date is a real state, not a defect, and
- * {@link #render(Messages, Locale, Instant, Instant)} answers the "not announced yet" line for it.
- *
- * <b>A passed instant renders as "any moment now", never as a negative or as zero.</b> Nothing
- * switches the phase when the date passes - that stays an admin's decision - so the window between
- * the announced instant and the actual switch is a normal state that has to read as one.
+ * A passed instant renders as "any moment now": nothing switches the phase when the date passes.
  */
 public final class LaunchCountdown {
 
@@ -34,10 +22,7 @@ public final class LaunchCountdown {
     /**
      * Renders the remaining time, or the line for a date nobody has announced.
      *
-     * @param messages the bundle to take the wording from
-     * @param locale   the language to render in; English is the fallback the bundle guarantees
-     * @param launch   when the network opens, or {@code null} when no date is set
-     * @param now      the instant to measure against, passed in so this is testable without a clock
+     * @param launch when the network opens, or {@code null} when no date is set
      * @return one line, never {@code null} and never empty
      */
     public static String render(
@@ -61,10 +46,7 @@ public final class LaunchCountdown {
     }
 
     /**
-     * The full sentence, ready to put under a disconnect screen.
-     *
-     * The countdown wrapped in {@code gate.countdown}, or the "no date announced" line on its own -
-     * which is already a sentence and must not be wrapped in one.
+     * The countdown wrapped in {@code gate.countdown}, or the "no date announced" line, which is already a sentence.
      *
      * @param messages the bundle
      * @param locale   the language
@@ -83,20 +65,7 @@ public final class LaunchCountdown {
     /**
      * The same sentence as a component, for the disconnect screens.
      *
-     * <b>It composes first and parses once</b>, rather than going through
-     * {@code MessageRenderer.format}, and the difference matters here: {@code gate.countdown} wraps
-     * {@code countdown.*}, so a renderer would escape the inner message's tags on its way into the
-     * outer one and a formatted countdown could never carry any. Parsing the finished sentence lets
-     * either key carry tags - and nothing arbitrary is substituted along the way, because every
-     * value this class puts in is a number it computed itself. The MOTD keeps taking the
-     * {@link #sentence} form; {@code Placeholders} escapes it there for the same reason, since a
-     * MOTD template is edited by hand.
-     *
-     * @param messages the bundle
-     * @param locale   the language
-     * @param launch   the opening instant, or {@code null}
-     * @param now      the instant to measure against
-     * @return one sentence, parsed as MiniMessage
+     * Composes first and parses once, so either key may carry tags; every substituted value is a computed number.
      */
     public static Component component(
             final Messages messages, final Locale locale, final @Nullable Instant launch, final Instant now) {

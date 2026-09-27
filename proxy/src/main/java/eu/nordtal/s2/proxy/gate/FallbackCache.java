@@ -11,16 +11,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The short-lived, in-memory last-known-state cache the login gate falls back to while the database is unreachable.
+ * The in-memory last-known state the login gate falls back to while the database is unreachable.
  *
- * Written only on a successful query, so it never invents an entry. Only a state that may join
- * right now is stored; anything else is removed, so a lapse evicts an earlier positive entry
- * rather than leaving a stale "yes" behind. An entry older than {@code window} is treated as
- * absent and evicted on read, so a long outage closes the door rather than leaving it open
- * forever. It is a plain heap map: it dies with the process.
- *
- * Consulting this cache only while the database is unreachable is the caller's responsibility;
- * nothing here can know it.
+ * Only a state that may join is stored, and an entry older than {@code window} counts as absent.
  */
 public final class FallbackCache {
 
@@ -32,7 +25,6 @@ public final class FallbackCache {
         this(window, Clock.systemUTC());
     }
 
-    /** Package-visible so tests can control time without sleeping. */
     FallbackCache(final Duration window, final Clock clock) {
         if (window == null || window.isZero() || window.isNegative()) {
             throw new IllegalArgumentException("window must be positive, got: " + window);
@@ -41,12 +33,7 @@ public final class FallbackCache {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    /**
-     * Records the outcome of a successful {@code accessState} query.
-     *
-     * @param mcUuid the account the query was about
-     * @param state  the answer the database just gave, must not be {@code null}
-     */
+    /** Records the outcome of a successful {@code accessState} query, evicting the account unless it may join. */
     public void remember(final UUID mcUuid, final AccessState state) {
         Objects.requireNonNull(mcUuid, "mcUuid");
         Objects.requireNonNull(state, "state");
@@ -57,28 +44,17 @@ public final class FallbackCache {
         }
     }
 
-    /**
-     * Whether this account may be let in from the cache alone, right now.
-     *
-     * An entry outside the window is evicted as a side effect of asking.
-     *
-     * @param mcUuid the account attempting to join
-     * @return {@code true} only for an account that was seen with active access within the window
-     */
+    /** Whether this account may be let in from the cache alone, evicting an expired entry. */
     public boolean mayJoin(final UUID mcUuid) {
         return current(mcUuid).isPresent();
     }
 
-    /**
-     * @param mcUuid the account attempting to join
-     * @return the language it was last seen with, English if it is not in the cache at all - a
-     *         "we are having trouble" screen has to render even when the cache has nothing
-     */
+    /** The language this account was last seen with, English when it is not cached. */
     public Locale localeOf(final UUID mcUuid) {
         return current(mcUuid).map(Entry::locale).orElse(Locale.ENGLISH);
     }
 
-    /** @return how many accounts of the ones cached are still within the window, mostly for tests and logging */
+    /** How many cached accounts are still within the window. */
     public int size() {
         return entries.size();
     }

@@ -28,11 +28,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * The same hole as {@code PaperCommandsRootGateTest}, on the adapter that matters more.
+ * The root of every declared command is gated on the proxy, where Velocity runs any command it knows for every player.
  *
- * Velocity runs every command it knows for every player, so an ungated root here runs the report for anybody in
- * the network. A gated root has a second effect on the proxy - Velocity forwards a command the source may not use
- * to the backend, which is where a non-admin's {@code /update} goes to be refused.
+ * A gated root also lets Velocity forward a refused command to the backend.
  */
 class VelocityCommandsRootGateTest {
 
@@ -56,7 +54,7 @@ class VelocityCommandsRootGateTest {
 
     @Test
     void aRootWithSomethingOpenStaysOpen() {
-        // No declaration in the catalogue is a player's any more, so the open command here is one made up for the case.
+        // No catalogue declaration is a player's, so the open command here is made up for the case.
         final VelocityCommands commands = adapter();
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));

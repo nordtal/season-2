@@ -15,58 +15,33 @@ import org.jspecify.annotations.Nullable;
 /**
  * What the proxy knows about each waiting-room player, and the rule that turns it into a {@link WaitingDecision}.
  *
- * No Velocity type is involved, because the ordering this class exists to get right cannot be asserted through
- * a connection.
- *
- * State is per session, not per visit. The three facts that end a wait - the arrival, the
- * pack status, and {@code limbo}'s {@code READY} - arrive on unrelated paths in any order. Velocity
- * makes {@code READY} beat the arrival by construction: {@code TransitionSessionHandler} stops
- * reading from the backend socket on join, and the packets buffered meanwhile are read on the Netty
- * loop before {@code ServerPostConnectEvent} is dispatched. Keeping {@code ready} in an object the
- * arrival creates therefore drops it, and {@code limbo} sends it once per join - which strands the
- * player for ever, since no timeout applies after the pack is applied.
- *
- * The deliberate cost: {@code ready} is not cleared when a player leaves the waiting room
- * and returns within the same session, so a second visit is released without a second
- * {@code READY}. Clearing it would reintroduce the window this class removes.
- *
- * The grace period covers a {@code READY} that is genuinely lost: a plugin message decoded
- * in the same read batch as the join is written straight to the client by
- * {@code TransitionSessionHandler} and never becomes a {@code PluginMessageEvent}. {@link #decide}
- * therefore releases a player once everything else has been settled for
- * {@code gate.yml#limbo-ready-grace-seconds}, and says so. No single message may strand a player.
- *
- * Every public method is safe to call from any thread. {@link #decide} synchronises on the
- * session, which is what makes a release happen once: a sweep and a pack status arriving together
- * would otherwise both pass the same checks and connect the same player twice.
+ * State is per session: Velocity delivers {@code READY} before the arrival, so a per-visit flag would drop it.
  */
 public final class WaitingBook {
 
     /** Everything known about one player between their login and their disconnect. */
     private static final class Session {
 
-        /** Whether the proxy currently believes they are sitting in the waiting room. */
+        /** Whether the proxy believes they are in the waiting room. */
         private boolean waiting;
         /** Set by {@link #releaseFailed}: the destination is registered but did not take them. */
         private @Nullable Instant backendDownUntil;
-        /** Which destination that was - the window applies to it and to no other. */
+        /** Which destination that was; the window applies to it alone. */
         private @Nullable String backendDown;
-        /** Whether {@link #entered} has ever been called - what makes a READY "early". */
+        /** Whether {@link #entered} has ever been called, which makes a READY "early". */
         private boolean visited;
 
-        /** When the pack offer went out, or {@code null} if it has not. */
         private @Nullable Instant offeredAt;
 
-        /** Whether the client reported the pack as applied. */
         private boolean applied;
 
         /** Whether {@code limbo} has said {@code READY} at any point this session. */
         private boolean ready;
 
-        /** When the wait last came down to {@code READY} alone; {@code null} whenever it has not. */
+        /** When the wait last came down to {@code READY} alone. */
         private @Nullable Instant settledAt;
 
-        /** The reason currently on this player's screen, so an unchanged one is not re-sent. */
+        /** The reason on this player's screen, so an unchanged one is not re-sent. */
         private @Nullable WaitReason shown;
     }
 
@@ -79,16 +54,10 @@ public final class WaitingBook {
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
 
     /**
-     * @param packOffered  whether there is a pack to wait for at all - {@code pack.yml#enabled}.
-     *                     When false the wait has one fewer thing in it and no timeout to enforce
-     * @param applyTimeout how long a player may sit with an unanswered pack offer
-     * @param readyGrace   how long everything else may be settled before the player is released
-     *                     without {@code limbo}'s confirmation
-     * @param role         which of the two proxies this process is. Held here rather than passed
-     *                     to {@link #decide} because it is a fact about the process and not about
-     *                     the player: a parameter would be the same value at every call site, and
-     *                     the one call site that got it wrong would be the one nobody re-read
-     * @param clock        the clock both periods are measured on
+     * Takes the pack setting, both periods and the proxy's role.
+     *
+     * @param packOffered whether there is a pack to wait for, {@code pack.yml#enabled}
+     * @param readyGrace how long the rest may be settled before release without {@code limbo}'s confirmation
      */
     public WaitingBook(
             final boolean packOffered,
@@ -119,9 +88,7 @@ public final class WaitingBook {
     }
 
     /**
-     * Records that the player is no longer in the waiting room - released, moved, or on their way out.
-     *
-     * The session's facts survive; only this visit's does.
+     * Records that the player left the waiting room; the session's facts survive.
      *
      * @param uuid the player
      */
@@ -140,10 +107,7 @@ public final class WaitingBook {
     /**
      * Claims the one pack offer this session gets.
      *
-     * @param uuid the player
-     * @return {@code true} if the caller should actually send the offer, {@code false} if it has
-     *         already gone out. A player bounced back into the waiting room by a phase change is
-     *         not asked a second time for a pack they already have
+     * @return whether the caller should send it; a player bounced back is not asked twice
      */
     public boolean claimOffer(final UUID uuid) {
         final Session session = session(uuid);
@@ -169,13 +133,9 @@ public final class WaitingBook {
     }
 
     /**
-     * Records {@code limbo}'s {@code READY}, whether or not the arrival event has been seen yet.
+     * Records {@code limbo}'s {@code READY}, whether or not the arrival has been seen yet.
      *
-     * @param uuid the player
-     * @return {@code true} when this {@code READY} arrived before the proxy had processed the
-     *         arrival - the race described on this class, and worth a log line. A READY after the
-     *         player has already left the room is not early: {@code limbo} repeats it every
-     *         second until the player is moved, so one arriving mid-transfer is ordinary
+     * @return whether it came before the arrival, the race described on this class
      */
     public boolean ready(final UUID uuid) {
         final Session session = session(uuid);
@@ -185,22 +145,13 @@ public final class WaitingBook {
         }
     }
 
-    /** How long a release that failed keeps a player waiting before the connection is tried again. */
+    /** How long a failed release waits before the connection is tried again. */
     public static final Duration RELEASE_RETRY = Duration.ofSeconds(10);
 
     /**
-     * Records that the connection a release asked for did not succeed, and puts the player back on the books.
+     * Puts the player back on the books after a release's connection failed.
      *
-     * The station releases a player once the destination is registered; only the connection
-     * attempt can say whether it is up. A backend that is down must hold rather than kick,
-     * so the player is shown the {@code BACKEND} title and the release is tried again after
-     * {@link #RELEASE_RETRY}.
-     *
-     * @param uuid        the player, still standing on limbo
-     * @param destination the backend that did not take them. The window is recorded against it and
-     *                    applies to nothing else: a phase switched inside the window points at a
-     *                    different server, and a player must not be held away from a backend that
-     *                    never refused them
+     * @param destination the backend that refused them; the retry window applies to it alone
      */
     public void releaseFailed(final UUID uuid, final String destination) {
         final Session session = sessions.get(uuid);
@@ -226,9 +177,7 @@ public final class WaitingBook {
     }
 
     /**
-     * Drops everything known about a player.
-     *
-     * Called on disconnect, or the map grows for the life of the process.
+     * Drops everything known about a player; called on disconnect.
      *
      * @param uuid the player who has gone
      */
@@ -236,7 +185,7 @@ public final class WaitingBook {
         sessions.remove(uuid);
     }
 
-    /** @return how many sessions are on the books, for tests and for a future admin surface */
+    /** How many sessions are on the books. */
     public int size() {
         return sessions.size();
     }
@@ -244,21 +193,10 @@ public final class WaitingBook {
     // the decision
 
     /**
-     * Looks at one held player and says what should happen to them.
+     * Says what should happen to one held player; cheap and idempotent.
      *
-     * Called on every pack status, every arrival, every {@code READY} and every sweep, so it must be
-     * cheap and idempotent.
-     *
-     * @param uuid                 the player
-     * @param phase                the phase the network is in
-     * @param admin                whether the player carries {@code discord_user.admin} - maintenance
-     *                             does not hold an admin, see {@link LimboHold}
-     * @param destinationAvailable whether the backend that phase points at is registered
-     * @param destination          its name, so a retry window set for one backend is not applied to
-     *                             another one the phase has since moved to
-     * @return what to do. A {@code RELEASE}, {@code RELEASE_UNCONFIRMED} or {@code TIMED_OUT} also
-     *         ends the visit, so a second concurrent caller gets {@code IDLE} and the player is not
-     *         connected onward twice
+     * @param destination the backend's name, so a retry window set for another is not applied
+     * @return what to do; a release or time-out ends the visit, so a concurrent caller gets {@code IDLE}
      */
     public WaitingDecision decide(
             final UUID uuid,
@@ -293,7 +231,7 @@ public final class WaitingBook {
             final Optional<WaitReason> reason = LimboHold.reason(
                     packSettled, phase, admin, role.isStandby(), available, destinationUpdating, destinationHeld);
             if (reason.isPresent()) {
-                // Something other than READY is still in the way, so the grace period restarts.
+                // Something other than READY is in the way, so the grace period restarts.
                 session.settledAt = null;
                 if (reason.get() == session.shown) {
                     return WaitingDecision.idle();
@@ -309,7 +247,7 @@ public final class WaitingBook {
 
             final Instant now = clock.instant();
             if (session.settledAt == null) {
-                // First moment at which READY is the only thing left; deliberately silent to avoid a flicker.
+                // The first moment READY is the only thing left; silent to avoid a flicker.
                 session.settledAt = now;
                 return WaitingDecision.idle();
             }

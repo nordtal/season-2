@@ -6,12 +6,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 
-/**
- * A settable {@link Clock}, so the tests in this module advance time instead of sleeping through it.
- *
- * Shared by everything here that is a function of elapsed time - the fallback cache window and the play-time
- * counter - because two copies of it would eventually disagree.
- */
+/** A settable {@link Clock}, so tests advance time instead of sleeping through it. */
 public final class MutableClock extends Clock {
 
     private Instant now;

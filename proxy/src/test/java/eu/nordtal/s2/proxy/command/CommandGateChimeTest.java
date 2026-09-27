@@ -20,13 +20,7 @@ import org.slf4j.Logger;
 /**
  * {@code CommandGate#onCommandExecute} paints {@code Tone.BAD} and calls the chime hook on every refusal.
  *
- * The same call site {@code CommandFilterTest} holds Paper to. This file stays a
- * hook-level test with a spy rather than a real {@code ProxySounds}: it is what proves the call
- * site itself is right regardless of what plays the sound, and {@code ProxySoundsTest} covers the
- * adapter that maps {@link Feedback} to an actual {@code Player#playSound} call in production,
- * wired by {@code ProxyPlugin}. See the javadoc on {@link CommandGate.Chime}: the API lets the
- * proxy reach a player on any backend with {@code playSound}, the same way {@code RestartWatch}
- * already reaches one with {@code sendMessage} and {@code showTitle}.
+ * A spy stands in for {@code ProxySounds}, which {@code ProxySoundsTest} covers.
  */
 class CommandGateChimeTest {
 
@@ -64,7 +58,7 @@ class CommandGateChimeTest {
 
     @Test
     void theOldConstructorIsSilentByDefault() {
-        // No SpyChime reachable here: the four-argument constructor every existing caller still uses, unchanged.
+        // No SpyChime here: the four-argument constructor.
         final CommandGate gate = new CommandGate(new LoginRoster(), CommandAllowlist.NOTHING, messages, silentLogger());
         final CommandExecuteEvent event = new CommandExecuteEvent(player(), "spawn");
         gate.onCommandExecute(event);

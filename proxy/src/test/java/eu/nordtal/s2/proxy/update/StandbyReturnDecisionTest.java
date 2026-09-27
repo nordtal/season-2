@@ -9,16 +9,13 @@ import org.junit.jupiter.api.Test;
 /**
  * When the standby hands the network back.
  *
- * Both ways of getting this wrong are in these four tests, and they are not symmetric. Too early
- * means everybody is handed back into a proxy that is seconds from stopping - and the live proxy
- * parks once per run, so the second time it would not catch them: the whole network disconnected by
- * the mechanism built to stop exactly that. Too late means a loading screen nobody ever leaves.
+ * Too early hands players to a proxy about to stop; too late leaves them on a loading screen.
  */
 class StandbyReturnDecisionTest {
 
     @Test
     void theParkingWindowIsNotAReturn() {
-        // Between the park and the stop, both proxies answer fine, which is why "is it up" is the wrong question.
+        // Between the park and the stop both proxies answer, so "is it up" is the wrong question.
         assertFalse(StandbyReturn.releases(false, Duration.ZERO));
         assertFalse(StandbyReturn.releases(false, Duration.ofSeconds(30)));
     }

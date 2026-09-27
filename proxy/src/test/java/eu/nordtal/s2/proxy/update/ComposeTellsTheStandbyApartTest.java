@@ -12,21 +12,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The one value in {@code compose.yml} that tells the two proxies apart.
  *
- * <b>Why a test reads a YAML file.</b>
- * Everything else about this feature is Java and is held by the compiler. This is not: the two
- * proxies are one image and one environment block, and the entire difference between "the proxy
- * players connect to" and "the proxy that holds them while the first one restarts" is one string in
- * a file nothing compiles.
- *
- * <b>Both directions are failures and neither says anything.</b> A standby that was not told it
- * is one behaves exactly like the live proxy: it releases parked players onto the backends and
- * never sends anybody home, and the log line it prints is the ordinary one. A live proxy that was
- * told it <em>is</em> the standby watches the public address, finds itself answering, and
- * transfers every player to the address they are already on.
- *
- * This does not prove the deployment works - see {@code fits-on-a-phone.test.ts} in the frontend
- * for the same caveat, written for the same reason. It proves that the line was not deleted or
- * copied to the wrong service, which is the way it will actually go wrong.
+ * Nothing compiles that file, and a missing or misplaced value fails silently in both directions.
  */
 class ComposeTellsTheStandbyApartTest {
 
@@ -62,12 +48,7 @@ class ComposeTellsTheStandbyApartTest {
                         + " setting the live proxy gains from now on reaches only one of them");
     }
 
-    /**
-     * The lines of one compose service: from its key to the next key at the same indent.
-     *
-     * Two spaces and a colon, and the third character not a space - which is exactly how a
-     * compose service is written and nothing else in the file is.
-     */
+    /** The lines of one compose service, from its key to the next key at the same indent. */
     private static String block(final String compose, final String service) {
         final int start = compose.indexOf(System.lineSeparator() + service);
         assertTrue(start >= 0, "no `" + service.trim() + "` in compose.yml");

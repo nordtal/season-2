@@ -463,7 +463,8 @@ shown_value() {
         return
     fi
     case "$kind" in
-        secret|optional-secret) printf '\u2022\u2022\u2022' ;;
+        # The bytes of three bullets in UTF-8, because \u is only expanded in a UTF-8 locale.
+        secret|optional-secret) printf '\342\200\242\342\200\242\342\200\242' ;;
         *)                      printf '%s' "$value" ;;
     esac
 }
@@ -558,7 +559,8 @@ at_risk_images() {
         {
             if (!($1 in seen)) { order[++count] = $1 }
             seen[$1] = 1
-            services[$1] = ($1 in services ? services[$1] "," : "") $2
+            # mawk creates services[$1] before the right side runs, so the test cannot be inline.
+            if ($1 in services) { services[$1] = services[$1] "," $2 } else { services[$1] = $2 }
         }
         END {
             for (i = 1; i <= count; i++) {

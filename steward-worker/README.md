@@ -94,8 +94,14 @@ migration — which is the argument for one owner rather than two. Migrations ru
 moves, and a failed migration stops the run before anything is fetched.
 
 It also owns the bot's jar and its own; both containers fall back to the jar baked into their image
-only while the volume is empty. Its own jar takes effect on the next start, since no process replaces
-the jar it is executing.
+only while the volume is empty. No process replaces the jar it is executing, so an update that
+brings a newer worker is **handed to it**: the run places only that jar, before the standbys, the
+countdown or any stop, puts the request back into the inbox and exits. Docker starts the container
+again on the new jar, which migrates at startup and carries out the rest of the same request. A
+release's migrations are therefore always applied by that release, never by the worker before it —
+the other order let a worker migrate to the schema it knew and then start a bot built against one
+more. The version comes from the jar's manifest; a worker that finds a run handed to a version other
+than its own refuses it rather than restarting in a loop.
 
 It does not own worlds or anything a player built.
 

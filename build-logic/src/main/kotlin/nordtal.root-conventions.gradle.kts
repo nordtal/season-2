@@ -1,6 +1,7 @@
 // CONVENTIONS.md for everything outside a module: build scripts, build-logic, workflows and
 // documentation at the root. `conventions.root.comments=true` enforces the tracker-ID rule here.
 
+import eu.nordtal.s2.build.CheckNoDashPunctuation
 import eu.nordtal.s2.build.CheckNoTrackerIds
 import org.gradle.accessors.dm.LibrariesForLibs
 
@@ -33,6 +34,13 @@ val checkNoTrackerIds =
         enforced.set(findProperty("conventions.root.comments")?.toString()?.toBoolean() ?: false)
     }
 
+val noDashPunctuation =
+    tasks.register<CheckNoDashPunctuation>("noDashPunctuation") {
+        repositoryRoot.set(layout.projectDirectory)
+        pathspecs.set(listOf(".") + subprojects.map { ":(exclude)" + projectDir.toPath().relativize(it.projectDir.toPath()) })
+        enforced.set(findProperty("conventions.root.comments")?.toString()?.toBoolean() ?: false)
+    }
+
 tasks.named("check") {
-    dependsOn(checkNoTrackerIds)
+    dependsOn(checkNoTrackerIds, noDashPunctuation)
 }

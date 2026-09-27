@@ -2,6 +2,7 @@
 // pack-install server serves. The client is sent a URL and a SHA-1 and refuses the pack if they
 // disagree, so the hash is generated on every build rather than written down anywhere.
 
+import eu.nordtal.s2.build.CheckNoDashPunctuation
 import eu.nordtal.s2.build.CheckNoTrackerIds
 import eu.nordtal.s2.build.CheckSourcesTracked
 import eu.nordtal.s2.build.Sha1File
@@ -74,6 +75,20 @@ val checkNoTrackerIds =
         enforced.set(findProperty("conventions.comments")?.toString()?.toBoolean() ?: false)
     }
 
+val noDashPunctuation =
+    tasks.register<CheckNoDashPunctuation>("noDashPunctuation") {
+        repositoryRoot.set(rootProject.layout.projectDirectory)
+        pathspecs.set(
+            listOf(
+                rootProject.projectDir
+                    .toPath()
+                    .relativize(projectDir.toPath())
+                    .toString(),
+            ),
+        )
+        enforced.set(findProperty("conventions.comments")?.toString()?.toBoolean() ?: false)
+    }
+
 tasks.named("check") {
-    dependsOn(checkNoTrackerIds)
+    dependsOn(checkNoTrackerIds, noDashPunctuation)
 }

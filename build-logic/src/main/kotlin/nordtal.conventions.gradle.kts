@@ -2,6 +2,7 @@
 // `conventions.comments=true` in the module's gradle.properties enforces the comment and tracker-ID
 // rules, `conventions.enforced=true` every rule; -P on the command line shows the findings anywhere.
 
+import eu.nordtal.s2.build.CheckNoDashPunctuation
 import eu.nordtal.s2.build.CheckNoTrackerIds
 import net.ltgt.gradle.errorprone.CheckSeverity
 import net.ltgt.gradle.errorprone.errorprone
@@ -86,6 +87,20 @@ val checkNoTrackerIds =
         enforced.set(commentsEnforced)
     }
 
+val noDashPunctuation =
+    tasks.register<CheckNoDashPunctuation>("noDashPunctuation") {
+        repositoryRoot.set(rootProject.layout.projectDirectory)
+        pathspecs.set(
+            listOf(
+                rootProject.projectDir
+                    .toPath()
+                    .relativize(projectDir.toPath())
+                    .toString(),
+            ),
+        )
+        enforced.set(commentsEnforced)
+    }
+
 tasks.named("check") {
-    dependsOn(checkNoTrackerIds)
+    dependsOn(checkNoTrackerIds, noDashPunctuation)
 }

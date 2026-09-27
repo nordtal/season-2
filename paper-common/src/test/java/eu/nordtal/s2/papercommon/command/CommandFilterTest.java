@@ -31,7 +31,7 @@ class CommandFilterTest {
     private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locales.DEFAULT);
     private final PlayerLocales locales = new PlayerLocales(uuid -> Locales.DEFAULT);
 
-    /** Records every play() call rather than making a sound - there is nothing to hear in a test. */
+    /** Records every play() call rather than making a sound. */
     private static final class SpyChime implements PaperUser.Chime {
 
         private final List<Feedback> played = new ArrayList<>();

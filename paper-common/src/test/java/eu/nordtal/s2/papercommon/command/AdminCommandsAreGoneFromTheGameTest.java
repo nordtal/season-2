@@ -30,15 +30,11 @@ import org.junit.jupiter.api.Test;
 /**
  * A command without {@link eu.nordtal.s2.commands.Surface#GAME} is absent from a player's command tree.
  *
- * Minecraft answers "Unknown command" and nothing here answers anything else.
- *
- * The tree is one tree, filtered per source through Brigadier's {@code requires}: there is no
- * "register for the console only" on Paper, so being off {@code GAME} means no {@link Player}
- * passes that requirement. The console keeps every one of these commands.
+ * No {@link Player} passes its {@code requires}, so the game answers "Unknown command"; the console keeps it.
  */
 class AdminCommandsAreGoneFromTheGameTest {
 
-    /** An admin: the source that passed the old gate and is the whole point of the new one. */
+    /** An admin, the source the gate must still keep out. */
     private static final UUID ADMIN = UUID.fromString("00000000-0000-4000-8000-00000000002a");
 
     private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locale.ENGLISH);

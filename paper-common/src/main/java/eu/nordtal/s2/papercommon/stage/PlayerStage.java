@@ -19,25 +19,11 @@ import org.jspecify.annotations.Nullable;
 /**
  * One player's screen, as far as a staging is concerned.
  *
- * Tracked by UUID, never by the {@code Player} it was built from: a staging lasts seconds, and
- * a captured {@code Player} instance of somebody who reconnected answers {@code isOnline()} false
- * for ever, silently stopping the frames for somebody standing right there.
- *
- * A title with a fade dissolves between frames, which at twenty ticks a picture reads as
- * flickering rather than movement. Fade in and fade out are therefore zero, and the stay is the
- * frame's own length plus a small overhang, so the next {@code showTitle} replaces this one while
- * it is still fully drawn - a frame that is one tick late overlaps rather than leaving a gap of
- * black.
+ * Tracked by UUID, since a captured {@code Player} of somebody who reconnected stays offline for ever.
  */
 public final class PlayerStage implements CinematicStage {
 
-    /**
-     * How much longer than its own length a frame stays on screen.
-     *
-     * Half a second. Long enough that a tick of scheduler jitter cannot open a hole between two
-     * frames, short enough that the last frame is gone about when the staging is - and
-     * {@link #clear()} takes it off exactly on time anyway.
-     */
+    /** How much longer than its own length a frame stays, so scheduler jitter cannot open a gap between frames. */
     private static final Duration OVERHANG = Duration.ofMillis(500);
 
     private static final long MILLIS_PER_TICK = 50L;
@@ -81,7 +67,7 @@ public final class PlayerStage implements CinematicStage {
             return;
         }
         applied = type;
-        // ambient, particles and icon all false: this is a picture, not a staging with the plumbing showing.
+        // No ambient, particles or icon: this is a picture.
         player.addPotionEffect(new PotionEffect(type, ticks, effect.amplifier(), false, false, false));
     }
 
@@ -97,23 +83,18 @@ public final class PlayerStage implements CinematicStage {
     public void clear() {
         final Player player = Bukkit.getPlayer(who);
         if (player == null) {
-            // Nothing to clean up here: the title and the potion effect are already saved with a player who left.
+            // Nothing to clean up: the title and effect were saved with the player who left.
             return;
         }
         player.clearTitle();
         if (applied != null) {
-            // Removes the whole effect, not only our share of it, so nobody comes out of this still blind.
+            // Removes the whole effect, so nobody comes out of this still blind.
             player.removePotionEffect(applied);
             applied = null;
         }
     }
 
-    /**
-     * A namespaced key to the effect this server knows, or {@code null} with one warning.
-     *
-     * Never fatal: a staging is decoration, and a typo in an effect name must not be able to
-     * throw on a join. The same rule {@code FeedbackSounds} applies to a sound key.
-     */
+    /** Returns the effect this server knows by that key, or {@code null} with one warning; never fatal on a join. */
     private @Nullable PotionEffectType resolve(final String type) {
         try {
             final PotionEffectType resolved = Registry.MOB_EFFECT.get(Key.key(type));

@@ -7,9 +7,7 @@ import eu.nordtal.s2.common.message.spec.MessageSpecs;
 import eu.nordtal.s2.common.message.spec.Name;
 import net.kyori.adventure.text.Component;
 
-/**
- * Every message of the paper-common bundle, one method per key.
- */
+/** Every message of the paper-common bundle, one method per key. */
 @MessageSpec("paper-common")
 public interface PaperCommonMessages {
 

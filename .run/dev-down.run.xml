@@ -1,11 +1,7 @@
 <!--
   deploy/dev down
 
-  Removes the containers. The VOLUMES SURVIVE - worlds, the database and the jar caches are
-  untouched, and `dev up` recreates the containers around them. Only `dev reset` deletes a world.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Removes the containers; the volumes survive. Only `dev reset` deletes a world.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev down" type="ShConfigurationType" folderName="dev: stack">

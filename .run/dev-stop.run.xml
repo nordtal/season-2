@@ -1,11 +1,7 @@
 <!--
   deploy/dev stop
 
-  Stops the containers and keeps them. `dev up` or `dev ui` brings them back with their state
-  intact. The gentler half of the pair; `dev down` is the other.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Stops the containers and keeps them; `dev up` or `dev ui` brings them back.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev stop" type="ShConfigurationType" folderName="dev: stack">

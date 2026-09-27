@@ -1,11 +1,7 @@
 <!--
   deploy/dev psql
 
-  A psql shell on the local database, as POSTGRES_USER on POSTGRES_DB. Interactive, so it runs
-  in the terminal like everything else here. Quit with \q.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  A psql shell on the local database as POSTGRES_USER. Quit with \q.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev psql" type="ShConfigurationType" folderName="dev: console and database">

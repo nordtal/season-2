@@ -1,43 +1,27 @@
 #!/usr/bin/env bash
+# PID 1 for every Minecraft service. In order, it:
 #
-# PID 1 for every Minecraft service. Four jobs, in order:
-#
-#   1. run the newest server jar in the cache, or resolve one (PaperMC Fill API) if it is empty
-#   2. refuse to start on an empty plugins folder - the `steward-worker` container fills it
-#   3. start the server inside a tmux session, so that `docker exec` has a writable console
-#   4. translate SIGTERM into a graceful shutdown and wait for the JVM to finish saving
-#
-# Step 4 is why this script exists at all: with tmux in the picture and no trap, `docker stop`
-# would kill a wrapper and leave the JVM to be SIGKILLed at the end of stop_grace_period, which
-# is how worlds get half-written. See ../README.md#why-it-looks-like-this.
+#   1. runs the newest cached server jar, or resolves one from the PaperMC Fill API
+#   2. refuses to start on an empty plugins folder, which steward-worker fills
+#   3. starts the server in tmux, so `docker exec` has a writable console
+#   4. turns SIGTERM into a graceful shutdown and waits for the world to save
 set -Eeuo pipefail
 
 log()  { printf '[nordtal] %s\n' "$*"; }
 warn() { printf '[nordtal] WARN: %s\n' "$*" >&2; }
 die()  { printf '[nordtal] FATAL: %s\n' "$*" >&2; exit 1; }
 
-# The server directory, and the world inside it Paper treats as primary. Both are resolved here,
-# above everything else, because what follows them is the half of this script that
-# entrypoint-test.sh SOURCES and exercises against fixture directories instead of a real volume.
-#
-# DATA is overridable for that reason and for no other - nothing in the container ever sets it,
-# and it is not a knob offered to an operator. The image mounts the volume at /data, the Dockerfile
-# says so, and a second answer to "where is the server directory" is not something this deployment
-# should have.
+# Overridable only so entrypoint-test.sh can point the sourced half at fixtures; not an operator knob.
 DATA="${DATA:-/data}"
 
-# Paper's own default. The one place LEVEL_NAME is resolved: seed_level_settings writes it into
-# server.properties and fetch_datapacks reads the same value, so the two cannot disagree.
+# Paper's default. seed_level_settings and fetch_datapacks both read it, so they agree.
 LEVEL_NAME="${LEVEL_NAME:-world}"
 
 # first-start configuration
-# Everything below is SEEDING, not editing: a file that already exists is left alone and belongs
-# to the operator from then on. The one exception is server.properties#online-mode, which is
-# enforced on every start because a proxied backend that authenticates players itself does not
-# start at all - see prepare_backend.
+# Seeds files that do not exist yet and leaves existing ones to the operator. Only online-mode is
+# enforced on every start; see prepare_backend.
 
-# Sets key=value in a Java properties file, creating the file if it is not there yet. Idempotent,
-# and it says so in the log when it actually changes something.
+# Sets key=value in a properties file, creating it if needed, and logs a change.
 set_property() {
     local file="$1" key="$2" value="$3" tmp
     if [[ -f "$file" ]] && grep -qE "^${key}=" "$file"; then
@@ -51,38 +35,17 @@ set_property() {
     fi
 }
 
-# Repairs the one level-name disagreement that was never anybody's decision, and answers whether it
-# did. Returns 0 when the volume has been adopted and the old world is gone; 1 when the caller must
-# refuse to start.
+# Deletes an unplayed world that carries Paper's default name, so LEVEL_NAME can apply.
 #
-# Two conditions, and both are narrow on purpose. This function deletes a world folder without
-# asking, in an automatic start, so what it is allowed to delete has to be a shape that cannot be
-# anything but junk:
-#
-#   1. THE OLD NAME IS LITERALLY `world`. That is Paper's own default, the value it writes when
-#      nothing has told it otherwise - which is exactly what every volume from before v0.2.3 has,
-#      because the key was not written then. Any other name was typed by a person into .env, and a
-#      name somebody chose is a decision this script does not get to overrule. It also means the
-#      repair happens at most once per volume: after this, level-name is `nordtal` or
-#      `hunger_games`, and a later mismatch can only be an edit to .env - the case the refusal is
-#      for.
-#   2. NOBODY HAS EVER LOGGED OUT IN IT. Paper writes <world>/playerdata/<uuid>.dat when a player
-#      leaves, so a single file there means somebody was in this world and it is not ours to bin.
-#      An empty or absent folder means Paper generated terrain that no one has seen.
-#
-# `limbo` never reaches here and is the proof the first condition is not arbitrary: it deliberately
-# has no LEVEL_NAME (compose.yml), so its level-name IS `world`, matches, and never disagrees.
-#
-# What goes with it: world_nether and world_the_end, which are that same world's two dimensions
-# under Paper's naming. Deleting the overworld and leaving its Nether behind would keep gigabytes
-# of data belonging to a world nothing can reach any more.
+# Returns 0 only when the old name is literally `world` and no player has ever logged out in it
+# (<world>/playerdata is empty); any other name was a person's choice. The world's nether and end
+# folders go with it.
 adopt_paper_default_world() {
     local current="$1" playerdata="$DATA/world/playerdata" dimension
 
     [[ "$current" == "world" ]] || return 1
 
-    # -print -quit stops at the first entry rather than listing the folder, and unlike `ls -A` it
-    # says nothing on stdout that has to be filtered back out.
+    # -print -quit stops at the first entry and prints nothing to filter.
     if [[ -d "$playerdata" ]] \
         && [[ -n "$(find "$playerdata" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
         warn "this volume's world is called 'world' (Paper's default, from before this image wrote level-name) and LEVEL_NAME says '${LEVEL_NAME}' - but somebody has played in it, so it is not being thrown away automatically."
@@ -100,37 +63,15 @@ adopt_paper_default_world() {
     return 0
 }
 
-# The world this server generates, and the seed it generates it with. BOTH have to be settled
-# before anything else touches the volume: level-name decides which folder the datapacks go into,
-# and a seed means nothing once the terrain exists.
+# Seeds level-name and level-seed before the world exists.
 #
-# WHY level-name IS SEEDED RATHER THAN ENFORCED, and why a disagreement is fatal. It is not forced
-# on every start the way online-mode is: online-mode=true is a backend that CANNOT work, whereas a
-# level-name that disagrees is a server that works perfectly on the wrong world. Pointing an
-# existing volume at a new name does not move a world - it generates a second, empty one beside it.
-# So it is written once, on a volume that has none, and after that a disagreement stops the
-# container: "wrong world forever, silently" becomes "the server did not come up", on purpose.
-#
-# The one disagreement that is nobody's decision, and why it is repaired instead of refused. The
-# release that first wrote the key (v0.2.3) met volumes that had already run without it, so every
-# one of them said `level-name=world` - a value Paper picked because nothing had told it otherwise.
-# The guard above then did exactly what it says on the tin and stopped `smp` and `hunger-games` on
-# every start: a check built to prevent a misconfiguration had become the misconfiguration. Which
-# is the shape worth naming, because a guard that fires on its own migration is a guard people
-# switch off.
-#
-# So `world`, and only the literal string `world`, is adopted rather than refused - see
-# adopt_paper_default_world for what that costs and what it checks first. Every other disagreement
-# is still fatal, and after this runs once no volume in this deployment says `world` any more:
-# a later mismatch can only mean somebody changed LEVEL_NAME in .env, which is precisely the case
-# the refusal exists for.
+# A level-name that disagrees with the volume is fatal: renaming generates a second, empty world.
+# Only Paper's default `world` is adopted instead; see adopt_paper_default_world.
 seed_level_settings() {
     local file="$DATA/server.properties" current
 
     current=""
-    # `sed -n 1p` and not `head -n1`: head stops reading, and an early-exiting pipe reader turns a
-    # successful pipeline into 141 under `pipefail` - which here would abort the entrypoint and
-    # leave the container refusing to start.
+    # `sed -n 1p`, not `head -n1`: an early exit turns the pipeline into 141 under pipefail.
     [[ -f "$file" ]] && current=$(sed -n 's/^level-name=//p' "$file" | sed -n '1p')
     if [[ -n "$current" && "$current" != "$LEVEL_NAME" ]] && ! adopt_paper_default_world "$current"; then
         die "this volume's server.properties says level-name=${current}, but LEVEL_NAME is '${LEVEL_NAME}'.
@@ -147,24 +88,12 @@ Two ways out, and only you can pick:
     fi
     set_property "$file" level-name "$LEVEL_NAME"
 
-    # The seed is only ever an input to GENERATION, so it is written while there is still nothing
-    # to generate against and only compared afterwards. Writing it onto a volume whose world
-    # already exists would change no terrain and would leave the file claiming a seed the world on
-    # disk does not have - which is worse than saying nothing, because the next person reads it.
-    #
-    # A disagreement here warns rather than stops: unlike level-name it cannot swap the world under
-    # anybody, it only means this world came from a different seed than .env now claims.
-    # "The world already exists" IS level.dat AND NOT THE DIRECTORY, and the difference is not
-    # pedantry: fetch_datapacks below creates /data/${LEVEL_NAME}/datapacks before Paper has
-    # generated anything, so on every volume that has ever had datapacks the directory test was
-    # already true and the seed was never written. Nordtal would have generated from a random seed
-    # while .env named 1837371427, and terrain is not re-rolled - the mistake would have been
-    # permanent and silent. Paper writes level.dat when it saves the world, so it is the only file
-    # here whose presence means a world rather than a folder somebody made.
+    # The seed only matters before generation, so on an existing world it is compared, never written,
+    # and a mismatch warns. level.dat marks a world; the directory alone may exist for datapacks.
     [[ -n "${LEVEL_SEED:-}" ]] || return 0
     if [[ -f "$DATA/$LEVEL_NAME/level.dat" ]]; then
         current=""
-        # `sed -n 1p`, not `head -n1` - see the note at level-name above.
+        # `sed -n 1p`, not `head -n1`; see level-name above.
         [[ -f "$file" ]] && current=$(sed -n 's/^level-seed=//p' "$file" | sed -n '1p')
         if [[ "$current" != "$LEVEL_SEED" ]]; then
             warn "world '${LEVEL_NAME}' already exists and was generated with ${current:-a seed nothing recorded}, not with LEVEL_SEED=${LEVEL_SEED}. Terrain is never re-rolled, so this is a note, not a fault - but .env and this volume do not describe the same world."
@@ -175,16 +104,11 @@ Two ways out, and only you can pick:
 }
 
 # the cached server jar
-# Which jar in .server/ is the one to run. Deliberately above the source guard, because it is the
-# second piece of this script whose failure mode is invisible: choosing wrong does not error, it
-# runs an old server, and nothing anywhere says which one it picked except one log line nobody
-# reads. entrypoint-test.sh drives both functions below against fixture directories.
+# Picking the wrong jar fails silently, so entrypoint-test.sh drives these against fixtures.
 
 # Whether version $1 build $2 is newer than version $3 build $4.
 #
-# Compared component by component as numbers, which is the whole reason this is a function:
-# lexicographically "4.10.0" sorts below "4.9.0", and the proxy's version may move inside its major,
-# so a text comparison would quietly keep running the older jar with nothing failing anywhere.
+# Numeric per component: as text "4.10.0" would sort below "4.9.0".
 newer_server_jar() {
     local -a mine theirs
     IFS='.' read -r -a mine <<<"$1"
@@ -202,26 +126,7 @@ newer_server_jar() {
     (( 10#$2 > 10#$4 ))
 }
 
-# Prints the filename of the newest `<kind>-<version>-<build>.jar` in directory $1, or nothing.
-#
-# It globs on the kind alone, never on the version. Globbing on the version is a trap now that the
-# proxy follows Velocity's minors: steward-worker puts velocity-4.2.0-15.jar in the cache, a glob
-# for velocity-4.1.1-*.jar finds nothing, decides the cache is empty and fetches 4.1.1 back - so
-# every update to the proxy would be undone by the restart meant to apply it.
-#
-# A file that does not match the shape is skipped rather than guessed at: no build number
-# (paper-26.2.jar), a non-numeric build, or a version carrying anything but digits and dots - which
-# is how a hand-copied velocity-4.1.2-SNAPSHOT-30.jar stays out of a production proxy.
-# One server jar per kind. What this removes is every jar this start did not choose: an older build,
-# an older version steward-worker superseded across a version bump (it supersedes by filename
-# prefix, so paper-26.2-121 -> paper-26.2-125 replaces in place but velocity-4.1.1-24 ->
-# velocity-4.2.0-31 does not), and anything hand-copied in that newest_server_jar refused to read.
-# They would otherwise sit here forever at 40-70 MB each.
-#
-# It is a function rather than a loop at the call site for one reason: it deletes files, and the
-# thing that decides WHICH file to keep is a string comparison against the path the caller chose.
-# Get that comparison wrong and this removes the jar the server is about to run. That deserves a
-# test, and entrypoint-test.sh can only reach what it can source.
+# Deletes every `<kind>-*.jar` in $1 except $3, the jar this start chose.
 remove_superseded_jars() {
     local cache="$1" kind="$2" keep="$3"
     local old
@@ -234,6 +139,10 @@ remove_superseded_jars() {
     return 0
 }
 
+# Prints the filename of the newest `<kind>-<version>-<build>.jar` in directory $1, or nothing.
+#
+# Globs on the kind only: a version glob would miss a newer minor and refetch the old one. Names with
+# no numeric build or a version other than digits and dots are skipped.
 newest_server_jar() {
     local cache="$1" kind="$2"
     local best="" best_version="" best_build=""
@@ -265,16 +174,8 @@ newest_server_jar() {
     return 0
 }
 
-# Above the source guard on purpose: this function writes the one file a
-# live proxy swap depends on, it writes it exactly once per volume, and entrypoint-test.sh can
-# only exercise what is defined above that line.
-# The proxy's own config. Only the settings this deployment cannot work without; Velocity applies
-# its defaults to everything a config file leaves out, so this stays short instead of freezing a
-# copy of Velocity's 200-line default that would go stale on the next upgrade.
-#
-# [forced-hosts] IS WRITTEN EMPTY ON PURPOSE: leave the table out and Velocity falls back to its
-# default one, which routes example hostnames at servers this file does not define and then refuses
-# to start at all. "Velocity defaults the rest" is true per key, not per table.
+# Seeds velocity.toml once with only what this deployment needs; Velocity defaults the rest.
+# [forced-hosts] is written empty, since without the table Velocity routes to its example servers.
 seed_velocity_config() {
     local file="$DATA/velocity.toml" name address tmp
 
@@ -287,9 +188,7 @@ seed_velocity_config() {
         return 0
     fi
 
-    # Checked before a byte is written. A malformed entry used to abort halfway through the
-    # redirection below, and a half-written velocity.toml is indistinguishable from an operator's
-    # own on the next start - seeded once means there is no second chance to get it right.
+    # Validated first: a half-written velocity.toml would pass for the operator's own.
     for entry in $VELOCITY_SERVERS; do
         [[ "$entry" == *=* ]] || die "VELOCITY_SERVERS entries are name=host:port, not '${entry}'"
     done
@@ -303,15 +202,7 @@ seed_velocity_config() {
         printf 'online-mode = true\n'
         printf 'player-info-forwarding-mode = "modern"\n'
         printf 'forwarding-secret-file = "forwarding.secret"\n\n'
-        # No motd and no show-max-players here, and that is the point rather than an omission. Both
-        # live in proxy's network.yml, where the plugin answers every ProxyPingEvent with them.
-        # Seeding them here would put a second, permanently stale copy of the MOTD in a file this
-        # script only ever writes once - which is exactly the trap that made VELOCITY_MOTD do
-        # nothing on any volume that had already started.
-        #
-        # Velocity's own defaults for the two are harmless: nothing reads its motd once the plugin
-        # answers the ping, and show-max-players is a display value the plugin overrides. A proxy
-        # without proxy does not start at all - see EXPECTED_PLUGINS.
+        # No motd or show-max-players: proxy's network.yml answers the ping with both.
         printf '[servers]\n'
         for entry in $VELOCITY_SERVERS; do
             name="${entry%%=*}"
@@ -320,16 +211,8 @@ seed_velocity_config() {
         done
         printf 'try = ["%s"]\n\n' "${VELOCITY_TRY:-${VELOCITY_SERVERS%%=*}}"
         printf '[forced-hosts]\n\n'
-        # accepts-transfers is the whole of what a live proxy swap needs from Velocity. Without it
-        # the receiving proxy refuses every player the other one sends, and the refusal looks to
-        # the player like a server that is simply down.
-        #
-        # It is under [advanced] and not at the root, against default-velocity.toml inside this
-        # deployment's own velocity jar in the .server cache. A root-level key of this name is not
-        # read by anything and would look exactly like a setting that works.
-        #
-        # This table comes last because everything after a table header belongs to that table: a
-        # key written below this line is an [advanced] key whether it means to be or not.
+        # accepts-transfers lets the standby proxy receive players; Velocity reads it only under
+        # [advanced]. This table comes last, since every later key would belong to it.
         printf '[advanced]\n'
         printf 'accepts-transfers = true\n'
     } > "$tmp" || { rm -f "$tmp"; exit 1; }
@@ -337,37 +220,14 @@ seed_velocity_config() {
     log "seeded velocity.toml: modern forwarding, servers ${VELOCITY_SERVERS}"
 }
 
-# Accepts-transfers on a volume that already stood.
-#
-# seed_velocity_config writes this key once, when it creates the file. A proxy volume that
-# predates that line has no key at all, and a receiving proxy without it refuses every player the
-# other one hands it with `multiplayer.disconnect.transfers_disabled` - from the player's seat that
-# looks like a network that is simply gone.
-#
-# So this runs on every start and not only on a fresh volume. It is the one setting in this file
-# that another service depends on: a proxy that does not accept transfers is worthless as a standby,
-# and nothing about it is visible until somebody is standing in the game.
-#
-# What it will not do is rewrite a file it cannot parse. Every branch below either changes one line
-# or appends one table, and an unreadable file is left alone with a warning - a half-written
-# velocity.toml is indistinguishable from an operator's own.
+# Enforces accepts-transfers on every start, including volumes seeded before the key existed.
 ensure_velocity_transfers() {
     ensure_velocity_advanced accepts-transfers true \
         "without it this proxy refuses every player another proxy hands it, and an update that moves a proxy would drop them"
 }
 
-# The other key a deployment decides for Velocity, and the one that is dangerous in both
-# directions. The guard in front of 25565 is a layer 4 proxy, so every connection Velocity sees
-# comes from the guard's address; `haproxy-protocol` is what makes Velocity read the client's real
-# address out of the PROXY header the guard writes. Without the key the header is read as the
-# client's first packet and every connection is dropped; with the key and no guard, a direct
-# connection is dropped for the mirror-image reason.
-#
-# It follows a variable and has no default of its own. compose.yml sets it beside the guard, and an
-# unset variable means this function does nothing at all - a deployment that never had a guard
-# keeps the file it has. Setting it to `false` is a decision as much as `true` is, and is enforced
-# as one: a value in a volume outlives a changed default, and the day the guard is taken away the
-# proxy that still believes in it answers nobody.
+# Holds haproxy-protocol to VELOCITY_HAPROXY, which compose.yml sets beside the guard on 25565.
+# Wrong either way drops every connection; unset leaves the file alone.
 ensure_velocity_haproxy() {
     local wanted="${VELOCITY_HAPROXY:-}"
 
@@ -381,31 +241,20 @@ ensure_velocity_haproxy() {
         "a guard in front of this proxy writes a PROXY header that Velocity would otherwise read as the client's first packet"
 }
 
-# One key under [advanced], held to one value, on a volume this script did not write.
-#
-# Shared by every caller that needs the same four answers: the key can be right (leave it), wrong
-# (overrule it and say so), missing from an [advanced] that exists (add the line under the header),
-# or missing along with the table (append the table last, because everything after a table header
-# belongs to that table).
-#
-# What it will not do is rewrite a file it cannot parse. Every branch either changes one line or
-# appends one table, and an unreadable velocity.toml is left alone with a warning - a half-written
-# one is indistinguishable from an operator's own.
+# Holds one key under [advanced] to a value: keeps it, corrects it loudly, adds it under the header,
+# or appends the table last. An unparsable file is left alone with a warning.
 #
 # @param key    the bare key name under [advanced]
-# @param wanted the value it must carry, as it is written into the file
-# @param why    one sentence, in the warning that overrules somebody, about what breaks without it
+# @param wanted the value it must carry, as written into the file
+# @param why    one sentence for the warning, on what breaks without it
 ensure_velocity_advanced() {
     local key="$1" wanted="$2" why="$3"
     local file="$DATA/velocity.toml" tmp verdict
 
-    # No file means seed_velocity_config either just wrote one (with the key) or had nothing to
-    # write from. Neither is this function's business.
+    # No file means there was nothing to seed from; not this function's business.
     [[ -f "$file" ]] || return 0
 
-    # Whitespace is stripped before the comparison because TOML allows `key=true` and Velocity
-    # writes `key = true`; a check that only knew one spelling would silently do nothing on the
-    # other. A commented-out line keeps its `#` and therefore never matches.
+    # Whitespace is stripped, since TOML allows both `key=true` and `key = true`. Comments never match.
     verdict=$(awk -v key="$key" -v wanted="$wanted" '
         /^[[:space:]]*\[/ { table = $1; if (table == "[advanced]") advanced = 1; next }
         {
@@ -424,16 +273,12 @@ ensure_velocity_advanced() {
             else if (found == "other") state = "wrong"
             else if (advanced)         state = "table-only"
             else                       state = "absent"
-            # One line, two words - the verdict and whether a useless root-level key was seen.
-            # Two lines here would need the caller to split on a newline, and this file is read by
-            # people looking for a bug at three in the morning.
+            # One line: the verdict and whether a root-level key was seen.
             print state, (root ? "root" : "-")
         }
     ' "$file") || { warn "could not read velocity.toml to check ${key} - left untouched"; return 0; }
 
-    # A root-level key of this name is read by nothing and looks exactly like a setting that works,
-    # which is why it is said out loud rather than quietly corrected: deleting a line this
-    # script did not write is a bigger liberty than adding the one it needs.
+    # A root-level key is read by nothing; it is reported, not deleted.
     if [[ "$verdict" == *" root" ]]; then
         warn "velocity.toml has a ${key} at the ROOT of the file. Velocity reads it under [advanced] and nowhere else, so that line does nothing."
     fi
@@ -445,9 +290,7 @@ ensure_velocity_advanced() {
             return 0
             ;;
         wrong)
-            # The one branch that overrules somebody. What this deployment needs from the key is not
-            # a preference it can honour otherwise, so it is corrected and said loudly rather than
-            # obeyed quietly.
+            # Overrules the operator, loudly: the deployment cannot work otherwise.
             awk -v key="$key" -v wanted="$wanted" '
                 /^[[:space:]]*\[/ { table = $1 }
                 {
@@ -464,9 +307,7 @@ ensure_velocity_advanced() {
             warn "velocity.toml carried a different ${key} under [advanced]. Set to ${wanted}: ${why}."
             ;;
         table-only)
-            # Straight after the header, because a key belongs to the table above it and appending a
-            # second [advanced] table further down is not a duplicate setting, it is a TOML file
-            # Velocity refuses to parse.
+            # Right after the header: a second [advanced] table is invalid TOML.
             awk -v line="${key} = ${wanted}" '
                 { print }
                 /^[[:space:]]*\[advanced\][[:space:]]*$/ && !done { print line; done = 1 }
@@ -475,8 +316,7 @@ ensure_velocity_advanced() {
             log "velocity.toml had an [advanced] table without ${key} - added it"
             ;;
         absent)
-            # LAST, for the reason the seeding gives in its own comment: everything after a table
-            # header belongs to that table, so a table appended at the end can take nothing with it.
+            # Last, so the new table swallows no later keys.
             cp "$file" "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
             {
                 printf '\n'
@@ -491,24 +331,15 @@ ensure_velocity_advanced() {
 }
 
 # sourced rather than executed
-# Everything ABOVE this line is definitions and can be pulled into another shell; everything BELOW
-# it is this container's own run and reaches for the network, the volume and tmux. entrypoint-test.sh
-# sources this file to exercise the seeding against fixture directories, which is the only way that
-# logic gets tested at all: it decides whether a world folder is deleted, and there is no second
-# chance to notice it decided wrong on a real volume.
-#
-# The `: "${SERVER_KIND:?}"` checks below are the immediate reason the guard sits exactly here and
-# not lower - a sourcing shell has none of those variables and would be killed by the first of them.
+# entrypoint-test.sh sources the definitions above. The guard sits before the `:?` checks, which
+# would kill a sourcing shell.
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
 
 # inputs
 : "${SERVER_KIND:?set SERVER_KIND to paper or velocity}"
-# For paper an exact Minecraft version (26.2); for velocity FILL'S NAME FOR THE MAJOR (4.0.0),
-# which is not a version anybody runs - the newest release inside it is resolved below. compose.yml
-# writes both as literals taken from eu.nordtal.s2.common.Platform.
+# paper: the exact Minecraft version. velocity: Fill's family name, whose newest release is resolved.
 : "${SERVER_VERSION:?set SERVER_VERSION (paper: the Minecraft version, e.g. 26.2; velocity: the Fill version family, e.g. 4.0.0)}"
-# There is no SERVER_BUILD: an empty cache is filled with the newest STABLE build the Fill API
-# lists, resolved here rather than read from a number in .env that somebody has to keep current.
+# No SERVER_BUILD: an empty cache gets the newest STABLE build.
 
 case "$SERVER_KIND" in
     paper|velocity) ;;
@@ -520,7 +351,7 @@ PLUGINS="$DATA/plugins"
 SOCK="${MC_TMUX_SOCKET:-/run/mc/tmux.sock}"
 SESSION="${MC_TMUX_SESSION:-mc}"
 
-# The Fill API requires a User-Agent that identifies the project and a contact.
+# The Fill API requires a User-Agent naming the project and a contact.
 FILL_API="https://fill.papermc.io/v3/projects"
 FILL_UA="nordtal-season-2/deploy (+https://github.com/nordtal/season-2)"
 
@@ -528,27 +359,15 @@ FILL_UA="nordtal-season-2/deploy (+https://github.com/nordtal/season-2)"
 mkdir -p "$CACHE" "$PLUGINS" "$(dirname "$SOCK")"
 
 # the server jar
-# steward-worker owns this jar. What runs is whatever `<kind>-<version>-<build>.jar` is lying in the
-# cache: the `steward-worker` container puts the newest STABLE build there, and newest_server_jar
-# above picks the highest version-then-build of them. The Fill API is only asked when the cache
-# holds no jar of this kind at all - a fresh volume, or one the worker has never run against.
-# Fetching a pinned build here unconditionally would undo every worker run on the next restart.
-#
-# Nothing is pinned, and there is deliberately no way back out of a bad platform build in this
-# deployment. Do not add one here.
-#
-# Fill's download URLs are content-addressed (fill-data.papermc.io/v1/objects/<sha256>) and cannot
-# be constructed by hand, so the bootstrap is an API call. A cached jar means no network at all.
+# steward-worker fills the cache; the newest version and build there runs. Fill is asked only when
+# the cache is empty. There is no pin and no way back from a bad build; do not add one.
 JAR_NAME=$(newest_server_jar "$CACHE" "$SERVER_KIND")
 
 if [[ -n "$JAR_NAME" ]]; then
     JAR_PATH="$CACHE/$JAR_NAME"
     log "server jar from cache: ${JAR_NAME} (the Fill API was not consulted)"
 else
-    # For velocity SERVER_VERSION is Fill's family name and not a version, so the version is looked
-    # up first: the newest member of the family carrying no -SNAPSHOT, -rc or -pre. For paper the
-    # family and the version are the same string (Fill's `26.2` family holds `26.2` and
-    # `26.2-rc-2`), so this resolves to SERVER_VERSION itself and the branch is one code path.
+    # Resolves the newest release in the family first; for paper that is SERVER_VERSION itself.
     log "no ${SERVER_KIND} jar cached - resolving the newest stable build through the Fill API"
     project=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" "${FILL_API}/${SERVER_KIND}") \
         || die "could not reach the Fill API, and no ${SERVER_KIND} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
@@ -562,8 +381,7 @@ else
     [[ "$version" == "$SERVER_VERSION" ]] \
         || log "${SERVER_KIND} family ${SERVER_VERSION} resolves to version ${version}"
 
-    # `/builds/latest` exists and is NOT what is wanted: it answers the newest build of any channel,
-    # ALPHA included. The list is read and filtered instead, the same way steward-worker does it.
+    # `/builds/latest` includes ALPHA builds, so the list is filtered as steward-worker does.
     builds=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" \
         "${FILL_API}/${SERVER_KIND}/versions/${version}/builds") \
         || die "could not read the ${SERVER_KIND} ${version} builds from the Fill API, and no ${SERVER_KIND} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
@@ -571,9 +389,7 @@ else
     meta=$(jq -er '[.[] | select(.channel == "STABLE" and .downloads."server:default")] | max_by(.id)' <<<"$builds") \
         || die "the Fill API lists no STABLE build with a 'server:default' download for ${SERVER_KIND} ${version}. Check ${FILL_API}/${SERVER_KIND}/versions/${version}/builds"
 
-    # The filename comes from the API rather than being built from three variables: it is the same
-    # name the worker installs under, and two programs constructing it separately is how a server
-    # ends up running one jar while another thinks it installed a different one.
+    # The API's filename is the one the worker installs under, so both agree.
     JAR_NAME=$(jq -er '.downloads."server:default".name' <<<"$meta") \
         || die "the Fill API returned a download with no filename"
     JAR_PATH="$CACHE/$JAR_NAME"
@@ -597,40 +413,18 @@ fi
 
 remove_superseded_jars "$CACHE" "$SERVER_KIND" "$JAR_PATH"
 
-# What is actually running, read back out of the filename rather than out of the two variables that
-# asked for it - SERVER_VERSION is a family on the proxy, so it is not the answer to "which version
-# is this".
+# Read back from the filename, since SERVER_VERSION is only a family on the proxy.
 SERVER_VERSION_RUNNING="${JAR_NAME%.jar}"
 SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING#"${SERVER_KIND}-"}"
 SERVER_BUILD_RUNNING="${SERVER_VERSION_RUNNING##*-}"
 SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING%-*}"
 
 # plugins
-# This script does not fetch plugins, and must not start doing so: the `steward-worker` container owns
-# the plugin jars, and two owners is one too many - a worker that puts 0.3.0 into this volume while
-# .env still said 0.2.0 would have the next restart delete exactly the jar it had just fetched.
+# steward-worker owns the plugin jars; this script must never fetch them.
 #
-# What this container still owns is the server jar above and the datapacks below - neither of which
-# the worker touches, and both of which have to be right before the JVM starts.
-#
-# What the guard below replaces: refusing to start rather than run an older jar. It asks instead for
-# the jars this service is SUPPOSED to have, because merely counting them is not enough - a
-# half-finished update can leave two third-party jars in smp/plugins and no season jar at all, and
-# a non-zero count walks straight past that.
-#
-# EXPECTED_PLUGINS is a whitespace-separated list of filename prefixes, split the way JarName splits
-# them - ${file%-*.jar} - so no second and disagreeing rule is invented here.
-#
-# It is a minimum, never an exact set. An extra jar is legitimate and expected - the worker's own
-# rule for anything it does not account for is that it is reported and left alone - and a guard
-# demanding an exact set would stop the SMP the first evening one is hand-installed.
-#
-# The third-party prefix is the soft spot: Topology deliberately reads a prefix back off the
-# resolved filename rather than assuming one, because `packetevents` resolves to
-# packetevents-spigot-*.jar. Listing it here does assume it. If the publisher renames the jar on a first install, this refuses to start while the plugin
-# is really there - a false positive, but a loud one with the prefix in the message, and the same
-# blind spot the worker already has (it would call the artefact MISSING and report the old jar as
-# unclaimed). Refusing is the right side to fail on.
+# EXPECTED_PLUGINS lists filename prefixes, split as JarName does (${file%-*.jar}). It is a minimum:
+# extra jars are fine, a missing one refuses the start. A renamed third-party jar would refuse too,
+# loudly and with the prefix named.
 if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     shopt -s nullglob
     installed=("$PLUGINS"/*.jar)
@@ -685,26 +479,11 @@ If the plugin IS in the folder under a different filename, its publisher renamed
 fi
 
 # world-generation datapacks
-# Terralith and Dungeons and Taverns, pinned, into the level-name world's datapacks/ folder.
+# Pinned packs go into the level-name world's datapacks/, which feeds every world on the server.
+# They must be there before the start, since worldgen reads them once and terrain is never re-rolled.
 #
-# Why that folder and no other: datapacks are server-global and there is no per-world datapack API -
-# a pack in a secondary world's own datapacks/ folder is never seen, not even after refreshPacks().
-# So one folder feeds every world the server generates, the nightly farm world included.
-#
-# Why before the server starts: worldgen registries are read once, at start. A pack dropped in
-# afterwards changes no terrain, and terrain is never re-rolled once it is on disk - a farm world
-# generated without Terralith is one flat day, but Nordtal generated without it is the whole season
-# on a world that has a spawn built on it and therefore cannot be thrown away. The smp plugin
-# refuses to enable when a required pack is missing, which turns "wrong terrain forever" into "the
-# server did not come up", and that is the trade on purpose.
-#
-# Format of DATAPACK_URLS: whitespace-separated entries, each either a bare URL or <sha512>@<url>.
-# sha512 and not sha256 because that is what Modrinth actually publishes for a file - the pin can
-# then be copied straight out of the API response instead of being computed by hand, and a pin
-# nobody can re-derive is a pin that rots.
-# The checksum is optional but wanted: a datapack that silently changes version while Nordtal is
-# still being explored is a world whose new chunks stop looking like its old ones, and nothing
-# reports it.
+# DATAPACK_URLS: whitespace-separated entries, each a URL or <sha512>@<url>. Modrinth publishes
+# sha512, so pins can be copied from its API.
 fetch_datapacks() {
     local dir="$1" spec url sha file dest tmp actual
 
@@ -718,9 +497,7 @@ fetch_datapacks() {
             url="$spec"
         fi
 
-        # The name Paper reports is the name on disk, so percent-escapes have to come back out -
-        # "Dungeons%20and%20Taverns%20v5.3.2.zip" would otherwise never match a required-datapacks
-        # entry of "Dungeons and Taverns".
+        # Paper reports the name on disk, so percent-escapes are decoded.
         file="${url##*/}"
         file="${file%%\?*}"
         file="$(printf '%b' "${file//%/\\x}")"
@@ -750,48 +527,22 @@ fetch_datapacks() {
     done
 }
 
-# The player limit, and it is ENFORCED on every start rather than seeded.
-#
-# One number. MAX_PLAYERS is NETWORK_MAX_PLAYERS out of .env, the same value proxy is
-# given for network.yml#max-players - so what the server browser advertises, what the proxy's login
-# gate enforces and what this server's tab list shows are the same number. A second, unreachable
-# backend number would still be the one every screen ON a backend can read.
-#
-# The proxy is what refuses, at the login gate where it can say why. This value only makes sure a
-# backend is never a SMALLER limit than the advertised one - Paper's own default is 20, which
-# refuses the 21st player with "Server full" after a successful login.
-#
-# The one login this CAN refuse is an admin's, because admins are exempt from the proxy's limit and
-# a full network therefore holds max-players plus them. That exemption is rebuilt inside each Paper
-# plugin (common's FullServerAdmission), which is where the admin flag can be read at all - it is
-# discord_user.admin in the database, not ops.json, so nothing in this script can act on it.
-#
-# Enforced on every start, unlike level-name beside it, because the two failure modes are nothing
-# alike: a level-name that disagrees would swap a world, so it stops the container; a player limit
-# that disagrees just quietly caps the network below what it promises, and there is no world to
-# lose by correcting it on a restart.
+# Enforces max-players from NETWORK_MAX_PLAYERS on every start, so no backend is smaller than the
+# advertised limit. The proxy refuses at login; admins are exempt in FullServerAdmission.
 enforce_player_limit() {
     [[ -n "${MAX_PLAYERS:-}" ]] || return 0
     set_property "$DATA/server.properties" max-players "$MAX_PLAYERS"
 }
 
-# A Paper server that sits behind the proxy. Two things have to be true and neither is Paper's
-# default.
+# Configures a Paper backend behind the proxy: offline mode and modern forwarding.
 prepare_backend() {
     local global="$DATA/config/paper-global.yml"
 
-    # The proxy is what authenticates; a backend doing it as well refuses every forwarded login.
-    # Enforced on every start rather than seeded: online-mode=true here is not a preference, it
-    # is a server that cannot work, and Paper writes the file itself on first start.
+    # Enforced on every start: a backend that authenticates refuses every forwarded login.
     set_property "$DATA/server.properties" online-mode false
 
-    # The secret itself is not seeded: Paper reads PAPER_VELOCITY_SECRET from the environment
-    # (PaperMC/Paper#10127), which removes the manual paste into three separate files. It does NOT
-    # keep the secret out of the volume - Paper writes the value straight into paper-global.yml on
-    # first load - so rotating it means changing .env AND that line in each backend.
-    #
-    # Paper has no environment variable for the switch that turns modern forwarding on, so that much
-    # is seeded here; Paper fills in every other key with its defaults on first load.
+    # Paper reads PAPER_VELOCITY_SECRET from the environment and writes it into paper-global.yml
+    # on first load, so rotating means editing both. Only the enable switch is seeded.
     if [[ -f "$global" ]]; then
         log "config/paper-global.yml exists - not touched. Modern forwarding has to be enabled in it (proxies.velocity.enabled: true)."
     else
@@ -800,9 +551,8 @@ prepare_backend() {
 # Seeded by the nordtal entrypoint on first start, and not touched again. Paper adds every other
 # setting with its default the first time it loads this file.
 #
-# proxies.velocity.secret is absent here because it arrives as PAPER_VELOCITY_SECRET from the
-# environment. Paper writes it into this file on first load, so it does end up in this volume -
-# the environment variable saves the manual paste, not the copy on disk.
+# proxies.velocity.secret arrives as PAPER_VELOCITY_SECRET, and Paper still writes it into this
+# file on first load.
 proxies:
   velocity:
     enabled: true
@@ -816,14 +566,13 @@ YAML
 # per-kind preparation
 JAVA_ARGS=()
 if [[ "$SERVER_KIND" == "paper" ]]; then
-    # Minecraft's EULA has to be accepted by the operator, not by an image default.
+    # The operator accepts the EULA, never an image default.
     [[ "${EULA:-}" == "true" ]] \
         || die "set EULA=true to accept https://aka.ms/MinecraftEULA - this is deliberately not defaulted"
     printf 'eula=true\n' > "$DATA/eula.txt"
     JAVA_ARGS+=(nogui)
 
-    # Before anything generates, and before the datapacks: level-name IS the folder they go into,
-    # and the world every other one is created inside.
+    # Before generation and the datapacks, which go into the level-name folder.
     seed_level_settings
     enforce_player_limit
 
@@ -831,37 +580,27 @@ if [[ "$SERVER_KIND" == "paper" ]]; then
         fetch_datapacks "$DATA/${LEVEL_NAME}/datapacks"
     fi
 
-    # A Paper server that is given a forwarding secret is by definition a backend behind the
-    # proxy. That is the whole switch: one variable, and the two settings that follow from it are
-    # applied rather than written into a runbook.
-    #
-    # Spelled as an `if` and not as `[[ ... ]] && prepare_backend`: this script is PID 1, and "the
-    # container exits before the server starts" is not a failure worth being clever about.
+    # A forwarding secret makes this a backend behind the proxy.
     if [[ -n "${PAPER_VELOCITY_SECRET:-}" ]]; then
         prepare_backend
     fi
 else
-    # Velocity reads the modern-forwarding secret from the file named in velocity.toml
-    # (forwarding-secret-file). Writing it here keeps it out of the volume's committed config and
-    # in the environment, where every other secret in this project lives.
+    # Velocity reads the forwarding secret from the file velocity.toml names.
     if [[ -n "${VELOCITY_FORWARDING_SECRET:-}" ]]; then
         printf '%s' "$VELOCITY_FORWARDING_SECRET" > "$DATA/forwarding.secret"
         chmod 600 "$DATA/forwarding.secret"
     fi
     seed_velocity_config
-    # After the seeding and not inside it: this one runs on every start, on a file this script did
-    # not write.
+    # Runs on every start, also on files this script did not write.
     ensure_velocity_transfers
-    # And the key the guard in front of 25565 needs, which follows VELOCITY_HAPROXY and does
-    # nothing when that variable is unset.
     ensure_velocity_haproxy
 fi
 
 JVM_OPTS="${JVM_OPTS:--Xms${HEAP:-2G} -Xmx${HEAP:-2G} -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+AlwaysPreTouch}"
 
 # start it inside tmux
-# A shell opened into this container is a `docker exec` and cannot reach PID 1's stdin. tmux
-# is what makes the console writable from there; `console` attaches, `mc <cmd>` sends one command.
+# `docker exec` cannot reach PID 1's stdin; tmux makes the console writable. `console` attaches,
+# `mc <cmd>` sends one command.
 log "starting ${SERVER_KIND} ${SERVER_VERSION_RUNNING} build ${SERVER_BUILD_RUNNING}"
 log "console: run 'console' in this container to attach, or 'mc <command>' to send one command"
 
@@ -872,67 +611,27 @@ mkdir -p "$DATA/logs"
 
 rm -f "$SOCK"
 
-# The options go on before the session exists, and that ordering is the whole point.
-#
-# `remain-on-exit` keeps the pane after the JVM exits, so its status can be read back and reported
-# as this container's. Setting it AFTER new-session fails for exactly the case that matters: a JVM
-# that dies at once takes the session with it before the option lands, the `display-message` queries
-# below then fail, and their `|| echo 1` fallbacks turn every exit status into 1.
-#
-# `exit-empty off` is what makes that possible at all: a tmux server with no sessions exits
-# immediately by default, so there is no server to set a global option on until a session exists.
-# With it off, the server is started first, told what every window should do, and given the session
-# afterwards.
+# Options go on before the session exists. `remain-on-exit` keeps a dead pane so its exit status can
+# be read; set later, a JVM that dies at once would report 1. `exit-empty off` keeps the server alive
+# without a session so the option can be set first.
 tmux -S "$SOCK" start-server \; set-option -g exit-empty off \; set-option -wg remain-on-exit on
 
-# new-session and pipe-pane in ONE invocation, for the same reason: a separate pipe-pane call against
-# a pane that has already died fails with "target pane has exited", and the output that killed it is
-# gone.
+# One invocation: a separate pipe-pane against a pane that already died fails and loses its output.
 tmux -S "$SOCK" new-session -d -s "$SESSION" -c "$DATA" -x 200 -y 50 \
     "exec java ${JVM_OPTS} -jar '${JAR_PATH}' ${JAVA_ARGS[*]:-}" \
   \; pipe-pane -o -t "$SESSION" "cat >> '$BOOT_LOG'"
 piping=1
-# Mirror the server log to this process's stdout, so `docker logs` and any log viewer reading it keep
-# showing everything they would have shown without tmux.
-#
-# This is deliberately `tail -F` and not `tmux pipe-pane ... > /proc/1/fd/1`, which is the obvious
-# way to do it and is a trap: a pipe-pane writer holding a second handle on the container's stdout
-# pipe wedges the container completely - SIGTERM never reaches PID 1, the shutdown trap never runs,
-# and even `docker rm -f` fails with "did not receive an exit event". `tail` is a plain child of
-# PID 1 inheriting its stdout, which does not do that.
-#
-# It also reads better: the log file carries no terminal escape sequences, so the container log is
-# clean while the tmux console keeps its colours for whoever is attached.
+# Mirrors latest.log to stdout for `docker logs`. Never `pipe-pane > /proc/1/fd/1`: a second handle
+# on stdout wedges the container so SIGTERM never arrives.
 tail -n 0 -F "$LOG_FILE" 2>/dev/null &
 TAIL_PID=$!
 
-# and the gap that leaves
-# `tail -F latest.log` shows nothing that happens BEFORE Paper creates that file, because there is
-# no file to follow. Everything the JVM writes until then - Paperclip resolving and patching the
-# server jar, a bad -Xmx, a missing class, an hs_err header - goes to the tmux pane and nowhere
-# else, and the pane dies with the container. That is not a corner: a Paperclip that cannot load the
-# vanilla jar prints a stack trace and exits 1, and `docker logs` then shows an endless restart loop
-# with the cause in no log anybody can reach.
-#
-# This pipe-pane is not the forbidden one. ../README.md#never-mirror-the-console-with-tmux-pipe-pane
-# rules out `pipe-pane ... > /proc/1/fd/1`, and what makes that lethal is the second handle on the
-# container's stdout pipe. Writing to an ordinary file in the volume shares none of that - different
-# descriptor, no pipe, nothing holding stdout open.
-#
-# It is bounded by construction rather than by a rotation policy: the capture is emptied at every
-# start and switched OFF again the moment latest.log exists, below in the wait loop. Past that
-# point Paper is logging for itself and every line is already in the container log, so a second
-# escape-laden copy of the whole session would be pure cost. What it costs a running server is
-# therefore nothing at all - it is a boot log, and it stops being written before the first player
-# could join.
+# latest.log misses everything before Paper creates it, so the pane is captured into a boot log in
+# the volume. It is emptied each start and switched off once latest.log exists.
 
 # graceful shutdown
-# Both Paper and Velocity install a JVM shutdown hook that saves and stops on SIGTERM, so the
-# signal is forwarded to the JVM itself rather than typed into the console: that avoids depending
-# on a command name which differs between the two ('stop' vs 'shutdown').
-#
-# compose sets stop_grace_period to 180s. The 10s default does not save a border-4000 world, and
-# a save cut off halfway is the failure that stays invisible for days.
+# SIGTERM goes to the JVM, whose shutdown hook saves on both Paper and Velocity. compose allows 180s,
+# since the 10s default cuts a large world's save short.
 shutting_down=0
 on_term() {
     [[ $shutting_down -eq 1 ]] && return 0
@@ -951,8 +650,7 @@ trap on_term TERM INT
 while :; do
     dead=$(tmux -S "$SOCK" display-message -p -t "$SESSION" '#{pane_dead}' 2>/dev/null || echo 1)
     [[ "$dead" == "1" ]] && break
-    # Paper has taken over its own logging, and `tail -F` above is already mirroring it. Stop
-    # capturing the pane: from here the two would say the same thing, one of them in colour.
+    # Paper logs for itself now, so the pane capture stops.
     if (( piping == 1 )) && [[ -s "$LOG_FILE" ]]; then
         tmux -S "$SOCK" pipe-pane -t "$SESSION" 2>/dev/null || true
         piping=0
@@ -961,15 +659,11 @@ while :; do
 done
 
 status=$(tmux -S "$SOCK" display-message -p -t "$SESSION" '#{pane_dead_status}' 2>/dev/null || echo 1)
-# Let the tail catch up on whatever the server wrote while shutting down, then stop holding stdout.
+# Lets the tail catch up on the shutdown output, then releases stdout.
 sleep 1 & wait $! || true
 kill "$TAIL_PID" 2>/dev/null || true
 
-# The post-mortem, and the only reason the capture above exists. The JVM died without Paper ever
-# creating latest.log, so `tail -F` had nothing to follow and the container log is about to say
-# "server exited with status 1" and not one word about why. The pane held the answer and is about
-# to be destroyed with the tmux server, so it goes to stdout now - which is where a person, and
-# anything reading `docker logs`, will actually look.
+# The JVM died before latest.log existed, so the boot capture is the only record; print it.
 if [[ ! -s "$LOG_FILE" && -s "$BOOT_LOG" ]]; then
     warn "the server produced no ${LOG_FILE##*/}, so it died before Paper started logging. Its console output follows - this is the only copy, and it is also in ${BOOT_LOG} until the next start:"
     cat "$BOOT_LOG" >&2

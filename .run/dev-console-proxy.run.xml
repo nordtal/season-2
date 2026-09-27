@@ -1,10 +1,7 @@
 <!--
   deploy/dev console proxy
 
-  Attaches to the real Velocity console. Detach with Ctrl-B then D, never Ctrl-C.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Attaches to the Velocity console. Detach with Ctrl-B then D, never Ctrl-C.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev console proxy" type="ShConfigurationType" folderName="dev: console and database">

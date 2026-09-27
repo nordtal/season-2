@@ -2,9 +2,6 @@
   deploy/dev logs hunger-games
 
   Follows one service. Ctrl-C detaches and stops nothing.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev logs hunger-games" type="ShConfigurationType" folderName="dev: logs">

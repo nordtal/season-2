@@ -11,11 +11,7 @@ import org.gradle.work.DisableCachingByDefault
 /**
  * Fails when more than one jar matches the glob the module's `Dockerfile` copies.
  *
- * Every image module's `Dockerfile` copies with `build/libs/<module>-*.jar`, after
- * `.dockerignore` removes the thin jar. Gradle never deletes an old jar from `build/libs`, so a
- * version bump in `gradle.properties` leaves the previous one behind and a later image build
- * picks between them without saying which. This task counts what the build context would really
- * contain and refuses rather than letting BuildKit choose silently.
+ * Gradle leaves an old version's jar in `build/libs`, and BuildKit would pick one without saying which.
  */
 @DisableCachingByDefault(
     because = "Its result depends on files left behind by earlier builds, which are not an input",
@@ -25,7 +21,7 @@ abstract class CheckOneImageJar : DefaultTask() {
     @get:Internal
     abstract val libraries: DirectoryProperty
 
-    /** The module's artifact base name - the part before the version in the glob. */
+    /** The module's artifact base name, the part before the version in the glob. */
     @get:Internal
     abstract val artifact: Property<String>
 

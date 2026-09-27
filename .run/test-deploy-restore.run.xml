@@ -1,10 +1,7 @@
 <!--
   gradlew checkRestore
 
-  `deploy/restore-test.sh` — deploy/restore.sh's guards. It empties a volume before it fills it, and one of those volumes is Nordtal.
-
-  Why these are Gradle configurations while the `dev:` folders are shell ones - and what the
-  interpreter note means - is in .run/README.md.
+  `deploy/restore-test.sh`: the guards of deploy/restore.sh.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="tests: checkRestore" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">

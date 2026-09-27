@@ -1,10 +1,7 @@
 <!--
   deploy/dev deploy hunger-games
 
-  Rebuild :hunger-games, replace the jar, restart that one container.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Rebuilds :hunger-games, replaces the jar and restarts that container.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev deploy hunger-games" type="ShConfigurationType" folderName="dev: build and deploy">

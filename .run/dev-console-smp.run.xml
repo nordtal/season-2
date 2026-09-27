@@ -1,12 +1,7 @@
 <!--
   deploy/dev console smp
 
-  Attaches to the REAL server console - the one the server reads commands from. DETACH WITH
-  CTRL-B THEN D; Ctrl-C would go to the server itself. A terminal is required, which is what this
-  configuration runs in.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Attaches to the server console. Detach with Ctrl-B then D, never Ctrl-C.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev console smp" type="ShConfigurationType" folderName="dev: console and database">

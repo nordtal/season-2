@@ -1,17 +1,9 @@
 <!--
   deploy/dev ui
 
-  The interface with hot reload: the stack in the background, steward-ui on 127.0.0.1:8080 and
-  the Vite dev server in front on http://localhost:5173.
+  The interface with hot reload: steward-ui on 127.0.0.1:8080 behind Vite on http://localhost:5173.
 
-  CTRL-C STOPS VITE AND LEAVES THE CONTAINERS UP. The counter-command is `dev stop`.
-
-  IT CANNOT RUN BESIDE `steward-ui (Java, :8080)` in this same folder - both want that port. That
-  configuration is for editing the Java; this one is for editing steward-ui/frontend/src, where a
-  saved file is a reload and nothing is rebuilt.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Ctrl-C stops Vite and leaves the containers up. Cannot run beside `steward-ui (Java, :8080)`.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev ui" type="ShConfigurationType" folderName="dev: stack">

@@ -1,13 +1,10 @@
 name: release
 
-# Triggers on a published GitHub release, not on the tag push: a release published from a tag
-# that already existed still needs to build, which `push: tags` cannot do. `git push --tags`
-# alone therefore builds nothing; publish the release to build it. The tag must match the version
-# in gradle.properties, checked below.
+# Runs on a published release, never on a tag push; the tag must match gradle.properties.
 on:
   release:
     types: [published]
-  # For re-running a release whose build failed, without unpublishing anything.
+  # Re-runs a failed release build without unpublishing it.
   workflow_dispatch:
     inputs:
       tag:
@@ -68,8 +65,7 @@ jobs:
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip.sha1 dist/
           ls -la dist
 
-      # A Minecraft client refuses the pack when the sent hash disagrees with the zip, or when
-      # pack.mcmeta is not at the zip's root; neither failure shows up until somebody joins.
+      # A client refuses a pack whose hash or root pack.mcmeta is wrong, which only shows on join.
       - name: Verify the resource pack
         run: |
           zip="dist/nordtal-resource-pack-${VERSION}.zip"
@@ -112,13 +108,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # All five images are pushed: the deployment pulls, it never builds, so an image that exists
-      # only in a local daemon makes a deploy fail with `denied` from the registry. The bot and
-      # steward-worker images are a floor, not the running version - both run whatever jar is in
-      # their volume, filled from the release assets above, and the baked-in jar only covers a
-      # first deployment before any worker run has happened. compose.yml points only at `latest`;
-      # the version tag is still pushed so the registry can say what `latest` was last week. No
-      # build args: the two Dockerfiles that carry a jar find it by glob in build/libs.
+      # Deploys only pull, so every image is pushed, tagged `latest` and the version.
+      # The bot and steward-worker run the jar in their volume; the baked one is the first deploy's.
       - name: Build and push the bot image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -128,7 +119,7 @@ jobs:
             ghcr.io/nordtal/discord-bot:${{ env.VERSION }}
             ghcr.io/nordtal/discord-bot:latest
 
-      # The bootstrap image: a host with nothing yet pulls this rather than building it.
+      # The bootstrap image a fresh host pulls.
       - name: Build and push the steward-worker image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -138,8 +129,7 @@ jobs:
             ghcr.io/nordtal/steward-worker:${{ env.VERSION }}
             ghcr.io/nordtal/steward-worker:latest
 
-      # One image for all four Minecraft services; the difference between them is environment. It
-      # carries no Gradle output, only entrypoint.sh and a JRE, so it changes only on a release.
+      # One image for all four Minecraft services, holding a JRE and entrypoint.sh but no Gradle output.
       - name: Build and push the minecraft image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -149,8 +139,7 @@ jobs:
             ghcr.io/nordtal/minecraft:${{ env.VERSION }}
             ghcr.io/nordtal/minecraft:latest
 
-      # The frontend is built by `:steward-ui:build` and bundled into the jar under `web/`, so
-      # there is no Node in this image.
+      # The frontend is inside the jar under `web/`, so the image has no Node.
       - name: Build and push the steward-ui image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -160,8 +149,7 @@ jobs:
             ghcr.io/nordtal/steward-ui:${{ env.VERSION }}
             ghcr.io/nordtal/steward-ui:latest
 
-      # The guard in front of 25565: Caddy plus `caddy-l4`, an xcaddy build rather than the stock
-      # image, since a layer 4 module list is decided at build time.
+      # Caddy with `caddy-l4` for port 25565, built with xcaddy since modules are fixed at build time.
       - name: Build and push the caddy image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -171,8 +159,7 @@ jobs:
             ghcr.io/nordtal/caddy:${{ env.VERSION }}
             ghcr.io/nordtal/caddy:latest
 
-      # The one image that carries compose.yml. Nothing in the stack can renew it, since it is the
-      # service that would have to; a new version reaches the host through deploy/nordtal.sh.
+      # Carries compose.yml; deploy/nordtal.sh renews it from outside the stack.
       - name: Build and push the steward-deployer image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:

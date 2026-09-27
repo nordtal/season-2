@@ -1,11 +1,7 @@
 <!--
   deploy/dev logs postgres
 
-  Follows the database. It is where an authentication failure is stated in full, naming the
-  user and the pg_hba.conf line that matched.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Follows the database, which states an authentication failure in full.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev logs postgres" type="ShConfigurationType" folderName="dev: logs">

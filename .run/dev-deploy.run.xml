@@ -1,15 +1,9 @@
 <!--
   deploy/dev deploy
 
-  Rebuilds all four plugins, swaps the jars and restarts those four containers. The four
-  single-server variants beside this one are the fast loop; this is the one after a change in
-  :common, which all four carry.
+  Rebuilds all four plugins and restarts their containers, as after a change in :common.
 
-  A JAR SWAP AND NOTHING ELSE: a changed deploy/dev.env does not reach a restarted container.
-  Use `dev up` after editing that file.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  A jar swap only: a changed deploy/dev.env needs `dev up`.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev deploy (all four)" type="ShConfigurationType" folderName="dev: build and deploy">

@@ -1,11 +1,7 @@
 <!--
   deploy/dev help
 
-  The command list, printed out of deploy/dev's own header - so it cannot go stale the way a
-  copy of it here would.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Prints the command list from deploy/dev's own header.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev help" type="ShConfigurationType" folderName="dev: stack">

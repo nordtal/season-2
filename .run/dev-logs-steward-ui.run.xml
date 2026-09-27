@@ -1,11 +1,7 @@
 <!--
   deploy/dev logs steward-ui
 
-  Only running once `dev ui` has named it - it is behind the `steward` profile, which the local
-  COMPOSE_PROFILES does not select.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Only running after `dev ui`, since the local COMPOSE_PROFILES omits `steward`.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev logs steward-ui" type="ShConfigurationType" folderName="dev: logs">

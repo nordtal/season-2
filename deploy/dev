@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 #
-# The local season 2 network: the SAME compose.yml, the same Dockerfiles and the same
-# steward-worker that the production host runs, pointed at locally built jars.
-#
-# What makes that possible is one line in compose.yml: each server's plugins/ is a directory on
-# this machine (<SERVICE>_PLUGINS) rather than a volume of its own. So installing a freshly built
-# plugin is a `cp` and a restart of one container, and reading plugins/smp/config.yml is opening a
-# file. Worlds, the .server/ jar cache and logs stay in the volumes, where the nightly backup can
-# still find them.
+# The local season 2 network: the production compose.yml, pointed at locally built jars.
+# Each server's plugins/ is a local directory (<SERVICE>_PLUGINS), so installing a plugin is a `cp`.
 #
 #   deploy/dev init                 write deploy/dev.env: the four secrets generated, the handful of
 #                                   things only a person knows asked for in nordtal.sh's own words
@@ -23,56 +17,31 @@
 #   deploy/dev mc <service> <cmd>   send one console command
 #   deploy/dev psql                 a psql shell on the local database
 #   deploy/dev ps | stop | down     the usual
-#   deploy/dev reset <service>      throw away one server's WORLD volume - see the guard below
+#   deploy/dev reset <service>      throw away one server's WORLD volume (asks for its name)
 #
 # Everything here runs from the repository root whatever directory it is called from.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# the questions, borrowed rather than copied
-# The cut is exact: the two scripts share the QUESTIONS table and nothing else. Sourcing
-# `deploy/nordtal.sh` stops at its own seam - everything below that line is the installation, and
-# none of it runs here - so what arrives is the table (QUESTIONS, QUESTION_KIND, QUESTION_CHECK,
-# QUESTION_PROMPT, QUESTION_HINT), the shape checks, `env_value`/`set_assignment`, and the four
-# functions that ask and write down an answer.
-#
-# Not shared, and this is the point rather than an omission: pulling images instead of building
-# them, /etc/nordtal, waiting for DNS and Let's Encrypt, the self-update out of GitHub, `chown`,
-# root. A local stack is a checkout and a `docker compose`, and none of that belongs in it.
-#
-# It is sourced here, before this file's own definitions, on purpose. nordtal.sh defines `log`,
-# `warn` and `die` too, and they print `[nordtal]`; sourcing it afterwards would relabel every line
-# this script prints. Whoever is defined last wins, so this script's own three are below.
+# The question table and its helpers, from deploy/nordtal.sh up to its source guard.
+# Sourced first, so this file's own `log`, `warn` and `die` below win.
 # shellcheck source=deploy/nordtal.sh
 source "$ROOT/deploy/nordtal.sh"
 
 ENV_FILE="deploy/dev.env"
 EXAMPLE="deploy/dev.env.example"
-# `ask_for`, `default_for` and `set_secret` read this: it is nordtal.sh's --check, and there is no
-# local equivalent of one. Set here because those functions come from a file that no longer runs
-# its own argument parsing when it is sourced.
+# nordtal.sh's --check flag, read by the sourced functions; never set locally.
 CHECK_ONLY=false
 
-# The four services that run one of our plugins, and the module that builds it. The service name is
-# also the <SERVICE>_PLUGINS variable's - the same identity compose.yml and :steward-worker's Topology use.
+# The services running one of our plugins, and the module that builds it; as in compose.yml and Topology.
 MODULES=(proxy limbo hunger-games smp)
 
 log()  { printf '\033[36m[dev]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[dev]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[dev]\033[0m %s\n' "$*" >&2; exit 1; }
 
-# the guard on the one destructive command
-# `reset` deletes a server's whole volume, and on smp that volume holds Nordtal - a hand-built world
-# that exists in no repository and in no release. deploy/minecraft/entrypoint-test.sh exists for
-# exactly this class of thing, and so does deploy/dev-test.sh, which sources this file to drive the
-# two functions below without Docker.
-#
-# Two rules, and both are here rather than at the call site so that a future subcommand cannot
-# quietly skip them:
-#   1. a service has to be NAMED. `reset` on its own resets nothing.
-#   2. the name has to be typed BACK. Not "yes", not "y" - the name, so that a person who is not
-#      reading cannot agree to something they did not pick.
+# The guard on `reset`, which deletes a world: the service must be named, and the name typed back.
 known_service() {
     local wanted="$1"
     local service
@@ -82,30 +51,14 @@ known_service() {
     return 1
 }
 
-# Whether a typed confirmation matches. Kept separate from the prompt so it can be tested; a
-# comparison that quietly accepts anything is the failure this whole guard exists to prevent.
+# Whether a typed confirmation is exactly the name; an empty name confirms nothing.
 reset_confirmed() {
     local wanted="$1" typed="$2"
     [[ -n "$wanted" && "$typed" == "$wanted" ]]
 }
 
-# which of the shared questions a local setup asks
-# The table is nordtal.sh's; the SELECTION is this file's, because the two setups are not the same
-# setup. What falls away locally is everything a public deployment needs and a checkout does not:
-#
-#   STEWARD_ACME_EMAIL      Let's Encrypt never runs here - Caddy is not started locally at all.
-#   STEWARD_HOST            only Caddy and the default public URL below use it, and the example's
-#                           `steward.localhost` is right for both.
-#   NETWORK_PUBLIC_ADDRESS  nobody joins this network from the internet.
-#   the two bunq values     a local stack polls no bank. steward-worker says "bunq is OFF" in its
-#                           first log line, which is the documented state and not a fault.
-#   COMPOSE_PROFILES        the example already carries the local selection.
-#
-# And one question is added: the address the browser uses. Without it the interface cannot start
-# at all, and it is asked rather than assumed because it is the one
-# thing that differs between "a container on this machine" and "a Vite dev server in front of it",
-# and `webauthn.relying-party-id` is then derived from it rather than asked for a second time - it
-# has to be that host or a parent of it, so asking twice is only a way to get it wrong.
+# The questions a local setup asks: none for Caddy, the public address, bunq or the profiles.
+# It adds the browser's address, from which `webauthn.relying-party-id` is derived.
 LOCAL_QUESTIONS=(
     EULA
     STEWARD_UI_PUBLIC_URL
@@ -116,24 +69,18 @@ LOCAL_QUESTIONS=(
     NORDTAL_ACCESS_ROLES_ADMIN
 )
 
-# A URL a browser is pointed at: scheme, host, optional port, and nothing after it. The same rule
-# `Configs.requirePublicUrl` enforces at startup, refused here where it can still be retyped.
+# Scheme, host and optional port, nothing after; the rule of `Configs.requirePublicUrl`.
 looks_like_browser_url() {
     [[ "$1" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]+)?$ ]]
 }
 
-# The host out of such a URL: no scheme, no port. What the relying party id has to be.
+# The host of such a URL, which is the relying party id.
 host_of_url() {
     local rest="${1#*://}"
     printf '%s' "${rest%%:*}"
 }
 
-# The five Discord answers are optional here and required there, and that is the whole difference
-# between a deployment and a checkout. A production install with no bot token is a broken
-# deployment; a local one is a stack that comes up, runs four servers and a database, and simply
-# has no bot and nobody able to sign in - which is the right state to be in until there is a test
-# application and a test guild to point it at. Pressing Enter writes nothing, so
-# the example's harmless placeholder stays and compose still interpolates.
+# The Discord answers are optional locally; Enter keeps the example's placeholder.
 LOCAL_KINDS_APPLIED=false
 apply_local_questions() {
     $LOCAL_KINDS_APPLIED && return 0
@@ -164,9 +111,7 @@ apply_local_questions() {
         this plus /auth/callback as its redirect URI, and every security key is bound to its host."
 }
 
-# Asks the local selection and writes down what comes back. `again` on every one of them: this runs
-# on a freshly copied example, so every value already has a placeholder in it and nothing would be
-# asked otherwise.
+# Asks the local selection, `again` for each, since the fresh example already has placeholders.
 ask_local_questions() {
     apply_local_questions
     local question
@@ -179,8 +124,7 @@ ask_local_questions() {
         ask_question "$question" again || true
     done
 
-    # Derived, never asked. steward-ui refuses to start when these two disagree, and the refusal is
-    # correct: a key registered against the wrong domain is one the browser silently declines.
+    # Derived, since steward-ui refuses to start when the two disagree.
     local url host
     url="$(env_value "$ENV_FILE" STEWARD_UI_PUBLIC_URL)"
     [[ -n "$url" ]] || return 0
@@ -188,12 +132,7 @@ ask_local_questions() {
     set_assignment "$ENV_FILE" STEWARD_WEBAUTHN_RP_ID "$host"
     log "STEWARD_WEBAUTHN_RP_ID = $host (derived from the address above)"
 
-    # And the one answer that does not work, said here rather than found later:
-    # `Configs.requireRelyingParty` wants at least a name and a suffix, because a browser refuses a
-    # relying party id that is a public suffix. `localhost` is the one named exception to that
-    # and needs nothing here; any other single label - `intranet`, a machine
-    # name off a company resolver - is refused, and refused at startup with a sentence naming both
-    # values. Saying so now costs a line and saves reading a stack trace.
+    # `Configs.requireRelyingParty` refuses a single label other than `localhost`, so warn now.
     if [[ "$host" != *.* && "$host" != localhost ]]; then
         warn "$host has no dot in it, so steward-ui will refuse to start: a relying party id has to
        be a registrable domain, and localhost is the only single label that is allowed. Use
@@ -202,20 +141,12 @@ ask_local_questions() {
     fi
 }
 
-# sourced rather than executed
-# Everything ABOVE this line is definitions; everything below reaches for Gradle, Docker and the
-# working tree. dev-test.sh sources this file to exercise the reset guard, the same way
-# entrypoint-test.sh sources entrypoint.sh - see the long comment there.
+# Sourced by dev-test.sh: definitions end here.
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
 
 cd "$ROOT"
 
-# `sed -n '1p'`, not `head -n1`: head closes the pipe the moment it
-# has its line, and under this file's `set -Eeuo pipefail` that turns sed's SIGPIPE into this
-# function's exit status. gradle.properties carries exactly one `version=` line by design (one
-# repo-wide version drives every artifact - see the root CLAUDE.md), so this almost never showed,
-# which is exactly the shape of bug that a guard like this one is built to catch rather than
-# something anyone would have hit by hand.
+# `sed -n '1p'`, not `head -n1`, which fails the pipeline with 141 under pipefail.
 version() { sed -n 's/^version=//p' gradle.properties | sed -n '1p'; }
 
 compose() {
@@ -224,15 +155,7 @@ compose() {
 }
 
 plugins_dir() {
-    # Where one service's plugins/ lives on THIS machine. compose.yml defaults each of these to a
-    # named volume (mc-<service>-plugins) because production must not keep its configs inside the
-    # directory a deployment checks out over; deploy/dev.env sets them to paths instead, which is what
-    # makes a local `cp` of a jar and a plain `$EDITOR` on config.yml possible at all.
-    #
-    # So this reads the variable rather than assuming a layout, and REFUSES a value with no `/` in
-    # it: that is a volume name to Docker, and there is nothing here that can copy a file into one.
-    # Falling back to ./deploy/servers instead would silently write jars into a directory no
-    # container has mounted, which reads exactly like a build that worked.
+    # Where a service's plugins/ lives; a value without `/` is a volume name and is refused.
     local service="$1" var value
     var="$(printf '%s' "$service" | tr 'a-z-' 'A-Z_')_PLUGINS"
     value="$(sed -n "s/^$var=//p" "$ENV_FILE" 2>/dev/null | tail -n1)"
@@ -243,32 +166,23 @@ plugins_dir() {
 }
 
 pack_root() {
-    # The same read, for the directory pack-host serves. Hardcoded as deploy/pack in both places:
-    # with PACK_ROOT pointed anywhere else, `deploy/dev pack` would write a correct URL and SHA-1
-    # into pack.yml for a zip the host does not serve, and every client would then fail the
-    # download with nothing saying why.
+    # The directory pack-host serves, read so the zip lands where it is served.
     local value
     value="$(sed -n 's/^PACK_ROOT=//p' "$ENV_FILE" 2>/dev/null | tail -n1)"
     printf '%s' "${value:-./deploy/pack}"
 }
 
 compose_project() {
-    # What Docker labels this project's volumes with, in compose's own order of precedence:
-    # COMPOSE_PROJECT_NAME from the env file, then compose.yml's top-level name:, then the
-    # directory name. It is nordtal-s2 here and not season-2, which is exactly why this reads the
-    # file instead of assuming the default.
+    # The compose project name, in compose's order: env file, then compose.yml's name:, then the directory.
     local value
     value="$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' "$ENV_FILE" 2>/dev/null | tail -n1)"
-    # `sed -n '1p'`, not `head -n1` - same reason as version() above: compose.yml's top-level
-    # `name:` is unique by construction, but the anti-pattern is the same regardless of how likely
-    # a second match is.
+    # `sed -n '1p'`, as in version().
     [[ -n "$value" ]] || value="$(sed -n 's/^name: *//p' "$ROOT/compose.yml" 2>/dev/null | sed -n '1p')"
     [[ -n "$value" ]] || value="$(basename "$ROOT" | tr '[:upper:]' '[:lower:]')"
     printf '%s' "$value"
 }
 
-# The jar a module's shadowJar produces. Named rather than globbed so a stale jar from an older
-# version cannot be picked up silently.
+# The jar a module's shadowJar produces, named so a stale version is never picked up.
 jar_of() { printf '%s/build/libs/%s-%s.jar' "$1" "$1" "$(version)"; }
 
 # init
@@ -276,10 +190,7 @@ cmd_init() {
     if [[ -f "$ENV_FILE" ]]; then
         log "$ENV_FILE already exists; leaving it alone"
     else
-        # The example is still the base, and it stays one: ~290 lines of local paths, ports and
-        # profiles that nobody should be asked about. What it is NOT any more is the place a person
-        # fills in by hand - the four REPLACE_ME secrets are generated and the questions below are
-        # asked, in nordtal.sh's own words.
+        # The example is the base; its secrets are generated and the rest asked.
         cp "$EXAMPLE" "$ENV_FILE"
         log "wrote $ENV_FILE from $EXAMPLE"
 
@@ -290,8 +201,7 @@ cmd_init() {
         set_secret VELOCITY_FORWARDING_SECRET 24
         set_secret STEWARD_API_TOKEN
         set_secret STEWARD_DEPLOYER_TOKEN
-        # The same boundary production keeps: reading containers and creating them are different
-        # privileges, and one token for both makes that a comment rather than a rule.
+        # Separate tokens for reading containers and creating them, as in production.
         [[ "$(env_value "$ENV_FILE" STEWARD_API_TOKEN)" \
             != "$(env_value "$ENV_FILE" STEWARD_DEPLOYER_TOKEN)" ]] \
             || die "STEWARD_API_TOKEN and STEWARD_DEPLOYER_TOKEN came out the same."
@@ -332,9 +242,7 @@ install_module() {
     target="$(plugins_dir "$module")"
     mkdir -p "$target"
 
-    # Remove every other jar of this plugin first. steward-worker splits a filename on the LAST
-    # hyphen (JarName), and so does entrypoint.sh; two jars sharing a prefix is Paper loading two
-    # versions of one plugin without complaining about it.
+    # Removes the plugin's other jars, or Paper loads two versions of it.
     local existing
     for existing in "$target/$module-"*.jar; do
         [[ -e "$existing" ]] || continue
@@ -358,16 +266,11 @@ cmd_up() {
         install_module "$module"
     done
 
-    # The images are ours and are built here, never pulled: a locally built plugin needs the locally
-    # built steward-worker, because the migrations it applies are compiled into :common and shaded
-    # into that jar. A stale ghcr worker would migrate to the released schema and the plugin would
-    # come up against it.
+    # Built, never pulled: a local plugin needs the local steward-worker's migrations.
     log "building the minecraft and steward-worker images"
     compose build steward-worker proxy
 
-    # Our jars are already in plugins/, so the worker's bootstrap - which installs only what is
-    # missing - fetches the third-party plugins, the Paper and Velocity jars and pack.yml, and
-    # leaves ours alone. That is the whole of the first start.
+    # The worker's bootstrap installs only what is missing, so it leaves our jars alone.
     compose up -d
     log "up. First start downloads Paper, Velocity and the third-party plugins; give it a few"
     log "minutes and watch with: deploy/dev logs"
@@ -387,10 +290,7 @@ cmd_deploy() {
     for module in "${modules[@]}"; do
         install_module "$module"
     done
-    # restart and not `up -d`: the jar is a file the container reads at start, so restarting the
-    # existing container is enough and is the fast path this whole command exists for. The cost is
-    # that a change to deploy/dev.env does not reach a restarted container - compose would have to
-    # recreate it - which is why `up` is the answer after editing that file, not `deploy`.
+    # A restart reads the new jar, but not a changed deploy/dev.env; that needs `up`.
     log "restarting: ${modules[*]}"
     compose restart "${modules[@]}"
 }
@@ -415,8 +315,7 @@ cmd_pack() {
     port="$(sed -n 's/^PACK_PORT=//p' "$ENV_FILE" | tail -n1)"
     port="${port:-8080}"
 
-    # The same two lines steward-worker's PackWriter owns, and no others. It rewrites url and sha1
-    # and has no opinion about enabled, force or apply-timeout-seconds; neither does this.
+    # Only url and sha1, the lines steward-worker's PackWriter owns.
     perl -pi -e "s|^url:.*|url: \"http://localhost:$port/$name\"|" "$pack_yml"
     perl -pi -e "s|^sha1:.*|sha1: \"$sha\"|" "$pack_yml"
     log "pack.yml now points at http://localhost:$port/$name ($sha)"
@@ -425,25 +324,12 @@ cmd_pack() {
 }
 
 # ui
-# The interface, with a browser in front of it and hot reload behind.
-#
-# The default is the container. steward-ui is published on 127.0.0.1:8080 and
-# the Vite dev server proxies /api and /auth to it, so working on the frontend needs Docker and
-# Node and no JDK in the foreground at all. The other half - editing the Java - is the run
-# configuration in `.run/`, and the two cannot run at once: both want :8080. That is a sentence
-# here and in the README rather than a surprise in a log file.
-#
-# Caddy stays out, and it is left out by name rather than by a profile of its own. Naming a
-# service activates its profile, so `steward` need not be in COMPOSE_PROFILES either; a new profile
-# would have to be added to the production selection in /etc/nordtal/season-2.env as well, and
-# forgetting that makes the interface unreachable from the internet. Locally Caddy has nothing to
-# do: there is no name it could get a certificate for.
+# The interface with hot reload: Vite proxies /api and /auth to the steward-ui container on :8080.
+# The Java run configuration in `.run/` wants :8080 too. Caddy is left out.
 cmd_ui() {
     [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is not there. Run: deploy/dev init"
 
-    # One port, two local profiles. pack-host and steward-ui both default to 127.0.0.1:8080, and
-    # `devpack` is on in every local env file. Docker's own message for that is about a bind
-    # address, three services after the one that matters, so the collision is named here instead.
+    # pack-host and steward-ui both default to :8080, so the collision is named here.
     local pack_port steward_port
     pack_port="$(sed -n 's/^PACK_PORT=//p' "$ENV_FILE" | tail -n1)"
     steward_port="$(sed -n 's/^STEWARD_UI_PORT=//p' "$ENV_FILE" | tail -n1)"
@@ -453,27 +339,18 @@ cmd_ui() {
        URL is written by 'deploy/dev pack', which reads that value, so nothing else has to change."
     fi
 
-    # The whole stack, not the four services the interface reads directly: what it draws is the
-    # servers, their plugins and their players, and a page whose every card says "not running" is
-    # not the page anybody wants to work on. COMPOSE_PROFILES picks what that means - db,mc,devpack
-    # locally - and the three steward services are named rather than added to it, because `steward`
-    # carries Caddy as well and a laptop has no certificate for it.
+    # The whole stack, plus the steward services by name, since the `steward` profile carries Caddy.
     log "bringing up the stack ($(sed -n 's/^COMPOSE_PROFILES=//p' "$ENV_FILE" | tail -n1))"
     compose up -d
     log "and the three services the interface is"
     compose up -d steward-worker steward-ui steward-deployer
 
-    # The private node is searched for, never spelled out. The directory carries the platform in
-    # its name - node-v24.21.0-linux-x64 here, something else on a Mac - so a written path works on
-    # exactly one machine. Gradle downloads it and installs the packages; this only has to find it
-    # afterwards. (`npx vitest` with no node on PATH exits 0 having tested nothing, which is how
-    # this matters.)
+    # Gradle's private node is found by search, since its directory name carries the platform.
     log "node and the npm packages, through Gradle - the only supported way to get them"
     sh gradlew :steward-ui:npmInstall
 
     local node
-    # `sed -n '1p'` and not `head -n1`: under this file's pipefail a head that closes the pipe
-    # early turns find into a SIGPIPE, and deploy/pipe-safety-test.sh refuses the pattern outright.
+    # `sed -n '1p'`, as in version().
     node="$(find "$ROOT/steward-ui/build/nodejs" -maxdepth 2 -type d -name bin 2>/dev/null | sed -n '1p')"
     [[ -n "$node" ]] || die "no node under steward-ui/build/nodejs after :steward-ui:npmInstall.
        That task downloads it; if it did not, its output says why - there is no 'install node
@@ -507,21 +384,10 @@ repository and in no release."
     read -r typed
     reset_confirmed "$service" "$typed" || die "not confirmed; nothing was deleted"
 
-    # `compose rm -v` only removes ANONYMOUS volumes, so it would take the container and leave the
-    # world exactly where it was - a reset that reports success and resets nothing. The volume is
-    # found by Docker's own compose labels rather than by guessing "<project>_mc-<service>", and an
-    # ambiguous answer stops here: deleting the wrong project's world is the one mistake this
-    # command must not be able to make.
-    # The volume is read off the container while it still exists, which is exact: whatever is
-    # mounted at /data is this project's world by definition. Only if there is no container does
-    # this fall back to the labels - and then on both of them, the project label and the logical
-    # name together: the logical name alone lets a same-named mc-smp volume belonging to another
-    # compose project on this machine pass the "exactly one" check.
+    # The volume mounted at /data, else the one matching both the project and the volume label;
+    # anything but exactly one stops. `compose rm -v` would remove only anonymous volumes.
     local volume
-    # `sed -n '1p'`, not `head -n1`: `compose ps -aq` is a real
-    # subprocess, not a small sed match, and the comment three lines up already anticipates more
-    # than one container answering for this service - exactly the case where head closing the pipe
-    # early can turn an ordinary lookup into a SIGPIPE under this file's `set -Eeuo pipefail`.
+    # `sed -n '1p'`, as in version().
     volume="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' \
         "$(compose ps -aq "$service" 2>/dev/null | sed -n '1p')" 2>/dev/null || true)"
     compose rm -sf "$service"
@@ -561,8 +427,7 @@ case "$command" in
     psql)    cmd_psql "$@" ;;
     reset)   cmd_reset "$@" ;;
     ""|help|-h|--help)
-        # Pattern-delimited rather than a line range: the header grows, and a range that has
-        # gone stale prints a truncated help nobody notices (it had, by two lines).
+        # Found by pattern, so a growing header is never cut off.
         sed -n '/^# The local season 2 network/,/^# Everything here runs/p' "${BASH_SOURCE[0]}" \
             | sed 's/^# \{0,1\}//'
         ;;

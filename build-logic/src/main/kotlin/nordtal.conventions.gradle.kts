@@ -1,6 +1,5 @@
-// CONVENTIONS.md, as far as a tool can check it, for one Java module. Formatting is always enforced.
-// `conventions.comments=true` in the module's gradle.properties enforces the comment and tracker-ID
-// rules, `conventions.enforced=true` every rule; -P on the command line shows the findings anywhere.
+// Checks CONVENTIONS.md for one Java module; formatting always, the rest per gradle.properties.
+// `conventions.comments=true` enforces the comment rules, `conventions.enforced=true` every rule.
 
 import eu.nordtal.s2.build.CheckNoDashPunctuation
 import eu.nordtal.s2.build.CheckNoTrackerIds

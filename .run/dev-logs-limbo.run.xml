@@ -2,9 +2,6 @@
   deploy/dev logs limbo
 
   Follows one service. Ctrl-C detaches and stops nothing.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev logs limbo" type="ShConfigurationType" folderName="dev: logs">

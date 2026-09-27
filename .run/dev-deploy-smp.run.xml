@@ -1,10 +1,7 @@
 <!--
   deploy/dev deploy smp
 
-  Rebuild :smp, replace the jar in plugins/, restart that one container. The everyday loop.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Rebuilds :smp, replaces the jar and restarts that container. The everyday loop.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev deploy smp" type="ShConfigurationType" folderName="dev: build and deploy">

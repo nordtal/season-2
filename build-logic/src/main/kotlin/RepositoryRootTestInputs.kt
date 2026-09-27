@@ -5,11 +5,7 @@ import org.gradle.api.file.Directory
 import javax.inject.Inject
 
 /**
- * Files at the repository root that a module's tests read straight off the filesystem.
- *
- * Such a file is outside every source set, so Gradle cannot see the dependency on its own; without
- * declaring it here, editing the file leaves the test task UP-TO-DATE and the check that exists to
- * catch the drift is the one thing that does not run.
+ * Files at the repository root that a module's tests read, declared so editing one reruns the tests.
  */
 abstract class RepositoryRootTestInputs
     @Inject
@@ -23,12 +19,7 @@ abstract class RepositoryRootTestInputs
             names.forEach { files.from(root.file(it)) }
         }
 
-        /**
-         * Declares whole directories, resolved against the repository root, as inputs of the test task.
-         *
-         * `ResourcePackTest` walks `resource-pack/src/assets` rather than naming eighty-odd PNG files,
-         * so what it depends on is the tree and not a list somebody would have to keep in step with it.
-         */
+        /** Declares whole directories, resolved against the repository root, as inputs of the test task. */
         fun readsTree(vararg names: String) {
             names.forEach { files.from(root.dir(it)) }
         }

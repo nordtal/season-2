@@ -163,7 +163,7 @@ abstract class CheckNoDashPunctuation : DefaultTask() {
     private companion object {
         /** Files a tool writes, which are replaced wholesale rather than edited. */
         val GENERATED = setOf("gradlew", "gradlew.bat")
-        val DASH = Regex("[–—]")
+        val DASH = Regex("[\u2013\u2014]")
         val SPACED_HYPHEN = Regex("""\S\s+-(\s|$)""")
         val CODE_SPAN = Regex("""`[^`]*`|\{@(code|literal) [^}]*}""")
         val LIST_MARKER = Regex("""^\s*([-*+]|\d+\.)\s""")

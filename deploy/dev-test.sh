@@ -1,18 +1,5 @@
 #!/usr/bin/env bash
-#
-# The guard on `deploy/dev reset`, exercised without Docker.
-#
-# This exists for the same reason as deploy/minecraft/entrypoint-test.sh: `reset` deletes a
-# service's whole volume, and on smp that volume holds Nordtal - a hand-built world that is in no
-# repository and in no release. Everything else in deploy/ is verified by running it and looking;
-# this is the piece where looking afterwards is too late.
-#
-# What it pins is deliberately small, because the guard is deliberately small: a service has to be
-# named, and the name has to be typed back. Both are functions in deploy/dev above its source guard,
-# so this file can drive them the way entrypoint-test.sh drives the seeding.
-#
-# What it cannot say anything about is whether the volume then goes away. That needs Docker, and it
-# is a checklist item rather than a test.
+# Tests the guard on `deploy/dev reset` without Docker: a service must be named and typed back.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -36,8 +23,7 @@ done
 ok "the four servers are known"
 
 case_begin "reset refuses anything that is not one of them"
-# The empty string is the case that matters: `deploy/dev reset` with no argument must reset nothing
-# rather than falling through to some default.
+# `deploy/dev reset` with no argument resets nothing.
 for wrong in "" " " "postgres" "steward-worker" "all" "smp " "SMP" "../smp" "*"; do
     if known_service "$wrong"; then
         bad "'$wrong' was accepted as a service to reset"
@@ -49,8 +35,7 @@ case_begin "the confirmation has to be the name itself"
 reset_confirmed smp smp || bad "the name typed back was not accepted"
 ok "the name is accepted"
 
-# "yes" is what a person types when they have stopped reading, which is the exact moment this guard
-# is for. So is the empty string - a bare Return on a prompt somebody did not look at.
+# "yes" and a bare Return are what somebody not reading the prompt answers.
 for typed in "" " " "y" "Y" "yes" "YES" "SMP" "smp " "limbo" "*"; do
     if reset_confirmed smp "$typed"; then
         bad "'$typed' was accepted as confirmation for smp"
@@ -64,9 +49,7 @@ reset_confirmed "" "" && bad "an empty target accepted an empty confirmation"
 ok "an empty target confirms nothing"
 
 case_begin "the local question set is the shared table minus what a checkout has no use for"
-# Catches a rename: the table lives in deploy/nordtal.sh and this file names six of its entries by
-# hand. A variable renamed there and not here would ask for a question that does not exist, and
-# `ask_question` would die on an unset array element with nothing saying which list was stale.
+# Catches a question renamed in deploy/nordtal.sh but not in deploy/dev.
 for question in "${LOCAL_QUESTIONS[@]}"; do
     [[ "$question" == STEWARD_UI_PUBLIC_URL ]] && continue
     found=false
@@ -101,8 +84,7 @@ for good in http://localhost:5173 http://steward.localhost:8080 https://steward.
 done
 ok "a scheme and a host, with or without a port"
 
-# A path or a query is the mistake Configs.requirePublicUrl refuses at startup: Discord compares
-# the redirect URI as a string, so anything after the host makes it one nobody registered.
+# Configs.requirePublicUrl refuses a path or a query, since Discord compares the redirect URI as a string.
 for wrong in "" " " localhost:5173 http:// https://host/ "https://host/auth" "http://host?x=1" \
              "ftp://host" "http://host:80 " "http://under_score"; do
     if looks_like_browser_url "$wrong"; then
@@ -117,9 +99,7 @@ ok "no scheme, a trailing slash, a path, a query and a wrong scheme are all refu
 ok "the relying party id is the host and nothing else"
 
 case_begin "help prints the whole header, and the header names every command"
-# A hard-coded line range would let two added lines silently push the last commands out of the
-# help text - a truncated help looks exactly like a complete one. The range is pattern-delimited
-# instead, so this notices when a marker is renamed or a command is added without a line.
+# The help range is found by pattern, so a new command without a help line is noticed.
 header="$(sed -n '/^# The local season 2 network/,/^# Everything here runs/p' "$DEV")"
 [[ -n "$header" ]] || bad "the help range matched nothing - a marker line was renamed"
 grep -q "^# Everything here runs" <<<"$header" || bad "the help stops before the closing marker"

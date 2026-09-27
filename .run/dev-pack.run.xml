@@ -1,14 +1,9 @@
 <!--
   deploy/dev pack
 
-  Builds the resource pack, copies the zip into PACK_ROOT and rewrites url and sha1 in the
-  proxy's pack.yml - the same two lines steward-worker's PackWriter owns, and no others.
+  Builds the resource pack and points the proxy's pack.yml at it, then restarts the proxy.
 
-  THE PROXY HAS TO HAVE RUN ONCE so that pack.yml exists; this refuses with that sentence if it
-  does not. It restarts the proxy at the end.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  The proxy must have run once, so that pack.yml exists.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev pack" type="ShConfigurationType" folderName="dev: build and deploy">

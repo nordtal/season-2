@@ -1,6 +1,4 @@
-// Not a Java module. Its only job is packing src/ into the zip the release ships and the
-// pack-install server serves. The client is sent a URL and a SHA-1 and refuses the pack if they
-// disagree, so the hash is generated on every build rather than written down anywhere.
+// Packs src/ into the resource pack zip and writes its SHA-1, which the client checks.
 
 import eu.nordtal.s2.build.CheckNoDashPunctuation
 import eu.nordtal.s2.build.CheckNoTrackerIds
@@ -46,8 +44,7 @@ tasks.named("assemble") {
     dependsOn(packZip)
 }
 
-// The same guard the Java modules get. This module has no source sets, but it has a src/ whose
-// contents go into the zip, and an ignored file there is a glyph the client never receives.
+// The Java modules' guard, since an ignored file under src/ never reaches the zip.
 val packSource = layout.projectDirectory.dir("src")
 val repositoryRootDirectory = rootProject.layout.projectDirectory
 

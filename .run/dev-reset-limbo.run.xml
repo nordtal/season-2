@@ -1,11 +1,7 @@
 <!--
   deploy/dev reset limbo
 
-  Deletes the limbo's volume. plugins/ is a directory on the host and survives. The typed
-  confirmation is the script's, not this file's.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Deletes the limbo volume; plugins/ survives. The script asks for the name.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev reset limbo" type="ShConfigurationType" folderName="dev: reset (destructive)">

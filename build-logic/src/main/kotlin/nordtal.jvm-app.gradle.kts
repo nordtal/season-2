@@ -1,5 +1,4 @@
-// A standalone JVM application (the Discord bot), shipped as a runnable fat jar
-// and as a container image built from the module's own Dockerfile.
+// A standalone JVM application, shipped as a fat jar and an image from the module's Dockerfile.
 
 plugins {
     id("nordtal.shaded")
@@ -16,7 +15,7 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
     }
 }
 
-// The jar this module's Dockerfile copies must be the only one it could copy - see CheckOneImageJar.
+// The jar the Dockerfile copies must be the only one it could copy; see CheckOneImageJar.
 val checkOneImageJar =
     tasks.register<eu.nordtal.s2.build.CheckOneImageJar>("checkOneImageJar") {
         libraries.set(layout.buildDirectory.dir("libs"))

@@ -1,15 +1,7 @@
 <!--
   deploy/dev init
 
-  Writes deploy/dev.env: generates the four secrets, then ASKS - the EULA, the address the
-  interface will be opened on, and five skippable Discord ids.
-
-  IT NEEDS A KEYBOARD, which is the whole reason every configuration here runs in the terminal
-  rather than in the Run tool window: the Run window has no usable stdin, and this would sit on
-  the first question for ever.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Writes deploy/dev.env: generates the secrets, then asks for the EULA, the address and the Discord ids.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev init" type="ShConfigurationType" folderName="dev: stack">

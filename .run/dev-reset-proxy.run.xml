@@ -1,11 +1,7 @@
 <!--
   deploy/dev reset proxy
 
-  Deletes the proxy's volume: its .server cache, its logs, its generated configs. plugins/ is a
-  directory on the host and survives. The typed confirmation is the script's, not this file's.
-
-  Why this runs the way it does - the interpreter, the terminal, the working directory - is in
-  .run/README.md, once, rather than in each of these thirty files.
+  Deletes the proxy volume with its cache, logs and generated configs; plugins/ survives.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev reset proxy" type="ShConfigurationType" folderName="dev: reset (destructive)">

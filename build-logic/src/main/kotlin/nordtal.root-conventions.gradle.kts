@@ -1,5 +1,4 @@
-// CONVENTIONS.md for everything outside a module: build scripts, build-logic, workflows and
-// documentation at the root. `conventions.root.comments=true` enforces the tracker-ID rule here.
+// Checks CONVENTIONS.md outside the modules; `conventions.root.comments=true` enforces the comment rules.
 
 import eu.nordtal.s2.build.CheckNoDashPunctuation
 import eu.nordtal.s2.build.CheckNoTrackerIds

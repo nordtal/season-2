@@ -1,14 +1,5 @@
 #!/usr/bin/env bash
-#
-# The decisions in deploy/restore.sh, exercised without Docker and without an archive.
-#
-# restore.sh empties a volume before it fills it, and one of those volumes is nordtal-s2_mc-smp -
-# Nordtal, a hand-built world that is in no repository and in no release. It is the same class of
-# thing as `deploy/dev reset`, which is why the confirmation below has the same shape, and it is
-# tested for the same reason: running it and looking is too late.
-#
-# What it cannot say anything about is whether a restored volume then holds what the archive held.
-# That needs Docker and a real archive, and it is a restore drill rather than a test.
+# Tests the decisions in deploy/restore.sh without Docker and without an archive.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,8 +23,7 @@ kind_is() {
 }
 
 case_begin "the names steward-worker actually writes are recognised"
-# Taken from TarSnapshots and DatabaseDump: <volume>-<stamp>.tar.zst and nordtal-<stamp>.dump, the
-# stamp being yyyyMMdd'T'HHmmss'Z' in UTC.
+# The names TarSnapshots and DatabaseDump write; the stamp is yyyyMMdd'T'HHmmss'Z' in UTC.
 kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst"         volume
 kind_is "nordtal-s2_mc-smp-plugins-20260913T031500Z.tar.zst" volume
 kind_is "nordtal-s2_bot-config-20260913T031500Z.tar.zst"     volume
@@ -41,9 +31,7 @@ kind_is "nordtal-20260913T031500Z.dump"                      database
 ok "four real names, three volumes and a dump"
 
 case_begin "a volume whose own name has dashes comes back whole"
-# The whole reason the split is the LAST dash before the stamp. Get this wrong and the archive is
-# restored into a volume called nordtal-s2_mc-smp, which exists - so it would not fail, it would
-# overwrite the world with a plugins folder.
+# The split is at the last hyphen before the stamp, or this lands in the existing nordtal-s2_mc-smp.
 [[ "$(volume_of nordtal-s2_mc-smp-plugins-20260913T031500Z.tar.zst)" == "nordtal-s2_mc-smp-plugins" ]] \
     || bad "the -plugins volume lost its suffix"
 [[ "$(volume_of nordtal-s2_mc-proxy-20260913T031500Z.tar.zst)" == "nordtal-s2_mc-proxy" ]] \
@@ -58,20 +46,16 @@ case_begin "the stamp is read back for naming and for saying what is lost"
 ok "both kinds give up their stamp"
 
 case_begin "a half-written archive is its own answer, not an error to squint at"
-# steward-worker writes every archive under .partial and renames it only after reading it back. A
-# .partial is therefore the one file in that directory that looks restorable and is not.
+# A .partial archive was never read back, so it is not restorable.
 kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst.partial" partial
 kind_is "nordtal-20260913T031500Z.dump.partial"              partial
 ok "both kinds of interrupted backup are refused as partial"
 
 case_begin "the mark beside an archive is not an archive"
-# steward-worker writes `<archive>.unverified` next to a backup taken after a stop it could not
-# confirm the end of. It sits in the same directory and ends in a name a glob would happily hand to
-# a restore, so it has to be told apart from the thing it describes - and told apart as `mark`
-# rather than as `unknown`, because the useful answer is "read this, then name the archive".
+# An `<archive>.unverified` mark is classified as `mark`, so the answer points at the archive.
 kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst.unverified" mark
 kind_is "nordtal-20260913T031500Z.dump.unverified"              mark
-# And the archive it belongs to is still an ordinary archive. The mark must not spread.
+# The archive next to a mark is still an ordinary archive.
 kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst" volume
 ok "a mark is a mark, and the archive beside it is still restorable"
 
@@ -94,8 +78,7 @@ done
 ok "a missing stamp, a short stamp, a dashed date, the wrong suffix and a path are all unknown"
 
 case_begin "a volume archive with no volume name in front of the stamp is not a volume archive"
-# `-20260913T031500Z.tar.zst` would otherwise strip to the empty string, and an empty volume name
-# is what makes a confirmation succeed on a bare Return - see the last case in this file.
+# A name that is only a stamp would give an empty volume name.
 [[ "$(archive_kind "-20260913T031500Z.tar.zst")" == unknown ]] || bad "a nameless archive was accepted"
 ok "there has to be a name in front of the stamp"
 
@@ -103,8 +86,7 @@ case_begin "the confirmation has to be the volume's own name"
 restore_confirmed nordtal-s2_mc-smp nordtal-s2_mc-smp || bad "the name typed back was not accepted"
 ok "the name is accepted"
 
-# "yes" is what somebody types when they have stopped reading, and a bare Return is what they press
-# when they never started. Both are the exact moment this guard is for.
+# "yes" and a bare Return are what somebody not reading the prompt answers.
 for typed in "" " " "y" "Y" "yes" "YES" "nordtal-s2_mc-smp " "NORDTAL-S2_MC-SMP" \
              "mc-smp" "nordtal-s2_mc-smp-plugins" "*"; do
     if restore_confirmed nordtal-s2_mc-smp "$typed"; then
@@ -114,16 +96,13 @@ done
 ok "yes, an empty line, the unprefixed name, a neighbouring volume and a wildcard are all refused"
 
 case_begin "an empty target confirms nothing"
-# If the volume name were ever empty - a parse that stripped too much - an empty answer matching it
-# would empty a volume on a bare Return.
+# An empty volume name must never match an empty answer.
 restore_confirmed "" ""  && bad "an empty target accepted an empty confirmation"
 restore_confirmed "" "y" && bad "an empty target accepted anything at all"
 ok "nothing can be confirmed against an empty name"
 
 case_begin "an archive's volume name is a directory in the installation"
-# The directory is the volume name without the project prefix, and nothing else translates the
-# two. Getting it wrong restores a world into a directory nothing mounts, which looks exactly like
-# a restore that worked.
+# The directory is the volume name without the project prefix.
 [[ "$(directory_for nordtal-s2_mc-smp nordtal-s2 /srv/nordtal)" == "/srv/nordtal/mc-smp" ]] \
     || bad "the world"
 [[ "$(directory_for nordtal-s2_mc-smp-plugins nordtal-s2 /srv/nordtal)" \

@@ -2,128 +2,50 @@
 [versions]
 # Paper dropped the -R0.1-SNAPSHOT suffix with the 26.x version scheme.
 paper = "26.2.build.121-stable"
-# velocity-api 4.2.0 is compiled for Java 25 and ships the @Plugin annotation processor
-# that generates velocity-plugin.json.
-#
-# Fill publishes into the 4.0.0 family and the proxy follows that family by design, so this line
-# tracks whatever build Fill actually ships under it rather than a fixed minor version.
+# Tracks the build Fill ships in the 4.0.0 family the proxy follows.
 velocity = "4.2.0"
-# jcore is published from github.com/nordtal/jcore via JitPack; the coordinate version is the git
-# tag. It exports no logging backend, so consumers declare logback themselves.
-#
-# It writes a `<name>.schema.json` beside every YAML it writes, and the YAML itself carries no
-# comments and no header - the explanations live in the schema instead, as each property's
-# `@Explain` sentence, or its `@Comment` paragraph joined with '\n' when no `@Explain` is given;
-# `@Explain` always wins once a setting has one. The file-level `@ConfigSpec(header)` lands in the
-# schema root's `explanation`, which is the only place a header like BotSpec's - naming
-# NORDTAL_BOT_TOKEN and friends as the real source of the Discord token and the bunq key - actually
-# surfaces. A file jcore already wrote loses its comments the next time it is saved; nothing here
-# migrates that for a deployed volume.
+# The git tag on JitPack. It exports no logging backend, so consumers declare logback.
 jcore = "4.4.0"
-# Our own Paper plugin, via JitPack. `smp` takes it compileOnly and never shades it - the api
-# module is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to
-# be installed on the SMP server.
-#
-# Not a fixed version, deliberately: `steward.yml` ships `display-tags-release: latest`, so the jar
-# that runs on the SMP is whatever the fork released most recently, and a pinned compile version
-# can only agree with that by accident. The cost is that a DisplayTags release can turn CI red with
-# no commit in between; if one does, pin this line to the last good version and say why - do not
-# un-pin it silently.
+# Unpinned to match `display-tags-release: latest`; if a release turns CI red, pin it and say why.
 displaytags = "latest.release"
 jda = "6.0.0-rc.4"
 bunq = "1.28.0.6"
-# OkHttp, and it is here only because steward-worker carries a patched copy of one of the bunq SDK's
-# own classes (com/bunq/sdk/http/BunqRequestBuilder.java) and therefore has to compile against
-# OkHttp, while the SDK only brings it at runtime scope.
-#
-# It must be what the bunq SDK itself resolves, and it is declared `implementation` rather than
-# `compileOnly` precisely so it cannot drift: Gradle picks the higher of this and the SDK's
-# transitive one for both the compile and the runtime classpath, so the two can never disagree.
+# steward-worker compiles a patched bunq SDK class against OkHttp; must equal what the SDK resolves.
 okhttp = "3.14.9"
 guava = "33.6.0-jre"
 logback = "1.5.18"
 adventure = "5.2.0"
 lombok = "1.18.40"
 annotations = "26.0.2"
-# PostgreSQL JDBC driver. jcore carries it at runtime; declared so the version is visible here
-# rather than implied by jcore's POM.
+# jcore carries it at runtime; declared to make the version visible.
 postgresql = "42.7.13"
-# JDBI, HikariCP and Flyway are pinned to exactly what jcore depends on. :common needs the first
-# two directly for the access API and must NOT pull jcore in to get them - a Paper plugin cannot
-# carry the bot's ~33 MB dependency block - and identical versions mean the bot resolves one copy.
+# JDBI and HikariCP match jcore exactly, so :common gets them without jcore and the bot resolves one copy.
 jdbi = "3.54.0"
 hikaricp = "7.1.0"
-# Flyway is a test-only dependency of :common: the .sql files live here (src/main/resources/db/
-# migration) but only access-bot ever applies them at runtime, through jcore's Database. :common's
-# integration tests apply the same files off the classpath, so they test the real DDL, not a copy.
+# Tests apply the real migration files with it; at runtime only steward-worker migrates, through jcore.
 flyway = "13.4.0"
-# slf4j-api only - :common never binds a backend. jdbi3-core pulls the same artifact transitively;
-# it is declared so the version is visible here.
+# API only; :common never binds a backend.
 slf4j = "2.0.18"
-# Testcontainers: only the postgresql module, driven manually from @BeforeAll. The
-# junit-jupiter module is deliberately not used - it is built against JUnit 5 and this
-# repo is on the JUnit 6 BOM.
+# The postgresql module only; its junit-jupiter module targets JUnit 5.
 testcontainers = "1.21.4"
-# jimfs: an in-memory NIO filesystem, test-only. Testing an ownership-preserving write needs a file
-# owned by somebody other than the test process to prove anything - the real filesystem only lets
-# root hand that out, and a session already running as uid 0 makes the interesting failure
-# untestable there and untestable in CI for the opposite reason. Jimfs has no privilege model at
-# all, so a fabricated owner survives or does not on its own merits, the same fix jcore's own
-# AtomicConfigWriterTest uses - which is also where this exact version comes from.
+# In-memory filesystem for ownership tests, which a real one only allows as root. Same version as jcore.
 jimfs = "1.3.2"
-# Gson, and only :common's tests use it - the resource-pack consistency test parses the three
-# font JSON files, and hand-rolling a JSON reader for that is 80 lines nobody would ever review.
-# Pinned to what Paper ships in libraries/, so the parser reading the fonts is the one the
-# client-facing platform uses. Never shaded: Paper and Velocity both provide it.
+# :common's tests parse the font files with it. Paper's version, never shaded.
 gson = "2.14.0"
-# Javalin, the web layer of steward-ui and the small internal API of steward-deployer. It pulls
-# jetty-server, jetty-ee10-servlet and the jetty websocket module, and nothing else that matters
-# here - jackson-databind, gson, brotli4j and zstd-jni are all `optional` in its POM, so the json
-# mapper is a deliberate choice rather than a transitive surprise. That choice is gson, the parser
-# jcore already exports; a second databind on the classpath is how the repo got two Gson types that
-# were not each other.
+# The web layer of steward-ui and steward-deployer; its JSON mapper is gson, as in jcore.
 javalin = "7.2.3"
-# The Gradle plugin that downloads its own Node for the vite build of steward-ui's frontend. This
-# host has no node and is not going to get one: the plugin unpacks a private copy under build/.
+# Downloads a private Node under build/ for the frontend build.
 node = "7.1.0"
-# WebAuthn, server side.
-#
-# It is in :steward-ui and nowhere else, and that is a decision rather than an accident. It pulls
-# jackson-databind, guava, cbor and httpclient5 - and jcore dropped Jackson on purpose, and :common
-# takes nothing but JDBI, HikariCP, slf4j and the driver. Both rules are untouched: this is a
-# standalone JVM service with its own image, not a Paper plugin and not :common. There is no
-# maintained Jackson-free WebAuthn library for Java; webauthn4j has the same dependency and is at
-# 0.29. The alternative was writing the verification by hand - CBOR, COSE, ES256 - which is exactly
-# the kind of hand-written sign-in code where one missed step makes the whole factor worthless.
+# In :steward-ui only, since it pulls Jackson; no maintained Jackson-free WebAuthn library exists.
 webauthn = "2.9.0"
-# Jackson, compileOnly and only in :steward-ui, and only because of one exception type.
-#
-# webauthn-server-core declares Jackson at runtime scope, so its classes are not on anybody's
-# compile classpath - which is a better boundary than the one this repository was going to draw by
-# hand, and it is left standing. The one thing that leaks through it is `JsonProcessingException`:
-# `PublicKeyCredentialCreationOptions.toJson()` declares it, and javac cannot compile a call to
-# that method without being able to resolve the type, catch-clause or not.
-#
-# So jackson-core - not databind - is declared compileOnly, purely so the throws clause resolves.
-# Nothing is compiled against a Jackson API; at runtime the version webauthn-server-core resolves
-# is the one that is used. Pinned to what it currently resolves.
+# compileOnly in :steward-ui, only so the `JsonProcessingException` webauthn declares resolves.
 jackson = "2.22.2"
-# CBOR, and only in :steward-ui's tests. An authenticator's answer is CBOR inside base64url
-# inside JSON, so a test that plays one has to be able to write it. It is already on the runtime
-# classpath (webauthn-server-core brings it); this pins it so the test compiles against the same
-# version rather than against whatever a transitive range resolves to today.
+# :steward-ui's tests write authenticator answers; the version webauthn brings at runtime.
 cbor = "4.5.6"
 junit = "6.0.0"
 shadow = "9.6.1"
 runpaper = "3.1.0"
-# Web Push, in :steward-ui only. Its POM declares exactly one dependency,
-# org.jetbrains.kotlin:kotlin-stdlib
-# - "zero external dependencies" per its own README, meaning zero beyond the Kotlin runtime itself.
-# No Bouncy Castle: it builds the aes128gcm payload encryption and the VAPID ES256 JWT on
-# java.security/javax.crypto alone, which is why it was picked over nl.martijndwars's fork
-# (renamed dev.blanke.webpush), whose POM pulls org.bouncycastle:bcprov-jdk18on for the same job.
-# WebPush.SubscriptionState.EXPIRED is exactly the 404/410 the ticket asks a sender to notice - the
-# library maps both status codes to it already, rather than this repository matching them by hand.
+# Web Push for :steward-ui; needs only the Kotlin runtime, no Bouncy Castle.
 webpush = "1.3.0"
 # The tools that check CONVENTIONS.md.
 spotless = "8.10.3"
@@ -175,10 +97,7 @@ junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 
 [bundles]
-# The runtime stack the access API in :common needs. :common itself declares these compileOnly,
-# so a module that never touches the database stays a 20 KB jar. Every consumer of
-# eu.nordtal.s2.common.access adds this bundle - and gets a NoClassDefFoundError at runtime if it
-# forgets, which is the deliberate trade for not shading 3 MB into plugins that have no use for it.
+# What :common's access API needs at runtime; :common takes it compileOnly, so every consumer must add it.
 access-persistence = ["jdbi-core", "jdbi-sqlobject", "jdbi-postgres", "hikaricp", "slf4j-api"]
 
 [plugins]

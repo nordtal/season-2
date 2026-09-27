@@ -1,18 +1,20 @@
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import type { Service } from "@/lib/api"
 import { useOnline } from "@/components/steward/online"
 import { useServices } from "@/lib/queries"
+import { queryResult } from "@/lib/query-fixtures"
 
 /**
- * steward/111, the owner's own observation: **he was the only player online and saw `+1`, not his face.**
+ * **Being the only player online must show a face, not just `+1`.**
  *
- * The roster was never the problem - proxy writes it every ten seconds and the worker puts
- * it on the `proxy` row as `roster`. The interface simply never read it: `useOnline` took
- * the list as a parameter defaulting to `[]`, and its one caller (`pages/overview.tsx`) called it
- * with nothing. So the stack always had a count and never a face, for everybody, always.
+ * The roster is never the problem - proxy writes it every ten seconds and the worker puts
+ * it on the `proxy` row as `roster`. The interface has to actually read it: `useOnline` takes
+ * the list as a parameter defaulting to `[]`, and its one caller (`pages/overview.tsx`) has to call
+ * it with the real roster rather than nothing, or the stack always has a count and never a face.
  */
-vi.mock("@/lib/queries", () => ({ useServices: vi.fn(), useAvatarBaseUrl: () => undefined }))
+vi.mock("@/lib/queries", () => ({ useServices: vi.fn<typeof useServices>(), useAvatarBaseUrl: () => undefined }))
 
 function Probe() {
   const online = useOnline()
@@ -24,13 +26,27 @@ function Probe() {
   )
 }
 
-function services(rows: unknown[]) {
-  vi.mocked(useServices).mockReturnValue({ data: { services: rows }, isPending: false } as never)
+function row(over: Partial<Service> & { service: string }): Service {
+  return {
+    containerId: "abc",
+    image: "ghcr.io/nordtal/smp:1.4.0",
+    state: "running",
+    status: "Up 3 hours (healthy)",
+    hasConsole: true,
+    drift: "UP_TO_DATE",
+    ...over,
+  }
+}
+
+function services(rows: (Partial<Service> & { service: string })[]) {
+  vi.mocked(useServices).mockReturnValue(
+    queryResult({ services: rows.map(row), drift: { checkedAt: null, reached: true, unverifiable: [] } }),
+  )
 }
 
 afterEach(cleanup)
 
-describe("useOnline - the roster comes from the same row the total does (steward/111)", () => {
+describe("useOnline - the roster comes from the same row the total does", () => {
   it("hands on the people proxy wrote down", () => {
     services([
       {

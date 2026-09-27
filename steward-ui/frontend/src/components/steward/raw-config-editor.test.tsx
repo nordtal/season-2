@@ -5,17 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { RawConfigEditor, formatOf, tokenizeLine } from "@/components/steward/raw-config-editor"
 import type { EditableRawConfigDocument } from "@/lib/api"
+import { asButton, asTextArea } from "@/lib/test-elements"
 
 /**
- * `RawConfigEditor` is what `RawConfigView` in `configuration.tsx` hands a raw file to since
- * steward/60 gave that view a save path. `configuration.test.tsx` already exercises this component
+ * `RawConfigEditor` is what `RawConfigView` in `configuration.tsx` hands a raw file to, giving
+ * that view a save path. `configuration.test.tsx` already exercises this component
  * end to end, wired through the real file list and the real `ServiceSettings` tab; this file
  * is the narrower one - the tokeniser by itself, and the component alone against a fake
  * `PUT /api/config-raw/<file>` rather than the whole page.
- *
- * Every scenario below is a RED test first: `RawConfigEditor` and `formatOf`/`tokenizeLine` did not
- * exist before steward/60, so each assertion failed with "Cannot find module" until the file this
- * test names was written to make it pass.
  */
 
 function json(body: unknown): Response {
@@ -130,11 +127,11 @@ describe("RawConfigEditor", () => {
   it("shows the file's content, and disables Save until it is edited", async () => {
     draw(<RawConfigEditor file="steward-worker/config.yml" document={document()} />)
 
-    const editor = screen.getByLabelText("Raw content of config.yml") as HTMLTextAreaElement
+    const editor = asTextArea(screen.getByLabelText("Raw content of config.yml"))
     expect(editor.value).toBe("one: 1\n")
     expect(editor.readOnly).toBe(false)
 
-    const save = screen.getByRole("button", { name: /Save/ }) as HTMLButtonElement
+    const save = asButton(screen.getByRole("button", { name: /Save/ }))
     expect(save.disabled).toBe(true)
     // The disabled Save already says there is nothing to save.
     expect(screen.queryByText("Nothing changed.")).toBeNull()
@@ -142,12 +139,12 @@ describe("RawConfigEditor", () => {
 
   it("enables Save once the text changes, and Discard puts the original text back", () => {
     draw(<RawConfigEditor file="steward-worker/config.yml" document={document()} />)
-    const editor = screen.getByLabelText("Raw content of config.yml") as HTMLTextAreaElement
+    const editor = asTextArea(screen.getByLabelText("Raw content of config.yml"))
 
     fireEvent.change(editor, { target: { value: "one: 1\ntwo: 2\n" } })
     expect(editor.value).toBe("one: 1\ntwo: 2\n")
     screen.getByText("Unsaved changes.")
-    const save = screen.getByRole("button", { name: /Save/ }) as HTMLButtonElement
+    const save = asButton(screen.getByRole("button", { name: /Save/ }))
     expect(save.disabled).toBe(false)
 
     fireEvent.click(screen.getByRole("button", { name: /Discard/ }))
@@ -158,27 +155,30 @@ describe("RawConfigEditor", () => {
   it("sends the revision and the typed text on Save, and shows a warning without losing the edit", async () => {
     const file = "steward-worker/config.yml"
     const broken = "one: 1\ntwo: [oops\n"
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (url === `/api/config-raw/${file}` && init?.method === "PUT") {
-        const body = JSON.parse(String(init.body)) as { revision: string; content: string }
-        expect(body).toEqual({ revision: "r1", content: broken })
-        return json({
-          ...document({ content: broken }),
-          warnings: ["Line 2: not valid YAML: expected ',' or ']', but got :"],
-        })
-      }
-      throw new Error(`the editor asked for ${url}, which this test did not expect`)
-    })
+    let sentBody: unknown
+    const fetchMock = vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(
+      async (url, init) => {
+        if (url === `/api/config-raw/${file}` && init?.method === "PUT") {
+          sentBody = JSON.parse(init.body ?? "")
+          return json({
+            ...document({ content: broken }),
+            warnings: ["Line 2: not valid YAML: expected ',' or ']', but got :"],
+          })
+        }
+        throw new Error(`the editor asked for ${url}, which this test did not expect`)
+      },
+    )
     vi.stubGlobal("fetch", fetchMock)
 
     draw(<RawConfigEditor file={file} document={document()} />)
-    const editor = screen.getByLabelText("Raw content of config.yml") as HTMLTextAreaElement
+    const editor = asTextArea(screen.getByLabelText("Raw content of config.yml"))
     fireEvent.change(editor, { target: { value: broken } })
     fireEvent.click(screen.getByRole("button", { name: /Save/ }))
 
     await screen.findByText("Line 2: not valid YAML: expected ',' or ']', but got :")
     expect(editor.value).toBe(broken)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(sentBody).toEqual({ revision: "r1", content: broken })
   })
 
   it("shows no Save button and a read-only textarea for a file mounted read-only", () => {
@@ -189,7 +189,7 @@ describe("RawConfigEditor", () => {
       />,
     )
 
-    const editor = screen.getByLabelText("Raw content of README.txt") as HTMLTextAreaElement
+    const editor = asTextArea(screen.getByLabelText("Raw content of README.txt"))
     expect(editor.readOnly).toBe(true)
     expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
     expect(screen.queryByRole("button", { name: /Discard/ })).toBeNull()

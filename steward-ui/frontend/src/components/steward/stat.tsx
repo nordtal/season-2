@@ -10,7 +10,7 @@ import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
  * where the caveat goes - "share of the host, no container has a limit" belongs next to the number
  * it qualifies and nowhere else.
  *
- * **`value` is optional, and that is the waiting shape** (steward/120). The label is known before
+ * **`value` is optional, and that is the waiting shape.** The label is known before
  * the figure is - it is written into the page, not fetched - so a stat that is still waiting shows
  * its label and a bar where the number will be. Nothing moves when the number lands, and the page
  * already reads as itself while it is empty.

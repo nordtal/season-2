@@ -65,7 +65,7 @@ export function CommandCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <QueryState
-          query={{ ...commands, data: shown } as typeof commands}
+          query={{ ...commands, data: shown }}
           isEmpty={(list) => list.length === 0}
           empty={{
             title: "No command is released to the interface.",
@@ -111,7 +111,7 @@ export function isServiceCommand(command: AdminCommand): boolean {
 const PLACEHOLDERS: (AdminCommand | undefined)[] = [undefined, undefined, undefined, undefined]
 
 /**
- * One command, with or without knowing which one yet (steward/120).
+ * One command, with or without knowing which one yet.
  *
  * The same rows, the same paddings and the same button, so nothing on the card moves when the
  * names arrive. The button is drawn rather than hidden because its height is part of the row.
@@ -242,7 +242,7 @@ function CommandRow({ command }: { command?: AdminCommand }) {
  * and because a command with no ACCOUNT argument must not make the interface fetch the roster.
  */
 /**
- * The roster as a picker, by NAME (steward/124).
+ * The roster as a picker, by NAME.
  *
  * Each option is the person drawn by {@link Entity}, without its popover because an option is
  * already something to click. Somebody the roster has no name for reads "no Discord name on
@@ -255,7 +255,9 @@ function CommandRow({ command }: { command?: AdminCommand }) {
  * Exported for the test: the options live inside a Radix `Select`, which does not open in jsdom,
  * and what is worth holding here is the labelling rule rather than the popup's behaviour.
  */
-export function accountOptions(people: Person[] | undefined): { value: string; label: ReactNode }[] {
+export function accountOptions(
+  people: Pick<Person, "discordId" | "minecraftUuid">[] | undefined,
+): { value: string; label: ReactNode }[] {
   return (people ?? []).map((person) => ({
     value: person.discordId,
     label: (
@@ -289,9 +291,11 @@ function ArgumentField({
   )
 
   if (argument.choices || argument.kind === "ACCOUNT" || argument.kind === "REFERENCE") {
-    // One `Select` for three sources. The empty case is spelled out rather than left as a silent
-    // dropdown with nothing in it: "nothing is open" and "the list has not loaded" are different
-    // answers and the difference decides whether somebody waits or goes and looks.
+    /**
+     * One `Select` for three sources. The empty case is spelled out rather than left as a silent
+     * dropdown with nothing in it: "nothing is open" and "the list has not loaded" are different
+     * answers and the difference decides whether somebody waits or goes and looks.
+     */
     const options: { value: string; label: ReactNode }[] = argument.choices
       ? argument.choices.map((choice) => ({ value: choice, label: choice }))
       : argument.kind === "ACCOUNT"

@@ -1,12 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory, createRootRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
+import { afterEach, assert, beforeAll, describe, expect, it, vi } from "vitest"
 
 import { NotificationsDialog, useNotificationActions } from "@/app/notifications"
+import { asButton, asElement, asInput } from "@/lib/test-elements"
+import { stringChangesOf } from "@/lib/query-fixtures"
 
 /**
- * The dialog behind the round picture (steward/98, the owner's review of 2026-09-18).
+ * The dialog behind the round picture.
  *
  * What is worth holding here is not that four sections render - it is the four things that are
  * easy to get subtly wrong and impossible to see on screen:
@@ -34,9 +36,10 @@ let thisBrowser: string | null = null
 const PHONE = "https://push.example/phone"
 const LAPTOP = "https://push.example/laptop"
 
-// jsdom has neither method, and radix calls all three on pointer down - the same gap
-// `snowflake-picker.test.tsx` patches. It was the Select beside "Devices" that needed it until
-// steward/129; the Popover that replaced it sits on the same primitives.
+/**
+ * jsdom has neither method, and radix calls all three on pointer down - the same gap
+ * `snowflake-picker.test.tsx` patches. The Popover beside "Devices" sits on the same primitives.
+ */
 beforeAll(() => {
   if (!Element.prototype.hasPointerCapture) Element.prototype.hasPointerCapture = () => false
   if (!Element.prototype.setPointerCapture) Element.prototype.setPointerCapture = () => {}
@@ -109,53 +112,55 @@ function backend(
   } = {},
 ) {
   const calls: Call[] = []
-  const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
-    const method = init?.method ?? "GET"
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined
-    calls.push({ url, method, body })
+  const fetcher = vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(
+    async (url, init) => {
+      const method = init?.method ?? "GET"
+      const body = init?.body ? JSON.parse(init.body) : undefined
+      calls.push({ url, method, body })
 
-    if (url === "/api/web-push/public-key") return json(200, { publicKey: "AQIDBA" })
-    if (url === "/api/web-push/devices") {
-      return json(
-        200,
-        over.devices ?? [
-          { endpoint: PHONE, device: "iPhone, Safari", subscribedAt: "2026-09-18T10:00:00Z" },
-          {
-            endpoint: LAPTOP,
-            device: "Linux, Chrome",
-            subscribedAt: "2026-09-17T10:00:00Z",
-            lastSentAt: "2026-09-19T08:00:00Z",
-          },
-        ],
-      )
-    }
-    if (url === "/api/web-push/preferences") {
-      if (method === "PUT") return json(200, body)
-      return json(
-        200,
-        over.preferences ?? {
-          service: true,
-          backup: true,
-          disk: true,
-          memory: true,
-          drift: false,
-        },
-      )
-    }
-    if (url === "/api/web-push/test") return new Response(null, { status: 204 })
-    if (url === "/api/config") {
-      return json(200, over.noAlertsFile ? [] : [{ ...alertsFile(), writable: over.writable ?? true }])
-    }
-    if (url === `/api/config/${ALERTS}`) {
-      if (method === "PUT") {
-        const changes = (body as { changes: Record<string, string> }).changes
-        return json(200, { ...alertsFile(changes), revision: "rev-2" })
+      if (url === "/api/web-push/public-key") return json(200, { publicKey: "AQIDBA" })
+      if (url === "/api/web-push/devices") {
+        return json(
+          200,
+          over.devices ?? [
+            { endpoint: PHONE, device: "iPhone, Safari", subscribedAt: "2026-09-18T10:00:00Z" },
+            {
+              endpoint: LAPTOP,
+              device: "Linux, Chrome",
+              subscribedAt: "2026-09-17T10:00:00Z",
+              lastSentAt: "2026-09-19T08:00:00Z",
+            },
+          ],
+        )
       }
-      return json(200, { ...alertsFile(), writable: over.writable ?? true })
-    }
-    if (url === "/api/web-push/subscribe") return new Response(null, { status: 204 })
-    throw new Error(`the dialog asked for ${url}, which this test did not expect`)
-  })
+      if (url === "/api/web-push/preferences") {
+        if (method === "PUT") return json(200, body)
+        return json(
+          200,
+          over.preferences ?? {
+            service: true,
+            backup: true,
+            disk: true,
+            memory: true,
+            drift: false,
+          },
+        )
+      }
+      if (url === "/api/web-push/test") return new Response(null, { status: 204 })
+      if (url === "/api/config") {
+        return json(200, over.noAlertsFile ? [] : [{ ...alertsFile(), writable: over.writable ?? true }])
+      }
+      if (url === `/api/config/${ALERTS}`) {
+        if (method === "PUT") {
+          const changes = stringChangesOf(body)
+          return json(200, { ...alertsFile(changes), revision: "rev-2" })
+        }
+        return json(200, { ...alertsFile(), writable: over.writable ?? true })
+      }
+      if (url === "/api/web-push/subscribe") return new Response(null, { status: 204 })
+      throw new Error(`the dialog asked for ${url}, which this test did not expect`)
+    },
+  )
   return { calls, fetcher }
 }
 
@@ -178,7 +183,7 @@ function Harness() {
 }
 
 /**
- * A memory router around it, since steward/129: the read-only shape of the thresholds section
+ * A memory router around it: the read-only shape of the thresholds section
  * carries a `<Link>` to the service page, and a `Link` outside a `RouterProvider` throws rather
  * than degrading - `Cannot read properties of null (reading 'isServer')`, from every test at once.
  */
@@ -191,7 +196,7 @@ async function open() {
   })
   render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router as never} />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
   fireEvent.click(await screen.findByRole("button", { name: "open" }))
@@ -203,11 +208,13 @@ describe("the types, one switch each", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    // One wait for the list to be there at all, then a plain `get` per type: a `findBy` per label
-    // would turn a missing type into a five-second timeout instead of a sentence naming it.
+    /**
+     * One wait for the list to be there at all, then a plain `get` per type: a `findBy` per label
+     * would turn a missing type into a five-second timeout instead of a sentence naming it.
+     */
     await screen.findByRole("switch", { name: "Services" })
     for (const label of ["Services", "Backups", "Disk", "Memory", "Images"]) {
-      expect(screen.getByRole("switch", { name: label }), label).toBeTruthy()
+      assert.isOk(screen.getByRole("switch", { name: label }), label)
     }
   })
 
@@ -215,9 +222,11 @@ describe("the types, one switch each", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    // Waited on a type that is ON, so that the wait means "the answer arrived" and the assertion
-    // below means "it was read" - waiting on the off one would pass by timing out into a switch
-    // that is off because nothing has loaded yet.
+    /**
+     * Waited on a type that is ON, so that the wait means "the answer arrived" and the assertion
+     * below means "it was read" - waiting on the off one would pass by timing out into a switch
+     * that is off because nothing has loaded yet.
+     */
     const disk = await screen.findByRole("switch", { name: "Disk" })
     await waitFor(() => expect(disk.getAttribute("aria-checked")).toBe("true"))
     expect(screen.getByRole("switch", { name: "Images" }).getAttribute("aria-checked")).toBe("false")
@@ -232,9 +241,11 @@ describe("the types, one switch each", () => {
     await waitFor(() => expect(disk.getAttribute("aria-checked")).toBe("true"))
     fireEvent.click(disk)
 
-    // Waited for on "something was written", asserted on "what was written" - a `waitFor` around
-    // the equality itself would report a timeout rather than the wrong body, which is the one
-    // thing this test is for.
+    /**
+     * Waited for on "something was written", asserted on "what was written" - a `waitFor` around
+     * the equality itself would report a timeout rather than the wrong body, which is the one
+     * thing this test is for.
+     */
     await waitFor(() => expect(calls.some((call) => call.method === "PUT")).toBe(true))
     expect(calls.filter((call) => call.method === "PUT")).toEqual([
       {
@@ -263,9 +274,9 @@ describe("the devices of this account", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    const row = (await screen.findByText("Linux, Chrome")).closest("li") as HTMLElement
+    const row = asElement((await screen.findByText("Linux, Chrome")).closest("li"))
     expect(row.textContent).toContain("this device")
-    const other = (screen.getByText("iPhone, Safari").closest("li") as HTMLElement).textContent
+    const other = asElement(screen.getByText("iPhone, Safari").closest("li")).textContent
     expect(other).not.toContain("this device")
   })
 
@@ -313,11 +324,11 @@ describe("the devices of this account", () => {
 })
 
 /**
- * steward/129. The select that used to stand beside the word "Devices" is a popover on the button
+ * The control beside the word "Devices" is a popover on the button
  * that does the sending, and its rows say what will arrive rather than what the switch above is
  * called.
  */
-describe("nothing in it scrolls sideways (steward/129)", () => {
+describe("nothing in it scrolls sideways", () => {
   /**
    * Measured rather than asserted, everywhere except here: `/home/dev/ui-shots/tool/notify.mjs`
    * opens this dialog at 390px and reports every box past the edge. jsdom has no layout and can
@@ -330,7 +341,7 @@ describe("nothing in it scrolls sideways (steward/129)", () => {
 
     const scroller = (await screen.findByText("This device")).closest(".overflow-y-auto")
     expect(scroller).not.toBeNull()
-    expect((scroller as HTMLElement).className).toContain("overflow-x-hidden")
+    expect(asElement(scroller).className).toContain("overflow-x-hidden")
   })
 })
 
@@ -342,8 +353,10 @@ describe("the test send hangs off the paper plane", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }))
 
     expect(await screen.findByText("Test notifications")).toBeTruthy()
-    // Every one of the five, in the words `AlertWatch#sample` really sends. "Services" is the
-    // switch; "Service down" is the notification.
+    /**
+     * Every one of the five, in the words `AlertWatch#sample` really sends. "Services" is the
+     * switch; "Service down" is the notification.
+     */
     for (const label of [
       "Service down",
       "Backup missing",
@@ -369,16 +382,18 @@ describe("the test send hangs off the paper plane", () => {
 
     const switches = await screen.findAllByRole("switch")
     fireEvent.click(screen.getByRole("button", { name: "Send a test notification to iPhone, Safari" }))
-    const popover = (await screen.findByText("Test notifications")).parentElement as HTMLElement
+    const popover = asElement((await screen.findByText("Test notifications")).parentElement)
 
-    // One row per switch: a type that cannot be tested honestly would be a button that sends
-    // nothing, and a type with no switch would be a test for something nobody can receive.
+    /**
+     * One row per switch: a type that cannot be tested honestly would be a button that sends
+     * nothing, and a type with no switch would be a test for something nobody can receive.
+     */
     expect(within(popover).getAllByRole("button")).toHaveLength(switches.length)
   })
 })
 
 /**
- * steward/129. The three numbers are keys of `steward-ui/steward-ui.yml`, and the same PUT the
+ * The three numbers are keys of `steward-ui/steward-ui.yml`, and the same PUT the
  * configuration form uses writes them - revision and all, so two open forms still collide loudly.
  */
 describe("the thresholds the notifications fire on", () => {
@@ -386,9 +401,9 @@ describe("the thresholds the notifications fire on", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    expect(((await screen.findByLabelText("Disk in use")) as HTMLInputElement).value).toBe("85")
-    expect((screen.getByLabelText("Memory in use") as HTMLInputElement).value).toBe("90")
-    expect((screen.getByLabelText("Newest backup") as HTMLInputElement).value).toBe("30")
+    expect(asInput(await screen.findByLabelText("Disk in use")).value).toBe("85")
+    expect(asInput(screen.getByLabelText("Memory in use")).value).toBe("90")
+    expect(asInput(screen.getByLabelText("Newest backup")).value).toBe("30")
   })
 
   it("writes only the number that was typed in, with the revision it was drawn from", async () => {
@@ -416,7 +431,7 @@ describe("the thresholds the notifications fire on", () => {
     await open()
     await screen.findByLabelText("Disk in use")
 
-    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(asButton(screen.getByRole("button", { name: "Save" })).disabled).toBe(true)
   })
 
   it("shows the numbers and points at the page when the file cannot be written here", async () => {

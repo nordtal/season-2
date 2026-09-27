@@ -4,20 +4,21 @@ import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { UpdateRunPage } from "@/pages/operations"
+import { urlOf } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * What a run's report says it did (season-2-ops/142).
+ * What a run's report says it did.
  *
- * The owner, in the review on 2026-09-20, reported that the run detail page had not moved with the
- * Available card: the jar name was still there, and the pack still showed its old hash. The jar
- * half is fixed where it is decided - `PlanReport` now writes the version pair into the report, so
+ * The run detail page has to move with the
+ * Available card: the jar name and the pack hash both belong in the report.
+ * `PlanReport` writes the version pair into the report, so
  * every surface that draws a report gets it - and this file holds the drawing end of it.
  *
- * The pack half was measured before it was changed. The hash in the report is the pack that was on
- * the proxy **before** the run, written when the plan was made, and the run never writes a new one
- * back - so it was a label that was missing, not a reading that was stale. Forty characters of it
- * in a table cell is the part that was wrong.
+ * The hash in the report is the pack that was on
+ * the proxy **before** the run, written when the plan was made - the run never writes a new one
+ * back, so it is a label, not a reading that could go stale. Forty characters of it
+ * in a table cell would be too wide.
  */
 
 function json(status: number, body: unknown): Response {
@@ -34,7 +35,7 @@ const REPORT = {
       service: "proxy",
       state: "HEALTHY",
       changes: [
-        // As PlanReport writes it since 2026-09-20: the pair, not the filename.
+        // As PlanReport writes it: the pair, not the filename.
         { artefact: "proxy", from: "0.9.3", to: "0.9.4" },
         {
           artefact: "resource-pack",
@@ -48,7 +49,8 @@ const REPORT = {
 }
 
 function backend(report: unknown = REPORT): typeof fetch {
-  return vi.fn(async (url: string) => {
+  const impl: typeof fetch = async (input) => {
+    const url = urlOf(input)
     if (url.startsWith("/api/updates/79")) {
       return json(200, {
         id: 79,
@@ -67,7 +69,8 @@ function backend(report: unknown = REPORT): typeof fetch {
       })
     }
     throw new Error(`the page asked for ${url}, which this test did not expect`)
-  }) as unknown as typeof fetch
+  }
+  return vi.fn<typeof fetch>(impl)
 }
 
 function draw() {
@@ -89,7 +92,7 @@ function draw() {
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RouterProvider router={router as never} />
+        <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
@@ -120,8 +123,10 @@ describe("a run's report reads as versions, not as bookkeeping", () => {
   })
 
   it("leaves a filename alone when that is honestly all there is", async () => {
-    // The fallback the worker writes when two names do not come apart - a renamed jar. It has to
-    // stay visible as a filename: an invented version would be worse.
+    /**
+     * The fallback the worker writes when two names do not come apart - a renamed jar. It has to
+     * stay visible as a filename: an invented version would be worse.
+     */
     vi.stubGlobal(
       "fetch",
       backend({

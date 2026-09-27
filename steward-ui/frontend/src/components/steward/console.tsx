@@ -170,6 +170,10 @@ export function offeredSteps(capacity: number | undefined): number[] {
   return STEPS.filter((step) => step === DEFAULT_LIMIT || (capacity ?? 0) >= step)
 }
 
+function pad(value: number): string {
+  return String(value).padStart(2, "0")
+}
+
 /** The raw lines the window holds, oldest first, as a file (the filter applies, the markers do not). */
 function download(name: string, entries: LogEntry[]) {
   const text = entries
@@ -177,7 +181,6 @@ function download(name: string, entries: LogEntry[]) {
     .map((entry) => entry.text)
     .join("\n")
   const now = new Date()
-  const pad = (value: number) => String(value).padStart(2, "0")
   const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
   const url = URL.createObjectURL(new Blob([`${text}\n`], { type: "text/plain" }))
   const link = document.createElement("a")
@@ -219,8 +222,10 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
   const newest = useRef<number | null>(null)
   const [away, setAway] = useState(false)
 
-  // The colour a stack trace inherits is the one of the line above it in time, so this walks the
-  // log oldest first and then turns the list round for drawing.
+  /**
+   * The colour a stack trace inherits is the one of the line above it in time, so this walks the
+   * log oldest first and then turns the list round for drawing.
+   */
   const rows = useMemo(() => {
     const out: Row[] = []
     let carried: Level | null = null
@@ -238,11 +243,13 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
         out.push({ entry, line, level: continuesPrevious(line.text) ? carried : null })
       }
     }
-    return out.reverse()
+    return out.toReversed()
   }, [entries])
 
-  // A new block arrived on top. At the top, it slides in from above; scrolled away, the reading
-  // position is held instead, and nothing moves under the reader's eyes.
+  /**
+   * A new block arrived on top. At the top, it slides in from above; scrolled away, the reading
+   * position is held instead, and nothing moves under the reader's eyes.
+   */
   useLayoutEffect(() => {
     const pane = box.current
     const content = grid.current
@@ -253,9 +260,9 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
     const added = rows.findIndex((row) => row.entry.seq <= previous)
     // Not found: the window was refilled from a new connection, which is not an arrival.
     if (added <= 0) return
-    const first = content.children[0] as HTMLElement | undefined
-    const kept = content.children[added] as HTMLElement | undefined
-    if (!first || !kept) return
+    const first = content.children[0]
+    const kept = content.children[added]
+    if (!(first instanceof HTMLElement) || !(kept instanceof HTMLElement)) return
     const height = kept.offsetTop - first.offsetTop
     if (height <= 0) return
     if (pane.scrollTop > FOLLOWING) {
@@ -316,8 +323,10 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
                 key={entry.seq}
                 className={cn(
                   "break-words whitespace-pre-wrap",
-                  // A line that carries on the one before it sits under the message, whether or
-                  // not its head is still in the window; anything else has the whole width.
+                  /**
+                   * A line that carries on the one before it sits under the message, whether or
+                   * not its head is still in the window; anything else has the whole width.
+                   */
                   continuesPrevious(line.text) ? "max-sm:pl-3 sm:col-start-3" : "col-span-full",
                   level ? LEVEL_TEXT[level] : "text-white/85",
                 )}

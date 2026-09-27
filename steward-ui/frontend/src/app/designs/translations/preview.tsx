@@ -123,7 +123,7 @@ function McRun({
     const colours = style.gradient
     return (
       <span style={decoration}>
-        {[...text].map((char, at) => {
+        {Array.from(text).map((char, at) => {
           const colour = gradientAt(colours, gradient.total <= 1 ? 0 : (gradient.start + at) / (gradient.total - 1))
           return (
             <span key={at} style={{ color: colour, textShadow: shadow ? shadowCss(colour, scale) : undefined }}>
@@ -169,7 +169,7 @@ function Obfuscated({ text }: { text: string }) {
   }, [])
   return (
     <>
-      {[...text]
+      {Array.from(text)
         .map((char, at) => (char === " " ? " " : NOISE[(at * 7 + tick * 13 + char.charCodeAt(0)) % NOISE.length]))
         .join("")}
     </>
@@ -247,7 +247,7 @@ function HoverTip({ tip, children }: { tip: ReactNode; children: ReactNode }) {
   )
 }
 
-// --- the places ----------------------------------------------------------------------------
+// --- the places
 
 const SKY = "linear-gradient(180deg, #6b8cc4 0%, #9db8e3 55%, #5f8a3a 55.5%, #4b6e2c 70%, #3b2a1d 70.5%, #2e2117 100%)"
 
@@ -416,7 +416,7 @@ function Hotbar() {
   )
 }
 
-// --- Discord -------------------------------------------------------------------------------
+// --- Discord
 
 /** How long Discord lets a text be where it is shown, measured with the example values filled in. */
 export function discordLimit(shown: string | undefined, key: string): number | null {
@@ -481,6 +481,27 @@ function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
   )
 }
 
+/** The Discord author row - avatar, name, "APP" badge and timestamp - wrapping whatever it is given. */
+function author(children: ReactNode) {
+  return (
+    <div className="flex gap-3">
+      <div className="size-10 shrink-0 rounded-full" style={{ background: "#4a63d8" }} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium text-white">Nordtal</span>
+          <span className="rounded-[3px] px-1 text-[10px] font-semibold text-white" style={{ background: "#5865f2" }}>
+            APP
+          </span>
+          <span className="text-xs" style={{ color: "#949ba4" }}>
+            Today at 21:04
+          </span>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function DiscordPreview({
   runs,
   shown,
@@ -513,23 +534,6 @@ function DiscordPreview({
           {length}/{limit}
         </span>
       ) : null}
-    </div>
-  )
-  const author = (children: ReactNode) => (
-    <div className="flex gap-3">
-      <div className="size-10 shrink-0 rounded-full" style={{ background: "#4a63d8" }} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="font-medium text-white">Nordtal</span>
-          <span className="rounded-[3px] px-1 text-[10px] font-semibold text-white" style={{ background: "#5865f2" }}>
-            APP
-          </span>
-          <span className="text-xs" style={{ color: "#949ba4" }}>
-            Today at 21:04
-          </span>
-        </div>
-        {children}
-      </div>
     </div>
   )
   switch (shown) {

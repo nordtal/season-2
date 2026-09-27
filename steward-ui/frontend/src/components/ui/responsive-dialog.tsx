@@ -37,7 +37,7 @@ import {
 /**
  * One dialog, drawn as a bottom sheet on a narrow screen and as a centred dialog above it.
  *
- * The owner, 2026-09-18: every dialog switches over, globally - and the point of this file is that
+ * Every dialog switches over, globally - and the point of this file is that
  * last word. The decision is made here, once, and no page decides it again: a call site that asked
  * `useIsMobile()` and picked its own would be the first of six that drift, and a half-converted
  * interface is worse than an unconverted one, because the boundary between the halves is invisible
@@ -52,9 +52,9 @@ import {
  * sheet. A second breakpoint for dialogs would allow a state in which the navigation thinks it is
  * on a phone and a dialog does not.
  *
- * <h2>The two exceptions steward/98 wrote down are gone, and both on purpose</h2>
- * This file used to say that a confirmation could not be a sheet, because a sheet is dismissed by
- * flicking it away and a confirmation has to be answered. The owner answered that on 2026-09-20:
+ * <h2>Two apparent exceptions are not exceptions</h2>
+ * A confirmation could seem like it must not be a sheet, because a sheet is dismissed by
+ * flicking it away and a confirmation has to be answered. But
  * flicking it away **is** an answer, and it is the same answer a click on the overlay already
  * gives - a cancel. There was never anything to lose, so `ResponsiveAlertDialog` below is the same
  * switch for the seven confirmations.
@@ -79,12 +79,14 @@ function useSheet(): boolean {
 }
 
 export function ResponsiveDialog({ children, ...props }: React.ComponentProps<typeof Dialog>) {
-  // Answered `false` on the very first render and corrected in an effect - which is fine here, and
-  // is worth saying why: these are mounted closed, at the top of a page or beside a popover, so the
-  // correction has long happened before anything is on screen. What it does mean is that crossing
-  // the breakpoint WHILE a dialog is open remounts its contents; nothing in this interface holds
-  // unsaved text across a rotation, and the alternative - reading the width during render - is the
-  // hazard `useIsMobile` exists to avoid.
+  /**
+   * Answered `false` on the very first render and corrected in an effect - which is fine here, and
+   * is worth saying why: these are mounted closed, at the top of a page or beside a popover, so the
+   * correction has long happened before anything is on screen. What it does mean is that crossing
+   * the breakpoint WHILE a dialog is open remounts its contents; nothing in this interface holds
+   * unsaved text across a rotation, and the alternative - reading the width during render - is the
+   * hazard `useIsMobile` exists to avoid.
+   */
   const sheet = useIsMobile()
   const Root = sheet ? Drawer : Dialog
 
@@ -101,8 +103,10 @@ export function ResponsiveDialogTrigger(props: React.ComponentProps<typeof Dialo
 }
 
 export function ResponsiveDialogContent({ showCloseButton, ...props }: React.ComponentProps<typeof DialogContent>) {
-  // A sheet has no close button: it is closed by flicking it away or tapping the overlay, and a
-  // second way to do it in the top corner is the corner a thumb cannot reach anyway.
+  /**
+   * A sheet has no close button: it is closed by flicking it away or tapping the overlay, and a
+   * second way to do it in the top corner is the corner a thumb cannot reach anyway.
+   */
   if (useSheet()) {
     return <DrawerContent {...props} />
   }
@@ -203,7 +207,7 @@ export function ResponsiveAlertDialogAction({
   if (useSheet()) {
     return (
       <Button variant={variant} size={size} asChild>
-        <DrawerClose {...(props as React.ComponentProps<typeof DrawerClose>)} />
+        <DrawerClose {...props} />
       </Button>
     )
   }
@@ -219,7 +223,7 @@ export function ResponsiveAlertDialogCancel({
   if (useSheet()) {
     return (
       <Button variant={variant} size={size} asChild>
-        <DrawerClose {...(props as React.ComponentProps<typeof DrawerClose>)} />
+        <DrawerClose {...props} />
       </Button>
     )
   }

@@ -9,19 +9,15 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.util.Map;
 import java.util.function.Function;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Granting and revoking admin, the only door there is for either.
  *
- * <p><b>Written here, not asked of the bot</b>, unlike access: the tree is one table and nothing
- * else has to happen for a grant to be true. The Discord admin role follows on its own - the grant
- * notifies {@code nordtal_admin}, and the bot's reconcile adds or removes the role to match.</p>
- *
- * <p>So this side journals, because nobody else will: one {@code GRANT_ADMIN} or
- * {@code REVOKE_ADMIN} line naming the admin who clicked.</p>
+ * Written here directly: the tree is one table, and the Discord admin role follows on its own
+ * through {@code nordtal_admin}. This side journals a {@code GRANT_ADMIN} or {@code REVOKE_ADMIN}
+ * line naming the admin who clicked, because nobody else will.
  */
 final class AdminApi {
 
@@ -31,17 +27,14 @@ final class AdminApi {
     private final AuditDirectory audit;
     private final Function<Context, DiscordAuth.Account> accounts;
 
-    AdminApi(
-            final @NotNull AdminTree tree,
-            final @NotNull AuditDirectory audit,
-            final @NotNull Function<Context, DiscordAuth.Account> accounts) {
+    AdminApi(final AdminTree tree, final AuditDirectory audit, final Function<Context, DiscordAuth.Account> accounts) {
         this.tree = tree;
         this.audit = audit;
         this.accounts = accounts;
     }
 
     /** {@code POST /api/admins/grant} - {@code {discordId}}. */
-    void grant(final @NotNull Context ctx) {
+    void grant(final Context ctx) {
         final String target = discordId(ctx);
         final DiscordAuth.Account who = accounts.apply(ctx);
         final AdminTree.Grant outcome = tree.grant(who.id(), target);
@@ -66,7 +59,7 @@ final class AdminApi {
     }
 
     /** {@code POST /api/admins/revoke} - {@code {discordId}}; takes everybody below them too. */
-    void revoke(final @NotNull Context ctx) {
+    void revoke(final Context ctx) {
         final String target = discordId(ctx);
         final DiscordAuth.Account who = accounts.apply(ctx);
         final AdminTree.Revocation revocation = tree.revoke(who.id(), target);

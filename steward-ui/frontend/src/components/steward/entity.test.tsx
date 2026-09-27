@@ -8,7 +8,7 @@ import { Actor, Entity, entityKind } from "@/components/steward/entity"
 import { IDENTIFIER_PATTERN } from "@/components/steward/identity"
 
 /**
- * The owner, 2026-09-20: one component that recognises an entity and draws it properly, app-wide. These
+ * One component recognises an entity and draws it properly, app-wide. These
  * hold the four answers it gives - a person by Discord id, a person by Minecraft UUID, a service,
  * and the question mark for everything it cannot place.
  */

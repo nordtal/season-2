@@ -14,11 +14,11 @@ import { SECTIONS, imageTag } from "./topology"
  * The network, on a phone: one row per service, and no drawing at all.
  *
  * <h2>Why a table and not a smaller picture</h2>
- * The owner, 2026-09-19, translated: on the mobile view the whole thing sadly has to become a table
- * again - every service node, with the information it carries in the network plan, drawn as one
- * row. The word he used for "sadly" is the honest part of it. A topology drawing is
- * two-dimensional and a phone is one column wide; the thing that was actually shipped before this
- * ticket was a second hand-written arrangement, 352px across and 940px tall, which is a drawing
+ * On the mobile view the whole thing has to become a table
+ * - every service node, with the information it carries in the network plan, drawn as one
+ * row. A topology drawing is
+ * two-dimensional and a phone is one column wide; a second hand-written arrangement, 352px across
+ * and 940px tall, is a drawing
  * that has stopped being one - ten cards in three columns with the lines between them squeezed into
  * whatever was left. A list of ten rows says less and says all of it.
  *
@@ -28,8 +28,8 @@ import { SECTIONS, imageTag } from "./topology"
  * toolbar comes across whole - `NodeToolbar` is imported from `node.tsx` rather than rebuilt, so
  * "open" and "recreate" are the same two buttons doing the same two things.
  *
- * What it cannot carry is the one thing the drawing is *for*: which edge goes where. The owner decided
- * that outright - **no "connected to" column**. A column of service names beside a column of
+ * What it cannot carry is the one thing the drawing is *for*: which edge goes where -
+ * **no "connected to" column**. A column of service names beside a column of
  * service names is a table pretending to be a graph, and it would be read as neither. The wiring
  * becomes the **order** instead: `SECTIONS` in `topology.ts` is the plan's own grouping written
  * down as five headings, so a reader still learns that the three Paper servers belong together and
@@ -54,9 +54,11 @@ export function NetworkTable() {
             const players = network.players(id)
             return (
               <div
-                // Read by `network.test.tsx` the same way a card is, so the one assertion that
-                // matters most here - that every service in `navigation.ts` is on the page and
-                // none has quietly fallen out of a section - is the same assertion either way.
+                /**
+                 * Read by `network.test.tsx` the same way a card is, so the one assertion that
+                 * matters most here - that every service in `navigation.ts` is on the page and
+                 * none has quietly fallen out of a section - is the same assertion either way.
+                 */
                 key={id}
                 data-row={id}
                 className="flex min-w-0 items-center gap-2 border-b border-border/60 py-1 last:border-b-0"
@@ -68,7 +70,7 @@ export function NetworkTable() {
                         <HealthDot service={service} quiet={false} />
                       </span>
                     </TooltipTrigger>
-                    {/* steward/134: for a held service Docker's own sentence is true and beside
+                    {/* For a held service Docker's own sentence is true and beside
                         the point - "Exited (0) 5 minutes ago" is what a crash says too. The row
                         that makes it a decision is `service_hold`, so that is what this says. */}
                     <TooltipContent>
@@ -93,8 +95,10 @@ export function NetworkTable() {
 
                 {players === undefined ? null : (
                   <span
-                    // Same word and same reason as on the card: the icon is what a reader sees,
-                    // this is what a screen reader and a test see.
+                    /**
+                     * Same word and same reason as on the card: the icon is what a reader sees,
+                     * this is what a screen reader and a test see.
+                     */
                     title="players"
                     className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground"
                   >

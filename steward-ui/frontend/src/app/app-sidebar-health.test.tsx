@@ -6,19 +6,22 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { NavList } from "@/app/app-sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { asElement } from "@/lib/test-elements"
 
 /**
- * The health dot on a service row in the sidebar (steward/83).
+ * The health dot on a service row in the sidebar.
  *
  * `useServices()` is the same hook `OverviewPage` and `OperationsPage` already call - one shared
  * query, so the sidebar reads whatever that query already knows rather than opening a second one.
- * The design question the ticket asked back: whether ten green dots would be noise. The answer
- * lives with the component ({@link HealthDot} in `components/steward/status.tsx`) - a healthy row
- * draws nothing, matching the Issues tile on the start page (steward/64, folded into a tile by
- * steward/80), which is silent for "ok" too. Only a row that is not simply fine gets a mark, and
+ * Whether ten green dots would be noise is answered by the component ({@link HealthDot} in
+ * `components/steward/status.tsx`) - a healthy row draws nothing, matching the Issues tile on the
+ * start page, which is silent for "ok" too. Only a row that is not simply fine gets a mark, and
  * "not read yet" gets its own, neutral mark rather than the fine one - `health.ts`'s own rule,
  * applied one level down.
  */
+
+/** A route this test never draws, only routes to. */
+const nothing = () => null
 
 function json(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -49,7 +52,6 @@ function draw(fetchImpl: ReturnType<typeof vi.fn>) {
   vi.stubGlobal("fetch", fetchImpl)
 
   const root = createRootRoute()
-  const nothing = () => null
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/", component: () => <NavList marker="text" /> }),
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: nothing }),
@@ -69,7 +71,7 @@ function draw(fetchImpl: ReturnType<typeof vi.fn>) {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <SidebarProvider>
-          <RouterProvider router={router as never} />
+          <RouterProvider router={router} />
         </SidebarProvider>
       </TooltipProvider>
     </QueryClientProvider>,
@@ -78,7 +80,7 @@ function draw(fetchImpl: ReturnType<typeof vi.fn>) {
 
 /** The `<a>` for one service row, found by its visible label. */
 function row(name: string): HTMLElement {
-  return screen.getByText(name).closest("a") as HTMLElement
+  return asElement(screen.getByText(name).closest("a"))
 }
 
 afterEach(() => {
@@ -86,9 +88,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe("NavList - the health dot on a service row (steward/83)", () => {
+describe("NavList - the health dot on a service row", () => {
   it("marks the one unhealthy service and draws nothing on the healthy ones", async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn<(url: string) => Promise<Response>>(async (url: string) => {
       if (url === "/api/services") {
         return json({
           services: [service({ service: "smp" }), service({ service: "limbo", state: "exited", status: "Exited (1)" })],
@@ -110,10 +112,12 @@ describe("NavList - the health dot on a service row (steward/83)", () => {
   })
 
   it("never shows the fine colour before the query has answered", async () => {
-    // The rule `health.ts` already carries: "A green light on no evidence is the one thing this
-    // page must not do." A query that has not answered yet must not look the same as ten healthy
-    // rows - so it gets a neutral mark, on every row, until `/api/services` actually answers.
-    const fetchImpl = vi.fn(() => new Promise<Response>(() => {}))
+    /**
+     * The rule `health.ts` already carries: "A green light on no evidence is the one thing this
+     * page must not do." A query that has not answered yet must not look the same as ten healthy
+     * rows - so it gets a neutral mark, on every row, until `/api/services` actually answers.
+     */
+    const fetchImpl = vi.fn<() => Promise<Response>>(() => new Promise<Response>(() => {}))
     draw(fetchImpl)
 
     await waitFor(() => expect(within(row("smp")).getByLabelText(/not read/i)).toBeTruthy())

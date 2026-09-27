@@ -5,6 +5,7 @@ import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The SQL behind {@link PushSubscriptions}. Package-private: {@code PushSubscriptions} is the API.
@@ -18,13 +19,9 @@ interface PushSubscriptionDao {
     /**
      * One browser, subscribed or resubscribed.
      *
-     * <p>{@code ON CONFLICT} rather than a lookup-then-branch: a browser that lost its subscription
-     * and asked the Push API for a new one is handed a fresh endpoint by the push service, which
-     * lands here as a plain insert - but a page reloaded twice in the same tab calls this with the
-     * SAME endpoint and the same keys, and that is a resubscription, not a second browser. Only
-     * {@code discord_id} can legitimately change under one endpoint: the same browser, signed in as
-     * someone else. {@code created_at} is left alone on a conflict - it names when this endpoint was
-     * first seen, not when it was last confirmed, which is what {@code last_sent_at} is for.
+     * {@code ON CONFLICT} rather than a lookup-then-branch, since the same endpoint calling this
+     * twice is a resubscription, not a second browser. {@code created_at} is left alone on a
+     * conflict; that is what {@code last_sent_at} is for.
      */
     @SqlUpdate("""
             INSERT INTO steward_push_subscription (endpoint, discord_id, p256dh, auth, created_at, device)
@@ -40,7 +37,7 @@ interface PushSubscriptionDao {
             @Bind("discordId") String discordId,
             @Bind("p256dh") String p256dh,
             @Bind("auth") String auth,
-            @Bind("device") String device);
+            @Bind("device") @Nullable String device);
 
     /** Every subscription, for {@code AlertWatch} - whose it is does not matter on that path. */
     @SqlQuery("""
@@ -58,13 +55,7 @@ interface PushSubscriptionDao {
             """)
     List<PushSubscriptions.Subscription> forAccount(@Bind("discordId") String discordId);
 
-    /**
-     * One subscription of one account, by endpoint - what a test send is pointed at.
-     *
-     * <p>The {@code discord_id} is in the WHERE clause for the same reason it is in
-     * {@link #remove}: an endpoint is not a secret, and without it a browser could aim a test push
-     * at a subscription it merely knows the address of.</p>
-     */
+    /** One subscription of one account, by endpoint; checked since an endpoint is not a secret. */
     @SqlQuery("""
             SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
             FROM steward_push_subscription
@@ -75,9 +66,7 @@ interface PushSubscriptionDao {
     /**
      * One subscription of one account, gone - the settings page's own unsubscribe.
      *
-     * <p>The {@code discord_id} in the WHERE clause is the same argument {@code CredentialDao#remove}
-     * makes: an endpoint is not a secret, so without this a browser could unsubscribe an endpoint it
-     * merely knows the address of.</p>
+     * The {@code discord_id} is checked, as in {@link #find}, since an endpoint is not a secret.
      *
      * @return 1 when a subscription of that endpoint was on that account, 0 otherwise
      */
@@ -85,11 +74,7 @@ interface PushSubscriptionDao {
     int remove(@Bind("endpoint") String endpoint, @Bind("discordId") String discordId);
 
     /**
-     * One subscription, gone - no account check.
-     *
-     * <p>The one caller is {@code AlertWatch}, after a push service answered 404 or 410. At that
-     * point the account is not the question; the endpoint itself has told this service it no longer
-     * exists, whoever it belonged to.</p>
+     * One subscription, gone - no account check, since the endpoint itself reported it gone.
      *
      * @return 1 when that endpoint was a row, 0 when it had already gone
      */

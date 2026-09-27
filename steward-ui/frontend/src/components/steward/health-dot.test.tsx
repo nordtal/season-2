@@ -3,18 +3,18 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { cleanup, render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, assert, describe, expect, it } from "vitest"
 
 import { HealthDot } from "@/components/steward/status"
 
 /**
- * The switch steward/81 turned one line of `HealthDot` into, and the rule it must not break.
+ * The switch `HealthDot` carries, and the rule it must not break.
  *
- * The owner decided both halves on 2026-09-16: **green in the network view, silent in the sidebar**. A
- * picture of state whose healthy boxes carry nothing looks like a query that failed; a sidebar
- * where nothing is the message makes the one row that matters easy to find. So the component draws
- * both, and the caller says which - `quiet` defaults to the sidebar's answer, so no existing call
- * site had to change and going loud is the thing that has to be typed.
+ * **Green in the network view, silent in the sidebar**. A picture of state whose healthy boxes
+ * carry nothing looks like a query that failed; a sidebar where nothing is the message makes the
+ * one row that matters easy to find. So the component draws both, and the caller says which -
+ * `quiet` defaults to the sidebar's answer, so no existing call site had to change and going loud
+ * is the thing that has to be typed.
  *
  * The second test below is the one that matters in six months' time: it reads `app-sidebar.tsx` and
  * checks that the sidebar still says nothing about `quiet`, because the way this rule gets broken
@@ -50,9 +50,11 @@ describe("HealthDot - quiet by default, loud where a picture needs it", () => {
   })
 
   it("never draws the fine colour for a service it has not read, loud or not", () => {
-    // `health.ts`'s rule one level down: "A green light on no evidence is the one thing this page
-    // must not do." Turning the quiet off must not turn that into a green dot for a service the
-    // query has not answered for yet.
+    /**
+     * `health.ts`'s rule one level down: "A green light on no evidence is the one thing this page
+     * must not do." Turning the quiet off must not turn that into a green dot for a service the
+     * query has not answered for yet.
+     */
     const { rerender } = render(<HealthDot />)
     expect(screen.getByLabelText(/not read/i).className).not.toContain("bg-success")
 
@@ -76,19 +78,18 @@ export function mentionsQuiet(source: string): string[] {
     .map(([line, number]) => `${number}: ${line.trim()}`)
 }
 
-describe("the sidebar stays silent (steward/83, unchanged by steward/81)", () => {
+describe("the sidebar stays silent", () => {
   it("does not pass the switch at all, so it keeps the quiet default", () => {
     const source = readFileSync(sidebarFile, "utf8")
-    expect(source, "the sidebar has stopped drawing a health dot, so this guard is guarding air").toContain(
-      "<HealthDot",
-    )
-    expect(
+    assert.include(source, "<HealthDot", "the sidebar has stopped drawing a health dot, so this guard is guarding air")
+    assert.deepEqual(
       mentionsQuiet(source),
-      "app-sidebar.tsx now mentions `quiet`. The owner's decision of 2026-09-16 is that the sidebar" +
-        " draws nothing for a healthy service - ten green dots beside a service list say nothing" +
-        " that their absence would not, and the one row that is not fine is what a silent sidebar" +
-        " makes easy to see. The network view is the caller that goes loud, not this one.",
-    ).toEqual([])
+      [],
+      "app-sidebar.tsx now mentions `quiet`. The sidebar draws nothing for a healthy service - ten" +
+        " green dots beside a service list say nothing that their absence would not, and the one" +
+        " row that is not fine is what a silent sidebar makes easy to see. The network view is the" +
+        " caller that goes loud, not this one.",
+    )
   })
 
   it("would notice if it did, which is what makes the line above evidence", () => {
@@ -98,14 +99,12 @@ describe("the sidebar stays silent (steward/83, unchanged by steward/81)", () =>
 })
 
 /**
- * Held down is its own reading (steward/134).
+ * Held down is its own reading.
  *
  * `service_hold` is the only place the difference between "somebody put this down" and "this fell
- * over" exists - the container state is `exited` either way. Until this ticket that difference was
- * drawn on exactly one page, the service's own, so the sidebar and the network view showed a
- * deliberate hold in the colour of an outage.
+ * over" exists - the container state is `exited` either way.
  */
-describe("a held service is not a broken one (steward/134)", () => {
+describe("a held service is not a broken one", () => {
   const held = { state: "exited", hold: { since: "2026-09-20T18:00:00Z", by: "hmtill" } }
 
   it("says the word, in neither the fine colour nor the broken one", () => {
@@ -126,8 +125,10 @@ describe("a held service is not a broken one (steward/134)", () => {
   })
 
   it("changes nothing about a held container that is running anyway", () => {
-    // The hold describes being stopped. One that is up and failing its healthcheck is not what
-    // anybody asked for, and `health.ts` keeps it red for the same reason.
+    /**
+     * The hold describes being stopped. One that is up and failing its healthcheck is not what
+     * anybody asked for, and `health.ts` keeps it red for the same reason.
+     */
     render(<HealthDot service={{ ...held, state: "running", health: "unhealthy" }} quiet={false} />)
     expect(screen.getByLabelText("unhealthy").className).toContain("bg-destructive")
   })

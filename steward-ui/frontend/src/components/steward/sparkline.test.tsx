@@ -2,6 +2,7 @@ import { cleanup, render } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { Sparkline } from "@/components/steward/sparkline"
+import { asElement } from "@/lib/test-elements"
 
 /**
  * The one thing worth pinning about a decorative chart: it must not throw on the input the metric
@@ -41,7 +42,7 @@ describe("Sparkline", () => {
     const { container } = render(<Sparkline points={[]} height={28} />)
 
     expect(container.querySelector("svg")).toBeNull()
-    expect((container.firstElementChild as HTMLElement).style.height).toBe("28px")
+    expect(asElement(container.firstElementChild).style.height).toBe("28px")
   })
 
   it("draws the curve once there is at least one point", () => {

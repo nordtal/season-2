@@ -52,9 +52,11 @@ describe("measuredHeight - the window, and the moments that are not the window",
   })
 
   it("takes a measurement that is LARGER than the last one, because neither refusal can grow a window", () => {
-    // steward/148. Both refusals above exist to ignore a SHRINKING viewport - a keyboard and a
-    // pinch are the two things that do that. Applied to a measurement that is bigger than the one
-    // on screen they ignore the window getting bigger, which nothing can undo but a `focusout`.
+    /**
+     * Both refusals above exist to ignore a SHRINKING viewport - a keyboard and a
+     * pinch are the two things that do that. Applied to a measurement that is bigger than the one
+     * on screen they ignore the window getting bigger, which nothing can undo but a `focusout`.
+     */
     const input = document.createElement("input")
     expect(measuredHeight(view({ visual: { height: 900, scale: 1 } }), input, 700)).toBe(900)
     expect(measuredHeight(view({ visual: { height: 900, scale: 2.5 } }), null, 700)).toBe(900)
@@ -103,9 +105,11 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("catches up when the field is left, so a rotation during typing is not kept for ever", () => {
-    // The gap this closes: `measuredHeight` says no while a field has focus, and `resize` has
-    // already been and gone by the time it is let go. Without a second event the shell keeps a
-    // height from before the rotation and nothing ever corrects it.
+    /**
+     * The gap this closes: `measuredHeight` says no while a field has focus, and `resize` has
+     * already been and gone by the time it is let go. Without a second event the shell keeps a
+     * height from before the rotation and nothing ever corrects it.
+     */
     const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
     const field = document.createElement("input")
@@ -127,10 +131,12 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("follows a window that GROWS while a field has focus, instead of staying short below it", () => {
-    // STEWARD/148, AND IT IS THE SAME SHELL FAILING A SECOND WAY. Measured in Firefox on the dev
-    // host at 1280x700 grown to 1280x1000 with the cursor in a field: the scrolling column stayed
-    // 700px tall and left a 300px band of background under it, and no event and no poll tick
-    // corrected it - `measuredHeight` refused every one of them - until the field was left.
+    /**
+     * STEWARD/148, AND IT IS THE SAME SHELL FAILING A SECOND WAY. Measured in Firefox on the dev
+     * host at 1280x700 grown to 1280x1000 with the cursor in a field: the scrolling column stayed
+     * 700px tall and left a 300px band of background under it, and no event and no poll tick
+     * corrected it - `measuredHeight` refused every one of them - until the field was left.
+     */
     const visual = { height: 700, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
     const field = document.createElement("input")
@@ -144,8 +150,10 @@ describe("trackAppFrame - what lands on the document", () => {
     window.dispatchEvent(new Event("resize"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("1000px")
 
-    // And the keyboard is still ignored: a viewport that shrinks under a focused field is what
-    // this whole guard was built for, and it keeps the last good number exactly as before.
+    /**
+     * And the keyboard is still ignored: a viewport that shrinks under a focused field is what
+     * this whole guard was built for, and it keeps the last good number exactly as before.
+     */
     visual.height = 600
     window.dispatchEvent(new Event("resize"))
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("1000px")
@@ -158,11 +166,13 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("re-measures when the app comes back, because a resume sends no resize", () => {
-    // STEWARD/51, AND THE WHOLE POINT IS THE EVENT THAT DOES NOT ARRIVE. A home-screen app restored
-    // after a long pause has the height it was frozen with. `visual.height` is changed here without
-    // any `resize` being dispatched - that is not a shortcut, it is the bug: on a resume iOS sends
-    // neither `resize` nor a `visualViewport` event, so the shell keeps a wrong number until the
-    // page is dragged by hand. Each of the three resume events has to be enough on its own.
+    /**
+     * STEWARD/51, AND THE WHOLE POINT IS THE EVENT THAT DOES NOT ARRIVE. A home-screen app restored
+     * after a long pause has the height it was frozen with. `visual.height` is changed here without
+     * any `resize` being dispatched - that is not a shortcut, it is the bug: on a resume iOS sends
+     * neither `resize` nor a `visualViewport` event, so the shell keeps a wrong number until the
+     * page is dragged by hand. Each of the three resume events has to be enough on its own.
+     */
     const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
 
@@ -188,9 +198,11 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("re-measures on a timer while visible, because a resume can arrive with no event at all", () => {
-    // STEWARD/51, SECOND ATTEMPT. The three resume events were not enough - the grey band came back
-    // on 2026-09-17 - so the height is re-read once a second as well. As in the test above, the
-    // height is changed here without any event being dispatched: that absence is the bug itself.
+    /**
+     * The three resume events are not enough on their own - a grey band can still appear
+     * - so the height is re-read once a second as well. As in the test above, the
+     * height is changed here without any event being dispatched: that absence is the bug itself.
+     */
     vi.useFakeTimers()
     const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
@@ -228,8 +240,10 @@ describe("trackAppFrame - what lands on the document", () => {
   })
 
   it("measures nothing and schedules nothing while the page is hidden", () => {
-    // A timer left running in the background is the sort of thing iOS throttles or freezes, and the
-    // window it would measure is one nobody is looking at.
+    /**
+     * A timer left running in the background is the sort of thing iOS throttles or freezes, and the
+     * window it would measure is one nobody is looking at.
+     */
     vi.useFakeTimers()
     const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
     Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })

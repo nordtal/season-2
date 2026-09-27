@@ -12,7 +12,7 @@ const TREE = [
 
 describe("adminsBelow", () => {
   it("gives the root everybody but itself", () => {
-    expect([...adminsBelow(TREE, "root")].sort()).toEqual(["a", "b", "c"])
+    expect([...adminsBelow(TREE, "root")].toSorted()).toEqual(["a", "b", "c"])
   })
 
   it("gives an admin only their own branch, never a sibling or anybody above", () => {

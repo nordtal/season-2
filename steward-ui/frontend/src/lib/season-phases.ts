@@ -1,10 +1,9 @@
 /**
  * The five names `eu.nordtal.s2.common.SeasonPhase` knows, and what each one means - in one place.
  *
- * steward/90: this used to be two lists that agreed with neither each other nor the backend.
- * `pages/season.tsx` carried the five real names; `pages/overview.tsx` carried a second list with
- * two invented phases (`EVENT`, `ENDED`) and three of the five real ones missing, so a phase that
- * only the second list did not know reached the screen as the bare enum constant -
+ * Two separate lists that agree with neither each other nor the backend is the failure mode this
+ * avoids: a page carrying its own list can invent phases the backend does not have and miss real
+ * ones, so a phase only that list did not know would reach the screen as the bare enum constant -
  * `PRE_LAUNCH`, versals and an underscore, in an interface that otherwise speaks in sentences.
  *
  * There is now exactly one list, and both pages read it. `season-phases.test.ts` reads

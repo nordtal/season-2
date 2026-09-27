@@ -124,7 +124,7 @@
   --island-top: calc(env(safe-area-inset-top) + var(--blur-clearance) + 0.75rem);
 
   /*
-   * THE BAR THAT TRAVELS ACROSS A SKELETON (steward/120).
+   * THE BAR THAT TRAVELS ACROSS A SKELETON.
    *
    * Always lighter than the surface it crosses, and in the dark that means a far smaller amplitude
    * than the white-on-grey every light-mode library uses. `--foreground` rather than white for the
@@ -204,7 +204,7 @@
 }
 
 /*
- * THE SHIMMER, AND WHY IT IS THIS SHIMMER (steward/120).
+ * THE SHIMMER, AND WHY IT IS THIS SHIMMER.
  *
  * Read out of eight libraries rather than out of blog posts about them. The field splits in two:
  * a pseudo-element moved with `transform` (MUI, react-loading-skeleton, HeroUI) against a
@@ -366,14 +366,14 @@
 
 /*
   DELIBERATELY UNLAYERED, and that is the whole reason this block sits outside `@layer components`
-  rather than inside it (steward/114, measured 2026-09-18).
+  rather than inside it.
 
-  It used to be in that layer, and half of it silently did nothing: Tailwind's `utilities` layer
-  comes after `components`, so EVERY utility class shadcn's `TableCell` already carries beat these
-  rules no matter how specific they were made. `height: auto` lost to `h-(--row-height)`,
-  `white-space: normal` lost to `whitespace-nowrap`, and `padding-block` lost to `py-0`. The
-  visible result was a cell computing to 34px around a grid row of 100px - the wrapped sentence
-  was drawn straight over the next row's card, which no test could see and a screenshot could.
+  Inside that layer, half of it would silently do nothing: Tailwind's `utilities` layer
+  comes after `components`, so EVERY utility class shadcn's `TableCell` already carries would beat
+  these rules no matter how specific they were made. `height: auto` would lose to `h-(--row-height)`,
+  `white-space: normal` would lose to `whitespace-nowrap`, and `padding-block` would lose to `py-0`.
+  The result would be a cell computing to 34px around a grid row of 100px - a wrapped sentence
+  drawn straight over the next row's card, which no test can see and a screenshot can.
 
   Unlayered styles beat every layer, which is what a layout override for one breakpoint needs to
   be. The cost, stated plainly: a utility class on a single stacked cell can no longer override
@@ -409,12 +409,12 @@
   }
 
   /*
-    `:is`, NOT `:where`, and that is the whole rule (steward/114, measured 2026-09-18).
-    `:where()` contributes nothing to specificity, so this block tied with shadcn's own utility
-    classes on the cell - `h-(--row-height)` and `whitespace-nowrap` - and lost the tie on source
-    order. The visible result was a cell computing to `height: 34px` around a grid row of 100px:
-    the wrapped sentence was drawn straight over the next row's card. `:is()` takes the highest
-    specificity of its arguments, so the same rules now win the way they always read as if they did.
+    `:is`, NOT `:where`, and that is the whole rule.
+    `:where()` contributes nothing to specificity, so this block would tie with shadcn's own utility
+    classes on the cell - `h-(--row-height)` and `whitespace-nowrap` - and lose the tie on source
+    order. The result would be a cell computing to `height: 34px` around a grid row of 100px:
+    a wrapped sentence drawn straight over the next row's card. `:is()` takes the highest
+    specificity of its arguments, so these rules win the way they always read as if they did.
   */
   .steward-table :is(th, td) {
     display: grid;
@@ -430,7 +430,7 @@
       shadcn's `TableCell`/`TableHead` carry `whitespace-nowrap`, and this selector is more
       specific than that utility class - so without `white-space: normal` here, ordinary prose
       (an `audit_log.detail` sentence) never wraps at all and the row is as wide as its longest
-      line (steward/114). `overflow-wrap` below only decides where a line breaks WITHIN an
+      line. `overflow-wrap` below only decides where a line breaks WITHIN an
       unbreakable run; it cannot make text wrap while `nowrap` still holds.
     */
     white-space: normal;
@@ -475,8 +475,8 @@
     A cell with two children - the Journal table's `Concerns`, a subject id plus a
     `PersonIdentity` line under it - only places the first child by the implicit rule the grid
     already has; grid auto-placement drops the second one into row 2, COLUMN 1, which is the
-    label column, and it collides with the next cell's `::before` label (steward/114, measured:
-    the identity line sat inside the label box, `left 85 … right 169`). Every child belongs in
+    label column, and it collides with the next cell's `::before` label -
+    the identity line would sit inside the label box. Every child belongs in
     column 2, beside the label, however many of them there are.
   */
   .steward-table td[data-label] > * {

@@ -2,16 +2,16 @@ import { readFileSync, readdirSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { describe, expect, it } from "vitest"
+import { assert, describe, expect, it } from "vitest"
 
 /**
- * steward/89's own checkbox: a guard that does not let the header come back.
+ * A guard that does not let the header come back.
  *
- * The owner, 2026-09-17: the top bar goes, in both states, expanded sidebar included. That is easy to
- * obey once and easy to undo by accident - a header is the first thing anybody adds when a page
- * needs a title, a button or a filter row, and the second one would be back within a week without
- * anything noticing. jsdom cannot see it: the shell needs a router, and a bar drawn above the
- * content has the same box as no bar at all where there is no layout. So this reads the sources.
+ * The top bar goes, in both states, expanded sidebar included. That is easy to obey once and easy
+ * to undo by accident - a header is the first thing anybody adds when a page needs a title, a
+ * button or a filter row, and the second one would be back within a week without anything
+ * noticing. jsdom cannot see it: the shell needs a router, and a bar drawn above the content has
+ * the same box as no bar at all where there is no layout. So this reads the sources.
  *
  * Two more things ride along, because they are the same decision and have the same failure mode:
  * the sidebar must really collapse, and the search must not be lost with the bar that used to
@@ -31,7 +31,7 @@ function shellSources(): Array<{ file: string; text: string }> {
     }))
 }
 
-describe("the header is gone and does not grow back (steward/89)", () => {
+describe("the header is gone and does not grow back", () => {
   it("reads the sources, so an empty result means something", () => {
     const sources = shellSources()
     expect(sources.length).toBeGreaterThan(5)
@@ -44,51 +44,51 @@ describe("the header is gone and does not grow back (steward/89)", () => {
       .filter(({ text }) => /<header[\s>]/.test(text))
       .map(({ file }) => file)
 
-    expect(
+    assert.deepEqual(
       offenders,
-      "The top bar was removed on the owner's order (steward/89) and its border with it. What it" +
-        " carried is the island at the top left and the account picture level with it - a new" +
-        " `header` here is the old bar coming back under another name.",
-    ).toEqual([])
+      [],
+      "The top bar was removed, and its border with it. What it carried is the island at the top" +
+        " left and the account picture level with it - a new `header` here is the old bar coming" +
+        " back under another name.",
+    )
   })
 
   it("lets the sidebar collapse rather than holding it open", () => {
     const shell = shellSources().find(({ file }) => file === "shell.tsx")!.text
     const provider = /<SidebarProvider([\s\S]*?)>/.exec(shell)?.[1] ?? ""
 
-    expect(provider, "The shell must mount a SidebarProvider.").not.toEqual("")
-    expect(
-      /^\s*open\s*$/m.test(provider),
-      "A bare `open` prop pins the sidebar open forever, which is what steward/89 undid.",
-    ).toBe(false)
-    expect(
+    assert.notEqual(provider, "", "The shell must mount a SidebarProvider.")
+    assert.isFalse(/^\s*open\s*$/m.test(provider), "A bare `open` prop pins the sidebar open forever.")
+    assert.include(
       provider,
+      "defaultOpen",
       "Without `defaultOpen` read from the cookie the provider writes, a collapsed sidebar" +
         " springs open again on the next reload.",
-    ).toContain("defaultOpen")
+    )
   })
 
   it("keeps a way to the command palette, which the bar used to carry", () => {
     const frames = shellSources().find(({ file }) => file === "frames.tsx")!.text
     const frame = frames.split("export function AppFrame")[1] ?? ""
 
-    expect(frame, "The frame is `AppFrame` in `frames.tsx` (steward/89).").not.toEqual("")
-    expect(
+    assert.notEqual(frame, "", "The frame is `AppFrame` in `frames.tsx`.")
+    assert.isTrue(
       /SearchButton/.test(frame),
       "A phone has no `⌘K`. A frame with nothing to tap has no command palette at all, so the" +
         " search has to be somewhere on it and the comment there has to say where.",
-    ).toBe(true)
+    )
   })
 
   it("does not grow a second shell back behind a query parameter", () => {
-    // Nine shells stood side by side while steward/89 was a question (`?shell=a` … `?shell=i`).
-    // The owner answered it on 2026-09-17, and the eight he did not pick were deleted rather than kept
-    // - a comparison nobody is standing at is a fork in the code, and each of those shells had its
-    // own answer to where the search goes.
+    /**
+     * There is exactly one shell frame; a comparison between several shells behind a query
+     * parameter is a fork in the code nobody is standing at, and each fork has its own answer to
+     * where the search goes.
+     */
     const offenders = shellSources()
       .filter(({ text }) => /export function Shell[A-Z]\b/.test(text))
       .map(({ file }) => file)
 
-    expect(offenders, "The shell comparison is over; there is one frame.").toEqual([])
+    assert.deepEqual(offenders, [], "The shell comparison is over; there is one frame.")
   })
 })

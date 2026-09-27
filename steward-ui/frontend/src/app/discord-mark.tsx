@@ -3,8 +3,8 @@
  *
  * `lucide-react` carries no Discord icon - it is a brand, not a general-purpose glyph, so there is
  * nothing to pick from that set. The path below is Discord's own logo, taken from simple-icons
- * (CC0), verified against `https://raw.githubusercontent.com/simple-icons/simple-icons/develop/
- * icons/discord.svg` on 2026-09-16 (steward/78). `currentColor` is the fill, so the mark follows
+ * (CC0), against `https://raw.githubusercontent.com/simple-icons/simple-icons/develop/
+ * icons/discord.svg`. `currentColor` is the fill, so the mark follows
  * whatever colour the button around it already has, the same way `StewardMark` follows the
  * interface's own corner radius instead of carrying one of its own.
  */

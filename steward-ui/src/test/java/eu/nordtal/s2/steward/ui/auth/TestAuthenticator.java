@@ -19,28 +19,28 @@ import java.util.Base64;
 /**
  * A security key, in software, for the tests.
  *
- * <h2>Why this exists rather than a mock</h2>
+ * Why this exists rather than a mock
  * The thing under test is whether a browser's answer is accepted or refused, and every interesting
- * case is a <em>malformed or mismatched answer</em>: a challenge that was never issued, an origin
+ * case is a malformed or mismatched answer: a challenge that was never issued, an origin
  * that is not this service, a credential that belongs to somebody else. A mock of the library
  * would prove that the mock agrees with itself; what is needed is real bytes in the real shape, so
  * that the real verification has something to refuse.
  *
- * <p>So this produces exactly what an authenticator produces: CBOR inside base64url inside JSON.
+ * So this produces exactly what an authenticator produces: CBOR inside base64url inside JSON.
  * It is about eighty lines because that is genuinely all an authenticator's registration answer is
  * when the attestation format is {@code none} - which is the format every platform authenticator
- * and every self-attesting key uses, and the one this service accepts.</p>
+ * and every self-attesting key uses, and the one this service accepts.
  *
- * <h2>What it deliberately does not do</h2>
- * <b>Registration signs nothing.</b> An {@code fmt: "none"} attestation carries no signature at all -
+ * What it deliberately does not do
+ * Registration signs nothing. An {@code fmt: "none"} attestation carries no signature at all -
  * the public key is asserted, not attested - so it needs no private key. An assertion does, and
  * {@link #assertion(String, String)} is where the pair generated in the constructor is finally
  * used.
  *
- * <p>It is also happy to lie. Every one of the four methods takes the origin and the challenge as
+ * It is also happy to lie. Every one of the four methods takes the origin and the challenge as
  * parameters precisely so a test can hand over ones that are wrong, and
  * {@link #assertion(String, String, String, long)} takes the signature counter too - a counter
- * that has gone backwards is what a cloned authenticator looks like.</p>
+ * that has gone backwards is what a cloned authenticator looks like.
  */
 public final class TestAuthenticator {
 
@@ -74,7 +74,7 @@ public final class TestAuthenticator {
      * A registration answer to the request the server just issued.
      *
      * @param creationOptions what {@code /auth/webauthn/register/start} returned, verbatim
-     * @param origin          the page the browser claims to have been on
+     * @param origin the page the browser claims to have been on
      */
     public String register(final String creationOptions, final String origin) {
         final JsonObject publicKey =
@@ -83,8 +83,9 @@ public final class TestAuthenticator {
     }
 
     /**
-     * The same, with the challenge chosen by the caller - so that a test can answer a question
-     * nobody asked.
+     * The same, with the challenge chosen by the caller.
+     *
+     * So that a test can answer a question nobody asked.
      */
     public String register(final String creationOptions, final String origin, final String challenge) {
         final JsonObject publicKey =
@@ -114,7 +115,7 @@ public final class TestAuthenticator {
      * An assertion answer to the challenge the server just issued.
      *
      * @param requestOptions what {@code /auth/webauthn/authenticate/start} returned, verbatim
-     * @param origin         the page the browser claims to have been on
+     * @param origin the page the browser claims to have been on
      */
     public String assertion(final String requestOptions, final String origin) {
         final JsonObject publicKey =
@@ -125,9 +126,9 @@ public final class TestAuthenticator {
     /**
      * The same, with the challenge and the signature counter chosen by the caller.
      *
-     * <p>Both are here so a test can lie about them: a challenge nobody issued, and a counter that
+     * Both are here so a test can lie about them: a challenge nobody issued, and a counter that
      * has gone backwards - which is what a cloned authenticator looks like and the one thing the
-     * counter exists to catch.</p>
+     * counter exists to catch.
      */
     public String assertion(
             final String requestOptions, final String origin, final String challenge, final long signCount) {
@@ -138,18 +139,14 @@ public final class TestAuthenticator {
         final String clientData = "{\"type\":\"webauthn.get\",\"challenge\":\"" + challenge + "\",\"origin\":\""
                 + origin + "\",\"crossOrigin\":false}";
         final byte[] clientDataBytes = clientData.getBytes(StandardCharsets.UTF_8);
-        // NO ATTESTED CREDENTIAL DATA, so no AT flag: an assertion carries rpIdHash, flags and the
-        // counter and nothing else. Sending the registration's authenticator data here is the
-        // mistake that looks like it works right up to the signature check.
+        // No attested credential data, so no AT flag: an assertion carries only rpIdHash, flags and the counter.
         final ByteBuffer authData = ByteBuffer.allocate(32 + 1 + 4);
         authData.put(sha256(relyingPartyId.getBytes(StandardCharsets.UTF_8)));
         authData.put((byte) (0x01 | 0x04));
         authData.putInt((int) signCount);
         final byte[] authenticatorData = authData.array();
 
-        // The signature is over authenticatorData ‖ SHA-256(clientDataJSON), in that order. The
-        // whole of what a security key does, and the only part of this class that needs the
-        // private half of the pair.
+        // The signature is over authenticatorData + SHA-256(clientDataJSON), in that order.
         final byte[] signed = new byte[authenticatorData.length + 32];
         System.arraycopy(authenticatorData, 0, signed, 0, authenticatorData.length);
         System.arraycopy(sha256(clientDataBytes), 0, signed, authenticatorData.length, 32);
@@ -191,8 +188,8 @@ public final class TestAuthenticator {
     /**
      * rpIdHash ‖ flags ‖ signCount ‖ aaguid ‖ credentialIdLength ‖ credentialId ‖ COSE public key.
      *
-     * <p>The AAGUID is sixteen zero bytes, which is what an authenticator that declines to say what
-     * model it is reports - and what every {@code none} attestation carries.</p>
+     * The AAGUID is sixteen zero bytes, which is what an authenticator that declines to say what
+     * model it is reports - and what every {@code none} attestation carries.
      */
     private byte[] authenticatorData(final String relyingPartyId) {
         final byte[] cose = coseKey();
@@ -222,10 +219,10 @@ public final class TestAuthenticator {
     /**
      * A coordinate as exactly 32 bytes.
      *
-     * <p>{@code BigInteger.toByteArray()} is two's complement: it prepends a zero byte whenever the
+     * {@code BigInteger.toByteArray()} is two's complement: it prepends a zero byte whenever the
      * top bit is set, and drops leading zeroes otherwise - so a perfectly valid key produces 31 or
      * 33 bytes about half the time, and a COSE key of the wrong length is refused by the library
-     * with a message about the curve. Left-padded and trimmed here rather than debugged there.</p>
+     * with a message about the curve. Left-padded and trimmed here rather than debugged there.
      */
     private static byte[] coordinate(final BigInteger value) {
         final byte[] raw = value.toByteArray();

@@ -19,32 +19,18 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * The registered security keys, and the library's view of them.
  *
- * <h2>The user handle is the Discord id, in bytes</h2>
- * WebAuthn calls the thing an authenticator stores beside a credential the <em>user handle</em>,
- * and the specification asks that it not be anything personal - because a discoverable credential
- * hands it back to any site that asks, before anybody has authenticated. A Discord id is a
- * snowflake: it is not a name, not an address, and it is already the actor written into every
- * {@code audit_log} row. It is also the only identifier this stack has that never changes, which
- * is the other half of the requirement - a handle that moved would orphan every key bound to it.
- *
- * <p>The consequence is deliberate and worth knowing: {@code lookup} and
- * {@code getCredentialDescriptorsForUserHandle} are a direct query on {@code discord_id}, with no
- * table of accounts in between. There is no account table in this schema, and inventing one so
- * that a random handle could point at it would be a table whose only row content is a second name
- * for something already named.</p>
- *
- * <h2>What this class is NOT</h2>
- * It holds no Jackson and no ceremony. Verifying a signature, producing a challenge and reading
- * the browser's answer all live in {@link WebAuthn}, which is the one class in this repository
- * that speaks Jackson. This one is rows.
+ * The user handle is the Discord id, in bytes: a snowflake, not personal, already the actor
+ * written into every {@code audit_log} row, and the one identifier here that never changes. There
+ * is no account table in this schema, so {@code lookup} and
+ * {@code getCredentialDescriptorsForUserHandle} query {@code discord_id} directly. This class
+ * holds no Jackson and no ceremony - see {@link WebAuthn} for that.
  */
 public final class Credentials implements CredentialRepositoryV2<Credentials.Key> {
 
@@ -52,7 +38,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
 
     private final CredentialDao dao;
 
-    public Credentials(final @NotNull DataSource dataSource) {
+    public Credentials(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
         this.dao = Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
@@ -61,36 +47,35 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
     }
 
     /** The user handle of an account: its Discord id as UTF-8 bytes. See the class note. */
-    public static @NotNull ByteArray handleOf(final @NotNull String discordId) {
+    public static ByteArray handleOf(final String discordId) {
         return new ByteArray(discordId.getBytes(StandardCharsets.UTF_8));
     }
 
     /** The account behind a user handle, or empty if it is not one this service ever issued. */
-    public static @NotNull Optional<String> accountOf(final @NotNull ByteArray handle) {
+    public static Optional<String> accountOf(final ByteArray handle) {
         final String text = new String(handle.getBytes(), StandardCharsets.UTF_8);
-        // A Discord id is decimal digits. Anything else is a handle from somewhere else entirely,
-        // and turning it into a query would be turning a stranger's bytes into a WHERE clause.
+        // A Discord id is decimal digits; anything else is a handle from somewhere else entirely.
         return text.isEmpty() || !text.chars().allMatch(Character::isDigit) ? Optional.empty() : Optional.of(text);
     }
 
     /** Every key of one account, oldest first. */
-    public @NotNull List<Key> of(final @NotNull String discordId) {
+    public List<Key> of(final String discordId) {
         return dao.forAccount(discordId);
     }
 
     /** Whether this account can get past the door at all. */
-    public boolean any(final @NotNull String discordId) {
+    public boolean any(final String discordId) {
         return !dao.forAccount(discordId).isEmpty();
     }
 
     /** Records a finished registration. */
     public void add(
-            final @NotNull String discordId,
-            final @NotNull ByteArray credentialId,
-            final @NotNull ByteArray publicKey,
+            final String discordId,
+            final ByteArray credentialId,
+            final ByteArray publicKey,
             final long signatureCount,
-            final @NotNull String label,
-            final @NotNull Set<AuthenticatorTransport> transports,
+            final String label,
+            final Set<AuthenticatorTransport> transports,
             final @Nullable Boolean backupEligible,
             final @Nullable Boolean backedUp) {
         dao.add(
@@ -116,7 +101,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
      *
      * @return how many were removed
      */
-    public int forget(final @NotNull String discordId) {
+    public int forget(final String discordId) {
         final int gone = dao.forget(Objects.requireNonNull(discordId, "discordId"));
         log.warn(
                 "removed {} security key(s) of {} - that account's second factor is gone until it"
@@ -129,15 +114,12 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
     /**
      * Removes one key of one account.
      *
-     * <p><b>Removing the last one is allowed, and that is the decision.</b> It does not lock
-     * anybody out: an account with no key reaches the setup page and registers a new one, which is
-     * exactly the state a fresh deployment is in. Refusing it would be refusing the one sensible
-     * thing to do with a key you have just thrown away - and it would still not protect anybody,
-     * because removing a key already requires holding one.</p>
+     * Removing the last one is allowed: an account with no key just reaches the setup page again,
+     * the same state a fresh deployment is in.
      *
      * @return whether a key of that id was on that account
      */
-    public boolean remove(final @NotNull String discordId, final @NotNull ByteArray credentialId) {
+    public boolean remove(final String discordId, final ByteArray credentialId) {
         final boolean gone = dao.remove(credentialId.getBytes(), discordId) == 1;
         if (gone) {
             log.info(
@@ -153,17 +135,14 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
      *
      * @return whether a key of that id was on that account
      */
-    public boolean rename(
-            final @NotNull String discordId, final @NotNull ByteArray credentialId, final @NotNull String label) {
+    public boolean rename(final String discordId, final ByteArray credentialId, final String label) {
         return dao.rename(credentialId.getBytes(), discordId, label.trim()) == 1;
     }
 
     /** Moves the counter forward and stamps the time, after an assertion the library accepted. */
-    public void used(final @NotNull ByteArray credentialId, final long signatureCount) {
+    public void used(final ByteArray credentialId, final long signatureCount) {
         dao.used(credentialId.getBytes(), signatureCount);
     }
-
-    // --- what the library asks -----------------------------------------------------------------
 
     @Override
     public Set<? extends ToPublicKeyCredentialDescriptor> getCredentialDescriptorsForUserHandle(
@@ -176,9 +155,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
 
     @Override
     public Optional<Key> lookup(final ByteArray credentialId, final ByteArray userHandle) {
-        // BOTH halves are checked, and the second one matters: without it, a credential belonging
-        // to one account would authenticate a ceremony started for another. The library passes
-        // what the browser sent, which is not a thing this end gets to trust.
+        // Both halves are checked, or a credential of one account could authenticate another's ceremony.
         return dao.byId(credentialId.getBytes())
                 .filter(key -> accountOf(userHandle)
                         .map(account -> account.equals(key.discordId()))
@@ -193,25 +170,19 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
     /**
      * One row of {@code steward_credential}, and the library's {@code CredentialRecord} at once.
      *
-     * <p>Two roles in one type rather than a record and an adapter, because the adapter would have
-     * exactly the fields of the record and one more place to forget a column.</p>
-     *
-     * <p><b>It holds arrays, so it does not compare the way a record usually does.</b> {@code
-     * equals} on a record with a {@code byte[]} component compares the reference, not the bytes -
-     * two reads of the same row are unequal. Nothing here compares them (the sets above are built
-     * from one query each, and identity is the credential id), but a future {@code contains} would
-     * be quietly wrong, which is why it is written down rather than left to be discovered.</p>
+     * Its {@code byte[]} components make {@code equals} compare references, not bytes; two reads
+     * of the same row are unequal, so nothing here relies on comparing two instances.
      */
     public record Key(
-            @ColumnName("credential_id") byte @NotNull [] credentialId,
-            @ColumnName("discord_id") @NotNull String discordId,
-            @ColumnName("public_key") byte @NotNull [] publicKey,
+            @ColumnName("credential_id") byte[] credentialId,
+            @ColumnName("discord_id") String discordId,
+            @ColumnName("public_key") byte[] publicKey,
             @ColumnName("signature_count") long signatureCount,
-            @NotNull String label,
+            String label,
             @Nullable String transports,
             @ColumnName("backup_eligible") @Nullable Boolean backupEligible,
             @ColumnName("backed_up") @Nullable Boolean backedUp,
-            @ColumnName("created_at") @NotNull Instant createdAt,
+            @ColumnName("created_at") Instant createdAt,
             @ColumnName("last_used_at") @Nullable Instant lastUsedAt)
             implements CredentialRecord {
 
@@ -240,9 +211,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
             if (transports == null || transports.isBlank()) {
                 return Optional.empty();
             }
-            // `of` accepts anything, including a transport invented after this jar was built -
-            // which is the right behaviour for a value that came out of a browser and is only
-            // ever handed back to one.
+            // `of` accepts a transport invented after this jar was built; it only goes back to a browser.
             return Optional.of(Arrays.stream(transports.split(","))
                     .map(String::trim)
                     .filter(part -> !part.isEmpty())

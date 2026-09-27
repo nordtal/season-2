@@ -51,7 +51,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
  * it is why the toasts below speak of a row being written rather than of an update having started.
  */
 
-// --- the vocabulary of a report -----------------------------------------------------------------
+// --- the vocabulary of a report
 
 /**
  * The stages in the order `UpdateReport.Stage` declares them, without the four endings.
@@ -122,8 +122,10 @@ const LINE_STATE: Record<string, { label: string; tone: Tone }> = {
 
 function LineState({ state }: { state: string }) {
   const known = LINE_STATE[state]
-  // An unknown state keeps its enum name rather than disappearing: a worker newer than this jar is
-  // a thing to notice, not a thing to hide behind a neutral badge with no text.
+  /**
+   * An unknown state keeps its enum name rather than disappearing: a worker newer than this jar is
+   * a thing to notice, not a thing to hide behind a neutral badge with no text.
+   */
   return <StatusBadge tone={known?.tone ?? "idle"}>{known?.label ?? state}</StatusBadge>
 }
 
@@ -144,9 +146,11 @@ function Change({ change }: { change: ReportChange }) {
     )
   }
   return (
-    // `flex-wrap`: MEASURED 2026-09-14 at 390px on a run's own page. A jar name, the old
-    // version, an arrow and the new one is 180px of unbreakable content more than the card has,
-    // and a flex row with nowhere to break puts the last two off the right edge of the phone.
+    /**
+     * `flex-wrap`: MEASURED at 390px on a run's own page. A jar name, the old
+     * version, an arrow and the new one is 180px of unbreakable content more than the card has,
+     * and a flex row with nowhere to break puts the last two off the right edge of the phone.
+     */
     <span className="flex flex-wrap items-center gap-1.5">
       <code className="text-xs">{change.artefact}</code>
       {change.from ? (
@@ -165,8 +169,8 @@ function Change({ change }: { change: ReportChange }) {
 /**
  * A fingerprint rather than a version: forty hex characters and nothing else.
  *
- * The resource pack is the artefact this exists for (season-2-ops/142). It has no version - its
- * hash IS its version, as the ticket puts it - so the worker reports the SHA-1 that was installed
+ * The resource pack is the artefact this exists for. It has no version - its
+ * hash IS its version - so the worker reports the SHA-1 that was installed
  * before the run, and forty characters of it used to sit in the middle of a table cell on a phone.
  */
 const FINGERPRINT = /^[0-9a-f]{32,64}$/i
@@ -193,8 +197,8 @@ function Was({ value }: { value: string }) {
  * Whether a change row is a file actually moving.
  *
  * Deliberately not `state === "MOVING"`. `UpdateReports` omits the field entirely when it is MOVING
- * and writes it only for UNSUPPORTED - measured against runs 22 and 24 in this host's database on
- * 2026-09-13 - while steward-ui parses that JSON into the record and re-writes it through Gson,
+ * and writes it only for UNSUPPORTED - measured against real runs in this host's database -
+ * while steward-ui parses that JSON into the record and re-writes it through Gson,
  * which puts the field back. "Anything that is not UNSUPPORTED" is true of both shapes; a literal
  * comparison is true of one of them, and silently counts nothing on the other.
  */
@@ -211,7 +215,7 @@ export function runSeconds(run: Run): number | null {
 }
 
 /**
- * Whether this row is one the backend would still take back (steward/131).
+ * Whether this row is one the backend would still take back.
  *
  * THE SAME CONDITION AS THE SQL, and it has to stay that way: `UpdateDirectory#cancelCountdown`
  * takes `status IN ('PENDING','RUNNING') AND kind IN ('RESTART','UPDATE','BACKUP','DOWN') AND
@@ -248,8 +252,8 @@ const CANCELLABLE_KINDS = new Set(["RESTART", "UPDATE", "BACKUP", "DOWN"])
  * worker writes structure and every surface renders its own summary (`UpdateReport`'s own comment
  * says so).
  *
- * Used to be one line joined with a middle dot; the owner, 2026-09-16, ruled that separator out of the
- * UI entirely, so each fact now gets its own line instead of a shared one (steward/84).
+ * Each fact gets its own line rather than a shared one joined with a middle dot -
+ * that separator is ruled out of the UI entirely.
  */
 export function summaryOf(run: Run): string[] {
   if (run.resultText) return ["report unreadable"]
@@ -283,7 +287,7 @@ const SOURCE_LABEL: Record<string, string> = {
   CONSOLE: "Interface/console",
 }
 
-// --- asking for a run ----------------------------------------------------------------------------
+// --- asking for a run
 
 type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
 
@@ -291,8 +295,10 @@ const ASKS: Record<Kind, { title: string; what: string; warning?: string; icon: 
   UPDATE: {
     title: "Update",
     what: "Stops what changes, swaps its jars and starts it again.",
-    // Its own symbol, not Recreate's: the two sit side by side on a service page, and a button
-    // that looks like another one is a risk on a phone.
+    /**
+     * Its own symbol, not Recreate's: the two sit side by side on a service page, and a button
+     * that looks like another one is a risk on a phone.
+     */
     icon: ArrowCircleUpIcon,
   },
   BACKUP: {
@@ -342,7 +348,7 @@ export function AskButton({
   kind: Kind
   variant?: "default" | "outline"
   /**
-   * Which compose services this run is for (season-2-ops/127). Left off for the whole network,
+   * Which compose services this run is for. Left off for the whole network,
    * which is what every button on /operations means.
    */
   services?: string[]
@@ -353,7 +359,7 @@ export function AskButton({
   labelClassName?: string
   className?: string
   /**
-   * The dialog, steerable from outside (steward/140): the service page's ⋯ menu opens the same
+   * The dialog, steerable from outside: the service page's ⋯ menu opens the same
    * confirmation a button would, rather than a second copy of it.
    */
   open?: boolean
@@ -429,7 +435,7 @@ export function AskButton({
 }
 
 /**
- * Taking a run back, on the row it belongs to (steward/131).
+ * Taking a run back, on the row it belongs to.
  *
  * **No confirmation in front of it.** Every other button on this page opens a dialog because every
  * other button starts something; this one undoes what a dialog already asked about. A second "are
@@ -460,7 +466,7 @@ export function CancelButton({ run }: { run: Run }) {
             })
           },
           onError: (error) => {
-            toast.error(`Run #${run.id} was not cancelled`, { description: String(error.message) })
+            toast.error(`Run #${run.id} was not cancelled`, { description: error.message })
           },
         })
       }
@@ -471,7 +477,7 @@ export function CancelButton({ run }: { run: Run }) {
   )
 }
 
-// --- /operations/updates/$id ---------------------------------------------------------------------
+// --- /operations/updates/$id
 
 /**
  * One run, drawn rather than dumped - every kind but BACKUP, which has its own page under Backups.
@@ -504,8 +510,10 @@ export function UpdateRunPage() {
           note={`"${id}" is not a number. A run is addressed by the number of its row.`}
         />
       ) : (
-        // The worker answers a missing row with a 404, which arrives as a failure with the number
-        // in it, and an answered query with no body is not a state this route can produce.
+        /**
+         * The worker answers a missing row with a 404, which arrives as a failure with the number
+         * in it, and an answered query with no body is not a state this route can produce.
+         */
         <QueryState query={run}>{(data) => <RunDetail run={data} />}</QueryState>
       )}
     </div>
@@ -620,8 +628,10 @@ function RunDetail({ run }: { run?: Run }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {!run ? (
-            // The card keeps its place while the row is read: it is the tallest thing on the page,
-            // and a Report card that appears after the head above it would move the whole page.
+            /**
+             * The card keeps its place while the row is read: it is the tallest thing on the page,
+             * and a Report card that appears after the head above it would move the whole page.
+             */
             <Loading rows={4} />
           ) : run.resultText ? (
             <>
@@ -674,15 +684,18 @@ const WALKED: Record<string, ReadonlySet<string>> = {
 }
 
 function StageTrail({ stage, kind }: { stage: string; kind: string }) {
-  const reached = TRAIL.indexOf(stage as (typeof TRAIL)[number])
+  const trail: readonly string[] = TRAIL
+  const reached = trail.indexOf(stage)
   const ending = ENDINGS.has(stage)
   const walked = stage === "DONE" ? WALKED[kind] : undefined
 
   return (
     <ol className="flex flex-wrap items-center gap-x-2 gap-y-3">
       {TRAIL.map((step, index) => {
-        // A running run has walked everything before its current stage. A finished one has walked
-        // what its kind walks - which is not all of them, and not anything at all unless it is DONE.
+        /**
+         * A running run has walked everything before its current stage. A finished one has walked
+         * what its kind walks - which is not all of them, and not anything at all unless it is DONE.
+         */
         const past = ending ? (walked?.has(step) ?? false) : reached >= 0 && index < reached
         const now = index === reached
         return (

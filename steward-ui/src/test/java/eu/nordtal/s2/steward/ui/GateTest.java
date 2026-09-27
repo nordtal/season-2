@@ -31,22 +31,10 @@ import org.junit.jupiter.api.Test;
 /**
  * A route that nobody decided about breaks the build.
  *
- * <h2>This is the test the whole of package E exists for</h2>
- * Everything else in the second factor is a check that runs when somebody calls a route. This one
- * runs when somebody <em>writes</em> one - and it is the only part of the arrangement that survives
- * the next person, who will add an endpoint six months from now without having read any of it. A
- * list of dangerous paths kept somewhere else would go quietly out of date on that day; this goes
- * red.
- *
- * <p><b>Seen red before it was committed</b> (2026-09-14): a {@code cfg.routes.post} was added with
- * no {@link Gate}, this test named it and failed, and the route was taken out again. That is the
- * evidence the ticket asks for, and it is written here because the run itself leaves no trace.</p>
- *
- * <h2>Why it starts the service rather than reading the source</h2>
- * A regular expression over {@code StewardUi.java} would be a second opinion about what a route is,
- * and it would miss every route registered anywhere else - {@code CommandApi}, {@code ConfigApi} and
- * {@code DeployerApi} hand out handlers today and could hand out registrations tomorrow. What is
- * asked here is what Javalin ACTUALLY ROUTED, which is the only list that cannot be wrong.
+ * Runs when somebody writes an endpoint, rather than when somebody calls one, so it survives the
+ * next person who adds a route without having read the second factor's rules. It starts the real
+ * service rather than reading the source, since a regular expression over {@code StewardUi.java}
+ * would miss every route registered elsewhere - what is asked here is what Javalin actually routed.
  */
 class GateTest {
 
@@ -55,16 +43,13 @@ class GateTest {
     /**
      * The service with no database at all.
      *
-     * <p>Every route is registered before anything is asked of {@code Data}, which is what makes
+     * Every route is registered before anything is asked of {@code Data}, which is what makes
      * this cheap: no Postgres, no Docker, no migrations - just the routing table. The nulls are the
-     * documented "a test about the proxy" shape of the constructor.</p>
+     * documented "a test about the proxy" shape of the constructor.
      */
     @BeforeAll
     static void start() {
-        // EVERY SECTION AT ITS DEFAULT. Six anonymous implementations rather than one, because
-        // jcore's @ConfigSpec leaves the section getters abstract - the defaults live on the
-        // sections themselves. Nothing here is read by a route; the service builds a RelyingParty
-        // and two clients at startup and would refuse to start without them.
+        // Every section at its default; jcore's @ConfigSpec leaves the getters abstract otherwise.
         final UiSpec config = new UiSpec() {
             @Override
             public WorkerSpec worker() {
@@ -107,8 +92,7 @@ class GateTest {
                         new InternalClient("steward-worker", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
                         new InternalClient("steward-deployer", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
                         null)
-                // Port 0: the operating system picks a free one. A fixed port here would be a test
-                // that fails when somebody runs two of them, or the interface, at the same time.
+                // Port 0: the OS picks a free one, so this does not collide with another instance running.
                 .start(0);
     }
 
@@ -140,17 +124,16 @@ class GateTest {
     /**
      * Writing is {@link Gate#KEY_FRESH}, with exactly three named exceptions.
      *
-     * <p>This is the half of package E that {@link #everyRouteCarriesExactlyOneDecision} cannot
-     * see: a new {@code POST} <em>with</em> a decision is fine by that test whatever the decision
+     * This is the half of package E that {@link #everyRouteCarriesExactlyOneDecision} cannot
+     * see: a new {@code POST} with a decision is fine by that test whatever the decision
      * says, and "somebody chose ANYONE because it was quicker" is the failure this one is for. The
      * exceptions are written out here rather than derived, so adding a fourth means editing a list
-     * that a person has to look at.</p>
+     * that a person has to look at.
      */
     @Test
     void theOnlyWritesOutsideTheKeyAreTheOnesThatHandItOut() {
         final Set<String> allowed = Set.of(
-                // Signing out: a person part-way through the key ceremony must still be able to
-                // leave, and a sign-out behind the key would be a locked room.
+                // Signing out: a person part-way through the key ceremony must still be able to leave.
                 "POST /auth/logout",
                 // The two ceremonies: a door cannot ask for the key it exists to hand out.
                 "POST /auth/webauthn/register/start",
@@ -190,16 +173,13 @@ class GateTest {
                 // The two halves of the Discord redirect.
                 "GET /auth/login",
                 "GET /auth/callback",
-                // The two that answer "there is nothing at this address" and nothing else. They
-                // exist because the single-page fallback claimed every unmatched GET, /api
-                // included, and carried no Gate - so a mistyped endpoint came back as a 500 about
-                // a route nobody wrote. These show a stranger no more than a closed door does.
+                // Answer "nothing at this address" and nothing else - no more than a closed door shows a stranger.
                 "GET /api/<path>",
                 "GET /auth/<path>");
 
         final List<String> loose = new ArrayList<>();
         for (final Endpoint endpoint : endpoints()) {
-            if (endpoint.method != HandlerType.GET) {
+            if (!endpoint.method.equals(HandlerType.GET)) {
                 continue;
             }
             final String named = endpoint.method + " " + endpoint.path;
@@ -217,9 +197,7 @@ class GateTest {
     /** The routing table is not empty - which is what this whole class would otherwise pass on. */
     @Test
     void thereAreRoutesToCheckAtAll() {
-        // A GateTest that enumerates nothing is a GateTest that is green about nothing, and that is
-        // exactly how a check of this shape dies: somebody changes how routes are registered, the
-        // list comes back empty, and three assertions over an empty list all pass.
+        // A GateTest that enumerates nothing is green about nothing: an empty list passes every assertion.
         assertTrue(
                 endpoints().size() >= 40,
                 "Steward has about forty routes; this found " + endpoints().size()
@@ -241,16 +219,7 @@ class GateTest {
     /** What Javalin actually routed, filters and internal entries left out. */
     @Test
     void everyEndpointLivesUnderOneOfTheTwoPrefixes() {
-        // THE PREMISE `StewardUi#isOurs` RESTS ON, AND IT IS A PREMISE, NOT A FACT OF NATURE.
-        //
-        // `guard` reads a Gate off the route it is about to run. Two things reach it that cannot
-        // carry one: the static bundle and the single-page fallback. `isOurs` tells them apart
-        // from an endpoint by path prefix and hands them ANYONE - which is right only as long as
-        // every endpoint really does live under /api or /auth.
-        //
-        // The day somebody registers /webhooks/bunq without a Gate, that route would be handed
-        // ANYONE in silence instead of refused. This test is what makes that day loud. If the new
-        // route is deliberate, `isOurs` is the thing to change, and it says so in its own javadoc.
+        // The premise `StewardUi#isOurs` rests on: every endpoint lives under /api or /auth.
         final List<String> outside = new ArrayList<>();
         for (final Endpoint endpoint : endpoints()) {
             final String path = endpoint.path;
@@ -270,13 +239,11 @@ class GateTest {
     private static List<Endpoint> endpoints() {
         return app.unsafe.internalRouter.allHttpHandlers().stream()
                 .map(parsed -> parsed.endpoint)
-                // BEFORE and AFTER are filters and carry no decision of their own - `guard` IS one
-                // of them, and asking it to declare a Gate would be asking the door what it needs
-                // to get through itself.
-                .filter(endpoint -> endpoint.method != HandlerType.BEFORE
-                        && endpoint.method != HandlerType.BEFORE_MATCHED
-                        && endpoint.method != HandlerType.AFTER
-                        && endpoint.method != HandlerType.AFTER_MATCHED)
+                // BEFORE and AFTER are filters with no decision of their own; `guard` is one of them.
+                .filter(endpoint -> !endpoint.method.equals(HandlerType.BEFORE)
+                        && !endpoint.method.equals(HandlerType.BEFORE_MATCHED)
+                        && !endpoint.method.equals(HandlerType.AFTER)
+                        && !endpoint.method.equals(HandlerType.AFTER_MATCHED))
                 .toList();
     }
 

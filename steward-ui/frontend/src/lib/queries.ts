@@ -5,6 +5,8 @@ import {
   api,
   ApiError,
   rememberCsrf,
+  shapedAs,
+  isGlyphInfoList,
   type Action,
   type Backup,
   type AccessRequestRun,
@@ -28,7 +30,6 @@ import {
   type MessageChanges,
   type MessageSaveResult,
   type MessageExamples,
-  type GlyphInfo,
   type Metrics,
   type Payment,
   type Person,
@@ -58,7 +59,7 @@ import type { Thresholds } from "@/lib/health"
  * One hook per endpoint, and the refresh interval of each decided here rather than at the call
  * site.
  *
- * The intervals are not taste. Measured on this host on 2026-09-13: one
+ * The intervals are not taste. Measured on this host: one
  * `/containers/{id}/stats?stream=false` costs **1.03 s** of daemon time, and the service table asks
  * for nine of them. The worker now reads them in parallel, so the table costs about a second of
  * daemon time per refresh - which is affordable every ten seconds and would not be affordable every
@@ -154,16 +155,20 @@ export function useRegisterKey() {
             " Every current browser can; one in a private window or an old WebView may not.",
         )
       }
-      // The server's answer is handed to the browser untouched - it is the library's own JSON and
-      // this end does not get an opinion about its contents.
+      /**
+       * The server's answer is handed to the browser untouched - it is the library's own JSON and
+       * this end does not get an opinion about its contents.
+       */
       const started = await api<CreationOptionsJson>("/auth/webauthn/register/start", { method: "POST" })
       let credential: string
       try {
         credential = await createSecurityKey(started)
       } catch (refused) {
-        // The browser's DOMException, turned into something a person can act on. Rethrown as a
-        // plain Error so the form prints one sentence rather than "NotAllowedError".
-        throw new Error(whyTheKeyFailed(refused))
+        /**
+         * The browser's DOMException, turned into something a person can act on. Rethrown as a
+         * plain Error so the form prints one sentence rather than "NotAllowedError".
+         */
+        throw new Error(whyTheKeyFailed(refused), { cause: refused })
       }
       const registered = await api<{ label: string; backedUp: boolean }>("/auth/webauthn/register/finish", {
         method: "POST",
@@ -268,15 +273,17 @@ export function useBackups(enabled = true) {
   return useQuery({
     queryKey: keys.backups,
     queryFn: () => api<Backup[]>("/api/backups"),
-    // A backup appears once a night. Thirty seconds is already generous and exists only so that a
-    // run started by hand shows its archive without a reload.
+    /**
+     * A backup appears once a night. Thirty seconds is already generous and exists only so that a
+     * run started by hand shows its archive without a reload.
+     */
     refetchInterval: 30 * SECOND,
     enabled,
   })
 }
 
 /**
- * What a run would do, without a run (season-2-ops/128).
+ * What a run would do, without a run.
  *
  * **No refetch interval**, and that is the point: the worker holds the answer for six hours and
  * asks Modrinth, GitHub and the Fill API behind whoever opened the page. Polling it would ask this
@@ -293,7 +300,7 @@ export function useAvailable(enabled = true) {
 }
 
 /**
- * Asks every source again, now (season-2-ops/142).
+ * Asks every source again, now.
  *
  * The six-hour cache is right for a page somebody opens and wrong for the one minute after they
  * have published something and want to see it; without this button that wait cannot be shortened
@@ -439,7 +446,7 @@ export function useJournal(action: string, subject: string, enabled = true) {
 }
 
 /**
- * The unified "latest actions" feed (steward/82) - the newest few rows across `update_request` and
+ * The unified "latest actions" feed - the newest few rows across `update_request` and
  * `audit_log`, already merged and sorted by steward-worker's own `/api/actions`. See that endpoint's
  * javadoc for why this is one query rather than this file sorting {@link useJournal} together with
  * a second call of its own.
@@ -489,7 +496,7 @@ export function useGameAction() {
     mutationFn: ({ path, body }: { path: string; body: unknown }) =>
       api<{ id: string }>(path, { method: "POST", body }),
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: ["journal"] })
+      void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })
 }
@@ -509,8 +516,8 @@ export function useSendAnnouncement() {
     mutationFn: (texts: Record<string, string>) =>
       api<{ ids: Record<string, string> }>("/api/announcements", { method: "POST", body: { texts } }),
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: keys.announcements })
-      client.invalidateQueries({ queryKey: ["journal"] })
+      void client.invalidateQueries({ queryKey: keys.announcements })
+      void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })
 }
@@ -528,10 +535,12 @@ export function useCommandRun(id: string | null) {
     queryFn: () => api<CommandRun>(`/api/commands/${id}`),
     enabled: Boolean(id),
     refetchInterval: (query) => {
-      // A failed poll stops the polling. `retry: 1` means the query has already asked twice by the
-      // time the error lands, and a request that keeps going every second against a service that is
-      // not answering is a second failure being manufactured once a second. The row shows the error
-      // and a button; asking again is the operator's decision from there.
+      /**
+       * A failed poll stops the polling. `retry: 1` means the query has already asked twice by the
+       * time the error lands, and a request that keeps going every second against a service that is
+       * not answering is a second failure being manufactured once a second. The row shows the error
+       * and a button; asking again is the operator's decision from there.
+       */
       if (query.state.error) return false
       const status = query.state.data?.status
       return status === undefined || status === "PENDING" || status === "RUNNING" ? SECOND : false
@@ -539,12 +548,14 @@ export function useCommandRun(id: string | null) {
   })
 }
 
-// --- steward-deployer -------------------------------------------------------------------------
-//
-// A recreate is NOT an update and is deliberately not on the same hook. An update is a row in
-// `update_request` that steward-worker claims, counts down in front of every player online and
-// writes a report for; this is one compose operation on one container, carried out by the only
-// process allowed to create one. They look alike on screen and are not alike at all.
+/**
+ * --- steward-deployer
+ *
+ * A recreate is NOT an update and is deliberately not on the same hook. An update is a row in
+ * `update_request` that steward-worker claims, counts down in front of every player online and
+ * writes a report for; this is one compose operation on one container, carried out by the only
+ * process allowed to create one. They look alike on screen and are not alike at all.
+ */
 
 /** Whether the deployer has a secret and answers - asked before the button is drawn. */
 /**
@@ -604,18 +615,22 @@ export function useDeployerJob(id: string | null) {
     queryFn: async () => {
       const job = await api<DeployerJob>(`/api/deployer/jobs/${encodeURIComponent(id ?? "")}`)
       if (job.state !== "RUNNING") {
-        // The container is new, so everything about it is: state, uptime, image digest. Asked for
-        // once the job is over rather than while it runs, when the answer would be a container
-        // that is being taken down.
-        client.invalidateQueries({ queryKey: keys.services })
-        client.invalidateQueries({ queryKey: ["service"] })
+        /**
+         * The container is new, so everything about it is: state, uptime, image digest. Asked for
+         * once the job is over rather than while it runs, when the answer would be a container
+         * that is being taken down.
+         */
+        void client.invalidateQueries({ queryKey: keys.services })
+        void client.invalidateQueries({ queryKey: ["service"] })
       }
       return job
     },
     enabled: Boolean(id),
-    // A failed poll stops it, for the same reason as `useCommandRun`: the last answer says RUNNING
-    // and would keep this asking every second while nothing answers. The dialog shows the failure
-    // and offers to ask again.
+    /**
+     * A failed poll stops it, for the same reason as `useCommandRun`: the last answer says RUNNING
+     * and would keep this asking every second while nothing answers. The dialog shows the failure
+     * and offers to ask again.
+     */
     refetchInterval: (query) => (!query.state.error && query.state.data?.state === "RUNNING" ? SECOND : false),
   })
 }
@@ -698,8 +713,8 @@ export function useSubscribeWebPush() {
       return subscription
     },
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: keys.webPushSubscription })
-      client.invalidateQueries({ queryKey: keys.webPushDevices })
+      void client.invalidateQueries({ queryKey: keys.webPushSubscription })
+      void client.invalidateQueries({ queryKey: keys.webPushDevices })
     },
   })
 }
@@ -716,8 +731,8 @@ export function useUnsubscribeWebPush() {
       return endpoint
     },
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: keys.webPushSubscription })
-      client.invalidateQueries({ queryKey: keys.webPushDevices })
+      void client.invalidateQueries({ queryKey: keys.webPushSubscription })
+      void client.invalidateQueries({ queryKey: keys.webPushDevices })
     },
   })
 }
@@ -740,8 +755,8 @@ export function useForgetWebPushDevice() {
       return endpoint
     },
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: keys.webPushSubscription })
-      client.invalidateQueries({ queryKey: keys.webPushDevices })
+      void client.invalidateQueries({ queryKey: keys.webPushSubscription })
+      void client.invalidateQueries({ queryKey: keys.webPushDevices })
     },
   })
 }
@@ -802,8 +817,8 @@ export function useTestWebPush() {
     mutationFn: (what: { endpoint: string; type: AlertTypeKey }) =>
       api<void>("/api/web-push/test", { method: "POST", body: what }),
     onSettled: () => {
-      client.invalidateQueries({ queryKey: keys.webPushDevices })
-      client.invalidateQueries({ queryKey: keys.webPushSubscription })
+      void client.invalidateQueries({ queryKey: keys.webPushDevices })
+      void client.invalidateQueries({ queryKey: keys.webPushSubscription })
     },
   })
 }
@@ -836,7 +851,7 @@ function encodePath(file: string): string {
   return file.split("/").map(encodeURIComponent).join("/")
 }
 
-// --- the writes ------------------------------------------------------------------------------
+// --- the writes
 
 /**
  * Asking for a run.
@@ -852,20 +867,20 @@ export function useAskForRun() {
       kind: "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
       delaySeconds?: number
       /**
-       * Which compose services this run is for (season-2-ops/127). Left off for the whole network,
+       * Which compose services this run is for. Left off for the whole network,
        * which is what every button on /operations means. A scoped run follows the same procedure -
        * countdown, limbo, health, report - it simply touches less.
        */
       services?: string[]
     }) => api<Run>("/api/updates", { method: "POST", body: ask }),
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: ["runs"] })
+      void client.invalidateQueries({ queryKey: ["runs"] })
     },
   })
 }
 
 /**
- * Taking a run back (steward/131).
+ * Taking a run back.
  *
  * The backend calls `UpdateDirectory#cancelCountdown`, whose SQL takes whichever row is
  * `PENDING`/`RUNNING` with `not_before` still in the future - so this is one endpoint for both the
@@ -881,8 +896,8 @@ export function useCancelRun() {
   return useMutation({
     mutationFn: () => api<Run>("/api/updates/cancel", { method: "POST" }),
     onSuccess: (cancelled) => {
-      client.invalidateQueries({ queryKey: ["runs"] })
-      client.invalidateQueries({ queryKey: keys.run(String(cancelled.id)) })
+      void client.invalidateQueries({ queryKey: ["runs"] })
+      void client.invalidateQueries({ queryKey: keys.run(String(cancelled.id)) })
     },
   })
 }
@@ -898,7 +913,7 @@ export function useConsole(service: string) {
 }
 
 /**
- * The plugins on one Minecraft server (season-2-ops/129).
+ * The plugins on one Minecraft server.
  *
  * Refetched on a slow interval rather than on focus alone: the interesting transition is
  * not installed turning into running, and that happens when an update run finishes, which is minutes
@@ -909,8 +924,10 @@ export function usePlugins(service: string) {
     queryKey: keys.plugins(service),
     queryFn: () => api<ServicePlugins>(`/api/services/${encodeURIComponent(service)}/plugins`),
     refetchInterval: 30 * SECOND,
-    // A 404 is the answer for a service with no plugins folder - the bot, postgres, caddy - and
-    // asking again changes nothing. Every other failure is worth one retry.
+    /**
+     * A 404 is the answer for a service with no plugins folder - the bot, postgres, caddy - and
+     * asking again changes nothing. Every other failure is worth one retry.
+     */
     retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 1,
   })
 }
@@ -929,12 +946,16 @@ export function usePluginSearch(service: string, query: string, enabled: boolean
     queryFn: () =>
       api<PluginSearch>(`/api/services/${encodeURIComponent(service)}/plugins/search?q=${encodeURIComponent(query)}`),
     enabled,
-    // Somebody typing back over a word they just deleted should not wait for the same answer
-    // twice.
+    /**
+     * Somebody typing back over a word they just deleted should not wait for the same answer
+     * twice.
+     */
     staleTime: 5 * 60 * SECOND,
-    // steward/120: every keystroke is a new query key, so "first load" is true on every letter and
-    // the list would go to skeletons under somebody's fingers. The previous hits stay until the
-    // next answer replaces them - the one place in this interface that needs this.
+    /**
+     * Every keystroke is a new query key, so "first load" is true on every letter and
+     * the list would go to skeletons under somebody's fingers. The previous hits stay until the
+     * next answer replaces them - the one place in this interface that needs this.
+     */
     placeholderData: keepPreviousData,
   })
 }
@@ -983,37 +1004,44 @@ export function useSaveConfig(file: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ revision, changes }: { revision: string; changes: ConfigChanges }) =>
-      // Never `raw`: a raw file offers no save button in the first place (steward/56), so a PUT's
-      // answer is always a form again - now carrying `reload`, which only a save produces
-      // (steward/59).
+      /**
+       * Never `raw`: a raw file offers no save button in the first place, so a PUT's
+       * answer is always a form again - now carrying `reload`, which only a save produces.
+       */
       api<ReloadAwareConfigDocument>(`/api/config/${encodePath(file)}`, {
         method: "PUT",
         body: { revision, changes },
       }),
     onSuccess: (document) => {
-      // The answer IS the file as it now reads, so the form redraws from what was written rather
-      // than from what it hoped was written. A value the backend quoted or refused to canonicalise
-      // is then visible immediately instead of on the next reload.
+      /**
+       * The answer IS the file as it now reads, so the form redraws from what was written rather
+       * than from what it hoped was written. A value the backend quoted or refused to canonicalise
+       * is then visible immediately instead of on the next reload.
+       */
       client.setQueryData(keys.config(file), document)
-      // The worker re-reads its own steward.yml on a save and re-arms both clocks, so the next
-      // backup and the next update may have moved. Any file could be that one; asking again is
-      // one small request.
-      client.invalidateQueries({ queryKey: keys.schedule })
+      /**
+       * The worker re-reads its own steward.yml on a save and re-arms both clocks, so the next
+       * backup and the next update may have moved. Any file could be that one; asking again is
+       * one small request.
+       */
+      void client.invalidateQueries({ queryKey: keys.schedule })
     },
     onError: (failure) => {
-      // 409 is the other browser having been faster. Nothing was written, and the copy in this
-      // cache is now provably out of date - including its revision, so a second attempt with it
-      // would be refused for the same reason. Re-reading is what lets the operator see what the
-      // file says and decide whether their change is still the one they want.
+      /**
+       * 409 is the other browser having been faster. Nothing was written, and the copy in this
+       * cache is now provably out of date - including its revision, so a second attempt with it
+       * would be refused for the same reason. Re-reading is what lets the operator see what the
+       * file says and decide whether their change is still the one they want.
+       */
       if (failure instanceof ApiError && failure.status === 409) {
-        client.invalidateQueries({ queryKey: keys.config(file) })
+        void client.invalidateQueries({ queryKey: keys.config(file) })
       }
     },
   })
 }
 
 /**
- * Saves the exact text typed into the raw editor (steward/60).
+ * Saves the exact text typed into the raw editor.
  *
  * Mirrors {@link useSaveConfig}'s shape - a revision that has to match, an answer that replaces
  * the cache entry directly rather than triggering a refetch - but posts to the raw file's own
@@ -1035,7 +1063,7 @@ export function useSaveRawConfig(file: string) {
     onError: (failure) => {
       // The other browser was faster - the same 409 handling useSaveConfig gives the parsed path.
       if (failure instanceof ApiError && failure.status === 409) {
-        client.invalidateQueries({ queryKey: keys.config(file) })
+        void client.invalidateQueries({ queryKey: keys.config(file) })
       }
     },
   })
@@ -1068,10 +1096,10 @@ async function askTheBot(path: string, body: unknown): Promise<Record<string, st
 
 /** Everything an access change can move: the roster, the periods, the payments and the journal. */
 function afterAccessChange(client: ReturnType<typeof useQueryClient>) {
-  client.invalidateQueries({ queryKey: keys.people })
-  client.invalidateQueries({ queryKey: ["grants"] })
-  client.invalidateQueries({ queryKey: keys.payments })
-  client.invalidateQueries({ queryKey: ["journal"] })
+  void client.invalidateQueries({ queryKey: keys.people })
+  void client.invalidateQueries({ queryKey: ["grants"] })
+  void client.invalidateQueries({ queryKey: keys.payments })
+  void client.invalidateQueries({ queryKey: ["journal"] })
 }
 
 /** A grant, at most 365 days. Resolves with the end of the period the bot wrote. */
@@ -1153,7 +1181,7 @@ export function useSettle() {
 }
 
 /**
- * Sets an account's total play time outright (steward/119).
+ * Sets an account's total play time outright.
  *
  * Seconds and not hours, because seconds is what the column holds; the dialog does the arithmetic
  * so that the wire and the database agree on a unit.
@@ -1175,8 +1203,8 @@ export function useSetPhase() {
     mutationFn: (change: { phase: string; reason: string }) =>
       api<Season>("/api/season/phase", { method: "POST", body: change }),
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: keys.season })
-      client.invalidateQueries({ queryKey: ["journal"] })
+      void client.invalidateQueries({ queryKey: keys.season })
+      void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })
 }
@@ -1188,8 +1216,8 @@ export function useSetSeasonDate() {
     mutationFn: (change: { which: "launch" | "smpStart"; at: string | null }) =>
       api<Season>("/api/season/date", { method: "POST", body: change }),
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: keys.season })
-      client.invalidateQueries({ queryKey: ["journal"] })
+      void client.invalidateQueries({ queryKey: keys.season })
+      void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })
 }
@@ -1202,12 +1230,12 @@ export function useAdminCommand() {
       api<CommandRun>("/api/commands", { method: "POST", body: command }),
     onSuccess: () => {
       // The row names who asked, so it is a journal entry whether or not the command succeeds.
-      client.invalidateQueries({ queryKey: ["journal"] })
+      void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })
 }
 
-// --- message bundles (steward/48) ---------------------------------------------------------
+// --- message bundles
 
 /**
  * Every message bundle steward-worker found - one row per module's `messages/` directory,
@@ -1275,13 +1303,13 @@ export function useGlyphs() {
     queryFn: async () => {
       const response = await fetch("/glyphs/manifest.json")
       if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
-      return (await response.json()) as GlyphInfo[]
+      return shapedAs(await response.json(), isGlyphInfoList, "/glyphs/manifest.json")
     },
     staleTime: Infinity,
   })
 }
 
-// --- settings search (steward/58) -----------------------------------------------------------
+// --- settings search
 
 /**
  * Every one of the given files' documents, fetched only while `enabled` - a search box that has
@@ -1306,7 +1334,7 @@ export function useConfigDocuments(files: string[], enabled: boolean) {
 
 /**
  * Every one of the given bundles' documents, fetched only while `enabled` - the message-bundle
- * twin of {@link useConfigDocuments}, for steward/87's search over the bundles as well as the
+ * twin of {@link useConfigDocuments}, for search over the bundles as well as the
  * files. Each query shares its key with {@link useMessageBundle}, so a bundle already open on a
  * service's page costs nothing a second time to a search that also wants it.
  */

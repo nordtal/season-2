@@ -5,7 +5,7 @@ import { Drawer as DrawerPrimitive } from "vaul"
 /**
  * A bottom sheet - the shape every dialog in Steward takes on a narrow screen.
  *
- * The owner, 2026-09-18, asked for every dialog in the interface to be switched over at one common
+ * Every dialog in the interface switches over at one common
  * place. Nothing imports this file directly; the one
  * thing that does is {@link ResponsiveDialog}, which is where the decision "sheet or dialog" is made
  * once for the whole interface. Importing `Drawer` at a call site would be a second place that
@@ -65,8 +65,10 @@ function DrawerContent({ className, children, ...props }: React.ComponentProps<t
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(
-          // `max-h-[90svh]`, not `vh`: on iOS the visual viewport shrinks when the address bar is
-          // out and a sheet sized in `vh` puts its own footer under the browser chrome.
+          /**
+           * `max-h-[90svh]`, not `vh`: on iOS the visual viewport shrinks when the address bar is
+           * out and a sheet sized in `vh` puts its own footer under the browser chrome.
+           */
           "fixed inset-x-0 bottom-0 z-50 flex max-h-[90svh] flex-col gap-4 rounded-t-xl bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
           className,
         )}

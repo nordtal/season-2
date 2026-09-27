@@ -16,8 +16,10 @@ import "@/index.css"
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // An operator's dashboard is read constantly and must not fight the network on every focus
-      // change; the pages that need to be live will subscribe rather than poll harder.
+      /**
+       * An operator's dashboard is read constantly and must not fight the network on every focus
+       * change; the pages that need to be live will subscribe rather than poll harder.
+       */
       staleTime: 5_000,
       refetchOnWindowFocus: false,
       retry: 1,
@@ -25,22 +27,26 @@ const queryClient = new QueryClient({
   },
 })
 
-// How tall the window is and how deep iOS's blurred band reaches - two numbers CSS gets wrong on a
-// home screen and nowhere else. Started before the first render so nothing is drawn at a height
-// that is then corrected; never stopped, because the page outlives it.
-//
-// steward/79: this runs before `createRoot`, and it used to run unguarded - a wrong guess about a
-// height is a grey stripe (steward/51), but an exception here, thrown before anything has rendered,
-// is a black screen with nothing behind it. Nothing this function does is worth that trade.
+/**
+ * How tall the window is and how deep iOS's blurred band reaches - two numbers CSS gets wrong on a
+ * home screen and nowhere else. Started before the first render so nothing is drawn at a height
+ * that is then corrected; never stopped, because the page outlives it.
+ *
+ * This runs before `createRoot`, and runs guarded - a wrong guess about a
+ * height is a grey stripe, but an unguarded exception here, thrown before anything has rendered,
+ * would be a black screen with nothing behind it. Nothing this function does is worth that trade.
+ */
 try {
   trackAppFrame()
 } catch (error) {
   console.error("trackAppFrame failed to start; the layout will use its CSS fallback instead", error)
 }
 
-// Registered early and unconditionally (steward/98): a service worker needs no permission and asks
-// for none, so it does not have to wait for the tap `subscribeToPush` does - see lib/push.ts's
-// module note. A browser too old to have `serviceWorker` at all skips this silently.
+/**
+ * Registered early and unconditionally: a service worker needs no permission and asks
+ * for none, so it does not have to wait for the tap `subscribeToPush` does - see lib/push.ts's
+ * module note. A browser too old to have `serviceWorker` at all skips this silently.
+ */
 registerServiceWorker().catch((error: unknown) => {
   console.error("the service worker did not register; web push will not be available", error)
 })

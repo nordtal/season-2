@@ -1,5 +1,6 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CheckCircleIcon, InfoIcon, WarningIcon, XCircleIcon, SpinnerIcon } from "@phosphor-icons/react"
+import type { CSSVars } from "@/lib/utils"
 
 /**
  * The registry version of this file reads the current theme from `next-themes`. This interface has
@@ -7,6 +8,16 @@ import { CheckCircleIcon, InfoIcon, WarningIcon, XCircleIcon, SpinnerIcon } from
  * coded instead, and the success/warning/error colours are pulled from the three status tokens so
  * a toast cannot disagree with a badge.
  */
+const TOAST_VARS: CSSVars = {
+  "--normal-bg": "var(--popover)",
+  "--normal-text": "var(--popover-foreground)",
+  "--normal-border": "var(--border)",
+  "--success-text": "var(--success)",
+  "--warning-text": "var(--warning)",
+  "--error-text": "var(--destructive)",
+  "--border-radius": "var(--radius)",
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
@@ -19,17 +30,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         error: <XCircleIcon className="size-4" />,
         loading: <SpinnerIcon className="size-4 animate-spin" />,
       }}
-      style={
-        {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-          "--success-text": "var(--success)",
-          "--warning-text": "var(--warning)",
-          "--error-text": "var(--destructive)",
-          "--border-radius": "var(--radius)",
-        } as React.CSSProperties
-      }
+      style={TOAST_VARS}
       toastOptions={{
         classNames: {
           toast: "cn-toast",

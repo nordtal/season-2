@@ -46,7 +46,9 @@ function feed(...events: Array<[string, string]>) {
   act(() => {
     for (const [type, data] of events) live().emit(type, data)
   })
-  act(() => vi.advanceTimersByTime(20))
+  act(() => {
+    vi.advanceTimersByTime(20)
+  })
 }
 
 beforeEach(() => {
@@ -127,7 +129,9 @@ describe("ServiceConsole", () => {
     feed(["line", "[10:00:00] [Server thread/INFO]: alpha"])
     for (let attempt = 1; attempt <= 5; attempt++) {
       act(() => live().emit("gone", "no running container for smp"))
-      act(() => vi.advanceTimersByTime(30_000))
+      act(() => {
+        vi.advanceTimersByTime(30_000)
+      })
     }
     expect(screen.getByRole("alert").textContent).toContain("Can't reach the log.")
     expect(screen.getByRole("alert").textContent).toContain("no running container for smp")

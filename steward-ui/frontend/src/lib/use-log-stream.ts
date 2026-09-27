@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react"
+import { useEffect, useState } from "react"
 
 /**
  * The live log of one service.
@@ -56,6 +56,11 @@ export type LogStream = {
 
 const LOST = "The connection to the log was lost."
 
+/** An SSE event actually carries the server's data, the way every named event here does. */
+function isMessageEvent(event: Event): event is MessageEvent<string> {
+  return "data" in event
+}
+
 const nextFrame: (callback: () => void) => () => void =
   typeof requestAnimationFrame === "function"
     ? (callback) => {
@@ -71,12 +76,17 @@ export function useLogStream(service: string, limit: number = DEFAULT_LIMIT): Lo
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [failure, setFailure] = useState<string | null>(null)
 
-  // The window belongs to ONE service, and the page can change which one without remounting: a
-  // layout effect so that the old service's lines are never painted under the new one's name.
-  useLayoutEffect(() => {
+  /**
+   * The window belongs to ONE service, and the page can change which one without remounting:
+   * cleared during render, on the transition, so the old service's lines are never painted under
+   * the new one's name.
+   */
+  const [lastService, setLastService] = useState(service)
+  if (lastService !== service) {
+    setLastService(service)
     setEntries([])
     setFailure(null)
-  }, [service])
+  }
 
   useEffect(() => {
     if (!service) return undefined
@@ -138,13 +148,17 @@ export function useLogStream(service: string, limit: number = DEFAULT_LIMIT): Lo
         grace = setTimeout(flush, REFILL_GRACE)
       })
       for (const kind of ["line", "run", "end"] as const) {
-        opened.addEventListener(kind, (event) => queue(kind, (event as MessageEvent<string>).data))
+        opened.addEventListener(kind, (event) => {
+          if (isMessageEvent(event)) queue(kind, event.data)
+        })
       }
-      // `gone` is the server's own sentence for why it stopped; an `error` has none. Either way
-      // the source is closed here, because the browser's own retry would neither back off nor
-      // count, and the counting is what decides when the window says something.
-      opened.addEventListener("gone", (event) => fail((event as MessageEvent<string>).data))
-      opened.onerror = () => fail(null)
+      /**
+       * `gone` is the server's own sentence for why it stopped; an `error` has none. Either way
+       * the source is closed here, because the browser's own retry would neither back off nor
+       * count, and the counting is what decides when the window says something.
+       */
+      opened.addEventListener("gone", (event) => fail(isMessageEvent(event) ? event.data : null))
+      opened.addEventListener("error", () => fail(null))
     }
 
     connect()

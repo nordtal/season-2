@@ -19,9 +19,11 @@ export function browserHasSecurityKeys(): boolean {
 
 export function fromBase64Url(value: string): Uint8Array {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/")
-  // `atob` accepts an unpadded string - measured 2026-09-14 by deleting the `"=".repeat(...)` below
-  // and watching the whole suite stay green. It is written out anyway, because "it happens to work
-  // without" is not the same as "it is correct", and the next reader should not have to re-measure.
+  /**
+   * `atob` accepts an unpadded string - deleting the `"=".repeat(...)` below
+   * leaves the whole suite green. It is written out anyway, because "it happens to work
+   * without" is not the same as "it is correct", and the next reader should not have to re-measure.
+   */
   const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4))
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
@@ -31,9 +33,11 @@ export function fromBase64Url(value: string): Uint8Array {
 export function toBase64Url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   let binary = ""
-  // Not `String.fromCharCode(...bytes)`: an attestation object is a few hundred bytes today and
-  // a spread of one of those is a few hundred arguments, which is fine - until somebody registers
-  // a key whose attestation carries a certificate chain and the call stack decides otherwise.
+  /**
+   * Not `String.fromCharCode(...bytes)`: an attestation object is a few hundred bytes today and
+   * a spread of one of those is a few hundred arguments, which is fine - until somebody registers
+   * a key whose attestation carries a certificate chain and the call stack decides otherwise.
+   */
   for (const byte of bytes) binary += String.fromCharCode(byte)
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
 }
@@ -53,8 +57,56 @@ export type CreationOptionsJson = {
   }
 }
 
+/**
+ * The subset of `PublicKeyCredential` this file actually reads, one per ceremony since the two
+ * responses carry different fields.
+ *
+ * A real credential from the browser satisfies both structurally, so production code needs no cast
+ * to either; a test fixture can build one as a plain object literal, for the same reason.
+ */
+export type AttestationCredentialLike = {
+  type: string
+  id: string
+  rawId: ArrayBuffer
+  response: {
+    clientDataJSON: ArrayBuffer
+    attestationObject: ArrayBuffer
+    getTransports?: () => string[]
+  }
+  authenticatorAttachment?: string | null
+  getClientExtensionResults: () => Record<string, unknown>
+}
+
+export type AssertionCredentialLike = {
+  type: string
+  id: string
+  rawId: ArrayBuffer
+  response: {
+    clientDataJSON: ArrayBuffer
+    authenticatorData: ArrayBuffer
+    signature: ArrayBuffer
+    userHandle?: ArrayBuffer | null
+  }
+  authenticatorAttachment?: string | null
+  getClientExtensionResults: () => Record<string, unknown>
+}
+
+/**
+ * `CreationOptionsJson`'s `publicKey`, with its byte fields converted.
+ *
+ * `rp`, `pubKeyCredParams` and the rest of the server's fields pass through untyped - this file never
+ * reads them, only the browser does - which is why the return type says so honestly instead of
+ * claiming to be `PublicKeyCredentialCreationOptions`. That claim is made exactly once, at the one
+ * place this crosses into the browser's own API.
+ */
+export type ConvertedCreationOptions = Record<string, unknown> & {
+  challenge: Uint8Array
+  user: Record<string, unknown> & { id: Uint8Array }
+  excludeCredentials?: Array<Record<string, unknown> & { id: Uint8Array }>
+}
+
 /** The server's JSON as the browser's API wants it: the same object, with three fields as bytes. */
-export function toCreationOptions(answer: CreationOptionsJson): PublicKeyCredentialCreationOptions {
+export function toCreationOptions(answer: CreationOptionsJson): ConvertedCreationOptions {
   const publicKey = answer.publicKey
   return {
     ...publicKey,
@@ -64,7 +116,7 @@ export function toCreationOptions(answer: CreationOptionsJson): PublicKeyCredent
       ...one,
       id: fromBase64Url(one.id),
     })),
-  } as unknown as PublicKeyCredentialCreationOptions
+  }
 }
 
 /**
@@ -75,8 +127,8 @@ export function toCreationOptions(answer: CreationOptionsJson): PublicKeyCredent
  * authentication dialog later say "hold it to the top of the phone" instead of offering every
  * method the browser has.
  */
-export function fromCredential(credential: PublicKeyCredential): string {
-  const response = credential.response as AuthenticatorAttestationResponse
+export function fromCredential(credential: AttestationCredentialLike): string {
+  const response = credential.response
   const answer: Record<string, unknown> = {
     type: credential.type,
     id: credential.id,
@@ -103,13 +155,40 @@ export function fromCredential(credential: PublicKeyCredential): string {
  * means this authenticator is already registered on this account. Neither is a fault.
  */
 export async function createSecurityKey(startAnswer: CreationOptionsJson): Promise<string> {
-  const credential = (await navigator.credentials.create({
-    publicKey: toCreationOptions(startAnswer),
-  })) as PublicKeyCredential | null
-  if (!credential) {
+  const publicKey = toCreationOptions(startAnswer)
+  if (!isCreationOptions(publicKey)) {
+    throw new Error("The registration options the server sent are missing a field the browser requires.")
+  }
+  const credential = await navigator.credentials.create({ publicKey })
+  if (!isAttestationCredential(credential)) {
     throw new Error("The browser ended the dialog without a key.")
   }
   return fromCredential(credential)
+}
+
+/**
+ * Whether {@link toCreationOptions} actually converted the fields it is responsible for.
+ *
+ * Not a full structural check of `PublicKeyCredentialCreationOptions` - `rp` and
+ * `pubKeyCredParams` pass through untouched from the server and are trusted the way every other
+ * untyped field here is - only the bytes this file itself builds are checked.
+ */
+function isCreationOptions(
+  value: ConvertedCreationOptions,
+): value is ConvertedCreationOptions & PublicKeyCredentialCreationOptions {
+  return value.challenge instanceof Uint8Array && value.user.id instanceof Uint8Array
+}
+
+/** Whether the browser gave back the fields {@link fromCredential} reads, not just any `Credential`. */
+function isAttestationCredential(credential: Credential | null): credential is AttestationCredentialLike {
+  return (
+    credential !== null &&
+    "response" in credential &&
+    typeof credential.response === "object" &&
+    credential.response !== null &&
+    "attestationObject" in credential.response &&
+    "getClientExtensionResults" in credential
+  )
 }
 
 /**
@@ -162,8 +241,14 @@ export type RequestOptionsJson = {
   }
 }
 
+/** `RequestOptionsJson`'s `publicKey`, with its byte fields converted; see `ConvertedCreationOptions`. */
+export type ConvertedRequestOptions = Record<string, unknown> & {
+  challenge: Uint8Array
+  allowCredentials?: Array<Record<string, unknown> & { id: Uint8Array }>
+}
+
 /** The server's JSON as `navigator.credentials.get` wants it: the same object, with bytes. */
-export function toRequestOptions(answer: RequestOptionsJson): PublicKeyCredentialRequestOptions {
+export function toRequestOptions(answer: RequestOptionsJson): ConvertedRequestOptions {
   const publicKey = answer.publicKey
   return {
     ...publicKey,
@@ -172,7 +257,7 @@ export function toRequestOptions(answer: RequestOptionsJson): PublicKeyCredentia
       ...one,
       id: fromBase64Url(one.id),
     })),
-  } as unknown as PublicKeyCredentialRequestOptions
+  }
 }
 
 /**
@@ -183,8 +268,8 @@ export function toRequestOptions(answer: RequestOptionsJson): PublicKeyCredentia
  * does not return one. Sending `null` and omitting it are different to a strict parser, so it is
  * omitted.
  */
-export function fromAssertion(credential: PublicKeyCredential): string {
-  const response = credential.response as AuthenticatorAssertionResponse
+export function fromAssertion(credential: AssertionCredentialLike): string {
+  const response = credential.response
   const inner: Record<string, unknown> = {
     clientDataJSON: toBase64Url(response.clientDataJSON),
     authenticatorData: toBase64Url(response.authenticatorData),
@@ -211,11 +296,37 @@ export function fromAssertion(credential: PublicKeyCredential): string {
  * registration because the two fail in the same ways and a person reads the same sentences.
  */
 export async function useSecurityKey(startAnswer: RequestOptionsJson): Promise<string> {
-  const credential = (await navigator.credentials.get({
-    publicKey: toRequestOptions(startAnswer),
-  })) as PublicKeyCredential | null
-  if (!credential) {
+  const publicKey = toRequestOptions(startAnswer)
+  if (!isRequestOptions(publicKey)) {
+    throw new Error("The sign-in options the server sent are missing a field the browser requires.")
+  }
+  const credential = await navigator.credentials.get({ publicKey })
+  if (!isAssertionCredential(credential)) {
     throw new Error("The browser ended the dialog without an answer.")
   }
   return fromAssertion(credential)
+}
+
+/**
+ * Whether {@link toRequestOptions}'s answer carries what `navigator.credentials.get` requires.
+ *
+ * Not a full structural check of `PublicKeyCredentialRequestOptions` - only that the challenge
+ * this file itself converted actually arrived as bytes; every other field passes through untyped.
+ */
+function isRequestOptions(
+  value: ConvertedRequestOptions,
+): value is ConvertedRequestOptions & PublicKeyCredentialRequestOptions {
+  return value.challenge instanceof Uint8Array
+}
+
+/** Whether the browser gave back the fields {@link fromAssertion} reads, not just any `Credential`. */
+function isAssertionCredential(credential: Credential | null): credential is AssertionCredentialLike {
+  return (
+    credential !== null &&
+    "response" in credential &&
+    typeof credential.response === "object" &&
+    credential.response !== null &&
+    "signature" in credential.response &&
+    "getClientExtensionResults" in credential
+  )
 }

@@ -8,30 +8,19 @@ import io.javalin.http.Context;
 import io.javalin.http.ServiceUnavailableResponse;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The one thing the interface asks steward-deployer for: make this service's container again
- * (§10a.4, "recreate individual services on image drift").
+ * The one thing the interface asks steward-deployer for: make this service's container again.
  *
- * <h2>Why this is not the same door as an update</h2>
- * An update is a row in {@code update_request}: countable, cancellable, counted down in front of
- * every player online, and carried out by steward-worker. A recreate is none of those things - it
- * is a compose operation on one container, and the only process in the stack allowed to create one
- * is steward-deployer. So the two live apart, and this class is thin on purpose: it checks who is
- * asking, refuses a name that is not a service name, writes the journal row, and hands the rest
- * over.
- *
- * <h2>What it refuses, and why each refusal is here rather than over there</h2>
- * The deployer refuses {@code steward-deployer} itself, and it would refuse an unknown service with
- * whatever compose prints. Both are repeated here because this end is where the message is read: a
- * person who clicked a button deserves a sentence, and {@code service "x" has no container to
- * recreate} in a compose stderr is not one. The shape check is not cosmetic either - the name goes
- * into a URL path on the way out, so anything with a slash in it would address something else
- * entirely.
+ * A recreate is a compose operation on one container, unlike an update's countable, cancellable
+ * {@code update_request} row; only steward-deployer may create a container. This class checks who
+ * is asking, refuses a name that is not a service name, writes the journal row, and hands the rest
+ * over. The name shape is checked because it goes into a URL path on the way out.
  */
 public final class DeployerApi {
 
@@ -40,14 +29,16 @@ public final class DeployerApi {
     /**
      * The deployer refuses to recreate itself, and so does this end.
      *
-     * <p>It is the container the request is running through on the way to compose, so the recreate
-     * would take down the thing carrying out the recreate and nobody would learn how it ended.
-     * Renewing this one is the setup script's job on the host (§9c).</p>
+     * It is the container the request runs through on the way to compose, so recreating it would
+     * take the recreate down mid-flight. Renewing this one is the setup script's job on the host.
      */
     private static final String SELF = "steward-deployer";
 
     private final InternalClient deployer;
-    private final Data data;
+
+    /** Null only in a test that never calls a route on this class. */
+    private final @Nullable Data data;
+
     private final Function<Context, DiscordAuth.Account> accounts;
     private final boolean configured;
 
@@ -56,9 +47,9 @@ public final class DeployerApi {
      *                   the ordinary case, and it has to read as one rather than as a fault
      */
     public DeployerApi(
-            final @NotNull InternalClient deployer,
-            final @NotNull Data data,
-            final @NotNull Function<Context, DiscordAuth.Account> accounts,
+            final InternalClient deployer,
+            final @Nullable Data data,
+            final Function<Context, DiscordAuth.Account> accounts,
             final boolean configured) {
         this.deployer = deployer;
         this.data = data;
@@ -66,14 +57,16 @@ public final class DeployerApi {
         this.configured = configured;
     }
 
+    private Data data() {
+        return Objects.requireNonNull(data, "no database - this route is not available without one");
+    }
+
     /**
      * Whether the button may be drawn at all.
      *
-     * <p>Answered separately from doing it, because a page has to decide what to show before
-     * anybody clicks. A missing token is the ordinary case on a stack that has not been set up
-     * yet, and it is a sentence rather than a disabled button with no explanation.</p>
+     * Answered separately from doing it, so a page can decide what to show before anybody clicks.
      */
-    public void state(final @NotNull Context ctx) {
+    public void state(final Context ctx) {
         if (!configured) {
             ctx.json(Map.of(
                     "available",
@@ -87,33 +80,25 @@ public final class DeployerApi {
     }
 
     /** Every service the live compose file defines, with the image each one runs. */
-    public void services(final @NotNull Context ctx) {
+    public void services(final Context ctx) {
         require();
         ctx.contentType("application/json").result(deployer.get("/api/services"));
     }
 
     /** {@code POST /api/deployer/recreate/{service}} - accepted, and then it is a job. */
-    public void recreate(final @NotNull Context ctx) {
+    public void recreate(final Context ctx) {
         require();
         final String service = serviceOf(ctx);
         final DiscordAuth.Account who = accounts.apply(ctx);
 
-        // Written BEFORE the call, not after. A recreate that takes the interface's own container
-        // down - steward-ui is in this file like anything else - would otherwise be the one action
-        // that never reached the journal, and it is exactly the one somebody will ask about.
-        // The id, not "name (id)": `audit_log.actor` is varchar(32) and means the Discord id, and
-        // the composed form overflowed it for any display name of 11 characters or more - which
-        // made the whole recreate a 500 that never said why. The name goes in the detail.
-        data.audit()
+        // Written before the call, using the id (audit_log.actor is varchar(32)), not "name (id)".
+        data().audit()
                 .record(
                         "RECREATE",
                         who.id(),
                         service,
                         null,
-                        // "requested", not "recreated". This row is written before the call by design,
-                        // so it cannot report what the call did - and the deployer can refuse, redirect or
-                        // stall. A journal that says a container was recreated when it was not is worse
-                        // than one that says nothing, because it is the sentence somebody trusts later.
+                        // "requested", not "recreated": the call can still be refused, redirected or stall.
                         "recreation from the current image requested by " + who.name() + " from the web interface");
         log.info("{} asked steward-deployer to recreate {}", who.name(), service);
 
@@ -122,13 +107,13 @@ public final class DeployerApi {
     }
 
     /** {@code GET /api/deployer/jobs/{id}} - the job with its output so far. */
-    public void job(final @NotNull Context ctx) {
+    public void job(final Context ctx) {
         require();
         ctx.contentType("application/json").result(deployer.get("/api/jobs/" + jobId(ctx)));
     }
 
     /** {@code GET /api/deployer/jobs} - the jobs this deployer has run since it started. */
-    public void jobs(final @NotNull Context ctx) {
+    public void jobs(final Context ctx) {
         require();
         ctx.contentType("application/json").result(deployer.get("/api/jobs"));
     }
@@ -141,13 +126,7 @@ public final class DeployerApi {
         }
     }
 
-    /**
-     * The service name out of the path, checked.
-     *
-     * <p>Compose service names are lowercase letters, digits, hyphens and underscores; anything
-     * else is either a typo or an attempt to address a different endpoint by putting a slash in
-     * it.</p>
-     */
+    /** The service name out of the path, checked: lowercase letters, digits, hyphens and underscores only. */
     private static String serviceOf(final Context ctx) {
         final String service = ctx.pathParam("service").trim().toLowerCase(Locale.ROOT);
         if (service.isEmpty() || !service.matches("[a-z0-9][a-z0-9_-]{0,62}")) {

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react"
+import { shapedAs } from "@/lib/api"
 
 /**
  * What has been typed into the Settings & Translations tab and not saved yet, one record per file.
@@ -15,7 +16,7 @@ const opened = new Map<string, Record<string, boolean>>()
 const listeners = new Set<() => void>()
 let dirty: string[] = []
 
-const NOTHING: Record<string, never> = Object.freeze({}) as Record<string, never>
+const NOTHING: Record<string, never> = Object.freeze({})
 
 function changed() {
   dirty = [...drafts.keys()]
@@ -31,7 +32,7 @@ function subscribe(listener: () => void) {
 
 /** Sets one key of a file's draft, or removes it with `undefined`. */
 export function setDraftValue(file: string, key: string, value: unknown) {
-  const next = { ...(drafts.get(file) ?? {}) }
+  const next = { ...drafts.get(file) }
   if (value === undefined) delete next[key]
   else next[key] = value
   if (Object.keys(next).length === 0) drafts.delete(file)
@@ -44,8 +45,8 @@ export function clearDraft(file: string) {
   changed()
 }
 
-export function useDraft<T>(file: string): Record<string, T> {
-  return useSyncExternalStore(subscribe, () => (drafts.get(file) ?? NOTHING) as Record<string, T>)
+export function useDraft<T>(file: string, isValue: (value: unknown) => value is Record<string, T>): Record<string, T> {
+  return useSyncExternalStore(subscribe, () => shapedAs(drafts.get(file) ?? NOTHING, isValue, file))
 }
 
 /** Every file that holds a draft. */
@@ -54,7 +55,7 @@ export function useDirtyFiles(): string[] {
 }
 
 export function setOpened(file: string, branch: string, open: boolean) {
-  opened.set(file, { ...(opened.get(file) ?? {}), [branch]: open })
+  opened.set(file, { ...opened.get(file), [branch]: open })
   changed()
 }
 

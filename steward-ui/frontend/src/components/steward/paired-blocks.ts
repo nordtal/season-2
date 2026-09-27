@@ -1,11 +1,11 @@
 import type { ConfigEntry } from "@/lib/api"
 
 /**
- * Two sibling blocks with the same keys, drawn as one row per key (steward/130).
+ * Two sibling blocks with the same keys, drawn as one row per key.
  *
  * <h2>The defect this closes is structural, not cosmetic</h2>
- * The owner, 2026-09-20, on the crest ladder: the hours and the colours should be settable in one
- * place. What made that more than a convenience is what the two lists are: **two lists that belong
+ * On the crest ladder, the hours and the colours should be settable in one
+ * place. What makes that more than a convenience is what the two lists are: **two lists that belong
  * together by position are one list with an unwritten contract**. Whoever changed the seventh line
  * of one had to find the seventh line of the other and trust that the orders agreed - and the
  * failure, tier 7 turning gold at tier 8's hour, is invisible in both files and in a form that
@@ -41,9 +41,11 @@ export function pairedBlocks(entries: ConfigEntry[]): PairedBlocks[] {
     const left = maps[index]
     const right = maps[index + 1]
     if (parentOf(left) !== parentOf(right)) continue
-    // Adjacent in the FILE, not merely consecutive among the maps: a scalar standing between the
-    // two blocks means they are not the pair somebody wrote as one idea, and pairing them anyway
-    // would move that scalar's meaning.
+    /**
+     * Adjacent in the FILE, not merely consecutive among the maps: a scalar standing between the
+     * two blocks means they are not the pair somebody wrote as one idea, and pairing them anyway
+     * would move that scalar's meaning.
+     */
     if (entries.indexOf(right) !== entries.indexOf(left) + descendantsOf(entries, left).length + 1) {
       continue
     }
@@ -63,8 +65,10 @@ export function pairedBlocks(entries: ConfigEntry[]): PairedBlocks[] {
         right: rightChildren[at],
       })),
     })
-    // The right block cannot also be the left of the next pair: it is already spoken for, and a
-    // chain of three blocks is a table this rule does not claim to draw.
+    /**
+     * The right block cannot also be the left of the next pair: it is already spoken for, and a
+     * chain of three blocks is a table this rule does not claim to draw.
+     */
     index += 1
   }
   return found

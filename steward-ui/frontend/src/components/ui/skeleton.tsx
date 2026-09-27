@@ -1,7 +1,7 @@
 import { cn } from "cn"
 
 /**
- * The widths a line of absent text is allowed to have (steward/120).
+ * The widths a line of absent text is allowed to have.
  *
  * Three of them, picked per position and never at random: a random width flickers on every
  * re-render and no test can hold it. They are shares rather than character counts because the
@@ -17,7 +17,7 @@ const WIDTHS = {
 /**
  * A surface standing in for something that is not here yet.
  *
- * It shimmers rather than pulses (steward/120, the owner: *"Probiere gerne Schimmer"*); the animation,
+ * It shimmers rather than pulses; the animation,
  * its timing and why it is a moved pseudo-element rather than a moved background are argued at
  * length beside `@utility skeleton-shimmer` in `index.css`.
  *

@@ -10,20 +10,53 @@ import type { ConfigEntry, ConfigLocation } from "@/lib/api"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The configuration form draws headings, labels and controls out of what steward/55's worker now
- * sends - the schema beside a file, when there is one - and this is where that drawing is checked,
- * the same way `recreate.test.tsx` checks a dialog against a fake backend answering by URL.
+ * The configuration form draws headings, labels and controls out of the schema beside a file, when
+ * there is one, and this is where that drawing is checked, the same way `recreate.test.tsx` checks
+ * a dialog against a fake backend answering by URL.
  *
- * Every scenario below is a RED test first: each one failed against the form as it stood before
- * steward/56 (raw filenames, comments-only text, no "not in schema" marker, no select for a
- * schema's allowed values, `database.yml` an ordinary writable file, no route for a file that will
- * not parse as YAML at all) and is recorded failing, verbatim, in the ticket's report before the
- * component below was written to make it pass.
- *
- * No `jest-dom`, same as `recreate.test.tsx` - this project does not install it, so an assertion
- * like "disabled" reads the DOM property directly rather than through a matcher this repo has
- * deliberately not added.
+ * No `jest-dom` - this project does not install it, so an assertion like "disabled" reads the DOM
+ * property directly rather than through a matcher this repo has deliberately not added.
  */
+
+async function search(query: string) {
+  fireEvent.change(await screen.findByLabelText("Search this file"), { target: { value: query } })
+}
+
+function asInput(element: HTMLElement): HTMLInputElement {
+  if (!(element instanceof HTMLInputElement)) throw new Error("expected an input element")
+  return element
+}
+
+function asTextArea(element: HTMLElement): HTMLTextAreaElement {
+  if (!(element instanceof HTMLTextAreaElement)) throw new Error("expected a textarea element")
+  return element
+}
+
+function asButton(element: HTMLElement): HTMLButtonElement {
+  if (!(element instanceof HTMLButtonElement)) throw new Error("expected a button element")
+  return element
+}
+
+/** The text a `PUT` request carried, for a fixture's `RequestInit['body']`, which is not always a string. */
+function requestBody(body: BodyInit | null | undefined): string {
+  if (typeof body !== "string") throw new Error("expected the request body to be a string")
+  return body
+}
+
+function isPutRequest(value: unknown): value is { revision: string; content: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "revision" in value &&
+    "content" in value &&
+    typeof value.revision === "string" &&
+    typeof value.content === "string"
+  )
+}
+
+function isBodyWithChanges(value: unknown): value is { changes: unknown } {
+  return typeof value === "object" && value !== null && "changes" in value
+}
 
 function json(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -60,15 +93,55 @@ function entry(over: Partial<ConfigEntry> & { path: string; key: string }): Conf
   }
 }
 
+function colourEntry(key: string, value: string): ConfigEntry {
+  return entry({ path: key, key, label: key, value })
+}
+
+function ladder(hours: string[], colours: string[]): ConfigEntry[] {
+  const keys = ["tier-01", "tier-02", "tier-03"]
+  return [
+    entry({ path: "admin", key: "admin", label: "admin", value: "#ff5555" }),
+    entry({ path: "hours", key: "hours", label: "hours", kind: "MAP", editable: false }),
+    ...keys.map((key, at) => entry({ path: `hours.${key}`, key, label: key, type: "INTEGER", value: hours[at] })),
+    entry({ path: "colours", key: "colours", label: "colours", kind: "MAP", editable: false }),
+    ...keys.map((key, at) => entry({ path: `colours.${key}`, key, label: key, value: colours[at] })),
+  ]
+}
+
+/** What is on the screen: everything `sr-only` is for a screen reader and not for the eye. */
+function visibleText(element: HTMLElement): string {
+  const copy = element.cloneNode(true)
+  if (!(copy instanceof HTMLElement)) throw new Error("expected a cloned element")
+  copy.querySelectorAll(".sr-only").forEach((hidden) => hidden.remove())
+  return copy.textContent ?? ""
+}
+
+/**
+ * By id, not by value: a colour field is an `<input type="color">` and a text box carrying the
+ * same value, so `getByDisplayValue` is ambiguous for every colour on the page. The id is the
+ * entry's own path.
+ */
+function fieldFor(container: HTMLElement, path: string): HTMLInputElement {
+  return asInput(nonNull(container.querySelector<HTMLElement>(`[id="${path}"]`), `a field drawn for ${path}`))
+}
+
+function nonNull<T>(value: T | null, what: string): T {
+  if (value === null) throw new Error(`expected ${what}`)
+  return value
+}
+
 const GUILD_UNAVAILABLE = { available: false, reason: "no bot token in this test", entries: [] }
 
 /** One `/api/config/<path>` answer per fixture file, keyed exactly the way the route is called. */
-function backend(documents: Record<string, unknown>) {
-  const listing = Object.values(documents).map((document) => {
-    const { service, name, path, readable, writable } = document as ConfigLocation
-    return { service, name, path, readable, writable }
-  })
-  return vi.fn(async (url: string) => {
+function backend(documents: Record<string, ConfigLocation & Record<string, unknown>>) {
+  const listing = Object.values(documents).map(({ service, name, path, readable, writable }) => ({
+    service,
+    name,
+    path,
+    readable,
+    writable,
+  }))
+  return vi.fn<(url: string) => Promise<Response>>(async (url: string) => {
     if (url === "/api/config") return json(listing)
     if (url === "/api/messages") return json([])
     if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
@@ -82,9 +155,11 @@ function draw(node: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  // The same provider the Shell puts around everything (recreate.test.tsx's own comment on this):
-  // EnvironmentOverriddenBadge (steward/76) is a Radix tooltip and throws without one, which would
-  // be a test failing for a reason the component does not have.
+  /**
+   * The same provider the Shell puts around everything (recreate.test.tsx's own comment on this):
+   * EnvironmentOverriddenBadge is a Radix tooltip and throws without one, which would be a test
+   * failing for a reason the component does not have.
+   */
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>{node}</TooltipProvider>
@@ -92,7 +167,7 @@ function draw(node: ReactNode) {
   )
 }
 
-/** Opens a file row by the plain-text name the row now shows (steward/56), not the raw filename. */
+/** Opens a file row by the plain-text name the row shows, not the raw filename. */
 async function open(humanName: string) {
   fireEvent.click(await screen.findByText(humanName))
 }
@@ -118,6 +193,7 @@ describe("the file row", () => {
           ...location({ path: "steward-worker/steward.yml", name: "steward.yml" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [],
         },
       }),
@@ -126,9 +202,10 @@ describe("the file row", () => {
     draw(<Settings service="steward-worker" />)
 
     await screen.findByText("Steward")
-    // season-2-ops/130: the path used to sit under the name in monospace and made every row in the
-    // list two lines tall. The assertion is the absence, because the name alone reads the same as
-    // it did before and would pass either way.
+    /**
+     * The path used to sit under the name in monospace and made every row in the list two lines
+     * tall, so the assertion is the absence of it.
+     */
     expect(screen.queryByText("steward.yml")).toBeNull()
   })
 
@@ -215,6 +292,7 @@ describe("the file row", () => {
           ...location({ path: "discord-bot/bot.yml", name: "bot.yml", service: "discord-bot" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [],
         },
       }),
@@ -240,14 +318,11 @@ describe("searching a file", () => {
           ...location({ path: file, name: "steward.yml" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries,
         },
       }),
     )
-  }
-
-  async function search(query: string) {
-    fireEvent.change(await screen.findByLabelText("Search this file"), { target: { value: query } })
   }
 
   const twoFields = [
@@ -296,8 +371,10 @@ describe("searching a file", () => {
   it("never finds a secret by its value", async () => {
     const token = "MTA1NzE4.super-secret-discord-token"
     withEntries([
-      // As if a future bug sent a value for a secret anyway - the wire contract in lib/api.ts says
-      // this never happens, and the search has to refuse it on its own regardless.
+      /**
+       * As if a future bug sent a value for a secret anyway - the wire contract in lib/api.ts says
+       * this never happens, and the search has to refuse it on its own regardless.
+       */
       entry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: token }),
     ])
     draw(<Settings service="steward-worker" />)
@@ -318,7 +395,7 @@ describe("searching a file", () => {
 
     await search("bot token")
 
-    await screen.findByText("Bot token")
+    expect(await screen.findByText("Bot token")).not.toBeNull()
   })
 })
 
@@ -333,11 +410,14 @@ describe("headings and explanations", () => {
           ...location({ path: file, name: "steward.yml" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [
             entry({ path: "worker", key: "worker", label: "Worker", kind: "MAP" }),
             entry({ path: "worker.limits", key: "limits", label: "Limits", kind: "MAP" }),
-            // Three levels deep: steward/56 says a heading stops here and the leaf's own path
-            // carries the rest instead of a fourth grouping concept.
+            /**
+             * Three levels deep: a heading stops here and the leaf's own path carries the rest
+             * instead of a fourth grouping concept.
+             */
             entry({ path: "worker.limits.retry", key: "retry", label: "Retry", kind: "MAP" }),
             entry({
               path: "worker.limits.retry.max-attempts",
@@ -397,7 +477,7 @@ describe("headings and explanations", () => {
     draw(<Settings service="steward-worker" />)
     await open("Steward")
 
-    await screen.findByText("How many times a failed job is retried before it is given up on.")
+    expect(await screen.findByText("How many times a failed job is retried before it is given up on.")).not.toBeNull()
   })
 
   it("draws literally no text when the schema says no explanation is needed", async () => {
@@ -412,25 +492,25 @@ describe("headings and explanations", () => {
     draw(<Settings service="steward-worker" />)
     await open("Steward")
 
-    await screen.findByText("Whatever jcore's comment block above this key used to say.")
+    expect(await screen.findByText("Whatever jcore's comment block above this key used to say.")).not.toBeNull()
   })
 
   it("marks a key the schema does not cover as not in schema", async () => {
     draw(<Settings service="steward-worker" />)
     await open("Steward")
 
-    await screen.findByText("not in schema")
+    expect(await screen.findByText("not in schema")).not.toBeNull()
   })
 })
 
 /**
- * steward/76: an environment variable can take a path over from the file - measured on this host,
- * `NORDTAL_ACCESS_LANGUAGES` does exactly that to `access.yml`'s `languages` - and until now Steward
- * drew that field exactly like any other editable one, so a save there looked like it worked and
- * changed nothing the bot would ever read. `environmentOverridden` is absent/`true`/`false` and all
- * three have to draw differently: absent is "this service never said", not "not overridden".
+ * An environment variable can take a path over from the file - `NORDTAL_ACCESS_LANGUAGES` does
+ * exactly that to `access.yml`'s `languages` - and a field under such an override must not draw
+ * like any other editable one, since a save there would look like it worked and change nothing the
+ * bot would ever read. `environmentOverridden` is absent/`true`/`false` and all three have to draw
+ * differently: absent is "this service never said", not "not overridden".
  */
-describe("environment overrides (steward/76)", () => {
+describe("environment overrides", () => {
   const file = "steward-worker/steward.yml"
 
   function withField(over: Partial<ConfigEntry>) {
@@ -441,6 +521,7 @@ describe("environment overrides (steward/76)", () => {
           ...location({ path: file, name: "steward.yml" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [
             entry({
               path: "worker.base-url",
@@ -461,7 +542,7 @@ describe("environment overrides (steward/76)", () => {
     await open("Steward")
 
     await screen.findByText("env override")
-    const input = (await screen.findByDisplayValue("http://steward-worker:8081")) as HTMLInputElement
+    const input = asInput(await screen.findByDisplayValue("http://steward-worker:8081"))
     expect(input.disabled).toBe(false)
   })
 
@@ -495,6 +576,7 @@ describe("a schema's allowed values", () => {
           ...location({ path: file, name: "steward.yml" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [
             entry({
               path: "region",
@@ -523,6 +605,7 @@ describe("a schema's allowed values", () => {
           ...location({ path: file, name: "steward.yml" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [
             entry({
               path: "color",
@@ -539,7 +622,7 @@ describe("a schema's allowed values", () => {
     await open("Steward")
 
     await screen.findByRole("combobox")
-    const free = screen.getByLabelText("Free text") as HTMLInputElement
+    const free = asInput(screen.getByLabelText("Free text"))
     expect(free.value).toBe("custom-magenta")
   })
 })
@@ -554,6 +637,7 @@ describe("database.yml", () => {
           ...location({ path: file, name: "database.yml", writable: true }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [entry({ path: "host", key: "host", label: "Host", value: "postgres" })],
         },
       }),
@@ -562,14 +646,15 @@ describe("database.yml", () => {
     await open("Database")
 
     await screen.findByText("Read-only.")
-    expect((screen.getByDisplayValue("postgres") as HTMLInputElement).disabled).toBe(true)
+    expect(asInput(screen.getByDisplayValue("postgres")).disabled).toBe(true)
   })
 
   it("is read-only for a plugin too, whose file is not called database.yml on its own", async () => {
-    // `name` is the path under the service directory, so only the three services that keep their
-    // file at the top - discord-bot, steward-worker, steward-ui - are called `database.yml`
-    // outright. A plugin's is `smp/database.yml`. Measured against the running mount on
-    // 2026-09-16, an equality check caught three of seven and left the other four editable.
+    /**
+     * `name` is the path under the service directory, so only the three services that keep their
+     * file at the top - discord-bot, steward-worker, steward-ui - are called `database.yml`
+     * outright. A plugin's is `smp/database.yml`, and an equality check alone would miss it.
+     */
     const file = "smp/smp/database.yml"
     vi.stubGlobal(
       "fetch",
@@ -578,6 +663,7 @@ describe("database.yml", () => {
           ...location({ path: file, name: "smp/database.yml", service: "smp", writable: true }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [entry({ path: "host", key: "host", label: "Host", value: "postgres" })],
         },
       }),
@@ -586,11 +672,11 @@ describe("database.yml", () => {
     await open("Database")
 
     await screen.findByText("Read-only.")
-    expect((screen.getByDisplayValue("postgres") as HTMLInputElement).disabled).toBe(true)
+    expect(asInput(screen.getByDisplayValue("postgres")).disabled).toBe(true)
   })
 })
 
-describe("a file that does not parse as YAML (steward/56, editable since steward/60)", () => {
+describe("a file that does not parse as YAML", () => {
   it("is shown as raw text, editable and with a Save button, when the mount allows a write", async () => {
     const file = "steward-worker/README.txt"
     vi.stubGlobal(
@@ -608,10 +694,12 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
     draw(<Settings service="steward-worker" />)
     await open("Readme")
 
-    // `findByDisplayValue`'s default normalizer trims trailing whitespace, so the trailing newline
-    // the fixture's content ends in is not part of what it matches against.
+    /**
+     * `findByDisplayValue`'s default normalizer trims trailing whitespace, so the trailing newline
+     * the fixture's content ends in is not part of what it matches against.
+     */
     await screen.findByDisplayValue("Read me.")
-    const save = screen.getByRole("button", { name: /Save/ }) as HTMLButtonElement
+    const save = asButton(screen.getByRole("button", { name: /Save/ }))
     expect(save.disabled).toBe(true)
   })
 
@@ -639,16 +727,17 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
   it("saves what was typed on Save, and shows a syntax warning without undoing it", async () => {
     const file = "steward-worker/config.yml"
     const broken = "one: 1\ntwo: [unterminated\n"
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    let putBody: { revision: string; content: string } | undefined
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url, init) => {
       if (url === "/api/messages") return json([])
       if (url === "/api/config") {
         return json([{ service: "steward-worker", name: "config.yml", path: file, readable: true, writable: true }])
       }
       if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
       if (url === `/api/config-raw/${file}` && init?.method === "PUT") {
-        const body = JSON.parse(String(init.body)) as { revision: string; content: string }
-        expect(body.revision).toBe("r1")
-        expect(body.content).toBe(broken)
+        const parsed: unknown = JSON.parse(requestBody(init.body))
+        if (!isPutRequest(parsed)) throw new Error("the raw save did not carry a revision and content")
+        putBody = parsed
         return json({
           ...location({ path: file, name: "config.yml" }),
           raw: true,
@@ -674,16 +763,19 @@ describe("a file that does not parse as YAML (steward/56, editable since steward
     draw(<Settings service="steward-worker" />)
     await open("Config")
 
-    const editor = (await screen.findByLabelText("Raw content of config.yml")) as HTMLTextAreaElement
+    const editor = asTextArea(await screen.findByLabelText("Raw content of config.yml"))
     fireEvent.change(editor, { target: { value: broken } })
     fireEvent.click(screen.getByRole("button", { name: /Save/ }))
 
     await screen.findByText("Line 3: not valid YAML: expected ',' or ']', but got :")
-    // The warning is shown beside the save, not instead of it - the text the operator typed is
-    // still what is on screen, matching what the fake worker above actually wrote.
-    // `getByDisplayValue` collapses inner whitespace under its default normalizer, which would
-    // treat this content's own line break as insignificant, so the element's real `value` is
-    // asserted directly instead.
+    expect(putBody).toEqual({ revision: "r1", content: broken })
+    /**
+     * The warning is shown beside the save, not instead of it - the text the operator typed is
+     * still what is on screen, matching what the fake worker above actually wrote.
+     * `getByDisplayValue` collapses inner whitespace under its default normalizer, which would
+     * treat this content's own line break as insignificant, so the element's real `value` is
+     * asserted directly instead.
+     */
     expect(editor.value).toBe(broken)
   })
 })
@@ -698,6 +790,7 @@ describe("a file with no schema at all", () => {
           ...location({ path: file, name: "legacy.yml" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [
             entry({
               path: "port",
@@ -721,16 +814,14 @@ describe("a file with no schema at all", () => {
 })
 
 /**
- * Repeatable cards (steward/57), wired through the real form rather than tested in isolation the
- * way `repeatable-cards.test.tsx` does it - these prove `Control` actually reaches for
+ * Repeatable cards, wired through the real form rather than tested in isolation the way
+ * `repeatable-cards.test.tsx` does it - these prove `Control` actually reaches for
  * `RepeatableCards` on a `SECTIONS` entry, and that the whole page still only writes on Save.
  *
  * The worker does not send `kind: "SECTIONS"` today - see the comment on `ConfigEntry.kind` in
- * `lib/api.ts` - so every fixture below is this ticket's own proposal for the shape, exercised the
- * same way steward/56's fixtures stood in for a worker change that had already shipped by the time
- * they were written. Here it has not.
+ * `lib/api.ts` - so every fixture below is this file's own proposal for the shape.
  */
-describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
+describe("repeatable cards for a SECTIONS entry", () => {
   const file = "discord-bot/access.yml"
   const TEMPLATE: ConfigEntry[] = [
     entry({ path: "tag", key: "tag", label: "Tag" }),
@@ -764,6 +855,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
           ...location({ path: file, name: "access.yml", service: "discord-bot" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [languages([section("en", "")])],
         },
       }),
@@ -774,11 +866,11 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
     await screen.findByDisplayValue("en")
     fireEvent.click(screen.getByRole("button", { name: /Add entry/ }))
 
-    const tags = screen.getAllByLabelText("Tag") as HTMLInputElement[]
+    const tags = screen.getAllByLabelText("Tag").map(asInput)
     expect(tags.map((input) => input.value)).toEqual(["en", ""])
   })
 
-  it("titles a language card by its name, not its tag (steward/61)", async () => {
+  it("titles a language card by its name, not its tag", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -786,6 +878,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
           ...location({ path: file, name: "access.yml", service: "discord-bot" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [languages([section("en", ""), section("de", "")])],
         },
       }),
@@ -800,8 +893,10 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
     expect(screen.queryByText("Entry 1")).toBeNull()
     expect(screen.queryByText("en", { selector: "span" })).toBeNull()
 
-    // A freshly added, still-blank card has no tag yet and falls back to the plain index rather
-    // than showing an empty title.
+    /**
+     * A freshly added, still-blank card has no tag yet and falls back to the plain index rather
+     * than showing an empty title.
+     */
     fireEvent.click(screen.getByRole("button", { name: /Add entry/ }))
     screen.getByText("Entry 3")
   })
@@ -814,6 +909,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
           ...location({ path: file, name: "access.yml", service: "discord-bot" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [languages([section("en", "")])],
         },
       }),
@@ -821,25 +917,30 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
     draw(<Settings service="discord-bot" />)
     await open("Access")
 
-    // GUILD_UNAVAILABLE (no bot token in this test) makes the picker degrade to a text input, but
-    // it still carries its own fallback hint - a plain ScalarControl text field never shows this.
-    await screen.findByText(/Paste the id instead/)
+    /**
+     * GUILD_UNAVAILABLE (no bot token in this test) makes the picker degrade to a text input, but
+     * it still carries its own fallback hint - a plain ScalarControl text field never shows this.
+     */
+    expect(await screen.findByText(/Paste the id instead/)).not.toBeNull()
   })
 
   it("removes a card from the draft only, and writes it on Save - not on the click", async () => {
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    let putChanges: unknown
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url, init) => {
       if (url === "/api/messages") return json([])
       if (url === "/api/config") {
         return json([{ service: "discord-bot", name: "access.yml", path: file, readable: true, writable: true }])
       }
       if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
       if (url === `/api/config/${file}` && init?.method === "PUT") {
-        const body = JSON.parse(String(init.body)) as { revision: string; changes: Record<string, unknown> }
-        expect(body.changes.languages).toEqual([{ tag: "en", "contribution-channel": "" }])
+        const parsed: unknown = JSON.parse(requestBody(init.body))
+        if (!isBodyWithChanges(parsed)) throw new Error("the save did not carry changes")
+        putChanges = parsed.changes
         return json({
           ...location({ path: file, name: "access.yml", service: "discord-bot" }),
           revision: "r2",
           header: [],
+          restartRequired: false,
           entries: [languages([section("en", "")])],
         })
       }
@@ -848,6 +949,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
           ...location({ path: file, name: "access.yml", service: "discord-bot" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [languages([section("en", ""), section("de", "")])],
         })
       }
@@ -860,7 +962,7 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
     await screen.findByDisplayValue("de")
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 2" }))
-    // Removing asks first (steward/49, steward/61) - the click only arms the confirmation.
+    // Removing asks first - the click only arms the confirmation.
     fireEvent.click(screen.getByRole("button", { name: "Remove it" }))
 
     // The card is gone from the draft, and the count says so - but nothing has been written yet.
@@ -871,22 +973,18 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save 1" }))
 
     await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true))
+    expect(putChanges).toEqual({ languages: [{ tag: "en", "contribution-channel": "" }] })
   })
 })
 
 /**
- * steward/63: the five tones of `colours.yml` (season-2-ingame/22), end to end through the real
- * form - `colourRuns` and its unit tests in `colour-control.test.tsx` cover the grouping logic in
- * isolation, but the thing the ticket actually asked for is what a person sees on this page, and
- * that needs the Settings tab wired up for real: the tree receiving the file's entries, building
- * the run, and the run actually reaching the DOM.
+ * The five tones of `colours.yml`, end to end through the real form - `colourRuns` and its unit
+ * tests in `colour-control.test.tsx` cover the grouping logic in isolation, but this is what a
+ * person actually sees on the page: the Settings tab wired up for real, the tree receiving the
+ * file's entries, building the run, and the run actually reaching the DOM.
  */
-describe("a file of colours, side by side (steward/63)", () => {
+describe("a file of colours, side by side", () => {
   const file = "smp/colours.yml"
-
-  function colour(key: string, value: string): ConfigEntry {
-    return entry({ path: key, key, label: key, value })
-  }
 
   it("draws every tone of one file as one row, not five stacked fields", async () => {
     vi.stubGlobal(
@@ -896,12 +994,13 @@ describe("a file of colours, side by side (steward/63)", () => {
           ...location({ path: file, name: "colours.yml", service: "smp" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [
-            colour("good", "#8ba888"),
-            colour("bad", "#a8888b"),
-            colour("warn", "#b08a4a"),
-            colour("neutral", "#c9c9c9"),
-            colour("muted", "#aaaaaa"),
+            colourEntry("good", "#8ba888"),
+            colourEntry("bad", "#a8888b"),
+            colourEntry("warn", "#b08a4a"),
+            colourEntry("neutral", "#c9c9c9"),
+            colourEntry("muted", "#aaaaaa"),
           ],
         },
       }),
@@ -912,9 +1011,11 @@ describe("a file of colours, side by side (steward/63)", () => {
     const swatches = await screen.findAllByLabelText("Pick a colour")
     expect(swatches).toHaveLength(5)
 
-    // Every swatch's row ancestor (`.flex-wrap`, the container `EntryList` builds for a run) has to
-    // be the very same element - that is what "one row" means in the DOM, as opposed to five
-    // separate fields that merely look similar stacked one after another.
+    /**
+     * Every swatch's row ancestor (`.flex-wrap`, the container `EntryList` builds for a run) has to
+     * be the very same element - that is what "one row" means in the DOM, as opposed to five
+     * separate fields that merely look similar stacked one after another.
+     */
     const rows = new Set(swatches.map((swatch) => swatch.closest(".flex-wrap")))
     expect(rows.size).toBe(1)
     expect(rows.has(null)).toBe(false)
@@ -928,16 +1029,19 @@ describe("a file of colours, side by side (steward/63)", () => {
           ...location({ path: file, name: "colours.yml", service: "smp" }),
           revision: "r1",
           header: [],
-          // Only one colour in the file - `colourRuns` never groups a single entry, but the field
-          // itself is still exactly the colour it looks like and still gets the picker.
-          entries: [colour("good", "#8ba888"), entry({ path: "label", key: "label", value: "smp" })],
+          restartRequired: false,
+          /**
+           * Only one colour in the file - `colourRuns` never groups a single entry, but the field
+           * itself is still exactly the colour it looks like and still gets the picker.
+           */
+          entries: [colourEntry("good", "#8ba888"), entry({ path: "label", key: "label", value: "smp" })],
         },
       }),
     )
     draw(<Settings service="smp" />)
     await open("Colours")
 
-    await screen.findByLabelText("Pick a colour")
+    expect(await screen.findByLabelText("Pick a colour")).not.toBeNull()
   })
 
   it("leaves an ordinary text field alone - no picker, no swatch", async () => {
@@ -948,6 +1052,7 @@ describe("a file of colours, side by side (steward/63)", () => {
           ...location({ path: file, name: "colours.yml", service: "smp" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [entry({ path: "label", key: "label", label: "Label", value: "smp" })],
         },
       }),
@@ -961,25 +1066,14 @@ describe("a file of colours, side by side (steward/63)", () => {
 })
 
 /**
- * steward/130: `prestige.yml`'s two blocks, end to end through the real form.
+ * `prestige.yml`'s two blocks, end to end through the real form.
  *
  * `paired-blocks.test.ts` holds the rule itself; this is the half that rule exists for - one row
  * per tier, with the hour and the colour of that tier in it, drawn by `ServiceConfiguration` from
  * a file that looks exactly like the one the plugin ships.
  */
-describe("two blocks that share their keys, as one row per key (steward/130)", () => {
+describe("two blocks that share their keys, as one row per key", () => {
   const file = "smp/prestige.yml"
-
-  function ladder(hours: string[], colours: string[]): ConfigEntry[] {
-    const keys = ["tier-01", "tier-02", "tier-03"]
-    return [
-      entry({ path: "admin", key: "admin", label: "admin", value: "#ff5555" }),
-      entry({ path: "hours", key: "hours", label: "hours", kind: "MAP", editable: false }),
-      ...keys.map((key, at) => entry({ path: `hours.${key}`, key, label: key, type: "INTEGER", value: hours[at] })),
-      entry({ path: "colours", key: "colours", label: "colours", kind: "MAP", editable: false }),
-      ...keys.map((key, at) => entry({ path: `colours.${key}`, key, label: key, value: colours[at] })),
-    ]
-  }
 
   function withLadder() {
     vi.stubGlobal(
@@ -989,28 +1083,11 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
           ...location({ path: file, name: "prestige.yml", service: "smp" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: ladder(["0", "2", "5"], ["#5fbfae", "#5ea9d6", "#6f93e0"]),
         },
       }),
     )
-  }
-
-  /** What is on the screen: everything `sr-only` is for a screen reader and not for the eye. */
-  function visibleText(element: HTMLElement): string {
-    const copy = element.cloneNode(true) as HTMLElement
-    copy.querySelectorAll(".sr-only").forEach((hidden) => hidden.remove())
-    return copy.textContent ?? ""
-  }
-
-  /**
-   * By id, not by value: a colour field is an `<input type="color">` and a text box carrying the
-   * same value, so `getByDisplayValue` is ambiguous for every colour on the page. The id is the
-   * entry's own path, which is also the thing this ticket must not disturb.
-   */
-  function fieldFor(container: HTMLElement, path: string): HTMLInputElement {
-    const found = container.querySelector(`[id="${path}"]`)
-    if (!found) throw new Error(`no field is drawn for ${path}`)
-    return found as HTMLInputElement
   }
 
   it("puts a tier's hour and its colour in the same row", async () => {
@@ -1024,8 +1101,10 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
     const row = hour.closest("li")
 
     expect(row).not.toBeNull()
-    // The same `<li>`, which is what "one row per tier" means in the DOM. Two fields that merely
-    // look similar, stacked, is precisely the arrangement this ticket exists to end.
+    /**
+     * The same `<li>`, which is what "one row per tier" means in the DOM. Two fields that merely
+     * look similar, stacked, is precisely the arrangement this ticket exists to end.
+     */
     expect(colour.closest("li")).toBe(row)
     expect(row?.textContent).toContain("tier-02")
   })
@@ -1036,14 +1115,16 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
     await open("Prestige")
 
     await screen.findByDisplayValue("2")
-    const row = fieldFor(container, "hours.tier-02").closest("li") as HTMLElement
-    // `tier-02` is the row's subject and is said once, on the left. The two halves carry no visible
-    // label of their own: three rows repeating "hours" and "colours" is three repetitions of a
-    // column heading, and on a phone it is also the width the hex field needs. What a screen reader
-    // hears is the next test; this one is about what is drawn, so the `sr-only` labels come out
-    // first - `textContent` cannot tell them apart from anything else.
+    const row = nonNull(fieldFor(container, "hours.tier-02").closest<HTMLElement>("li"), "the row")
+    /**
+     * `tier-02` is the row's subject and is said once, on the left. The two halves carry no visible
+     * label of their own: three rows repeating "hours" and "colours" is three repetitions of a
+     * column heading, and on a phone it is also the width the hex field needs. What a screen reader
+     * hears is the next test; this one is about what is drawn, so the `sr-only` labels come out
+     * first - `textContent` cannot tell them apart from anything else.
+     */
     expect(visibleText(row).match(/tier-02/g) ?? []).toHaveLength(1)
-    const block = row.closest("ul") as HTMLElement
+    const block = nonNull(row.closest<HTMLElement>("ul"), "the block")
     expect(visibleText(block).match(/hours/g) ?? []).toHaveLength(1)
     expect(visibleText(block).match(/colours/g) ?? []).toHaveLength(1)
   })
@@ -1073,7 +1154,7 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
 
   it("writes both halves of a row under their own real keys", async () => {
     withLadder()
-    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
+    const fetchMock = vi.mocked(global.fetch)
     const { container } = draw(<Settings service="smp" />)
     await open("Prestige")
 
@@ -1084,9 +1165,14 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
 
     await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true))
     const put = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")
-    expect(JSON.parse(String(put?.[1]?.body)).changes).toEqual({
-      // The display label was overridden, the path was not - which is what keeps a search hit and
-      // a save pointing at the same key.
+    const body = requestBody(put?.[1]?.body)
+    const parsed: unknown = JSON.parse(body)
+    if (!isBodyWithChanges(parsed)) throw new Error("the save did not carry changes")
+    expect(parsed.changes).toEqual({
+      /**
+       * The display label was overridden, the path was not - which is what keeps a search hit and
+       * a save pointing at the same key.
+       */
       "hours.tier-02": "3",
       "colours.tier-02": "#112233",
     })
@@ -1100,6 +1186,7 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
           ...location({ path: file, name: "prestige.yml", service: "smp" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [
             entry({ path: "hours", key: "hours", label: "hours", kind: "MAP", editable: false }),
             entry({ path: "hours.tier-01", key: "tier-01", label: "tier-01", value: "0" }),
@@ -1113,8 +1200,10 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
     const { container } = draw(<Settings service="smp" />)
     await open("Prestige")
 
-    // Nothing is paired, so nothing is a row - and, crucially, nothing has been dropped either:
-    // all three values are still on the page, each as its own field.
+    /**
+     * Nothing is paired, so nothing is a row - and, crucially, nothing has been dropped either:
+     * all three values are still on the page, each as its own field.
+     */
     await screen.findByDisplayValue("2")
     expect(fieldFor(container, "hours.tier-02").closest("li")).toBeNull()
     expect(fieldFor(container, "hours.tier-01").value).toBe("0")
@@ -1123,15 +1212,15 @@ describe("two blocks that share their keys, as one row per key (steward/130)", (
 })
 
 /**
- * steward/127. The owner asked that a click on a search hit actually take you there - and the case
- * where it did not was the one nobody thinks to try, because it looks like the easiest of them:
- * searching while already standing on the service page the hit belongs to.
+ * A click on a search hit has to actually take you there, including the case that looks like the
+ * easiest of them: searching while already standing on the service page the hit belongs to.
  *
  * `navigate` to the route you are on is a no-op, nothing remounts, `service` does not change, and
- * the effect that consumes a pending jump was keyed on exactly that. So the click did nothing at
- * all - and left the jump in the map, where it fired the next time somebody arrived on this page.
+ * the effect that consumes a pending jump is keyed on exactly that - so without care the click does
+ * nothing at all, and leaves the jump in the map, where it fires the next time somebody arrives on
+ * this page.
  */
-describe("a hit that arrives while this page is already open (steward/127)", () => {
+describe("a hit that arrives while this page is already open", () => {
   const file = "steward-worker/steward.yml"
 
   function drawWith(entries: ConfigEntry[]) {
@@ -1142,6 +1231,7 @@ describe("a hit that arrives while this page is already open (steward/127)", () 
           ...location({ path: file, name: "steward.yml" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries,
         },
       }),
@@ -1150,8 +1240,10 @@ describe("a hit that arrives while this page is already open (steward/127)", () 
   }
 
   afterEach(() => {
-    // Nothing may survive into the next test: the map is module level and a leftover jump is
-    // exactly the second bug this ticket is about.
+    /**
+     * Nothing may survive into the next test: the map is module level and a leftover jump is
+     * exactly the second bug this ticket is about.
+     */
     takePendingJump("steward-worker")
   })
 
@@ -1232,6 +1324,7 @@ describe("the arrow back to the top", () => {
           ...location({ path: "steward-worker/steward.yml", name: "steward.yml" }),
           revision: "r1",
           header: [],
+          restartRequired: false,
           entries: [entry({ path: "port", key: "port", value: "8080" })],
         },
       }),

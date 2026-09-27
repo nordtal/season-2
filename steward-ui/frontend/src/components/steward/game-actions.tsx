@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 /**
  * The SMP's and the hunger games' admin actions, on their own service pages.
  *
- * Decided 2026-09-20: these actions must never look like commands in any way. So nothing here names a command, draws a terminal or offers an argument field: an
+ * These actions must never look like commands in any way. Nothing here names a command, draws a terminal or offers an argument field: an
  * objective and a milestone are picked from the SMP's own track, and a round is one button.
  *
  * **Each press is still a row a Paper server has to pick up**, so the answer arrives late and in
@@ -156,6 +156,14 @@ export function HungerGamesActions() {
       confirm: confirm ? "Start anyway" : "Start",
     })
 
+  /**
+   * The server asks again when fewer than the recommended number are registered, and says
+   * so in its answer. A round still open for registration after a start is one that did not
+   * start - so that is when the second step is offered, and never before the first answer.
+   */
+  const after = (run: CommandRun) =>
+    run.status === "DONE" && ask?.confirm === "Start" ? <StartAnyway onStart={() => start(true)} /> : null
+
   return (
     <Card>
       <CardHeader>
@@ -190,12 +198,12 @@ export function HungerGamesActions() {
         ask={ask}
         onClose={() => setAsk(null)}
         refresh="hunger-games-round"
-        // The server asks again when fewer than the recommended number are registered, and says
-        // so in its answer. A round still open for registration after a start is one that did not
-        // start - so that is when the second step is offered, and never before the first answer.
-        after={(run) =>
-          run.status === "DONE" && ask?.confirm === "Start" ? <StartAnyway onStart={() => start(true)} /> : null
-        }
+        /**
+         * The server asks again when fewer than the recommended number are registered, and says
+         * so in its answer. A round still open for registration after a start is one that did not
+         * start - so that is when the second step is offered, and never before the first answer.
+         */
+        after={after}
       />
     </Card>
   )
@@ -238,10 +246,12 @@ function ActionDialog({
 
   // A new question starts clean: the answer to the last one is not the answer to this.
   const reset = action.reset
-  useEffect(() => {
+  const [lastAsk, setLastAsk] = useState(ask)
+  if (lastAsk !== ask) {
+    setLastAsk(ask)
     setId(null)
     reset()
-  }, [ask, reset])
+  }
 
   const waiting = action.isPending || (id !== null && !settled && !run.error)
 

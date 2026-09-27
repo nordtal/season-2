@@ -11,11 +11,8 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 /**
  * {@code database.yml} - the same database every other process in this stack reads.
  *
- * <p><b>This process never migrates it.</b> steward-worker owns the schema and is the only thing
- * that applies a migration; the interface reads and writes rows within a schema somebody else put
- * there. If this container starts against an older schema than its jar expects, that is a
- * deployment in the middle of an update, and the answer is to wait for the worker rather than to
- * race it.</p>
+ * This process never migrates it; steward-worker owns the schema and is the only thing that
+ * applies a migration.
  */
 @ConfigSpec(
         header = {

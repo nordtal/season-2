@@ -8,20 +8,14 @@ import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link AlertLevelSource} over the wire: {@code GET /api/alert-level} on steward-worker.
  *
- * <p>Parsed by hand rather than into a shared DTO, for the reason {@link AlertReading}'s own class
- * note gives: the shape belongs to {@code AlertLevel} in {@code :steward-worker}, and this is the
- * one place in {@code :steward-ui} that reads it.</p>
- *
- * <p><b>An absent number stays absent.</b> {@code diskPercent}, {@code memoryPercent} and
- * {@code backupAgeHours} are left out of the body exactly when the worker could not measure them,
- * and they arrive here as null rather than as zero - a disk nobody could read must not become a
- * disk that is empty. {@link Alerts} skips a null and says nothing about it.</p>
+ * Parsed by hand rather than into a shared DTO: the shape belongs to {@code AlertLevel} in
+ * {@code :steward-worker}. An absent number stays absent - the three measurements arrive here as
+ * null rather than as zero, since a disk nobody could read must not become a disk that is empty.
  */
 final class WorkerAlertLevelSource implements AlertLevelSource {
 
@@ -29,12 +23,12 @@ final class WorkerAlertLevelSource implements AlertLevelSource {
 
     private final InternalClient worker;
 
-    WorkerAlertLevelSource(final @NotNull InternalClient worker) {
+    WorkerAlertLevelSource(final InternalClient worker) {
         this.worker = Objects.requireNonNull(worker, "worker");
     }
 
     @Override
-    public @NotNull AlertReading current() {
+    public AlertReading current() {
         final JsonObject body = GSON.fromJson(worker.get("/api/alert-level"), JsonObject.class);
         if (body == null) {
             return new AlertReading(List.of(), null, null, null);

@@ -15,22 +15,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * What the sign-in page is able to say about a deployment nobody can sign in to.
  *
- * <p>This is the half of {@link DiscordAuth} that never reaches Discord, and it is the half an
+ * This is the half of {@link DiscordAuth} that never reaches Discord, and it is the half an
  * operator meets first: a fresh deployment has none of these three values, and the difference
  * between "you are not an admin" and "this container was never given a client id" is the
  * difference between an evening of guessing and a one-line fix. The flow itself is exercised
- * end to end in {@code StewardUiIntegrationTest}, against a stand-in Discord.</p>
+ * end to end in {@code SignInAndSessionTest}, against a stand-in Discord.
  */
 class DiscordAuthTest {
 
     @Test
-    @DisplayName("each missing value is named, in the order somebody fills them in")
     void theMissingValueIsNamedRatherThanGuessedAt() {
         assertEquals("discord.client-id", missingFrom(new Values()));
         assertTrue(missingFrom(new Values().withClientId("an-application")).startsWith("discord.client-secret"));
@@ -49,7 +47,6 @@ class DiscordAuthTest {
     }
 
     @Test
-    @DisplayName("the redirect URI is the configured address, never the request's")
     void theRedirectUriIsWrittenDownNotGuessed() {
         // A redirect URI that follows the Host header is a redirect URI an attacker can choose.
         assertEquals(
@@ -62,23 +59,16 @@ class DiscordAuthTest {
             List.of("deploy/nordtal.sh", "deploy/dev.env.example", "deploy/README.md", "README.md");
 
     /**
-     * A path ending in {@code auth/callback}, with whatever was written in front of it that is not
-     * whitespace - a scheme, a host, a placeholder like {@code <STEWARD_HOST>}.
+     * A path ending in {@code auth/callback}.
+     *
+     * With whatever was written in front of it that is not whitespace - a scheme, a host, a
+     * placeholder like {@code <STEWARD_HOST>}.
      */
     private static final Pattern MENTION = Pattern.compile("[^\\s\"'`]*auth/callback");
 
     @Test
-    @DisplayName("every instruction about Discord names the callback path this class actually builds")
     void theGuidanceNamesTheRealRedirectUri() {
-        // season-2-ops/145. Two of these files said `/api/auth/callback` - one of them the line
-        // somebody reads while REALLY installing - and `/api/<anything unrouted>` has been an
-        // explicit 404 since the fallback went in. Following it means typing a URI into Discord
-        // that every sign-in comes back from with `invalid_request`, and then looking for the
-        // mistake in the Discord application rather than in a line of shell. The running
-        // installation was only fine because it was filled in by hand.
-        //
-        // The path is derived from DiscordAuth rather than written out here: this test has to fail
-        // when the route moves, not when somebody remembers to update a string in two places.
+        // Derived from DiscordAuth rather than written out here: fails when the route moves, not when a string drifts.
         final String built = new DiscordAuth(new Values(), "https://steward.example").redirectUri();
         final String path = built.substring("https://steward.example".length());
 
@@ -174,7 +164,6 @@ class DiscordAuthTest {
     }
 
     @Test
-    @DisplayName("a plaintext API base that is not this machine is refused")
     void cleartextGoesNowhereButHere() {
         final Values config = new Values();
 

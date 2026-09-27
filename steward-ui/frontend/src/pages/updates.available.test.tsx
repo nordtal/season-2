@@ -8,23 +8,18 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import type { Available, AvailableChange } from "@/lib/api"
 
 /**
- * season-2-ops/128: what a run would do, read without running one.
+ * Shows what a run would install, without running one.
  *
- * The assertions that matter are the ones about the states this card exists to keep apart. Before
- * it, the only way to learn that Chunky had moved was to start a run, and the only thing that
- * looked like "a source did not answer" was the same silence as "nothing has changed". So:
- *
- * - a row whose source could not be asked is drawn as such, AND the card says the list is
- *   incomplete, because a reader scanning a column will not notice one grey badge in it;
- * - "no build for this Minecraft version" (CoreProtect) is neither work nor a failure;
- * - nothing on this page starts a run, and the forced re-read is a read as well: a parameter on
- *   the same GET, because it costs a great deal and changes nothing.
- *
- * season-2-ops/142 narrowed what the card draws without changing what it is for. The rows that
- * have nothing in them are gone, the two version columns became one jump, and the header lost its
- * sentence and gained a button. The states above are all still asserted here, because the whole
- * risk of "show less" is that the row that mattered was one of the ones removed.
+ * A row whose source could not be asked is drawn as such, and the card says the list is
+ * incomplete. "No build for this Minecraft version" is neither work nor a failure. Nothing on this
+ * page starts a run; the forced re-read is a parameter on the same GET.
  */
+
+function requestUrl(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input
+  if (input instanceof URL) return input.href
+  return input.url
+}
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -57,7 +52,8 @@ function available(over: Partial<Available> = {}): Available {
 }
 
 function backend(plan: Available, fresh?: Available): { fetch: typeof fetch; asked: () => unknown[] } {
-  const mock = vi.fn(async (url: string) => {
+  const mock = vi.fn<typeof fetch>(async (input) => {
+    const url = requestUrl(input)
     if (url === "/api/updates/available?refresh") return json(200, fresh ?? plan)
     if (url === "/api/updates/available") return json(200, plan)
     if (url.startsWith("/api/updates")) return json(200, [])
@@ -74,14 +70,17 @@ function backend(plan: Available, fresh?: Available): { fetch: typeof fetch; ask
     throw new Error(`the page asked for ${url}, which this test did not expect`)
   })
   return {
-    fetch: mock as unknown as typeof fetch,
-    asked: () => (mock as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((call) => call[0]),
+    fetch: mock,
+    asked: () => mock.mock.calls.map((call) => requestUrl(call[0])),
   }
+}
+
+function nothing() {
+  return null
 }
 
 function draw() {
   const root = createRootRoute()
-  const nothing = () => null
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/operations/updates", component: UpdatesPage }),
     createRoute({ getParentRoute: () => root, path: "/operations/updates/$id", component: nothing }),
@@ -96,7 +95,7 @@ function draw() {
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RouterProvider router={router as never} />
+        <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
@@ -131,15 +130,19 @@ describe("the available card", () => {
     expect(screen.getByText("1.5.3")).toBeTruthy()
     expect(screen.getByText("1.5.4")).toBeTruthy()
     expect(screen.getByText("outdated")).toBeTruthy()
-    // The two columns this replaced. The filename is bookkeeping, and it is what the operator was
-    // reading a version out of by eye before this.
+    /**
+     * The two columns this replaced. The filename is bookkeeping, and it is what the operator was
+     * reading a version out of by eye before this.
+     */
     expect(screen.queryByText("Chunky-Bukkit-1.5.3.jar")).toBeNull()
   })
 
   it("leaves out everything a run would not touch", async () => {
-    // The card listed thirty rows to say one thing. Everything that is up to date is now absent,
-    // and absent means "there is nothing to do about it" - which is why the states that are NOT
-    // work have their own tests below.
+    /**
+     * The card listed thirty rows to say one thing. Everything that is up to date is now absent,
+     * and absent means "there is nothing to do about it" - which is why the states that are NOT
+     * work have their own tests below.
+     */
     vi.stubGlobal(
       "fetch",
       backend(
@@ -221,8 +224,10 @@ describe("the available card", () => {
   })
 
   it("keeps the artefact with no build for this version, and calls it unsupported", async () => {
-    // Neither work nor a failure, and still on the list: it is the answer to "why is CoreProtect
-    // not here", and a row that disappears when it is nothing to worry about cannot give it.
+    /**
+     * Neither work nor a failure, and still on the list: it is the answer to "why is CoreProtect
+     * not here", and a row that disappears when it is nothing to worry about cannot give it.
+     */
     vi.stubGlobal(
       "fetch",
       backend(
@@ -244,8 +249,10 @@ describe("the available card", () => {
     await screen.findByText("coreprotect")
     expect(screen.getByText("unsupported")).toBeTruthy()
     expect(screen.queryByText(/incomplete/)).toBeNull()
-    // The note is a paragraph about stable releases and platforms. It belongs on the dash as a
-    // title and in the badge, not in a table cell.
+    /**
+     * The note is a paragraph about stable releases and platforms. It belongs on the dash as a
+     * title and in the badge, not in a table cell.
+     */
     expect(screen.queryByText(/no stable release/)).toBeNull()
   })
 
@@ -273,9 +280,11 @@ describe("the available card", () => {
   })
 
   it("asks the sources again when the button is pressed, and redraws from that answer", async () => {
-    // The reading is cached for six hours in the worker, and this button is the only way to
-    // shorten that from the interface. It has to replace what is on screen, or an operator who
-    // pressed it has no way of telling whether anything happened.
+    /**
+     * The reading is cached for six hours in the worker, and this button is the only way to
+     * shorten that from the interface. It has to replace what is on screen, or an operator who
+     * pressed it has no way of telling whether anything happened.
+     */
     const wired = backend(
       available({
         changes: [

@@ -6,9 +6,7 @@ import { NAVIGATION } from "@/app/navigation"
 /**
  * Which single row the sidebar lights up.
  *
- * `activeEntryId` was exported for a test on 2026-09-13 and the test was never written - it is one
- * of the five findings of `steward/04`, all of which were checked with `tsc` and thinking rather
- * than with a red test. This is the cheapest of the five and therefore the first: a pure function
+ * `activeEntryId` is exported for this test: a pure function
  * over the real `NAVIGATION`, so a navigation entry that breaks the rule breaks this too.
  *
  * The rule is *longest match wins, decided across the whole navigation*. The two things it exists
@@ -33,8 +31,10 @@ describe("activeEntryId - the longest match wins", () => {
   })
 
   it("keeps the right service selected rather than all ten of them", () => {
-    // Every service entry shares the fixed part /services, so the fixed part alone cannot decide;
-    // the resolved href with the real name is the longer match.
+    /**
+     * Every service entry shares the fixed part /services, so the fixed part alone cannot decide;
+     * the resolved href with the real name is the longer match.
+     */
     expect(activeEntryId("/services/limbo", NAVIGATION)).toBe("service-limbo")
     expect(activeEntryId("/services/steward-worker", NAVIGATION)).toBe("service-steward-worker")
   })

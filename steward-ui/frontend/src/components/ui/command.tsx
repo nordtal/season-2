@@ -26,12 +26,12 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
 }
 
 /**
- * `label` is not decoration, and leaving it out is how the input lost its name (steward/100).
+ * `label` is not decoration, and leaving it out is how the input loses its name.
  *
  * `cmdk` always renders a visually hidden `<label>` for the input and points the input's
  * `aria-labelledby` at it. Without a `label` that element is **empty** - and `aria-labelledby` wins
  * over `aria-label`, so the field ends up with no accessible name at all however many labels are
- * added from outside. Measured 2026-09-17: a screen reader announced "combobox" and nothing else,
+ * added from outside. A screen reader would announce "combobox" and nothing else,
  * because `role="combobox"` also removes the browser's placeholder-as-name fallback (HTML-AAM
  * grants that to the native textbox role only). Filling cmdk's own label is the fix; anything else
  * is shouted down by the empty one.
@@ -55,7 +55,7 @@ function CommandDialog({
    * How a row is scored against what was typed, handed straight to `cmdk`'s own `filter`.
    *
    * Named here rather than left to the spread above, because the spread goes to the shell and
-   * would have dropped it silently (steward/105). Undefined keeps cmdk's default subsequence
+   * would drop it silently. Undefined keeps cmdk's default subsequence
    * filter.
    */
   filter?: React.ComponentProps<typeof CommandPrimitive>["filter"]
@@ -69,9 +69,11 @@ function CommandDialog({
         <ResponsiveDialogDescription>{description}</ResponsiveDialogDescription>
       </ResponsiveDialogHeader>
       <ResponsiveDialogContent
-        // `top-1/3` is the dialog half only. As a sheet the shell already sits at the bottom edge
-        // and vaul moves it above the on-screen keyboard once the input takes focus, so a second
-        // opinion about vertical position here would fight it.
+        /**
+         * `top-1/3` is the dialog half only. As a sheet the shell already sits at the bottom edge
+         * and vaul moves it above the on-screen keyboard once the input takes focus, so a second
+         * opinion about vertical position here would fight it.
+         */
         className={cn("overflow-hidden rounded-xl! p-0 sm:top-1/3 sm:translate-y-0", className)}
         showCloseButton={showCloseButton}
       >
@@ -164,13 +166,15 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) 
     <span
       data-slot="command-shortcut"
       className={cn(
-        // steward/105: a relative ceiling, so a long trailing note cannot squeeze the white label it
-        // sits beside out of the row. The label shrinks first because it carries `flex-1`.
-        //
-        // steward/127: GONE below 640px, not smaller and not fainter. On a phone this column is a
-        // path, and a path is the thing that shortens the name in order to be cut off itself - two
-        // truncated strings where one whole one would have fitted. 640px is the app's own line
-        // between narrow and wide, the same one `useIsMobile` and every dialog switch on.
+        /**
+         * A relative ceiling, so a long trailing note cannot squeeze the white label it
+         * sits beside out of the row. The label shrinks first because it carries `flex-1`.
+         *
+         * GONE below 640px, not smaller and not fainter. On a phone this column is a
+         * path, and a path is the thing that shortens the name in order to be cut off itself - two
+         * truncated strings where one whole one would have fitted. 640px is the app's own line
+         * between narrow and wide, the same one `useIsMobile` and every dialog switch on.
+         */
         "ml-auto hidden max-w-[45%] truncate text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground sm:block",
         className,
       )}

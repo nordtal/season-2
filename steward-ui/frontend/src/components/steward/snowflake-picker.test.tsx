@@ -4,6 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { SnowflakePicker, withUnknown } from "@/components/steward/snowflake-picker"
 import { discordId } from "@/components/steward/configuration"
 import type { ConfigEntry, GuildList } from "@/lib/api"
+import { asInput } from "@/lib/test-elements"
 
 /**
  * Picking a Discord id by name, and the two ways that must never make things worse.
@@ -14,14 +15,16 @@ import type { ConfigEntry, GuildList } from "@/lib/api"
  * names cannot be had - because a configuration page that loses the ability to set an id when
  * Discord is unreachable would be a worse page than the text field it replaced.
  *
- * steward/53 adds the other half of the owner's rule (steward/45): identifiers stay out of this list's
+ * The other half of the identifier rule: identifiers stay out of this list's
  * rendering entirely, but a snowflake pasted from Discord's own "Copy ID" still has to find its
  * row - the rule is about what is drawn, never about what can be searched.
  */
 
-// jsdom has neither method - the same gap `vitest.setup.ts` already patches for ResizeObserver and
-// scrollIntoView. Radix Select's trigger calls both on pointer down, so without this an open()
-// throws instead of drawing the popup, in every test below that needs the list open.
+/**
+ * jsdom has neither method - the same gap `vitest.setup.ts` already patches for ResizeObserver and
+ * scrollIntoView. Radix Select's trigger calls both on pointer down, so without this an open()
+ * throws instead of drawing the popup, in every test below that needs the list open.
+ */
 beforeAll(() => {
   if (!Element.prototype.hasPointerCapture) {
     Element.prototype.hasPointerCapture = () => false
@@ -73,9 +76,11 @@ function entry(over: Partial<ConfigEntry>): ConfigEntry {
 
 describe("SnowflakePicker", () => {
   it("falls back to a field that still writes the id when the guild cannot be listed", () => {
-    // No bot token, an unreachable Discord, a rate limit - all of them arrive here the same way,
-    // and none of them may take away the ability to configure the id.
-    const onChange = vi.fn()
+    /**
+     * No bot token, an unreachable Discord, a rate limit - all of them arrive here the same way,
+     * and none of them may take away the ability to configure the id.
+     */
+    const onChange = vi.fn<(value: string) => void>()
     render(
       <SnowflakePicker
         id="roles.admin"
@@ -87,7 +92,7 @@ describe("SnowflakePicker", () => {
       />,
     )
 
-    const field = screen.getByDisplayValue("214906139328839681") as HTMLInputElement
+    const field = asInput(screen.getByDisplayValue("214906139328839681"))
     expect(field.disabled).toBe(false)
     expect(screen.getByText(/discord\.bot-token is not set/)).toBeTruthy()
     // And it says where to get the id by hand, which is the thing nobody remembers.
@@ -95,9 +100,11 @@ describe("SnowflakePicker", () => {
   })
 
   it("keeps an id the guild did not list rather than silently dropping it", () => {
-    // A channel the bot cannot see, or one deleted since it was configured, is still the value in
-    // the file. Replacing it with "none" the moment the page draws is the exact failure this
-    // component exists to prevent, only faster and without anybody pressing anything.
+    /**
+     * A channel the bot cannot see, or one deleted since it was configured, is still the value in
+     * the file. Replacing it with "none" the moment the page draws is the exact failure this
+     * component exists to prevent, only faster and without anybody pressing anything.
+     */
     const offered = withUnknown(ROLES.entries, "999999999999999999")
 
     expect(offered).toHaveLength(3)
@@ -112,14 +119,23 @@ describe("SnowflakePicker", () => {
 
   it("shows only the name in the open list, never the id sitting next to it", () => {
     render(
-      <SnowflakePicker id="roles.admin" value="" directory={ROLES} what="role" disabled={false} onChange={vi.fn()} />,
+      <SnowflakePicker
+        id="roles.admin"
+        value=""
+        directory={ROLES}
+        what="role"
+        disabled={false}
+        onChange={vi.fn<(value: string) => void>()}
+      />,
     )
     open(screen.getByRole("combobox"))
 
     expect(screen.getByText("Admin")).toBeTruthy()
     expect(screen.getByText("Donor")).toBeTruthy()
-    // The owner's rule (steward/45, applied by steward/53): a known entry's row carries no snowflake at
-    // all, not even in a muted corner - the whole popup's text is checked, not just one row's.
+    /**
+     * The identifier rule applied here: a known entry's row carries no snowflake at
+     * all, not even in a muted corner - the whole popup's text is checked, not just one row's.
+     */
     expect(screen.queryByText("100000000000000001")).toBeNull()
     expect(screen.queryByText("100000000000000002")).toBeNull()
     expect(document.body.textContent).not.toMatch(/\b\d{17,20}\b/)
@@ -127,7 +143,14 @@ describe("SnowflakePicker", () => {
 
   it("finds an entry by the id pasted from Discord's own 'Copy ID', though the id is never shown", () => {
     render(
-      <SnowflakePicker id="roles.admin" value="" directory={ROLES} what="role" disabled={false} onChange={vi.fn()} />,
+      <SnowflakePicker
+        id="roles.admin"
+        value=""
+        directory={ROLES}
+        what="role"
+        disabled={false}
+        onChange={vi.fn<(value: string) => void>()}
+      />,
     )
     open(screen.getByRole("combobox"))
 
@@ -140,7 +163,14 @@ describe("SnowflakePicker", () => {
 
   it("still finds an entry by typing its name, unaffected by the id search", () => {
     render(
-      <SnowflakePicker id="roles.admin" value="" directory={ROLES} what="role" disabled={false} onChange={vi.fn()} />,
+      <SnowflakePicker
+        id="roles.admin"
+        value=""
+        directory={ROLES}
+        what="role"
+        disabled={false}
+        onChange={vi.fn<(value: string) => void>()}
+      />,
     )
     open(screen.getByRole("combobox"))
 
@@ -152,7 +182,7 @@ describe("SnowflakePicker", () => {
   })
 
   it("saves the snowflake, never the name, when an option is picked", () => {
-    const onChange = vi.fn()
+    const onChange = vi.fn<(value: string) => void>()
     render(
       <SnowflakePicker id="roles.admin" value="" directory={ROLES} what="role" disabled={false} onChange={onChange} />,
     )
@@ -170,14 +200,16 @@ describe("SnowflakePicker", () => {
         directory={ROLES}
         what="role"
         disabled={false}
-        onChange={vi.fn()}
+        onChange={vi.fn<(value: string) => void>()}
       />,
     )
     open(screen.getByRole("combobox"))
 
-    // This is the one honest exception in steward/53: the guild gave no name for this id, so the
-    // id itself is the only thing there is to show - but it has to read as "a name is missing"
-    // rather than sit among the named rows looking like one of them.
+    /**
+     * This is the one honest exception to the identifier rule: the guild gave no name for this id, so the
+     * id itself is the only thing there is to show - but it has to read as "a name is missing"
+     * rather than sit among the named rows looking like one of them.
+     */
     const row = screen.getByRole("option", { name: /999999999999999999/ })
     expect(within(row).getByText(/name unavailable/i)).toBeTruthy()
   })
@@ -185,15 +217,17 @@ describe("SnowflakePicker", () => {
 
 describe("discordId", () => {
   it("keeps the chosen row in the list while a search hides the others, so the control keeps its name", () => {
-    // Orchestrator's acceptance of steward/53, and it found a real one. The filter unmounts every
-    // row it does not match, and the first version made no exception for the chosen one - so
-    // typing four letters emptied the control the user was looking at, and told them their setting
-    // had no value. Radix reads the closed trigger's text off the mounted item; unmount it and the
-    // name is gone.
-    //
-    // The fix is the behaviour a person would expect anyway: what is set now stays in the list, no
-    // matter what is typed. Seen red first - `expect(trigger.textContent).toContain("Admin")`
-    // failed with "Received - Admin", an empty trigger.
+    /**
+     * A real regression this test catches: the filter unmounts every
+     * row it does not match, and without an exception for the chosen one, typing four letters
+     * would empty the control the user is looking at, and tell them their setting
+     * has no value. Radix reads the closed trigger's text off the mounted item; unmount it and the
+     * name is gone.
+     *
+     * The fix is the behaviour a person would expect anyway: what is set now stays in the list, no
+     * matter what is typed. Seen red first - `expect(trigger.textContent).toContain("Admin")`
+     * failed with "Received - Admin", an empty trigger.
+     */
     const three: GuildList = {
       available: true,
       entries: [
@@ -209,7 +243,7 @@ describe("discordId", () => {
         directory={three}
         what="role"
         disabled={false}
-        onChange={vi.fn()}
+        onChange={vi.fn<(value: string) => void>()}
       />,
     )
     const trigger = screen.getByRole("combobox")
@@ -231,11 +265,12 @@ describe("discordId", () => {
     expect(discordId(entry({ path: "languages.link-channel", key: "link-channel" }))).toBe("channel")
   })
 
-  it("leaves status-channel alone, because it holds a channel NAME rather than an id (steward/61)", () => {
-    // `key.endsWith("-channel")` used to catch this one too, and `SnowflakePicker` writes back an
-    // id - so saving through it would have replaced the channel's name with a snowflake the bot
-    // then searches for and never finds. Seen red first: this assertion failed with
-    // `expected null to be 'channel'` before the exclusion was added.
+  it("leaves status-channel alone, because it holds a channel NAME rather than an id", () => {
+    /**
+     * `key.endsWith("-channel")` would otherwise catch this one too, and `SnowflakePicker` writes back an
+     * id - so saving through it would replace the channel's name with a snowflake the bot
+     * then searches for and never finds.
+     */
     expect(discordId(entry({ path: "languages.status-channel", key: "status-channel" }))).toBeNull()
   })
 
@@ -244,8 +279,10 @@ describe("discordId", () => {
   })
 
   it("leaves guild-id alone, because the list is read from the guild", () => {
-    // Offering to pick the guild out of a list that only exists once the guild is known is
-    // circular, and would draw an empty select on the one field that has to be typed.
+    /**
+     * Offering to pick the guild out of a list that only exists once the guild is known is
+     * circular, and would draw an empty select on the one field that has to be typed.
+     */
     expect(discordId(entry({ path: "guild-id", key: "guild-id" }))).toBeNull()
   })
 

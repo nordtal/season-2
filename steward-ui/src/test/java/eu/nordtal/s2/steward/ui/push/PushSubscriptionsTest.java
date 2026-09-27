@@ -11,18 +11,15 @@ import java.util.List;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * {@code steward_push_subscription}, against a real PostgreSQL - modelled on
- * {@code SessionRowsTest}, the sibling this is closest to.
+ * {@code steward_push_subscription}, against a real PostgreSQL.
  *
- * <p>Acceptance assertion 1 of steward/98: "a subscription is created". A subscription only
- * exists once a row does; nothing here fakes the table.</p>
+ * Modelled on {@code SessionRowsTest}; a subscription only exists once a row does.
  */
 class PushSubscriptionsTest {
 
@@ -54,7 +51,6 @@ class PushSubscriptionsTest {
     }
 
     @Test
-    @DisplayName("subscribing writes a row that all() and of() then both see")
     void subscribingCreatesARow() {
         subscriptions.subscribe("42", "https://push.example/ep-1", "p256dh-1", "auth-1");
 
@@ -70,7 +66,6 @@ class PushSubscriptionsTest {
     }
 
     @Test
-    @DisplayName("subscribing again with the same endpoint refreshes the row instead of doubling it")
     void resubscribingReplacesNotDuplicates() {
         subscriptions.subscribe("43", "https://push.example/ep-2", "old-p256dh", "old-auth");
         subscriptions.subscribe("43", "https://push.example/ep-2", "new-p256dh", "new-auth");
@@ -82,7 +77,6 @@ class PushSubscriptionsTest {
     }
 
     @Test
-    @DisplayName("unsubscribing removes only the caller's own subscription")
     void unsubscribeIsScopedToTheAccount() {
         subscriptions.subscribe("44", "https://push.example/ep-3", "p", "a");
 
@@ -94,7 +88,6 @@ class PushSubscriptionsTest {
     }
 
     @Test
-    @DisplayName("the device name is derived from the User-Agent and survives a resubscription")
     void theDeviceNameIsKept() {
         subscriptions.subscribe(
                 "46",
@@ -108,8 +101,7 @@ class PushSubscriptionsTest {
                 subscriptions.of("46").get(0).device(),
                 "the endpoint is not a name - see Devices for where one comes from");
 
-        // A page reloaded twice in the same tab resubscribes with the same endpoint. A browser that
-        // sends no User-Agent at all on that second call must not blank the name it already has.
+        // A second call with no User-Agent at all must not blank the name it already has.
         subscriptions.subscribe("46", "https://push.example/ep-5", "p", "a", null);
         assertEquals(
                 "iPhone, Safari",
@@ -118,7 +110,6 @@ class PushSubscriptionsTest {
     }
 
     @Test
-    @DisplayName("find() answers only within the account, so a test send cannot be aimed elsewhere")
     void findIsScopedToTheAccount() {
         subscriptions.subscribe("47", "https://push.example/ep-6", "p", "a");
 
@@ -129,7 +120,6 @@ class PushSubscriptionsTest {
     }
 
     @Test
-    @DisplayName("expired() removes a subscription outright, with no account check")
     void expiredRemovesRegardlessOfAccount() {
         subscriptions.subscribe("45", "https://push.example/ep-4", "p", "a");
 

@@ -4,6 +4,7 @@ import { cn } from "cn"
 
 import { bytes, count, percent, relative } from "@/lib/format"
 import { summarise } from "@/lib/health"
+import { useNow } from "@/lib/use-now"
 import { useActions, useBackups, useHost, useMetrics, useServices, useSettings } from "@/lib/queries"
 import { ActionRow } from "@/components/steward/actions"
 import { NetworkPanel } from "@/components/steward/network/view"
@@ -20,30 +21,28 @@ import { Button } from "@/components/ui/button"
  * the box** - **where do I want to go**. Everything below the header is a tile, and every tile is a
  * link into the page that can actually do something about it.
  *
- * **Mobile first, as of steward/64** - and a standing rule for this page from here on, not a one-off
- * for this ticket. The owner reads this page on a phone before he reads it anywhere else, so the narrow
- * column is the layout that gets designed, and the wide one is what falls out of it at `lg`, never
- * the other way around.
+ * **Mobile first, as a standing rule for this page.** This page is read on a phone before it is
+ * read anywhere else, so the narrow column is the layout that gets designed, and the wide one is
+ * what falls out of it at `lg`, never the other way around.
  *
- * **The traffic light is gone (steward/80).** It used to stand above the numbers as a banner that
- * appeared for `warn`/`down` and disappeared for `ok`. Its content is now the last tile in
- * {@link MetricRow}, in the same shape every other tile there already has: a number, and beneath it
- * the names it is about. `health.ts`'s own warning still applies inside that tile - a settled "0"
+ * **There is no traffic-light banner above the numbers.** Its content lives instead in the last tile
+ * in {@link MetricRow}, in the same shape every other tile there already has: a number, and beneath
+ * it the names it is about. `health.ts`'s own warning still applies inside that tile - a settled "0"
  * must never look like "nothing has been read yet".
  *
- * **There is no page title (steward/64).** "Overview" named the page to somebody who was already
- * standing on it, and the first line is now the one fact on this stack that changes minute to
+ * **There is no page title.** "Overview" would only name the page to somebody who was already
+ * standing on it, and the first line is instead the one fact on this stack that changes minute to
  * minute and that no tile below carries: how many people are in the game. See
- * {@code components/steward/online.tsx} for the three shapes that were drawn for it and for why
+ * {@code components/steward/online.tsx} for the three shapes drawn for it and for why
  * this one is in the product. The word still labels the route in the sidebar and in the
  * breadcrumbs, where it is a destination rather than a heading.
  *
- * **The service table is gone (steward/81).** Ten rows of name, state, drift and uptime behind a
- * `<details>` were what steward/64 had already reduced the ten cards to; the network picture in the
- * bottom section now carries the same ten services with their health, their image state and their
- * player counts, and the whole table lives on the Operations page for whoever wants the columns.
- * Nothing on this page restarts anything, which was true of the table as well and stays true of the
- * picture: a restart throws every player out, and it belongs where the confirmation already stands.
+ * **There is no service table.** Ten rows of name, state, drift and uptime behind a
+ * `<details>` would duplicate what the network picture in the
+ * bottom section already carries: the same ten services with their health, their image state and
+ * their player counts, and the whole table already lives on the Operations page for whoever wants
+ * the columns. Nothing on this page restarts anything, which stays true of the
+ * picture too: a restart throws every player out, and it belongs where the confirmation already stands.
  */
 export function OverviewPage() {
   const online = useOnline()
@@ -55,22 +54,21 @@ export function OverviewPage() {
       <MetricRow />
 
       {/*
-        The bottom section, split into two halves on desktop exactly as the owner asked (steward/81):
+        The bottom section splits into two halves on desktop:
         the network picture on the left, and on the right the season above the latest actions.
 
-        **Why the right half is a stack of two and not one panel.** the owner named the two halves - a
-        network view and the action list - and said nothing about Season, which was standing in the
-        left half at the time. Deleting it was never asked for and it has no other home on this
+        **Why the right half is a stack of two and not one panel.** The two named halves are a
+        network view and the action list; Season has no other home on this
         page, so it keeps its place in the section and moves over: the picture is one tall column,
         and two short panels beside it is what fills the same height. The alternative, a full-width
         Season strip above the section, spends a whole row of the page on three dates that change
         twice a season.
 
         **On a phone the picture goes last**, which is the one place this layout is not simply the
-        desktop one stacked. Since steward/121 a phone gets a table of ten rows rather than the
-        940px drawing that used to be here - shorter, but still most of a screen before the first
-        thing that changed today. It replaced a one-line disclosure, and a one-line disclosure is
-        what was cheap to scroll past - so the order changes rather than the picture.
+        desktop one stacked. A phone gets a table of ten rows rather than a
+        940px drawing - shorter, but still most of a screen before the first
+        thing that changed today, ahead of a one-line disclosure - so the order changes rather than
+        the picture.
       */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="order-last lg:order-first lg:col-span-2">
@@ -84,27 +82,26 @@ export function OverviewPage() {
   )
 }
 
-// --- the metric row -------------------------------------------------------------------------------
+// --- the metric row
 
 /**
  * CPU, memory, disk, the latest backup, drift and the issues - six numbers on a phone, three rows
- * of two, exactly the width steward/80 asked for. This replaces the Host, Updates and Backups cards:
+ * of two. This replaces the Host, Updates and Backups cards:
  * their remaining detail - the container limits, when the registry was last compared, the
  * unverifiable services, the last update run and the partial archives - is not lost with them. The
- * Operations page already showed every one of it before this change (Images table with its
+ * Operations page already shows every one of it (Images table with its
  * Compared column and its `drift.unverifiable` line, the runs table, the backups table with its
- * partial state), so nothing had to be carried across; the front page simply stopped printing a
+ * partial state), so nothing has to be carried across; the front page simply does not print a
  * second copy of a page one tap away.
  *
- * Mobile first: two tiles to a row is the width steward/64 asked for on a phone, three from
+ * Mobile first: two tiles to a row is the width this page asks for on a phone, three from
  * `26rem`, and only the desktop breakpoint spends the whole thing on one row of six - the layout
  * this row *ends* on, not the one it starts from.
  *
- * **The order is the owner's, 2026-09-17:** CPU, Memory, Disk, Latest backup, Behind, Issues. The three
+ * **The order:** CPU, Memory, Disk, Latest backup, Behind, Issues. The three
  * resources come first because "how full is the box" is what the page is opened on a phone to
- * answer, and the two counts that are zero on a healthy day come last - including Issues, which
- * steward/80 had put first while it was still a banner pretending to be a tile. Nothing was added
- * for this: "Issues" is that same tile moved, and "Latest backup" is the tile that used to be
+ * answer, and the two counts that are zero on a healthy day come last - including Issues.
+ * "Latest backup" is the same tile that is elsewhere sometimes
  * called "Newest backup" and is nothing else.
  */
 /** The quiet line under a figure, while the figure is still out. */
@@ -123,9 +120,11 @@ function MetricRow() {
     backups: backups.data,
     thresholds: settings.data,
   })
-  // Nothing has answered yet: the tile must not say "all is well" about a stack it has not looked
-  // at. A settled zero on no evidence is worse than no number - the argument health.ts has always
-  // made for the light, unchanged now that it is a tile.
+  /**
+   * Nothing has answered yet: the tile must not say "all is well" about a stack it has not looked
+   * at. A settled zero on no evidence is worse than no number - the argument health.ts has always
+   * made for the light, unchanged now that it is a tile.
+   */
   const waiting = services.isPending || host.isPending || backups.isPending || settings.isPending
   const failed = Boolean(services.error ?? host.error ?? backups.error ?? settings.error)
 
@@ -152,10 +151,10 @@ function MetricRow() {
         stretches to match by default - so whichever tile happens to land next to CPU in a given
         column count inherits blank space nothing of its own explains. `col-span-2` /
         `min-[26rem]:col-span-3` give CPU the whole row to itself below `lg`, where six columns
-        already hold it without a row-mate at all (steward/92: measured with `getBoundingClientRect`
-        - the tile paired with CPU was 110px tall against its neighbours' 64-76px, and no amount of
-        `items-*` changes that, since grid track sizing is content-based regardless of alignment).
-        CPU leads the row since steward/64 reordered it, so the cell it vacates is the second one
+        already hold it without a row-mate at all - the tile paired with CPU would otherwise be
+        noticeably shorter than its neighbours, and no amount of
+        `items-*` changes that, since grid track sizing is content-based regardless of alignment.
+        CPU leads the row, so the cell it vacates is the second one
         of the first row and stays empty rather than stretched - an empty grid cell costs nothing
         to look at, the way the trailing cell in an odd-numbered row already does not.
       */}
@@ -211,8 +210,8 @@ function MetricRow() {
         ) : null}
       </MetricTile>
 
-      {/* The one tile of the six that links anywhere (steward/112): `/operations/backups`
-          (steward/95) now holds everything this number is a summary of - volumes, retention,
+      {/* The one tile of the six that links anywhere: `/operations/backups`
+          holds everything this number is a summary of - volumes, retention,
           the remote target. The plain `<a>` this becomes still lays out as the grid item
           `MetricTile` would have wrapped it in. */}
       <Link to="/operations/backups" className="flex min-w-0 flex-col gap-1.5">
@@ -243,13 +242,12 @@ function MetricRow() {
 }
 
 /**
- * What used to be the traffic light, now the last tile in {@link MetricRow} (steward/80 put it in
- * the row, steward/64 moved it to the end of it). The owner:
- * "the alert-style banner disappears entirely and its information is folded into the area that
- * already says 'Behind 2 steward-worker, steward-ui'" - so this tile is deliberately built like
+ * What used to be the traffic light, now the last tile in {@link MetricRow}: the
+ * alert-style banner disappears entirely and its information folds into the area that
+ * already says "Behind 2 steward-worker, steward-ui" - so this tile is deliberately built like
  * `Behind`: a count, and beneath it the names the count is about.
  *
- * **The steward/64 trap is sharper here than it was for the banner.** With no banner left at all,
+ * **The trap is sharper here than it was for the banner.** With no banner left at all,
  * this tile is the only place "nothing has been read yet" or "a read failed" can still be told
  * apart from "read, and nothing is wrong" - so a settled `0` only ever appears once every query has
  * actually answered and found nothing. While reading, or once a read has failed outright, the value
@@ -266,9 +264,11 @@ function IssuesTile({
   failed: boolean
 }) {
   if (triggers.length === 0) {
-    // Not a dash and not a zero: the tile is drawn as a tile with nothing in it yet (steward/120).
-    // The old dash and the word "reading" were this same statement in the only vocabulary the row
-    // had before there was a skeleton to say it with.
+    /**
+     * Not a dash and not a zero: the tile is drawn as a tile with nothing in it yet.
+     * The old dash and the word "reading" were this same statement in the only vocabulary the row
+     * had before there was a skeleton to say it with.
+     */
     if (waiting) return <MetricTile label="Issues" value={undefined} hint={WAITING_HINT} />
     if (failed) return <MetricTile label="Issues" value="–" tone="warn" hint="could not be read" />
     return <MetricTile label="Issues" value={count(0)} hint="all clear" />
@@ -327,17 +327,17 @@ function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: n
 }
 
 /**
- * The right half of the new bottom section (steward/82).
+ * The right half of the bottom section.
  *
  * Fed by steward-worker's own {@code /api/actions} rather than by sorting {@link useJournal}'s
  * `audit_log` rows together with a second call for `update_request` here - see that endpoint's own
  * javadoc for why a merge belongs in one query and not on this page. Every actor is drawn through
- * {@link ActionRow} and {@code Entity}, never as the raw text the old, journal-only version
- * of this panel used to print: `entry.actor` was an unadorned Discord snowflake, which is exactly
- * the leak steward/45's rule exists to close and which the old static check could not see, because
- * nothing here was named `discordId`.
+ * {@link ActionRow} and {@code Entity}, never as raw text: `entry.actor`
+ * as an unadorned Discord snowflake would be exactly
+ * the leak the naming rule exists to close, because
+ * nothing here is named `discordId`.
  *
- * **A real heading, not `Panel`'s** (steward/77's rule, and Alex's own words for this ticket): the
+ * **A real heading, not `Panel`'s**: the
  * small grey capitalised line reads as a section label, and this is content, so it gets the same
  * weight the page's own `PageHeader` gives a title.
  */
@@ -346,7 +346,7 @@ const WAITING_ACTIONS = [undefined, undefined, undefined, undefined]
 
 function ActionsPanel() {
   const actions = useActions(5)
-  const now = Date.now()
+  const now = useNow()
 
   return (
     <section className="flex flex-col gap-3">
@@ -364,9 +364,11 @@ function ActionsPanel() {
             {/* Four while waiting, because that is what `useActions(5)` all but always answers. */}
             {(list ?? WAITING_ACTIONS).map((action, index) => (
               <ActionRow
-                // The feed carries no id of its own - a run and a journal line have different
-                // primary keys, and stamping a synthetic one on here would be a fact this page
-                // invented. Position is stable because the list is never reordered client-side.
+                /**
+                 * The feed carries no id of its own - a run and a journal line have different
+                 * primary keys, and stamping a synthetic one on here would be a fact this page
+                 * invented. Position is stable because the list is never reordered client-side.
+                 */
                 key={index}
                 action={action}
                 now={now}

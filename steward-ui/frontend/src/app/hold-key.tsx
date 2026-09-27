@@ -22,9 +22,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
  *
  * **There is no "skip" and there is no "remind me later".** The only other button leaves.
  *
- * The owner, 2026-09-16 (steward/78): as little text as possible, everywhere. The sentence naming
- * which key belongs to this account - singular or the enumerated list for more than one - fell
- * with it. The price is accepted: whoever is signing in is already holding a key, and WebAuthn
+ * As little text as possible, everywhere: no sentence names
+ * which key belongs to this account - singular or the enumerated list for more than one.
+ * The price is accepted: whoever is signing in is already holding a key, and WebAuthn
  * itself only accepts the one that fits.
  */
 export function HoldKeyPage({ me }: { me: Me }) {

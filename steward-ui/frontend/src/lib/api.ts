@@ -126,12 +126,14 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
   try {
     return await send<T>(path, options)
   } catch (refusal) {
-    // THE WHOLE OF "ONE TAP, NOT TWO". The request is sent, refused because the key has not been
-    // held recently enough, the key is held, and the SAME request goes again - so somebody who
-    // taps Update taps Update, rather than tapping Update, then a dialog, then Update again.
-    //
-    // Exactly once. A second refusal after a successful ceremony is not a stale window, it is
-    // something else entirely, and retrying it again would hide whatever that is behind a loop.
+    /**
+     * THE WHOLE OF "ONE TAP, NOT TWO". The request is sent, refused because the key has not been
+     * held recently enough, the key is held, and the SAME request goes again - so somebody who
+     * taps Update taps Update, rather than tapping Update, then a dialog, then Update again.
+     *
+     * Exactly once. A second refusal after a successful ceremony is not a stale window, it is
+     * something else entirely, and retrying it again would hide whatever that is behind a loop.
+     */
     if (refusal instanceof ApiError && refusal.needsTheKeyAgain && mayStepUp(path)) {
       await stepUp!()
       return await send<T>(path, options)
@@ -156,31 +158,57 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
       signal: options.signal,
     })
   } catch (cause) {
-    // The request never arrived anywhere. That is this interface being unreachable - a stopped
-    // steward-ui, a proxy in the way, or a browser that is offline - and never the worker.
+    /**
+     * The request never arrived anywhere. That is this interface being unreachable - a stopped
+     * steward-ui, a proxy in the way, or a browser that is offline - and never the worker.
+     */
     throw new ApiError(0, "The interface cannot be reached.", "steward-ui", String(cause))
   }
 
-  if (response.status === 204) return undefined as T
+  if (response.status === 204) {
+    return shapedAs(undefined, (value): value is T => value === undefined, path)
+  }
 
   const text = await response.text()
   const parsed = text ? safeJson(text) : null
 
   if (!response.ok) {
-    const body: Record<string, unknown> | null =
-      parsed !== null && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null
-    // The backend's InternalClient.Failure handler answers with the name of whichever service
-    // did not answer, which is the only way this end can tell "the daemon did not answer" from
-    // "this service threw".
+    const body: Record<string, unknown> | null = isRecord(parsed) ? parsed : null
+    /**
+     * The backend's InternalClient.Failure handler answers with the name of whichever service
+     * did not answer, which is the only way this end can tell "the daemon did not answer" from
+     * "this service threw".
+     */
     const where: Where =
       body?.where === "steward-worker" || body?.where === "steward-deployer" ? body.where : "steward-ui"
     const message = (body && messageOf(body)) ?? `${response.status} ${response.statusText}`
-    const detail = body ? String(body.detail ?? "") : text
+    const detail = body ? (typeof body.detail === "string" ? body.detail : "") : text
     const code = typeof body?.code === "string" ? body.code : ""
     throw new ApiError(response.status, message, where, detail, code)
   }
 
-  return parsed as T
+  return shapedAs(parsed, (value): value is T => value !== undefined, path)
+}
+
+/**
+ * Narrows an untyped value to `T` wherever one enters typed code - the backend's JSON, or a local
+ * store that only ever promises `unknown`.
+ *
+ * A type guard is a checked narrowing, never an assertion: the compiler only accepts `value` as
+ * `T` because `guard` proved it, so nothing downstream inherits a cast that could be wrong. What
+ * `guard` proves is up to the caller - `send` above only knows that a 204 is empty and a 200
+ * answered *something*, so that is all it checks; a caller that needs its own shape held to, such
+ * as `useGlyphs` or `useDraft`, writes a guard that says so.
+ */
+export function shapedAs<T>(value: unknown, guard: (value: unknown) => value is T, context: string): T {
+  if (!guard(value)) {
+    throw new Error(`${context}: not the shape this interface expects`)
+  }
+  return value
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object"
 }
 
 function safeJson(text: string): unknown {
@@ -200,13 +228,15 @@ function messageOf(body: Record<string, unknown>): string | null {
   return null
 }
 
-// ---------------------------------------------------------------------------------------------
-// What the endpoints answer.
-//
-// Written out rather than inferred, because the backend builds these maps by hand: a field that is
-// only present on a running container is optional HERE too, and a `?` that is missing is a crash
-// on the one day a container is stopped.
-// ---------------------------------------------------------------------------------------------
+/**
+ *
+ * What the endpoints answer.
+ *
+ * Written out rather than inferred, because the backend builds these maps by hand: a field that is
+ * only present on a running container is optional HERE too, and a `?` that is missing is a crash
+ * on the one day a container is stopped.
+ *
+ */
 
 /** One registered security key, as `/api/me` lists it. */
 export type SecurityKey = {
@@ -262,10 +292,10 @@ export type Me = {
   /**
    * The picture Discord holds for this account, when the access list happens to carry one.
    *
-   * **Absent is the ordinary case, not an error** (steward/91): somebody can be signed into Steward
+   * **Absent is the ordinary case, not an error**: somebody can be signed into Steward
    * and not be in the access list at all, and Discord itself does not always have a picture. The
    * island then draws the initials, stays tappable, and nothing about the page changes - which is
-   * the fallback steward/89 prescribes rather than a degraded state. So the query that fills this
+   * the fallback rather than a degraded state. So the query that fills this
    * must never be allowed to fail the answer.
    */
   discordAvatarUrl?: string
@@ -320,7 +350,7 @@ export type Service = {
   /**
    * How many people are connected, on the four services that have an answer to that.
    *
-   * **Absent is not zero** (steward/86). `smp`, `hunger-games` and `limbo` each carry their own,
+   * **Absent is not zero.** `smp`, `hunger-games` and `limbo` each carry their own,
    * `proxy` the network's total, and every other service has no such field at all -
    * neither does one of those four while the proxy has not written recently enough for the
    * worker to trust the row. So the optional marker here is load-bearing: `players ?? 0` is the
@@ -329,13 +359,12 @@ export type Service = {
   players?: number
   /**
    * Who is connected, on the rows that have a list - `proxy` carries the whole network,
-   * a backend carries its own. **Absent is not empty** (steward/111), the same rule `players`
+   * a backend carries its own. **Absent is not empty**, the same rule `players`
    * follows one line above: a row with no `roster` is one nobody wrote a list for.
    */
   roster?: Array<{ uuid?: string; name?: string }>
   /**
-   * Set when somebody stopped this service on purpose and it must stay stopped
-   * (season-2-ops/125).
+   * Set when somebody stopped this service on purpose and it must stay stopped.
    *
    * **Absent is not false**, the same rule `players` follows: a row with no `hold` is a service
    * nobody is holding, and a stopped container without one fell over rather than being put down.
@@ -344,8 +373,8 @@ export type Service = {
    */
   hold?: { since: string; by?: string | null }
   /**
-   * Set on the services that live in the `standby` compose profile and are meant to be stopped
-   * (steward/125): `proxy-standby` and `limbo-standby`.
+   * Set on the services that live in the `standby` compose profile and are meant to be stopped:
+   * `proxy-standby` and `limbo-standby`.
    *
    * **Absent is not false**, the same rule `players` and `hold` follow. A stopped standby and a
    * crashed backend are the same container state to Docker, so nothing about the row itself can
@@ -357,7 +386,7 @@ export type Service = {
   unreadable?: string
   /** Only on the single-service endpoint. */
   digests?: string[]
-  /** Only on the single-service endpoint: one of the four with a plugins folder (steward/140). */
+  /** Only on the single-service endpoint: one of the four with a plugins folder. */
   hasPlugins?: boolean
   /** Lines the console can fill, Docker plus the archived runs, capped at 10000. */
   logCapacity?: number
@@ -496,7 +525,7 @@ export type Run = {
 export type ActiveRun = { run: Run | null }
 
 /**
- * One artefact in the resolve, and what a run would do about it (season-2-ops/128).
+ * One artefact in the resolve, and what a run would do about it.
  *
  * `status` is the worker's own `Change.Status`, and the four that matter are told apart on the
  * page rather than lumped into "something to do": OUTDATED and MISSING are work, UP_TO_DATE is
@@ -539,7 +568,7 @@ export type Available = {
 }
 
 /**
- * One plugin on one Minecraft server (season-2-ops/129).
+ * One plugin on one Minecraft server.
  *
  * **`running` and `removable` are two different questions and neither implies the other.**
  * `running` is a jar on the disk; `removable` is a row in `service_plugin`. A plugin the network
@@ -649,7 +678,7 @@ export type Season = {
  * `accessActive` is the full login predicate. The pair is deliberate: a revoked person showing no
  * date at all would look exactly like a stranger who never had access.
  *
- * **The eight profile fields (steward/44/45) are what discord-bot and the proxy last
+ * **The eight profile fields are what discord-bot and the proxy last
  * observed, each with its own timestamp.** All eight are independently absent - an account nobody
  * has mirrored a Discord profile onto, one that left the guild, or one that was never seen joining
  * reads with the corresponding fields simply missing, never with an empty string standing in. They
@@ -679,7 +708,7 @@ export type Person = {
   mcName?: string
   mcNameUpdated?: string
   /**
-   * Total online time across the network, in seconds, out of `player_playtime` (steward/119).
+   * Total online time across the network, in seconds, out of `player_playtime`.
    *
    * Absent - not zero - for somebody who has never been online: the proxy writes the row on its
    * first flush, so "no row" and "no time" are different facts and the list says so. The prestige
@@ -725,7 +754,7 @@ export type JournalEntry = {
 }
 
 /**
- * One row of steward-worker's `/api/actions` (steward/82) - a run from `update_request` or a line
+ * One row of steward-worker's `/api/actions` - a run from `update_request` or a line
  * from `audit_log`, already merged and sorted by the worker into one feed, newest first.
  *
  * `actorDiscordId` and `actorLabel` are `""`, never absent, when there is nothing to show in that
@@ -768,7 +797,7 @@ export type ConfigLocation = {
 }
 
 /**
- * The allowed (or suggested) values of a setting, from its schema (steward/55, steward/56).
+ * The allowed (or suggested) values of a setting, from its schema.
  *
  * `strict` closes the list to exactly these values - the form draws a select and nothing else.
  * Otherwise it is a suggestion: a select beside a free-text field that still accepts anything.
@@ -780,7 +809,7 @@ export type ConfigChoices = {
 
 /**
  * Identifies the one section of a `SECTIONS` entry that a save must never be allowed to remove -
- * from the schema's `@Protected` (steward/74), e.g. `{ field: "tag", value: "en" }` for `languages`.
+ * from the schema's `@Protected`, e.g. `{ field: "tag", value: "en" }` for `languages`.
  */
 export type ConfigProtectedEntry = {
   field: string
@@ -797,7 +826,7 @@ export type ConfigProtectedEntry = {
  *
  * `filled` is sent for every key, secret or not, so there is one rule to draw rather than two.
  *
- * **Since jcore 4.0.0 (steward/55), `explanation` and `choices` come from the `<name>.schema.json`
+ * **Since jcore 4.0.0, `explanation` and `choices` come from the `<name>.schema.json`
  * beside the file, not from `comments` any more** - a file that generation of jcore wrote carries no
  * comments at all. `comments` is what is left for a file with no schema, or one nothing ever wrote a
  * schema for. `inSchema` is `true` whenever there is nothing to be missing from (no schema at all)
@@ -819,14 +848,14 @@ export type ConfigEntry = {
   /** Absent when `secret`. The entries of a LIST; empty for every other kind. */
   items?: string[]
   /**
-   * **`SECTIONS` does not exist on the worker yet (steward/57).** It is a sequence of mappings -
+   * **`SECTIONS` does not exist on the worker yet.** It is a sequence of mappings -
    * `languages` in `discord-bot/access.yml` is the case this was invented for - and today's worker
    * has no way to describe one: {@link ConfigFiles#collect} in `steward-worker` only recurses into
    * a `MappingNode`, never into the items of a `SequenceNode`, so a list of sections currently
    * arrives as an ordinary `LIST` with `items: []` (its scalars collector finds none) and
    * `editable: false`. This value, and {@link template} and {@link sections} below, are this
-   * ticket's frontend half of the mechanism, built so the worker side has a concrete shape to send
-   * once it exists - see the ticket for exactly what would have to change in `ConfigFiles`.
+   * mechanism's frontend half, built so the worker side has a concrete shape to send
+   * once it exists.
    */
   kind: "SCALAR" | "LIST" | "MAP" | "SECTIONS"
   type: "STRING" | "INTEGER" | "DECIMAL" | "BOOLEAN"
@@ -838,7 +867,7 @@ export type ConfigEntry = {
   inSchema: boolean
   /**
    * Whether an environment variable has taken this key over, so that editing the file here changes
-   * the file and not the running service (steward/76).
+   * the file and not the running service.
    *
    * jcore's `ConfigHandle` overlays `NORDTAL_<PREFIX>_<PATH>` on load and never writes the value
    * back; measured on this host, seven keys of `discord-bot`'s `access.yml` are overridden that
@@ -846,8 +875,8 @@ export type ConfigEntry = {
    * to prepare the file for the day the variable goes - but it must say so, which is what this
    * carries.
    *
-   * Absent means the service did not say, not that it is unaffected: a worker or a service older
-   * than steward/76 answers nothing here, and drawing "not overridden" from that would be the
+   * Absent means the service did not say, not that it is unaffected: an older worker or service
+   * answers nothing here, and drawing "not overridden" from that would be the
    * silent wrong answer this whole field exists to prevent.
    */
   environmentOverridden?: boolean
@@ -867,7 +896,7 @@ export type ConfigEntry = {
    */
   sections?: ConfigEntry[][]
   /**
-   * For a `SECTIONS` entry whose schema carries `@Protected` (steward/74): which section must not
+   * For a `SECTIONS` entry whose schema carries `@Protected`: which section must not
    * be removed. The worker itself refuses that removal - see `ConfigFiles.removeSection` - so this
    * is here for the interface to grey the option out up front rather than let an operator confirm a
    * removal that only fails once it reaches the worker. Undefined when there is no such rule.
@@ -918,9 +947,9 @@ export type GuildList = {
 }
 
 /**
- * A file steward could not split into keys - a foreign file steward/55's broadened `discover()`
- * now finds (a plugin's `README.txt`, a `.properties` file), or a `.yml` with a mistake in it
- * (steward/56). There is no `revision` and no `entries`: nothing here was parsed, so there is
+ * A file steward could not split into keys - a foreign file the worker's broadened `discover()`
+ * finds (a plugin's `README.txt`, a `.properties` file), or a `.yml` with a mistake in it.
+ * There is no `revision` and no `entries`: nothing here was parsed, so there is
  * nothing a save could be checked against. The interface shows the bytes as text and offers no
  * save button for them - `writable` on the location is beside the point.
  */
@@ -1034,9 +1063,11 @@ export type HungerGamesRound = {
   registered?: number
 }
 
-// ---------------------------------------------------------------------------------------------
-// steward-deployer: one question and one verb (§10a.4).
-// ---------------------------------------------------------------------------------------------
+/**
+ *
+ * steward-deployer: one question and one verb (§10a.4).
+ *
+ */
 
 /**
  * Whether the recreate button may be drawn at all.
@@ -1065,7 +1096,7 @@ export type DeployerJob = {
 }
 
 /**
- * Where one message bundle lives (steward/48).
+ * Where one message bundle lives.
  *
  * `path` is `<service>/<module>`, or just `<service>` when the bundle sits directly in the
  * service's own jar rather than a plugin's - the identity `/api/messages/<path>` is called with.
@@ -1136,6 +1167,22 @@ export type GlyphInfo = {
   image: string
 }
 
+/** Whether `value` is the manifest's array of {@link GlyphInfo}, checked by its own shape. */
+export function isGlyphInfoList(value: unknown): value is GlyphInfo[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.name === "string" &&
+        typeof entry.codePoint === "number" &&
+        typeof entry.height === "number" &&
+        typeof entry.ascent === "number" &&
+        typeof entry.image === "string",
+    )
+  )
+}
+
 export type MessageBundle = MessageBundleLocation & {
   entries: MessageEntry[]
 }
@@ -1143,7 +1190,7 @@ export type MessageBundle = MessageBundleLocation & {
 /**
  * What a save answers: the bundle as it now reads, plus every dropped-placeholder warning.
  *
- * A warning never blocks the save (steward/60's rule) - the response carries both the written
+ * A warning never blocks the save - the response carries both the written
  * result and the sentence, rather than the interface having to infer one from the other.
  */
 export type MessageSaveResult = MessageBundle & {
@@ -1179,7 +1226,7 @@ export type MessageChanges = {
 }
 
 /**
- * What became of asking the affected service to pick up a just-saved change (steward/59).
+ * What became of asking the affected service to pick up a just-saved change.
  *
  * The three values are deliberately not two: `APPLIED` and `NO_ANSWER` both mean a command was
  * sent, and must not be told apart only by reading `message` closely. `RESTART_REQUIRED` means
@@ -1192,7 +1239,7 @@ export type ConfigReloadOutcome = {
 }
 
 /**
- * `ParsedConfigDocument` widened by the two fields steward/59 added.
+ * `ParsedConfigDocument` widened by two fields.
  *
  * `restartRequired` is on every GET as well as every PUT - the "no live reload reaches this file"
  * fact is a property of the file, known before anybody types anything, and shown at the file
@@ -1208,10 +1255,10 @@ export type ReloadAwareConfigDocument = ParsedConfigDocument & {
 }
 
 /**
- * `RawConfigDocument` widened with the revision the raw editor's save needs (steward/60).
+ * `RawConfigDocument` widened with the revision the raw editor's save needs.
  *
- * `RawConfigDocument` itself stays as steward/56 left it - no revision, no save button, because
- * that was true of every raw document until this ticket gave the worker a write path for one. The
+ * `RawConfigDocument` itself stays with no revision and no save button, because
+ * that was true of every raw document until the worker gained a write path for one. The
  * worker now sends `revision` on every raw document too (`ConfigApi#rawDocument`), computed the
  * same way a parsed file's is; this is its own type rather than a change to `RawConfigDocument`
  * for the same reason `ReloadAwareConfigDocument` is its own type above it - other work lands in
@@ -1222,7 +1269,7 @@ export type EditableRawConfigDocument = RawConfigDocument & {
 }
 
 /**
- * What `PUT /api/config-raw/<file>` answers (steward/60): the file as it now reads, plus every
+ * What `PUT /api/config-raw/<file>` answers: the file as it now reads, plus every
  * syntax warning the save found.
  *
  * A warning never blocks the save - the same rule `MessageSaveResult` already carries for a
@@ -1235,8 +1282,8 @@ export type RawConfigSaveResult = EditableRawConfigDocument & {
 
 /**
  * The four formats the raw editor tells apart, by the file's own name - never its content, and
- * never guessed from what parsed and what did not. Mirrors `RawSyntax.Format` on the worker
- * (steward/60); the two are independent (a frontend module cannot import a worker enum) and
+ * never guessed from what parsed and what did not. Mirrors `RawSyntax.Format` on the worker;
+ * the two are independent (a frontend module cannot import a worker enum) and
  * agreeing is a matter of both reading the same four extensions, not of sharing code.
  */
 export type RawConfigFormat = "yaml" | "json" | "toml" | "properties" | "text"

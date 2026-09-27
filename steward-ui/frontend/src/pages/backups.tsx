@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import { ArrowCounterClockwiseIcon, ClockIcon, CloudIcon, DownloadIcon } from "@phosphor-icons/react"
 import { toast } from "sonner"
@@ -31,42 +31,35 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /**
- * Everything about the backups, in one place (steward/95).
+ * Everything about the backups, in one place.
  *
  * <h2>Why it is a page and not four halves of other pages</h2>
- * The owner, 2026-09-17: the backups were spread over Operations (the archive list and the runs),
- * Settings (the age threshold the light turns on) and the start page (one tile), and the one thing
- * none of them carried was where an offsite copy would go. A copy that only exists on the disk it
+ * Spreading the backups over Operations (the archive list and the runs),
+ * Settings (the age threshold the light turns on) and the start page (one tile) leaves out
+ * where an offsite copy would go. A copy that only exists on the disk it
  * is a copy of is the one fact an operator has to be able to read in a second, so the target is on
  * this page and is typed here rather than in `setup.sh`.
  *
- * <h2>the owner's second round, 2026-09-18</h2>
- * The list page shipped first and Alex reviewed it against a running instance rather than the
- * wireframes: the volumes panel and the archive listing both said less than the runs table already
- * did, "Requested by" printed a raw string nobody could read as a person, and the remote target
- * and the retention numbers took up permanent space for something read once in a while. This is
- * that second round - see the ticket's own review section for the nine items, one by one:
+ * <h2>What each part of this page is for</h2>
  *
  * <ol>
- *   <li>"On disk" is "Storage available" now, and says plainly that nothing queries the Storage
+ *   <li>"Storage available" says plainly that nothing queries the Storage
  *       Box yet rather than inventing a number for it - see {@link Summary}.</li>
  *   <li>The whole run row is a link, not only the number - see {@link Runs}.</li>
- *   <li>"Volumes" is "Archives", and counts files rather than drawing a fraction nobody without
+ *   <li>"Archives" counts files rather than drawing a fraction nobody without
  *       the run's own report line could interpret - see {@link Runs}.</li>
- *   <li>"Requested by" is "Initiated by" and goes through {@link Actor}, the one place a
+ *   <li>"Initiated by" goes through {@link Actor}, the one place a
  *       Discord id is allowed to be resolved to a person - see {@link Runs} and
  *       {@link StewardUi.ActorFields} on the backend, which reads `requested_by` apart the same
  *       way the unified actions feed already does.</li>
- *   <li>The volumes panel is gone - it repeated the newest run's own report line for line.</li>
- *   <li>The archive listing is gone from this page; a run's own archives are listed, and made
+ *   <li>There is no volumes panel: it would only repeat the newest run's own report line for line.</li>
+ *   <li>There is no archive listing on this page; a run's own archives are listed, and made
  *       downloadable, on its own detail page - see {@link BackupRunDetailPage} and the
- *       `/api/backups/{name}/download` route this ticket also built.</li>
- *   <li>The remote target and the schedule are both dialogs off the top-right corner now, not
+ *       `/api/backups/{name}/download` route.</li>
+ *   <li>The remote target and the schedule are both dialogs off the top-right corner, not
  *       permanent panels - see {@link DestinationDialog} and {@link ScheduleDialog}.</li>
- *   <li>Every route this page reads is `Gate.KEY_HELD`; only the two saves are `Gate.KEY_FRESH`,
- *       exactly as they already were. Nothing changed here - it is written down because it is the
- *       thing the ninth item leans on.</li>
- *   <li>The retention numbers moved into the schedule dialog, with a sentence underneath that
+ *   <li>Every route this page reads is `Gate.KEY_HELD`; only the two saves are `Gate.KEY_FRESH`.</li>
+ *   <li>The retention numbers live in the schedule dialog, with a sentence underneath that
  *       computes what they mean against {@code Retention}'s own algorithm - see
  *       {@link retentionSentence}.</li>
  * </ol>
@@ -100,7 +93,7 @@ export function BackupsPage() {
   )
 }
 
-// --- the file this page reads and writes ---------------------------------------------------------
+// --- the file this page reads and writes
 
 /**
  * `steward-worker/steward.yml`, looked up rather than spelled out.
@@ -135,9 +128,15 @@ export function entryAt(document: ParsedConfigDocument | undefined, path: string
 export function useConfigDraft(document: ParsedConfigDocument | undefined, keys: readonly string[]) {
   const [draft, setDraft] = useState<Record<string, string>>({})
 
-  // The answer to a save IS the file as it now reads, so a write empties the form's own state and
-  // what is on screen afterwards is what was written rather than what this browser hoped for.
-  useEffect(() => setDraft({}), [document])
+  /**
+   * The answer to a save IS the file as it now reads, so a write empties the form's own state and
+   * what is on screen afterwards is what was written rather than what this browser hoped for.
+   */
+  const [lastDocument, setLastDocument] = useState(document)
+  if (lastDocument !== document) {
+    setLastDocument(document)
+    setDraft({})
+  }
 
   const entries = useMemo(
     () => keys.map((path) => entryAt(document, path)).filter((entry): entry is ConfigEntry => entry !== undefined),
@@ -148,8 +147,10 @@ export function useConfigDraft(document: ParsedConfigDocument | undefined, keys:
   for (const entry of entries) {
     const typed = draft[entry.path]
     if (typed === undefined) continue
-    // A secret has no value to compare against - it was never sent - so anything typed into one is
-    // a change. Everything else is compared with what the file says.
+    /**
+     * A secret has no value to compare against - it was never sent - so anything typed into one is
+     * a change. Everything else is compared with what the file says.
+     */
     if (entry.secret ? typed !== "" : typed !== (entry.value ?? "")) changes[entry.path] = typed
   }
   const changed = Object.keys(changes).length
@@ -164,18 +165,17 @@ export function draftValue(entries: ConfigEntry[], draft: Record<string, string>
   return entries.find((entry) => entry.path === path)?.value ?? ""
 }
 
-// --- the numbers ----------------------------------------------------------------------------------
+// --- the numbers
 
 /**
  * Three numbers, roughly two to a row on a phone.
  *
- * Mobile first, the standing rule since steward/64. "Storage available" replaced "On disk"
- * (the owner's review, item 1): the old tile summed the local directory, which is exactly the copy an
- * offsite target exists to not be the only one of. Nothing in this stack queries the Storage Box
- * yet - `backup.remote`'s own doc says as much, "nothing in this service uploads yet" - so this
- * tile says that honestly rather than drawing a number for either the free space or what is stored
- * there. The day steward-worker can ask S3 a `HEAD` on its bucket, this is the one place that
- * answer needs to land.
+ * Mobile first, the standing rule for this page. "Storage available" is deliberately not a sum of
+ * the local directory, which is exactly the copy an offsite target exists to not be the only one
+ * of. Nothing in this stack queries the Storage Box yet - `backup.remote`'s own doc says as much,
+ * "nothing in this service uploads yet" - so this tile says that honestly rather than drawing a
+ * number for either the free space or what is stored there. The day steward-worker can ask S3 a
+ * `HEAD` on its bucket, this is the one place that answer needs to land.
  */
 function Summary() {
   const backups = useBackups()
@@ -196,7 +196,7 @@ function Summary() {
         hint={newest ? newest.human : backups.data ? "no finished backup" : "–"}
       />
       {/*
-        Neutral, not `tone="warn"` (orchestrator's call, 2026-09-19): a tile that will read exactly
+        Neutral, not `tone="warn"`: a tile that will read exactly
         this until somebody builds the S3 query would be a permanently amber tile, and an amber
         tile in this interface means something needs attention tonight. "Not tracked" is a fact
         about the feature, not an alarm about the backups.
@@ -217,7 +217,7 @@ function Summary() {
   )
 }
 
-// --- the runs -------------------------------------------------------------------------------------
+// --- the runs
 
 /** The `BACKUP` rows of `update_request`, newest first. */
 function backupRuns(runs: Run[] | undefined): Run[] {
@@ -240,11 +240,11 @@ function ran(run: Run): string {
 /**
  * The last backup runs, whole rows clickable through to their own detail page.
  *
- * The owner's review, items 2 to 4: every cell of a row is a link now, not only the run number
+ * Every cell of a row is a link, not only the run number
  * (`onClick` on the row plus a `Link` kept on the number itself for keyboard and middle-click);
- * "Volumes" is "Archives" and counts the files a run actually wrote rather than drawing a fraction
- * that needed the run's own report line to make sense of; and "Requested by" is "Initiated by",
- * drawn through {@link Actor} so a raw Discord id is never the thing on screen - see
+ * "Archives" counts the files a run actually wrote rather than drawing a fraction
+ * that needed the run's own report line to make sense of; and "Initiated by",
+ * drawn through {@link Actor}, means a raw Discord id is never the thing on screen - see
  * `StewardUi.ActorFields` for where `requestedBy` is read apart into the id, the plain label or
  * the flag that says this was Steward's own nightly clock.
  */
@@ -343,7 +343,7 @@ function Runs() {
   )
 }
 
-// --- the offsite target, in its own dialog now (the owner's review, item 7) ----------------------------
+// --- the offsite target, in its own dialog
 
 /** The five keys of `backup.remote`, in the order the form draws them. */
 const REMOTE_KEYS = [
@@ -355,7 +355,7 @@ const REMOTE_KEYS = [
 ] as const
 
 /**
- * Where a copy goes that is not on this disk (steward/95, and steward/08 hangs off it) - a dialog
+ * Where a copy goes that is not on this disk - a dialog
  * off the page header rather than a permanent panel, since it is read far less often than the runs
  * below it.
  *
@@ -445,7 +445,7 @@ function DestinationDialog() {
   )
 }
 
-// --- the nightly clock and the retention it keeps, in its own dialog (the owner's review, items 7 & 9) --
+// --- the nightly clock and the retention it keeps, in its own dialog
 
 /** `backup.at` and the four keys of `backup.retention`, in the order the dialog draws them. */
 const SCHEDULE_KEYS = [
@@ -571,10 +571,9 @@ function retentionSentence(daily: number, weekly: number, monthly: number, colla
  * The nightly clock and how long it keeps what it writes - a dialog rather than a permanent panel,
  * for the same reason the destination is one.
  *
- * <h2>The weekdays are wired, and they were not when this dialog was first drawn</h2>
- * The owner asked for "weekdays clickable" beside the time. Nothing in the stack had the concept, so
- * the first round drew seven always-on badges with a caption admitting they did nothing. They
- * write `backup.days` now: a LIST key on the worker, read by `NightlyClock`, which skips a night
+ * <h2>The weekdays are wired</h2>
+ * The seven weekday badges beside the time are not decoration: they
+ * write `backup.days`, a LIST key on the worker, read by `NightlyClock`, which skips a night
  * that is not one of them instead of firing anyway. A day nobody picked is a night with no
  * backup - the caption under the badges says which, rather than leaving it to be discovered by a
  * missing archive.
@@ -589,10 +588,16 @@ function ScheduleDialog() {
   const save = useSaveConfig(file ?? "")
   const { entries, draft, setDraft, changes, changed } = useConfigDraft(document, SCHEDULE_KEYS)
 
-  // The list key, kept out of the scalar draft - see the class comment. `undefined` is "nothing
-  // touched yet", so the file's own list is what is drawn until somebody clicks a badge.
+  /**
+   * The list key, kept out of the scalar draft - see the class comment. `undefined` is "nothing
+   * touched yet", so the file's own list is what is drawn until somebody clicks a badge.
+   */
   const [pickedDays, setPickedDays] = useState<string[] | undefined>(undefined)
-  useEffect(() => setPickedDays(undefined), [document])
+  const [lastScheduleDocument, setLastScheduleDocument] = useState(document)
+  if (lastScheduleDocument !== document) {
+    setLastScheduleDocument(document)
+    setPickedDays(undefined)
+  }
 
   const daysEntry = entryAt(document, DAYS_KEY)
   const fileDays = chosenDays(daysEntry?.items)
@@ -695,7 +700,7 @@ function ScheduleDialog() {
   )
 }
 
-// --- the way back ---------------------------------------------------------------------------------
+// --- the way back
 
 /**
  * Restores nothing - it builds the command, and a person runs it on the host (concept §10a).
@@ -770,7 +775,7 @@ function RestoreDialog() {
   )
 }
 
-// --- one backup run's own archives (the owner's review, item 6) -----------------------------------------
+// --- one backup run's own archives
 
 /**
  * Which of the files under `backup.output-root` belong to one run.
@@ -803,7 +808,7 @@ function archivesOf(run: Run, backups: Backup[]): Backup[] {
       const modified = parseInstant(backup.modified)?.getTime()
       return modified !== undefined && modified !== null && modified >= from && modified <= to
     })
-    .sort((left, right) => left.name.localeCompare(right.name))
+    .toSorted((left, right) => left.name.localeCompare(right.name))
 }
 
 /**

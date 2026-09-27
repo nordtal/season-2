@@ -3,8 +3,8 @@ import { useRouterState } from "@tanstack/react-router"
 /**
  * The trail over the page, and the one place it is built.
  *
- * It lived in `app/shell.tsx` while there was a header to carry it. steward/89 takes the header
- * away and gives the trail to the island instead, and three shells now draw it - so it moved here,
+ * It lived in `app/shell.tsx` while there was a header to carry it. With no header, the trail
+ * belongs to the island instead, and three shells now draw it - so it moved here,
  * where none of them owns it. `app/shell.tsx` re-exports {@link breadcrumbsFor} for
  * `shell.breadcrumbs.test.ts`, which is where the interesting half is tested.
  */

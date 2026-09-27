@@ -14,28 +14,27 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.imageio.ImageIO;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Steward's mark is the server icon, and this is the test that keeps it one picture.
  *
- * <p>{@code resource-pack/src/pack.png} is what a player sees in the server browser beside the MOTD
+ * {@code resource-pack/src/pack.png} is what a player sees in the server browser beside the MOTD
  * (Velocity gets it through {@code ServerIcon}) and what the resource pack carries as its own
  * picture. It is now also Steward's favicon, its home-screen icon and the small mark in the sidebar.
  * Four uses, one file - except that a Vite build cannot read across the repository, so the frontend
  * needs its own copy under {@code frontend/public/}. A copy is a thing that drifts, so it is held
  * here, which is the same arrangement {@code PlatformTest} and {@code ResourcePackTest} already
- * use for the numbers they mirror.</p>
+ * use for the numbers they mirror.
  *
- * <h2>Why the big one is nearest neighbour</h2>
+ * Why the big one is nearest neighbour
  * The source is 128 x 128 pixel art in which every 2 x 2 block is one colour - 21 colours in the
  * whole image. A smoothing resampler turns those into hundreds and the mark reads as a
  * low-resolution photograph rather than as a drawing. {@code ServerIcon} halves it with nearest
  * neighbour for exactly that reason; this quadruples it with the same rule, so an iPhone that
  * scales 512 down to 180 is working from clean edges.
  *
- * <p>To make the pair again after the artwork changes: copy {@code pack.png} over
+ * To make the pair again after the artwork changes: copy {@code pack.png} over
  * {@code icon.png}, and write {@code icon-512.png} by repeating each pixel four times - which is
  * the loop this test reads it back with. It names the exact pixel that disagrees.
  */
@@ -50,7 +49,6 @@ class MarkIsTheServerIconTest {
     private static final int FACTOR = 4;
 
     @Test
-    @DisplayName("the favicon is the server icon, byte for byte")
     void theCopyIsTheOriginal() throws IOException {
         assertArrayEquals(
                 bytes(SOURCE),
@@ -61,7 +59,6 @@ class MarkIsTheServerIconTest {
     }
 
     @Test
-    @DisplayName("the home-screen icon is that same picture, four times over, nearest neighbour")
     void theBigOneIsTheOriginalScaled() throws IOException {
         final BufferedImage source = read(SOURCE);
         final BufferedImage big = read(BIG);
@@ -88,7 +85,6 @@ class MarkIsTheServerIconTest {
     }
 
     @Test
-    @DisplayName("the page asks for all three, and for nothing that is not there")
     void thePagePointsAtThem() throws IOException {
         final String page = Files.readString(repository().resolve(PAGE), StandardCharsets.UTF_8);
         assertTrue(page.contains("href=\"/icon.png\""), "index.html has no favicon");
@@ -106,7 +102,6 @@ class MarkIsTheServerIconTest {
     }
 
     @Test
-    @DisplayName("the manifest parses, and every icon in it exists")
     void theManifestIsReal() throws IOException {
         final JsonObject manifest = new Gson()
                 .fromJson(Files.readString(repository().resolve(MANIFEST), StandardCharsets.UTF_8), JsonObject.class);
@@ -129,8 +124,6 @@ class MarkIsTheServerIconTest {
             assertTrue(Files.isRegularFile(file), "the manifest names " + source + " and there is no such file");
         }
     }
-
-    // --- plumbing ------------------------------------------------------------------------------
 
     private static byte[] bytes(final String name) throws IOException {
         final Path file = repository().resolve(name);

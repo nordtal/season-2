@@ -3,9 +3,9 @@ import type { ReactNode } from "react"
 /**
  * The top of every page: what it is, and the actions that belong to it.
  *
- * **There is no note, and there is no prop for one** (2026-09-14). Every page carried a line under
- * its title saying what the page was for, to somebody already standing on it. They are gone, and
- * the prop went with them so that the next one has to be argued for rather than filled in.
+ * **There is no note, and there is no prop for one.** A line under
+ * the title saying what the page is for, to somebody already standing on it, is not here, and
+ * the prop is not either, so the next one has to be argued for rather than filled in.
  */
 export function PageHeader({ title, actions }: { title: ReactNode; actions?: ReactNode }) {
   return (

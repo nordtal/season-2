@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import type { UIEvent } from "react"
 
 import type { EditableRawConfigDocument, RawConfigFormat } from "@/lib/api"
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Failure } from "@/components/steward/query-state"
 
 /**
- * The editor `RawConfigView` (`configuration.tsx`) hands a file to once steward/56's read-only
+ * The editor `RawConfigView` (`configuration.tsx`) hands a file to once its read-only
  * fallback has one to show - a file this process could not split into keys at all, or an ordinary
  * config with a mistake in it.
  *
@@ -43,13 +43,17 @@ export function RawConfigEditor({
   const [warnings, setWarnings] = useState<string[]>([])
   const save = useSaveRawConfig(file)
 
-  // The answer to a save IS the file as it now reads (byte for byte here, since nothing on this
-  // path re-serialises), so a successful write settles the draft on exactly what was written -
-  // the same rule ConfigForm and BundleForm both follow.
-  useEffect(() => {
+  /**
+   * The answer to a save IS the file as it now reads (byte for byte here, since nothing on this
+   * path re-serialises), so a successful write settles the draft on exactly what was written -
+   * the same rule ConfigForm and BundleForm both follow.
+   */
+  const [lastDocument, setLastDocument] = useState(document)
+  if (lastDocument !== document) {
+    setLastDocument(document)
     setContent(document.content)
     setWarnings([])
-  }, [document])
+  }
 
   const dirty = content !== document.content
   const format = formatOf(document.name)
@@ -61,8 +65,10 @@ export function RawConfigEditor({
   return (
     <div className="flex flex-col gap-4">
       {origin === "nordtal" ? (
-        // A Nordtal file always has a schema, so raw text means it did not parse - worth one line.
-        // A third-party plugin's file is text and nothing more; there is nothing to say above it.
+        /**
+         * A Nordtal file always has a schema, so raw text means it did not parse - worth one line.
+         * A third-party plugin's file is text and nothing more; there is nothing to say above it.
+         */
         <details className="text-sm text-muted-foreground">
           <summary className="cursor-pointer">Shown as text, it did not parse.</summary>
           {document.reason ? <p className="mt-1 font-mono text-xs">{document.reason}</p> : null}
@@ -115,9 +121,11 @@ export function RawConfigEditor({
   )
 }
 
-// -------------------------------------------------------------------------------------------
-// Format detection - mirrors RawSyntax.formatOf on the worker (steward/60)
-// -------------------------------------------------------------------------------------------
+/**
+ *
+ * Format detection - mirrors RawSyntax.formatOf on the worker
+ *
+ */
 
 /**
  * The format this editor draws for a file, decided by the last extension on its own name - never
@@ -136,9 +144,11 @@ export function formatOf(fileName: string): RawConfigFormat {
   return "text"
 }
 
-// -------------------------------------------------------------------------------------------
-// The editor itself: a plain textarea with a colour-matched layer of tokens behind it
-// -------------------------------------------------------------------------------------------
+/**
+ *
+ * The editor itself: a plain textarea with a colour-matched layer of tokens behind it
+ *
+ */
 
 /**
  * A `<textarea>` with syntax colouring behind it, not inside it - a textarea cannot render markup,
@@ -171,8 +181,10 @@ function HighlightedTextarea({
 }) {
   const preRef = useRef<HTMLPreElement>(null)
 
-  // Both layers scroll their own box; a container that clipped instead would mean the operator
-  // could type past what is visible with nothing to bring it back into view.
+  /**
+   * Both layers scroll their own box; a container that clipped instead would mean the operator
+   * could type past what is visible with nothing to bring it back into view.
+   */
   function syncScroll(event: UIEvent<HTMLTextAreaElement>) {
     if (!preRef.current) return
     preRef.current.scrollTop = event.currentTarget.scrollTop
@@ -204,9 +216,11 @@ function HighlightedTextarea({
   )
 }
 
-// -------------------------------------------------------------------------------------------
-// The tokeniser - one small function per format, line-oriented on purpose
-// -------------------------------------------------------------------------------------------
+/**
+ *
+ * The tokeniser - one small function per format, line-oriented on purpose
+ *
+ */
 
 type Token = { text: string; className?: string }
 
@@ -249,6 +263,10 @@ export function tokenizeLine(format: RawConfigFormat, line: string): Token[] {
       return tokenizePropertiesLine(line)
     case "text":
       return [{ text: line }]
+    default: {
+      const exhaustive: never = format
+      throw new Error(`unreachable config format: ${JSON.stringify(exhaustive)}`)
+    }
   }
 }
 
@@ -276,8 +294,10 @@ function tokenizeYamlLine(line: string): Token[] {
     }
   }
 
-  // A plain key ends at the first colon followed by whitespace or the end of the line - matching
-  // ConfigFiles' own rule that a key may itself contain a colon (`12:00: something`).
+  /**
+   * A plain key ends at the first colon followed by whitespace or the end of the line - matching
+   * ConfigFiles' own rule that a key may itself contain a colon (`12:00: something`).
+   */
   const key = /^([^:#]+?)(:)(\s|$)/.exec(rest)
   if (key) {
     tokens.push({ text: key[1], className: CLASS.key })
@@ -342,9 +362,11 @@ function tokenizeScalarValue(text: string): Token[] {
 }
 
 function scalarToken(value: string): Token {
-  // Classified by the value with its own trailing whitespace stripped (`true `, with a trailing
-  // space, is still the literal `true`) - but the token itself always carries the untrimmed text,
-  // or the characters it stands for would quietly go missing from what the operator sees.
+  /**
+   * Classified by the value with its own trailing whitespace stripped (`true `, with a trailing
+   * space, is still the literal `true`) - but the token itself always carries the untrimmed text,
+   * or the characters it stands for would quietly go missing from what the operator sees.
+   */
   const trimmed = value.replace(/\s+$/, "")
   return { text: value, className: classifyScalar(trimmed) }
 }

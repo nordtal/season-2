@@ -16,29 +16,14 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Every {@code /api/...} path the browser asks for is a path this service answers.
  *
- * <h2>What went wrong, which is the only reason this exists</h2>
- * steward/48 was built in two halves that were each tested and each green. {@code steward-worker}
- * grew {@code GET|PUT /api/messages}, the frontend grew the card that calls it, and the piece
- * between them - steward-ui, which is the only thing the browser can actually reach - grew nothing.
- * The worker's tests passed because they called the worker. The frontend's tests passed because
- * they mock {@code fetch}. Every suite was green and the page would have answered 404 on first
- * sight, and the gap was found by curling the running stack rather than by any test in this
- * repository (2026-09-16).
- *
- * <p>The shape of that mistake is not specific to messages. Every route here is a proxy or a
- * handler written by hand next to forty others, and nothing has ever held the two lists against
- * each other.</p>
- *
- * <h2>What it does not check</h2>
- * That the answer is right, or that the worker behind a proxied route exists. This is the cheap
- * half - the path is registered at all - because that is the half that was missing and the half
- * a mocked {@code fetch} can never see.
+ * A feature built in two halves, each tested and each green, can still miss the middle: the piece
+ * between the worker and the frontend grows nothing, and every suite stays green while the page
+ * answers 404. This only checks that the path is registered at all, not that the answer is right.
  */
 class EveryCalledPathIsRoutedTest {
 
@@ -50,17 +35,13 @@ class EveryCalledPathIsRoutedTest {
     /**
      * An {@code /api/...} literal in the frontend, in either quote style.
      *
-     * <p>It stops at the first character that ends a path: the closing quote, a {@code ?} beginning
+     * It stops at the first character that ends a path: the closing quote, a {@code ?} beginning
      * a query, a {@code $} beginning an interpolation - the interpolated part is a value and not
      * a route segment, and what matters for routing is the shape up to there - or a backslash,
-     * which begins an escape.</p>
+     * which begins an escape.
      *
-     * <p>The backslash was added on 2026-09-16, after this test failed on a path it had invented:
-     * {@code access.tsx} prints the API's own answer in a {@code <pre>} as
-     * {@code `/api/me\nwebauthn: ...`}, and without this the capture ran straight through the
-     * {@code \n} and asked {@code StewardUi} to register {@code "/api/me\nwebauthn: "}. A
-     * backslash cannot occur in a path, so it belongs with the other three terminators rather than
-     * being worked around at the one call site that happened to hit it.</p>
+     * A backslash cannot occur in a path, so it belongs with the other three terminators: without
+     * it, a template literal containing {@code \n} would have its escape read as part of the path.
      */
     private static final Pattern CALLED = Pattern.compile("[\"`](/api/[^\"`?$\\\\]*)");
 
@@ -71,23 +52,16 @@ class EveryCalledPathIsRoutedTest {
     /**
      * The catch-all, which is a route and is not an answer.
      *
-     * <p>{@code /api/<path>} is registered last on purpose: it turns an unmatched {@code /api}
+     * {@code /api/<path>} is registered last on purpose: it turns an unmatched {@code /api}
      * request into a plain 404 instead of letting the single-page fallback claim it. It therefore
-     * matches every path ever written, and counting it would make this whole test say nothing -
-     * which is exactly what the first version of it did. It was written, the routes it was written
-     * for were deleted to see it fail, and it passed. The bug this class exists to catch was
-     * standing right there and the guard shrugged.</p>
+     * matches every path ever written, and counting it would make this whole test say nothing.
      */
     private static final Pattern CATCH_ALL = Pattern.compile("/api/(?:\\{[^}]+}|<[^>]+>)");
 
     @Test
-    @DisplayName("every /api path the frontend calls is registered in StewardUi")
     void nothingIsCalledThatIsNotRouted() {
         final Set<String> routes = registered();
-        // A guard that silently stops guarding is worse than none: if the route table is parsed to
-        // nothing, every path below "matches" nothing and the assertion would still be the one
-        // that fires - but for the wrong reason, and the message would send somebody to the
-        // frontend. Say it here instead.
+        // A guard that silently stops guarding is worse than none: say so here, not at the wrong assertion.
         assertTrue(
                 routes.size() > 20,
                 "only " + routes.size() + " routes were read out of " + ROUTES
@@ -109,7 +83,6 @@ class EveryCalledPathIsRoutedTest {
     }
 
     @Test
-    @DisplayName("the frontend is read, and it does call paths")
     void theFrontendIsActuallyRead() {
         final Set<String> called = called();
         assertTrue(
@@ -135,7 +108,7 @@ class EveryCalledPathIsRoutedTest {
     /**
      * Every metric the frontend draws a curve of is one the sampler actually writes.
      *
-     * <h2>The same mistake one layer in</h2>
+     * The same mistake one layer in
      * The test above holds the paths, and it was green while the start page's CPU sparkline had
      * never drawn a single point in its life: the path {@code /api/metrics} is registered, so
      * nothing complained. What was wrong is the value of {@code metric} - the page asked for
@@ -143,15 +116,14 @@ class EveryCalledPathIsRoutedTest {
      * {@link StewardUi}'s handler answers an unknown name with {@code 200} and an empty list of
      * points rather than with an error. That is right for a name with no samples yet, on a
      * deployment where the sampler has not run; it is indistinguishable from a name that will
-     * never have any. Measured on the running stack 2026-09-17: 9 103 rows under
-     * {@code host/cpu_percent}, none at all under {@code host/cpu} (steward/94).
+     * never have any. Measured on the running stack: thousands of rows under
+     * {@code host/cpu_percent}, none at all under {@code host/cpu}.
      *
-     * <p>Only the metric is held, never the subject. The sampler writes {@code "host"} as a
+     * Only the metric is held, never the subject. The sampler writes {@code "host"} as a
      * literal and every service name as a variable, so a list of valid subjects cannot be read out
-     * of it - and the subject was not where this went wrong.</p>
+     * of it - and the subject was not where this went wrong.
      */
     @Test
-    @DisplayName("every metric the frontend asks for is one the sampler writes")
     void nothingIsDrawnThatIsNeverSampled() {
         final Set<String> written = literals(WRITTEN_METRIC, repository().resolve(SAMPLER));
         assertTrue(
@@ -186,17 +158,13 @@ class EveryCalledPathIsRoutedTest {
     /**
      * Whether a Javalin route pattern covers a called path.
      *
-     * <p>Both parameter styles are here because this file uses both, and they differ in exactly the
+     * Both parameter styles are here because this file uses both, and they differ in exactly the
      * way that matters: {@code {name}} is one segment, {@code <file>} is the rest of the path,
      * slashes included. That is why a config file called {@code smp/config.yml} can be one
-     * parameter at all.</p>
+     * parameter at all.
      */
     private static boolean matches(final String route, final String called) {
-        // A trailing slash is where the interpolation began, not part of the path: the frontend
-        // writes `/api/people/${id}/grants` and CALLED stops at the `$`, leaving "/api/people/".
-        // What is known about such a call is its prefix and nothing else, so that is what is
-        // asked - and it is still worth asking, because the catch-all is out of the list and a
-        // prefix of no route at all is exactly the mistake this test is for.
+        // A trailing slash is where the interpolation began, not part of the path; only the prefix is known.
         if (called.endsWith("/")) {
             return route.startsWith(called);
         }
@@ -245,9 +213,10 @@ class EveryCalledPathIsRoutedTest {
     }
 
     /**
-     * Every {@code .ts} and {@code .tsx} file of the frontend that is not a test, handed over one
-     * at a time. Two guards in this class walk the same tree looking for two different literals;
-     * the walk and what it leaves out belong in one place rather than in both.
+     * Every {@code .ts} and {@code .tsx} source file of the frontend, handed over one at a time.
+     *
+     * Two guards in this class walk the same tree looking for two different literals; the walk
+     * belongs in one place rather than in both.
      */
     private static void forEachSourceFile(final java.util.function.Consumer<Path> visitor) {
         final Path root = repository().resolve(FRONTEND);
@@ -256,8 +225,7 @@ class EveryCalledPathIsRoutedTest {
                 root + " is not there, so this test was reading" + " nothing. Fix the path rather than the assertion.");
         try (Stream<Path> walk = Files.walk(root)) {
             walk.filter(Files::isRegularFile)
-                    // A test's fixture is not a call the browser makes, and a mocked fetch is
-                    // free to name a path, or a metric, that never existed.
+                    // A test's fixture is not a call the browser makes, and a mock may name a path that never existed.
                     .filter(path -> !path.getFileName().toString().contains(".test."))
                     .filter(path -> {
                         final String name = path.getFileName().toString();

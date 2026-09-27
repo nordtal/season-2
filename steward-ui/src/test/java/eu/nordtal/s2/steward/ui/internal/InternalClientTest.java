@@ -7,30 +7,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
  * The two decisions {@link InternalClient} makes before and after the wire.
  *
- * <h2>Why a real socket for the second half</h2>
- * {@code isNotSuccess} is private, and testing it directly would be testing an inequality. What is
- * actually being asserted is that the JDK's client, built the way this class builds it, hands a
- * {@code 307} back to be refused rather than following it - and "the JDK's default redirect policy
- * is NEVER" is exactly the kind of fact that is true until somebody adds a
- * {@code followRedirects(ALWAYS)} to the builder for an unrelated reason. Only a server that
- * actually answers 307 can tell those two worlds apart.
- *
- * <p>The failure that produced the current boundary was real: it was {@code >= 400}, a proxy in
- * front of the deployer answered {@code 307}, and {@code DeployerApi.recreate} reported
- * {@code 202 Accepted} for a job nothing had accepted.</p>
+ * A real socket for the second half rather than testing {@code isNotSuccess} directly: what is
+ * actually asserted is that the JDK's client, built the way this class builds it, hands a
+ * {@code 307} back to be refused rather than following it.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class InternalClientTest {
@@ -40,10 +32,8 @@ class InternalClientTest {
 
     @BeforeAll
     static void startAServerThatAnswersWhateverIsAskedOfIt() throws IOException {
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        // The path is the status to answer with, so one handler covers every case below.
-        // One endpoint that takes longer than anybody's timeout. It is the drift refresh of
-        // 2026-09-14 in miniature: an answer that is coming, only not yet.
+        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        // The path is the status to answer with, plus one endpoint that takes longer than any timeout.
         server.createContext("/api/slow", exchange -> {
             try {
                 Thread.sleep(Duration.ofSeconds(5));
@@ -58,8 +48,7 @@ class InternalClientTest {
                     Integer.parseInt(exchange.getRequestURI().getPath().substring("/api/".length()));
             final byte[] body = ("body of " + status).getBytes(StandardCharsets.UTF_8);
             if (status == 204 || status == 307 || status == 304) {
-                // A status that carries no body, which is the point of these three: 204 by
-                // definition, and a redirect because a proxy emitting one rarely bothers.
+                // A status that carries no body: 204 by definition, and a redirect because a proxy rarely bothers.
                 exchange.getResponseHeaders().add("Location", "http://elsewhere.example.com/");
                 exchange.sendResponseHeaders(status, -1);
                 exchange.close();
@@ -70,8 +59,7 @@ class InternalClientTest {
                 out.write(body);
             }
         });
-        // A thread per exchange, because one handler here sleeps: the default executor runs every
-        // request on the dispatcher thread, so the slow one would stall the other seven tests.
+        // A thread per exchange, so the slow handler does not stall the rest on the default executor.
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.start();
         client = new InternalClient(
@@ -89,18 +77,9 @@ class InternalClientTest {
         }
     }
 
-    // -------------------------------------------------------------------------------------------
-    // Where a token in clear may go
-    // -------------------------------------------------------------------------------------------
-
     @Test
-    @DisplayName("a plaintext base address outside this deployment is refused while it is still configuration")
     void aTokenNeverLeavesTheHostInClear() {
-        // base-url is a setting and it is editable from the interface itself, so this is one
-        // careless save away from putting the deployer's token - the one credential in this stack
-        // that may create containers - on the open internet, with nothing anywhere saying so. The
-        // refusal is in the constructor, which means the container does not start rather than
-        // starting and leaking.
+        // base-url is editable from the interface, so this refuses in the constructor rather than leaking later.
         for (final String outside : new String[] {
             "http://steward.nordtal.eu",
             "http://45.155.173.214",
@@ -121,11 +100,8 @@ class InternalClientTest {
     }
 
     @Test
-    @DisplayName("https anywhere, and plain http to a compose name or to loopback, are accepted")
     void theThreeThatAreAllowed() {
-        // A dotless host cannot be a public DNS name, so it is a compose service on the internal
-        // network - which is where the default `http://steward-worker:8081` points and is the whole
-        // ordinary case. Loopback is the other one: the test stand-in for a service, on this host.
+        // A dotless host is a compose service on the internal network; loopback is the other allowed case.
         for (final String inside : new String[] {
             "https://steward.nordtal.eu",
             "HTTPS://steward.nordtal.eu",
@@ -140,37 +116,23 @@ class InternalClientTest {
     }
 
     @Test
-    @DisplayName("a client with no token configured is not checked, because it sends no secret")
     void nothingToProtectMeansNothingToRefuse() {
-        // The unconfigured deployer. It refuses to do anything anyway - DeployerApi#require answers
-        // a sentence about the setup script - and refusing it in the constructor as well would turn
-        // "the deployer is not set up yet" into a container that will not start.
+        // The unconfigured deployer already refuses everything through DeployerApi#require.
         new InternalClient("steward-deployer", "http://steward.nordtal.eu", "", Duration.ofSeconds(1));
         new InternalClient("steward-deployer", "http://anything.example.com", "   ", Duration.ofSeconds(1));
     }
 
     @Test
-    @DisplayName("an address with no scheme at all is refused rather than guessed at")
     void aHalfWrittenAddressIsNotHalfAccepted() {
-        // `steward-worker:8081` - the value somebody types when they mean the default and forget
-        // the scheme. URI parses it as scheme `steward-worker` with no host, which is neither https
-        // nor http-to-something-inside, so it lands in the refusal. Worth pinning: a host==null
-        // branch that fell through to "allow" would accept exactly the typo most likely to be made.
+        // A forgotten scheme parses as scheme `steward-worker` with no host, which must land in the refusal.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new InternalClient("steward-worker", "steward-worker:8081", "a-secret", Duration.ofSeconds(1)));
     }
 
-    // -------------------------------------------------------------------------------------------
-    // Which side of the boundary a status is on
-    // -------------------------------------------------------------------------------------------
-
     @Test
-    @DisplayName("a 307 is a failure and is not followed, which is the bug this boundary was moved for")
     void aRedirectIsNotASuccess() {
-        // If the client ever started following redirects, this would answer 200 from
-        // elsewhere.example.com - or, with no network, hang. Either is louder than what the old
-        // `>= 400` did, which was to report 202 Accepted for a recreate nothing had accepted.
+        // If the client ever followed redirects, this would answer 200 or hang - louder than the old `>= 400` bug.
         final InternalClient.Failure refused = assertThrows(InternalClient.Failure.class, () -> client.get("/api/307"));
 
         assertEquals(307, refused.status());
@@ -180,9 +142,7 @@ class InternalClientTest {
                 "the interface shows which of the two services failed, so it must not be a guess");
         assertTrue(refused.getMessage().contains("307"), refused.getMessage());
 
-        // The same status through post(). The status and the service are right here too; what the
-        // message says is a separate matter and is deliberately not asserted - see the report that
-        // came with this test.
+        // The same status through post(); what the message says is a separate matter, deliberately not asserted.
         assertEquals(
                 307,
                 assertThrows(InternalClient.Failure.class, () -> client.post("/api/307", "{}"))
@@ -190,24 +150,16 @@ class InternalClientTest {
     }
 
     @Test
-    @DisplayName("a 204 is a success, and what it hands back is an empty body rather than an error")
     void noContentIsOnTheSuccessSide() {
-        // The other edge of the same window. 204 is the answer a JSON API gives to a delete or an
-        // accepted command with nothing to say, and treating it as a failure would turn a
-        // successful action into a red box. Nothing behind this interface answers 204 today, which
-        // is exactly why the behaviour is worth writing down before something starts to.
+        // 204 is what a JSON API answers a delete with nothing to say; treating it as a failure would be wrong.
         assertEquals("", client.get("/api/204"));
         assertEquals("", client.post("/api/204", "{}"));
 
-        // What the callers then do with it is worth knowing: DeployerApi and WorkerApi pass this
-        // straight into `ctx.contentType("application/json").result(answer)`, so a 204 from either
-        // service reaches the browser as a 200 with an empty body and a JSON content type - which
-        // `response.json()` rejects. Asserted here as the fact it is, not as an approval of it.
+        // Callers pass this straight into `ctx.contentType("application/json").result(answer)`, unmodified.
         assertEquals("", client.get("/api/204"));
     }
 
     @Test
-    @DisplayName("200 is a success and 400 and 500 are not, and the body rides along for the page")
     void theOrdinaryStatusesAreWhereTheyShouldBe() {
         assertEquals("body of 200", client.get("/api/200"));
         assertEquals("body of 201", client.post("/api/201", "{}"));
@@ -231,11 +183,8 @@ class InternalClientTest {
     }
 
     @Test
-    @DisplayName("a service that is not listening is a 502 that names it, not a stack trace")
     void anUnreachableServiceIsASentence() {
-        // The evening half of this stack is down. It has to be distinguishable from "the service
-        // answered something I did not like", because the two are different problems and the page
-        // shows one line either way.
+        // Unreachable has to be distinguishable from "answered something I did not like": different problems.
         final InternalClient nobody =
                 new InternalClient("steward-worker", "http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));
 
@@ -247,16 +196,8 @@ class InternalClientTest {
     }
 
     @Test
-    @DisplayName("a service that answers too slowly is a 504 that says so, not 'could not be reached'")
     void aSlowServiceIsNotAnAbsentOne() {
-        // MEASURED on the dev host, 2026-09-14. `GET /api/services` on steward-worker takes 11.5 s
-        // whenever its one-minute drift cache has expired, against a 10 s timeout here. Every
-        // IOException was one sentence, so the log said "steward-worker could not be reached at
-        // http://steward-worker:8082" about a service that was healthy, listening and answering -
-        // once a minute, for hours. An operator reading that goes looking at the network.
-        //
-        // HttpTimeoutException IS an IOException, which is why the two have to be caught in this
-        // order and why the wrong sentence was so easy to write.
+        // HttpTimeoutException is an IOException, so the two must be caught in an order that tells them apart.
         final InternalClient patient = new InternalClient(
                 "steward-worker",
                 "http://127.0.0.1:" + server.getAddress().getPort(),
@@ -274,7 +215,6 @@ class InternalClientTest {
     }
 
     @Test
-    @DisplayName("an unreachable service names the request too")
     void theSentenceNamesThePath() {
         final InternalClient nobody =
                 new InternalClient("steward-worker", "http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));

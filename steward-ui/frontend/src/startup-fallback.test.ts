@@ -1,11 +1,14 @@
 import { readFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { runInThisContext } from "node:vm"
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { asElement } from "@/lib/test-elements"
+
 /**
- * The inline script in `index.html` that reports a startup that never happened (steward/79).
+ * The inline script in `index.html` that reports a startup that never happened.
  *
  * It is deliberately not a module under `src/` - a module is one more file the bundle can fail to
  * fetch, and the whole point of this script is to still run when the bundle has. So it is tested
@@ -26,8 +29,22 @@ function inlineScriptSource(): string {
 }
 
 function runInlineScript(): void {
-  // eslint-disable-next-line no-new-func -- this is the real script, not a rewrite of it.
-  new Function(inlineScriptSource())()
+  /**
+   * The real script, not a rewrite of it - run in the global context the same way a browser's own
+   * inline, non-module <script> would, rather than through the Function constructor.
+   */
+  runInThisContext(inlineScriptSource())
+}
+
+/** The text currently shown in the startup-fallback message element, if it is present. */
+function message(): string | null {
+  return document.getElementById("startup-fallback-message")?.textContent ?? null
+}
+
+/** Attaches `element` to the document and fires the `error` event a failed resource load raises. */
+function fireResourceError(element: HTMLElement): void {
+  document.head.appendChild(element)
+  element.dispatchEvent(new Event("error"))
 }
 
 describe("index.html's inline startup reporter", () => {
@@ -36,12 +53,15 @@ describe("index.html's inline startup reporter", () => {
   beforeEach(() => {
     window.sessionStorage.clear()
     document.body.innerHTML =
-      '<div id="startup-fallback">' + '<p id="startup-fallback-message">Steward has not started yet.</p>' + "</div>"
-    reload = vi.fn()
-    // jsdom's own reload() logs "Not implemented: navigation" and does nothing - replaced so a
-    // test can tell whether it was asked for at all.
+      '<div id="startup-fallback"><p id="startup-fallback-message">Steward has not started yet.</p></div>'
+    reload = vi.fn<() => void>()
+    /**
+     * jsdom's own reload() logs "Not implemented: navigation" and does nothing - replaced so a
+     * test can tell whether it was asked for at all.
+     */
+    /** Only `reload` is read by the inline script - see index.html's two call sites. */
     Object.defineProperty(window, "location", {
-      value: { ...window.location, reload },
+      value: { reload },
       writable: true,
       configurable: true,
     })
@@ -50,15 +70,6 @@ describe("index.html's inline startup reporter", () => {
   afterEach(() => {
     window.sessionStorage.clear()
   })
-
-  function message(): string | null {
-    return document.getElementById("startup-fallback-message")?.textContent ?? null
-  }
-
-  function fireResourceError(element: HTMLElement): void {
-    document.head.appendChild(element)
-    element.dispatchEvent(new Event("error"))
-  }
 
   it("reloads once, silently, when the module bundle fails to load", () => {
     runInlineScript()
@@ -100,8 +111,10 @@ describe("index.html's inline startup reporter", () => {
     fireResourceError(first)
     expect(reload).toHaveBeenCalledTimes(1)
 
-    // The reload itself is what a real browser would do here; this test stands in a fresh
-    // execution of the same inline script for it, on the document state the first run left behind.
+    /**
+     * The reload itself is what a real browser would do here; this test stands in a fresh
+     * execution of the same inline script for it, on the document state the first run left behind.
+     */
     const second = document.createElement("script")
     second.src = "http://localhost/assets/index-deadbeef.js"
     fireResourceError(second)
@@ -110,7 +123,7 @@ describe("index.html's inline startup reporter", () => {
     expect(message()).toContain("even after reloading once")
   })
 
-  it("ignores a failed icon or manifest - cosmetic, and not what steward/79 is about", () => {
+  it("ignores a failed icon or manifest - cosmetic, and not what this guards against", () => {
     runInlineScript()
     const icon = document.createElement("link")
     icon.rel = "icon"
@@ -122,16 +135,17 @@ describe("index.html's inline startup reporter", () => {
   })
 
   it("reveals the panel the moment it has something to say, without waiting out the fade-in", () => {
-    // The panel is hidden by a CSS delay so a healthy start never flashes it (index.html's own
-    // <style>). An animation that never runs would leave it hidden forever, and hidden is the one
-    // failure direction that matters here - so the reporter reveals it directly rather than
-    // trusting the animation it cannot see.
+    /**
+     * The panel is hidden by a CSS delay so a healthy start never flashes it (index.html's own
+     * <style>). An animation that never runs would leave it hidden forever, and hidden is the one
+     * failure direction that matters here - so the reporter reveals it directly rather than
+     * trusting the animation it cannot see.
+     */
     runInlineScript()
-    const panel = document.getElementById("startup-fallback") as HTMLElement
+    const panel = asElement(document.getElementById("startup-fallback"))
     expect(panel.style.opacity).toBe("")
 
-    const event = new Event("error") as ErrorEvent
-    Object.defineProperty(event, "message", { value: "something inside React threw" })
+    const event = new ErrorEvent("error", { message: "something inside React threw" })
     window.dispatchEvent(event)
 
     expect(panel.style.opacity).toBe("1")
@@ -140,8 +154,7 @@ describe("index.html's inline startup reporter", () => {
 
   it("reports a thrown error from a bundle that did load, without reloading over it", () => {
     runInlineScript()
-    const event = new Event("error") as ErrorEvent
-    Object.defineProperty(event, "message", { value: "something inside React threw" })
+    const event = new ErrorEvent("error", { message: "something inside React threw" })
     window.dispatchEvent(event)
 
     expect(reload).not.toHaveBeenCalled()
@@ -150,8 +163,10 @@ describe("index.html's inline startup reporter", () => {
 
   it("reports an unhandled promise rejection the same way", () => {
     runInlineScript()
-    const event = new Event("unhandledrejection") as PromiseRejectionEvent
-    Object.defineProperty(event, "reason", { value: new Error("a query rejected") })
+    const event = new PromiseRejectionEvent("unhandledrejection", {
+      promise: Promise.resolve(),
+      reason: new Error("a query rejected"),
+    })
     window.dispatchEvent(event)
 
     expect(message()).toBe("Steward hit an error before it could start: a query rejected.")

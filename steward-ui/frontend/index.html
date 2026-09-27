@@ -5,27 +5,15 @@
     <meta charset="UTF-8" />
 
     <!--
-      steward/79: THIS RUNS BEFORE ANYTHING ELSE THIS DOCUMENT LOADS, INCLUDING THE STYLESHEET AND
-      THE BUNDLE THAT VITE APPENDS BELOW. A script or stylesheet that fails to load - a stale
-      document, cached from before a redeploy, naming a file that no longer exists - reports itself
-      through a plain DOM "error" event fired on the element, which does not bubble. A listener in
-      the capturing phase on `window` is the one place that still sees it, and it has to be
-      registered before the browser starts fetching anything, or a fast failure could beat it.
-      Placed first in <head>, before the icons and the manifest, it always wins that race: nothing
-      below this point has started loading yet.
-
-      A PLAIN SCRIPT, NOT A MODULE, ON PURPOSE. It is inline, in the document itself, so it shares
-      the document's fate rather than the bundle's - if this runs, the page loaded, whatever else
-      did not. It draws nothing itself: the paragraph and button it can write a sentence into are
-      already sitting in `#root`, below, as plain HTML - not produced by this script, by React, or
-      by anything that could fail to run.
+      A script or stylesheet that fails to load reports itself through a DOM "error" event that
+      does not bubble; a capturing-phase listener on `window`, registered before anything else in
+      <head> starts fetching, is the one place that still sees it. A plain script rather than a
+      module, so it shares the document's fate rather than the bundle's, and it draws nothing
+      itself: the paragraph and button it can write into already sit in #root as plain HTML.
     -->
     <script>
       ;(function () {
-        // One attempt per document, remembered here rather than in a variable, because the
-        // recovery this guards is a full page reload - nothing in memory survives it. Without this,
-        // a document that reloads and fetches the very same stale reference fails the same way and
-        // reloads again, forever.
+        // Remembered in storage, not a variable: the recovery this guards is a full page reload, which nothing in memory survives.
         var RELOAD_KEY = "steward:reloaded-after-startup-error"
 
         function show(message) {
@@ -33,9 +21,7 @@
           if (line) {
             line.textContent = message
           }
-          // The panel is invisible for the first seconds so a healthy start never flashes it (see
-          // the <style> above). A start that is NOT healthy has no reason to wait those seconds
-          // out: this is the one path that knows something is already wrong.
+          // The panel is invisible for the first seconds so a healthy start never flashes it; skip that wait once something is known to be wrong.
           var panel = document.getElementById("startup-fallback")
           if (panel) {
             panel.style.animation = "none"
@@ -47,8 +33,7 @@
           try {
             return window.sessionStorage.getItem(RELOAD_KEY) !== null
           } catch (storageError) {
-            // Private browsing or a full quota - nowhere to remember an attempt, so this treats it
-            // as already spent rather than risking a reload loop with no memory to stop it.
+            // No storage to remember an attempt in: treat it as already spent rather than risk a reload loop.
             return true
           }
         }
@@ -83,11 +68,10 @@
               return
             }
             if (target && target !== window && typeof target.tagName === "string") {
-              // An icon or the manifest failed - cosmetic, and not what steward/79 is about.
+              // An icon or the manifest failed to load; cosmetic, not a startup failure.
               return
             }
-            // A thrown error, most likely from inside the bundle once it did load. Reloading a
-            // bundle that loaded fine and then threw would not fix anything, so this only reports.
+            // Reloading a bundle that loaded fine and then threw would not fix anything, so this only reports.
             show("Steward hit an error before it could start: " + (event.message || "no message was given") + ".")
           },
           true,
@@ -101,16 +85,13 @@
     </script>
 
     <!--
-      steward/79: THE FALLBACK BELOW MUST NOT FLASH ON A HEALTHY START. It sits in the document
-      from the first byte, because a screen that can only be drawn by JavaScript cannot report that
-      JavaScript never ran - but React replaces it within a few hundred milliseconds, and a message
-      reading "Steward has not started yet" in between is noise that teaches everyone to ignore it.
-      So it is invisible for two and a half seconds and then fades in.
-
-      In CSS, and inline in this document: no timer, no script, nothing that shares the bundle's
-      fate. An animation that never runs leaves it hidden, which is the one failure direction that
-      matters, so the reporter above also reveals it directly the moment it has something to say -
-      it never waits for this.
+      This fallback sits in the document from the first byte, because a screen that can only be
+      drawn by JavaScript cannot report that JavaScript never ran. It stays invisible for two and a
+      half seconds and then fades in, since React normally replaces it within a few hundred
+      milliseconds and a message flashing past on every healthy start would just teach everyone to
+      ignore it. The animation is CSS, inline in this document, so an animation that never runs
+      leaves the panel hidden rather than sharing the bundle's fate; the reporter above reveals it
+      directly instead of waiting for this once it has something to say.
     -->
     <style>
       #startup-fallback {
@@ -135,11 +116,9 @@
     <meta name="theme-color" content="#0d0d0d" />
 
     <!--
-      THE MARK IS THE SERVER ICON. resource-pack/src/pack.png is what a player sees in the server
-      browser and what the resource pack carries; it is the same picture here, so the thing on a
-      home screen is the thing on the server list. icon-512.png is that file at exactly four times
-      the size, nearest neighbour - a smoothing resampler turns its 21 colours into hundreds and the
-      mark reads as a low-resolution photograph. MarkIsTheServerIconTest holds both against it.
+      The mark is the server icon: resource-pack/src/pack.png is what a player sees in the server
+      browser, and icon-512.png is that same file at exactly four times the size, nearest
+      neighbour, since a smoothing resampler turns its 21 colours into hundreds.
     -->
     <link rel="icon" type="image/png" sizes="128x128" href="/icon.png" />
     <link rel="apple-touch-icon" href="/icon-512.png" />
@@ -156,14 +135,11 @@
   <body>
     <div id="root">
       <!--
-        steward/79: STATIC, AND STAYS ON SCREEN UNTIL REACT REPLACES IT. `createRoot(container)
-        .render(...)` in main.tsx overwrites every child of #root on its first successful render -
-        if this paragraph and button are still here, nothing above this line ever ran, and a dark
-        empty #root is what a black screen on iOS actually was.
-
-        INLINE STYLES ONLY, NOT A CLASS FROM index.css. That stylesheet is one more built asset
-        that can be the very thing missing - `class="dark"` on <html> draws nothing at all once its
-        stylesheet has failed to load, so this cannot depend on it either.
+        Static, and stays on screen until React replaces it: createRoot(container).render(...) in
+        main.tsx overwrites every child of #root on its first successful render, so this paragraph
+        and button surviving means nothing above ever ran. Styled inline rather than through a
+        class from index.css, since that stylesheet is one more built asset that can itself be the
+        thing missing.
       -->
       <div
         id="startup-fallback"

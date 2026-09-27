@@ -2,17 +2,17 @@ import { readFileSync, readdirSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { describe, expect, it } from "vitest"
+import { assert, describe, expect, it } from "vitest"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 /**
  * Nothing in the app reaches for a raw dialog: every one goes through `responsive-dialog.tsx`.
  *
- * The owner, 2026-09-20, closing steward/98: every dialog in the whole app is to be a dialog or a bottom
+ * Every dialog in the whole app is to be a dialog or a bottom
  * sheet depending on the width, decided by one component - and `Dialog` is not to be used raw
- * anywhere afterwards, the command palette and the security-key prompt included. steward/98
- * converted five call sites and wrote its two exceptions into a comment, which is exactly the kind
+ * anywhere, the command palette and the security-key prompt included. Writing the exceptions into a
+ * comment alone is exactly the kind
  * of note the next dialog is written without having read.
  *
  * So the rule is a test. A page that imports `Dialog`, `AlertDialog`, `Sheet` or `Drawer` from
@@ -88,21 +88,26 @@ describe("every dialog goes through the responsive one", () => {
 
   it("the exemptions name files that still exist", () => {
     for (const [file, why] of ALLOWED) {
-      expect(
+      assert.include(
         sourceFiles(source).map((full) => path.relative(source, full)),
+        file,
         `${file} is exempt (${why}) and is no longer there - a stale exemption is a rule that has` +
           ` quietly stopped applying to whatever replaced it`,
-      ).toContain(file)
+      )
     }
   })
 
   it("the command palette and the security-key prompt are converted, by name", () => {
-    // The two steward/98 wrote down as exceptions. Naming them here rather than trusting the sweep
-    // above: both are shells rather than pages, so a revert would read like a refactor.
+    /**
+     * Named here rather than trusting the sweep above: both are shells rather than pages, so a
+     * revert would read like a refactor.
+     */
     for (const file of [path.join("components", "ui", "command.tsx"), path.join("app", "security-keys.tsx")]) {
       const text = readFileSync(path.join(source, file), "utf8")
-      expect(text, `${file} no longer builds on the responsive component`).toContain(
+      assert.include(
+        text,
         'from "@/components/ui/responsive-dialog"',
+        `${file} no longer builds on the responsive component`,
       )
     }
   })

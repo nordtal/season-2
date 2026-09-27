@@ -8,9 +8,9 @@ import { StewardMark } from "@/app/steward-mark"
 /**
  * The pieces the frame's chrome is built from: the toggle, the mark, the trail and the search.
  *
- * **Nothing in here has a border of its own** (the owner's general rule, 2026-09-17). Every one of them
+ * **Nothing in here has a border of its own.** Every one of them
  * stands inside a surface that already has one - the island, the right-hand island, the phone's
- * dock - and a border inside a border is the nesting that rule forbids.
+ * dock - and a border inside a border is a nesting bordered things must not have.
  */
 
 /** A ghost control, the one shape every button in the chrome has. */
@@ -59,7 +59,7 @@ export function NavToggle({
 }
 
 /**
- * The mark and the word "Steward" - the word alone, not "Nordtal Steward" (the owner, 2026-09-17) - and
+ * The mark and the word "Steward" - the word alone, not "Nordtal Steward" - and
  * it leads where Overview leads.
  *
  * It has no padding on its left on purpose. It stands directly after the toggle, whose box ends
@@ -95,7 +95,7 @@ export function Trail({ crumbs }: { crumbs: Crumb[] }) {
           <Fragment key={crumb.href}>
             <CaretRightIcon className="size-3.5 shrink-0" aria-hidden />
             <Link
-              to={crumb.href as never}
+              to={crumb.href}
               aria-current={last ? "page" : undefined}
               className={`truncate whitespace-nowrap rounded-sm transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
                 last ? "min-w-0 shrink text-foreground" : "min-w-0 shrink-[999]"

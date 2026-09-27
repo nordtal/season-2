@@ -56,9 +56,11 @@ export function ServicePlugins({ service }: { service: string }) {
   const refresh = useRefreshAvailable()
   const [adding, setAdding] = useState(false)
 
-  // A service with no plugins folder - the bot, postgres, caddy - answers 404, and the honest
-  // thing to draw for it is nothing at all. The worker owns that judgement (it is Topology), so
-  // this asks rather than keeping a second list of which services have plugins.
+  /**
+   * A service with no plugins folder - the bot, postgres, caddy - answers 404, and the honest
+   * thing to draw for it is nothing at all. The worker owns that judgement (it is Topology), so
+   * this asks rather than keeping a second list of which services have plugins.
+   */
   if (plugins.error instanceof ApiError && plugins.error.status === 404) return null
 
   // Unknown is not "up to date": when the reading failed, no row says anything about updates.
@@ -134,7 +136,7 @@ export function ServicePlugins({ service }: { service: string }) {
   )
 }
 
-// --- what is on the server ----------------------------------------------------------------------
+// --- what is on the server
 
 type Group = NonNullable<ServicePlugin["group"]>
 
@@ -153,13 +155,16 @@ const WAITING_PLUGINS = [undefined, undefined, undefined]
  * The plugins in their three lists, empty ones left out. Each is alphabetical, except that a
  * Nordtal plugin the worker ranks comes first in its rank's order.
  */
+function rank(plugin: ServicePlugin): number {
+  return plugin.rank ?? Number.MAX_SAFE_INTEGER
+}
+
 export function groupPlugins(plugins: ServicePlugin[]): [Group, ServicePlugin[]][] {
-  const rank = (plugin: ServicePlugin) => plugin.rank ?? Number.MAX_SAFE_INTEGER
   return GROUP_ORDER.map((group): [Group, ServicePlugin[]] => [
     group,
     plugins
       .filter((plugin) => (plugin.group ?? "added") === group)
-      .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" })),
+      .toSorted((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" })),
   ]).filter(([, rows]) => rows.length > 0)
 }
 
@@ -222,7 +227,7 @@ function PluginRow({
   service,
   plugin,
   status,
-  absence,
+  absence: absenceText,
 }: {
   service: string
   plugin?: ServicePlugin
@@ -246,8 +251,8 @@ function PluginRow({
           </>
         )}
       </div>
-      {plugin && absence ? (
-        <StatusBadge tone="idle">{absence}</StatusBadge>
+      {plugin && absenceText ? (
+        <StatusBadge tone="idle">{absenceText}</StatusBadge>
       ) : status ? (
         <span
           className={
@@ -279,7 +284,7 @@ function Tile({ plugin }: { plugin?: ServicePlugin }) {
 /**
  * Removing, with the folder named in the dialog.
  *
- * The owner chose that removal deletes the data folder as well, against the objection that
+ * Removal deletes the data folder as well, even though
  * `plugins/<name>/` is the only hand-kept thing in the whole installation - and the confirmation
  * is the other half of that decision, not a softening of it. So the name of the directory is what
  * the dialog is about, and when the worker could not read it out of the jar the dialog says that
@@ -357,7 +362,7 @@ export function removalSentence(plugin: ServicePlugin): string {
   return `${jar} and plugins/${plugin.dataFolder}/ are deleted. That folder holds this plugin's configuration and its data.`
 }
 
-// --- finding one --------------------------------------------------------------------------------
+// --- finding one
 
 /**
  * The Modrinth search, filtered to this service's loader and Minecraft version.
@@ -374,8 +379,10 @@ function Search({ service, loader, version }: { service: string; loader?: string
   const [query, setQuery] = useState("")
   const install = useInstallPlugin(service)
 
-  // Typing is not a request. Modrinth is somebody else's API and every keystroke would be a call
-  // to it; a third of a second is under the time it takes to reach for the mouse.
+  /**
+   * Typing is not a request. Modrinth is somebody else's API and every keystroke would be a call
+   * to it; a third of a second is under the time it takes to reach for the mouse.
+   */
   useEffect(() => {
     const timer = setTimeout(() => setQuery(typed.trim()), 300)
     return () => clearTimeout(timer)
@@ -446,9 +453,11 @@ function Search({ service, loader, version }: { service: string; loader?: string
 }
 
 function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<typeof useInstallPlugin> }) {
-  // Two reasons a plugin cannot be added and they are not the same sentence, so they are not the
-  // same badge: one is already here because somebody added it, the other is here because the
-  // network gives it and nothing may take it away.
+  /**
+   * Two reasons a plugin cannot be added and they are not the same sentence, so they are not the
+   * same badge: one is already here because somebody added it, the other is here because the
+   * network gives it and nothing may take it away.
+   */
   if (hit.fixed) {
     return (
       <StatusBadge tone="ok" tipContent="The network gives this plugin. It cannot be removed.">
@@ -485,12 +494,12 @@ function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<t
   )
 }
 
-// --- the two small things both lists use ----------------------------------------------------------
+// --- the two small things both lists use
 
 /**
  * The thumbnail, straight from `cdn.modrinth.com`.
  *
- * The owner's choice, 2026-09-19: the browser loads it from Modrinth rather than this host proxying it.
+ * The browser loads it from Modrinth rather than this host proxying it.
  * The consequence worth knowing is that any Content-Security-Policy in front of steward-ui has to
  * allow that host, or these stay blank and only whoever opens the console finds out why. The worker
  * refuses to store a URL pointing anywhere else, so what arrives here is always that one host.
@@ -506,8 +515,10 @@ function Thumbnail({
   waiting?: boolean
   className?: string
 }) {
-  // Two different blanks, deliberately: a project with no icon is a flat square, and a row that
-  // has not been told yet shimmers. They used to be the same square.
+  /**
+   * Two different blanks, deliberately: a project with no icon is a flat square, and a row that
+   * has not been told yet shimmers. They used to be the same square.
+   */
   if (waiting) {
     return <Skeleton className={`${className} shrink-0`} />
   }
@@ -520,8 +531,10 @@ function Thumbnail({
       alt={alt}
       loading="lazy"
       className={`${className} shrink-0 object-cover`}
-      // A project that pulls its icon breaks the row's alignment otherwise, and a broken image
-      // icon says nothing a blank square does not.
+      /**
+       * A project that pulls its icon breaks the row's alignment otherwise, and a broken image
+       * icon says nothing a blank square does not.
+       */
       onError={(event) => {
         event.currentTarget.style.visibility = "hidden"
       }}

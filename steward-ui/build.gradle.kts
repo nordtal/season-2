@@ -2,6 +2,7 @@ import com.github.gradle.node.npm.task.NpmInstallTask
 import com.github.gradle.node.npm.task.NpmTask
 import com.github.gradle.node.task.NodeTask
 import eu.nordtal.s2.build.CheckCommentShape
+import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
     id("nordtal.jvm-app")
@@ -9,6 +10,20 @@ plugins {
 }
 
 application.mainClass.set("eu.nordtal.s2.steward.ui.StewardUi")
+
+// Names start() as NullAway's initializer too, since StewardUi's app field is set there.
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        option(
+            "NullAway:KnownInitializers",
+            "eu.nordtal.s2.steward.ui.StewardUi.start",
+        )
+        // Credentials.Key mirrors steward_credential's byte columns through JDBI's own reflection,
+        // which maps a bytea to byte[] and nothing else; its javadoc already carries the equals
+        // caveat an array component brings.
+        disable("ArrayRecordComponent")
+    }
+}
 
 // Files outside this module that NothingIsGermanTest reads as text. Steward is three services, one
 // script and the compose file, and the rule is about all of them - so the test walks the other two
@@ -24,7 +39,7 @@ repositoryRootTestInputs {
     reads("deploy/nordtal.sh")
     reads("deploy/README.md")
 
-    // DiscordAuthTest#theGuidanceNamesTheRealRedirectUri (season-2-ops/145) reads the texts that
+    // DiscordAuthTest#theGuidanceNamesTheRealRedirectUri reads the texts that
     // tell an operator what to type into Discord, and holds the path in them against the one
     // DiscordAuth builds. The two files above are already here for the German rule; these two are
     // not, and without them an edit that puts the wrong path back leaves this task UP-TO-DATE.
@@ -125,8 +140,8 @@ val viteBuild =
         outputs.dir(frontendDistDirectory)
         outputs.cacheIf { true }
 
-        // Vite is a separate process and cannot see `frontendDistDirectory`, so it is handed over
-        // (season-2-ops/30). Without this line `-PbuildRoot` moves the declared output and leaves the
+        // Vite is a separate process and cannot see `frontendDistDirectory`, so it is handed
+        // over. Without this line `-PbuildRoot` moves the declared output and leaves the
         // actual write where it always was, and the only symptom is a Javalin test that cannot find
         // '/web'. It is an input as well as a value: a build root that changes has to re-run this.
         environment.put("VITE_OUT_DIR", frontendDistDirectory.map { it.asFile.absolutePath })
@@ -219,7 +234,7 @@ tasks.named<ProcessResources>("processResources") {
     }
 }
 
-// `:steward-ui:run` takes its configuration from deploy/dev.env, if there is one (season-2-ops/149).
+// `:steward-ui:run` takes its configuration from deploy/dev.env, if there is one.
 //
 // WHY THE BUILD READS AN ENVIRONMENT FILE AT ALL. This task is the half of local development that
 // is not `deploy/dev ui`: the container for frontend work, the IDE for Java work. Started from an
@@ -283,7 +298,7 @@ dependencies {
     // takes jcore directly rather than going through a DTO.
     implementation(libs.jcore)
 
-    // Web Push (steward/98): VAPID's ES256 JWT and the aes128gcm payload encryption, called from
+    // Web Push: VAPID's ES256 JWT and the aes128gcm payload encryption, called from
     // Java. See the version catalog for why this one and not the Bouncy-Castle-based fork - it
     // brings only the Kotlin runtime, which is not otherwise on this module's classpath.
     implementation(libs.webpush)
@@ -306,12 +321,12 @@ dependencies {
     // of. Tests only: nothing in main/ encodes anything itself - the library does that.
     // THE OTHER HALF OF THE CONFIGURATION EDITOR, for the tests only.
     //
-    // `ConfigApi` moved to steward-worker on 2026-09-14 (the files are 0600 root:root and this
-    // service is the one that is not root), and what is left here is a proxy. The stand-in worker
-    // in StewardUiIntegrationTest mounts the real thing, so those tests still go end to end -
-    // through the gate, over the internal API, onto a file, and back - rather than proving that a
-    // proxy proxies. Test scope on purpose: nothing in this service's own code may reach for it,
-    // and the compiler says so.
+    // `ConfigApi` moved to steward-worker (the files are 0600 root:root and this service is the
+    // one that is not root), and what is left here is a proxy. The stand-in worker the steward-ui
+    // integration tests share mounts the real thing, so those tests still go end to end - through
+    // the gate, over the internal API, onto a file, and back - rather than proving that a proxy
+    // proxies. Test scope on purpose: nothing in this service's own code may reach for it, and the
+    // compiler says so.
     testImplementation(project(":steward-worker"))
 
     testImplementation(libs.cbor)

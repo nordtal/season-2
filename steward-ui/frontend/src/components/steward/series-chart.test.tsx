@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { tooltipTimestamp } from "@/components/steward/series-chart"
 
 /**
- * The fourth of `steward/04`'s five findings: null values in the chart tooltip.
+ * One of five findings about null values in the chart tooltip.
  *
  * Recharts hands the label formatter whatever it currently holds, and that is not always a point.
  *
@@ -37,7 +37,7 @@ describe("tooltipTimestamp - the point the heading names", () => {
     expect(tooltipTimestamp([{ payload: { at: 1 } }, { payload: { at: 2 } }])).toBe(1)
   })
 
-  it.each([
+  const CASES: Array<[string, Parameters<typeof tooltipTimestamp>[0]]> = [
     ["undefined", undefined],
     ["null", null],
     ["an empty list, which is the first frame of a hover", []],
@@ -45,15 +45,24 @@ describe("tooltipTimestamp - the point the heading names", () => {
     ["a payload with no timestamp in it", [{ payload: {} }]],
     ["a timestamp that is explicitly null", [{ payload: { at: null } }]],
     ["a timestamp that is not a number", [{ payload: { at: "not a date" } }]],
-  ] as const)("falls back to now for %s", (_name, payload) => {
+  ]
+
+  it.each(CASES)("falls back to now for %s", (_name, payload) => {
     atNow()
-    expect(tooltipTimestamp(payload as never)).toBe(NOW)
+    expect(tooltipTimestamp(payload)).toBe(NOW)
   })
 
   it("never answers NaN, which is what Intl renders as Invalid Date", () => {
     atNow()
-    for (const payload of [undefined, null, [], [{}], [{ payload: { at: undefined } }]]) {
-      expect(Number.isNaN(tooltipTimestamp(payload as never))).toBe(false)
+    const payloads: Parameters<typeof tooltipTimestamp>[0][] = [
+      undefined,
+      null,
+      [],
+      [{}],
+      [{ payload: { at: undefined } }],
+    ]
+    for (const payload of payloads) {
+      expect(Number.isNaN(tooltipTimestamp(payload))).toBe(false)
     }
   })
 

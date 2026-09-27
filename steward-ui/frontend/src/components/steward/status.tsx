@@ -43,21 +43,23 @@ export function StatusBadge({
   const badge = (
     <Badge
       variant="outline"
-      // WHY `max-w-full` AND `truncate` ARE NOT DECORATION (steward/103, measured 2026-09-17).
-      //
-      // shadcn's `Badge` is `w-fit shrink-0 whitespace-nowrap overflow-hidden`. Every one of those
-      // four is deliberate for a badge sitting in a header; together, in a 390px table card, they
-      // are a box as wide as its text, refusing to shrink, refusing to wrap, and clipping the
-      // remainder WITHOUT an ellipsis. That is the whole of what `/access` looked like at 390px:
-      // `active until 1 Dec 2026, 00:0`, the last digit simply gone and nothing saying so.
-      //
-      // `index.css`'s `.steward-table td > * { max-width: 100% }` does not reach it, because it is
-      // one level too shallow - when this badge carries a `title` it sits inside the tooltip's own
-      // span, and it is that span the rule caps. So the cap is repeated here, on the thing that
-      // actually refuses to shrink, and `truncate` turns the silent cut into an ellipsis.
-      //
-      // A badge that ends in `…` is still a compromise. Where the text is a DATE the answer is a
-      // shorter format instead - see `format.ts#date`; abbreviated is a reading, truncated is not.
+      /**
+       * WHY `max-w-full` AND `truncate` ARE NOT DECORATION.
+       *
+       * shadcn's `Badge` is `w-fit shrink-0 whitespace-nowrap overflow-hidden`. Every one of those
+       * four is deliberate for a badge sitting in a header; together, in a 390px table card, they
+       * are a box as wide as its text, refusing to shrink, refusing to wrap, and clipping the
+       * remainder WITHOUT an ellipsis. That is the whole of what `/access` looked like at 390px:
+       * `active until 1 Dec 2026, 00:0`, the last digit simply gone and nothing saying so.
+       *
+       * `index.css`'s `.steward-table td > * { max-width: 100% }` does not reach it, because it is
+       * one level too shallow - when this badge carries a `title` it sits inside the tooltip's own
+       * span, and it is that span the rule caps. So the cap is repeated here, on the thing that
+       * actually refuses to shrink, and `truncate` turns the silent cut into an ellipsis.
+       *
+       * A badge that ends in `…` is still a compromise. Where the text is a DATE the answer is a
+       * shorter format instead - see `format.ts#date`; abbreviated is a reading, truncated is not.
+       */
       className={cn("max-w-full truncate font-medium", TONES[tone], className)}
     >
       {children}
@@ -84,17 +86,19 @@ export type ServiceHealth = Pick<Service, "state" | "health" | "hold">
 /**
  * One service, reduced to the tone the rest of this file already draws in three colours.
  *
- * Pulled out of {@link ServiceState} on 2026-09-16 (steward/83) so that a second drawing of the
- * same state - {@link HealthDot}, for the sidebar and for the network view steward/81 wants - reads
+ * Pulled out of {@link ServiceState} so that a second drawing of the
+ * same state - {@link HealthDot}, for the sidebar and for the network view - reads
  * the container the same way `ServiceState`'s badge does. Two functions deciding "is this one
- * fine" is exactly how `panel.tsx` drifted from the rest of the app's Caps rule (steward/77): one
+ * fine" is exactly how `panel.tsx` drifted from the rest of the app's Caps rule: one
  * of them gets fixed and the other is forgotten.
  */
 export function serviceTone(service: ServiceHealth): Tone {
-  // steward/134: a stopped service somebody put down on purpose is the one case where "not
-  // running" is not a fault. `hold` is the row out of `service_hold` and the only thing that can
-  // say so - the container is `exited` whether it was stopped or fell over - and `idle` is this
-  // file's existing word for "nothing is wrong and nothing is green either".
+  /**
+   * A stopped service somebody put down on purpose is the one case where "not
+   * running" is not a fault. `hold` is the row out of `service_hold` and the only thing that can
+   * say so - the container is `exited` whether it was stopped or fell over - and `idle` is this
+   * file's existing word for "nothing is wrong and nothing is green either".
+   */
   if (held(service)) return "idle"
   if (service.state !== "running") return "down"
   if (service.health === "unhealthy") return "down"
@@ -126,10 +130,12 @@ export function ServiceState({
 }) {
   if (state !== "running") {
     if (hold) {
-      // One badge, not two (steward/134). The service page used to draw Docker's word in red and a
-      // second badge beside it saying the state was deliberate - which is the same sentence twice,
-      // and the red half of it was the wrong half. What Docker calls the container is in the title,
-      // where it is still readable and no longer an accusation.
+      /**
+       * One badge, not two. Drawing Docker's word in red plus a
+       * second badge beside it saying the state was deliberate would be the same sentence twice,
+       * and the red half of it would be the wrong half. What Docker calls the container is in the title,
+       * where it is still readable and no longer an accusation.
+       */
       return (
         <StatusBadge
           tone="idle"
@@ -183,9 +189,11 @@ const DOT_TONE: Record<Tone, string> = {
   ok: "bg-success",
   warn: "bg-warning",
   down: "bg-destructive",
-  // Neither of the three, on purpose: a held service is not an alarm and not a clean bill of
-  // health. `border` rather than a fill, so it also differs from the other three in shape and not
-  // only in colour - the rule at the top of this file, applied to a dot that carries no word.
+  /**
+   * Neither of the three, on purpose: a held service is not an alarm and not a clean bill of
+   * health. `border` rather than a fill, so it also differs from the other three in shape and not
+   * only in colour - the rule at the top of this file, applied to a dot that carries no word.
+   */
   idle: "border border-muted-foreground/60 bg-muted-foreground/30",
 }
 
@@ -197,22 +205,19 @@ const DOT_WORD: Record<Tone, string> = {
 }
 
 /**
- * The health of one service, as a dot rather than a badge - built once for two places (steward/83):
- * the sidebar's service list here, and the node steward/81 wants in the network view. Both draw
+ * The health of one service, as a dot rather than a badge - built once for two places:
+ * the sidebar's service list here, and the node in the network view. Both draw
  * the same state from the same query, so this is the one place that decides what a dot means.
  *
  * **Silence is the fine state - in the sidebar.** A `tone === "ok"` service draws nothing at all,
- * the same call steward/64 already made for the traffic light on the start page: ten identical
- * green dots next to a service list said nothing, and the one row that actually needs a look is
+ * the same call already made for the traffic light on the start page: ten identical
+ * green dots next to a service list say nothing, and the one row that actually needs a look is
  * what a quiet sidebar makes easy to spot. Decided at the narrow layout, where a row of ten dots
  * costs the most.
  *
- * **In the network view it draws green, and that is not a contradiction.** the owner asked for a
- * small dot, green or red, "in any case" - his words are in steward/83 - and when this component
- * answered that wording with silence, the question went back to him rather than being decided
- * here. His answer, 2026-09-16: green in the network view, quiet in the sidebar. A network view is
+ * **In the network view it draws green, and that is not a contradiction.** A network view is
  * a picture of state, and one whose healthy nodes carry nothing looks like a query that failed; a
- * sidebar is navigation, where nothing *is* the message. steward/81 built the second caller, so
+ * sidebar is navigation, where nothing *is* the message. The network view is the second caller, so
  * `quiet` is that switch now.
  *
  * **`quiet` defaults to `true`, which is today's behaviour for every caller that had one.** The
@@ -238,9 +243,11 @@ export function HealthDot({
   quiet?: boolean
 }) {
   if (!service) {
-    // steward/120: the dot is the only fetched thing in the navigation, so it is also the only
-    // thing there that can be waiting. A still grey dot reads as a fourth health - shimmering it
-    // says "not yet" in the same language every other surface in the app uses.
+    /**
+     * The dot is the only fetched thing in the navigation, so it is also the only
+     * thing there that can be waiting. A still grey dot reads as a fourth health - shimmering it
+     * says "not yet" in the same language every other surface in the app uses.
+     */
     return (
       <Skeleton
         role="img"
@@ -268,22 +275,22 @@ export function HealthDot({
  * Image drift.
  *
  * `UNKNOWN` is deliberately not silent and deliberately not green: an image nobody compared is not
- * a current image, and treating it as one is how four releases shipped unnoticed (A24).
+ * a current image, and treating it as one is how a release can ship unnoticed.
  *
- * `LOCAL` is the opposite direction from `OUTDATED`, not a milder version of it (steward/75): the
+ * `LOCAL` is the opposite direction from `OUTDATED`, not a milder version of it: the
  * registry has nothing newer, this host has something the registry has never seen. Drawn neutral
  * rather than red, because a red lamp that means "you just deployed something" is a lamp people
  * stop reading - but it carries the one warning that is true of it, which stood nowhere before this
  * state existed.
  */
 /**
- * One artefact's resolve status (season-2-ops/128).
+ * One artefact's resolve status.
  *
  * **Four answers, not two**, and keeping them apart is the whole reason this exists. "outdated" and
  * "not installed" are work; "up to date" is none; "unsupported" is a publisher who has not shipped
- * for this Minecraft version yet, which is nobody's fault and no reason to hold a run - it was
- * labelled "no build" until season-2-ops/142, where the owner asked for the word the rest of the
- * project uses for it; and "could not
+ * for this Minecraft version yet, which is nobody's fault and no reason to hold a run - labelled
+ * with the word the rest of the
+ * project uses for it, rather than "no build"; and "could not
  * ask" is the one that must never be drawn like any of the others - a source that did not answer
  * looks exactly like a source that said nothing had changed, and the difference is the entire value
  * of the reading.
@@ -415,8 +422,10 @@ export const RUN_KIND: Record<string, string> = {
   RESTART: "Restart",
   DOWN: "Take down",
   START: "Start",
-  // Two kinds nothing in this interface asks for, but old rows carry them and a table that printed
-  // the enum name for them would look broken rather than historical.
+  /**
+   * Two kinds nothing in this interface asks for, but old rows carry them and a table that printed
+   * the enum name for them would look broken rather than historical.
+   */
   REPORT: "Report",
   APPLY: "Apply",
 }

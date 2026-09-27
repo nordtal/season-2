@@ -1,11 +1,9 @@
 /**
  * What the sidebar remembers between visits.
  *
- * This file used to also hold the `?shell=a` … `?shell=i` machinery that let nine app shells stand
- * side by side while steward/89 was a question. It was written to be deleted once the question was
- * answered, and on 2026-09-17 it was: the chosen frame is `app/frames.tsx` and there is nothing
- * left to choose between, so the query parameter, the tab-scoped memory and the eight other shells
- * went together. What stays is the one piece of remembered shell state that is not a comparison.
+ * The chosen frame is `app/frames.tsx` and there is nothing
+ * left to choose between, so no query parameter, tab-scoped memory or alternate shell lives here.
+ * What stays is the one piece of remembered shell state that is not a comparison.
  */
 
 /**

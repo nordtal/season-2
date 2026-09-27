@@ -33,9 +33,7 @@ export PATH="$PWD/steward-ui/build/nodejs/node-v24.21.0-linux-x64/bin:$PATH"
 **A path outside `/api` and `/auth` needs a line in `vite.config.ts` as well as a route in
 `StewardUi`.** A prefix that is not proxied does not 404 - it falls into Vite's SPA fallback, which
 answers `index.html` with a 200, so the dev server looks healthy and every call under that prefix
-gets HTML where it wanted JSON. `/auth` was in that state until season-2-ops/144, which meant no
-page in the dev server worked at all: the sign-in and all four WebAuthn steps live there, and
-`Gate` wants a held key for every read. `src/dev-server-proxies-every-prefix.test.ts` is the guard.
+gets HTML where it wanted JSON. `src/dev-server-proxies-every-prefix.test.ts` is the guard.
 
 `npx shadcn@latest add <component>` works here - `components.json` is wired and the registry is
 reachable. Do not hand-roll a component the registry has.

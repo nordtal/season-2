@@ -36,7 +36,7 @@ function answer(status: number, body: unknown): Response {
   })
 }
 
-let fetched: ReturnType<typeof vi.fn>
+let fetched: ReturnType<typeof vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>>
 
 /** Retries off: `useMe` sets `retry: false` itself, and this keeps the client honest about it. */
 function draw() {
@@ -55,7 +55,7 @@ const signInButton = () => screen.queryByRole("link", { name: /Sign in with Disc
 const stuckDoor = () => screen.queryByText(/not an expired session/)
 
 beforeEach(() => {
-  fetched = vi.fn()
+  fetched = vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>()
   vi.stubGlobal("fetch", fetched)
 })
 
@@ -82,8 +82,10 @@ describe("Shell - the answer that means the session is gone", () => {
   })
 
   it("accuses nobody at all while the answer is still on its way", async () => {
-    // Neither door. A shell drawn first and replaced a moment later flashes a sidebar full of
-    // pages that all answer 401, which reads as a broken interface rather than a missing session.
+    /**
+     * Neither door. A shell drawn first and replaced a moment later flashes a sidebar full of
+     * pages that all answer 401, which reads as a broken interface rather than a missing session.
+     */
     fetched.mockImplementation(() => new Promise<Response>(() => {}))
     draw()
 
@@ -94,8 +96,10 @@ describe("Shell - the answer that means the session is gone", () => {
 })
 
 describe("Shell - every other answer is a fault, not a missing session", () => {
-  // 500 is the service itself, 502 is something it depends on, 429 is a rate limit and 403 is an
-  // account that will never be allowed in. Signing in again fixes none of the four.
+  /**
+   * 500 is the service itself, 502 is something it depends on, 429 is a rate limit and 403 is an
+   * account that will never be allowed in. Signing in again fixes none of the four.
+   */
   const faults: Array<[number, string]> = [
     [500, "Internal error."],
     [502, "steward-worker is not answering."],
@@ -117,8 +121,10 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   }
 
   it("shows it when the request never arrived anywhere", async () => {
-    // `api()` turns a rejected fetch into an ApiError with status 0 - a stopped steward-ui, a
-    // proxy in the way, a browser that is offline. Zero is not 401.
+    /**
+     * `api()` turns a rejected fetch into an ApiError with status 0 - a stopped steward-ui, a
+     * proxy in the way, a browser that is offline. Zero is not 401.
+     */
     fetched.mockRejectedValue(new TypeError("Failed to fetch"))
     draw()
 
@@ -128,9 +134,11 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 
   it("shows it for a failure that is not an ApiError at all", async () => {
-    // 200 with a body that is not an object: `useMe` reads `me.csrf` off it and throws a
-    // TypeError, so `error instanceof ApiError` is false. The `instanceof` half of the condition
-    // is what catches this; a bare `error.isSignedOut` would have thrown reading the getter.
+    /**
+     * 200 with a body that is not an object: `useMe` reads `me.csrf` off it and throws a
+     * TypeError, so `error instanceof ApiError` is false. The `instanceof` half of the condition
+     * is what catches this; a bare `error.isSignedOut` would have thrown reading the getter.
+     */
     fetched.mockResolvedValue(answer(200, null))
     draw()
 
@@ -153,8 +161,10 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 
   it("keeps the shell out of the way even though the pages could report it themselves", async () => {
-    // Not a matter of taste: the CSRF token arrives with this answer, so without it every write
-    // in the interface is refused, one confusing page at a time.
+    /**
+     * Not a matter of taste: the CSRF token arrives with this answer, so without it every write
+     * in the interface is refused, one confusing page at a time.
+     */
     fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 
@@ -164,36 +174,45 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 })
 
-describe("Shell - signed in, and still not in", () => {
-  /** The setup page, identified by the one sentence only it has. */
-  const setupPage = () => screen.queryByText(/One more thing: your security key/)
+/** The setup page, identified by the one sentence only it has. */
+function setupPage() {
+  return screen.queryByText(/One more thing: your security key/)
+}
 
-  const signedIn = (keys: unknown) => ({
+/** A signed-in session-info answer carrying the given security keys. */
+function signedIn(keys: unknown) {
+  return {
     signedIn: true,
     id: "1",
-    name: "till",
+    name: "ally",
     csrf: "t",
     webauthn: "required",
     relyingPartyId: "nordtal.eu",
     keys,
-  })
+  }
+}
 
+describe("Shell - signed in, and still not in", () => {
   it("draws the security key page for an account that has none", async () => {
     fetched.mockResolvedValue(answer(200, signedIn([])))
     draw()
 
     await waitFor(() => expect(setupPage()).not.toBeNull())
-    // Not a page being withheld: without a key every route but this answer is a 403, so a shell
-    // here would be a sidebar of eleven links to refusals.
+    /**
+     * Not a page being withheld: without a key every route but this answer is a 403, so a shell
+     * here would be a sidebar of eleven links to refusals.
+     */
     expect(screen.queryByRole("navigation")).toBeNull()
     expect(signInButton()).toBeNull()
     expect(stuckDoor()).toBeNull()
   })
 
   it("does not draw it for somebody who is not signed in at all", async () => {
-    // ORDERING, and it is the whole of this test: `keys` is ABSENT for a signed-out answer, so a
-    // gate written as `keys?.length ?? 0` placed above the signed-out branch sends everybody to a
-    // page whose register button needs the session it is standing in front of.
+    /**
+     * ORDERING, and it is the whole of this test: `keys` is ABSENT for a signed-out answer, so a
+     * gate written as `keys?.length ?? 0` placed above the signed-out branch sends everybody to a
+     * page whose register button needs the session it is standing in front of.
+     */
     fetched.mockResolvedValue(answer(200, { signedIn: false, webauthn: "required" }))
     draw()
 
@@ -210,8 +229,10 @@ describe("Shell - signed in, and still not in", () => {
   })
 
   it("does not draw it when the request failed and nobody knows about any keys", async () => {
-    // `me.data` is undefined here. A gate that reads through it without the `!me.data` return
-    // above throws, and a gate defaulting to zero turns every 500 into "register a key".
+    /**
+     * `me.data` is undefined here. A gate that reads through it without the `!me.data` return
+     * above throws, and a gate defaulting to zero turns every 500 into "register a key".
+     */
     fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 

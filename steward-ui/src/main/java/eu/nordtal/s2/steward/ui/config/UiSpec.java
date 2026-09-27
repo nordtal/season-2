@@ -12,9 +12,8 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
 /**
  * {@code steward-ui.yml} - what the web interface needs to know about the rest of the stack.
  *
- * <p>Nothing here is a secret in the file itself. Every value that is one arrives as an environment
- * variable, which jcore lets override any key and never writes back, so the file on disk stays
- * something you could paste into an issue.</p>
+ * Nothing here is a secret in the file itself; every secret arrives as an environment variable
+ * jcore overrides with, so the file on disk stays something you could paste into an issue.
  */
 @ConfigSpec(
         header = {
@@ -54,8 +53,7 @@ public interface UiSpec {
         "follows the Host header is a redirect URI an attacker can choose. Discord is given",
         "this + /auth/callback and refuses anything else.",
         "",
-        "IT IS NOT WHAT A SECURITY KEY IS BOUND TO, although an earlier version of this",
-        "comment said so. The owner decided on 2026-09-14 that WebAuthn binds to the parent domain",
+        "IT IS NOT WHAT A SECURITY KEY IS BOUND TO. WebAuthn binds to the parent domain",
         "nordtal.eu, so that a key registered against this address still works on the",
         "production one. That is `webauthn.relying-party-id` below, and the two are checked",
         "against each other at startup: a key bound to a domain this address is not under is a",
@@ -85,7 +83,7 @@ public interface UiSpec {
         "The Discord application this interface signs people in with, and the guild it reads",
         "their roles from.",
         "",
-        "It is the BOT'S application, reused (the owner's decision, 2026-09-12): one application,",
+        "It is the BOT'S application, reused: one application,",
         "one client id, a second secret. The scopes are fixed in code - `identify` and",
         "`guilds.members.read` - which is what lets this process read the roles of the person",
         "signing in WITHOUT ever holding the bot's token.",
@@ -148,10 +146,9 @@ public interface UiSpec {
     @Name("Avatars")
     @Key("avatars")
     @Comment({
-        "Where a Minecraft head image comes from (steward/45).",
+        "Where a Minecraft head image comes from.",
         "",
-        "Moved here from steward/44, which found the two open questions and left them: a",
-        "column in the database would have gone stale the moment this URL changed, so the",
+        "A column in the database would go stale the moment this URL changed, so the",
         "identity display builds the address itself from mc_uuid plus the base below."
     })
     @NoExplanationNeeded
@@ -194,7 +191,7 @@ public interface UiSpec {
     @Name("Web push")
     @Key("web-push")
     @Comment({
-        "Web Push (concept §10c / steward/98): the traffic light reaching a phone's lock",
+        "Web Push (concept §10c): the traffic light reaching a phone's lock",
         "screen rather than only the page.",
         "",
         "Both keys are a VAPID keypair, generated once per deployment and never hardcoded -",
@@ -211,10 +208,8 @@ public interface UiSpec {
     /**
      * Which domain a security key is registered against.
      *
-     * <p>One key, because the other half of the pair - what the browser's dialog calls this
-     * service - is a product name and not a property of a deployment. It is written in code as
-     * "Nordtal Steward" and a second copy of it in a YAML file would only ever be a way for two
-     * deployments to disagree about their own name.</p>
+     * One key: the display name is written in code as "Nordtal Steward" rather than configured,
+     * since it is a product name and not a property of a deployment.
      */
     @ConfigSpec
     interface WebAuthnSpec {
@@ -235,7 +230,7 @@ public interface UiSpec {
             "THE PRICE, WRITTEN DOWN WHERE THE VALUE IS: every page under nordtal.eu may ask",
             "the browser for this key. A subdomain that is taken over - a forgotten test",
             "server, a status page, a BlueMap instance - is a working sign-in form for",
-            "Steward. The owner chose this on 2026-09-14 with that description, in exchange for a",
+            "Steward, in exchange for a",
             "key surviving the move to production. The rule that follows is: no subdomain of",
             "nordtal.eu gets an application that is not trusted as much as this one is.",
             "",
@@ -278,13 +273,10 @@ public interface UiSpec {
     }
 
     /**
-     * A VAPID keypair (steward/98) - proof to a push service of which server sent a message,
-     * without which every browser's subscription is worthless the moment it is asked to accept one.
+     * A VAPID keypair - proof to a push service of which server sent a message.
      *
-     * <p>Generated once with {@code steward-ui generate-vapid-keys} (see {@code StewardUi.main}),
-     * never in code: a keypair baked into the jar would be the same "identity" for every deployment
-     * that ever ran it, and a push service has no way to tell those apart from an attacker who
-     * downloaded the same jar.</p>
+     * Generated once with {@code steward-ui generate-vapid-keys}, never baked into the jar: a
+     * shared keypair would be the same "identity" for every deployment that ever ran it.
      */
     @ConfigSpec
     interface WebPushSpec {
@@ -310,8 +302,7 @@ public interface UiSpec {
             "is what signs the VAPID JWT on every push, so a copy of it is everything needed",
             "to send a notification that claims to be this deployment.",
             "",
-            "NOT COVERED BY THE NAME HEURISTIC ConfigEntry.isSecretKey ORDINARILY USES (steward/115",
-            "found this gap once already and it must not reopen here): a key ending in",
+            "NOT COVERED BY THE NAME HEURISTIC ConfigEntry.isSecretKey ORDINARILY USES: a key ending in",
             "\"-key\" rather than containing \"secret\", \"token\" or \"password\" would have",
             "been sent to the browser in plain text without @Secret saying otherwise."
         })
@@ -337,9 +328,8 @@ public interface UiSpec {
     /**
      * The thresholds of the traffic light.
      *
-     * <p>They live here rather than in the browser because the traffic light also has to fire
-     * outside the interface - into the Discord admin channel - and a threshold kept in somebody's
-     * localStorage cannot be read by anything that is not that browser.</p>
+     * Live here rather than in the browser, since the traffic light also fires into the Discord
+     * admin channel, which cannot read a browser's localStorage.
      */
     @ConfigSpec
     interface AlertSpec {
@@ -392,9 +382,8 @@ public interface UiSpec {
     /**
      * Where the Minecraft head image in the identity display comes from.
      *
-     * <p>A face is a pure function of {@code mc_uuid} and this base URL - see
-     * {@code eu.nordtal.s2.common.access.MinecraftProfile}'s class comment for why the image
-     * itself is never a column. Changing the service here is a config edit, never a migration.</p>
+     * A face is a pure function of {@code mc_uuid} and this base URL, so changing the service is a
+     * config edit, never a migration.
      */
     @ConfigSpec
     interface AvatarSpec {
@@ -403,9 +392,8 @@ public interface UiSpec {
         @Name("Minecraft head base URL")
         @Key("minecraft-head-base-url")
         @Comment({
-            "The owner's choice, 2026-09-19: api.mineatar.io. mc-heads.net stood here from",
-            "2026-09-18 and crafatar.com before that, which was measured failing to answer at",
-            "all (steward/111) - the fault was the service, not the caller. A free,",
+            "api.mineatar.io. crafatar.com was measured failing to answer at",
+            "all - the fault was the service, not the caller. A free,",
             "unaffiliated service in all three cases - see season-2/README.md - so the identity",
             "display treats a non-answer as a placeholder and never blocks the page on it.",
             "",

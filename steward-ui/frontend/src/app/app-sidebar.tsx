@@ -15,17 +15,19 @@ import { HealthDot } from "@/components/steward/status"
  * that retired the last sidebar (uneven gaps around "Steward" and "Overview") was three elements
  * each measuring from an edge of its own.
  *
- * **The marker differs by device, and that is the owner's pick rather than an oversight** (2026-09-24):
+ * **The marker differs by device, and that is deliberate, not an oversight**:
  * the desktop's column marks the page with blue text, as it always has; the phone's dock with a
  * muted surface, which reads better under a thumb that is about to cover the text.
  *
- * **Every service row carries a health dot** (steward/83). `useServices()` is the one query this
+ * **Every service row carries a health dot.** `useServices()` is the one query this
  * opens, and it is the same query every page shares, so it does not add a second poll.
  */
 export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "text" | "surface" }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  // Decided once for the whole navigation rather than per entry: "is this one active" cannot be
-  // answered by looking at one entry, because two of them can match and only the longer is meant.
+  /**
+   * Decided once for the whole navigation rather than per entry: "is this one active" cannot be
+   * answered by looking at one entry, because two of them can match and only the longer is meant.
+   */
   const active = activeEntryId(pathname, NAVIGATION)
   const services = useServices()
 
@@ -50,8 +52,10 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
           <ul className="flex flex-col">
             {group.entries.map((entry) => {
               const isActive = entry.id === active
-              // Only the ten container rows carry a dot. `entry.params.name` is the exact service
-              // name the query answers with, because `navigation.ts` built the params from it.
+              /**
+               * Only the ten container rows carry a dot. `entry.params.name` is the exact service
+               * name the query answers with, because `navigation.ts` built the params from it.
+               */
               const service =
                 group.id === "services"
                   ? services.data?.services.find((row) => row.service === entry.params?.name)
@@ -60,7 +64,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
                 <li key={entry.id}>
                   <Link
                     to={entry.to}
-                    params={entry.params as never}
+                    params={entry.params}
                     onClick={onFollow}
                     aria-current={isActive ? "page" : undefined}
                     className={`flex min-h-control items-center rounded-lg pr-3 text-sm transition-colors duration-150 ease-out focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${rowState(isActive)}`}

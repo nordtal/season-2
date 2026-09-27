@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { SeasonPage } from "@/pages/season"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { asButton, asElement, asInput } from "@/lib/test-elements"
 
 /**
  * The reason for a phase change, and where it must not end up.
@@ -36,7 +37,7 @@ const SEASON = {
 
 /** The page's own routes. There is no command card on it any more, so no catalogue either. */
 function backend(over: { phase?: () => { status: number; body: unknown } } = {}) {
-  return vi.fn(async (url: string, init?: RequestInit) => {
+  return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/season/phase" && init?.method === "POST") {
       const answer = over.phase?.() ?? { status: 200, body: SEASON }
       return json(answer.status, answer.body)
@@ -60,8 +61,8 @@ function draw(node: ReactNode) {
 /**
  * Press "Switch" on the row of one phase, found by the constant printed beside its label.
  *
- * The five rows are drawn from a constant in the page, so since steward/120 they are on screen
- * before `/api/season` has answered - and their buttons are disabled until it has, because a
+ * The five rows are drawn from a constant in the page, so they are on screen before `/api/season`
+ * has answered - and their buttons are disabled until it has, because a
  * Switch that cannot know which phase is current is a Switch that might be the current one.
  *
  * **Every lookup here is repeated inside the `waitFor`, and that is not style.** The first pass
@@ -74,22 +75,20 @@ async function ask(phase: string): Promise<HTMLElement> {
   const live = () => {
     const card = screen.getByText(phase).closest("div.rounded-md")
     if (!card) throw new Error(`the row of ${phase} is not shaped the way this test assumed`)
-    return within(card as HTMLElement).getByRole("button", { name: "Switch" }) as HTMLButtonElement
+    return asButton(within(asElement(card)).getByRole("button", { name: "Switch" }))
   }
   await waitFor(() => expect(live().disabled).toBe(false))
   fireEvent.click(live())
   return screen.findByRole("alertdialog")
 }
 
-const reasonField = () => screen.getByLabelText("Reason") as HTMLInputElement
+const reasonField = () => asInput(screen.getByLabelText("Reason"))
 
 /** What the page sent, as the backend would have read it. */
 function sentPhaseChange(fetched: ReturnType<typeof backend>) {
-  const call = fetched.mock.calls.find(
-    ([url, init]) => url === "/api/season/phase" && (init as RequestInit | undefined)?.method === "POST",
-  )
+  const call = fetched.mock.calls.find(([url, init]) => url === "/api/season/phase" && init?.method === "POST")
   if (!call) throw new Error("no phase change was sent at all")
-  return JSON.parse(String((call[1] as RequestInit).body))
+  return JSON.parse(call[1]?.body ?? "")
 }
 
 afterEach(() => {
@@ -112,9 +111,11 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
   })
 
   it("is gone when the dialog is dismissed with Escape rather than with the button", async () => {
-    // `onOpenChange` is what clears it, so every way out of the dialog has to go through it -
-    // Escape and a click on the overlay included. Clearing it in the Cancel handler alone would
-    // pass the test above and leak here.
+    /**
+     * `onOpenChange` is what clears it, so every way out of the dialog has to go through it -
+     * Escape and a click on the overlay included. Clearing it in the Cancel handler alone would
+     * pass the test above and leak here.
+     */
     vi.stubGlobal("fetch", backend())
     draw(<SeasonPage />)
 
@@ -128,8 +129,10 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
   })
 
   it("is not what the next phase change sends, which is the whole point", async () => {
-    // The defect as it would be read six months later: a journal entry against MAINTENANCE
-    // carrying a sentence somebody typed about PRE_LAUNCH and then thought better of.
+    /**
+     * The defect as it would be read six months later: a journal entry against MAINTENANCE
+     * carrying a sentence somebody typed about PRE_LAUNCH and then thought better of.
+     */
     const fetched = backend()
     vi.stubGlobal("fetch", fetched)
     draw(<SeasonPage />)
@@ -147,8 +150,10 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
   })
 
   it("is sent when it was meant, so that the clearing is not simply a broken field", async () => {
-    // The other direction. A test that only ever asserts "" would pass against a field that never
-    // works at all.
+    /**
+     * The other direction. A test that only ever asserts "" would pass against a field that never
+     * works at all.
+     */
     const fetched = backend()
     vi.stubGlobal("fetch", fetched)
     draw(<SeasonPage />)
@@ -175,8 +180,10 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
   })
 
   it("asks before it switches at all, and the question names the admission rule", async () => {
-    // Not decoration: "Before launch" tells nobody whether their players can log in, and the
-    // dialog is the last place this can be said before the door changes.
+    /**
+     * Not decoration: "Before launch" tells nobody whether their players can log in, and the
+     * dialog is the last place this can be said before the door changes.
+     */
     vi.stubGlobal("fetch", backend())
     draw(<SeasonPage />)
 
@@ -186,6 +193,18 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
     expect(dialog.textContent).toContain("from the next")
   })
 })
+
+/**
+ * The alerts a scope currently shows for the refused phase change, filtered to the sentence under
+ * test - `hidden: true` because Radix marks everything outside the open dialog aria-hidden, and the
+ * filter because the page carries a standing `role="alert"` of its own ("Nothing is carried
+ * between seasons"), which is not the sentence under test.
+ */
+function refusals(scope: { queryAllByRole: typeof screen.queryAllByRole }) {
+  return scope
+    .queryAllByRole("alert", { hidden: true })
+    .filter((one) => one.textContent?.includes("The database is not answering."))
+}
 
 describe("SeasonPage - a switch the backend refuses", () => {
   it("keeps the dialog open, because the phase has not changed", async () => {
@@ -221,15 +240,12 @@ describe("SeasonPage - a switch the backend refuses", () => {
     const dialog = await ask("MAINTENANCE")
     fireEvent.click(within(dialog).getByRole("button", { name: "Switch" }))
 
-    // `hidden: true` because Radix marks everything outside the open dialog aria-hidden, and the
-    // filter because the page carries a standing `role="alert"` of its own ("Nothing is carried
-    // between seasons"), which is not the sentence under test.
-    const refusals = (scope: { queryAllByRole: typeof screen.queryAllByRole }) =>
-      scope
-        .queryAllByRole("alert", { hidden: true })
-        .filter((one) => one.textContent?.includes("The database is not answering."))
-
-    // It IS rendered - in the card underneath, which the overlay covers.
+    /**
+     * `hidden: true` because Radix marks everything outside the open dialog aria-hidden, and the
+     * filter because the page carries a standing `role="alert"` of its own ("Nothing is carried
+     * between seasons"), which is not the sentence under test.
+     * It IS rendered - in the card underneath, which the overlay covers.
+     */
     await waitFor(() => expect(refusals(screen)).toHaveLength(1))
 
     // And this is the assertion that fails: it is not in the dialog the operator is looking at.
@@ -237,29 +253,32 @@ describe("SeasonPage - a switch the backend refuses", () => {
   })
 })
 
-describe("SeasonPage - a date can be removed again", () => {
-  /** The date routes on top of the page's own, recording what was asked. */
-  function dates(answer: { status: number; body: unknown } = { status: 200, body: {} }) {
-    const base = backend()
-    const sent: unknown[] = []
-    const fetched = vi.fn(async (url: string, init?: RequestInit) => {
+/** The date routes on top of the page's own, recording what was asked. */
+function dates(answer: { status: number; body: unknown } = { status: 200, body: {} }) {
+  const base = backend()
+  const sent: unknown[] = []
+  const fetched = vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(
+    async (url, init) => {
       if (url === "/api/season/date" && init?.method === "POST") {
-        sent.push(JSON.parse(String(init.body)))
+        sent.push(JSON.parse(init.body ?? ""))
         return json(answer.status, answer.body)
       }
       return base(url, init)
-    })
-    vi.stubGlobal("fetch", fetched)
-    return sent
-  }
+    },
+  )
+  vi.stubGlobal("fetch", fetched)
+  return sent
+}
 
-  const remove = async (field: string) => {
-    const row = (await screen.findByLabelText(field)).closest("div.flex-wrap") as HTMLElement
-    const button = await within(row).findByRole("button", { name: "Remove" })
-    fireEvent.click(button)
-    return screen.findByRole("alertdialog")
-  }
+/** Clicks Remove on the date row for `field` and returns the confirmation dialog it opens. */
+async function remove(field: string) {
+  const row = asElement((await screen.findByLabelText(field)).closest("div.flex-wrap"))
+  const button = await within(row).findByRole("button", { name: "Remove" })
+  fireEvent.click(button)
+  return screen.findByRole("alertdialog")
+}
 
+describe("SeasonPage - a date can be removed again", () => {
   it("asks first, and sends null for the date it names", async () => {
     const sent = dates()
     draw(<SeasonPage />)
@@ -288,8 +307,8 @@ describe("SeasonPage - a date can be removed again", () => {
     dates()
     draw(<SeasonPage />)
 
-    const input = (await screen.findByLabelText("Network launch")) as HTMLInputElement
-    const row = input.closest("div.flex-wrap") as HTMLElement
+    const input = asInput(await screen.findByLabelText("Network launch"))
+    const row = asElement(input.closest("div.flex-wrap"))
     await within(row).findByRole("button", { name: "Remove" })
 
     fireEvent.change(input, { target: { value: "2026-11-01T18:00" } })

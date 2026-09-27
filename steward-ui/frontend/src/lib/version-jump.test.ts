@@ -37,8 +37,10 @@ describe("versionJump", () => {
   })
 
   it("falls back to the filename rather than inventing a version", () => {
-    // Two names that share nothing to compare - a publisher who renamed the jar. The ticket's own
-    // rule: an ugly filename beats a made-up number.
+    /**
+     * Two names that share nothing to compare - a publisher who renamed the jar. The ticket's own
+     * rule: an ugly filename beats a made-up number.
+     */
     const jump = versionJump("CoreProtect.jar", "coreprotect-22.4.jar", "22.4")
     expect(jump).toEqual({ from: "CoreProtect.jar", to: "22.4", exact: false })
   })
@@ -52,9 +54,11 @@ describe("versionJump", () => {
   })
 
   it("refuses a hash against a filename, which is what the resource pack is", () => {
-    // THE CASE THAT MADE THE PREFIX RULE (season-2-ops/142). A pack has no version: its installed
-    // identity is a SHA-1 and its wanted one is a zip. Both remainders contain a digit, so without
-    // the rule this pair was drawn as a version jump from a hash to a filename.
+    /**
+     * THE CASE THAT MADE THE PREFIX RULE. A pack has no version: its installed
+     * identity is a SHA-1 and its wanted one is a zip. Both remainders contain a digit, so without
+     * the rule this pair was drawn as a version jump from a hash to a filename.
+     */
     const jump = versionJump("c0bac3a03dad681347cbe4a3bc932aff8ffd8203", "nordtal-resource-pack-0.9.4.zip", "0.9.4")
     expect(jump).toEqual({
       from: "c0bac3a03dad681347cbe4a3bc932aff8ffd8203",

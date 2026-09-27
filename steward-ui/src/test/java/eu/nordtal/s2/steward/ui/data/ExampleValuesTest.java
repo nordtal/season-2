@@ -9,15 +9,16 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * The example values an editor fills placeholders with: real rows first, the admin's own before
- * anybody else's, and a fixed value per type when the table is empty.
+ * The example values an editor fills placeholders with.
+ *
+ * Real rows first, the admin's own before anybody else's, and a fixed value per type when the
+ * table is empty.
  */
 class ExampleValuesTest {
 
@@ -53,7 +54,6 @@ class ExampleValuesTest {
     }
 
     @Test
-    @DisplayName("with nothing in the database every type still has a value")
     void everyTypeHasAFallback() {
         final Map<String, Map<String, String>> examples = new ExampleValues(dataSource).of("1", "Ada");
 
@@ -66,16 +66,15 @@ class ExampleValuesTest {
     }
 
     @Test
-    @DisplayName("the admin's own account is the player, before anybody else's")
     void theAdminIsThePlayer() {
-        sql("INSERT INTO discord_user (discord_id, discord_display_name) VALUES ('1', 'Alex H'), ('9', NULL)");
+        sql("INSERT INTO discord_user (discord_id, discord_display_name) VALUES ('1', 'Ally H'), ('9', NULL)");
         sql("INSERT INTO account_link (discord_id, mc_uuid, mc_name) VALUES"
                 + " ('9', '00000000-0000-0000-0000-000000000009', 'Other'),"
-                + " ('1', '00000000-0000-0000-0000-000000000001', 'Alex')");
+                + " ('1', '00000000-0000-0000-0000-000000000001', 'Ally')");
 
         final Map<String, Map<String, String>> examples = new ExampleValues(dataSource).of("1", "Ada");
-        assertEquals(Map.of("name", "Alex"), examples.get("player"));
-        assertEquals(Map.of("name", "@Alex H"), examples.get("discord-member"));
+        assertEquals(Map.of("name", "Ally"), examples.get("player"));
+        assertEquals(Map.of("name", "@Ally H"), examples.get("discord-member"));
 
         assertEquals(
                 Map.of("name", "Other"),
@@ -84,7 +83,6 @@ class ExampleValuesTest {
     }
 
     @Test
-    @DisplayName("the team is a real one and the milestone the active one")
     void realTeamAndActiveMilestone() {
         sql("INSERT INTO smp_milestone (key, state) VALUES ('foothold', 'UNLOCKED'), ('nether', 'ACTIVE')");
         sql("INSERT INTO hg_game (id) VALUES ('00000000-0000-0000-0000-00000000000a')");

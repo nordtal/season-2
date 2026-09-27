@@ -9,18 +9,17 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 /**
- * Who is signed in, and everything that used to be the settings page's account half (steward/89).
+ * Who is signed in, and everything that is otherwise an account settings page.
  *
- * The owner, 2026-09-17: the picture of the signed-in person stands level with the island, a tap opens
+ * The picture of the signed-in person stands level with the island, a tap opens
  * the user settings as a popover, and the popover is minimal without being unhelpful. What is in it
- * is the whole of it - name, Discord id, the keys as a list, and the way out - because the page
- * that used to hold those is the page this replaces.
+ * is the whole of it: name, Discord id, the keys as a list, and the way out.
  *
  * **The picture never disappears, even when there is none.** A way to sign out that is there most
  * of the time is worse than one that is plain, so an account with no picture on record gets the
  * first letters of its name on a quiet round surface and the same tap target.
  *
- * **The picture is not always on record, and that is not an error** (steward/91). `whoAmI` in
+ * **The picture is not always on record, and that is not an error.** `whoAmI` in
  * `StewardUi.java` reads `discordAvatarUrl` from the same `person` row `/api/people` answers, over
  * the session's Discord id - not a second call to Discord, and not `usePeople()` mounted in the
  * shell for one 32px image (that query has a 30s `staleTime` and loads the whole access list). An
@@ -76,10 +75,12 @@ export function UserMenu({
   const keys = useSecurityKeyActions(me)
   const notifications = useNotificationActions()
 
-  // The popover gets out of the way as soon as one of the three questions is asked. The dialogs
-  // themselves are mounted below, outside it: a dialog rendered inside a popover is unmounted by
-  // the first outside click, and a dialog's own overlay is an outside click. steward/98's
-  // notifications dialog is the fourth of them and follows the same two rules.
+  /**
+   * The popover gets out of the way as soon as one of the three questions is asked. The dialogs
+   * themselves are mounted below, outside it: a dialog rendered inside a popover is unmounted by
+   * the first outside click, and a dialog's own overlay is an outside click. The
+   * notifications dialog is the fourth of them and follows the same two rules.
+   */
   const asking = keys.asking || notifications.open
   if (asking && open) setOpen(false)
 

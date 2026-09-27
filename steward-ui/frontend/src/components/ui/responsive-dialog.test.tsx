@@ -16,8 +16,8 @@ import {
 } from "@/components/ui/responsive-dialog"
 
 /**
- * The one place that decides sheet or dialog (steward/98, the owner 2026-09-18: every dialog switches
- * over, and at one common place).
+ * The one place that decides sheet or dialog: every dialog switches
+ * over, and at one common place.
  *
  * jsdom has no layout, so nothing here can say that a sheet sits at the bottom edge or that it can
  * be dragged away - `fits-on-a-phone.test.ts` says at length why a width is a number this
@@ -92,12 +92,12 @@ function drawConfirmation(onConfirm: () => void) {
 }
 
 /**
- * steward/128: the confirmation switches over too, and that was the exception steward/98 named.
+ * The confirmation switches over too, rather than remaining an exception.
  *
- * The reason it was an exception was that a sheet can be flicked away and a confirmation has to be
- * answered. The owner, 2026-09-20: flicking it away IS an answer, and the same one a click on the
- * overlay already gave. So there is nothing here asserting that it cannot be dismissed - that would
- * be the old decision written as a test.
+ * A sheet can be flicked away and a confirmation has to be
+ * answered - but flicking it away IS an answer, the same one a click on the
+ * overlay already gives. So there is nothing here asserting that it cannot be dismissed - that would
+ * be the wrong decision written as a test.
  */
 describe("the confirmation takes both shapes as well", () => {
   it("is an alert dialog on a desktop", () => {

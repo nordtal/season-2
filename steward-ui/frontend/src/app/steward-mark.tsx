@@ -20,8 +20,10 @@ export function StewardMark({ className }: { className?: string }) {
       width={128}
       height={128}
       className={className}
-      // Square, and the interface's own radius - the source is a square picture with no rounding
-      // of its own, and an unrounded square beside rounded cards reads as a sticker.
+      /**
+       * Square, and the interface's own radius - the source is a square picture with no rounding
+       * of its own, and an unrounded square beside rounded cards reads as a sticker.
+       */
       style={{ borderRadius: "var(--radius-sm)" }}
     />
   )

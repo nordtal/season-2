@@ -181,9 +181,22 @@ function clean(style: PreviewStyle): PreviewStyle {
   return Object.fromEntries(Object.entries(style).filter(([, value]) => value !== undefined && value !== false))
 }
 
+const PREVIEW_STYLE_KEYS: (keyof PreviewStyle)[] = [
+  "colour",
+  "bold",
+  "italic",
+  "underlined",
+  "strikethrough",
+  "obfuscated",
+]
+
+function isPreviewStyleKey(key: string): key is keyof PreviewStyle {
+  return (PREVIEW_STYLE_KEYS as string[]).includes(key)
+}
+
 function sameStyle(a: PreviewStyle, b: PreviewStyle): boolean {
   const left = clean(a)
   const right = clean(b)
-  const keys = new Set([...Object.keys(left), ...Object.keys(right)].filter((key) => key !== "kind" && key !== "text"))
-  return [...keys].every((key) => left[key as keyof PreviewStyle] === right[key as keyof PreviewStyle])
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)].filter(isPreviewStyleKey))
+  return [...keys].every((key) => left[key] === right[key])
 }

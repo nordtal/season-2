@@ -34,30 +34,28 @@ import {
 import { Switch } from "@/components/ui/switch"
 
 /**
- * Everything about notifications, in the one place somebody would look for it (steward/98, the owner's
- * review of 2026-09-18).
+ * Everything about notifications, in the one place somebody would look for it.
  *
- * **Why this exists at all:** the switch that turns push on used to be a card at the bottom of
- * `/settings`, and Alex did not find it. That is the whole of the review's occasion, and it is why
- * this hangs off the round picture that already carries the security keys rather than off a page in
- * the navigation.
+ * **Why this exists at all:** a switch that turns push on would be easy to miss as a card at the
+ * bottom of `/settings`. This hangs off the round picture that already carries the security keys
+ * rather than off a page in the navigation, so it is found.
  *
  * **Mounted outside the popover, like `SecurityKeyDialogs`** - and for the identical reason, which
  * that file states: a dialog rendered inside a popover is unmounted by the first outside click, and
  * a dialog's own overlay is an outside click. The state therefore lives above both, in
  * {@link useNotificationActions}.
  *
- * <h2>Five sections, and the two new ones are steward/129</h2>
+ * <h2>Five sections</h2>
  * This browser, which kinds this account wants, the numbers those kinds fire on, every browser
- * subscribed, and a test send. The thresholds came in because deciding *whether* to be told and
- * deciding *when* are the same sitting - the owner, 2026-09-20, reading a disk warning on a phone and
- * finding nowhere to move the number from. The test send moved onto the paper plane because a
- * select standing beside the word "Devices" is a control that looks like a filter of the list
+ * subscribed, and a test send. The thresholds exist because deciding *whether* to be told and
+ * deciding *when* are the same sitting - a disk warning that reaches a phone is of little use if
+ * there is nowhere to move the number that triggers it. The test send sits on the paper plane rather
+ * than on a select beside the word "Devices", which would look like a filter of the list
  * under it.
  *
  * **Nothing here scrolls sideways.** On a phone that is always a layout fault and never a property
  * of the content, so every row is `min-w-0` with something in it allowed to truncate, and no fixed
- * width survives below `sm`. The measurement is `/home/dev/ui-shots/tool/notify.mjs`.
+ * width survives below `sm`.
  */
 export type NotificationActions = ReturnType<typeof useNotificationActions>
 
@@ -66,7 +64,7 @@ export type NotificationActions = ReturnType<typeof useNotificationActions>
  *
  * <h2>Two labels per type, because they answer two different questions</h2>
  * `label` is what a switch governs and stays a plural noun: a list of things to be told about.
- * `test` is what pressing it will actually put on a lock screen in a moment - the owner, 2026-09-20:
+ * `test` is what pressing it will actually put on a lock screen in a moment -
  * *not just "Service" but "Service down"*. The words come from `AlertWatch#sample`, which is what
  * the backend really sends for a test of that type, and `tone` is the level it sends with. A row
  * that promised something the push does not say would be the one lie this dialog could tell.
@@ -87,9 +85,11 @@ const TYPES: ReadonlyArray<{
 export function useNotificationActions() {
   const supported = pushSupported()
   const [open, setOpen] = useState(false)
-  // Nothing is fetched until the dialog has been opened once: an account that never opens it should
-  // not cost two queries on every page load, and the public key below is the one exception - it has
-  // to be in cache BEFORE the button is tapped (see useWebPushPublicKey).
+  /**
+   * Nothing is fetched until the dialog has been opened once: an account that never opens it should
+   * not cost two queries on every page load, and the public key below is the one exception - it has
+   * to be in cache BEFORE the button is tapped (see useWebPushPublicKey).
+   */
   const publicKey = useWebPushPublicKey(supported)
   const subscription = useWebPushSubscription(supported)
   const devices = useWebPushDevices(open)
@@ -207,9 +207,11 @@ function Types({ state }: { state: NotificationActions }) {
             <Switch
               id={`notify-${type.key}`}
               className="shrink-0"
-              // Undefined until the query has answered, and disabled until then: a switch drawn
-              // off before anything was read would show every type as off for a moment, which is
-              // the one reading this dialog must never give by accident.
+              /**
+               * Undefined until the query has answered, and disabled until then: a switch drawn
+               * off before anything was read would show every type as off for a moment, which is
+               * the one reading this dialog must never give by accident.
+               */
               checked={chosen?.[type.key] ?? false}
               disabled={!chosen}
               onCheckedChange={(enabled) => state.choose.mutate({ type: type.key, enabled })}
@@ -233,10 +235,10 @@ const ALERTS_FILE = "steward-ui.yml"
 /**
  * The three numbers the light - and therefore every push - fires on.
  *
- * The owner, 2026-09-20, asked for the threshold to be settable inside this dialog rather than only
- * readable somewhere else. The ticket's own fallback was to show them and point at the
- * configuration page, and that is not what is built here: they are **server-side
- * rather than per-account**, which is the condition the fallback names, but server-side does not
+ * The threshold is settable inside this dialog rather than only
+ * readable somewhere else. Simply showing them and pointing at the
+ * configuration page would be a lesser answer: they are **server-side
+ * rather than per-account**, but server-side does not
  * mean unreachable. `alerts.disk-percent` and its two neighbours are ordinary scalars in
  * `steward-ui/steward-ui.yml`, and the same PUT the configuration form uses writes them, revision
  * and all.
@@ -301,9 +303,11 @@ function Thresholds({ state }: { state: NotificationActions }) {
                 type="number"
                 min={1}
                 inputMode="numeric"
-                // Wide enough for three digits and no wider: this sits at the right edge of a
-                // 390px sheet, and an input that keeps its desktop width there is exactly the box
-                // that pushes the row past the screen.
+                /**
+                 * Wide enough for three digits and no wider: this sits at the right edge of a
+                 * 390px sheet, and an input that keeps its desktop width there is exactly the box
+                 * that pushes the row past the screen.
+                 */
                 className="h-8 w-16 text-right"
                 value={edited[row.path] ?? row.entry?.value ?? ""}
                 onChange={(event) => setEdited((before) => ({ ...before, [row.path]: event.target.value }))}
@@ -325,10 +329,12 @@ function Thresholds({ state }: { state: NotificationActions }) {
               {
                 onSuccess: () => {
                   setEdited({})
-                  // The traffic light reads the effective numbers from
-                  // `/api/settings`, which is a different cache entry from the file this just
-                  // wrote. Without this it keeps the old thresholds until something else
-                  // refetches them, and the dialog would look like it had not saved.
+                  /**
+                   * The traffic light reads the effective numbers from
+                   * `/api/settings`, which is a different cache entry from the file this just
+                   * wrote. Without this it keeps the old thresholds until something else
+                   * refetches them, and the dialog would look like it had not saved.
+                   */
                   void client.invalidateQueries({ queryKey: keys.settings })
                 },
               },
@@ -408,9 +414,9 @@ function ReadOnlyThresholds({
 /**
  * Every browser on this account, and a test send to one of them.
  *
- * **The choice of WHICH notification is tested hangs off the paper plane** (steward/129, the owner,
- * 2026-09-20). It was a select beside the word "Devices", which is the position a filter of the
- * list beneath it would occupy - and it made the header row of a 390px sheet carry a 144px control
+ * **The choice of WHICH notification is tested hangs off the paper plane.** A select beside the
+ * word "Devices" would occupy the position a filter of the
+ * list beneath it would occupy - and would make the header row of a 390px sheet carry a 144px control
  * it could not shrink. A popover on the button that does the sending says what it is for by being
  * where it is, and it costs the header nothing.
  */
@@ -424,9 +430,9 @@ function Devices({ state }: { state: NotificationActions }) {
       <span className="text-xs text-muted-foreground">Devices</span>
 
       {/*
-        steward/120. This list drew nothing at all while it was read, so the dialog opened one
-        height and grew a moment later - under a dropdown somebody had just aimed at. Two rows of
-        the right height is what it reserves now: two is the ordinary number of browsers, and the
+        Drawing nothing at all while this list is loading would open the dialog at one
+        height and grow it a moment later - under a dropdown somebody had just aimed at. Two rows of
+        the right height are reserved instead: two is the ordinary number of browsers, and the
         list is the last thing in the dialog, so being wrong by one costs nothing.
       */}
       {state.devices.isPending ? (

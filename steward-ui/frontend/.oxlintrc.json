@@ -9,5 +9,13 @@
     "react/react-in-jsx-scope": "off"
   },
   "env": { "browser": true },
-  "ignorePatterns": ["dist/**"]
+  "ignorePatterns": ["dist/**"],
+  "overrides": [
+    {
+      "files": ["src/main.tsx"],
+      "rules": {
+        "import/no-unassigned-import": "off"
+      }
+    }
+  ]
 }

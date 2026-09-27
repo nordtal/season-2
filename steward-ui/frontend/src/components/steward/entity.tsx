@@ -11,7 +11,7 @@ import { useAvatarBaseUrl, usePeople } from "@/lib/queries"
  * Every identifier Steward shows goes through here: the page hands over what it has, and this
  * decides what that is and how it is drawn.
  *
- * The owner, 2026-09-20: one component that recognises an entity and draws it properly, app-wide,
+ * One component recognises an entity and draws it properly, app-wide,
  * instead of each page switching its call sites by hand. A habit holds until the next new page;
  * a component that resolves the identifier itself does not depend on anybody remembering.
  *
@@ -79,8 +79,10 @@ export function Entity({ id, kind, system, interactive, className }: EntityProps
   const value = (id ?? "").trim()
 
   if (resolved === "discord" || resolved === "minecraft") {
-    // Waiting on the roster is not "nobody on record": drawing that for the half second before the
-    // roster arrives would state a fact the page does not have yet.
+    /**
+     * Waiting on the roster is not "nobody on record": drawing that for the half second before the
+     * roster arrives would state a fact the page does not have yet.
+     */
     if (people.isPending || avatarBase.isPending) {
       return (
         <span className={"inline-flex min-w-0 items-center gap-2 " + (className ?? "")}>

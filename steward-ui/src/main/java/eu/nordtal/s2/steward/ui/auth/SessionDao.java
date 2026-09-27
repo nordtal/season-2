@@ -10,24 +10,13 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 /**
  * The SQL behind {@link Sessions}. Package-private: {@code Sessions} is the API.
  *
- * <h2>Every read carries its own expiry check</h2>
- * There is a sweep, and it runs once an hour, and it is <em>housekeeping</em> - it keeps the table
- * small and it is allowed to be late. It is deliberately not what makes an expired session stop
- * working: a lookup that trusted the sweep would hand out a valid session for up to an hour after
- * it ended, and would hand one out forever on a deployment whose sweep thread died. So
- * {@code expires_at > now()} is in the {@code WHERE} of the lookup itself, and {@code now()} is
- * PostgreSQL's rather than the JVM's - one clock, not one per container.
+ * Every read carries its own {@code expires_at > now()} check; the hourly sweep is housekeeping,
+ * not what makes an expired session stop working.
  */
 @RegisterConstructorMapper(Sessions.Session.class)
 interface SessionDao {
 
-    /**
-     * The row that exists between {@code /auth/login} and {@code /auth/callback}.
-     *
-     * <p>No account yet - see the table comment in {@code V19}. It carries a CSRF token from the
-     * start anyway, so that the column can be {@code NOT NULL} and so that there is never a moment
-     * where a row exists and a write could be accepted without one.</p>
-     */
+    /** The row that exists between {@code /auth/login} and {@code /auth/callback}, no account yet. */
     @SqlUpdate("""
             INSERT INTO steward_session (id, oauth_state, csrf, created_at, expires_at)
             VALUES (:id, :state, :csrf, now(), now() + make_interval(secs => :seconds))
@@ -39,24 +28,10 @@ interface SessionDao {
             @Bind("seconds") long seconds);
 
     /**
-     * Reads the one-time OAuth state and clears it in the same statement.
+     * Reads the one-time OAuth state and clears it atomically, so a replayed callback finds nothing.
      *
-     * <p><b>The clearing is the point, and it has to be atomic.</b> A state that could be read
-     * twice is a state a replayed callback matches, so this is a {@code RETURNING} on the
-     * {@code UPDATE} and never a {@code SELECT} followed by an {@code UPDATE}. Two callbacks
-     * arriving at once therefore have exactly one winner: the second finds
-     * {@code oauth_state IS NOT NULL} false and updates nothing.</p>
-     *
-     * <h2>Why the self-join, when {@code RETURNING oauth_state} reads so much better</h2>
-     * Because {@code RETURNING} answers with the <b>new</b> row, and the new row's
-     * {@code oauth_state} is the {@code NULL} this statement just wrote. The short version
-     * therefore compiled, ran, updated the right row and handed back nothing at all - so every
-     * sign-in ended at "this sign-in did not start in this browser". PostgreSQL 18 has
-     * {@code RETURNING OLD.oauth_state} for exactly this; the deployment is on 17.11 (measured
-     * 2026-09-12), so the old value is carried out of a subquery instead.
-     *
-     * <p>The subquery takes {@code FOR UPDATE}, which is what keeps it a single winner: without
-     * it, two callbacks could both read the old value before either wrote the {@code NULL}.</p>
+     * The self-join with {@code FOR UPDATE} carries out the old value: plain {@code RETURNING}
+     * answers with the new row, whose {@code oauth_state} is already the {@code NULL} just written.
      */
     @SqlQuery("""
             UPDATE steward_session AS s
@@ -97,13 +72,7 @@ interface SessionDao {
             """)
     Optional<Sessions.Session> find(@Bind("id") String id);
 
-    /**
-     * Parks the WebAuthn ceremony this browser has just been handed.
-     *
-     * <p>One at a time, deliberately: a second {@code /start} overwrites the first, so a person who
-     * taps the button twice finishes the ceremony they are actually looking at. Two challenges
-     * outstanding would mean the older one is redeemable by whoever else has seen it.</p>
-     */
+    /** Parks the WebAuthn ceremony this browser has just been handed, one at a time. */
     @SqlUpdate("""
             UPDATE steward_session
             SET webauthn_request = :request,
@@ -114,20 +83,10 @@ interface SessionDao {
     int startCeremony(@Bind("id") String id, @Bind("request") String request);
 
     /**
-     * The ceremony this browser started, readable exactly once.
+     * The ceremony this browser started, readable exactly once, so a replayed finish is refused.
      *
-     * <p><b>The same shape as {@link #consumeState}, and the same trap.</b> {@code RETURNING}
-     * answers with the new row, so the obvious one-liner hands back the {@code NULL} it just
-     * wrote - see that method for what that cost. The old value comes out of a {@code FOR UPDATE}
-     * subquery here too.</p>
-     *
-     * <p>Reading it once is what makes a challenge single-use: a replayed {@code /finish} finds
-     * nothing to verify against and is refused, rather than being checked a second time against a
-     * challenge that is still lying there.</p>
-     *
-     * <p>Ten minutes, and the clock is in the {@code WHERE} rather than in a sweep - same argument
-     * as the expiry above. The browser's own dialog gives two minutes, so this only ever catches a
-     * ceremony nobody is still looking at.</p>
+     * Same shape as {@link #consumeState}, for the same reason. Ten minutes in the {@code WHERE},
+     * not a sweep, well past the browser's own two-minute dialog.
      */
     @SqlQuery("""
             UPDATE steward_session AS s
@@ -147,13 +106,7 @@ interface SessionDao {
             """)
     Optional<String> consumeCeremony(@Bind("id") String id);
 
-    /**
-     * Records that this browser has just held its key.
-     *
-     * <p>{@code now()} is PostgreSQL's, like every other clock in this file: the five-minute window
-     * of the step-up is compared against the same clock that wrote this, not against whatever the
-     * JVM thinks the time is.</p>
-     */
+    /** Records that this browser has just held its key, on PostgreSQL's clock, not the JVM's. */
     @SqlUpdate("""
             UPDATE steward_session
             SET verified_at = now()
@@ -165,34 +118,23 @@ interface SessionDao {
     @SqlUpdate("DELETE FROM steward_session WHERE id = :id")
     void end(@Bind("id") String id);
 
-    /** Housekeeping. Returns how many rows went, so the log line can be about something. */
     /**
-     * Every session of one account, gone.
-     *
-     * <p>Half of {@code forget-factors}, and the half that is easy to leave out: clearing the keys
-     * of an account whose browser is still signed in would leave that browser signed in with no
-     * key - which is the state the whole door exists to refuse, reached from the inside.</p>
+     * Every session of one account, gone. Half of {@code forget-factors}, so no session outlives its keys.
      *
      * @return how many browsers were signed out
      */
     @SqlUpdate("DELETE FROM steward_session WHERE discord_id = :discordId")
     int endAllOf(@Bind("discordId") String discordId);
 
+    /** Housekeeping. Returns how many rows went, so the log line can be about something. */
     @SqlUpdate("DELETE FROM steward_session WHERE expires_at < now()")
     int sweep();
 
     /**
      * Only for the tests that have to age a session without waiting for one.
      *
-     * <p>It is here rather than in a test helper because a test that writes its own SQL against
-     * this table is a second place that has to be changed when a column moves, and the first thing
-     * such a test stops noticing is a column it no longer writes.</p>
-     *
-     * <p><b>It moves {@code created_at} as well, and it has to.</b> V19 constrains
-     * {@code expires_at > created_at}, so the one-line version of this - setting the expiry alone -
-     * cannot age a session at all: PostgreSQL refuses it. That went unnoticed because this method
-     * was written in the same commit as the constraint and had no caller until now, which is its
-     * own small lesson about a helper added ahead of the test that needs it.</p>
+     * Moves {@code created_at} back too: {@code expires_at > created_at} is a constraint, so
+     * setting the expiry alone cannot age a session.
      */
     @SqlUpdate("""
             UPDATE steward_session

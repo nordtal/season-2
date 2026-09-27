@@ -1,6 +1,7 @@
 package eu.nordtal.s2.common.audit;
 
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One journal line before it is written - the arguments of {@link AuditDirectory#record} as a value.
@@ -20,7 +21,12 @@ import java.util.UUID;
  * @param mcUuid  the Minecraft account it concerned, where there is one; may be null
  * @param detail  one line of what happened; may be null
  */
-public record AuditLine(String action, String actor, String subject, UUID mcUuid, String detail) {
+public record AuditLine(
+        String action,
+        @Nullable String actor,
+        @Nullable String subject,
+        @Nullable UUID mcUuid,
+        @Nullable String detail) {
 
     public AuditLine {
         if (action == null || action.isBlank()) {

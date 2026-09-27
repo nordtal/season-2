@@ -11,17 +11,16 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * {@code steward_push_preference} against a real PostgreSQL, and the one rule that is not SQL: a
- * missing row is the type's own default (steward/98, Till's review of 2026-09-18).
+ * {@code steward_push_preference} against a real PostgreSQL.
  *
- * <p>Modelled on {@link PushSubscriptionsTest}, the table beside it.</p>
+ * The one rule that is not SQL: a missing row is the type's own default. Modelled on
+ * {@link PushSubscriptionsTest}, the table beside it.
  */
 class PushPreferencesTest {
 
@@ -65,12 +64,10 @@ class PushPreferencesTest {
     }
 
     @Test
-    @DisplayName("an account that has never chosen gets the defaults, and no row is written for it")
     void anAccountWithNoRowsGetsTheDefaults() {
         final Map<AlertType, Boolean> mine = preferences.of("42");
 
-        // Till, 2026-09-18, verbatim: the critical cases plus disk and memory are on, the rest is
-        // off. "The rest" is exactly drift.
+        // The critical cases plus disk and memory are on, the rest is off. "The rest" is exactly drift.
         assertEquals(
                 Map.of(
                         AlertType.SERVICE, true,
@@ -79,8 +76,7 @@ class PushPreferencesTest {
                         AlertType.MEMORY, true,
                         AlertType.DRIFT, false),
                 mine,
-                "the defaults an account gets before it has ever opened the dialog are not the ones"
-                        + " Till asked for");
+                "the defaults an account gets before it has ever opened the dialog are not the" + " expected ones");
         assertTrue(
                 preferences.all().isEmpty(),
                 "reading the preferences of an account wrote a row for it - see V30 on why a"
@@ -88,7 +84,6 @@ class PushPreferencesTest {
     }
 
     @Test
-    @DisplayName("a switch is remembered, and only for the account that set it")
     void aSwitchIsScopedToTheAccount() {
         preferences.set("42", AlertType.DRIFT, true);
         preferences.set("42", AlertType.SERVICE, false);
@@ -100,7 +95,6 @@ class PushPreferencesTest {
     }
 
     @Test
-    @DisplayName("setting the same switch twice is one row, not two")
     void settingTwiceIsOneRow() {
         preferences.set("42", AlertType.DISK, false);
         preferences.set("42", AlertType.DISK, true);
@@ -110,7 +104,6 @@ class PushPreferencesTest {
     }
 
     @Test
-    @DisplayName("a switch put back where it started is still a row - chosen is not the same as never looked")
     void choosingTheDefaultIsStillAChoice() {
         preferences.set("42", AlertType.SERVICE, true);
 
@@ -121,7 +114,6 @@ class PushPreferencesTest {
     }
 
     @Test
-    @DisplayName("a stored type this release does not know is ignored rather than fatal")
     void anUnknownTypeIsIgnored() throws SQLException {
         try (var connection = dataSource.getConnection();
                 var statement = connection.createStatement()) {
@@ -129,8 +121,7 @@ class PushPreferencesTest {
                     + " enabled, updated_at) VALUES ('42', 'sunspots', true, now())");
         }
 
-        // A background poll that threw on a row a later release had left behind would stop pushing
-        // anything at all - see AlertType#of.
+        // A poll that threw on a row a later release left behind would stop pushing anything at all.
         assertEquals(5, preferences.of("42").size());
         assertTrue(
                 preferences.all().get("42") == null

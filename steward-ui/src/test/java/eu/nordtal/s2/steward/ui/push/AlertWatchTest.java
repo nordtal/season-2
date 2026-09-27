@@ -11,24 +11,19 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.flywaydb.core.Flyway;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * {@link AlertWatch}, with the worker and the push protocol both replaced by a fake this test
- * drives - see {@link AlertLevelSource} and {@link PushSender}'s own class notes on why those two
- * seams exist.
+ * {@link AlertWatch}, with the worker and the push protocol replaced by a fake this test drives.
  *
- * <p>Covers acceptance assertions 2 and 3 of steward/98: a traffic-light change reaches every
- * subscription as a send, and a send that comes back as a 404/410 (here: {@link
- * PushSender.Result#EXPIRED}) removes that subscription - detected and handled, not just noticed.
+ * A traffic-light change reaches every subscription as a send, and a 404/410
+ * ({@link PushSender.Result#EXPIRED}) removes that subscription.
  */
 class AlertWatchTest {
 
@@ -69,8 +64,7 @@ class AlertWatchTest {
 
     @BeforeEach
     void freshSubscriptions() {
-        // Fresh rows per test: TRUNCATE rather than a new container, which would cost a Postgres
-        // start per test rather than per class.
+        // TRUNCATE rather than a new container, which would cost a Postgres start per test.
         try (var connection = dataSource.getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("TRUNCATE steward_push_subscription");
@@ -88,7 +82,6 @@ class AlertWatchTest {
     }
 
     @Test
-    @DisplayName("a traffic-light change sends to every subscription; an unchanged reading sends to none")
     void trafficLightChangeTriggersASend() {
         source.allClear();
         watch.poll();
@@ -112,7 +105,6 @@ class AlertWatchTest {
     }
 
     @Test
-    @DisplayName("a 404/410 (EXPIRED) removes that subscription; the other one stays")
     void expiredSubscriptionIsRemoved() {
         sender.expire("https://push.example/a");
 
@@ -131,7 +123,6 @@ class AlertWatchTest {
     }
 
     @Test
-    @DisplayName("a type switched off on one account reaches that account's browsers and no other")
     void aSwitchedOffTypeIsNotSentToThatAccount() {
         preferences.set("42", AlertType.SERVICE, false);
 
@@ -148,7 +139,6 @@ class AlertWatchTest {
     }
 
     @Test
-    @DisplayName("drift is off by default, so nobody is woken by it until somebody asks to be")
     void driftIsOffByDefault() {
         source.allClear();
         watch.poll();
@@ -163,7 +153,6 @@ class AlertWatchTest {
     }
 
     @Test
-    @DisplayName("an account that switched drift on does get it")
     void driftReachesTheAccountThatAskedForIt() {
         preferences.set("43", AlertType.DRIFT, true);
 
@@ -179,7 +168,6 @@ class AlertWatchTest {
     }
 
     @Test
-    @DisplayName("two types moving in one poll are two notifications, not one")
     void everyTypeThatMovedIsItsOwnNotification() {
         source.allClear();
         watch.poll();
@@ -188,9 +176,7 @@ class AlertWatchTest {
                 trigger("backup", "down", "backups", "/operations")));
         watch.poll();
 
-        // Two subscriptions, both accounts at their defaults, two types: four sends, and the
-        // payloads say which is which. Before steward/98's review the worker answered only the
-        // worst trigger, so the backup would have been invisible for as long as smp was down.
+        // Two subscriptions, two types: four sends. Answering only the worst trigger would hide the backup.
         assertEquals(4, sender.sent.size(), "a poll in which two types moved did not send both");
         assertTrue(
                 sender.sent.stream().anyMatch(call -> call.payload.contains("\"service\"")),
@@ -201,7 +187,6 @@ class AlertWatchTest {
     }
 
     @Test
-    @DisplayName("an all-clear still names what it is clearing")
     void anAllClearNamesWhatCleared() {
         source.allClear();
         watch.poll();
@@ -212,10 +197,7 @@ class AlertWatchTest {
         source.allClear();
         watch.poll();
 
-        // Till, 2026-09-19: the first line of a notification is the thing and what is up with it.
-        // The all-clear used to carry an empty subject, which the service worker can only draw as
-        // "Steward is clear" - and the one notification somebody waits for after a service went
-        // down is the one saying THAT service is back.
+        // An all-clear with an empty subject would draw as "Steward is clear" instead of naming the service.
         assertEquals(2, sender.sent.size(), "the all-clear did not reach both subscriptions");
         assertTrue(
                 sender.sent.getFirst().payload.contains("\"subject\":\"smp\""),
@@ -226,7 +208,6 @@ class AlertWatchTest {
     }
 
     @Test
-    @DisplayName("the disk threshold is this service's own, applied to the worker's raw percentage")
     void theDiskThresholdIsAppliedHere() {
         source.next(new AlertReading(List.of(), 10.0, 10.0, 1.0));
         watch.poll();
@@ -246,7 +227,6 @@ class AlertWatchTest {
     }
 
     @Test
-    @DisplayName("a backup older than the permitted age is the backup type, not a sixth one")
     void anOldBackupIsTheBackupType() {
         source.next(new AlertReading(List.of(), 10.0, 10.0, 1.0));
         watch.poll();
@@ -260,13 +240,10 @@ class AlertWatchTest {
     }
 
     @Test
-    @DisplayName("a measurement the worker could not take raises no alarm")
     void anUnmeasuredNumberRaisesNothing() {
         source.allClear();
         watch.poll();
-        // The worker leaves the three numbers out exactly when it could not read them. "Nobody
-        // looked" is not "the disk is full", and an unknown backup age is not an infinitely old
-        // backup - the missing backup itself is a trigger of its own and says so in words.
+        // "Nobody looked" is not "the disk is full"; an unknown number must not raise anything.
         source.next(new AlertReading(List.of(), null, null, null));
         watch.poll();
 
@@ -300,7 +277,7 @@ class AlertWatchTest {
         }
 
         @Override
-        public @NotNull AlertReading current() {
+        public AlertReading current() {
             return queue.removeFirst();
         }
     }
@@ -317,8 +294,7 @@ class AlertWatchTest {
         }
 
         @Override
-        public @NotNull Result send(
-                final @NotNull PushSubscriptions.Subscription subscription, final @NotNull String payload) {
+        public Result send(final PushSubscriptions.Subscription subscription, final String payload) {
             sent.add(new Call(subscription.endpoint(), payload));
             return expired.containsKey(subscription.endpoint()) ? Result.EXPIRED : Result.SENT;
         }

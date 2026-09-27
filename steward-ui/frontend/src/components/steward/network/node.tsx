@@ -13,17 +13,17 @@ import { SkeletonText } from "@/components/ui/skeleton"
 import { INGRESS, imageTag, type NodeId } from "./topology"
 
 /**
- * One node of the network picture, and the same node in every draft of steward/81.
+ * One node of the network picture, and the same node in every arrangement.
  *
- * That is deliberate: Till is choosing an **arrangement**, so the thing being arranged has to be
+ * That is deliberate: choosing an **arrangement** means the thing being arranged has to be
  * identical in each of them, or the choice is about two variables at once.
  *
  * <h2>Every card is the same size, and the size is small</h2>
- * Till, 2026-09-17: every card the same size, `postgres` included, and all of them smaller.
- * Both halves are load-bearing and both are enforced here rather than left to each
+ * Every card is the same size, `postgres` included, and all of them are smaller than a topology
+ * picture would otherwise use. Both halves are load-bearing and both are enforced here rather than left to each
  * draft: the card takes its width from `--node-w` and its height from `--node-h`, two variables the
- * placement canvas sets once, so `postgres` cannot be a bar across the picture (which is what it
- * was in drafts `a`, `d` and `f`) and `players` cannot be a stub. A topology picture whose boxes
+ * placement canvas sets once, so `postgres` cannot be a bar across the picture and `players` cannot
+ * be a stub. A topology picture whose boxes
  * differ in size says the big ones matter more; here none of them does. The cost is real and is
  * accepted: at 144px `steward-deployer` fills its line almost exactly, and anything longer would
  * truncate.
@@ -35,13 +35,12 @@ import { INGRESS, imageTag, type NodeId } from "./topology"
  * 2. the image-drift mark with the running tag, and the player count pinned right;
  * 3. the toolbar: open, and recreate.
  *
- * Everything else - memory, cpu, uptime, the full image reference - is in a tooltip, which is where
- * the ticket put it from the start: anything that does not fit on a card goes there and never into
+ * Everything else - memory, cpu, uptime, the full image reference - is in a tooltip:
+ * anything that does not fit on a card goes there and never into
  * a line of text beside it.
  *
  * <h2>Three tooltips, not one</h2>
- * The ticket's second round only had one, on the dot. Till, 2026-09-17: the update information
- * and the service name should carry tooltips as well. So there are three, and each answers
+ * The update information and the service name carry tooltips as well as the dot, and each answers
  * the question its own anchor raises rather than repeating the others:
  *
  * - **the dot** - resources and runtime, unchanged;
@@ -57,17 +56,16 @@ import { INGRESS, imageTag, type NodeId } from "./topology"
  * write.
  *
  * <h2>Why the count is not on the first line</h2>
- * It used to sit there, beside the identifier and the dot, and at 390px that is exactly what broke:
- * the orchestrator's measurement of 2026-09-17 found `proxy` and `hunger-games` losing
+ * Beside the identifier and the dot, at 390px `proxy` and `hunger-games` would lose
  * their own name to an ellipsis, because the identifier is `min-w-0 flex-1 truncate` and the count
- * sat on the same line as `shrink-0` - so the identifier, the first of the four facts the ticket
- * names, was what gave way first. It lives on the tag line instead, unconditionally rather than
+ * would sit on the same line as `shrink-0` - so the identifier would be what gives way first. It
+ * lives on the tag line instead, unconditionally rather than
  * behind a breakpoint, and a test holds it there. `players` (the `INGRESS` card) keeps its count on
  * the first line because it has no tag line to move it to, and its label is short enough that the
- * failure above never applied to it.
+ * failure above never applies to it.
  *
  * <h2>One frame, not three</h2>
- * Till's standing rule: bordered things do not nest. The card carries the border, so nothing around
+ * Bordered things do not nest. The card carries the border, so nothing around
  * it may - the drafts sit flat on the page, never inside a `Card`, and the toolbar is separated by
  * space rather than by a second rule across the card.
  */
@@ -90,14 +88,14 @@ const DRIFT_WORDS: Record<string, string> = {
  *
  * - `OUTDATED` is the only warning colour here. The registry has something newer, which is the
  *   thing the front page's `Behind` tile used to say and no longer does.
- * - `LOCAL` is neutral on purpose (steward/75): this host is **ahead** of the registry, and a red
+ * - `LOCAL` is neutral on purpose: this host is **ahead** of the registry, and a red
  *   lamp for "you just built this" is a lamp people stop reading.
  * - `UNKNOWN` is neutral and never silent: an image nobody compared is not a current image.
  *
  * The word for each of the four is in the tooltip on the line, not here: `aria-label` is what a
  * screen reader reads, and a sighted reader gets the same sentence by pointing at the line.
  *
- * Exported for `table.tsx`: below 640px the picture becomes a row per service (steward/121), and a
+ * Exported for `table.tsx`: below 640px the picture becomes a row per service, and a
  * row carries the same four facts a card does. A second mark drawn from a second `switch` is the
  * kind of copy that stays right for exactly as long as nobody edits either one.
  */
@@ -125,10 +123,12 @@ export function DriftMark({ drift }: { drift: string }) {
  */
 export function Vitals({ service }: { service: Service }) {
   return (
-    // NOTHING INCOMPLETE WHEN THERE IS NOTHING TO SHOW (steward/123). `cpuPercent` and
-    // `memoryBytes` are absent for a container that is not running, and the formatters answer an
-    // en dash - which reads as "no value" in a table column and as a rendering fault behind the
-    // word "cpu". A stopped node says "not running" and then says nothing more.
+    /**
+     * NOTHING INCOMPLETE WHEN THERE IS NOTHING TO SHOW. `cpuPercent` and
+     * `memoryBytes` are absent for a container that is not running, and the formatters answer an
+     * en dash - which reads as "no value" in a table column and as a rendering fault behind the
+     * word "cpu". A stopped node says "not running" and then says nothing more.
+     */
     <span className="flex flex-col gap-0.5">
       <span>{service.startedAt ? `up ${since(service.startedAt)}` : "not running"}</span>
       {service.cpuPercent == null ? null : <span>cpu {percent(service.cpuPercent)}</span>}
@@ -146,7 +146,7 @@ export function Vitals({ service }: { service: Service }) {
 /**
  * What a node can actually do, not what a toolbar usually has room for.
  *
- * Till asked for at least three jumps per node - to the service page, to its configuration, to its
+ * A node needs at least three jumps - to the service page, to its configuration, to its
  * logs or an action. `navigation.ts` and the router name exactly one destination per service,
  * `/services/$name`: log window, console and configuration are three sections of that one page,
  * not three routes, and none of them carries an id a link could jump to. Three buttons to one
@@ -156,8 +156,8 @@ export function Vitals({ service }: { service: Service }) {
  * component and the same `steward-deployer` job the service page uses, which already declines to
  * draw itself for `steward-deployer`.
  *
- * Both are ghost and both are icon-only, which is the second half of Till's note of 2026-09-17: a
- * filled or outlined button on every one of ten cards is ten rectangles competing with the lines
+ * Both are ghost and both are icon-only: a
+ * filled or outlined button on every one of ten cards would be ten rectangles competing with the lines
  * that are the actual subject of the picture.
  *
  * Exported for `table.tsx`, and for the same reason `DriftMark` is: the phone's row is the card's
@@ -202,14 +202,18 @@ export function ServiceNode({
 
   return (
     <div
-      // Read back by `useNodeBoxes` to find out where this card ended up. The lines are drawn from
-      // the measured positions rather than from a coordinate table, which is the whole reason one
-      // set of edges survives the layout changing under it.
+      /**
+       * Read back by `useNodeBoxes` to find out where this card ended up. The lines are drawn from
+       * the measured positions rather than from a coordinate table, which is the whole reason one
+       * set of edges survives the layout changing under it.
+       */
       data-node={id}
       className={cn(
         "relative z-10 flex h-(--node-h) w-(--node-w) flex-col gap-0.5 rounded-md border bg-card px-2.5 py-1.5",
-        // The one card that is people rather than a container says so by being drawn as an opening
-        // rather than a thing: dashed, and with no dot, because it has no health to report.
+        /**
+         * The one card that is people rather than a container says so by being drawn as an opening
+         * rather than a thing: dashed, and with no dot, because it has no health to report.
+         */
         ingress ? "border-dashed border-border bg-background" : "border-border",
         className,
       )}
@@ -239,8 +243,10 @@ export function ServiceNode({
             running tag, which is where the room at 390px actually is (see the class comment). */}
         {ingress && players !== undefined ? (
           <span
-            // The only word on the card that is not data, and it is not drawn: the icon carries it
-            // on screen and this carries it to a screen reader and to a test.
+            /**
+             * The only word on the card that is not data, and it is not drawn: the icon carries it
+             * on screen and this carries it to a screen reader and to a test.
+             */
             title="players"
             className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground"
           >
@@ -283,8 +289,10 @@ export function ServiceNode({
 
               {players === undefined ? null : (
                 <span
-                  // Same word, same reason as the one on `players` above: the icon is what a reader
-                  // sees, this is what a screen reader and a test see.
+                  /**
+                   * Same word, same reason as the one on `players` above: the icon is what a reader
+                   * sees, this is what a screen reader and a test see.
+                   */
                   title="players"
                   className="flex shrink-0 items-center gap-1"
                 >
@@ -305,7 +313,7 @@ export function ServiceNode({
 
       {/* `players` gets no toolbar: it is not a container (see the class comment on `ServiceNode`),
           has no route of its own in `navigation.ts`, and `RecreateButton` has nothing to recreate.
-          A toolbar with zero real buttons is worse than none - Till's own rule for this ticket. */}
+          A toolbar with zero real buttons is worse than none. */}
       {ingress ? null : <NodeToolbar id={id} />}
     </div>
   )

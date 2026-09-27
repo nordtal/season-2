@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { assert, describe, expect, it, vi } from "vitest"
 
 import {
   currentPushEndpoint,
@@ -10,10 +10,10 @@ import {
 } from "@/lib/push"
 
 /**
- * steward/98's frontend half: the boundary conversion (base64url from the server into the bytes
- * `applicationServerKey` wants) and the orchestration around a fake `navigator.serviceWorker`, on the
- * same pattern as `webauthn.test.ts` - jsdom has no real Push API, so what is real here is that a
- * given fake sequence of calls produces the right subscribe/unsubscribe/query.
+ * The boundary conversion (base64url from the server into the bytes `applicationServerKey` wants)
+ * and the orchestration around a fake `navigator.serviceWorker`, on the same pattern as
+ * `webauthn.test.ts` - jsdom has no real Push API, so what is real here is that a given fake
+ * sequence of calls produces the right subscribe/unsubscribe/query.
  */
 
 describe("the VAPID public key as the browser's API wants it", () => {
@@ -23,20 +23,22 @@ describe("the VAPID public key as the browser's API wants it", () => {
   })
 
   it("reads the two characters that differ from plain base64", () => {
-    // 0xfb 0xff 0xbe -> base64 "+/++", base64url "-_--" (see webauthn.test.ts's own ALPHABET_TRAP).
+    // 0xfb 0xff 0xbe -> base64 "+/++", base64url "" (see webauthn.test.ts's own ALPHABET_TRAP).
     expect(urlBase64ToUint8Array("-_--")).toEqual(new Uint8Array([0xfb, 0xff, 0xbe]))
   })
 
   it("round-trips at every padding remainder a key length can land on", () => {
-    // A P-256 point, uncompressed, is 65 bytes - not a multiple of 3 - so the un-padded case is the
-    // one this function is for; the shorter lengths cover the other two remainders.
+    /**
+     * A P-256 point, uncompressed, is 65 bytes - not a multiple of 3 - so the un-padded case is the
+     * one this function is for; the shorter lengths cover the other two remainders.
+     */
     const cases: Array<[string, number[]]> = [
       ["AQ", [1]],
       ["AQI", [1, 2]],
       ["AQID", [1, 2, 3]],
     ]
     for (const [base64Url, bytes] of cases) {
-      expect(urlBase64ToUint8Array(base64Url), base64Url).toEqual(new Uint8Array(bytes))
+      assert.deepEqual(urlBase64ToUint8Array(base64Url), new Uint8Array(bytes), base64Url)
     }
   })
 })
@@ -66,7 +68,7 @@ describe("a browser too old for any of this", () => {
 
 describe("registering the service worker", () => {
   it("registers /sw.js when the browser can", async () => {
-    const register = vi.fn().mockResolvedValue({ scope: "/" })
+    const register = vi.fn<() => Promise<{ scope: string }>>().mockResolvedValue({ scope: "/" })
     vi.stubGlobal("navigator", { serviceWorker: { register } })
 
     await registerServiceWorker()
@@ -85,7 +87,9 @@ describe("registering the service worker", () => {
 describe("subscribing, called directly from the button's tap", () => {
   it("waits for the ready registration and passes the decoded key through", async () => {
     const subscription = { toJSON: () => ({ endpoint: "https://push.example/x" }) }
-    const subscribe = vi.fn().mockResolvedValue(subscription)
+    const subscribe = vi
+      .fn<(options: PushSubscriptionOptionsInit) => Promise<typeof subscription>>()
+      .mockResolvedValue(subscription)
     vi.stubGlobal("navigator", {
       serviceWorker: { ready: Promise.resolve({ pushManager: { subscribe } }) },
     })
@@ -101,7 +105,7 @@ describe("subscribing, called directly from the button's tap", () => {
 
 describe("unsubscribing", () => {
   it("unsubscribes the existing subscription and returns its endpoint", async () => {
-    const unsubscribe = vi.fn().mockResolvedValue(true)
+    const unsubscribe = vi.fn<() => Promise<boolean>>().mockResolvedValue(true)
     const subscription = { endpoint: "https://push.example/x", unsubscribe }
     vi.stubGlobal("navigator", {
       serviceWorker: {

@@ -14,7 +14,7 @@ import config from "../vite.config"
  * the `<a href="/auth/login">` on the sign-in page. Under the dev server those seven landed in
  * Vite's SPA fallback, which answers `index.html` with a 200, so nothing looked broken and nothing
  * worked: `Gate` wants a held key for every read and a fresh one for every write, so a dev server
- * that cannot sign in and cannot hold a key has no usable page at all (season-2-ops/144).
+ * that cannot sign in and cannot hold a key has no usable page at all.
  *
  * That is why this is a test rather than one more line in the config. A third prefix - and the
  * `/auth` family was itself the second - would fail exactly as quietly as the second one did: no
@@ -43,8 +43,8 @@ function sources(directory: string): string[] {
 }
 
 /** The first segment of a path: `/api/services/smp` is proxied by an entry for `/api`. */
-function prefixOf(called: string): string {
-  return `/${called.split("/")[1] ?? ""}`
+function prefixOf(calledPath: string): string {
+  return `/${calledPath.split("/")[1] ?? ""}`
 }
 
 function called(): Map<string, string> {
@@ -76,8 +76,10 @@ describe("the dev server", () => {
   })
 
   it("finds both of the prefixes this interface has", () => {
-    // Without this the test above passes on an empty scrape, which is the way a guard like this
-    // dies: a call written in a shape the regexes do not know reads as "nothing to proxy".
-    expect([...called().keys()].sort()).toEqual(["/api", "/auth"])
+    /**
+     * Without this the test above passes on an empty scrape, which is the way a guard like this
+     * dies: a call written in a shape the regexes do not know reads as "nothing to proxy".
+     */
+    expect([...called().keys()].toSorted()).toEqual(["/api", "/auth"])
   })
 })

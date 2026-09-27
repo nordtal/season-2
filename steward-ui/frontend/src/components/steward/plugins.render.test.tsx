@@ -119,7 +119,7 @@ const AVAILABLE = {
 }
 
 function backend(available: () => Response) {
-  return vi.fn(async (url: string) => {
+  return vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url: string) => {
     if (url === "/api/services/smp/plugins") return json(200, PLUGINS)
     if (url.startsWith("/api/updates/available")) return available()
     return json(404, { error: `not stubbed: ${url}` })
@@ -142,6 +142,12 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** The plugin names drawn under the group heading of the given name. */
+const namesIn = (heading: string) =>
+  within(screen.getByRole("heading", { name: heading }).parentElement!)
+    .getAllByRole("listitem")
+    .map((element) => element.querySelector(".font-medium")?.textContent)
+
 describe("ServicePlugins", () => {
   it("draws Nordtal, Preinstalled and Added in that order, each alphabetical", async () => {
     vi.stubGlobal(
@@ -151,13 +157,9 @@ describe("ServicePlugins", () => {
     draw()
 
     await screen.findByText("JourneyMap")
-    const headings = screen.getAllByRole("heading").map((it) => it.textContent)
+    const headings = screen.getAllByRole("heading").map((heading) => heading.textContent)
     expect(headings).toEqual(["Nordtal", "Preinstalled", "Added"])
 
-    const namesIn = (heading: string) =>
-      within(screen.getByRole("heading", { name: heading }).parentElement!)
-        .getAllByRole("listitem")
-        .map((it) => it.querySelector(".font-medium")?.textContent)
     // The name-tag fork is Nordtal's own and leads that list; the rest is alphabetical.
     expect(namesIn("Nordtal")).toEqual(["Display Tags", "SMP"])
     expect(namesIn("Preinstalled")).toEqual(["Chunky", "CoreProtect", "packetevents"])
@@ -204,10 +206,10 @@ describe("ServicePlugins", () => {
     draw()
 
     await screen.findByText("JourneyMap")
-    expect(screen.getAllByRole("button", { name: /^Remove / }).map((it) => it.getAttribute("aria-label"))).toEqual([
-      "Remove JourneyMap",
-    ])
-    expect(screen.getAllByRole("link").map((it) => it.getAttribute("aria-label"))).toEqual([
+    expect(
+      screen.getAllByRole("button", { name: /^Remove / }).map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Remove JourneyMap"])
+    expect(screen.getAllByRole("link").map((link) => link.getAttribute("aria-label"))).toEqual([
       "Chunky on Modrinth",
       "CoreProtect on Modrinth",
       "packetevents on Modrinth",
@@ -251,7 +253,7 @@ describe("ServicePlugins", () => {
     fireEvent.click(screen.getByRole("button", { name: "Check for updates" }))
 
     await waitFor(() => expect(fetch.mock.calls.some(([url]) => url === "/api/updates/available?refresh")).toBe(true))
-    for (const call of fetch.mock.calls as unknown as [string, RequestInit | undefined][]) {
+    for (const call of fetch.mock.calls) {
       expect(call[1]?.method ?? "GET").toBe("GET")
     }
   })

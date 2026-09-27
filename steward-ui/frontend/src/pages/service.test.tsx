@@ -3,22 +3,22 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import type { Service } from "@/lib/api"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ServiceHead } from "@/pages/service"
 
-const service = (over: Record<string, unknown> = {}) =>
-  ({
-    service: "smp",
-    containerId: "abc123",
-    image: "ghcr.io/nordtal/minecraft:latest",
-    digests: ["ghcr.io/nordtal/minecraft@sha256:b0d5cefd9e4a"],
-    state: "running",
-    status: "Up 3 hours (healthy)",
-    hasConsole: true,
-    drift: "NONE",
-    health: "healthy",
-    ...over,
-  }) as never
+const service = (over: Partial<Service> = {}): Service => ({
+  service: "smp",
+  containerId: "abc123",
+  image: "ghcr.io/nordtal/minecraft:latest",
+  digests: ["ghcr.io/nordtal/minecraft@sha256:b0d5cefd9e4a"],
+  state: "running",
+  status: "Up 3 hours (healthy)",
+  hasConsole: true,
+  drift: "NONE",
+  health: "healthy",
+  ...over,
+})
 
 /** The head draws tooltips and reads two metric series. */
 function draw(node: React.ReactNode) {
@@ -84,12 +84,12 @@ describe("ServiceHead - the number row", () => {
 })
 
 /**
- * season-2-ops/125: a service that is down because somebody pressed Down and a service that is down
+ * A service that is down because somebody pressed Down and a service that is down
  * because it fell over are the same container to Docker - stopped, with an exit code. The whole
  * difference lives in `service_hold`, arrives on the row as `hold`, and this head is where a person
  * sees it. Absent is not false, the same rule `players` follows above.
  */
-describe("ServiceHead - a service somebody is holding down (season-2-ops/125)", () => {
+describe("ServiceHead - a service somebody is holding down", () => {
   it("says so when the row carries a hold", () => {
     draw(
       <ServiceHead
@@ -97,13 +97,15 @@ describe("ServiceHead - a service somebody is holding down (season-2-ops/125)", 
         service={service({
           state: "exited",
           status: "Exited (143) 4 minutes ago",
-          hold: { since: "2026-09-19T10:00:00Z", by: "till (1)" },
+          hold: { since: "2026-09-19T10:00:00Z", by: "ally (1)" },
         })}
       />,
     )
 
-    // steward/134 merged the two badges into one: the state badge itself reads "held down" now,
-    // rather than Docker's word in red with an explanation beside it.
+    /**
+     * The two badges are merged into one: the state badge itself reads "held down",
+     * rather than Docker's word in red with an explanation beside it.
+     */
     expect(screen.queryByText("held down")).not.toBeNull()
     expect(screen.queryByText("exited")).toBeNull()
   })

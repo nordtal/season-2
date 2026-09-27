@@ -2,9 +2,10 @@ import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { UsageBar } from "@/components/steward/stat"
+import { asElement } from "@/lib/test-elements"
 
 /**
- * The fifth of `steward/04`'s five findings: the `value` on the usage bar.
+ * The `value` on the usage bar.
  *
  * A bar for something with a ceiling is handed a pair of numbers off the host, and `total` is zero
  * whenever the answer has not arrived - a container without limits, a disk that has not been
@@ -20,7 +21,7 @@ afterEach(cleanup)
 
 const meter = () => screen.getByRole("meter")
 const share = () => Number(meter().getAttribute("aria-valuenow"))
-const fill = () => meter().firstElementChild as HTMLElement
+const fill = () => asElement(meter().firstElementChild)
 
 describe("UsageBar - the arithmetic", () => {
   it("reports the share of the ceiling", () => {

@@ -5,10 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { UserMenu, initials } from "@/app/user-menu"
 import { sidebarDefaultOpen } from "@/app/sidebar-state"
 import type { Me } from "@/lib/api"
+import { asImage } from "@/lib/test-elements"
 
 /**
- * The account picture and its popover, which is what the settings page's account half became
- * (steward/89), and the cookie the navigation's state is kept in.
+ * The account picture and its popover, and the cookie the navigation's state is kept in.
  *
  * Rendered here rather than through the frame, because none of it needs a router. The island
  * itself does - its mark and its trail are router links - so it is drawn in `frames.test.tsx`.
@@ -26,7 +26,7 @@ const KEYS = [
 const ME: Me = {
   signedIn: true,
   id: "214906139328839681",
-  name: "till",
+  name: "ally",
   csrf: "t",
   webauthn: "required",
   relyingPartyId: "nordtal.eu",
@@ -50,11 +50,13 @@ describe("the account popover is the settings page's account half", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Account/ }))
 
-    // Till, 2026-09-17: the keys stand in the popover as a list. Not behind a disclosure, not
-    // behind a dialog - a dialog opens only where one belongs, and reading is not one of those.
+    /**
+     * The keys stand in the popover as a list. Not behind a disclosure, not
+     * behind a dialog - a dialog opens only where one belongs, and reading is not one of those.
+     */
     expect(await screen.findByText("YubiKey on my keyring")).toBeTruthy()
     expect(screen.getByText("Phone")).toBeTruthy()
-    expect(screen.getByText("till")).toBeTruthy()
+    expect(screen.getByText("ally")).toBeTruthy()
     expect(screen.getByRole("button", { name: /Sign out/ })).toBeTruthy()
     expect(screen.queryByText("Add a security key")).toBeNull()
     expect(screen.queryByRole("alertdialog")).toBeNull()
@@ -82,16 +84,18 @@ describe("the account popover is the settings page's account half", () => {
   })
 
   it("stays tappable for an account with no picture on record", () => {
-    // The fallback is not a nicety: a way to sign out that is there most of the time is worse
-    // than one that is plain. `discordAvatarUrl` absent is the ordinary case (steward/91), not an
-    // error - an account can be signed into Steward without ever having a `person` row at all.
-    withQueries(<UserMenu me={{ ...ME, name: "till hofmann" }} />)
+    /**
+     * The fallback is not a nicety: a way to sign out that is there most of the time is worse
+     * than one that is plain. `discordAvatarUrl` absent is the ordinary case, not an
+     * error - an account can be signed into Steward without ever having a `person` row at all.
+     */
+    withQueries(<UserMenu me={{ ...ME, name: "ally smith" }} />)
 
     const trigger = screen.getByRole("button", { name: /Account/ })
-    expect(trigger.textContent).toBe("th")
+    expect(trigger.textContent).toBe("as")
   })
 
-  it("draws the Discord picture once /api/me carries one (steward/91)", () => {
+  it("draws the Discord picture once /api/me carries one", () => {
     withQueries(<UserMenu me={{ ...ME, discordAvatarUrl: "https://cdn.discordapp.com/a.png" }} />)
 
     const trigger = screen.getByRole("button", { name: /Account/ })
@@ -101,18 +105,17 @@ describe("the account popover is the settings page's account half", () => {
   })
 
   it("falls back to initials, and stays tappable, when the picture fails to load", () => {
-    // The guard steward/91 asks for: a broken image is the same fallback as no field at all, not
-    // a broken button.
+    // A broken image is the same fallback as no field at all, not a broken button.
     withQueries(<UserMenu me={{ ...ME, discordAvatarUrl: "https://cdn.discordapp.com/gone.png" }} />)
 
     const trigger = screen.getByRole("button", { name: /Account/ })
     const img = trigger.querySelector("img")
     expect(img).toBeTruthy()
 
-    fireEvent.error(img as HTMLImageElement)
+    fireEvent.error(asImage(img))
 
     expect(trigger.querySelector("img")).toBeNull()
-    expect(trigger.textContent).toBe("ti")
+    expect(trigger.textContent).toBe("al")
   })
 
   it("falls back to initials for an empty name too, with no picture in the answer", () => {
@@ -125,11 +128,11 @@ describe("the account popover is the settings page's account half", () => {
 })
 
 describe("initials, taken as they are written", () => {
-  it("uses the first two names", () => expect(initials("till hofmann")).toBe("th"))
-  it("uses two letters of a single name", () => expect(initials("till")).toBe("ti"))
+  it("uses the first two names", () => expect(initials("ally smith")).toBe("as"))
+  it("uses two letters of a single name", () => expect(initials("ally")).toBe("al"))
   it("does not force capitals, because half this interface is lowercase on purpose", () => {
-    expect(initials("Till Hofmann")).toBe("TH")
-    expect(initials("till")).toBe("ti")
+    expect(initials("Ally Smith")).toBe("AS")
+    expect(initials("ally")).toBe("al")
   })
   it("draws something for an account with no name at all", () => {
     expect(initials(undefined)).toBe("?")

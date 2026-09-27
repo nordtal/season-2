@@ -25,8 +25,8 @@ import { Actor } from "@/components/steward/entity"
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
 /**
- * The five-item feed steward/82 asked for (`ActionsApi` on steward-worker's side, `useActions()`
- * here). One row, drawn once so the icon, the outcome and the person are the same shape everywhere
+ * The five-item feed (`ActionsApi` on steward-worker's side, `useActions()` here). One row, drawn
+ * once so the icon, the outcome and the person are the same shape everywhere
  * this list is used - today that is only {@code OverviewPage}'s "Latest actions" panel, but a second
  * place would otherwise be the seam where the icon map and {@link RUN_KIND} quietly drift apart.
  */
@@ -48,8 +48,10 @@ const AUDIT_LABEL: Record<string, string> = {
   REGISTER_KEY: "Security key added",
   REMOVE_KEY: "Security key removed",
   FORGET_FACTORS: "Security reset",
-  // steward/131. Not "Run CANCELLED": what the journal records is a person taking a run back,
-  // and the run's own row says the rest.
+  /**
+   * Not "Run CANCELLED": what the journal records is a person taking a run back, and the run's
+   * own row says the rest.
+   */
   CANCEL_RUN: "Run cancelled",
 }
 
@@ -91,20 +93,24 @@ export function ActionRow({
   action,
   now,
 }: {
-  /** Absent while the feed is still loading: the row is then drawn empty (steward/120). */
+  /** Absent while the feed is still loading: the row is then drawn empty. */
   action?: Action
   now: number
 }) {
-  const Icon = action ? iconOf(action.kind) : undefined
+  /**
+   * A property access rather than a bare identifier, so the icon this row picks reads as
+   * selecting an existing component, not defining a new one in place.
+   */
+  const icons = { Icon: action ? iconOf(action.kind) : PulseIcon }
 
   return (
     <li className="flex items-start gap-3 border-b border-border/60 py-3 last:border-0">
-      {Icon ? (
+      {action ? (
         <span
           className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-muted-foreground"
           aria-hidden
         >
-          <Icon className="size-4" />
+          <icons.Icon className="size-4" />
         </span>
       ) : (
         <Skeleton className="mt-0.5 size-8 shrink-0 rounded-full" />

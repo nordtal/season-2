@@ -4,14 +4,10 @@ import { groupPlugins, pluginStatus, removalSentence, versionOf } from "@/compon
 import type { AvailableChange, ServicePlugin } from "@/lib/api"
 
 /**
- * season-2-ops/129: removing a plugin deletes its data folder too, and the confirmation has to
- * **name that folder**.
- *
- * Till chose the deletion against the objection that `plugins/<name>/` is the only hand-kept thing
- * in the installation, and the named confirmation is the other half of that decision rather than a
- * softening of it. So this is the sentence under test, not a rendering detail: the folder's name
- * cannot be derived from the jar's - Chunky ships as `Chunky-Bukkit-<version>.jar` and makes
- * `plugins/Chunky/` - and a dialog that guessed it would be asking about the wrong directory.
+ * Removing a plugin deletes its data folder too, so the confirmation has to **name that folder**:
+ * `plugins/<name>/` is the only hand-kept thing in the installation, and the folder's name cannot
+ * be derived from the jar's - Chunky ships as `Chunky-Bukkit-<version>.jar` and makes
+ * `plugins/Chunky/` - so a dialog that guessed it would be asking about the wrong directory.
  */
 const plugin = (over: Partial<ServicePlugin> = {}): ServicePlugin => ({
   name: "Chunky",
@@ -34,10 +30,12 @@ describe("what the confirmation promises before a plugin is removed", () => {
   it("names no folder when the worker could not read one out of the jar", () => {
     const sentence = removalSentence(plugin({ dataFolder: undefined }))
 
-    // What must be absent is a *named* directory - `plugins/undefined/`, or worse, a fallback to
-    // the artefact id, which would point the admin at a folder nobody verified exists. Saying the
-    // word `plugins/` while naming nothing under it is the honest sentence, so the assertion is
-    // the shape `plugins/<something>/` and not the bare prefix.
+    /**
+     * What must be absent is a *named* directory - `plugins/undefined/`, or worse, a fallback to
+     * the artefact id, which would point the admin at a folder nobody verified exists. Saying the
+     * word `plugins/` while naming nothing under it is the honest sentence, so the assertion is
+     * the shape `plugins/<something>/` and not the bare prefix.
+     */
     expect(sentence).not.toMatch(/plugins\/\S+\//)
     expect(sentence).toContain("could not be read")
     expect(sentence).toContain("Chunky-Bukkit-1.5.3.jar")
@@ -60,17 +58,17 @@ describe("reading the version out of a jar's name", () => {
   })
 })
 
-describe("what the update check says on a row", () => {
-  const change = (over: Partial<AvailableChange>): AvailableChange => ({
-    service: "smp",
-    artifact: "chunky",
-    status: "UP_TO_DATE",
-    work: false,
-    failure: false,
-    installed: "Chunky-Bukkit-1.5.3.jar",
-    ...over,
-  })
+const change = (over: Partial<AvailableChange>): AvailableChange => ({
+  service: "smp",
+  artifact: "chunky",
+  status: "UP_TO_DATE",
+  work: false,
+  failure: false,
+  installed: "Chunky-Bukkit-1.5.3.jar",
+  ...over,
+})
 
+describe("what the update check says on a row", () => {
   it("matches by service and installed file, not by name", () => {
     expect(pluginStatus("smp", plugin(), [change({ service: "limbo", status: "OUTDATED" })])).toBeUndefined()
     expect(pluginStatus("smp", plugin(), [change({})])).toEqual({ tone: "idle", text: "up to date" })
@@ -103,7 +101,7 @@ describe("the three lists", () => {
       plugin({ name: "smp", group: "nordtal" }),
       plugin({ name: "A", group: "added" }),
     ])
-    expect(groups.map(([group, rows]) => [group, rows.map((it) => it.name)])).toEqual([
+    expect(groups.map(([group, rows]) => [group, rows.map((row) => row.name)])).toEqual([
       ["nordtal", ["smp"]],
       ["added", ["A", "b"]],
     ])
@@ -115,6 +113,6 @@ describe("the three lists", () => {
       plugin({ name: "Display Tags", group: "nordtal", rank: 0 }),
       plugin({ name: "Hunger Games", group: "nordtal", rank: 4 }),
     ])
-    expect(groups[0][1].map((it) => it.name)).toEqual(["Display Tags", "SMP", "Hunger Games"])
+    expect(groups[0][1].map((row) => row.name)).toEqual(["Display Tags", "SMP", "Hunger Games"])
   })
 })

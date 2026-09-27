@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-/** What `/services/$name` keeps in its URL (steward/140). Console is the default and never written. */
+/** What `/services/$name` keeps in its URL. Console is the default and never written. */
 export type ServiceSearch = { tab?: "settings" | "plugins"; file?: string }
 
 export function serviceSearch(search: Record<string, unknown>): ServiceSearch {
@@ -46,7 +46,7 @@ type Tab = "console" | "settings" | "plugins"
 /**
  * Which tabs this service has, or `undefined` while that is not known yet.
  *
- * **A tab with nothing behind it is not there** (steward/140). Settings needs a config file or a
+ * **A tab with nothing behind it is not there.** Settings needs a config file or a
  * message bundle of this service - or a listing that failed, because then the failure is what the
  * tab has to show. Plugins needs the worker's `hasPlugins`, so the tab is decided by one answer
  * instead of being drawn and taken away again when `/plugins` comes back 404.
@@ -69,7 +69,7 @@ export function useServiceTabs(name: string): Tab[] | undefined {
 }
 
 /**
- * One service: a head with its actions and who is on it, and three tabs under it (steward/140).
+ * One service: a head with its actions and who is on it, and three tabs under it.
  *
  * Every service gets the same page. The six that are not Minecraft servers get the same head and
  * the same Console, and simply have fewer tabs - two layouts to keep would be the more expensive
@@ -84,8 +84,10 @@ export function ServicePage() {
   const tab: Tab = search.tab ?? "console"
   const { run } = useRunLock()
 
-  // A tab the service does not have - typed in, or left over from another service - goes back to
-  // Console, replacing the entry so Back does not return to it.
+  /**
+   * A tab the service does not have - typed in, or left over from another service - goes back to
+   * Console, replacing the entry so Back does not return to it.
+   */
   useEffect(() => {
     if (tabs && !tabs.includes(tab)) {
       void navigate({ search: {}, replace: true })
@@ -103,8 +105,10 @@ export function ServicePage() {
       <Tabs
         value={tab}
         onValueChange={(next) =>
-          // A tab change replaces the entry, so Back leaves the page rather than walking back
-          // through every tab somebody looked at.
+          /**
+           * A tab change replaces the entry, so Back leaves the page rather than walking back
+           * through every tab somebody looked at.
+           */
           void navigate({
             search: (previous) =>
               next === "console"
@@ -139,8 +143,10 @@ export function ServicePage() {
               ) : null}
             </TabsList>
           ) : (
-            // One tab is not a choice: postgres and the rest get the Console bar alone, so the page
-            // still says what it is showing.
+            /**
+             * One tab is not a choice: postgres and the rest get the Console bar alone, so the page
+             * still says what it is showing.
+             */
             <TabsList className="w-full sm:w-fit">
               <TabsTrigger value="console" className="sm:px-3">
                 <TerminalWindowIcon aria-hidden />
@@ -186,7 +192,7 @@ export function ServicePage() {
 }
 
 /**
- * Update, Take down (or Start), Recreate - each with its own symbol (steward/140).
+ * Update, Take down (or Start), Recreate - each with its own symbol.
  *
  * From `sm` up all three stand with their word. Below it Update stays as a symbol and the other
  * two move into a ⋯ menu, which opens exactly the confirmation the button would have: the dialogs
@@ -202,16 +208,20 @@ function ServiceActions({
   const [dialog, setDialog] = useState<"hold" | "recreate" | null>(null)
   const gate = useRecreateGate(name)
   const lock = useRunLock()
-  // season-2-ops/125: Take down and Start are one switch, and which half is offered follows `hold`
-  // and nothing else. While the row is loading neither is drawn: a Take down that turns into Start
-  // under somebody's finger is worse than a button that arrives late.
+  /**
+   * Take down and Start are one switch, and which half is offered follows `hold`
+   * and nothing else. While the row is loading neither is drawn: a Take down that turns into Start
+   * under somebody's finger is worse than a button that arrives late.
+   */
   const hold = service === undefined ? undefined : service.hold ? "START" : "DOWN"
   const recreatable = name !== "steward-deployer"
   const HoldIcon = hold === "START" ? PlayIcon : PowerIcon
   const holdLabel = hold === "START" ? "Start" : "Take down"
 
-  // All three arrive together: until the row is here each one is a button-sized shape, hidden
-  // below sm exactly like the button it stands for.
+  /**
+   * All three arrive together: until the row is here each one is a button-sized shape, hidden
+   * below sm exactly like the button it stands for.
+   */
   if (service === undefined) {
     return (
       <div className="flex items-center gap-2" aria-hidden>
@@ -225,7 +235,7 @@ function ServiceActions({
 
   return (
     <div className="flex items-center gap-2">
-      {/* season-2-ops/127: a run for this service alone, offered on every page - a run with
+      {/* A run for this service alone, offered on every page - a run with
           nothing to install ends at "Nothing to do", which is a true answer. */}
       <AskButton
         kind="UPDATE"
@@ -310,7 +320,7 @@ export function offline(run: Run | null, name: string, state: string | undefined
 }
 
 /**
- * The head of a service page, exported for its own test: steward/86's second half is a field that
+ * The head of a service page, exported for its own test: a field that
  * must be *absent* rather than zero, and that is only observable on a rendered head.
  */
 export function ServiceHead({
@@ -321,8 +331,10 @@ export function ServiceHead({
   service?: NonNullable<ReturnType<typeof useService>["data"]>
   name: string
 }) {
-  // The same six hours the start page draws, per service since the sampler already writes one
-  // series per container.
+  /**
+   * The same six hours the start page draws, per service since the sampler already writes one
+   * series per container.
+   */
   const cpu = useMetrics(name, "cpu_percent", 6)
   const memory = useMetrics(name, "memory_bytes", 6)
   return (

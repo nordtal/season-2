@@ -1,6 +1,5 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import type { Query } from "@tanstack/react-query"
 import { cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -59,19 +58,20 @@ function wrap(queryClient: QueryClient) {
  * or passed a plain number again - fails here at the `typeof` rather than silently passing a test
  * that re-implements the predicate.
  */
-type Poll = (query: Query<unknown, Error, unknown, readonly unknown[]>) => number | false | undefined
-
 function pollOf(queryClient: QueryClient, key: readonly unknown[]) {
   const query = queryClient.getQueryCache().find({ queryKey: key })
   if (!query) throw new Error(`nothing in the cache under ${JSON.stringify(key)}`)
-  // `Query.options` is typed `QueryOptions`, which is the fetching half; `refetchInterval` belongs
-  // to the observer's half and is present at runtime but not in that type. Narrowed by hand rather
-  // than silently: the `typeof` below is the assertion, not the cast.
-  const interval = (query.options as { refetchInterval?: Poll | number | false }).refetchInterval
+  /**
+   * `Query.options` is typed `QueryOptions`, which is the fetching half; `refetchInterval` belongs
+   * to the observer's half and is present at runtime but not in that type. Narrowed by hand rather
+   * than silently: the `typeof` below is the assertion, not the cast.
+   */
+  const options: object = query.options
+  const interval = "refetchInterval" in options ? options.refetchInterval : undefined
   if (typeof interval !== "function") {
     throw new Error(`refetchInterval is ${String(interval)}, not a function of the query`)
   }
-  return interval(query as Query<unknown, Error, unknown, readonly unknown[]>)
+  return interval(query)
 }
 
 /**
@@ -83,34 +83,42 @@ function pollOf(queryClient: QueryClient, key: readonly unknown[]) {
  * reading `result.current.error` waits for a re-render that correctly never comes. The cache is
  * the honest place to look, because it is the place the predicate under test looks.
  */
+/** Narrows a mutation's `error`, which TanStack types as a plain `Error`, to the `ApiError` every path under test actually throws. */
+function asApiError(error: Error | null): ApiError {
+  if (!(error instanceof ApiError)) throw new Error(`expected an ApiError, got ${String(error)}`)
+  return error
+}
+
 function stateOf(queryClient: QueryClient, key: readonly unknown[]) {
   const state = queryClient.getQueryState(key)
   if (!state) throw new Error(`nothing in the cache under ${JSON.stringify(key)}`)
   return state
 }
 
-let fetched: ReturnType<typeof vi.fn>
+let fetched: ReturnType<typeof vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>>
 
 beforeEach(() => {
-  fetched = vi.fn()
+  fetched = vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>()
   vi.stubGlobal("fetch", fetched)
 })
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  // Every test in this file renders a hook against its own `QueryClient` and none of them
-  // unmounts it. `render`/`renderHook` from this project's other test files rely on this
-  // codebase's `globals: false` vitest config NOT auto-wiring Testing Library's own cleanup -
-  // that auto-cleanup only fires when it finds `afterEach` as a global, and this project's
-  // vitest.config.ts deliberately does not inject one - so every other file that renders
-  // something imports `cleanup` and calls it by hand. This file never did, which meant the
-  // `useCommandRun`/`useDeployerJob` hooks under test - both polling every second while their
-  // row is unsettled - stayed subscribed after their test ended, with a live `refetchInterval`
-  // timer armed. That timer survives into whichever test file runs next, and eventually fires
-  // after that file's own jsdom environment has been torn down: `window` is gone, and React's
-  // scheduler (and TanStack's own `notifyManager`) throw trying to reach it. `cleanup()`
-  // unmounts every tree still standing, which is what makes `useQuery`'s own effect cleanup run
-  // and cancel the interval - the same reason every sibling test file already does this.
+  /**
+   * Every test in this file renders a hook against its own `QueryClient` and none of them
+   * unmounts it. `render`/`renderHook` from this project's other test files rely on this
+   * codebase's `globals: false` vitest config NOT auto-wiring Testing Library's own cleanup -
+   * that auto-cleanup only fires when it finds `afterEach` as a global, and this project's
+   * vitest.config.ts deliberately does not inject one - so every other file that renders
+   * something imports `cleanup` and calls it by hand. This file never did, which meant the
+   * `useCommandRun`/`useDeployerJob` hooks under test - both polling every second while their
+   * row is unsettled - stayed subscribed after their test ended, with a live `refetchInterval`
+   * timer armed. That timer survives into whichever test file runs next, and eventually fires
+   * after that file's own jsdom environment has been torn down: `window` is gone, and React's
+   * scheduler (and TanStack's own `notifyManager`) throw trying to reach it. `cleanup()`
+   * unmounts every tree still standing, which is what makes `useQuery`'s own effect cleanup run
+   * and cancel the interval - the same reason every sibling test file already does this.
+   */
   cleanup()
 })
 
@@ -128,8 +136,10 @@ describe("useCommandRun - when the polling stops", () => {
   })
 
   it("keeps asking while nothing has come back yet, so a spinner is never left sitting", async () => {
-    // Enabled, in flight, no data and no error. The row was written a moment ago and the service
-    // that owns it has not claimed it; a first answer that is slow must not end the polling.
+    /**
+     * Enabled, in flight, no data and no error. The row was written a moment ago and the service
+     * that owns it has not claimed it; a first answer that is slow must not end the polling.
+     */
     const queryClient = client()
     fetched.mockImplementation(() => new Promise<Response>(() => {}))
     renderHook(() => useCommandRun("7"), { wrapper: wrap(queryClient) })
@@ -151,10 +161,12 @@ describe("useCommandRun - when the polling stops", () => {
   })
 
   it("stops on a failed poll even though the answer it still holds says RUNNING", async () => {
-    // The case the guard exists for, and the only one where data and error are both set: the row
-    // said RUNNING, then steward-ui stopped answering. Without the guard the interval would be
-    // read off `data` - which is now a memory of a service that is gone - and the dialog would
-    // manufacture one failed request a second for as long as it stays open.
+    /**
+     * The case the guard exists for, and the only one where data and error are both set: the row
+     * said RUNNING, then steward-ui stopped answering. Without the guard the interval would be
+     * read off `data` - which is now a memory of a service that is gone - and the dialog would
+     * manufacture one failed request a second for as long as it stays open.
+     */
     const queryClient = client()
     fetched.mockResolvedValueOnce(answer(200, { id: "7", status: "RUNNING" }))
     const { result } = renderHook(() => useCommandRun("7"), { wrapper: wrap(queryClient) })
@@ -166,8 +178,10 @@ describe("useCommandRun - when the polling stops", () => {
     await result.current.refetch()
     await waitFor(() => expect(stateOf(queryClient, keys.commandRun("7")).error).toBeInstanceOf(ApiError))
 
-    // Both halves of the premise, so that a test passing for the wrong reason is visible: the
-    // stale RUNNING is still in the cache, and the poll is off anyway.
+    /**
+     * Both halves of the premise, so that a test passing for the wrong reason is visible: the
+     * stale RUNNING is still in the cache, and the poll is off anyway.
+     */
     expect(stateOf(queryClient, keys.commandRun("7")).data).toMatchObject({ status: "RUNNING" })
     expect(pollOf(queryClient, keys.commandRun("7"))).toBe(false)
   })
@@ -182,9 +196,11 @@ describe("useCommandRun - when the polling stops", () => {
   })
 
   it("starts asking again once a retry gets through", async () => {
-    // The other direction, which is what makes the stop bearable: `Failure` offers "Try again",
-    // and a poll that never came back after a successful retry would turn one bad second into a
-    // dialog that has to be closed and reopened.
+    /**
+     * The other direction, which is what makes the stop bearable: `Failure` offers "Try again",
+     * and a poll that never came back after a successful retry would turn one bad second into a
+     * dialog that has to be closed and reopened.
+     */
     const queryClient = client()
     fetched.mockRejectedValueOnce(new TypeError("Failed to fetch"))
     const { result } = renderHook(() => useCommandRun("7"), { wrapper: wrap(queryClient) })
@@ -221,8 +237,10 @@ describe("useDeployerJob - when the polling stops", () => {
   })
 
   it("stops on a failed poll while the job it remembers is still RUNNING", async () => {
-    // steward-deployer going away mid-recreate is the realistic version of this: the container it
-    // was recreating may be down, the last answer says RUNNING for ever, and the dialog is open.
+    /**
+     * steward-deployer going away mid-recreate is the realistic version of this: the container it
+     * was recreating may be down, the last answer says RUNNING for ever, and the dialog is open.
+     */
     const queryClient = client()
     fetched.mockResolvedValueOnce(answer(200, { id: "j1", state: "RUNNING", lines: ["Container smp  Recreating"] }))
     const { result } = renderHook(() => useDeployerJob("j1"), { wrapper: wrap(queryClient) })
@@ -239,8 +257,10 @@ describe("useDeployerJob - when the polling stops", () => {
   })
 
   it("refreshes the service table once the job has ended and not while it runs", async () => {
-    // The container is new, so its state, uptime and digest all are - but asked for while compose
-    // is still working the answer would be a container in the middle of being taken down.
+    /**
+     * The container is new, so its state, uptime and digest all are - but asked for while compose
+     * is still working the answer would be a container in the middle of being taken down.
+     */
     const queryClient = client()
     const invalidated = vi.spyOn(queryClient, "invalidateQueries")
 
@@ -283,23 +303,27 @@ describe("useSaveConfig - the revision travels with the change", () => {
   }
 
   it("puts the revision and the changes in the body, at the path the listing gave", async () => {
-    // The revision is not optional - the backend refuses a PUT without one - and the path keeps
-    // its slashes: encodeURIComponent over the whole string would turn them into %2F and the route
-    // would stop matching.
+    /**
+     * The revision is not optional - the backend refuses a PUT without one - and the path keeps
+     * its slashes: encodeURIComponent over the whole string would turn them into %2F and the route
+     * would stop matching.
+     */
     await save(client(), answer(200, SAVED))
 
-    const [url, init] = fetched.mock.calls[0] as [string, RequestInit]
+    const [url, init] = fetched.mock.calls[0]
     expect(url).toBe("/api/config/steward/steward-ui.yml")
-    expect(init.method).toBe("PUT")
-    expect(JSON.parse(String(init.body))).toEqual({
+    expect(init?.method).toBe("PUT")
+    expect(JSON.parse(init?.body ?? "")).toEqual({
       revision: "rev-1",
       changes: { "alerts.disk-percent": "70" },
     })
   })
 
   it("redraws the form from the answer, so the next save carries the new revision", async () => {
-    // The answer IS the file as it now reads. Keeping the old document would leave rev-1 in the
-    // cache, and the very next save would be answered 409 by a backend that is perfectly happy.
+    /**
+     * The answer IS the file as it now reads. Keeping the old document would leave rev-1 in the
+     * cache, and the very next save would be answered 409 by a backend that is perfectly happy.
+     */
     const queryClient = client()
     await save(queryClient, answer(200, SAVED))
 
@@ -307,23 +331,27 @@ describe("useSaveConfig - the revision travels with the change", () => {
   })
 
   it("drops the cached document on 409, because its revision is provably stale", async () => {
-    // Somebody else was faster. Nothing was written, and a second attempt with the revision in
-    // this cache would be refused for exactly the same reason - so the copy has to go, not just
-    // the error be shown.
+    /**
+     * Somebody else was faster. Nothing was written, and a second attempt with the revision in
+     * this cache would be refused for exactly the same reason - so the copy has to go, not just
+     * the error be shown.
+     */
     const queryClient = client()
     queryClient.setQueryData(keys.config(FILE), { ...SAVED, revision: "rev-1" })
     const invalidated = vi.spyOn(queryClient, "invalidateQueries")
 
     const result = await save(queryClient, answer(409, { error: "The file has changed in the meantime." }))
 
-    expect((result.current.error as ApiError).status).toBe(409)
+    expect(asApiError(result.current.error).status).toBe(409)
     expect(invalidated).toHaveBeenCalledExactlyOnceWith({ queryKey: keys.config(FILE) })
   })
 
   it("keeps the cached document on every other failure", async () => {
-    // A 500, a refused value, a proxy that timed out: the file on disk is untouched and the copy
-    // in this cache is still what it says. Throwing it away would make the form redraw and lose
-    // what the operator typed, for a save that can simply be pressed again.
+    /**
+     * A 500, a refused value, a proxy that timed out: the file on disk is untouched and the copy
+     * in this cache is still what it says. Throwing it away would make the form redraw and lose
+     * what the operator typed, for a save that can simply be pressed again.
+     */
     for (const failure of [
       answer(500, { error: "Broken." }),
       answer(422, { error: "alerts.disk-percent is not a number." }),
@@ -340,14 +368,16 @@ describe("useSaveConfig - the revision travels with the change", () => {
   })
 
   it("keeps it when the request never arrived anywhere either", async () => {
-    // `api()` turns an unreachable interface into an ApiError with status 0. Zero is not 409, and
-    // an `!== 200` test in place of the `=== 409` one would land here.
+    /**
+     * `api()` turns an unreachable interface into an ApiError with status 0. Zero is not 409, and
+     * an `!== 200` test in place of the `=== 409` one would land here.
+     */
     const queryClient = client()
     const invalidated = vi.spyOn(queryClient, "invalidateQueries")
 
     const result = await save(queryClient, new TypeError("Failed to fetch"))
 
-    expect((result.current.error as ApiError).status).toBe(0)
+    expect(asApiError(result.current.error).status).toBe(0)
     expect(invalidated).not.toHaveBeenCalled()
   })
 })
@@ -356,11 +386,13 @@ describe("useMe - the token every write in the interface needs", () => {
   beforeEach(() => rememberCsrf(null))
 
   it("puts the token where api() can read it synchronously", async () => {
-    // This is the whole argument for the shell refusing to draw on a failed /api/me: the CSRF
-    // token arrives with this answer and with no other, so a shell drawn without it would refuse
-    // every write, one confusing page at a time.
+    /**
+     * This is the whole argument for the shell refusing to draw on a failed /api/me: the CSRF
+     * token arrives with this answer and with no other, so a shell drawn without it would refuse
+     * every write, one confusing page at a time.
+     */
     const queryClient = client()
-    fetched.mockResolvedValue(answer(200, { signedIn: true, id: "1", name: "till", csrf: "t0ken", webauthn: "x" }))
+    fetched.mockResolvedValue(answer(200, { signedIn: true, id: "1", name: "ally", csrf: "t0ken", webauthn: "x" }))
     renderHook(() => useMe(), { wrapper: wrap(queryClient) })
     await waitFor(() => expect(stateOf(queryClient, keys.me).data).toBeDefined())
 

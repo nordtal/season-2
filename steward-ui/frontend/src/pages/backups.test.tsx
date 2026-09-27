@@ -5,14 +5,16 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { Person } from "@/lib/api"
 import { BackupRunDetailPage, BackupsPage } from "@/pages/backups"
+import { asAnchor, asButton, asElement, asInput } from "@/lib/test-elements"
+import { changesOf } from "@/lib/query-fixtures"
 
 /**
- * The backup page steward/95 asked for, and Till's second round on it (2026-09-18 review): the
- * remote target and the schedule are dialogs now, "Volumes" is "Archives", "Requested by" is
- * "Initiated by" and goes through {@link PersonIdentity}, the whole run row is a link, and a run's
- * own archives moved to its own detail page.
+ * The backup page: the
+ * remote target and the schedule are dialogs, "Archives" counts files, "Initiated by"
+ * goes through {@link PersonIdentity}, the whole run row is a link, and a run's
+ * own archives are on its own detail page.
  *
- * Held to the same two things the first round was, plus what the review added:
+ * Held to these things:
  *
  * - A secret is never drawn: the two remote keys are `@Secret` in `StewardSpec` and arrive with no
  *   value. A fixture below sends one anyway - which the real worker will not do - because the
@@ -64,8 +66,10 @@ function workerConfig(over: { secretValue?: string } = {}) {
     header: [],
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
-      // A LIST key, which is what `backup.days` is - `items`, no `value`. Two days rather than
-      // seven, so a test can tell "what the file says" apart from "everything, by default".
+      /**
+       * A LIST key, which is what `backup.days` is - `items`, no `value`. Two days rather than
+       * seven, so a test can tell "what the file says" apart from "everything, by default".
+       */
       entry({
         path: "backup.days",
         key: "days",
@@ -111,8 +115,10 @@ function workerConfig(over: { secretValue?: string } = {}) {
         label: "Access key",
         secret: true,
         filled: true,
-        // A value on a secret is exactly what the worker does NOT send. It is here so that this
-        // page's own refusal to draw one is what the test proves.
+        /**
+         * A value on a secret is exactly what the worker does NOT send. It is here so that this
+         * page's own refusal to draw one is what the test proves.
+         */
         value: over.secretValue,
       }),
       entry({
@@ -188,13 +194,13 @@ function backend(
     people?: Person[]
   } = {},
 ) {
-  return vi.fn(async (url: string, init?: RequestInit) => {
+  return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/config") {
       return json(200, [{ service: "steward-worker", name: "steward.yml", path: FILE, readable: true, writable: true }])
     }
     if (url === `/api/config/${FILE}`) {
       if (init?.method === "PUT") {
-        return (over.put ?? (() => json(200, workerConfig())))(JSON.parse(String(init.body)))
+        return (over.put ?? (() => json(200, workerConfig())))(JSON.parse(init?.body ?? ""))
       }
       return json(200, over.config ?? workerConfig())
     }
@@ -211,9 +217,11 @@ function backend(
   })
 }
 
+/** A route this test never draws, only routes to. */
+const nothing = () => null
+
 function draw() {
   const root = createRootRoute()
-  const nothing = () => null
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/", component: BackupsPage }),
     createRoute({ getParentRoute: () => root, path: "/operations/updates/$id", component: nothing }),
@@ -224,7 +232,7 @@ function draw() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router as never} />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
   return { history }
@@ -242,7 +250,7 @@ function drawDetail(id: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router as never} />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
@@ -252,14 +260,14 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe("BackupsPage - the destination dialog never draws a secret (steward/95)", () => {
+describe("BackupsPage - the destination dialog never draws a secret", () => {
   it("leaves a secret's field empty even when a value arrives with it", async () => {
     vi.stubGlobal("fetch", backend({ config: workerConfig({ secretValue: "AKIAsecret" }) }))
     draw()
 
     fireEvent.click(await screen.findByRole("button", { name: "Destination" }))
 
-    const key = (await screen.findByLabelText("Access key")) as HTMLInputElement
+    const key = asInput(await screen.findByLabelText("Access key"))
     expect(key.type).toBe("password")
     expect(key.value).toBe("")
     expect(document.body.textContent).not.toContain("AKIAsecret")
@@ -271,8 +279,8 @@ describe("BackupsPage - the destination dialog never draws a secret (steward/95)
 
     fireEvent.click(await screen.findByRole("button", { name: "Destination" }))
 
-    const set = (await screen.findByLabelText("Access key")) as HTMLInputElement
-    const unset = screen.getByLabelText("Secret key") as HTMLInputElement
+    const set = asInput(await screen.findByLabelText("Access key"))
+    const unset = asInput(screen.getByLabelText("Secret key"))
     expect(set.placeholder).toContain("set")
     expect(unset.placeholder).toBe("empty")
   })
@@ -284,12 +292,10 @@ describe("BackupsPage - the destination dialog never draws a secret (steward/95)
 
     const endpoint = await screen.findByLabelText("Endpoint")
     fireEvent.change(endpoint, { target: { value: "https://fsn1.your-objectstorage.com" } })
-    await waitFor(() =>
-      expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false),
-    )
+    await waitFor(() => expect(asButton(screen.getByRole("button", { name: "Save" })).disabled).toBe(false))
 
     fireEvent.change(endpoint, { target: { value: "" } })
-    await waitFor(() => expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true))
+    await waitFor(() => expect(asButton(screen.getByRole("button", { name: "Save" })).disabled).toBe(true))
   })
 
   it("sends only what was typed, together with the revision it was drawn from", async () => {
@@ -323,7 +329,7 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
 
     fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
 
-    const daily = (await screen.findByLabelText("Daily")) as HTMLInputElement
+    const daily = asInput(await screen.findByLabelText("Daily"))
     expect(daily.value).toBe("14")
   })
 
@@ -344,8 +350,10 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
 
     fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
 
-    // The fixture's `backup.days` is Monday and Thursday. A dialog that drew all seven regardless
-    // is the thing this replaces, and it looked exactly like a working one.
+    /**
+     * The fixture's `backup.days` is Monday and Thursday. A dialog that drew all seven regardless
+     * is the thing this replaces, and it looked exactly like a working one.
+     */
     expect((await screen.findByRole("button", { name: "Mon" })).getAttribute("aria-pressed")).toBe("true")
     expect(screen.getByRole("button", { name: "Thu" }).getAttribute("aria-pressed")).toBe("true")
     expect(screen.getByRole("button", { name: "Tue" }).getAttribute("aria-pressed")).toBe("false")
@@ -369,14 +377,12 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
     await waitFor(() => expect(sent).toBeTruthy())
-    // Monday, Tuesday, Thursday - the order of a week and not the order they were clicked in, and
-    // a list rather than a string: a list of one and a scalar are the same thing once flattened,
-    // which is how `stop-services: smp` gets written over a sequence.
-    expect((sent as { changes: Record<string, unknown> }).changes["backup.days"]).toEqual([
-      "MONDAY",
-      "TUESDAY",
-      "THURSDAY",
-    ])
+    /**
+     * Monday, Tuesday, Thursday - the order of a week and not the order they were clicked in, and
+     * a list rather than a string: a list of one and a scalar are the same thing once flattened,
+     * which is how `stop-services: smp` gets written over a sequence.
+     */
+    expect(changesOf(sent)["backup.days"]).toEqual(["MONDAY", "TUESDAY", "THURSDAY"])
   })
 
   it("says so when every day has been turned off, because that is no backup at all", async () => {
@@ -441,14 +447,14 @@ describe("BackupsPage - the runs table (items 2, 3, 4)", () => {
 
     const row = (await screen.findByText("#41")).closest("tr")
     expect(row).not.toBeNull()
-    expect(within(row as HTMLElement).getByText("2")).toBeTruthy()
+    expect(within(asElement(row)).getByText("2")).toBeTruthy()
   })
 
   it("makes the whole row a link, not only the run number", async () => {
     vi.stubGlobal("fetch", backend({}))
     const { history } = draw()
 
-    const row = (await screen.findByText("#41")).closest("tr") as HTMLElement
+    const row = asElement((await screen.findByText("#41")).closest("tr"))
     // The "When" cell, deliberately not the run-number link itself.
     fireEvent.click(within(row).getByText(/2026/))
 
@@ -460,14 +466,14 @@ describe("BackupsPage - the runs table (items 2, 3, 4)", () => {
       "fetch",
       backend({
         runs: [run({ actorDiscordId: "594510749410525200", actorLabel: "", system: false })],
-        people: [person({ discordUsername: "hm.till" })],
+        people: [person({ discordUsername: "hm.ally" })],
       }),
     )
     draw()
 
     expect(await screen.findByText("Initiated by")).toBeTruthy()
     expect(screen.queryByText("Requested by")).toBeNull()
-    await screen.findByText("hm.till")
+    await screen.findByText("hm.ally")
     expect(document.body.textContent).not.toMatch(IDENTIFIER_PATTERN)
   })
 
@@ -529,7 +535,7 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     expect(await screen.findByText("nordtal-20260917T044550Z.dump")).toBeTruthy()
     expect(screen.queryByText("nordtal-s2_mc-smp-20260918T044500Z.tar.zst")).toBeNull()
 
-    const link = screen.getByLabelText("Download nordtal-s2_mc-smp-20260917T044505Z.tar.zst") as HTMLAnchorElement
+    const link = asAnchor(screen.getByLabelText("Download nordtal-s2_mc-smp-20260917T044505Z.tar.zst"))
     expect(link.getAttribute("href")).toBe("/api/backups/nordtal-s2_mc-smp-20260917T044505Z.tar.zst/download")
   })
 
@@ -557,8 +563,8 @@ describe("BackupsPage - what moved here from Operations", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Restore" }))
     expect(await screen.findByText("sudo bash deploy/restore.sh <archive>")).toBeTruthy()
     // Nothing chosen, nothing to copy.
-    expect((screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement).disabled).toBe(true)
-    const posted = fetchMock.mock.calls.filter((call) => (call[1] as RequestInit | undefined)?.method === "POST")
+    expect(asButton(screen.getByRole("button", { name: "Copy" })).disabled).toBe(true)
+    const posted = fetchMock.mock.calls.filter((call) => call[1]?.method === "POST")
     expect(posted).toEqual([])
   })
 

@@ -33,11 +33,11 @@ function TooltipContent({
       >
         {children}
         {/*
-          THE ARROW CARRIES THE SAME SURFACE AS THE BODY, and it is a fix rather than a preference
-          (steward/81, Till 2026-09-17: the darkening of the tooltips only half worked - the
-          surface itself is dark, but the little arrow on the tooltip is still white).
+          THE ARROW CARRIES THE SAME SURFACE AS THE BODY, and it is a fix rather than a preference:
+          darkening only the tooltip body would leave the surface itself dark while the little
+          arrow on the tooltip stays white.
 
-          The reason it only half worked is that a caller can only reach the body: `className` on
+          The reason it would only half work is that a caller can only reach the body: `className` on
           `TooltipContent` lands on the content element, and the arrow was a sibling nailed to
           `bg-foreground fill-foreground`. On a light theme `--foreground` is near-black and that
           default is a dark chip; this interface is dark-only, so the same default is a white

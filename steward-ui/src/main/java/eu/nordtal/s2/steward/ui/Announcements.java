@@ -14,21 +14,17 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import javax.sql.DataSource;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Announcements an admin writes by hand, one text per language.
  *
- * <p><b>Each language is one {@code announce} row</b>, the same row the SMP writes at a milestone,
- * so the bot has one path for both senders. The rows are not written in one transaction: each is
- * work the bot claims and answers on its own, and the page reads each answer back by its id.</p>
- *
- * <p><b>The look back is the request rows themselves.</b> {@code command_request} already holds
- * every announcement, the SMP's included, for as long as its retention keeps settled rows - which is
- * "recent", and that is all this list claims to be. A table kept only for looking back would be a
- * second copy of the same lines.</p>
+ * Each language is one {@code announce} row, the same row the SMP writes at a milestone, so the
+ * bot has one path for both senders; each row is claimed and answered on its own. The look back is
+ * those same rows in {@code command_request} rather than a second table.
  */
 final class Announcements {
 
@@ -38,19 +34,23 @@ final class Announcements {
     private static final Pattern TAG = Pattern.compile("[a-z]{2,8}");
     private static final int RECENT = 20;
 
-    private final DataSource dataSource;
+    private final @Nullable DataSource dataSource;
     private final CommandApi commands;
 
     /** @param dataSource null in a test that runs without a database, which never calls these */
-    Announcements(final DataSource dataSource, final @NotNull CommandApi commands) {
+    Announcements(final @Nullable DataSource dataSource, final CommandApi commands) {
         this.dataSource = dataSource;
         this.commands = commands;
     }
 
+    private DataSource dataSource() {
+        return Objects.requireNonNull(dataSource, "no database - this route is not available without one");
+    }
+
     /** {@code GET /api/announcements} - the latest announcements, by either sender, newest first. */
-    void recent(final @NotNull Context ctx) {
+    void recent(final Context ctx) {
         final List<Map<String, Object>> recent = new ArrayList<>();
-        try (Connection connection = dataSource.getConnection();
+        try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
                      SELECT id, arguments, source, requested_by, requested, status, result
                      FROM command_request
@@ -87,11 +87,9 @@ final class Announcements {
     /**
      * {@code POST /api/announcements} - {@code {texts: {<tag>: <text>, ...}}}, one row per entry.
      *
-     * <p>Every entry must carry text: a language sent empty is refused rather than skipped, because
-     * an announcement that quietly went out in one language of two is the mistake this form exists
-     * to prevent. Nothing is written unless every entry passes.</p>
+     * Every entry must carry text; nothing is written unless every entry passes.
      */
-    void send(final @NotNull Context ctx) {
+    void send(final Context ctx) {
         final JsonObject body;
         try {
             body = JsonParser.parseString(ctx.body()).getAsJsonObject();

@@ -1,11 +1,10 @@
 package eu.nordtal.s2.steward.ui.push;
 
-import org.jetbrains.annotations.NotNull;
-
 /**
- * Sending one push to one subscription - the seam {@code AlertWatchTest} stands in front of, so
- * that the acceptance assertions about a traffic-light change and about a 404/410 do not need a
- * real push service on the other end of a real HTTPS call.
+ * Sending one push to one subscription.
+ *
+ * The seam {@code AlertWatchTest} stands in front of, so its assertions do not need a real push
+ * service on the other end of a real HTTPS call.
  *
  * @see WebPushSender the real implementation, over {@code com.interaso.webpush}
  */
@@ -21,6 +20,5 @@ interface PushSender {
         FAILED
     }
 
-    @NotNull
-    Result send(@NotNull PushSubscriptions.Subscription subscription, @NotNull String payload);
+    Result send(PushSubscriptions.Subscription subscription, String payload);
 }

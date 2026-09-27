@@ -1,194 +1,87 @@
 package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.Gson;
-import com.yubico.webauthn.data.ByteArray;
-import com.yubico.webauthn.data.exception.Base64UrlException;
-import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AdminTree;
-import eu.nordtal.s2.common.roster.Person;
-import eu.nordtal.s2.common.update.RunRefused;
-import eu.nordtal.s2.common.update.UpdateKind;
-import eu.nordtal.s2.common.update.UpdateReports;
-import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.steward.ui.auth.Credentials;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Gate;
 import eu.nordtal.s2.steward.ui.auth.Sessions;
 import eu.nordtal.s2.steward.ui.auth.WebAuthn;
-import eu.nordtal.s2.steward.ui.config.Configs;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
 import eu.nordtal.s2.steward.ui.data.Data;
 import eu.nordtal.s2.steward.ui.data.ExampleValues;
 import eu.nordtal.s2.steward.ui.discord.DiscordApi;
 import eu.nordtal.s2.steward.ui.discord.DiscordDirectory;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
-import eu.nordtal.s2.steward.ui.push.AlertType;
 import eu.nordtal.s2.steward.ui.push.AlertWatch;
 import eu.nordtal.s2.steward.ui.push.PushPreferences;
 import eu.nordtal.s2.steward.ui.push.PushSubscriptions;
 import io.javalin.Javalin;
-import io.javalin.http.BadRequestResponse;
-import io.javalin.http.ConflictResponse;
+import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
-import io.javalin.http.Cookie;
-import io.javalin.http.ForbiddenResponse;
-import io.javalin.http.InternalServerErrorResponse;
 import io.javalin.http.NotFoundResponse;
-import io.javalin.http.SameSite;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JavalinGson;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.security.SecureRandom;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Nordtal Steward - the web interface.
+ * Nordtal Steward, the web interface.
  *
- * <p><b>This process never touches Docker.</b> §3 of the concept draws that line and this module
- * keeps it: the container runs without the socket, and everything about a container - state, logs,
- * a console line, an image digest - is a call to {@code steward-worker}. Creating containers is
- * {@code steward-deployer}'s, and nobody else's. What is left here is a session, a proxy and the
- * database.</p>
+ * This process never touches Docker: everything about a container is a call to
+ * {@code steward-worker}, and creating one is {@code steward-deployer}'s.
  */
 public final class StewardUi {
 
     private static final Logger log = LoggerFactory.getLogger(StewardUi.class);
-    private static final Gson GSON = new Gson();
-    /** The Javalin mapper drops nulls; `/api/updates/active` answers "none" as an explicit null. */
-    private static final Gson ACTIVE_JSON =
-            new com.google.gson.GsonBuilder().serializeNulls().create();
 
-    /**
-     * Where this request's session is parked once it has been read.
-     *
-     * <p>{@code account(ctx)} is asked at least twice on every call - once by the filter in front
-     * of {@code /api/*} and again by whatever handler needs a name for the journal - and a session
-     * now costs a round trip to PostgreSQL rather than a map lookup in the heap. Parked on the
-     * request it is one query per request, and it also makes the two answers the same answer,
-     * which they were not obliged to be when each went to the database on its own.</p>
-     */
+    /** Where this request's session is parked once it has been read, so it is looked up once. */
     private static final String PARKED = "steward.session";
 
     /** How often expired rows are swept out of {@code steward_session}. */
-    private static final Duration SWEEP = Duration.ofHours(1);
+    static final Duration SWEEP = Duration.ofHours(1);
 
-    /**
-     * How long a forced re-read of the update sources may take (season-2-ops/142).
-     *
-     * <p>Not the client's configured timeout, which is sized for a worker answering out of its own
-     * memory. This one call asks GitHub, Modrinth and the Fill API again, one artefact at a time,
-     * and its slowness is the work rather than a fault - cut off at ten seconds it would report a
-     * broken worker for a button that was doing exactly what it was pressed for.</p>
-     */
-    private static final Duration RESOLVE_DEADLINE = Duration.ofMinutes(2);
-
-    /**
-     * How long one touch of the security key covers.
-     *
-     * <p>Till's decision, 2026-09-14: five minutes, one tap covering everything inside it. Here and
-     * not in {@code steward-ui.yml}, because a deployment that could raise it to a day would be a
-     * deployment where the second factor is a setting - and jcore preserves what is already in a
-     * file, so the day somebody typed would outlive every later opinion about it.</p>
-     */
-    private static final Duration STEP_UP = Duration.ofMinutes(5);
+    /** How long one touch of the security key covers. Not configurable: see {@code UiSpec}. */
+    static final Duration STEP_UP = Duration.ofMinutes(5);
 
     /** The default: serve. Named so that spelling it out is not an error. */
-    private static final String SERVE = "serve";
+    static final String SERVE = "serve";
 
-    /**
-     * The way back, and the only one there is.
-     *
-     * <p>It is on the host and not in the interface because there is no privilege inside Steward
-     * that could be allowed to clear somebody's second factor - a page that could do it would make
-     * the factor worth exactly as much as the cookie in front of it. What stands in front of this
-     * is a shell on the machine the stack runs on.</p>
-     */
-    private static final String FORGET = "forget-factors";
+    /** Clears a signed-in admin's second factor. Reachable only from a shell on the host. */
+    static final String FORGET = "forget-factors";
 
-    /**
-     * {@code generate-vapid-keys} - a fresh VAPID keypair, printed for {@code steward-ui.yml}.
-     *
-     * <p>No database, no config directory, nothing this deployment already has: generating a
-     * keypair is one call into {@code com.interaso.webpush} and printing its two encoded halves.
-     * See {@code UiSpec.WebPushSpec}'s own comment for the exact two lines this fills in.</p>
-     */
-    private static final String GENERATE_VAPID_KEYS = "generate-vapid-keys";
+    /** Prints a fresh VAPID keypair for {@code steward-ui.yml}. */
+    static final String GENERATE_VAPID_KEYS = "generate-vapid-keys";
 
     private final UiSpec config;
     private final DiscordAuth discord;
-    private final InternalClient worker;
 
-    /**
-     * Signed-in browsers, in PostgreSQL.
-     *
-     * <p>There used to be a seam here - a {@code Function<Context, Account>} a test could stand in
-     * front of - and it is gone: the integration tests drive the real {@code /auth/login} and
-     * {@code /auth/callback} against a stand-in Discord, so the only thing the seam still bought
-     * was a way to start this service with the authentication replaced. That is not a thing worth
-     * keeping available.</p>
-     *
-     * <p>Null only in a test that is about the proxy and never signs anybody in.</p>
-     */
-    private final Sessions sessions;
+    /** Everything this service reads or writes by asking steward-worker instead. */
+    private final WorkerProxy workerProxy;
 
-    /**
-     * The registered security keys, and the ceremonies that create them.
-     *
-     * <p>Two objects rather than one because they are two different things: {@link Credentials} is
-     * rows and {@link WebAuthn} is the protocol, and the protocol half is the one that carries
-     * Jackson. Null exactly when {@link #sessions} is - a test about the proxy has no database and
-     * signs nobody in.</p>
-     */
-    private final Credentials credentials;
+    /** Signed-in browsers, in PostgreSQL. Null only in a test that never signs anybody in. */
+    private final @Nullable Sessions sessions;
 
-    private final WebAuthn webauthn;
+    /** The WebAuthn ceremony and the checks {@code guard} runs against a session's key. */
+    private final SecondFactor secondFactor;
 
-    /**
-     * The web push half of the second factor's neighbourhood (steward/98, concept §10c) - browser
-     * subscriptions, the VAPID keypair they are all signed with, and the watch that pushes to them.
-     *
-     * <p>{@code vapidKeys} and {@code alertWatch} are null together, and for a different reason than
-     * {@link #credentials} is null: a deployment can have a database and no VAPID keypair yet
-     * (both halves of {@code web-push} blank), which is "not configured", not "not started". See
-     * {@code UiSpec.WebPushSpec}'s own comment.</p>
-     */
-    private final PushSubscriptions pushSubscriptions;
+    private final @Nullable ExampleValues exampleValues;
 
-    private final PushPreferences pushPreferences;
-    private final ExampleValues exampleValues;
-    private final com.interaso.webpush.VapidKeys vapidKeys;
-    private final AlertWatch alertWatch;
+    /** The web push half of the second factor's neighbourhood (concept §10c) - see its own class. */
+    private final PushEndpoints push;
 
-    /** The database. Null only in tests that are about the proxy and never touch a row. */
-    private final Data data;
-
-    /** The other services' config files, mounted into this container. */
+    /** Pushes proactive alerts, polled on {@link #heartbeats}. Null without a VAPID keypair. */
+    private final @Nullable AlertWatch alertWatch;
 
     /** What the guild's roles and channels are CALLED, so an id can be picked rather than typed. */
     private final DiscordApi guild;
@@ -202,37 +95,44 @@ public final class StewardUi {
     private final Announcements announcements;
 
     private final AccessApi access;
-    /** Who may sign in, and who stays signed in. Null only in a test without a database. */
-    private final AdminTree admins;
 
-    private final AdminApi adminApi;
+    /** Who is in the guild, what they paid, what they may - and the journal of it all. */
+    private final RosterRoutes roster;
+
+    /** {@code /api/settings}: the thresholds and the base URL the start page judges by. */
+    private final Settings settings;
+    /** Who may sign in, and who stays signed in. Null only in a test without a database. */
+    private final @Nullable AdminTree admins;
+
+    private final @Nullable AdminApi adminApi;
+
+    /** The Discord OAuth round trip: {@code /auth/login}, {@code /auth/callback}, and the sweep. */
+    private final AuthFlow authFlow;
 
     /** The one service allowed to create a container, asked for exactly one thing (10a.4). */
     private final DeployerApi deployments;
 
+    /** How an update run's refusal and its row are turned into what the interface shows. */
+    private final Updates updates;
+
+    /** The season's phase and its two dates. */
+    private final SeasonRoutes season;
+
+    /** {@code /api/me} and {@code /api/message-examples}. */
+    private final Profile profile;
+
+    /** {@code /api/services/{name}/logs}, proxied to the browser line by line. */
+    private final LogFollow logFollow;
+
+    /** The one filter every route but the frontend bundle passes through. */
+    private final Gatekeeper gatekeeper;
+
+    /** {@code /api/metrics}: the curves the start page draws. */
+    private final Metrics metrics;
+
     private final ExecutorService streams = Executors.newVirtualThreadPerTaskExecutor();
 
-    /**
-     * How often an open log follow says something into the browser's connection.
-     *
-     * <p><b>Nothing else ever notices a closed tab.</b> Javalin's {@code keepAlive()} does not send
-     * anything - it holds the request open with an unfinished future - and a disconnected browser
-     * is discovered only by a write that fails. A container that logs every three seconds therefore
-     * hid the problem; one that is quiet for an hour, which is what a healthy server is, held a
-     * connection to the worker and a thread here for that hour, per tab anybody had ever opened.
-     * A comment line every ten seconds is also what keeps a reverse proxy from dropping an idle
-     * stream, so it pays for itself twice.</p>
-     */
-    private static final Duration HEARTBEAT = Duration.ofSeconds(10);
-
-    /**
-     * How often {@link AlertWatch#poll} asks steward-worker for the traffic light's state.
-     *
-     * <p>Cheap enough to be frequent - one small JSON GET the worker already has every field for -
-     * and frequent enough that a lock screen notification still feels like it is about now, not
-     * about half a minute ago. Nothing about the push protocol itself is rate-limited on this side;
-     * a push service is what would throttle a sender that called far more often than this.</p>
-     */
+    /** How often {@link AlertWatch#poll} asks steward-worker for the traffic light's state. */
     private static final Duration ALERT_POLL = Duration.ofSeconds(30);
 
     private final ScheduledExecutorService heartbeats = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -248,59 +148,116 @@ public final class StewardUi {
             final DiscordAuth discord,
             final InternalClient worker,
             final InternalClient deployer,
-            final Data data) {
+            final @Nullable Data data) {
         this.config = config;
         this.discord = discord;
-        this.worker = worker;
-        this.data = data;
+        this.workerProxy = new WorkerProxy(worker, ctx -> account(ctx).orElseThrow());
         this.sessions = data == null ? null : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
-        this.credentials = data == null ? null : new Credentials(data.dataSource());
-        this.webauthn =
-                data == null ? null : new WebAuthn(config.webauthn().relyingPartyId(), config.publicUrl(), credentials);
+        final @Nullable Credentials localCredentials = data == null ? null : new Credentials(data.dataSource());
+        final @Nullable WebAuthn localWebauthn = localCredentials == null
+                ? null
+                : new WebAuthn(config.webauthn().relyingPartyId(), config.publicUrl(), localCredentials);
+        this.secondFactor =
+                new SecondFactor(this::requireSession, data, localCredentials, this.sessions, localWebauthn);
+        this.gatekeeper = new Gatekeeper(this::session, this.secondFactor);
+        this.metrics = new Metrics(data);
         this.guild = new DiscordApi(new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
         this.announcements = new Announcements(data == null ? null : data.dataSource(), commands);
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
-        this.admins = data == null ? null : AdminTree.using(data.dataSource());
+        this.roster = new RosterRoutes(data);
+        this.settings = new Settings(config);
+        final @Nullable AdminTree localAdmins = data == null ? null : AdminTree.using(data.dataSource());
+        this.admins = localAdmins;
         this.adminApi = data == null
                 ? null
-                : new AdminApi(admins, data.audit(), ctx -> account(ctx).orElseThrow());
+                : new AdminApi(
+                        Objects.requireNonNull(localAdmins),
+                        data.audit(),
+                        ctx -> account(ctx).orElseThrow());
+        this.authFlow = new AuthFlow(config, discord, data, this.sessions, localAdmins);
+        this.updates = new Updates(data, worker, ctx -> account(ctx).orElseThrow());
+        this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow());
         this.deployments = new DeployerApi(
                 deployer,
                 data,
                 ctx -> account(ctx).orElseThrow(),
                 !config.deployer().token().isBlank());
-        this.pushSubscriptions = data == null ? null : new PushSubscriptions(data.dataSource());
-        this.pushPreferences = data == null ? null : new PushPreferences(data.dataSource());
+        final @Nullable PushSubscriptions localPushSubscriptions =
+                data == null ? null : new PushSubscriptions(data.dataSource());
+        final @Nullable PushPreferences localPushPreferences =
+                data == null ? null : new PushPreferences(data.dataSource());
         this.exampleValues = data == null ? null : new ExampleValues(data.dataSource());
-        this.vapidKeys = vapidKeysOf(config.webPush());
-        // THE SAME THREE NUMBERS /api/settings ALREADY ANSWERS, and the same three the start page's
-        // tile compares against - handed to the watch rather than re-read anywhere, so that a lock
-        // screen and a browser tab can never disagree about what "full" means. See Alerts.
-        this.alertWatch = (data == null || vapidKeys == null)
-                ? null
-                : new AlertWatch(
-                        worker,
-                        pushSubscriptions,
-                        pushPreferences,
-                        config.webPush().subject(),
-                        vapidKeys,
-                        config.alerts().diskPercent(),
-                        config.alerts().memoryPercent(),
-                        config.alerts().backupAgeHours());
+        this.profile = new Profile(
+                this::requireSession,
+                this::session,
+                localCredentials,
+                data,
+                discord,
+                localWebauthn,
+                this.exampleValues);
+        this.logFollow = new LogFollow(worker, this.sessions, this::account, streams, heartbeats);
+        final PushWiring pushWiring = wirePush(config, worker, data, localPushSubscriptions, localPushPreferences);
+        this.alertWatch = pushWiring.alertWatch();
+        this.push = pushWiring.push();
+    }
+
+    /** {@link #alertWatch} and {@link #push}, which share the same VAPID keypair and thresholds. */
+    private record PushWiring(@Nullable AlertWatch alertWatch, PushEndpoints push) {}
+
+    private PushWiring wirePush(
+            final UiSpec config,
+            final InternalClient worker,
+            final @Nullable Data data,
+            final @Nullable PushSubscriptions localPushSubscriptions,
+            final @Nullable PushPreferences localPushPreferences) {
+        final com.interaso.webpush.@Nullable VapidKeys localVapidKeys = vapidKeysOf(config.webPush());
+        // The same thresholds /api/settings answers, so a lock screen and a browser tab agree.
+        final @Nullable AlertWatch localAlertWatch =
+                (localPushSubscriptions == null || localPushPreferences == null || localVapidKeys == null)
+                        ? null
+                        : new AlertWatch(
+                                worker,
+                                localPushSubscriptions,
+                                localPushPreferences,
+                                config.webPush().subject(),
+                                localVapidKeys,
+                                config.alerts().diskPercent(),
+                                config.alerts().memoryPercent(),
+                                config.alerts().backupAgeHours());
+        final PushEndpoints localPush = new PushEndpoints(
+                this::requireSession,
+                data,
+                localPushSubscriptions,
+                localPushPreferences,
+                localAlertWatch,
+                localVapidKeys);
+        return new PushWiring(localAlertWatch, localPush);
+    }
+
+    /** {@link #sessions}, for the routes that only exist once a database does. */
+    private Sessions sessions() {
+        return Objects.requireNonNull(sessions, "this route needs sessions, which this instance has none of");
+    }
+
+    /** {@link #admins}, for the routes that only exist once a database does. */
+    private AdminTree admins() {
+        return Objects.requireNonNull(admins, "this route needs admins, which this instance has none of");
+    }
+
+    /** {@link #adminApi}, for the routes that only exist once a database does. */
+    private AdminApi adminApi() {
+        return Objects.requireNonNull(adminApi, "this route needs adminApi, which this instance has none of");
     }
 
     /**
      * The VAPID keypair out of config, or null when {@code web-push} is not configured yet.
      *
-     * <p>Both keys blank is "not configured" - see {@code UiSpec.WebPushSpec}'s own comment. Exactly
-     * one blank is refused outright: a public key with no private half can never sign a push, and a
-     * private key with no public half can never be handed to a browser as the
-     * {@code applicationServerKey} its subscription is bound to, so neither is a working
-     * half-configuration a deployment could be running on without anybody noticing.</p>
+     * Both keys blank means unconfigured; exactly one blank is refused, since neither key alone
+     * can sign or be handed to a browser as a working {@code applicationServerKey}.
      */
-    private static com.interaso.webpush.VapidKeys vapidKeysOf(final UiSpec.WebPushSpec webPush) {
+    private static com.interaso.webpush.@Nullable VapidKeys vapidKeysOf(final UiSpec.WebPushSpec webPush) {
         final String publicKey = webPush.publicKey();
         final String privateKey = webPush.privateKey();
         if (publicKey.isBlank() && privateKey.isBlank()) {
@@ -314,886 +271,49 @@ public final class StewardUi {
         return com.interaso.webpush.VapidKeys.create(publicKey, privateKey);
     }
 
-    /**
-     * The container's entry point: read two files, build three things, serve.
-     *
-     * <p>It refuses to start on a configuration it cannot use, rather than starting and failing on
-     * whoever clicks first.</p>
-     */
+    /** The container's entry point. See {@link Cli#run} for what it actually does. */
     public static void main(final String[] args) {
-        final Path directory = Path.of(System.getenv().getOrDefault("NORDTAL_STEWARD_UI_CONFIG_DIR", "config"));
-        // ONE PROGRAM WITH A SUBCOMMAND, not a second tool. `forget-factors` needs this jar's
-        // database configuration, its DAOs and its journal, and a separate binary would be a
-        // second copy of all three that nothing keeps in step.
-        if (args.length > 0 && FORGET.equals(args[0])) {
-            System.exit(forgetFactors(directory, args));
-            return;
-        }
-        if (args.length > 0 && GENERATE_VAPID_KEYS.equals(args[0])) {
-            final com.interaso.webpush.VapidKeys keys = com.interaso.webpush.VapidKeys.generate();
-            System.out.println(keys.getX509PublicKey());
-            System.out.println(keys.getPkcs8PrivateKey());
-            return;
-        }
-        if (args.length > 0 && !SERVE.equals(args[0])) {
-            System.err.println("`" + args[0] + "` is not a command. This program serves the web"
-                    + " interface when given none, and knows `" + FORGET + " <discord-id>` and `"
-                    + GENERATE_VAPID_KEYS + "`.");
-            System.exit(2);
-            return;
-        }
-        final UiSpec config;
-        final Data data;
-        try {
-            config = Configs.ui(directory, log).get();
-            // Opened here rather than on the first request: a wrong URL or a missing password is a
-            // startup failure that lands on whoever is deploying, not a blank page at three in the
-            // morning that lands on whoever is on call.
-            data = new Data(Configs.database(directory, log).get());
-        } catch (ConfigException failure) {
-            log.error(
-                    "The configuration in {} could not be read, so nothing is being served.",
-                    directory.toAbsolutePath(),
-                    failure);
-            System.exit(1);
-            return;
-        }
-
-        final InternalClient worker = new InternalClient(
-                "steward-worker", config.worker().baseUrl(), config.worker().token(), Duration.ofSeconds(10));
-        if (config.worker().token().isBlank()) {
-            log.warn("worker.token is empty, so nothing about a container can be read. Every page"
-                    + " that would show one says so instead of drawing an empty table.");
-        }
-        // A SECOND CLIENT AND A SECOND SECRET, deliberately. The deployer may create containers and
-        // the worker may not; one token for both would make that boundary a comment.
-        final InternalClient deployer = new InternalClient(
-                "steward-deployer",
-                config.deployer().baseUrl(),
-                config.deployer().token(),
-                Duration.ofSeconds(10));
-        if (config.deployer().token().isBlank()) {
-            log.warn("deployer.token is empty, so no container can be recreated from here. The"
-                    + " button is not drawn and the page says why.");
-        }
-        if (config.webPush().publicKey().isBlank()) {
-            log.warn("web-push has no VAPID keypair yet, so the traffic light cannot reach a phone's"
-                    + " lock screen. Run `steward-ui " + GENERATE_VAPID_KEYS + "` and paste both"
-                    + " lines it prints into steward-ui.yml's web-push section.");
-        }
-        Runtime.getRuntime().addShutdownHook(new Thread(data::close, "steward-ui-shutdown"));
-        new StewardUi(config, new DiscordAuth(config.discord(), config.publicUrl()), worker, deployer, data)
-                .start(config.port());
-    }
-
-    /**
-     * {@code forget-factors <discord-id>} - the way back in after a lost authenticator.
-     *
-     * <p>Run as {@code docker exec nordtal-s2-steward-ui-1 steward-ui forget-factors <discord-id>}
-     * on the host. That line used to be printed on the hold-key screen itself, which told anyone
-     * who ever loaded that page the exact command past the second factor; it was pulled from the
-     * UI on 2026-09-15 for that reason and lives here instead, where only somebody who already has
-     * a shell on the machine reads it.</p>
-     *
-     * <p>Removes the account's keys <b>and</b> its sessions, which is one thing and not two:
-     * clearing the keys of an account whose browser is still signed in would leave that browser
-     * inside with no key at all. The next sign-in lands on the setup page, which is where somebody
-     * who has lost their key needs to be.</p>
-     *
-     * <h2>It writes a journal row, and that is not decoration</h2>
-     * Lifting a second factor is the one operation in this stack that happens nowhere a person can
-     * see it - no Discord message, no page, no audit trail of its own. The actor is the literal
-     * {@code host}, because that is exactly what is known: somebody had a shell on this machine.
-     * Naming a person there would be inventing one.
-     *
-     * <p>It is deliberately quiet about accounts that do not exist: a Discord id nobody has
-     * registered a key for is answered with "nothing to forget" and exit code 0, because the state
-     * afterwards is the state that was asked for. A non-zero exit there would send somebody
-     * hunting for a fault when the account is simply already open.</p>
-     *
-     * @return the process exit status
-     */
-    private static int forgetFactors(final Path directory, final String[] args) {
-        if (args.length != 2 || args[1].isBlank()) {
-            System.err.println("Usage: " + FORGET + " <discord-id>");
-            System.err.println("Clears the security keys and the sessions of one account, so that"
-                    + " its next sign-in starts at the setup page.");
-            return 2;
-        }
-        final String discordId = args[1].trim();
-        // The same check Credentials.accountOf performs on a user handle, for the same reason: a
-        // Discord id is decimal digits, and anything else is a typo that would otherwise run as a
-        // DELETE matching nothing and report success.
-        if (!discordId.chars().allMatch(Character::isDigit)) {
-            System.err.println("`" + discordId + "` is not a Discord id - those are digits only."
-                    + " Take it from the journal or from the account list.");
-            return 2;
-        }
-        try (Data data = new Data(Configs.database(directory, log).get())) {
-            final Credentials credentials = new Credentials(data.dataSource());
-            final Sessions sessions = new Sessions(data.dataSource(), Duration.ofDays(1));
-            final int keys = credentials.forget(discordId);
-            final int signedOut = sessions.endAllOf(discordId);
-            if (keys == 0 && signedOut == 0) {
-                System.out.println("Nothing to forget: " + discordId + " has no security key and"
-                        + " no session. Its next sign-in already starts at the setup page.");
-                return 0;
-            }
-            // Written AFTER the deletes, so a row can never claim something that did not happen.
-            // The other order would record an intention.
-            data.audit()
-                    .record(
-                            "FORGET_FACTORS",
-                            "host",
-                            discordId,
-                            null,
-                            keys + " security key(s) and " + signedOut + " session(s) of " + discordId
-                                    + " were cleared from the host");
-            System.out.println(
-                    "Cleared " + keys + " security key(s) and " + signedOut + " session(s) of " + discordId + ".");
-            System.out.println("Its next sign-in will ask for Discord and then register a new key.");
-            return 0;
-        } catch (ConfigException failure) {
-            log.error(
-                    "The database configuration in {} could not be read, so nothing was cleared.",
-                    directory.toAbsolutePath(),
-                    failure);
-            return 1;
-        }
+        Cli.run(args);
     }
 
     public Javalin start(final int port) {
         app = Javalin.create(cfg -> {
-                    cfg.jsonMapper(new JavalinGson(new Gson(), true));
-                    cfg.startup.showJavalinBanner = false;
-
-                    // The built frontend, out of the jar. `/web` is where Gradle's vite build lands.
-                    cfg.staticFiles.add(staticFiles -> {
-                        staticFiles.hostedPath = "/";
-                        staticFiles.directory = "/web";
-                        staticFiles.location = Location.CLASSPATH;
-                        // THE BUNDLE CARRIES ITS DECISION TOO, AND IT HAS TO BE SAID HERE.
-                        //
-                        // `guard` hangs on `beforeMatched`, which runs in front of static files as well -
-                        // and a static file is not registered through `cfg.routes`, so it cannot pick up a
-                        // Gate the way a route does. Left empty, `gateOf` finds zero decisions and refuses
-                        // `/` with a 500: no sign-in page, no Discord button, a white screen apologising
-                        // for itself. That is what happened on 2026-09-15, the first day this service ran
-                        // an image built after the gatekeeper landed.
-                        //
-                        // ANYONE is not a concession, it is the same answer `/auth/login` and `/api/me`
-                        // give: whoever cannot sign in yet has to be able to read the page that offers it.
-                        // The bundle holds no data - every byte it shows arrives later, through /api, and
-                        // every one of those doors is shut.
-                        staticFiles.roles = Set.of(Gate.ANYONE);
-                    });
-                    // A client-side router owns every path that is not an API call or a file, so an
-                    // unknown path is index.html rather than a 404 - which is what makes a reload of
-                    // /operations/updates/27 land on the page it names instead of on nothing.
-                    //
-                    // It carries no Gate and cannot: `SinglePageHandler` has no roles field (checked
-                    // against javalin 7.2.3). `gateOf` answers for it, and for the static files, by the
-                    // one rule below - not by guessing.
-                    cfg.spaRoot.addFile("/", "/web/index.html", Location.CLASSPATH);
-
-                    // THE FRONTEND'S CACHE HEADERS, SAID ONCE, FOR BOTH WAYS IN. Jetty's own default for
-                    // everything under `cfg.staticFiles` and `cfg.spaRoot` - measured on this Javalin
-                    // version - is a literal `Cache-Control: max-age=0`, on the bundle and on the document
-                    // alike. `after` runs once every request has been answered, including a static file or
-                    // the single-page fallback, which neither carries a Gate nor a place of its own to set
-                    // a header from - so this is the one hook that sees both. See `cacheHeaders`.
-                    cfg.routes.after(StewardUi::cacheHeaders);
-
-                    cfg.routes.get("/api/health", this::health, Gate.ANYONE);
-                    // steward/85: Javalin discards the BODY of a HEAD request at the wire layer, but its
-                    // own routing never carries that far - `guard`, on `beforeMatched`, reads
-                    // `ctx.routeRoles()` before any handler runs, and that lookup is keyed to the exact
-                    // HTTP method. With no route ever registered for HEAD, it saw zero decided roles and
-                    // `gateOf` refused the request as an undecided route: a 500 that named a fault this
-                    // service does not have, on the one path a monitor tries first because it is cheaper
-                    // than GET. Confirmed generic to every `/api` GET route (`/api/me` breaks the same
-                    // way) and not caused by the `after`-stage steward/79 added - `guard` throws before
-                    // `after` ever runs, over a mechanism that predates it. The general fix would be a
-                    // stage that answers every HEAD from its GET's own decision; that is a bigger change
-                    // than this ticket asks for, so only the one route an outside watcher would actually
-                    // reach is given its own explicit HEAD registration. If a monitor is ever pointed at
-                    // another `/api` route, HEAD on it still 500s - failing closed, loudly, not open.
-                    cfg.routes.head("/api/health", this::health, Gate.ANYONE);
-
-                    // WHO MAY SIGN IN IS ANSWERED BEFORE ANYTHING ELSE IS SERVED. The sign-in page itself
-                    // needs to be readable without a session, and so does the static bundle - everything
-                    // under /api that is not health or this does not.
-                    cfg.routes.get("/api/me", this::whoAmI, Gate.ANYONE);
-
-                    // THE ONE DOOR, AND IT READS THE DECISION OFF THE ROUTE IT IS ABOUT TO RUN.
-                    //
-                    // `beforeMatched` rather than `before("/api/*")`: the old filter guarded a path
-                    // prefix, which meant every route outside it - signing out, both ceremonies - repeated
-                    // the same two checks by hand, and a new route outside /api would have repeated
-                    // nothing at all. This one runs in front of EVERY matched endpoint and asks the
-                    // endpoint itself what it requires, so a route cannot be outside the arrangement; it
-                    // can only be inside it with a value somebody chose. See Gate.
-                    cfg.routes.beforeMatched(this::guard);
-
-                    cfg.routes.get("/auth/login", this::login, Gate.ANYONE);
-                    cfg.routes.get("/auth/callback", this::callback, Gate.ANYONE);
-                    cfg.routes.post(
-                            "/auth/logout",
-                            ctx -> {
-                                // The CSRF token is `guard`'s, on every write, including this one - it used to be
-                                // repeated here because the old filter only covered /api/*. It matters as much as
-                                // it ever did: the cookie is SameSite=Lax, which allows exactly the kind of
-                                // top-level POST a form on another site performs, so without it a stranger's page
-                                // could sign an admin out in the middle of a deployment they are watching.
-                                sessions.end(ctx.cookie(Sessions.COOKIE));
-                                ctx.removeCookie(Sessions.COOKIE, "/");
-                                ctx.status(204);
-                            },
-                            Gate.SIGNED_IN);
-
-                    // --- the second factor (§10a) ------------------------------------------------------
-                    //
-                    // SIGNED_IN AND NOT KEY_HELD, which is the whole exception list the plan asks for: a
-                    // door cannot ask for the key it exists to hand out, and a person part-way through the
-                    // key ceremony must still be able to sign out. Everything else in this service is
-                    // above that line.
-                    cfg.routes.post("/auth/webauthn/register/start", this::beginRegistration, Gate.SIGNED_IN);
-                    cfg.routes.post("/auth/webauthn/register/finish", this::finishRegistration, Gate.SIGNED_IN);
-                    cfg.routes.post("/auth/webauthn/authenticate/start", this::beginAssertion, Gate.SIGNED_IN);
-                    cfg.routes.post("/auth/webauthn/authenticate/finish", this::finishAssertion, Gate.SIGNED_IN);
-
-                    // --- the keys themselves (package F) ----------------------------------------------
-                    //
-                    // KEY_FRESH, which is the plan's own §8: managing the keys is one of the dangerous
-                    // things, and it is the most dangerous of them - a stolen session that could add a key
-                    // would be a stolen session that has made itself permanent. Adding one goes through
-                    // the ceremony above and is checked in the handler; these two are the rest of it.
-                    //
-                    // The list they act on is in /api/me, not in a route of its own: it is part of the
-                    // answer to "who am I", the shell already has it, and a second endpoint would be a
-                    // second thing to keep in step.
-                    cfg.routes.put("/api/keys/{id}", this::renameKey, Gate.KEY_FRESH);
-                    cfg.routes.delete("/api/keys/{id}", this::removeKey, Gate.KEY_FRESH);
-
-                    // --- web push (steward/98, concept §10c) --------------------------------------------
-                    //
-                    // The public key is a read, like the config a KEY_HELD page already shows; subscribing
-                    // and unsubscribing change a row, so they wear KEY_FRESH like every other write here.
-                    cfg.routes.get("/api/web-push/public-key", this::webPushPublicKey, Gate.KEY_HELD);
-                    cfg.routes.post("/api/web-push/subscribe", this::subscribeWebPush, Gate.KEY_FRESH);
-                    cfg.routes.delete("/api/web-push/subscribe", this::unsubscribeWebPush, Gate.KEY_FRESH);
-
-                    // The notifications dialog behind the avatar (steward/98, Till's review of 2026-09-18):
-                    // every browser of this account, which kinds of alert it wants, and one send it asked
-                    // for. Reading is KEY_HELD, the two writes are KEY_FRESH - and a test send IS a write:
-                    // it makes this service reach out to a push service in somebody's name.
-                    cfg.routes.get("/api/web-push/devices", this::webPushDevices, Gate.KEY_HELD);
-                    cfg.routes.get("/api/web-push/preferences", this::webPushPreferences, Gate.KEY_HELD);
-                    cfg.routes.put("/api/web-push/preferences", this::setWebPushPreference, Gate.KEY_FRESH);
-                    cfg.routes.post("/api/web-push/test", this::testWebPush, Gate.KEY_FRESH);
-
-                    // --- everything about a container comes from steward-worker -----------------------
-                    cfg.routes.get("/api/services", ctx -> passThrough(ctx, "/api/services"), Gate.KEY_HELD);
-                    cfg.routes.get(
-                            "/api/services/{name}",
-                            ctx -> passThrough(ctx, "/api/services/" + ctx.pathParam("name")),
-                            Gate.KEY_HELD);
-                    cfg.routes.post(
-                            "/api/services/{name}/console",
-                            ctx -> {
-                                final String answer =
-                                        worker.post("/api/services/" + ctx.pathParam("name") + "/console", ctx.body());
-                                ctx.status(202).contentType("application/json").result(answer);
-                            },
-                            Gate.KEY_FRESH);
-                    // season-2-ops/129: the plugins on one Minecraft server. Three reads and two writes,
-                    // and the split of gates is the usual one - looking at a list is KEY_HELD, changing
-                    // what a server runs is KEY_FRESH.
-                    //
-                    // These are NOT the door an update goes through and they do not need to be: installing
-                    // writes a row that the next ordinary run picks up, so the countdown, the wait in limbo
-                    // and the report all still happen, and none of it happens here.
-                    cfg.routes.get(
-                            "/api/services/{name}/plugins",
-                            ctx -> passThrough(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins"),
-                            Gate.KEY_HELD);
-                    // `?q=` has to survive, so this goes through forwardedQuery like the log search does -
-                    // a passThrough naming the bare path drops the query string silently, and the worker
-                    // would answer the most popular plugins while the browser believed it had searched.
-                    cfg.routes.get(
-                            "/api/services/{name}/plugins/search",
-                            ctx -> passThrough(
-                                    ctx,
-                                    "/api/services/" + ctx.pathParam("name") + "/plugins/search"
-                                            + forwardedQuery(ctx.queryString())),
-                            Gate.KEY_HELD);
-                    // The name on the row is taken from the session and written into the body HERE, not
-                    // accepted from the browser. Everything else in `by`'s shape is the same as
-                    // `update_request.requested_by`, and a field a request may fill in is a field that says
-                    // whatever the request wanted it to.
-                    cfg.routes.post(
-                            "/api/services/{name}/plugins",
-                            ctx -> {
-                                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                                final Map<String, Object> body = new java.util.LinkedHashMap<>(
-                                        GSON.<Map<String, Object>>fromJson(ctx.body(), Map.class));
-                                body.put("by", who.name() + " (" + who.id() + ")");
-                                forwardWorker(
-                                        ctx,
-                                        "/api/services/" + ctx.pathParam("name") + "/plugins",
-                                        GSON.toJson(body),
-                                        201);
-                            },
-                            Gate.KEY_FRESH);
-                    cfg.routes.delete(
-                            "/api/services/{name}/plugins/{artifact}",
-                            ctx -> forwardWorker(
-                                    ctx,
-                                    "/api/services/" + ctx.pathParam("name") + "/plugins/" + ctx.pathParam("artifact"),
-                                    null,
-                                    200),
-                            Gate.KEY_FRESH);
-
-                    // --- and creating one comes from steward-deployer, which is a different service ---
-                    //
-                    // Not the same door as an update: an update is a countable, cancellable row that
-                    // steward-worker carries out with a countdown in front of every player online. This is
-                    // one container, made again from the image that is already on the host, and the only
-                    // process in the stack allowed to do it is the deployer (8a).
-                    cfg.routes.get("/api/deployer", deployments::state, Gate.KEY_HELD);
-                    cfg.routes.get("/api/deployer/services", deployments::services, Gate.KEY_HELD);
-                    cfg.routes.post("/api/deployer/recreate/{service}", deployments::recreate, Gate.KEY_FRESH);
-                    cfg.routes.get("/api/deployer/jobs", deployments::jobs, Gate.KEY_HELD);
-                    cfg.routes.get("/api/deployer/jobs/{id}", deployments::job, Gate.KEY_HELD);
-
-                    // The unified "latest actions" feed (steward/82). It carries `?limit=`, so it goes
-                    // through forwardedQuery like the log search does - a passThrough that names the bare
-                    // path drops the query string silently, and the worker would answer its own default
-                    // while the browser believed it had asked for a number.
-                    cfg.routes.get(
-                            "/api/actions",
-                            ctx -> passThrough(ctx, "/api/actions" + forwardedQuery(ctx.queryString())),
-                            Gate.KEY_HELD);
-                    cfg.routes.get("/api/host", ctx -> passThrough(ctx, "/api/host"), Gate.KEY_HELD);
-                    // What "tonight" means on the host, rather than in whatever zone the browser is in.
-                    cfg.routes.get("/api/schedule", ctx -> passThrough(ctx, "/api/schedule"), Gate.KEY_HELD);
-                    cfg.routes.get("/api/backups", ctx -> passThrough(ctx, "/api/backups"), Gate.KEY_HELD);
-
-                    // steward/95's download: reading a backup off the disk is no more a write than
-                    // watching its log is, so this is KEY_HELD like every other read here - not
-                    // KEY_FRESH, which is for the routes that change something on the other side.
-                    cfg.routes.get(
-                            "/api/backups/{name}/download",
-                            ctx -> downloadBackup(ctx, ctx.pathParam("name")),
-                            Gate.KEY_HELD);
-
-                    // The log follow, proxied line by line. A redirect would be simpler and would hand the
-                    // browser the worker's address and its token, which is the one thing this whole split
-                    // exists to avoid.
-                    cfg.routes.sse(
-                            "/api/services/{name}/logs",
-                            client -> {
-                                if (account(client.ctx()).isEmpty()) {
-                                    client.close();
-                                    return;
-                                }
-                                final String name = client.ctx().pathParam("name");
-                                final String query = client.ctx().queryString();
-                                // TWO SOCKETS, AND ONLY ONE OF THEM NOTICES A CLOSED TAB. The browser's end going
-                                // away tells this process nothing about the worker's end, which stays blocked in
-                                // readLine() until the container it is following stops - so every reload left a
-                                // connection and a thread behind, and a person clicking through four services left
-                                // four. Registered BEFORE the follow is submitted, because the other order has a
-                                // gap in it: a browser that leaves in that gap would find nothing to cancel.
-                                final Upstream upstream = new Upstream();
-                                final ScheduledFuture<?> heartbeat = heartbeats.scheduleWithFixedDelay(
-                                        () -> client.sendComment("open"),
-                                        HEARTBEAT.toSeconds(),
-                                        HEARTBEAT.toSeconds(),
-                                        TimeUnit.SECONDS);
-                                client.onClose(() -> {
-                                    heartbeat.cancel(false);
-                                    upstream.close();
-                                });
-                                client.keepAlive();
-                                streams.submit(() -> follow(client, upstream, name, query));
-                            },
-                            Gate.KEY_HELD);
-
-                    // --- what is in the database, which is where the curves and the runs live ---------
-                    //
-                    // §10c: the interface reads its graphs OUT OF POSTGRES, never out of Docker. Docker
-                    // answers "now" and has no history behind it, so a page drawing its curves from the
-                    // daemon would draw one point and call it a line.
-                    cfg.routes.get(
-                            "/api/metrics",
-                            ctx -> {
-                                final String subject = ctx.queryParamAsClass("subject", String.class)
-                                        .getOrDefault("host");
-                                final String metric = ctx.queryParam("metric");
-                                if (metric == null || metric.isBlank()) {
-                                    throw new BadRequestResponse("metric is which number to draw");
-                                }
-                                final int hours = ctx.queryParamAsClass("hours", Integer.class)
-                                        .getOrDefault(6);
-                                final Instant now = Instant.now();
-                                ctx.json(Map.of(
-                                        "subject",
-                                        subject,
-                                        "metric",
-                                        metric,
-                                        "from",
-                                        now.minus(Duration.ofHours(hours)).toString(),
-                                        "points",
-                                        data.metrics()
-                                                .range(subject, metric, now.minus(Duration.ofHours(hours)), now)));
-                            },
-                            Gate.KEY_HELD);
-
-                    cfg.routes.get(
-                            "/api/updates",
-                            ctx -> {
-                                // The same helper every other list on this class uses. It used to clamp only the
-                                // top end, which left `?limit=0` and `?limit=-5` to be reinterpreted three layers
-                                // down in the directory - so one endpoint had its floor somewhere else than all
-                                // the others, and nothing said where.
-                                ctx.json(data.updates().recent(limit(ctx, 20, 200)).stream()
-                                        .map(this::describe)
-                                        .toList());
-                            },
-                            Gate.KEY_HELD);
-
-                    // The one open run, or none - what every service page reads to say what the network is
-                    // doing and to lock the buttons a second run would be refused on. One row rather than
-                    // the whole list, and registered before `/api/updates/{id}` for the same reason as
-                    // `available` below. A map because `run` must be present as null, not dropped.
-                    cfg.routes.get(
-                            "/api/updates/active",
-                            ctx -> {
-                                final Map<String, Object> answer = new java.util.HashMap<>();
-                                answer.put(
-                                        "run",
-                                        data.updates()
-                                                .open()
-                                                .map(this::describe)
-                                                .orElse(null));
-                                ctx.contentType("application/json").result(ACTIVE_JSON.toJson(answer));
-                            },
-                            Gate.KEY_HELD);
-
-                    // season-2-ops/128: WHAT A RUN WOULD DO, WITHOUT DOING IT. Registered BEFORE
-                    // `/api/updates/{id}` on purpose - Javalin matches in registration order, and the
-                    // other way round `available` is a path parameter that fails as a number.
-                    //
-                    // KEY_HELD and not KEY_FRESH: the worker resolves and writes nothing. Nothing on the
-                    // other side of this route can start a run; asking for one is still POST /api/updates.
-                    // `refresh` is passed on rather than swallowed, and it is the one query parameter
-                    // this route has: with it the worker drops its six-hour cache and asks every source
-                    // again on the thread this call is waiting on, which is why it gets a deadline of its
-                    // own instead of the ten seconds every other pass-through uses.
-                    cfg.routes.get(
-                            "/api/updates/available",
-                            ctx -> {
-                                final boolean again = ctx.queryParam("refresh") != null;
-                                ctx.contentType("application/json")
-                                        .result(
-                                                again
-                                                        ? worker.get("/api/updates/available?refresh", RESOLVE_DEADLINE)
-                                                        : worker.get("/api/updates/available"));
-                            },
-                            Gate.KEY_HELD);
-
-                    cfg.routes.get(
-                            "/api/updates/{id}",
-                            ctx -> {
-                                final long id = Long.parseLong(ctx.pathParam("id"));
-                                ctx.json(data.updates()
-                                        .find(id)
-                                        .map(this::describe)
-                                        .orElseThrow(() -> new NotFoundResponse("no request " + id)));
-                            },
-                            Gate.KEY_HELD);
-
-                    // Asking for an update, a backup or a restart is writing a row - the same row /update
-                    // in Discord writes. Nothing here talks to a container.
-                    cfg.routes.post(
-                            "/api/updates",
-                            ctx -> {
-                                final Ask ask = ctx.bodyAsClass(Ask.class);
-                                if (ask == null || ask.kind == null) {
-                                    throw new BadRequestResponse("kind is UPDATE, BACKUP, RESTART, DOWN or START");
-                                }
-                                final UpdateKind kind;
-                                try {
-                                    kind = UpdateKind.valueOf(ask.kind.trim().toUpperCase(java.util.Locale.ROOT));
-                                } catch (IllegalArgumentException e) {
-                                    throw new BadRequestResponse(ask.kind + " is not a kind of run");
-                                }
-                                // season-2-ops/125. The worker refuses this too, and refuses it properly - but a
-                                // run that fails is a row somebody has to go and read, and this one can be answered
-                                // here with the button still under their finger. An unnamed scope is the whole
-                                // network everywhere else in this mechanism, and DOWN is the one kind where that
-                                // reading would be a network stopped until somebody presses Start.
-                                if (kind == UpdateKind.DOWN && (ask.services == null || ask.services.isEmpty())) {
-                                    throw new BadRequestResponse("a DOWN has to name the services it puts down");
-                                }
-                                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                                // `not_before` is what §10a.4 calls scheduling: the worker refuses to claim the row
-                                // until then, so "tonight at 04:00" is a value in a column rather than somebody
-                                // staying awake.
-                                final Duration delay = ask.delaySeconds == null || ask.delaySeconds <= 0
-                                        ? Duration.ZERO
-                                        : Duration.ofSeconds(ask.delaySeconds);
-                                final UpdateRequest written;
-                                try {
-                                    written = data.updates()
-                                            .submit(
-                                                    kind,
-                                                    UpdateSource.CONSOLE,
-                                                    who.name() + " (" + who.id() + ")",
-                                                    delay,
-                                                    ask.services);
-                                } catch (final RunRefused refused) {
-                                    // One run in the whole network, decided in :common where every source submits.
-                                    throw new ConflictResponse(refusal(refused));
-                                }
-                                log.info(
-                                        "{} asked for {} as request {}{}",
-                                        who.name(),
-                                        kind,
-                                        written.id(),
-                                        ask.services == null || ask.services.isEmpty()
-                                                ? ""
-                                                : " for " + String.join(", ", ask.services));
-                                ctx.status(202).json(describe(written));
-                            },
-                            Gate.KEY_FRESH);
-
-                    // Taking it back (steward/131). The only thing `/update` in Discord could do that this
-                    // interface could not - and the one moment somebody needs it is the one right after
-                    // they notice they pressed the wrong button.
-                    //
-                    // The whole mechanism is one statement in :common: `cancelCountdown` takes the earliest
-                    // row that is PENDING or RUNNING with `not_before` still in the future, which covers
-                    // both the countdown that is running now and the run somebody scheduled for tonight.
-                    // An empty answer is not an error in this process - it means the countdown reached zero
-                    // while the request was in flight, and "too late" is exactly the sentence the admin
-                    // needs instead of a claim that something was stopped.
-                    cfg.routes.post(
-                            "/api/updates/cancel",
-                            ctx -> {
-                                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                                final var cancelled = data.updates()
-                                        .cancelCountdown(
-                                                "Cancelled in Steward by " + who.name() + " (" + who.id() + ")");
-                                if (cancelled.isEmpty()) {
-                                    throw new ConflictResponse("too late - the countdown has already run out");
-                                }
-                                // The actor is the Discord id and never the composed "name (id)":
-                                // `audit_log.actor` is varchar(32) and a display name of eleven characters was
-                                // enough to overflow it once already, taking the write it was recording with it.
-                                data.audit()
-                                        .record(
-                                                "CANCEL_RUN",
-                                                who.id(),
-                                                String.valueOf(cancelled.get().id()),
-                                                null,
-                                                cancelled.get().kind() + " request "
-                                                        + cancelled.get().id() + " cancelled by " + who.name()
-                                                        + " from the web interface");
-                                log.info(
-                                        "{} cancelled {} request {}",
-                                        who.name(),
-                                        cancelled.get().kind(),
-                                        cancelled.get().id());
-                                ctx.json(describe(cancelled.get()));
-                            },
-                            Gate.KEY_FRESH);
-
-                    // --- the thresholds the start page judges by ---------------------------------------
-                    //
-                    // Read from this service's own config rather than kept in the browser, because the
-                    // traffic light has to be able to fire into Discord as well, and a number in
-                    // somebody's localStorage cannot be read by anything that is not that browser.
-                    // --- the five admin commands that stayed in the game (§10b) ------------------------
-                    //
-                    // A row in `command_request`, not a connection to a server: the interface holds none.
-                    // `source = WEB` rather than CONSOLE, because V11 pins a CONSOLE row to having no
-                    // identity at all - every admin command from here would otherwise be anonymous, which
-                    // is the question the journal exists to answer. V18 adds the value and the CHECK.
-                    cfg.routes.get("/api/commands", commands::list, Gate.KEY_HELD);
-                    cfg.routes.post("/api/commands", commands::ask, Gate.KEY_FRESH);
-                    cfg.routes.get("/api/commands/{id}", commands::outcome, Gate.KEY_HELD);
-
-                    // --- the SMP's and the hunger games' actions, on their service pages -------------
-                    //
-                    // The same rows as above, asked for by what they act on rather than by command name.
-                    cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);
-                    cfg.routes.post("/api/smp/objective", games::completeObjective, Gate.KEY_FRESH);
-                    cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH);
-                    cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
-                    cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_FRESH);
-                    cfg.routes.get("/api/announcements", announcements::recent, Gate.KEY_HELD);
-                    cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH);
-
-                    // --- the configuration of every service in the stack ------------------------------
-                    //
-                    // Till's decision, 2026-09-13: every config in the stack is editable from here, with
-                    // labels a person can read. What makes that possible without steward-ui depending on
-                    // six other modules - one of which would drag a Paper API onto a web server's
-                    // classpath - is that jcore writes its comments into the YAML. The file is the model.
-                    cfg.routes.get("/api/config", ctx -> forwardConfig(ctx, "/api/config", null), Gate.KEY_HELD);
-                    cfg.routes.get(
-                            "/api/config/<file>", ctx -> forwardConfig(ctx, configPath(ctx), null), Gate.KEY_HELD);
-                    cfg.routes.put(
-                            "/api/config/<file>",
-                            ctx -> forwardConfig(ctx, configPath(ctx), ctx.body()),
-                            Gate.KEY_FRESH);
-
-                    // The raw editor's own save (steward/60), proxied the same way as the parsed one right
-                    // above it - same gate, same worker, its own path because the body it carries (text and
-                    // a revision, never `changes`) is a different shape than a parsed save's.
-                    cfg.routes.put(
-                            "/api/config-raw/<file>",
-                            ctx -> forwardConfig(ctx, workerPath("/api/config-raw", ctx, "file"), ctx.body()),
-                            Gate.KEY_FRESH);
-
-                    // The message bundles (steward/48) are the same arrangement one path along: the worker
-                    // holds the jars and the file permissions, this side holds the security key. They are
-                    // three routes of their own and not part of /api/config because a bundle is not a YAML
-                    // file - it has two languages, a packaged half nobody may write, and no revision.
-                    //
-                    // The same two gates for the same reason: reading is KEY_HELD, writing is KEY_FRESH.
-                    cfg.routes.get("/api/messages", ctx -> forwardConfig(ctx, "/api/messages", null), Gate.KEY_HELD);
-                    cfg.routes.get(
-                            "/api/messages/<bundle>",
-                            ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"), null),
-                            Gate.KEY_HELD);
-                    cfg.routes.put(
-                            "/api/messages/<bundle>",
-                            ctx -> forwardConfig(ctx, workerPath("/api/messages", ctx, "bundle"), ctx.body()),
-                            Gate.KEY_FRESH);
-                    // What an editor fills each placeholder type with. Answered here, not by the worker:
-                    // the best example player is the admin asking, and only this side knows who that is.
-                    cfg.routes.get("/api/message-examples", this::messageExamples, Gate.KEY_HELD);
-
-                    // The names behind the ids, so the editor above can offer a list instead of a field.
-                    // Never a failure: an unreachable Discord is `available: false` and a typed id.
-                    cfg.routes.get("/api/discord/roles", guild::roles, Gate.KEY_HELD);
-                    cfg.routes.get("/api/discord/channels", guild::channels, Gate.KEY_HELD);
-
-                    cfg.routes.get(
-                            "/api/settings",
-                            ctx -> ctx.json(Map.of(
-                                    "disk", config.alerts().diskPercent(),
-                                    "memory", config.alerts().memoryPercent(),
-                                    "backupAgeHours", config.alerts().backupAgeHours(),
-                                    // steward/45: the base a Minecraft head is composed from, never the image
-                                    // itself - see AvatarSpec's javadoc for why this is configuration and not a
-                                    // column.
-                                    "minecraftHeadBaseUrl", config.avatars().minecraftHeadBaseUrl())),
-                            Gate.KEY_HELD);
-
-                    // --- who is in the guild, what they paid, what they may ----------------------------
-                    cfg.routes.get(
-                            "/api/people", ctx -> ctx.json(data.roster().people(limit(ctx, 500, 2000))), Gate.KEY_HELD);
-
-                    cfg.routes.get(
-                            "/api/people/{id}/grants",
-                            ctx -> ctx.json(data.roster().grantsOf(ctx.pathParam("id"))),
-                            Gate.KEY_HELD);
-
-                    cfg.routes.get(
-                            "/api/payments",
-                            ctx -> ctx.json(data.roster().payments(limit(ctx, 200, 1000))),
-                            Gate.KEY_HELD);
-
-                    // What `access settle` may be pointed at. A list and not a limit: see
-                    // RosterDirectory#openPayments for why, and CommandApi for what draws from it.
-                    cfg.routes.get(
-                            "/api/payments/open", ctx -> ctx.json(data.roster().openPayments()), Gate.KEY_HELD);
-
-                    cfg.routes.get(
-                            "/api/journal",
-                            ctx -> ctx.json(data.audit()
-                                    .search(
-                                            ctx.queryParam("action"),
-                                            ctx.queryParam("subject"),
-                                            limit(ctx, 200, 1000))),
-                            Gate.KEY_HELD);
-
-                    // Granting, revoking, play time, settling and unlinking: each is one access_request
-                    // row the bot carries out, so the role, the DM and the admin note follow from here
-                    // exactly as they do from /access in Discord. AccessApi says why nothing is written
-                    // directly any more.
-                    cfg.routes.post("/api/access/grant", access::grant, Gate.KEY_FRESH);
-                    cfg.routes.post("/api/access/revoke", access::revoke, Gate.KEY_FRESH);
-                    cfg.routes.post("/api/access/unlink", access::unlink, Gate.KEY_FRESH);
-                    cfg.routes.post("/api/access/settle", access::settle, Gate.KEY_FRESH);
-                    cfg.routes.post("/api/people/{id}/playtime", access::playtime, Gate.KEY_FRESH);
-                    cfg.routes.get("/api/access/requests/{id}", access::outcome, Gate.KEY_HELD);
-
-                    // Admin is a tree decided here and nowhere else - AdminApi writes it directly, and the
-                    // bot only makes the Discord role follow.
-                    cfg.routes.post("/api/admins/grant", ctx -> adminApi.grant(ctx), Gate.KEY_FRESH);
-                    cfg.routes.post("/api/admins/revoke", ctx -> adminApi.revoke(ctx), Gate.KEY_FRESH);
-
-                    // --- the season ------------------------------------------------------------------
-                    //
-                    // PhaseDirectory writes its own audit_log row inside the statement that performs the
-                    // change, so nothing is recorded twice here. That is also why the actor has to be
-                    // passed in rather than recorded afterwards - and why it is the Discord id: the
-                    // parameter is documented as one, and the SQL casts it to varchar(32), which
-                    // truncates silently.
-                    cfg.routes.post(
-                            "/api/season/phase",
-                            ctx -> {
-                                final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
-                                if (ask == null || ask.phase == null) {
-                                    throw new BadRequestResponse("phase is which phase to switch to");
-                                }
-                                final SeasonPhase phase;
-                                try {
-                                    phase = SeasonPhase.valueOf(ask.phase.trim().toUpperCase(java.util.Locale.ROOT));
-                                } catch (IllegalArgumentException e) {
-                                    throw new BadRequestResponse(ask.phase + " is not a phase");
-                                }
-                                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                                final var change =
-                                        data.phase().switchPhase(phase, who.id(), ask.reason == null ? "" : ask.reason);
-                                ctx.json(change);
-                            },
-                            Gate.KEY_FRESH);
-
-                    cfg.routes.post(
-                            "/api/season/date",
-                            ctx -> {
-                                final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
-                                if (ask == null) throw new BadRequestResponse("The body is empty.");
-                                // A null `at` is "no date": the state the start page and the MOTD countdown read
-                                // before anything is announced, and the one `/phase ... clear` writes. A blank
-                                // string is not that - it is a field somebody forgot to fill.
-                                final Instant at;
-                                if (ask.at == null) {
-                                    at = null;
-                                } else if (ask.at.isBlank()) {
-                                    throw new BadRequestResponse(
-                                            "at is the instant, as ISO-8601, or null to remove it");
-                                } else {
-                                    try {
-                                        at = Instant.parse(ask.at.trim());
-                                    } catch (java.time.format.DateTimeParseException e) {
-                                        throw new BadRequestResponse(ask.at + " is not an ISO-8601 instant");
-                                    }
-                                }
-                                final DiscordAuth.Account who = account(ctx).orElseThrow();
-                                // PhaseDirectory documents this parameter as the admin's Discord id, and its SQL
-                                // casts it to varchar(32) - an explicit cast, which PostgreSQL TRUNCATES rather
-                                // than refusing. The composed "name (id)" therefore did not fail here; it wrote a
-                                // half-name into the journal and said nothing. The id is what the column means.
-                                final String actor = who.id();
-                                // NOT A TERNARY. An `equals` and an `else` made "smpstart", "launchh" and a
-                                // missing field all mean "launch", so a typo overwrote the wrong one of the two
-                                // dates the whole season hangs off - and answered 200 while doing it.
-                                final var change = switch (ask.which == null ? "" : ask.which.trim()) {
-                                    case "smpStart" -> data.phase().setSmpStart(at, actor);
-                                    case "launch" -> data.phase().setLaunch(at, actor);
-                                    default -> throw new BadRequestResponse("which is smpStart or launch");
-                                };
-                                ctx.json(change);
-                            },
-                            Gate.KEY_FRESH);
-
-                    cfg.routes.get(
-                            "/api/season",
-                            ctx -> {
-                                final Map<String, Object> season = new LinkedHashMap<>();
-                                season.put("phase", data.phase().currentPhase().name());
-                                data.phase().launch().ifPresent(at -> season.put("launch", at.toString()));
-                                data.phase().smpStart().ifPresent(at -> season.put("smpStart", at.toString()));
-                                ctx.json(season);
-                            },
-                            Gate.KEY_HELD);
-
-                    // --- a call to an endpoint that is not there, and these two go LAST ---------------
-                    //
-                    // Javalin takes the first route that matches, so these greedy ones have to come after
-                    // every real one; registered earlier they would swallow the lot.
-                    //
-                    // WHY THEY EXIST AT ALL. The single-page fallback claims every unmatched GET, /api
-                    // included, and it carries no Gate - so a mistyped or retired endpoint came out of
-                    // `gateOf` as a 500 reading "this route was built without a decision", which is a
-                    // sentence about a route nobody ever wrote. It put an ERROR in the log Till reads and
-                    // sent the next person after a fault that was not there. A 404 is the true answer.
-                    //
-                    // ANYONE is right for the same reason 404 is: this hands out no data and reaches no
-                    // database. It says one thing, that there is nothing at this address, and somebody
-                    // who is not signed in may hear that as readily as anybody else.
-                    cfg.routes.get(
-                            "/api/<path>",
-                            ctx -> {
-                                throw new NotFoundResponse("no such endpoint: " + ctx.path());
-                            },
-                            Gate.ANYONE);
-                    cfg.routes.get(
-                            "/auth/<path>",
-                            ctx -> {
-                                throw new NotFoundResponse("no such endpoint: " + ctx.path());
-                            },
-                            Gate.ANYONE);
-
-                    cfg.routes.exception(
-                            SecondFactorMissing.class,
-                            (missing, ctx) -> ctx.status(403)
-                                    .json(Map.of("error", missing.getMessage(), "code", "SECOND_FACTOR_MISSING")));
-
-                    // The refusal the interface RECOVERS FROM rather than reports: it opens the key
-                    // dialog, runs the ceremony and sends the same request again. `retryable` is not
-                    // decoration - it is the difference between "hold your key and this will go through"
-                    // and "hold your key and then find this page again yourself".
-                    cfg.routes.exception(
-                            SecondFactorRequired.class,
-                            (required, ctx) -> ctx.status(403)
-                                    .json(Map.of(
-                                            "error",
-                                            required.getMessage(),
-                                            "code",
-                                            "SECOND_FACTOR_REQUIRED",
-                                            "retryable",
-                                            true)));
-
-                    cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
-                        // The interface has to say which half is down, BY NAME. "steward-worker is not
-                        // answering" and "steward-deployer is not answering" are two different evenings -
-                        // the first is a stack nobody can see, the second is a stack nobody can change -
-                        // and an empty table says neither.
-                        log.warn("{} did not answer: {}", failure.where(), failure.getMessage());
-                        ctx.status(failure.status() == 0 ? 502 : failure.status())
-                                .json(Map.of(
-                                        "error",
-                                        failure.getMessage(),
-                                        "where",
-                                        failure.where(),
-                                        "detail",
-                                        failure.body() == null ? "" : failure.body()));
-                    });
+                    configureFrontend(cfg);
+                    registerAuthCore(cfg);
+                    registerSecondFactorAndKeys(cfg);
+                    registerWebPushRoutes(cfg);
+                    registerServiceRoutes(cfg);
+                    registerPluginRoutes(cfg);
+                    registerDeployerRoutes(cfg);
+                    registerActionsAndBackupRoutes(cfg);
+                    registerLogFollowRoute(cfg);
+                    registerMetricsRoute(cfg);
+                    registerUpdateListRoutes(cfg);
+                    registerUpdateLookupRoutes(cfg);
+                    registerUpdateAskRoute(cfg);
+                    registerUpdateCancelRoute(cfg);
+                    registerCommandAndGameRoutes(cfg);
+                    registerConfigRoutes(cfg);
+                    registerDiscordAndSettingsRoutes(cfg);
+                    registerRosterRoutes(cfg);
+                    registerAccessRoutes(cfg);
+                    registerSeasonPhaseRoute(cfg);
+                    registerSeasonDateRoute(cfg);
+                    registerSeasonSummaryRoute(cfg);
+                    registerFallbackRoutes(cfg);
+                    ErrorHandlers.install(cfg);
                 })
                 .start(port);
 
         if (sessions != null) {
-            // Once at startup and then hourly, on the scheduler that is already here. Not a
-            // second thread pool for one DELETE an hour - and not a cron either, because a sweep
-            // that only runs at 04:00 is a sweep that never runs on a service restarted daily.
-            //
-            // It is housekeeping and nothing depends on it: an expired session is refused by the
-            // lookup itself, whether this has ever run or not. See Sessions#sweep.
-            heartbeats.scheduleWithFixedDelay(this::sweepSessions, 0, SWEEP.toSeconds(), TimeUnit.SECONDS);
+            // Runs on the existing scheduler; an expired session is refused by the lookup regardless.
+            final var _ =
+                    heartbeats.scheduleWithFixedDelay(authFlow::sweepSessions, 0, SWEEP.toSeconds(), TimeUnit.SECONDS);
         }
         if (alertWatch != null) {
-            // Same scheduler as the sweep above, for the same reason: this is one small GET every
-            // 30 seconds, not a workload that earns its own thread pool. See AlertWatch's own class
-            // note for why the first poll never sends anything.
-            heartbeats.scheduleWithFixedDelay(alertWatch::poll, 0, ALERT_POLL.toSeconds(), TimeUnit.SECONDS);
+            // Same scheduler as the sweep above: one small GET, not a workload of its own.
+            final var _ =
+                    heartbeats.scheduleWithFixedDelay(alertWatch::poll, 0, ALERT_POLL.toSeconds(), TimeUnit.SECONDS);
         }
         discord.whatIsMissing()
                 .ifPresent(missing ->
@@ -1202,907 +322,230 @@ public final class StewardUi {
         return app;
     }
 
-    /**
-     * The session cookie, spelled out - because every default anybody might rely on is wrong here.
-     *
-     * <h2>It has to survive the app being closed</h2>
-     * A cookie written without a {@code Max-Age} is a <em>browser session</em> cookie: it lives as
-     * long as the browser does. On a desktop that is a day. Added to an iPhone's home screen,
-     * Steward is its own app with its own cookie jar, and iOS ends that app whenever it wants the
-     * memory - so every second or third opening began at the Discord sign-in, which is four seconds
-     * of redirects to read one number. The cookie carries the same lifetime the row does, and since
-     * {@code V19} the row outlives a restart of this container too. Closing the app is not signing
-     * out and neither is a deployment.
-     *
-     * <h2>SameSite=Lax, said out loud</h2>
-     * The sign-in is a top-level redirect back from discord.com, which Lax allows, and every write
-     * is a {@code POST} from this origin, which Lax also allows. {@code Strict} would break the
-     * first of those - the callback would arrive without the cookie and so without the state, and
-     * every sign-in would fail with "this sign-in did not start in this browser".
-     *
-     * <h2>Secure follows the browser's connection, which Caddy has to tell us about</h2>
-     * Jetty's {@code setSecureRequestOnly} asked the socket, and the socket behind a reverse proxy
-     * is plain HTTP on an internal network - so in this deployment the flag never appeared at all.
-     * {@code X-Forwarded-Proto} is what Caddy's {@code reverse_proxy} sets by default and is the
-     * only thing in the request that knows how the browser actually connected.
-     *
-     * <p><b>Trusting a header sounds worse than it is, in this one direction.</b> The header can
-     * only ever turn the flag <em>on</em>, and a cookie marked {@code Secure} is a cookie the
-     * browser is more careful with, never less. A forged one costs its forger their own session and
-     * nothing else. Leaving it out gives exactly the old behaviour.
-     *
-     * <p>The alternative that was tried and rejected: deriving it from {@link UiSpec#publicUrl()},
-     * which cannot be spoofed at all. It marks the cookie {@code Secure} on a deployment whose
-     * public address is https - including for anybody reaching port 8080 directly over plain HTTP,
-     * who then gets a cookie the browser will not send back and a sign-in that never finishes and
-     * never says why. That is the test fixture, a developer on 127.0.0.1, and anybody debugging
-     * this container from inside the network.
-     */
-    private void setSessionCookie(final Context ctx, final String id) {
-        final Cookie cookie = new Cookie(
-                Sessions.COOKIE, id, "/", (int) lifetime().toSeconds(), overTls(ctx), true, null, SameSite.LAX);
-        ctx.cookie(cookie);
+    private void configureFrontend(final JavalinConfig cfg) {
+        cfg.jsonMapper(new JavalinGson(new Gson(), true));
+        cfg.startup.showJavalinBanner = false;
+
+        // The built frontend, out of the jar. `/web` is where Gradle's vite build lands.
+        cfg.staticFiles.add(staticFiles -> {
+            staticFiles.hostedPath = "/";
+            staticFiles.directory = "/web";
+            staticFiles.location = Location.CLASSPATH;
+            // Static files bypass cfg.routes, so `guard` cannot read a Gate off them; set here instead.
+            staticFiles.roles = Set.of(Gate.ANYONE);
+        });
+        // Unmatched paths fall through to index.html so the client-side router can own them.
+        cfg.spaRoot.addFile("/", "/web/index.html", Location.CLASSPATH);
+
+        // The only hook that sees both static files and the single-page fallback.
+        cfg.routes.after(Gatekeeper::cacheHeaders);
     }
 
-    private static boolean overTls(final Context ctx) {
-        // The header may carry a list when there is more than one proxy; the first entry is the
-        // browser's own hop, which is the one this is about.
-        final String forwarded = ctx.header("X-Forwarded-Proto");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim().equalsIgnoreCase("https");
-        }
-        return "https".equalsIgnoreCase(ctx.scheme());
+    private void registerAuthCore(final JavalinConfig cfg) {
+        cfg.routes.get("/api/health", workerProxy::health, Gate.ANYONE);
+        // `guard` reads `ctx.routeRoles()` per HTTP method, so HEAD needs its own registration too.
+        cfg.routes.head("/api/health", workerProxy::health, Gate.ANYONE);
+
+        cfg.routes.get("/api/me", profile::whoAmI, Gate.ANYONE);
+
+        // Runs in front of every matched endpoint and asks it what it requires; see Gate.
+        cfg.routes.beforeMatched(gatekeeper::guard);
+
+        cfg.routes.get("/auth/login", authFlow::login, Gate.ANYONE);
+        cfg.routes.get("/auth/callback", authFlow::callback, Gate.ANYONE);
+        cfg.routes.post(
+                "/auth/logout",
+                ctx -> {
+                    // SameSite=Lax still allows a top-level POST, so the CSRF token check applies here too.
+                    sessions().end(ctx.cookie(Sessions.COOKIE));
+                    ctx.removeCookie(Sessions.COOKIE, "/");
+                    ctx.status(204);
+                },
+                Gate.SIGNED_IN);
     }
 
-    private Duration lifetime() {
-        return Duration.ofDays(config.sessionDays());
+    private void registerSecondFactorAndKeys(final JavalinConfig cfg) {
+        // A door cannot ask for the key it exists to hand out.
+        cfg.routes.post("/auth/webauthn/register/start", secondFactor::beginRegistration, Gate.SIGNED_IN);
+        cfg.routes.post("/auth/webauthn/register/finish", secondFactor::finishRegistration, Gate.SIGNED_IN);
+        cfg.routes.post("/auth/webauthn/authenticate/start", secondFactor::beginAssertion, Gate.SIGNED_IN);
+        cfg.routes.post("/auth/webauthn/authenticate/finish", secondFactor::finishAssertion, Gate.SIGNED_IN);
+
+        // The key list itself is part of /api/me, not a route of its own.
+        cfg.routes.put("/api/keys/{id}", secondFactor::renameKey, Gate.KEY_FRESH);
+        cfg.routes.delete("/api/keys/{id}", secondFactor::removeKey, Gate.KEY_FRESH);
     }
 
-    /**
-     * The hourly sweep, with its failure swallowed on purpose.
-     *
-     * <p>{@code scheduleWithFixedDelay} cancels the schedule for good the first time the task
-     * throws - silently, because nothing reads the future. A database that is briefly away during
-     * a deployment would therefore stop the sweep for the lifetime of the process, and the only
-     * symptom would be a table quietly growing. Catching here keeps the schedule alive and says
-     * what happened once per hour rather than never.</p>
-     */
-    private void sweepSessions() {
-        try {
-            sessions.sweep();
-        } catch (RuntimeException e) {
-            log.warn("could not sweep expired sessions - trying again in {}: {}", SWEEP, e.toString());
-        }
+    private void registerWebPushRoutes(final JavalinConfig cfg) {
+        cfg.routes.get("/api/web-push/public-key", push::publicKey, Gate.KEY_HELD);
+        cfg.routes.post("/api/web-push/subscribe", push::subscribe, Gate.KEY_FRESH);
+        cfg.routes.delete("/api/web-push/subscribe", push::unsubscribe, Gate.KEY_FRESH);
+
+        // A test send is a write: it reaches out to a push service in somebody's name.
+        cfg.routes.get("/api/web-push/devices", push::devices, Gate.KEY_HELD);
+        cfg.routes.get("/api/web-push/preferences", push::preferences, Gate.KEY_HELD);
+        cfg.routes.put("/api/web-push/preferences", push::setPreference, Gate.KEY_FRESH);
+        cfg.routes.post("/api/web-push/test", push::test, Gate.KEY_FRESH);
     }
 
-    // --- sign-in ---------------------------------------------------------------------------
-
-    private void login(final Context ctx) {
-        final Optional<String> missing = discord.whatIsMissing();
-        if (missing.isPresent()) {
-            ctx.status(503).json(Map.of("error", "sign-in is not configured: " + missing.get()));
-            return;
-        }
-        // A one-time value tied to this browser's session. Discord hands it back, and a callback
-        // that carries anything else is somebody else's callback.
-        final String state = random();
-        setSessionCookie(ctx, sessions.begin(state));
-        ctx.redirect(discord.authorizeUrl(state).toString());
+    private void registerServiceRoutes(final JavalinConfig cfg) {
+        cfg.routes.get("/api/services", workerProxy::services, Gate.KEY_HELD);
+        cfg.routes.get("/api/services/{name}", workerProxy::service, Gate.KEY_HELD);
+        cfg.routes.post("/api/services/{name}/console", workerProxy::console, Gate.KEY_FRESH);
     }
 
-    private void callback(final Context ctx) {
-        final String started = ctx.cookie(Sessions.COOKIE);
-        // Read once and cleared in the same statement, so a replayed callback matches nothing.
-        final Optional<String> expected = sessions.consumeState(started);
-        final String state = ctx.queryParam("state");
-        if (expected.isEmpty() || !expected.get().equals(state)) {
-            ctx.status(400)
-                    .json(Map.of("error", "this sign-in did not start in this browser - try again from the start"));
-            return;
-        }
-        final String code = ctx.queryParam("code");
-        if (code == null || code.isBlank()) {
-            ctx.status(400).json(Map.of("error", "Discord sent no code"));
-            return;
-        }
-        final DiscordAuth.Outcome outcome = discord.signIn(code);
-        if (!outcome.ok()) {
-            ctx.status(403).json(Map.of("error", outcome.refusal()));
-            return;
-        }
-        // Discord has said who this is and that they are in the guild. Whether they may in is the
-        // admin tree's answer - with the one bootstrap there is: into a tree with nobody in it, the
-        // first sign-in walks in as its root. Deliberately a race; see AdminTree.
-        final String signingIn = outcome.account().id();
-        if (admins == null || !(admins.isAdmin(signingIn) || claimRoot(outcome.account()))) {
-            log.info("refused {} ({}): not an admin", outcome.account().name(), signingIn);
-            ctx.status(403).json(Map.of("error", outcome.account().name() + " is in the guild but is not an admin"));
-            return;
-        }
-        // A NEW ROW WITH A NEW ID, and the one the sign-in started in is dropped. The row that
-        // held the OAuth state is not promoted into a signed-in session, because its id was in
-        // this browser before anybody proved who they were - which is session fixation, and the
-        // cheapest place to make it impossible is here. See Sessions' class note.
-        final DiscordAuth.Account who = outcome.account();
-        final String id = sessions.signIn(who.id(), who.name(), who.roles());
-        sessions.end(started);
-        setSessionCookie(ctx, id);
-        ctx.redirect("/");
+    private void registerPluginRoutes(final JavalinConfig cfg) {
+        // Not the door an update goes through: installing writes a row the next run picks up.
+        cfg.routes.get("/api/services/{name}/plugins", workerProxy::plugins, Gate.KEY_HELD);
+        cfg.routes.get("/api/services/{name}/plugins/search", workerProxy::pluginSearch, Gate.KEY_HELD);
+        cfg.routes.post("/api/services/{name}/plugins", workerProxy::installPlugin, Gate.KEY_FRESH);
+        cfg.routes.delete("/api/services/{name}/plugins/{artifact}", workerProxy::removePlugin, Gate.KEY_FRESH);
     }
 
-    /** The bootstrap: true when this sign-in just became the root of an empty admin tree. */
-    private boolean claimRoot(final DiscordAuth.Account who) {
-        if (!admins.claimRootIfNobody(who.id())) {
-            return false;
-        }
-        log.warn(
-                "{} ({}) signed in while nobody was an admin and is now the root of the admin tree",
-                who.name(),
-                who.id());
-        data.audit().record("ADMIN_ROOT", who.id(), who.id(), null, "first sign-in while nobody was an admin");
-        return true;
+    private void registerDeployerRoutes(final JavalinConfig cfg) {
+        // Not the update door either: this recreates one container, and only the deployer may.
+        cfg.routes.get("/api/deployer", deployments::state, Gate.KEY_HELD);
+        cfg.routes.get("/api/deployer/services", deployments::services, Gate.KEY_HELD);
+        cfg.routes.post("/api/deployer/recreate/{service}", deployments::recreate, Gate.KEY_FRESH);
+        cfg.routes.get("/api/deployer/jobs", deployments::jobs, Gate.KEY_HELD);
+        cfg.routes.get("/api/deployer/jobs/{id}", deployments::job, Gate.KEY_HELD);
     }
 
-    // --- the second factor -------------------------------------------------------------------
+    private void registerActionsAndBackupRoutes(final JavalinConfig cfg) {
+        cfg.routes.get("/api/actions", workerProxy::actions, Gate.KEY_HELD);
+        cfg.routes.get("/api/host", workerProxy::host, Gate.KEY_HELD);
+        cfg.routes.get("/api/schedule", workerProxy::schedule, Gate.KEY_HELD);
+        cfg.routes.get("/api/backups", workerProxy::backups, Gate.KEY_HELD);
 
-    /**
-     * The one door, in front of every matched endpoint.
-     *
-     * <h2>It reads the decision off the route rather than off the path</h2>
-     * {@link Gate} is a {@code RouteRole} carried in the same line that registers the handler, and
-     * this reads it back out. A route with no value is a programming error and is refused with a
-     * 500 that names it - not with a pass, which is the failure this whole arrangement exists to
-     * make impossible. {@code GateTest} catches it at build time; this catches the case where
-     * somebody added a route after the test was last taught to look.
-     *
-     * <h2>The order is the point, and it is the order a person experiences</h2>
-     * Who are you, then have you a key at all, then have you held it here, then have you held it
-     * recently. Asking about the CSRF token before the session is what made a quietly expired
-     * session report itself as a cross-site request - true of nothing that happened.
-     */
-    private void guard(final Context ctx) {
-        final Gate gate = gateOf(ctx);
-        if (gate == Gate.ANYONE) {
-            return;
-        }
-        final Sessions.Session who = session(ctx).orElseThrow(() -> new UnauthorizedResponse("sign in first"));
-        if (isWrite(ctx)) {
-            requireCsrfToken(ctx);
-        }
-        if (gate == Gate.SIGNED_IN) {
-            return;
-        }
-        requireAKey(who);
-        requireKeyHeld(who);
-        if (gate == Gate.KEY_FRESH) {
-            requireKeyRecently(who);
-        }
+        // Reading a backup off the disk is a read, like watching its log.
+        cfg.routes.get(
+                "/api/backups/{name}/download",
+                ctx -> workerProxy.downloadBackup(ctx, ctx.pathParam("name")),
+                Gate.KEY_HELD);
     }
 
-    /**
-     * The one decision this route carries.
-     *
-     * <p>Exactly one. Two would be a route whose requirement depends on which the reader noticed
-     * first, and none is a route nobody decided about - both are refused here rather than
-     * interpreted, because every interpretation of "no decision" is somebody's guess.</p>
-     */
-    private static Gate gateOf(final Context ctx) {
-        final List<Gate> decided = ctx.routeRoles().stream()
-                .filter(Gate.class::isInstance)
-                .map(Gate.class::cast)
-                .toList();
-        if (decided.size() == 1) {
-            return decided.getFirst();
-        }
-        if (decided.isEmpty() && !isOurs(ctx.path())) {
-            return Gate.ANYONE;
-        }
-        log.error(
-                "{} {} carries {} of Steward's own route decisions and has to carry exactly"
-                        + " one - refusing it rather than guessing.",
-                ctx.method(),
-                ctx.path(),
-                decided.size());
-        throw new UndecidedRoute();
+    private void registerLogFollowRoute(final JavalinConfig cfg) {
+        cfg.routes.sse("/api/services/{name}/logs", logFollow::serve, Gate.KEY_HELD);
     }
 
-    /**
-     * The two prefixes every endpoint this service registers lives under.
-     *
-     * <p>Everything else that reaches {@code guard} is the frontend bundle - a static file out of
-     * the jar, or the single-page fallback for a path the client-side router owns. Neither can
-     * carry a {@link Gate}: static files are registered through {@code cfg.staticFiles} (which
-     * does have a roles field, and has one set) and the fallback through {@code cfg.spaRoot}
-     * (which has none, checked against javalin 7.2.3). So the decision for them is made here,
-     * once, in the open: <b>ANYONE</b>, the same answer {@code /auth/login} gives, because
-     * whoever cannot sign in yet has to be able to read the page that offers it. The bundle holds
-     * no data - every byte it shows arrives later through /api, and those doors are shut.</p>
-     *
-     * <p><b>This is not the guess {@link UndecidedRoute} refuses.</b> That refusal protects an
-     * endpoint somebody registered and forgot to decide about, and it still does: a new route
-     * under either prefix without a Gate is a 500 on its first call, loudly. What makes the rest
-     * safe is that the premise is tested rather than believed -
-     * {@code GateTest#everyEndpointLivesUnderOneOfTheTwoPrefixes} reads the real routing table
-     * and fails the build the day somebody registers {@code /webhooks/bunq}. On that day this
-     * method is what has to change, and the test says so by name.</p>
-     */
-    private static boolean isOurs(final String path) {
-        return path.startsWith("/api/") || path.startsWith("/auth/") || path.equals("/api") || path.equals("/auth");
+    private void registerMetricsRoute(final JavalinConfig cfg) {
+        cfg.routes.get("/api/metrics", metrics::range, Gate.KEY_HELD);
     }
 
-    /**
-     * The two cache rules the frontend bundle needs, and why they are opposite (steward/79).
-     *
-     * <p>Vite names every file under {@code /assets} after a hash of its own content, so the same
-     * name can never point at different bytes between one build and the next - which is exactly
-     * what {@code max-age=31536000, immutable} promises a cache. {@code index.html} is the one file
-     * whose name never changes while its content does, on every redeploy, so it needs the opposite
-     * promise: {@code no-cache}, not {@code max-age=0}. The two look similar and are not - a cache
-     * with no reachable network is still allowed to answer a plain {@code max-age=0} with what it
-     * already has, offline; {@code no-cache} makes the revalidation mandatory. A cold start on an
-     * iPhone that has just woken up is exactly the "cache with no reachable network yet" case, and
-     * the document this served offline is what pointed at bundle names an intervening redeploy had
-     * already deleted - a page that never ran and never would.</p>
-     *
-     * <p>Runs on every request, after it has been answered - static file, single-page fallback, or
-     * a route - because neither the static bundle nor the SPA fallback has a place of its own to
-     * set a header from (see {@code staticFiles.roles} above, which exists for the same reason).
-     * {@code isOurs} excludes {@code /api} and {@code /auth} so this never touches a header one of
-     * this service's own handlers set on purpose.</p>
-     */
-    private static void cacheHeaders(final Context ctx) {
-        if (isOurs(ctx.path())) {
-            return;
-        }
-        ctx.header("Cache-Control", ctx.path().startsWith("/assets/") ? "max-age=31536000, immutable" : "no-cache");
+    private void registerUpdateListRoutes(final JavalinConfig cfg) {
+        cfg.routes.get("/api/updates", updates::list, Gate.KEY_HELD);
+        cfg.routes.get("/api/updates/active", updates::active, Gate.KEY_HELD);
     }
 
-    /**
-     * A route registered without a {@link Gate}, refused at the door.
-     *
-     * <p>It is a 500 and not a 403, because nothing the person in front of the browser did is
-     * wrong: this service was built with a route nobody decided about. The sentence says so.</p>
-     */
-    private static final class UndecidedRoute extends InternalServerErrorResponse {
-
-        private UndecidedRoute() {
-            super("This route was built without a decision about whether it needs a security key,"
-                    + " so Steward is refusing it rather than guessing. That is a fault in this"
-                    + " service and not in what you did.");
-        }
+    private void registerUpdateLookupRoutes(final JavalinConfig cfg) {
+        // Before /api/updates/{id}: Javalin matches in registration order, and {id} takes a number.
+        cfg.routes.get("/api/updates/available", updates::available, Gate.KEY_HELD);
+        cfg.routes.get("/api/updates/{id}", updates::lookup, Gate.KEY_HELD);
     }
 
-    /**
-     * The door in front of everything this interface can do.
-     *
-     * <p>An account with no registered key reaches {@code /api/me} and nothing else. That is what
-     * "the first sign-in forces the setup" means on this end: there is no page to fall back to and
-     * no call that quietly still works, so the interface has exactly one thing it can draw.</p>
-     *
-     * <p><b>It answers 403 with a code rather than 401.</b> 401 is what the shell turns into the
-     * sign-in page, and sending somebody back to Discord would be sending them round a loop they
-     * have already completed - they ARE signed in; they are one ceremony short of being allowed
-     * in. The code is machine-readable because the browser has to tell this apart from an ordinary
-     * refusal without reading a sentence.</p>
-     */
-    private void requireAKey(final Sessions.Session who) {
-        if (credentials == null || credentials.any(who.discordId())) {
-            return;
-        }
-        throw new SecondFactorMissing();
+    private void registerUpdateAskRoute(final JavalinConfig cfg) {
+        cfg.routes.post("/api/updates", updates::ask, Gate.KEY_FRESH);
     }
 
-    /**
-     * Package C: the key has to have been held in <em>this</em> session, not merely registered.
-     *
-     * <p>This is the sentence "Discord alone is not enough" in code. Before it, a browser that had
-     * completed the Discord redirect saw everything this service can show, for thirty days; the key
-     * was asked for once, when it was created, and never again. A stolen cookie was a month of
-     * being able to stop a Minecraft server.</p>
-     *
-     * <p>It refuses with {@link SecondFactorRequired}, the same refusal the step-up uses, and that
-     * is deliberate: the interface recovers from both the same way - run the ceremony, send the
-     * request again. The full-page version of it is drawn from {@code /api/me}, which says
-     * {@code verified: false} before anything else has been called.</p>
-     */
-    private void requireKeyHeld(final Sessions.Session who) {
-        if (who.verified()) {
-            return;
-        }
-        throw new SecondFactorRequired("This sign-in has not used its security key yet.");
+    private void registerUpdateCancelRoute(final JavalinConfig cfg) {
+        cfg.routes.post("/api/updates/cancel", updates::cancel, Gate.KEY_FRESH);
     }
 
-    /**
-     * Package D: held within the last five minutes.
-     *
-     * <p>Till's number, 2026-09-14, and the reason for a number at all rather than "every time" is
-     * on the screen of anybody who has ever configured four services in a row. One touch covers
-     * everything done inside the window; the window does not slide, so it is five minutes from the
-     * ceremony and not five minutes from the last click.</p>
-     *
-     * <p><b>Not sliding is the decision.</b> A window that renewed itself on every request would be
-     * indistinguishable from no window at all for anybody working continuously - which is exactly
-     * the person whose browser is most worth stealing.</p>
-     */
-    private void requireKeyRecently(final Sessions.Session who) {
-        final Instant held = who.verifiedAt();
-        if (held != null && held.isAfter(Instant.now().minus(STEP_UP))) {
-            return;
-        }
-        throw new SecondFactorRequired("This is one of the things Steward asks for the key before"
-                + " doing, and it has not been held in the last "
-                + STEP_UP.toMinutes() + " minutes.");
+    private void registerCommandAndGameRoutes(final JavalinConfig cfg) {
+        // A row in command_request, not a connection to a server: the interface holds none.
+        cfg.routes.get("/api/commands", commands::list, Gate.KEY_HELD);
+        cfg.routes.post("/api/commands", commands::ask, Gate.KEY_FRESH);
+        cfg.routes.get("/api/commands/{id}", commands::outcome, Gate.KEY_HELD);
+
+        // The same rows as above, asked for by what they act on rather than by command name.
+        cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);
+        cfg.routes.post("/api/smp/objective", games::completeObjective, Gate.KEY_FRESH);
+        cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH);
+        cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
+        cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_FRESH);
+        cfg.routes.get("/api/announcements", announcements::recent, Gate.KEY_HELD);
+        cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH);
     }
 
-    /**
-     * The refusal the interface recovers from: hold the key, then send the same request again.
-     *
-     * <p>Its own type and its own code, {@code SECOND_FACTOR_REQUIRED}, told apart from
-     * {@link SecondFactorMissing} because the two need different pages: one account has no key at
-     * all and has to register one, the other has a key and has to hold it. Answering both with the
-     * same code would send somebody with a key to the setup page - and the setup page for an
-     * account that already has a key is a page that refuses.</p>
-     */
-    private static final class SecondFactorRequired extends RuntimeException {
-
-        private SecondFactorRequired(final String message) {
-            super(message);
-        }
+    private void registerConfigRoutes(final JavalinConfig cfg) {
+        cfg.routes.get("/api/config", workerProxy::configRoot, Gate.KEY_HELD);
+        cfg.routes.get("/api/config/<file>", workerProxy::configFile, Gate.KEY_HELD);
+        cfg.routes.put("/api/config/<file>", workerProxy::saveConfigFile, Gate.KEY_FRESH);
+        cfg.routes.put("/api/config-raw/<file>", workerProxy::saveConfigRaw, Gate.KEY_FRESH);
+        cfg.routes.get("/api/messages", workerProxy::messagesRoot, Gate.KEY_HELD);
+        cfg.routes.get("/api/messages/<bundle>", workerProxy::messageBundle, Gate.KEY_HELD);
+        cfg.routes.put("/api/messages/<bundle>", workerProxy::saveMessageBundle, Gate.KEY_FRESH);
+        // Only this side knows which admin is asking, so the example values are answered here.
+        cfg.routes.get("/api/message-examples", profile::messageExamples, Gate.KEY_HELD);
     }
 
-    /**
-     * The one shape of 403 the interface recovers from rather than reports.
-     *
-     * <p>Its own type, so that it can be answered with this service's own body - {@code error} and
-     * {@code code}, the shape everything else here uses - instead of Javalin's {@code title} /
-     * {@code details} envelope. The browser has to tell this apart from an ordinary refusal without
-     * reading English.</p>
-     */
-    private static final class SecondFactorMissing extends RuntimeException {
-
-        private SecondFactorMissing() {
-            super("This account has no security key yet, and Steward cannot be used without one."
-                    + " Register a key and this request will work.");
-        }
+    private void registerDiscordAndSettingsRoutes(final JavalinConfig cfg) {
+        // An unreachable Discord answers available: false and a typed id, never a failure.
+        cfg.routes.get("/api/discord/roles", guild::roles, Gate.KEY_HELD);
+        cfg.routes.get("/api/discord/channels", guild::channels, Gate.KEY_HELD);
+        cfg.routes.get("/api/settings", settings::get, Gate.KEY_HELD);
     }
 
-    /**
-     * Hands this browser a registration challenge.
-     *
-     * <h2>The first key is different from every one after it</h2>
-     * The first is reachable with a Discord session alone, because there is nothing else to reach
-     * it with - that is the bootstrap, and its window is exactly as long as the time between
-     * deploying this and signing in once (see the plan's open risks). Every further key requires
-     * that this session has already held one: adding a second authenticator is exactly as powerful
-     * as having the first, so a stolen cookie must not be able to do it.
-     */
+    private void registerRosterRoutes(final JavalinConfig cfg) {
+        cfg.routes.get("/api/people", roster::people, Gate.KEY_HELD);
+        cfg.routes.get("/api/people/{id}/grants", roster::grants, Gate.KEY_HELD);
+        cfg.routes.get("/api/payments", roster::payments, Gate.KEY_HELD);
+        cfg.routes.get("/api/payments/open", roster::openPayments, Gate.KEY_HELD);
+        cfg.routes.get("/api/journal", roster::journal, Gate.KEY_HELD);
+    }
+
+    private void registerAccessRoutes(final JavalinConfig cfg) {
+        // Each of these is one access_request row the bot carries out; see AccessApi.
+        cfg.routes.post("/api/access/grant", access::grant, Gate.KEY_FRESH);
+        cfg.routes.post("/api/access/revoke", access::revoke, Gate.KEY_FRESH);
+        cfg.routes.post("/api/access/unlink", access::unlink, Gate.KEY_FRESH);
+        cfg.routes.post("/api/access/settle", access::settle, Gate.KEY_FRESH);
+        cfg.routes.post("/api/people/{id}/playtime", access::playtime, Gate.KEY_FRESH);
+        cfg.routes.get("/api/access/requests/{id}", access::outcome, Gate.KEY_HELD);
+
+        // Admin is decided here, not by the bot: AdminApi writes it directly.
+        cfg.routes.post("/api/admins/grant", ctx -> adminApi().grant(ctx), Gate.KEY_FRESH);
+        cfg.routes.post("/api/admins/revoke", ctx -> adminApi().revoke(ctx), Gate.KEY_FRESH);
+    }
+
+    private void registerSeasonPhaseRoute(final JavalinConfig cfg) {
+        cfg.routes.post("/api/season/phase", season::phase, Gate.KEY_FRESH);
+    }
+
+    private void registerSeasonDateRoute(final JavalinConfig cfg) {
+        cfg.routes.post("/api/season/date", season::date, Gate.KEY_FRESH);
+    }
+
+    private void registerSeasonSummaryRoute(final JavalinConfig cfg) {
+        cfg.routes.get("/api/season", season::summary, Gate.KEY_HELD);
+    }
+
+    private void registerFallbackRoutes(final JavalinConfig cfg) {
+        // Registered last and greedy: without them an unmatched call falls through as a 500, not a 404.
+        cfg.routes.get(
+                "/api/<path>",
+                ctx -> {
+                    throw new NotFoundResponse("no such endpoint: " + ctx.path());
+                },
+                Gate.ANYONE);
+        cfg.routes.get(
+                "/auth/<path>",
+                ctx -> {
+                    throw new NotFoundResponse("no such endpoint: " + ctx.path());
+                },
+                Gate.ANYONE);
+    }
+
     /** Who is asking, or the answer the filter would have given. */
     private Sessions.Session requireSession(final Context ctx) {
         return session(ctx).orElseThrow(() -> new UnauthorizedResponse("sign in first"));
-    }
-
-    private void beginRegistration(final Context ctx) {
-        // The session and the CSRF token are `guard`'s now, in that order and for that reason -
-        // asking about the token first answers a browser whose session has quietly expired with a
-        // sentence about cross-site requests, which is true of nothing that happened. What is left
-        // here is the one condition that is about the ACCOUNT rather than the route.
-        final Sessions.Session who = requireSession(ctx);
-        if (credentials.any(who.discordId()) && !who.verified()) {
-            throw new ForbiddenResponse("This account already has a key, so adding another one"
-                    + " needs the key you already have. Sign in again and use it first.");
-        }
-        final WebAuthn.Ceremony ceremony = webauthn.startRegistration(who.discordId(), who.displayName());
-        sessions.startCeremony(who.id(), ceremony.parked());
-        // The library's own JSON, straight through. Nothing on this side parses it and Gson never
-        // sees it - see WebAuthn's class note on why that boundary is one class wide.
-        ctx.contentType("application/json").result(ceremony.forBrowser());
-    }
-
-    /**
-     * Takes the browser's answer, verifies it and writes the key down.
-     *
-     * <h2>Why the credential arrives as a string inside the body</h2>
-     * The envelope is this service's own JSON and Gson parses it. The credential inside it is the
-     * library's JSON and only the library may parse it - so it travels as a {@code String} field
-     * rather than as a nested object. Handing the nested object to Gson and then re-serialising it
-     * for Jackson is the same data through two mappers, and the fields the two disagree about are
-     * precisely the optional ones that differ between brands of authenticator.
-     */
-    private void finishRegistration(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        final Answer answer = ctx.bodyAsClass(Answer.class);
-        if (answer == null || answer.credential == null || answer.credential.isBlank()) {
-            throw new BadRequestResponse("no credential in that answer");
-        }
-        final String label = answer.label == null ? "" : answer.label.trim();
-        if (label.isEmpty() || label.length() > 64) {
-            throw new BadRequestResponse(
-                    "a key needs a name of 1 to 64 characters, so that it can" + " be told apart from the next one");
-        }
-        final String parked = sessions.consumeCeremony(who.id())
-                .orElseThrow(() -> new BadRequestResponse("that registration was not started in this browser,"
-                        + " or it was already finished, or it sat unanswered for ten minutes -"
-                        + " start it again"));
-
-        final WebAuthn.Registered key;
-        try {
-            key = webauthn.finishRegistration(parked, answer.credential, label, who.discordId());
-        } catch (WebAuthn.Refused refused) {
-            ctx.status(400).json(Map.of("error", refused.getMessage()));
-            return;
-        }
-        // Registering a key IS holding it - the ceremony that just passed is the same proof an
-        // authentication would be. Marking the session verified here is what lets somebody set a
-        // key up and carry straight on, rather than being asked for it again one second later.
-        sessions.markVerified(who.id());
-        // The journal, in the same shape as GRANT_ACCESS beside it: the actor is the Discord id
-        // and never the composed "name (id)", because `audit_log.actor` is varchar(32) and the
-        // composed form silently truncated for any display name of eleven characters or more.
-        data.audit()
-                .record(
-                        "REGISTER_KEY",
-                        who.discordId(),
-                        who.discordId(),
-                        null,
-                        "registered the security key \"" + key.label() + "\"");
-        ctx.json(Map.of("label", key.label(), "userVerified", key.userVerified(), "backedUp", key.backedUp()));
-    }
-
-    /** The body of {@code /auth/webauthn/register/finish}. See the method's note on the string. */
-    private static final class Answer {
-        private String label;
-        private String credential;
-    }
-
-    /**
-     * Hands this browser a challenge for a key it already has.
-     *
-     * <p>The account's own keys are the only ones allowed to answer - {@link WebAuthn} builds that
-     * list out of the repository, so nothing here passes it and nothing here can widen it.</p>
-     *
-     * <p><b>An account with no key is refused here rather than offered an empty dialog.</b> That
-     * is the setup page's job, and a browser that reaches this route without a key has got itself
-     * into a state the shell does not draw - so the sentence points at the way out rather than at
-     * the fault.</p>
-     */
-    private void beginAssertion(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        final WebAuthn.Ceremony ceremony;
-        try {
-            ceremony = webauthn.startAssertion(who.discordId());
-        } catch (WebAuthn.Refused refused) {
-            throw new SecondFactorMissing();
-        }
-        sessions.startCeremony(who.id(), ceremony.parked());
-        ctx.contentType("application/json").result(ceremony.forBrowser());
-    }
-
-    /**
-     * Takes the answer, verifies it, and stamps this session as one that has held its key.
-     *
-     * <p>{@code verified_at = now()} is the whole product of this route. Everything that reads it -
-     * the door in front of every page (package C) and the five-minute window in front of every
-     * write (package D) - reads that one column, which is why it is a column and not a field on an
-     * object in this process's heap: a restart of this container must not be a way to be asked
-     * less.</p>
-     *
-     * <p>The journal gets a row, and it is worth the row: "this browser held a key at 21:14" is the
-     * only record that a person and not a cookie was here, and it is the record somebody will want
-     * on the evening they are asking whether a session was stolen.</p>
-     */
-    private void finishAssertion(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        final Answer answer = ctx.bodyAsClass(Answer.class);
-        if (answer == null || answer.credential == null || answer.credential.isBlank()) {
-            throw new BadRequestResponse("no credential in that answer");
-        }
-        final String parked = sessions.consumeCeremony(who.id())
-                .orElseThrow(() -> new BadRequestResponse("that sign-in was not started in this browser, or it"
-                        + " was already finished, or it sat unanswered for ten minutes - start it"
-                        + " again"));
-        final WebAuthn.Held held;
-        try {
-            held = webauthn.finishAssertion(parked, answer.credential, who.discordId());
-        } catch (WebAuthn.Refused refused) {
-            ctx.status(400).json(Map.of("error", refused.getMessage()));
-            return;
-        }
-        sessions.markVerified(who.id());
-        data.audit()
-                .record(
-                        "HELD_KEY",
-                        who.discordId(),
-                        who.discordId(),
-                        null,
-                        "held the security key \"" + held.label() + "\""
-                                + (held.userVerified() ? " and unlocked it" : ""));
-        ctx.json(Map.of("label", held.label(), "userVerified", held.userVerified()));
-    }
-
-    /**
-     * The credential id out of the path, or a 400 that says what it should have been.
-     *
-     * <p>It is base64url in the URL because that is how it left this service in {@code /api/me},
-     * and what goes out is what comes back. A value that is not base64url at all is somebody
-     * typing, not the interface calling.</p>
-     */
-    private static ByteArray keyIdOf(final Context ctx) {
-        try {
-            return ByteArray.fromBase64Url(ctx.pathParam("id"));
-        } catch (Base64UrlException malformed) {
-            throw new BadRequestResponse(
-                    "that is not the id of a key - the list in /api/me is" + " where those come from");
-        }
-    }
-
-    /** {@code PUT /api/keys/{id}} - what this key is called, so two can be told apart. */
-    private void renameKey(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        final Answer body = ctx.bodyAsClass(Answer.class);
-        final String label = body == null || body.label == null ? "" : body.label.trim();
-        if (label.isEmpty() || label.length() > 64) {
-            throw new BadRequestResponse(
-                    "a key needs a name of 1 to 64 characters, so that it can" + " be told apart from the next one");
-        }
-        if (!credentials.rename(who.discordId(), keyIdOf(ctx), label)) {
-            throw new NotFoundResponse("this account has no key of that id");
-        }
-        data.audit()
-                .record(
-                        "RENAME_KEY",
-                        who.discordId(),
-                        who.discordId(),
-                        null,
-                        "renamed a security key to \"" + label + "\"");
-        ctx.json(Map.of("label", label));
-    }
-
-    /**
-     * {@code DELETE /api/keys/{id}} - one key, gone.
-     *
-     * <p>Removing the last one is allowed; see {@link Credentials#remove}. The journal row is
-     * written with the label the key HAD, because afterwards there is nothing to read it off.</p>
-     */
-    private void removeKey(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        final ByteArray id = keyIdOf(ctx);
-        final String label = credentials.of(who.discordId()).stream()
-                .filter(key -> new ByteArray(key.credentialId()).equals(id))
-                .map(Credentials.Key::label)
-                .findFirst()
-                .orElseThrow(() -> new NotFoundResponse("this account has no key of that id"));
-        if (!credentials.remove(who.discordId(), id)) {
-            throw new NotFoundResponse("this account has no key of that id");
-        }
-        final int left = credentials.of(who.discordId()).size();
-        data.audit()
-                .record(
-                        "REMOVE_KEY",
-                        who.discordId(),
-                        who.discordId(),
-                        null,
-                        "removed the security key \"" + label + "\" - " + left + " left on this account");
-        ctx.json(Map.of("removed", label, "left", left));
-    }
-
-    /**
-     * {@code GET /api/web-push/public-key} - the VAPID public key, in the one encoding the Push API
-     * asks for.
-     *
-     * <p>Not {@code webPush().publicKey()} itself: that string is X509-encoded, and
-     * {@code PushManager.subscribe()}'s {@code applicationServerKey} wants the raw uncompressed EC
-     * point instead - {@link com.interaso.webpush.VapidKeys#getApplicationServerKey}. Converting
-     * between the two is why {@link #vapidKeys} is parsed once at startup rather than re-read out of
-     * config on every call.</p>
-     */
-    private void webPushPublicKey(final Context ctx) {
-        if (vapidKeys == null) {
-            throw new NotFoundResponse(
-                    "web-push is not configured on this deployment yet - see" + " web-push in steward-ui.yml");
-        }
-        ctx.json(Map.of(
-                "publicKey",
-                Base64.getUrlEncoder().withoutPadding().encodeToString(vapidKeys.getApplicationServerKey())));
-    }
-
-    /**
-     * {@code POST /api/web-push/subscribe} - the body is a browser's own
-     * {@code PushSubscription.toJSON()}, unmodified.
-     */
-    private void subscribeWebPush(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        final PushSubscriptionBody body = ctx.bodyAsClass(PushSubscriptionBody.class);
-        if (body == null
-                || body.endpoint == null
-                || body.endpoint.isBlank()
-                || body.keys == null
-                || body.keys.p256dh == null
-                || body.keys.p256dh.isBlank()
-                || body.keys.auth == null
-                || body.keys.auth.isBlank()) {
-            throw new BadRequestResponse(
-                    "that is not a PushSubscription - endpoint and" + " keys.p256dh/keys.auth are required");
-        }
-        // The User-Agent is read here and stored nowhere: PushSubscriptions turns it into a short
-        // name for the device list and keeps only that. See Devices for what that name is.
-        pushSubscriptions.subscribe(
-                who.discordId(), body.endpoint, body.keys.p256dh, body.keys.auth, ctx.header("User-Agent"));
-        data.audit()
-                .record(
-                        "WEB_PUSH_SUBSCRIBE",
-                        who.discordId(),
-                        who.discordId(),
-                        null,
-                        "subscribed a browser to the traffic light's web push");
-        ctx.status(204);
-    }
-
-    /** {@code DELETE /api/web-push/subscribe} - only the endpoint is needed to name the row. */
-    private void unsubscribeWebPush(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        final PushSubscriptionBody body = ctx.bodyAsClass(PushSubscriptionBody.class);
-        if (body == null || body.endpoint == null || body.endpoint.isBlank()) {
-            throw new BadRequestResponse("no endpoint in that request");
-        }
-        if (!pushSubscriptions.unsubscribe(who.discordId(), body.endpoint)) {
-            throw new NotFoundResponse("this account has no web push subscription of that endpoint");
-        }
-        data.audit()
-                .record(
-                        "WEB_PUSH_UNSUBSCRIBE",
-                        who.discordId(),
-                        who.discordId(),
-                        null,
-                        "unsubscribed a browser from the traffic light's web push");
-        ctx.status(204);
-    }
-
-    /**
-     * {@code GET /api/web-push/devices} - every browser of this account, named.
-     *
-     * <p>The endpoint is sent along because it is what the browser compares its own
-     * {@code pushManager.getSubscription()} against to mark one row as "this device". It is not a
-     * secret - see {@code V26} - and every write that names one checks the account as well.</p>
-     */
-    private void webPushDevices(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        final List<Map<String, Object>> listed = new ArrayList<>();
-        for (final PushSubscriptions.Subscription subscription : pushSubscriptions.of(who.discordId())) {
-            final Map<String, Object> one = new LinkedHashMap<>();
-            one.put("endpoint", subscription.endpoint());
-            // Absent rather than a placeholder when the row predates V30 or the request sent no
-            // User-Agent: the interface writes its own words for that, and a column holding the
-            // English word for "unknown" would read like a name everywhere that only reads it.
-            if (subscription.device() != null) {
-                one.put("device", subscription.device());
-            }
-            one.put("subscribedAt", subscription.createdAt().toString());
-            if (subscription.lastSentAt() != null) {
-                one.put("lastSentAt", subscription.lastSentAt().toString());
-            }
-            listed.add(one);
-        }
-        ctx.json(listed);
-    }
-
-    /**
-     * {@code GET /api/web-push/preferences} - which kinds of alert this account wants.
-     *
-     * <p>Every type is answered, with the effective value: an account that has never opened the
-     * dialog gets {@link AlertType}'s own defaults rather than an empty object the browser would
-     * have to know the defaults to fill in. See {@code V30} on why no row is written for it.</p>
-     */
-    /** {@code GET /api/message-examples} - one example value per placeholder type and property. */
-    private void messageExamples(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        ctx.json(exampleValues.of(who.discordId(), who.displayName()));
-    }
-
-    private void webPushPreferences(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        final Map<String, Boolean> answer = new LinkedHashMap<>();
-        pushPreferences.of(who.discordId()).forEach((type, enabled) -> answer.put(type.key(), enabled));
-        ctx.json(answer);
-    }
-
-    /** {@code PUT /api/web-push/preferences} - one switch, for the account that is signed in. */
-    private void setWebPushPreference(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        final PushPreferenceBody body = ctx.bodyAsClass(PushPreferenceBody.class);
-        final AlertType type = body == null ? null : AlertType.of(body.type);
-        if (type == null || body.enabled == null) {
-            throw new BadRequestResponse("a notification preference is a known type and an enabled" + " flag");
-        }
-        pushPreferences.set(who.discordId(), type, body.enabled);
-        ctx.json(Map.of("type", type.key(), "enabled", body.enabled));
-    }
-
-    /**
-     * {@code POST /api/web-push/test} - one notification of one type, to one of this account's own
-     * browsers.
-     *
-     * <p>Scoped by {@code discordId} AND endpoint, like the unsubscribe beside it: an endpoint is
-     * not a secret, and without the account in the lookup this would be a way to make somebody
-     * else's phone buzz. The preference switch is deliberately not consulted - see
-     * {@link AlertWatch#sendSample}.</p>
-     */
-    private void testWebPush(final Context ctx) {
-        final Sessions.Session who = requireSession(ctx);
-        if (alertWatch == null) {
-            throw new NotFoundResponse(
-                    "web-push is not configured on this deployment yet - see" + " web-push in steward-ui.yml");
-        }
-        final PushTestBody body = ctx.bodyAsClass(PushTestBody.class);
-        final AlertType type = body == null ? null : AlertType.of(body.type);
-        if (body == null || body.endpoint == null || body.endpoint.isBlank() || type == null) {
-            throw new BadRequestResponse(
-                    "a test send is an endpoint of this account and a known" + " notification type");
-        }
-        final PushSubscriptions.Subscription subscription = pushSubscriptions.find(who.discordId(), body.endpoint);
-        if (subscription == null) {
-            throw new NotFoundResponse("this account has no web push subscription of that endpoint");
-        }
-        final AlertWatch.Delivery delivery = alertWatch.sendSample(subscription, type);
-        if (delivery == AlertWatch.Delivery.GONE) {
-            // The row is already gone - sendSample removed it, the same way a failed alert push
-            // does. Saying so is the point: the browser's next question is whether to subscribe
-            // again, and a silent 204 here would have it wait for a notification that can never come.
-            throw new NotFoundResponse(
-                    "that browser's subscription no longer exists and has been" + " removed - subscribe again on it");
-        }
-        if (delivery == AlertWatch.Delivery.FAILED) {
-            throw new BadRequestResponse(
-                    "the push service did not accept it - see the log of" + " steward-ui for what it said");
-        }
-        data.audit()
-                .record(
-                        "WEB_PUSH_TEST",
-                        who.discordId(),
-                        who.discordId(),
-                        null,
-                        "sent a test " + type.key() + " notification to one of its own browsers");
-        ctx.status(204);
-    }
-
-    /** The body of {@code PUT /api/web-push/preferences}. */
-    private static final class PushPreferenceBody {
-        private String type;
-        /** Boxed: a missing field is a bad request here, not a false. */
-        private Boolean enabled;
-    }
-
-    /** The body of {@code POST /api/web-push/test}. */
-    private static final class PushTestBody {
-        private String endpoint;
-        private String type;
-    }
-
-    /**
-     * The one shape both web-push routes read - a browser's {@code PushSubscription.toJSON()}, or
-     * just its {@code endpoint} for the unsubscribe call, which is a subset of the same shape.
-     */
-    private static final class PushSubscriptionBody {
-        private String endpoint;
-        private Keys keys;
-
-        private static final class Keys {
-            private String p256dh;
-            private String auth;
-        }
-    }
-
-    /** The keys of one account, as {@code /api/me} lists them. */
-    private List<Map<String, Object>> keysOf(final String discordId) {
-        final List<Map<String, Object>> listed = new ArrayList<>();
-        for (final Credentials.Key key : credentials.of(discordId)) {
-            final Map<String, Object> one = new LinkedHashMap<>();
-            // THE ID IS NOT A SECRET and never was: it is handed to any browser that starts a
-            // sign-in, because it is what tells the authenticator which credential to use. It is
-            // here so that a key can be renamed or removed by naming it, and the routes that do
-            // that check the account as well - see CredentialDao#remove.
-            one.put("id", new ByteArray(key.credentialId()).getBase64Url());
-            one.put("label", key.label());
-            one.put("registeredAt", key.createdAt().toString());
-            if (key.lastUsedAt() != null) {
-                one.put("lastUsedAt", key.lastUsedAt().toString());
-            }
-            if (key.transports() != null && !key.transports().isBlank()) {
-                one.put("transports", List.of(key.transports().split(",")));
-            }
-            // Absent rather than false when the authenticator did not say. "Not backed up" and
-            // "did not answer the question" are different, and only one of them is a reason to
-            // suggest registering a second key.
-            if (key.backedUp() != null) {
-                one.put("backedUp", key.backedUp());
-            }
-            listed.add(one);
-        }
-        return listed;
-    }
-
-    /**
-     * The Discord avatar {@code /api/people} would print for this account, or empty - never a
-     * thrown exception (steward/91).
-     *
-     * <p>Read from the same {@code person} row {@code /api/people} answers, over the Discord id of
-     * the session - not a second call to Discord, and not {@code data.roster().people(...)}: that
-     * pages the whole access list for a picture 32 pixels wide. Being signed into Steward does not
-     * imply a row in that list exists at all - an admin the bot has never mirrored a Discord profile
-     * onto reaches this route the same as anyone else - so a missing row is answered as "no avatar",
-     * the same fallback the shell already draws for it, and a database hiccup here must not turn
-     * into a broken {@code /api/me} for everything else on it.</p>
-     */
-    private Optional<String> avatarOf(final String discordId) {
-        try {
-            return data.roster()
-                    .personOf(discordId)
-                    .map(Person::discordAvatarUrl)
-                    .filter(url -> url != null && !url.isBlank());
-        } catch (final RuntimeException e) {
-            log.warn("could not read the Discord avatar of {}, so /api/me answers none", discordId, e);
-            return Optional.empty();
-        }
-    }
-
-    /**
-     * The answer for both {@code GET} and {@code HEAD /api/health} - see the registration above
-     * (steward/85) for why the second one has to be its own route rather than something Javalin
-     * hands it for free.
-     */
-    private void health(final Context ctx) {
-        ctx.json(Map.of("status", "ok", "worker", worker.isReachable()));
-    }
-
-    private void whoAmI(final Context ctx) {
-        final Optional<Sessions.Session> session = session(ctx);
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("signedIn", session.isPresent());
-        session.ifPresent(who -> {
-            answer.put("id", who.discordId());
-            answer.put("name", who.displayName());
-            // Written with the row, never minted here: the column is NOT NULL from the moment a
-            // session exists, so there is no longer a state in which a browser is signed in and
-            // has no token to send back. This route is the one place it may be read.
-            answer.put("csrf", who.csrf());
-            answer.put("signedInAt", who.createdAt().toString());
-            answer.put("expiresAt", who.expiresAt().toString());
-            // THE THREE ANSWERS THE SHELL DECIDES WHAT TO DRAW FROM. `keys` empty is the forced
-            // setup page and nothing else; `verified` is whether a key has been held in THIS
-            // session, which is what the step-up will read (package D) and what makes registering
-            // a second key allowed.
-            answer.put("keys", keysOf(who.discordId()));
-            answer.put("verified", who.verified());
-            if (who.verifiedAt() != null) {
-                answer.put("verifiedAt", who.verifiedAt().toString());
-            }
-            answer.put("relyingPartyId", webauthn.relyingPartyId());
-            avatarOf(who.discordId()).ifPresent(url -> answer.put("discordAvatarUrl", url));
-        });
-        discord.whatIsMissing().ifPresent(missing -> answer.put("signInUnavailable", missing));
-        // Said out loud rather than in a footnote, and since packages C and D it is the whole of
-        // §10a rather than half of it. A whole sentence, because several places print it as one.
-        answer.put(
-                "webauthn",
-                "A security key is required: it is asked for at every sign-in, and"
-                        + " again before anything that changes something - one touch covers the next "
-                        + STEP_UP.toMinutes() + " minutes.");
-        // How long one touch lasts, as a number, so the dialog can say it rather than repeat a
-        // literal that would then disagree with this service on the day somebody changes it.
-        answer.put("stepUpMinutes", STEP_UP.toMinutes());
-        ctx.json(answer);
     }
 
     private Optional<DiscordAuth.Account> account(final Context ctx) {
         return session(ctx).map(Sessions.Session::account);
     }
 
-    /**
-     * This request's session, read once and then parked on the request.
-     *
-     * <p>The park is a plain attribute rather than a cache with a lifetime, and that matters: it
-     * lasts exactly one request, so signing out in one tab is visible to the next request from the
-     * other. Anything longer would be a copy of the session outliving the row it copies.</p>
-     */
+    /** This request's session, read once and then parked on the request attribute {@link #PARKED}. */
     private Optional<Sessions.Session> session(final Context ctx) {
         if (sessions == null) {
             return Optional.empty();
@@ -2111,449 +554,34 @@ public final class StewardUi {
         if (parked.isPresent()) {
             return parked;
         }
-        Optional<Sessions.Session> found = sessions.find(ctx.cookie(Sessions.COOKIE));
-        // Admin is re-read on every request, not taken from the sign-in: a revocation - or a
-        // departure from the guild, which drops the branch - ends every session of that account
-        // at its next request rather than when the cookie runs out.
+        Optional<Sessions.Session> found = sessions().find(ctx.cookie(Sessions.COOKIE));
+        // Re-read on every request: a revocation ends the session at its next request, not later.
         if (found.isPresent()
                 && found.get().signedIn()
                 && admins != null
-                && !admins.isAdmin(found.get().discordId())) {
-            final int ended = sessions.endAllOf(found.get().discordId());
+                && !admins().isAdmin(found.get().signedInDiscordId())) {
+            final int ended = sessions().endAllOf(found.get().signedInDiscordId());
             log.info(
                     "ended {} session(s) of {}: no longer an admin",
                     ended,
-                    found.get().discordId());
+                    found.get().signedInDiscordId());
             found = Optional.empty();
         }
         found.ifPresent(session -> ctx.attribute(PARKED, session));
         return found;
     }
 
-    /**
-     * One request as the interface shows it.
-     *
-     * <p>The {@code result} column is JSON, and §10a.4 asks for it drawn rather than shown raw - so
-     * it is parsed here and handed over as a structure. A report that cannot be parsed is reported
-     * as such and its text kept: an old row written before the format existed is not a failure,
-     * and neither is one from a newer version than this jar.</p>
-     */
-    /** One sentence for a refused run: which run is in the way, or which service is already down. */
-    static String refusal(final RunRefused refused) {
-        return switch (refused.reason()) {
-            case RUN_OPEN ->
-                "Run #" + refused.open().id() + " is still "
-                        + refused.open().status().name().toLowerCase(java.util.Locale.ROOT);
-            case ALREADY_HELD ->
-                String.join(", ", refused.services()) + (refused.services().size() == 1 ? " is" : " are")
-                        + " already down";
-        };
-    }
-
-    private Map<String, Object> describe(final UpdateRequest request) {
-        return describe(request, data.updates().scopeOf(request.id()));
-    }
-
-    /** @param scope the services the run is for; empty is the whole network, as everywhere else */
-    static Map<String, Object> describe(final UpdateRequest request, final List<String> scope) {
-        final Map<String, Object> row = new LinkedHashMap<>();
-        row.put("id", request.id());
-        row.put("kind", request.kind().name());
-        row.put("status", request.status().name());
-        row.put("source", request.source().name());
-        row.put("requestedBy", request.requestedBy());
-        row.put("scope", scope);
-        // steward/95: the same three fields the unified actions feed already carries, and read the
-        // same way - see steward-worker's `ActionEntry.of(UpdateRequest)`, which this mirrors
-        // rather than a copy the two could drift from independently. It cannot be the same method
-        // call: that one lives in a different module, behind a package-private constructor, and
-        // reading `requested_by` apart is a five-line regex, not an algorithm worth a shared
-        // dependency for. Kept here so the frontend never has to parse this string itself and never
-        // has to show the raw id inside it - see PersonIdentity's own javadoc for why that matters.
-        final ActorFields actor = ActorFields.of(request.requestedBy());
-        row.put("actorDiscordId", actor.discordId);
-        row.put("actorLabel", actor.label);
-        row.put("system", actor.system);
-        row.put("requested", String.valueOf(request.requested()));
-        row.put("notBefore", String.valueOf(request.notBefore()));
-        row.put("started", String.valueOf(request.started()));
-        row.put("finished", String.valueOf(request.finished()));
-        if (request.result() != null && !request.result().isBlank()) {
-            UpdateReports.parse(request.result())
-                    .ifPresentOrElse(
-                            report -> {
-                                row.put("report", report);
-                                row.put("savedSomething", report.savedSomething());
-                            },
-                            () -> row.put("resultText", request.result()));
-        }
-        return row;
-    }
-
-    /**
-     * {@code requested_by}, picked apart into what the frontend's {@code PersonIdentity} needs: a
-     * Discord id to resolve through the roster, plain text when there is an actor but no id to
-     * resolve it by, or a flag saying Steward itself is the one credited.
-     *
-     * <p>Same rule as {@code ActionEntry.of(UpdateRequest)}: a row with no requester, or one
-     * prefixed {@code steward-worker}, is the nightly clock or an unattended sweep, never a
-     * person. Everything else is either {@code "name (1234567890123456789)"} - a name and the id
-     * that goes with it, written wherever a request is asked for through this interface - and the
-     * id in parentheses is exactly what must never reach the page as plain text (see
-     * {@code IDENTIFIER_PATTERN} in {@code identity.tsx}), or a bare tool identifier such as
-     * {@code "token-rotation-check"} with nothing to resolve it by.</p>
-     */
-    record ActorFields(@NotNull String discordId, @NotNull String label, boolean system) {
-
-        private static final Pattern TRAILING_SNOWFLAKE = Pattern.compile("^.*\\((\\d{17,20})\\)\\s*$");
-
-        static ActorFields of(final String requestedBy) {
-            final boolean system = requestedBy == null || requestedBy.startsWith("steward-worker");
-            if (system) {
-                return new ActorFields("", "", true);
-            }
-            final Matcher match = TRAILING_SNOWFLAKE.matcher(requestedBy);
-            if (match.matches()) {
-                return new ActorFields(match.group(1), "", false);
-            }
-            return new ActorFields("", requestedBy, false);
-        }
-    }
-
-    /** The body of {@code POST /api/updates}. */
-    private static final class Ask {
-        private String kind;
-        private Long delaySeconds;
-        /**
-         * Which compose services this run is for (season-2-ops/127).
-         *
-         * <p>Absent or empty is the whole network - the run every button here has always written.
-         * A scoped run is not an abbreviated one: it counts down, parks the players and waits for
-         * health exactly as an unscoped one does.</p>
-         */
-        private java.util.List<String> services;
-    }
-
-    /** The body of both season endpoints. Each uses the fields it needs. */
-    private static final class SeasonChange {
-        private String phase;
-        private String reason;
-        private String which;
-        private String at;
-    }
-
-    /**
-     * A {@code limit} query parameter, with a default and a ceiling.
-     *
-     * <p>The ceiling is not politeness. Every one of these endpoints reads rows into memory and
-     * serialises them into one response, so a caller asking for a million of them is asking this
-     * container to hold a million of them; the number is capped here rather than trusted.</p>
-     */
-    private static int limit(final Context ctx, final int fallback, final int ceiling) {
+    /** A {@code limit} query parameter, with a default and a ceiling the caller cannot raise. */
+    static int limit(final Context ctx, final int fallback, final int ceiling) {
         return Math.min(
                 ceiling,
                 Math.max(1, ctx.queryParamAsClass("limit", Integer.class).getOrDefault(fallback)));
     }
 
-    /**
-     * Double submit: the browser reads the token out of its own session through {@code /api/me}
-     * and sends it back in a header. A form posted from another site can carry the cookie but
-     * cannot read that value.
-     */
-    private void requireCsrfToken(final Context ctx) {
-        final String sent = ctx.header("X-Steward-CSRF");
-        final String expected = session(ctx).map(Sessions.Session::csrf).orElse(null);
-        if (expected == null || !expected.equals(sent)) {
-            throw new ForbiddenResponse("missing or wrong CSRF token");
-        }
-    }
-
-    private static boolean isWrite(final Context ctx) {
-        final String method = ctx.method().name();
-        return method.equals("POST") || method.equals("PUT") || method.equals("PATCH") || method.equals("DELETE");
-    }
-
-    // --- the worker ------------------------------------------------------------------------
-
-    /**
-     * The three configuration routes, answered by {@code steward-worker} rather than by this
-     * process.
-     *
-     * <h2>Why they are a proxy and not a handler</h2>
-     * Every configuration jcore writes is {@code 0600 root:root}, and this is the one service in
-     * the stack that does not run as root. It could therefore neither read nor write any of them,
-     * and the page Till opened answered {@code HTTP 400} with the file's path in it - a permission
-     * error wearing a bad request's clothes. Loosening the files was the wrong repair, because
-     * {@code database.yml} holds the Postgres password and {@code bot.yml} the Discord token. So
-     * the seven mounts left this container on 2026-09-14 and the work moved next door, which is
-     * what §3 already said about the docker socket: the part an attacker reaches first is not the
-     * part that holds the rights.
-     *
-     * <p><b>This half still decides who may ask.</b> The gates above are unchanged - reading needs
-     * the key held, saving needs it held in the last five minutes - and the worker's API is on an
-     * internal network behind a shared secret. Neither half can do the other's job.</p>
-     *
-     * <h2>The worker's own answer is passed through, status and body</h2>
-     * Not wrapped in {@code InternalClient.Failure}'s envelope, which would turn "this file was
-     * changed while your form was open" into "steward-worker answered 409" and put the sentence a
-     * person needs into a {@code detail} field. The interface's own 409 handling keys on the
-     * status, and its error alert reads {@code error} - so both have to arrive as the worker wrote
-     * them.
-     */
-    private void forwardConfig(final Context ctx, final String path, final String body) {
-        try {
-            final String answer = body == null ? worker.get(path) : worker.put(path, body);
-            ctx.contentType("application/json").result(answer);
-        } catch (final InternalClient.Failure failure) {
-            // A refusal the worker composed - 400, 403, 404, 409, 500 - carries its own body, and
-            // that body is already this interface's shape. Anything else (no answer at all, a
-            // timeout) has no body, and then the envelope IS the message.
-            if (failure.body() == null || failure.body().isBlank()) {
-                throw failure;
-            }
-            log.info("steward-worker refused {} with {}", path, failure.status());
-            ctx.status(failure.status()).contentType("application/json").result(failure.body());
-        }
-    }
-
-    /**
-     * {@code <file>} as the worker will read it.
-     *
-     * <p>Javalin decoded it on the way in, so it is encoded again on the way out - segment by
-     * segment, because the slash between a service and its file is a path separator on both sides
-     * and not part of a name. Without this a file called {@code plugins/My Config.yml} would be
-     * sent as a request line with a space in it.</p>
-     */
-    private static String configPath(final Context ctx) {
-        return workerPath("/api/config", ctx, "file");
-    }
-
-    /**
-     * {@code prefix} plus one path parameter, re-encoded segment by segment.
-     *
-     * <p>This was {@code configPath} alone until steward/48 gave the message bundles the same
-     * shape. Both identifiers are a service and a path under it with a slash in between, and both
-     * arrive here decoded.</p>
-     */
-    private static String workerPath(final String prefix, final Context ctx, final String param) {
-        final StringBuilder path = new StringBuilder(prefix);
-        for (final String segment : ctx.pathParam(param).split("/", -1)) {
-            path.append('/')
-                    .append(java.net.URLEncoder.encode(segment, StandardCharsets.UTF_8)
-                            .replace("+", "%20"));
-        }
-        return path.toString();
-    }
-
-    /**
-     * A write forwarded to steward-worker, with its refusal kept intact.
-     *
-     * <p>The same arrangement {@link #forwardConfig} makes and for the same reason: a 409 the
-     * worker composed - "there is no build of this plugin for Minecraft 26.2" - is a sentence
-     * somebody has to read, and turning it into this service's own "the worker answered 409" would
-     * throw the only useful half away.</p>
-     *
-     * @param body {@code null} for a {@code DELETE}, which carries none
-     * @param ok   what to answer on success, because a create is a 201 and a delete is a 200
-     */
-    private void forwardWorker(final Context ctx, final String path, final String body, final int ok) {
-        try {
-            final String answer = body == null ? worker.delete(path) : worker.post(path, body);
-            ctx.status(ok).contentType("application/json").result(answer);
-        } catch (final InternalClient.Failure failure) {
-            if (failure.body() == null || failure.body().isBlank()) {
-                throw failure;
-            }
-            log.info("steward-worker refused {} with {}", path, failure.status());
-            ctx.status(failure.status()).contentType("application/json").result(failure.body());
-        }
-    }
-
-    private void passThrough(final Context ctx, final String path) {
-        ctx.contentType("application/json").result(worker.get(path));
-    }
-
-    /**
-     * One archive, proxied straight through rather than parsed a second time.
-     *
-     * <p>The filename validation and the path-containment check both live on
-     * {@code WorkerApi#downloadBackup} and only there - repeating a naming pattern on both sides of
-     * a proxy is exactly the kind of second copy that drifts out of step with the first one. This
-     * side trusts nothing about {@code name} beyond passing it on; a bad one comes back as the
-     * {@link InternalClient.Failure} the route above already knows how to turn into a response.</p>
-     *
-     * <p>Streamed, never buffered - {@code worker.stream} is the same call the log follow makes,
-     * reused rather than re-invented, because steward-ui has no more business holding a few hundred
-     * megabytes in memory than steward-worker does.</p>
-     *
-     * <h2>The one thing this side does check, and it is not the naming rule</h2>
-     * {@code name} becomes two things here that it is not on the worker: a segment of a URL this
-     * process builds, and the text of a response header. So it is held to the shape of a filename
-     * - letters, digits, dot, dash, underscore - before either happens. That is not a copy of what
-     * an archive is called (the worker owns that, and a name this accepts can still be refused
-     * there); it is the alphabet a path segment and a header value are allowed to be written in.
-     * Nothing can reach it today - Jetty refuses an encoded separator with 400 long before this
-     * runs, measured in {@code WorkerApiIntegrationTest#downloadRefusesAnEncodedTraversal} - which
-     * is exactly why it is three lines and not a test somebody has to keep red.
-     */
-    private void downloadBackup(final Context ctx, final String name) {
-        if (!FILENAME.matcher(name).matches()) {
-            throw new BadRequestResponse("not the name of a backup: " + name);
-        }
-        ctx.contentType("application/octet-stream")
-                .header("Content-Disposition", "attachment; filename=\"" + name + "\"")
-                .result(worker.stream("/api/backups/" + name + "/download"));
-    }
-
-    /** What a name is allowed to be made of before it becomes a URL segment and a header value. */
-    private static final Pattern FILENAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
-
-    private void follow(
-            final io.javalin.http.sse.SseClient client,
-            final Upstream upstream,
-            final String name,
-            final String query) {
-        final String path = "/api/services/" + name + "/logs" + forwardedQuery(query);
-        try (InputStream stream = worker.stream(path);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-            upstream.hold(stream);
-            String line;
-            String event = "line";
-            long checked = System.nanoTime() - SESSION_RECHECK_NANOS;
-            while ((line = reader.readLine()) != null) {
-                // The tab is gone. Javalin does not throw on a terminated client - it logs "Cannot
-                // send data" and returns - so without this the proxy reads the worker's stream to
-                // its end and writes every line of it to nobody, one warning each. Returning here
-                // runs the `finally`, which closes the upstream.
-                if (client.terminated()) {
-                    return;
-                }
-                // AUTHORISATION IS NOT A THING THAT HAPPENED ONCE. The check at the top of the
-                // route is made when the connection opens; a follow outlives it by hours, and a
-                // logout or an expiry in between used to change nothing at all - the logs kept
-                // arriving in a tab whose session no longer existed. Re-read while lines flow, at
-                // most once a second: one round trip per line held a backlog of a thousand lines
-                // to 250 a second (measured 2026-09-24), and a logout that lands within a second
-                // still withholds everything after it.
-                final long now = System.nanoTime();
-                if (now - checked >= SESSION_RECHECK_NANOS) {
-                    if (!stillSignedIn(client)) {
-                        client.sendEvent("gone", "this session ended - sign in again to keep watching");
-                        return;
-                    }
-                    checked = now;
-                }
-                // The worker speaks SSE too, so this is re-emitting its events rather than
-                // inventing a second format. `data:` lines are the payload; everything else is
-                // framing that this end produces itself.
-                // The event name travels too: `run` is the grey line above an earlier run and
-                // `end` says nothing older is left. Only names this end knows are passed on;
-                // anything else is a line, as everything was before.
-                if (line.startsWith("event:")) {
-                    final String named = line.substring(6).strip();
-                    event = FORWARDED_EVENTS.contains(named) ? named : "line";
-                } else if (line.startsWith("data:")) {
-                    client.sendEvent(event, line.substring(5).stripLeading());
-                } else if (line.isEmpty()) {
-                    event = "line";
-                }
-            }
-        } catch (IOException | InternalClient.Failure e) {
-            // A stream this end closed on purpose fails the read that was in flight. That is the
-            // cancellation working, not an outage, and telling the browser its logs "ended" would
-            // be reporting our own hang-up as the worker's.
-            if (!upstream.wasClosed()) {
-                client.sendEvent("gone", "the log stream ended: " + e.getMessage());
-            }
-        } finally {
-            client.close();
-        }
-    }
-
-    /**
-     * Whoever is watching, still allowed to.
-     *
-     * <p><b>It deliberately does not use the parked session.</b> Everywhere else one lookup per
-     * request is the right trade; here the "request" is a log follow that stays open for hours, and
-     * a parked copy would answer <em>yes</em> for as long as the tab was open however long ago the
-     * session had ended. So this goes to the row, per line, which is as often as there is anything
-     * to withhold.</p>
-     *
-     * <p>A failure is the answer <em>no</em> rather than an exception: this runs on a streaming
-     * thread that is not serving a request and has nowhere to report one, and a database that has
-     * stopped answering is not a reason to keep sending somebody logs.</p>
-     */
-    private boolean stillSignedIn(final io.javalin.http.sse.SseClient client) {
-        if (sessions == null) {
-            return false;
-        }
-        try {
-            return sessions.find(client.ctx().cookie(Sessions.COOKIE)).isPresent();
-        } catch (RuntimeException gone) {
-            log.warn("could not re-check a log follower's session, so it is being ended: {}", gone.getMessage());
-            return false;
-        }
-    }
-
-    /** How often a running follow asks the database whether its session still exists. */
-    private static final long SESSION_RECHECK_NANOS = TimeUnit.SECONDS.toNanos(1);
-
-    /** The worker's log events the browser is handed under their own name. */
-    private static final java.util.Set<String> FORWARDED_EVENTS = java.util.Set.of("line", "run", "end");
-
     /** A forwarded query string: {@code "?tail=..."}, or nothing at all when there was none. */
     static String forwardedQuery(final String query) {
-        // `"?" + null` is the string "?null", which the worker then parses as a parameter named
-        // null - so a search with no parameters arrived as a search for something.
+        // A literal "?" + null becomes the string "?null", which the worker parses as a parameter.
         return query == null || query.isBlank() ? "" : "?" + query;
-    }
-
-    /**
-     * The worker's end of one log follow, held so that whoever notices the browser has gone can
-     * close it.
-     *
-     * <p>The two halves are opened by two different threads and either can finish first, which is
-     * why this is a holder and not a field: a browser that disappears while the worker is still
-     * being connected to must leave the stream closed <em>on arrival</em>, and one that leaves an
-     * hour in must interrupt a read already in flight. Both are one lock and four lines.</p>
-     */
-    private static final class Upstream {
-
-        private InputStream stream;
-        private boolean closed;
-
-        synchronized void hold(final InputStream open) {
-            stream = open;
-            if (closed) {
-                shut(open);
-            }
-        }
-
-        synchronized void close() {
-            closed = true;
-            shut(stream);
-        }
-
-        synchronized boolean wasClosed() {
-            return closed;
-        }
-
-        private static void shut(final InputStream open) {
-            if (open == null) {
-                return;
-            }
-            try {
-                open.close();
-            } catch (IOException ignored) {
-                // Closing to cancel a read; the read is what reports anything worth reporting.
-            }
-        }
-    }
-
-    private static String random() {
-        final byte[] bytes = new byte[32];
-        new SecureRandom().nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     public void stop() {

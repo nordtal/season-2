@@ -6,14 +6,13 @@ import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The SQL behind {@link Credentials}. Package-private: {@code Credentials} is the API.
  *
- * <p>Nothing in here is secret. A credential's public key is public by construction, and the
- * credential id is handed to any browser that asks how to sign in - which is why this table, unlike
- * {@code steward_session}, can be read out loud while debugging without ending anybody's session.
- * The only thing that could be forged with a copy of it is an answer to "which keys exist".</p>
+ * Nothing in here is secret: a credential's public key is public by construction, and the
+ * credential id is handed to any browser that asks how to sign in.
  *
  * @see Sessions the sibling table, whose ids ARE credentials and are not so relaxed
  */
@@ -33,9 +32,9 @@ interface CredentialDao {
             @Bind("publicKey") byte[] publicKey,
             @Bind("signatureCount") long signatureCount,
             @Bind("label") String label,
-            @Bind("transports") String transports,
-            @Bind("backupEligible") Boolean backupEligible,
-            @Bind("backedUp") Boolean backedUp);
+            @Bind("transports") @Nullable String transports,
+            @Bind("backupEligible") @Nullable Boolean backupEligible,
+            @Bind("backedUp") @Nullable Boolean backedUp);
 
     /** Every key of one account, oldest first - which is the order somebody registered them in. */
     @SqlQuery("""
@@ -58,10 +57,8 @@ interface CredentialDao {
     /**
      * Whether this credential id is known to anybody at all.
      *
-     * <p>The library asks this while finishing a registration, to refuse a key that is already
-     * registered - to somebody else as much as to the same person. It is deliberately not scoped
-     * to an account: a credential id belongs to one authenticator and one relying party, and two
-     * accounts claiming the same one is a state this table must never be able to hold.</p>
+     * Deliberately not scoped to an account: two accounts claiming the same credential id is a
+     * state this table must never be able to hold.
      */
     @SqlQuery("SELECT EXISTS(SELECT 1 FROM steward_credential WHERE credential_id = :credentialId)")
     boolean exists(@Bind("credentialId") byte[] credentialId);
@@ -69,11 +66,9 @@ interface CredentialDao {
     /**
      * Every key of one account, gone.
      *
-     * <p>The way back when somebody has lost their only authenticator, and the only route to this
-     * table that destroys anything. It is deliberately not exposed over HTTP at any privilege:
-     * being able to clear somebody's second factor from a browser would make the second factor
-     * worth exactly as much as the first. {@code forget-factors} on the host is the one caller,
-     * and it is a person standing at the machine.</p>
+     * Deliberately not exposed over HTTP at any privilege: clearing a second factor from a browser
+     * would make it worth exactly as much as the first. {@code forget-factors} on the host is the
+     * one caller.
      *
      * @return how many keys were removed, so the command can say a number rather than "done"
      */
@@ -83,9 +78,8 @@ interface CredentialDao {
     /**
      * One key, gone - and only if it belongs to the account asking.
      *
-     * <p>The {@code discord_id} in the WHERE clause is not belt and braces: a credential id is
-     * handed to any browser that starts a sign-in, so it is a value somebody else can hold. Without
-     * that second column this would be "delete anybody's key if you know its id".</p>
+     * The {@code discord_id} in the WHERE clause matters: a credential id is handed to any browser
+     * that starts a sign-in, so without that column this would delete anybody's key by its id.
      *
      * @return 1 when a key was removed, 0 when there was none of that id on that account
      */
@@ -108,10 +102,8 @@ interface CredentialDao {
     /**
      * The counter and the time, written after a successful assertion.
      *
-     * <p>Only ever forward: the {@code >} keeps a replayed assertion from moving the counter
-     * backwards even in the moment between the library checking it and this running. An
-     * authenticator that reports 0 forever - every iCloud passkey - updates nothing here except
-     * the time, which is the intended reading of "no counter".</p>
+     * Only ever forward: {@code GREATEST} keeps a replayed assertion from moving it backwards. An
+     * authenticator that always reports 0 updates nothing here except the time.
      */
     @SqlUpdate("""
             UPDATE steward_credential

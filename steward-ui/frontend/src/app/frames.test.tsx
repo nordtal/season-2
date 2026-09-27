@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { AppFrame } from "@/app/frames"
 import type { Me } from "@/lib/api"
@@ -15,7 +15,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
  * test, because it needs a router with a route tree and a memory history. That note is why this
  * file exists: it builds exactly that - a route tree of the addresses `navigation.ts` links to,
  * and nothing behind them - so that the one thing no source rule can prove is proved by rendering.
- * **There is no header element in the document.** Till's order, and the first thing anybody would
+ * **There is no header element in the document** - the first thing anybody would
  * put back.
  *
  * What it does not prove is what either shape looks like: jsdom has no layout, so a head spaced
@@ -25,7 +25,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 const ME: Me = {
   signedIn: true,
   id: "214906139328839681",
-  name: "till",
+  name: "ally",
   csrf: "t",
   webauthn: "required",
   relyingPartyId: "nordtal.eu",
@@ -67,7 +67,7 @@ function drawAt(path: string, { open = true }: { open?: boolean } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router as never} />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
@@ -108,11 +108,10 @@ describe("the frame on a desktop", () => {
     drawAt("/services/smp")
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
-    expect(
+    assert.isNull(
       document.querySelector("header"),
-      "The top bar went on Till's order (steward/89), in both states, and what it carried is the" +
-        " island and the account picture.",
-    ).toBeNull()
+      "The top bar is gone in both states, and what it carried is the island and the account picture.",
+    )
   })
 
   it("puts the path of the page in the island while the navigation is closed", async () => {
@@ -127,8 +126,10 @@ describe("the frame on a desktop", () => {
   })
 
   it("folds the path away while the navigation is open, and keeps the mark", async () => {
-    // Asked of the trail rather than of the document: "smp" is also a row in the navigation that
-    // is now standing open, so a document-wide search would pass no matter what the island does.
+    /**
+     * Asked of the trail rather than of the document: "smp" is also a row in the navigation that
+     * is now standing open, so a document-wide search would pass no matter what the island does.
+     */
     drawAt("/services/smp", { open: true })
 
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
@@ -156,8 +157,10 @@ describe("the frame on a desktop", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true")
     fireEvent.click(toggle)
 
-    // The state it reports has to change, because it is what a screen reader has instead of the
-    // animation.
+    /**
+     * The state it reports has to change, because it is what a screen reader has instead of the
+     * animation.
+     */
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("false"),
     )
@@ -165,9 +168,11 @@ describe("the frame on a desktop", () => {
 })
 
 describe("where the desktop's frame begins", () => {
-  // At Tailwind's `sm`, not `md` (2026-09-24): a tablet held upright and a small laptop window
-  // were getting the phone's dock with room for the column to spare. The cookie says open, and
-  // only the desktop's column honours it, so the toggle's state tells the two frames apart.
+  /**
+   * At Tailwind's `sm`, not `md`: a tablet held upright and a small laptop window
+   * would otherwise get the phone's dock with room for the column to spare. The cookie says open, and
+   * only the desktop's column honours it, so the toggle's state tells the two frames apart.
+   */
   it.each([
     [640, "true"],
     [700, "true"],

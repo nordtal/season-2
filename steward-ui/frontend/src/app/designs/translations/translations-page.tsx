@@ -87,7 +87,12 @@ export function TranslationsPage() {
         />
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <Tabs value={editor} onValueChange={(value) => go({ editor: value as Editor })}>
+        <Tabs
+          value={editor}
+          onValueChange={(value) => {
+            if (value === "visual" || value === "source" || value === "segments") void go({ editor: value })
+          }}
+        >
           <TabsList>
             {EDITORS.map((option) => (
               <TabsTrigger key={option.value} value={option.value} className="gap-1.5">
@@ -97,7 +102,12 @@ export function TranslationsPage() {
             ))}
           </TabsList>
         </Tabs>
-        <Tabs value={language} onValueChange={(value) => go({ lang: value as Language })}>
+        <Tabs
+          value={language}
+          onValueChange={(value) => {
+            if (value === "en" || value === "de") void go({ lang: value })
+          }}
+        >
           <TabsList>
             <TabsTrigger value="en">EN</TabsTrigger>
             <TabsTrigger value="de">DE</TabsTrigger>

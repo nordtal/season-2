@@ -1,5 +1,5 @@
 import { CalendarDotIcon, FlagIcon, ShieldWarningIcon } from "@phosphor-icons/react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Season } from "@/lib/api"
@@ -256,12 +256,12 @@ function DateField({
   const dirty = local !== saved
   const [removing, setRemoving] = useState(false)
 
-  // steward/120: the field is mounted before the answer, so its initial state is the empty string
-  // and `useState` would keep it there for ever. Nothing is overwritten that somebody typed: this
-  // only runs while the field is still exactly what it was initialised with.
-  useEffect(() => {
-    setLocal((current) => (current === "" ? saved : current))
-  }, [saved])
+  /**
+   * The field is mounted before the answer, so its initial state is the empty string
+   * and `useState` would keep it there for ever. Nothing is overwritten that somebody typed: this
+   * only runs while the field is still exactly what it was initialised with.
+   */
+  if (local === "" && saved !== "") setLocal(saved)
 
   return (
     <div className="flex flex-col gap-2">
@@ -349,6 +349,10 @@ function DateField({
   )
 }
 
+function pad(value: number): string {
+  return String(value).padStart(2, "0")
+}
+
 /**
  * An instant as `datetime-local` wants it: local wall-clock, no zone, minute precision.
  *
@@ -360,7 +364,6 @@ function toLocalInput(at?: string): string {
   if (!at) return ""
   const date = new Date(at)
   if (Number.isNaN(date.getTime())) return ""
-  const pad = (value: number) => String(value).padStart(2, "0")
   return (
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
     `T${pad(date.getHours())}:${pad(date.getMinutes())}`

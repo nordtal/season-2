@@ -7,7 +7,7 @@ import { ApiError } from "@/lib/api"
 /**
  * A query that was never started must not look like one that is still running.
  *
- * **Measured on 2026-09-14** on `/configuration`: the page showed skeletons and a button and
+ * **Measured** on `/configuration`: the page showed skeletons and a button and
  * nothing else, for as long as anybody was willing to wait. The mechanism is that TanStack Query
  * reports a *disabled* query as `isPending` forever - there is no data and there never will be -
  * and this component drew skeletons for `isPending`. So the interface said "loading" about
@@ -22,7 +22,7 @@ import { ApiError } from "@/lib/api"
 afterEach(cleanup)
 
 /**
- * The shape this component asks a child for since steward/120: one expression, called with the
+ * The shape this component asks a child for: one expression, called with the
  * data and without it. A row that has no name yet still draws the row.
  */
 const row = (data: string | undefined) => <span>{data ?? "…"}</span>
@@ -55,9 +55,9 @@ describe("QueryState", () => {
   })
 
   /**
-   * steward/120: the child is the skeleton, so it has to be called while the answer is still out.
+   * The child is the skeleton, so it has to be called while the answer is still out.
    *
-   * This is the assertion the whole ticket rests on. A `QueryState` that only rendered its child
+   * This is the assertion the whole component rests on. A `QueryState` that only rendered its child
    * once the data was there would leave every converted component's waiting shape unreachable -
    * and the page would go back to flat grey bars without a single test turning red.
    */
@@ -74,8 +74,10 @@ describe("QueryState", () => {
         {(data: string) => <span>{data}</span>}
       </QueryState>,
     )
-    // `role="status"` belongs to `Loading` alone: it is a box of its own, so it can be announced
-    // without standing in anybody's layout. The shaped branch above deliberately has no wrapper.
+    /**
+     * `role="status"` belongs to `Loading` alone: it is a box of its own, so it can be announced
+     * without standing in anybody's layout. The shaped branch above deliberately has no wrapper.
+     */
     expect(screen.getByRole("status")).toBeTruthy()
     expect(screen.queryByText("…")).toBeNull()
   })
@@ -100,9 +102,10 @@ describe("QueryState", () => {
   })
 })
 
+const gateway = (status: number) => new ApiError(status, "Bad Gateway", "steward-ui")
+
 describe("a gateway that blinked", () => {
   const now = 1_000_000
-  const gateway = (status: number) => new ApiError(status, "Bad Gateway", "steward-ui")
 
   it("keeps recent data standing through a 502, 503 or 504", () => {
     for (const status of [502, 503, 504]) {

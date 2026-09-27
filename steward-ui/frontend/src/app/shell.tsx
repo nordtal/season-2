@@ -21,14 +21,14 @@ export { breadcrumbsFor } from "@/app/breadcrumbs"
  * The shell: a fixed viewport, one scrolling column, and a navigation that is a column on a
  * desktop and a dock at the bottom of a phone - both in `app/frames.tsx`.
  *
- * **There is no header any more** (steward/89, Till 2026-09-17). It is gone in both states, with
+ * **There is no header.** It is gone in both states, with
  * its border; `the-header-is-gone.test.ts` is what keeps it from growing back.
  *
  * The document itself does not scroll. An operator watching a log window and a service table at
  * the same time should not lose their place to do it, so only the content column moves.
  *
- * **The height is measured, not asked for** (`lib/app-frame.ts`). Measured on 2026-09-14 on an
- * iPhone home screen: at `h-svh` the page and the sidebar sheet were both cut off about a fifth
+ * **The height is measured, not asked for** (`lib/app-frame.ts`). On an
+ * iPhone home screen, at `h-svh` the page and the sidebar sheet would both be cut off about a fifth
  * above the bottom edge, so the viewport unit is not the window there. `--app-height` is the
  * visible viewport and falls back to `100svh` before any script has run and anywhere without a
  * `visualViewport`, which is every desktop browser this is used from.
@@ -42,35 +42,45 @@ export function Shell() {
   const me = useMe()
   const isMobile = useIsMobile()
 
-  // Nothing is drawn until this has answered. A shell rendered first and replaced a moment later
-  // would flash a sidebar full of pages that every answer 401 - which reads as a broken interface
-  // rather than as a missing session.
+  /**
+   * Nothing is drawn until this has answered. A shell rendered first and replaced a moment later
+   * would flash a sidebar full of pages that every answer 401 - which reads as a broken interface
+   * rather than as a missing session.
+   */
   if (me.isPending) return <SignInPage loading />
 
-  // A 401 here IS the signed-out state; `useMe` is the one route that answers without a session.
-  // Anything else that fails is a fault, and it must not be dressed up as one: a 500 or a 429 from
-  // `/api/me` used to draw the sign-in page, where the only offered action - signing in again -
-  // cannot fix it, and the actual reason was nowhere on screen.
+  /**
+   * A 401 here IS the signed-out state; `useMe` is the one route that answers without a session.
+   * Anything else that fails is a fault, and it must not be dressed up as one: a 500 or a 429 from
+   * `/api/me` used to draw the sign-in page, where the only offered action - signing in again -
+   * cannot fix it, and the actual reason was nowhere on screen.
+   */
   const signedOut = me.data ? !me.data.signedIn : me.error instanceof ApiError && me.error.isSignedOut
   if (signedOut) return <SignInPage me={me.data} />
 
-  // The shell is not drawn on a failed `/api/me` either, and not because the pages could not report
-  // it themselves: the CSRF token arrives with this answer, so without it every write in the
-  // interface would be refused, one confusing page at a time.
+  /**
+   * The shell is not drawn on a failed `/api/me` either, and not because the pages could not report
+   * it themselves: the CSRF token arrives with this answer, so without it every write in the
+   * interface would be refused, one confusing page at a time.
+   */
   if (!me.data) return <DoorIsStuck error={me.error} onRetry={() => void me.refetch()} />
 
-  // SIGNED IN AND STILL NOT IN. An account with no registered security key reaches /api/me and
-  // nothing else (V20), so this is not a page being withheld - it is the only page that answers.
-  // Drawing the shell here would be a sidebar of eleven links to 403s.
-  //
-  // `keys` is absent, not empty, when nobody is signed in - which cannot happen here, because
-  // `signedOut` above already returned. An account that HAS keys always sends an array.
+  /**
+   * SIGNED IN AND STILL NOT IN. An account with no registered security key reaches /api/me and
+   * nothing else (V20), so this is not a page being withheld - it is the only page that answers.
+   * Drawing the shell here would be a sidebar of eleven links to 403s.
+   *
+   * `keys` is absent, not empty, when nobody is signed in - which cannot happen here, because
+   * `signedOut` above already returned. An account that HAS keys always sends an array.
+   */
   if ((me.data.keys?.length ?? 0) === 0) return <SecurityKeyPage me={me.data} />
 
-  // SIGNED IN, HAS A KEY, AND HAS NOT HELD IT HERE. Package C, and the sentence "Discord alone is
-  // not enough" in one line: a session that has completed the Discord redirect and nothing else
-  // reaches /api/me and is refused everywhere else, so this is again the only page that answers.
-  // `verified` is per SESSION and not per account - signing out and back in lands here.
+  /**
+   * SIGNED IN, HAS A KEY, AND HAS NOT HELD IT HERE. Package C, and the sentence "Discord alone is
+   * not enough" in one line: a session that has completed the Discord redirect and nothing else
+   * reaches /api/me and is refused everywhere else, so this is again the only page that answers.
+   * `verified` is per SESSION and not per account - signing out and back in lands here.
+   */
   if (!me.data.verified) return <HoldKeyPage me={me.data} />
 
   return <SignedIn me={me.data} isMobile={isMobile} />
@@ -87,11 +97,13 @@ function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider
-        // WHAT THE SIDEBAR REMEMBERS. The provider writes this cookie whenever the sidebar is
-        // opened or closed and never reads it back - reading it is the application's job, and
-        // skipping that job is what makes a collapsed sidebar spring open again on every reload.
-        // The phone's sheet is a different piece of state (`openMobile`) and is untouched by it,
-        // which is what lets one sidebar be both things.
+        /**
+         * WHAT THE SIDEBAR REMEMBERS. The provider writes this cookie whenever the sidebar is
+         * opened or closed and never reads it back - reading it is the application's job, and
+         * skipping that job is what makes a collapsed sidebar spring open again on every reload.
+         * The phone's sheet is a different piece of state (`openMobile`) and is untouched by it,
+         * which is what lets one sidebar be both things.
+         */
         defaultOpen={sidebarDefaultOpen(document.cookie)}
       >
         <AppFrame me={me} />

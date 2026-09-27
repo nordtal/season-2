@@ -4,7 +4,7 @@ import { pairedBlocks, pairedPaths } from "@/components/steward/paired-blocks"
 import type { ConfigEntry } from "@/lib/api"
 
 /**
- * The rule steward/130 needed and did not invent for one file: two sibling blocks with the same
+ * The rule this file exists for: two sibling blocks with the same
  * keys are one list, so they are drawn as one row per key.
  *
  * Everything here is about the *refusals*. Pairing two blocks that only look alike is worse than
@@ -53,8 +53,10 @@ describe("pairedBlocks", () => {
     expect(pairs[0].left.path).toBe("hours")
     expect(pairs[0].right.path).toBe("colours")
     expect(pairs[0].rows.map((row) => row.key)).toEqual(["tier-01", "tier-02", "tier-03"])
-    // Left is the left block's key and right is the right block's - not the other way round, and
-    // not the same one twice.
+    /**
+     * Left is the left block's key and right is the right block's - not the other way round, and
+     * not the same one twice.
+     */
     expect(pairs[0].rows[1].left.path).toBe("hours.tier-02")
     expect(pairs[0].rows[1].right.path).toBe("colours.tier-02")
   })
@@ -66,8 +68,10 @@ describe("pairedBlocks", () => {
   })
 
   it("refuses two blocks whose keys are the same but in a different order", () => {
-    // The whole failure this rule exists to prevent, stated as a test: same keys, same count,
-    // and row two would pair tier-03's hour with tier-02's colour.
+    /**
+     * The whole failure this rule exists to prevent, stated as a test: same keys, same count,
+     * and row two would pair tier-03's hour with tier-02's colour.
+     */
     const shuffled = [
       ...block("hours", ["tier-01", "tier-02", "tier-03"]),
       ...block("colours", ["tier-01", "tier-03", "tier-02"]),
@@ -116,7 +120,7 @@ describe("pairedBlocks", () => {
   })
 
   it("names every path a pair has taken over, so nothing is drawn twice", () => {
-    expect([...pairedPaths(pairedBlocks(LADDER))].sort()).toEqual([
+    expect([...pairedPaths(pairedBlocks(LADDER))].toSorted()).toEqual([
       "colours",
       "colours.tier-01",
       "colours.tier-02",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { ArrowRightIcon, ArrowsClockwiseIcon, ClockIcon, ProhibitInsetIcon, WarningIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
@@ -57,13 +57,15 @@ export function UpdatesPage() {
               type="button"
               variant="outline"
               size="sm"
-              // The worker holds a reading for six hours and this is the only way to shorten it.
-              // Disabled while it runs rather than hidden: the wait is the point.
+              /**
+               * The worker holds a reading for six hours and this is the only way to shorten it.
+               * Disabled while it runs rather than hidden: the wait is the point.
+               */
               title="Ask the sources again. This takes a moment - it really asks them."
               disabled={refresh.isPending}
               onClick={() =>
                 refresh.mutate(undefined, {
-                  onError: (failure) => toast.error("Could not check again", { description: String(failure.message) }),
+                  onError: (failure) => toast.error("Could not check again", { description: failure.message }),
                 })
               }
             >
@@ -87,7 +89,7 @@ export function UpdatesPage() {
   )
 }
 
-// --- the numbers ----------------------------------------------------------------------------------
+// --- the numbers
 
 function Summary() {
   const available = useAvailable()
@@ -122,7 +124,7 @@ function Summary() {
   )
 }
 
-// --- what a run would install ---------------------------------------------------------------------
+// --- what a run would install
 
 /**
  * What a run would do, resolved on demand and never run.
@@ -159,7 +161,7 @@ const WAITING_CHANGES = Array.from({ length: 6 }, () => undefined)
 function worthShowing(changes: AvailableChange[]): AvailableChange[] {
   return changes
     .filter((change) => change.work || change.failure || change.status === "UNSUPPORTED")
-    .sort(
+    .toSorted(
       (left, right) =>
         (AVAILABLE_RANK[left.status] ?? 3) - (AVAILABLE_RANK[right.status] ?? 3) ||
         (left.service ?? "").localeCompare(right.service ?? "", LOCALE) ||
@@ -211,9 +213,9 @@ function Pair({ from, to, exact }: { from: string; to: string; exact: boolean })
  * What a run would install, and nothing else.
  *
  * <h2>Only the rows with something in them</h2>
- * This card used to list every artefact the resolve touched, thirty-odd lines of "up to date" with
- * the one interesting row somewhere inside. The owner asked on 2026-09-20 for only the services
- * that have an update to show at all. So the filter is {@code change.work}, which is the worker's
+ * Listing every artefact the resolve touched would be thirty-odd lines of "up to date" with
+ * the one interesting row somewhere inside, so only the services
+ * that have an update show at all. The filter is {@code change.work}, which is the worker's
  * own opinion of what a run would act on, plus the two kinds of row that are not work and still
  * have to be read:
  *
@@ -316,7 +318,7 @@ function Available() {
   )
 }
 
-// --- the images -----------------------------------------------------------------------------------
+// --- the images
 
 /**
  * OUTDATED first, then anything the registry could not answer, then LOCAL, then UP_TO_DATE, then by
@@ -346,7 +348,7 @@ function Images() {
       >
         {(table) => {
           const rows = table
-            ? [...table.services].sort(
+            ? [...table.services].toSorted(
                 (left, right) =>
                   (DRIFT_RANK[left.drift] ?? 1) - (DRIFT_RANK[right.drift] ?? 1) ||
                   left.service.localeCompare(right.service, LOCALE),
@@ -401,7 +403,7 @@ function Images() {
                   {table.drift.checkedAt
                     ? `Registry asked ${relative(table.drift.checkedAt)}`
                     : "Registry not asked yet"}
-                  {table.drift.reached === false ? (
+                  {!table.drift.reached ? (
                     <span className="text-warning">
                       {" "}
                       - not reached{table.drift.reason ? ` (${table.drift.reason})` : ""}
@@ -420,7 +422,7 @@ function Images() {
   )
 }
 
-// --- the runs -------------------------------------------------------------------------------------
+// --- the runs
 
 /** Every row of `update_request` that is not a backup's and not a single service's Down or Start. */
 export function updateRuns(runs: Run[] | undefined): Run[] {
@@ -505,8 +507,8 @@ function Runs() {
                       </span>
                     ) : (
                       <div className="flex flex-col gap-0.5">
-                        {summaryOf(run).map((part, index) => (
-                          <span key={index} className="truncate">
+                        {summaryOf(run).map((part, partIndex) => (
+                          <span key={partIndex} className="truncate">
                             {part}
                           </span>
                         ))}
@@ -530,7 +532,7 @@ function Runs() {
   )
 }
 
-// --- the schedule ---------------------------------------------------------------------------------
+// --- the schedule
 
 /** `update.at`, the one scalar of the update schedule. */
 const SCHEDULE_KEYS = ["update.at"] as const
@@ -551,7 +553,11 @@ function ScheduleDialog() {
   const { entries, draft, setDraft, changes, changed } = useConfigDraft(document, SCHEDULE_KEYS)
 
   const [pickedDays, setPickedDays] = useState<string[] | undefined>(undefined)
-  useEffect(() => setPickedDays(undefined), [document])
+  const [lastDocument, setLastDocument] = useState(document)
+  if (lastDocument !== document) {
+    setLastDocument(document)
+    setPickedDays(undefined)
+  }
 
   const daysEntry = entryAt(document, DAYS_KEY)
   const fileDays = chosenDays(daysEntry?.items)

@@ -26,16 +26,14 @@ export async function holdTheKey(): Promise<Held> {
         " Every current browser can; one in a private window or an old WebView may not.",
     )
   }
-  // The server's answer is handed to the browser untouched - it is the library's own JSON and this
-  // end does not get an opinion about its contents.
+  // The server's answer is handed to the browser untouched, since this end has no opinion about its contents.
   const started = await api<RequestOptionsJson>("/auth/webauthn/authenticate/start", { method: "POST" })
   let credential: string
   try {
     credential = await useSecurityKey(started)
   } catch (refused) {
-    // The browser's DOMException, turned into something a person can act on. Rethrown as a plain
-    // Error so the dialog prints one sentence rather than "NotAllowedError".
-    throw new Error(whyTheKeyFailed(refused))
+    // Turns the browser's DOMException into one sentence a person can act on.
+    throw new Error(whyTheKeyFailed(refused), { cause: refused })
   }
   return await api<Held>("/auth/webauthn/authenticate/finish", { method: "POST", body: { credential } })
 }

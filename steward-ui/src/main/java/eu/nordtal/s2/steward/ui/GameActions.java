@@ -13,39 +13,36 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.sql.DataSource;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The SMP's and the hunger games' admin actions, as the service pages draw them.
  *
- * <p><b>The transport is the command row and nothing else.</b> A Paper server is reachable from
- * here only through {@code command_request}, so each action is one row written through
- * {@link CommandApi#submit} and answered through {@code GET /api/commands/{id}}, exactly as the
- * generic card did. What changed is only what the browser sends: a milestone or an objective
- * picked from a list, never a command name or an argument field.</p>
- *
- * <p><b>The list is the SMP's own progress rows.</b> {@code smp_milestone} and {@code smp_objective}
- * are written by the running server from its {@code milestones.yml}, so they are the track as the
- * server holds it - not the file in the volume, which can be edited ahead of a reload. Only what
- * can be acted on is offered and accepted: the open objectives of an active milestone, and an
- * active milestone. Unlocking one further down the track by hand skips the ones before it.</p>
+ * The transport is the command row and nothing else: each action is one row written through
+ * {@link CommandApi#submit}. {@code smp_milestone} and {@code smp_objective} are the track as the
+ * running server holds it, not the file in the volume, and only what can be acted on is offered.
  */
 final class GameActions {
 
-    private final DataSource dataSource;
+    private final @Nullable DataSource dataSource;
     private final CommandApi commands;
 
     /** @param dataSource null in a test that runs without a database, which never calls these */
-    GameActions(final DataSource dataSource, final @NotNull CommandApi commands) {
+    GameActions(final @Nullable DataSource dataSource, final CommandApi commands) {
         this.dataSource = dataSource;
         this.commands = commands;
     }
 
+    private DataSource dataSource() {
+        return Objects.requireNonNull(dataSource, "no database - this route is not available without one");
+    }
+
     /** {@code GET /api/smp/track} - the active milestones and their objectives. */
-    void track(final @NotNull Context ctx) {
+    void track(final Context ctx) {
         final Map<String, List<Map<String, Object>>> objectives = new LinkedHashMap<>();
-        try (Connection connection = dataSource.getConnection();
+        try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
                      SELECT milestone.key AS milestone, objective.key, objective.type,
                             objective.amount, objective.target, objective.completed IS NOT NULL AS done
@@ -81,7 +78,7 @@ final class GameActions {
     }
 
     /** {@code POST /api/smp/objective} - {@code {key}}, an open objective of the active milestone. */
-    void completeObjective(final @NotNull Context ctx) {
+    void completeObjective(final Context ctx) {
         final String key = key(ctx);
         if (!exists("""
                 SELECT 1 FROM smp_objective objective
@@ -94,7 +91,7 @@ final class GameActions {
     }
 
     /** {@code POST /api/smp/milestone} - {@code {key}}, the active milestone. */
-    void unlockMilestone(final @NotNull Context ctx) {
+    void unlockMilestone(final Context ctx) {
         final String key = key(ctx);
         if (!exists("SELECT 1 FROM smp_milestone WHERE state = 'ACTIVE' AND key = ?", key)) {
             throw new BadRequestResponse(key + " is not the active milestone.");
@@ -103,17 +100,14 @@ final class GameActions {
     }
 
     /**
-     * {@code GET /api/hunger-games/round} - the open round's state and how many have registered,
-     * or an empty object when no round is open.
+     * {@code GET /api/hunger-games/round} - the open round's state, or empty when none is open.
      *
-     * <p>What tells the page whether a start went through. The server's answer to {@code /hg start}
-     * is a sentence either way, and a round that is still {@code REGISTRATION} after it is one that
-     * did not start - which is when "start anyway" is worth offering. The count is players on the
-     * roster, not the server's resolved participants, and the page says "registered".</p>
+     * A round still {@code REGISTRATION} after a start is one that did not, which is when "start
+     * anyway" is worth offering. The count is players on the roster, not resolved participants.
      */
-    void round(final @NotNull Context ctx) {
+    void round(final Context ctx) {
         final Map<String, Object> answer = new LinkedHashMap<>();
-        try (Connection connection = dataSource.getConnection();
+        try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
                      SELECT game.state, (SELECT count(*) FROM hg_member member
                                          WHERE member.game_id = game.id) AS registered
@@ -134,19 +128,15 @@ final class GameActions {
     /**
      * {@code POST /api/hunger-games/start} - {@code {confirm}}.
      *
-     * <p>{@code confirm: true} is the second step {@code /hg start} asks for itself when fewer than
-     * the recommended number are registered, and answers with the numbers. The browser sends it
-     * only after it has shown that answer, never on the first press.</p>
+     * {@code confirm: true} is the second step, sent only after the browser has shown the numbers.
      */
-    void startRound(final @NotNull Context ctx) {
+    void startRound(final Context ctx) {
         final JsonObject body = body(ctx);
         final boolean confirm = body.has("confirm")
                 && body.get("confirm").isJsonPrimitive()
                 && body.get("confirm").getAsBoolean();
         answer(ctx, commands.submit(ctx, HungerGamesCommands.START, confirm ? arguments("confirm", "confirm") : null));
     }
-
-    // ---------------------------------------------------------------------------------------
 
     private static void answer(final Context ctx, final long id) {
         final Map<String, Object> answer = new LinkedHashMap<>();
@@ -180,7 +170,7 @@ final class GameActions {
     }
 
     private boolean exists(final String sql, final String parameter) {
-        try (Connection connection = dataSource.getConnection();
+        try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, parameter);
             try (ResultSet rows = statement.executeQuery()) {

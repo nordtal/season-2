@@ -42,7 +42,8 @@ function buckets(series: Series, count: number) {
   for (let bucket = 0; bucket < count; bucket += 1) {
     const end = from + width * (bucket + 1)
     const slice: number[] = []
-    while (index < series.length && (series[index].at < end || bucket === count - 1)) {
+    while (index < series.length) {
+      if (bucket !== count - 1 && series[index].at >= end) break
       slice.push(series[index].value)
       index += 1
     }
@@ -65,7 +66,7 @@ function Waiting({ height }: { height: number }) {
   return <Skeleton style={{ height }} className="w-full" />
 }
 
-// --- A: a taller line, its peak marked ----------------------------------------------------------
+// --- A: a taller line, its peak marked
 
 export function TallLine({ label, value, points, format }: MetricProps) {
   const series = useMemo(() => seriesOf(points), [points])
@@ -107,7 +108,7 @@ export function TallLine({ label, value, points, format }: MetricProps) {
   )
 }
 
-// --- B: the range of each stretch as a band, its mean as the line ------------------------------
+// --- B: the range of each stretch as a band, its mean as the line
 
 export function Band({ label, value, points }: MetricProps) {
   const data = useMemo(() => {
@@ -150,7 +151,7 @@ export function Band({ label, value, points }: MetricProps) {
   )
 }
 
-// --- C: both in one chart, with a time axis ------------------------------------------------------
+// --- C: both in one chart, with a time axis
 
 export function Together({
   cpu,
@@ -167,8 +168,10 @@ export function Together({
     const load = seriesOf(cpu)
     const ram = seriesOf(memory)
     if (load === undefined || ram === undefined) return undefined
-    // One row per bucket, both metrics in it: two series sampled together still do not share
-    // timestamps to the millisecond, and one row per sample would draw each line with holes.
+    /**
+     * One row per bucket, both metrics in it: two series sampled together still do not share
+     * timestamps to the millisecond, and one row per sample would draw each line with holes.
+     */
     const a = buckets(load, 96)
     const b = buckets(ram, 96)
     return a.map((row, index) => ({ at: row.at, cpu: row.mean, ram: b[index]?.mean }))
@@ -236,7 +239,7 @@ function hourTicks(times: number[] | undefined) {
   return out
 }
 
-// --- D: one range for both, and a reading under the finger --------------------------------------
+// --- D: one range for both, and a reading under the finger
 
 export const RANGES = [1, 6, 24] as const
 export type Range = (typeof RANGES)[number]

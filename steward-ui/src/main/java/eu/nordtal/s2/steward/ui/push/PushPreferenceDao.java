@@ -17,9 +17,8 @@ interface PushPreferenceDao {
     /**
      * One switch, set.
      *
-     * <p>{@code ON CONFLICT} rather than a lookup-then-branch, for the same reason
-     * {@link PushSubscriptionDao#add} gives: the same account tapping the same switch twice is one
-     * preference, not two rows, and the primary key already says so.</p>
+     * {@code ON CONFLICT} rather than a lookup-then-branch: the same account tapping the same
+     * switch twice is one preference, not two rows.
      */
     @SqlUpdate("""
             INSERT INTO steward_push_preference (discord_id, alert_type, enabled, updated_at)
@@ -42,9 +41,8 @@ interface PushPreferenceDao {
     /**
      * Every switch there is, for one sweep of {@code AlertWatch}.
      *
-     * <p>One query rather than one per subscription: a poll that pushes has every subscription in
-     * hand already and would otherwise ask this table once per browser, for a table that holds at
-     * most a handful of rows per account.</p>
+     * One query rather than one per subscription: a poll that pushes has every subscription in
+     * hand already.
      */
     @SqlQuery("SELECT discord_id, alert_type, enabled FROM steward_push_preference")
     List<PushPreferences.Row> all();

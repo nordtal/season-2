@@ -24,9 +24,8 @@ import { Label } from "@/components/ui/label"
  * and this interface can stop servers and type into consoles, so it wants something nobody can
  * steal by reading a message.
  *
- * Till, 2026-09-16 (steward/78): as little text as possible, everywhere. Asked directly whether
- * the warning about losing the key should stay on this, the registration page: "falls away here
- * too." Only who is signed in stays on screen.
+ * As little text as possible, everywhere: the warning about losing the key does not belong on
+ * this, the registration page. Only who is signed in stays on screen.
  */
 export function SecurityKeyPage({ me }: { me: Me }) {
   const [label, setLabel] = useState("")

@@ -29,16 +29,20 @@ const rootRoute = createRootRoute({
 
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: OverviewPage }),
-  // steward/140: the open tab and the chosen file are in the URL, so a reload stays where it was
-  // and Ctrl-K can land on a tab. Console is the default and is never written out.
+  /**
+   * The open tab and the chosen file are in the URL, so a reload stays where it was
+   * and Ctrl-K can land on a tab. Console is the default and is never written out.
+   */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/services/$name",
     component: ServicePage,
     validateSearch: serviceSearch,
   }),
-  // Operations is two pages, Updates and Backups. The two old addresses a link or a push
-  // notification may still carry are sent on rather than answered with a 404.
+  /**
+   * Operations is two pages, Updates and Backups. The two old addresses a link or a push
+   * notification may still carry are sent on rather than answered with a 404.
+   */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/operations",
@@ -59,25 +63,31 @@ const routes = [
     path: "/operations/updates/$id",
     component: UpdateRunPage,
   }),
-  // The list page steward/95 added, and the parent the report page's own breadcrumb had been
-  // pointing at since there were breadcrumbs: `/operations/backups/<name>` draws a "Backups" crumb
-  // whose href is this path, and until now that was a 404.
+  /**
+   * The list page, and the parent the report page's own breadcrumb points at:
+   * `/operations/backups/<name>` draws a "Backups" crumb
+   * whose href is this path.
+   */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/operations/backups",
     component: BackupsPage,
   }),
-  // The id is a run id: a run writes several archives, and "a backup" on the Backups page means
-  // the run. The page lists that run's own archives, each one downloadable.
+  /**
+   * The id is a run id: a run writes several archives, and "a backup" on the Backups page means
+   * the run. The page lists that run's own archives, each one downloadable.
+   */
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/operations/backups/$id",
     component: BackupRunDetailPage,
   }),
-  // There is no `/configuration` route any more (2026-09-14). Every file belongs to exactly one
-  // service, so it is a card on that service's page - see `components/steward/configuration.tsx`.
-  // Nor a `/settings` (2026-09-24): its account half is the popover behind the round picture, and
-  // the thresholds it showed are set in the notifications dialog beside it.
+  /**
+   * There is no `/configuration` route. Every file belongs to exactly one
+   * service, so it is a card on that service's page - see `components/steward/configuration.tsx`.
+   * Nor a `/settings`: its account half is the popover behind the round picture, and
+   * the thresholds it showed are set in the notifications dialog beside it.
+   */
   createRoute({ getParentRoute: () => rootRoute, path: "/season", component: SeasonPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/announcements", component: AnnouncementsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),

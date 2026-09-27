@@ -7,10 +7,17 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { ServiceSettings } from "@/components/steward/settings"
 import { resetDrafts } from "@/lib/drafts"
 import { setPendingMessageJump } from "@/lib/settings-search"
-import type { MessageBundleLocation, MessageEntry } from "@/lib/api"
+import type { MessageBundle, MessageBundleLocation, MessageEntry } from "@/lib/api"
+import { asButton, asTextArea } from "@/lib/test-elements"
+import { changesOf } from "@/lib/query-fixtures"
 
 vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), warning: vi.fn(), info: vi.fn(), error: vi.fn() },
+  toast: {
+    success: vi.fn<(message: string) => void>(),
+    warning: vi.fn<(message: string) => void>(),
+    info: vi.fn<(message: string) => void>(),
+    error: vi.fn<(message: string) => void>(),
+  },
 }))
 
 /**
@@ -44,17 +51,19 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
 }
 
 /** One `/api/messages/<path>` answer per fixture bundle and one canned PUT answer per path. */
-function backend(bundles: Record<string, unknown>, puts: Record<string, (body: unknown) => unknown> = {}) {
+type Bundle = MessageBundle & { warnings?: string[] }
+
+function backend(bundles: Record<string, Bundle>, puts: Record<string, (body: unknown) => unknown> = {}) {
   const listing = Object.values(bundles).map((bundle) => {
-    const { service, module, path, writable } = bundle as MessageBundleLocation
+    const { service, module, path, writable } = bundle
     return { service, module, path, writable }
   })
-  return vi.fn(async (url: string, init?: RequestInit) => {
+  return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/messages") return json(listing)
     if (url === "/api/config") return json([])
     if (init?.method === "PUT") {
       const found = Object.entries(puts).find(([path]) => url === `/api/messages/${path}`)
-      if (found) return json(found[1](JSON.parse(String(init.body))))
+      if (found) return json(found[1](JSON.parse(init.body ?? "")))
       throw new Error(`the form PUT ${url}, which this test did not expect`)
     }
     const found = Object.entries(bundles).find(([path]) => url === `/api/messages/${path}`)
@@ -116,7 +125,7 @@ describe("the bundle row", () => {
 
     draw(<Settings service="smp" />)
 
-    await screen.findByRole("button", { name: "SMP Translations" })
+    expect(await screen.findByRole("button", { name: "SMP Translations" })).toBeTruthy()
   })
 
   it("shows nothing for a service with no bundle here", async () => {
@@ -124,7 +133,7 @@ describe("the bundle row", () => {
 
     draw(<Settings service="smp" />)
 
-    await screen.findByText("No files.")
+    expect(await screen.findByText("No files.")).toBeTruthy()
   })
 })
 
@@ -149,7 +158,7 @@ describe("the en/de toggle", () => {
     await open("SMP Translations")
     await openKey("Welcome")
 
-    await screen.findByDisplayValue("Welcome")
+    expect(await screen.findByDisplayValue("Welcome")).toBeTruthy()
   })
 
   it("switches to the override once German is selected, rather than the packaged text", async () => {
@@ -193,8 +202,8 @@ describe("saving a line", () => {
     fireEvent.change(field, { target: { value: "Hello there" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
-    await screen.findByText(/no longer contains <_sender>/)
-    await screen.findByDisplayValue("Hello there")
+    expect(await screen.findByText(/no longer contains <_sender>/)).toBeTruthy()
+    expect(await screen.findByDisplayValue("Hello there")).toBeTruthy()
   })
 
   /** The save's own answer says whether the text is in force; the toast says which of three. */
@@ -264,7 +273,7 @@ describe("saving a line", () => {
     fireEvent.change(field, { target: { value: "Welcome in" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
-    await screen.findByText(/dm.grantd is in the override file and in no bundle/)
+    expect(await screen.findByText(/dm.grantd is in the override file and in no bundle/)).toBeTruthy()
   })
 
   it("resets a key by removing the override, not by copying English into it", async () => {
@@ -279,7 +288,7 @@ describe("saving a line", () => {
         },
         {
           "smp/smp": (body) => {
-            const changes = (body as { changes: Record<string, unknown> }).changes
+            const changes = changesOf(body)
             expect(changes).toEqual({ welcome: { en: null } })
             return {
               ...location({ path: "smp/smp" }),
@@ -299,10 +308,12 @@ describe("saving a line", () => {
     await screen.findByDisplayValue("Welcome")
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
-    // Both the reset-pending preview and the saved result show "Welcome" - packaged text, since
-    // the override is gone either way - so a display-value match alone cannot tell the two apart.
-    // The Reset button itself can: it only draws while an override exists, so its disappearance is
-    // the one signal that is true only once the save has actually round-tripped.
+    /**
+     * Both the reset-pending preview and the saved result show "Welcome" - packaged text, since
+     * the override is gone either way - so a display-value match alone cannot tell the two apart.
+     * The Reset button itself can: it only draws while an override exists, so its disappearance is
+     * the one signal that is true only once the save has actually round-tripped.
+     */
     await waitFor(() => expect(screen.queryByRole("button", { name: /Reset/ })).toBeNull())
     expect(screen.getByDisplayValue("Welcome")).toBeTruthy()
     expect(screen.queryByText("overridden")).toBeNull()
@@ -336,27 +347,28 @@ describe("the tree of a bundle", () => {
   })
 })
 
-describe("one key open at a time", () => {
-  function twoKeys() {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        "smp/smp": {
-          ...location({ path: "smp/smp" }),
-          entries: [
-            entry({
-              key: "a",
-              name: "First",
-              english: "<gray>Hello <white>{player}</white></gray>",
-              args: [{ name: "player", component: false }],
-            }),
-            entry({ key: "b", name: "Second", english: "two" }),
-          ],
-        },
-      }),
-    )
-  }
+/** A location carrying two entries, so opening one can be observed closing the other. */
+function twoKeys() {
+  vi.stubGlobal(
+    "fetch",
+    backend({
+      "smp/smp": {
+        ...location({ path: "smp/smp" }),
+        entries: [
+          entry({
+            key: "a",
+            name: "First",
+            english: "<gray>Hello <white>{player}</white></gray>",
+            args: [{ name: "player", component: false }],
+          }),
+          entry({ key: "b", name: "Second", english: "two" }),
+        ],
+      },
+    }),
+  )
+}
 
+describe("one key open at a time", () => {
   it("draws each key as its name and a rendered line, with no field until it is opened", async () => {
     twoKeys()
     draw(<Settings service="smp" />)
@@ -427,26 +439,27 @@ describe("both languages in one save", () => {
   })
 })
 
-describe("placeholders", () => {
-  function withGreeting() {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        "smp/smp": {
-          ...location({ path: "smp/smp" }),
-          entries: [
-            entry({
-              key: "greeting",
-              name: "Greeting",
-              english: "Hello {player}",
-              args: [{ name: "player", component: false }],
-            }),
-          ],
-        },
-      }),
-    )
-  }
+/** A location carrying one entry, with a single declared placeholder. */
+function withGreeting() {
+  vi.stubGlobal(
+    "fetch",
+    backend({
+      "smp/smp": {
+        ...location({ path: "smp/smp" }),
+        entries: [
+          entry({
+            key: "greeting",
+            name: "Greeting",
+            english: "Hello {player}",
+            args: [{ name: "player", component: false }],
+          }),
+        ],
+      },
+    }),
+  )
+}
 
+describe("placeholders", () => {
   it("refuses to save a placeholder the text does not declare, and says which", async () => {
     withGreeting()
     draw(<Settings service="smp" />)
@@ -456,7 +469,7 @@ describe("placeholders", () => {
     fireEvent.change(await screen.findByDisplayValue("Hello {player}"), { target: { value: "Hello {palyer}" } })
 
     await screen.findByText("Unknown placeholder {palyer}")
-    expect((screen.getByRole("button", { name: "Save 1" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(asButton(screen.getByRole("button", { name: "Save 1" })).disabled).toBe(true)
   })
 
   it("inserts a declared placeholder from its badge", async () => {
@@ -464,12 +477,12 @@ describe("placeholders", () => {
     draw(<Settings service="smp" />)
     await open("SMP Translations")
     await openKey("Greeting")
-    const field = (await screen.findByDisplayValue("Hello {player}")) as HTMLTextAreaElement
+    const field = asTextArea(await screen.findByDisplayValue("Hello {player}"))
     field.setSelectionRange(0, 0)
 
     fireEvent.click(screen.getByRole("button", { name: "{player}" }))
 
-    await screen.findByDisplayValue("{player}Hello {player}")
+    expect(await screen.findByDisplayValue("{player}Hello {player}")).toBeTruthy()
   })
 })
 
@@ -489,6 +502,6 @@ describe("a jump from the command palette", () => {
 
     setPendingMessageJump("smp", { path: "smp/smp", language: "de", key: "welcome" })
 
-    await screen.findByDisplayValue("packaged-de-welcome")
+    expect(await screen.findByDisplayValue("packaged-de-welcome")).toBeTruthy()
   })
 })

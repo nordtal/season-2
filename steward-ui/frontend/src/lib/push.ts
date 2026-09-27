@@ -1,5 +1,5 @@
 /**
- * Web Push (steward/98, concept §10c): the traffic light reaching a phone's lock screen rather than
+ * Web Push (concept §10c): the traffic light reaching a phone's lock screen rather than
  * only the page somebody might not have open.
  *
  * <h2>Why this is not called from a `useEffect`</h2>

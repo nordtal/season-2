@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { describe, expect, it } from "vitest"
+import { assert, describe, expect, it } from "vitest"
 
 /**
  * Nothing in Steward is German.
@@ -11,12 +11,11 @@ import { describe, expect, it } from "vitest"
  * are English, and the bot is the bilingual half - that is what its language configuration is for.
  *
  * <h2>The word list is derived, and that is the whole design</h2>
- * This guard was written on 2026-09-14 around a hand-kept list of about sixty words. The next day
- * it had missed **nine** German strings that a person could read on screen: `Abschicken` on the
- * console's button, `Vergleich` as a column head, `Zuletzt ermittelt`, `Stufen` and `Was dabei
- * passiert` as card titles, `Gestartet` and `Stand` as figures, `Aktuell` on the season page and
- * `Leere Liste.` in the configuration form. A list of sixty words is not a rule; it is a memory of
- * the sixty words that had already been noticed once.
+ * A hand-kept list of about sixty words misses German strings that a person could read on screen:
+ * `Abschicken` on the console's button, `Vergleich` as a column head, `Zuletzt ermittelt`, `Stufen`
+ * and `Was dabei passiert` as card titles, `Gestartet` and `Stand` as figures, `Aktuell` on the
+ * season page and `Leere Liste.` in the configuration form. A list of sixty words is not a rule; it
+ * is a memory of the words that had already been noticed once.
  *
  * So the list has a source instead of an opinion. `commands/.../de.properties` is a corpus of real
  * German this project maintains anyway - every word in it that is **not** also in `en.properties`
@@ -29,8 +28,8 @@ import { describe, expect, it } from "vitest"
  * words and so have no boundary to match on. That file is read by this test and by
  * `NothingIsGermanTest`, which enforces the same rule on the Java half - one rule, one file.
  *
- * <h2>Two more things, because on 2026-09-14 the derivation alone walked past four words</h2>
- * `Befehle`, `Konfiguration`, `Gelaufen` and `Sperre` were all on the screen with every test
+ * <h2>Two more things, because the derivation alone walks past four words</h2>
+ * `Befehle`, `Konfiguration`, `Gelaufen` and `Sperre` can all be on the screen with every test
  * green. Three of them are answered without adding a single word to a hand list:
  *
  * - **Stems, not whole words.** The bundle says `Befehl` and this said `Befehle`; the bundle says
@@ -92,7 +91,7 @@ function forbidden(): string[] {
   for (const word of rules.extra) {
     if (!allowed.has(word.toLowerCase())) words.add(word.toLowerCase())
   }
-  return [...words].sort()
+  return [...words].toSorted()
 }
 
 const ALSO_ENGLISH = new Set(rules.alsoEnglish.map((word) => word.toLowerCase()))
@@ -140,15 +139,15 @@ const NON_ENGLISH_LETTERS = /[äöüÄÖÜß]/
 /**
  * The deliberate exemptions, and the list is deliberately two long.
  *
- * `run-search-terms.ts` (steward/52) holds search synonyms for the command palette, in English and
+ * `run-search-terms.ts` holds search synonyms for the command palette, in English and
  * German both. A synonym is matched against what somebody typed - it is never printed to a screen
  * the way a label, a button or a comment is - so it carries none of the risk this guard exists for.
  *
  * **Nothing else is exempt, and that is the part worth keeping true.** The German word is exported
  * from that one file as a constant, so its own test, `command-palette.tsx` and
  * `command-palette.test.tsx` all import it instead of spelling it out - which is what leaves every
- * one of them inside the ordinary scan. Measured 2026-09-16: dropping
- * `run-search-terms.test.ts` back out of this set leaves this guard green, so it is out.
+ * one of them inside the ordinary scan. Dropping
+ * `run-search-terms.test.ts` back out of this set leaves this guard green, so it stays out.
  * An exemption that is not needed is a hole waiting for somebody to put something in it.
  */
 const EXEMPT = new Set([path.join(here, "language.test.ts"), path.join(frontend, "src", "app", "run-search-terms.ts")])
@@ -197,24 +196,32 @@ const hasGermanShape = (line: string) => SHAPES.some((shape) => shape.test(line)
 
 describe("nothing in Steward is German", () => {
   it("derives its word list from the bot's own bundle, and it is not a short one", () => {
-    // If this ever collapses to a handful, the bundle moved or the parse broke - and a guard that
-    // silently stops guarding is worse than none, because the build stays green.
+    /**
+     * If this ever collapses to a handful, the bundle moved or the parse broke - and a guard that
+     * silently stops guarding is worse than none, because the build stays green.
+     */
     expect(forbidden().length).toBeGreaterThan(300)
     expect(forbidden()).toContain("vergleich")
     expect(forbidden()).not.toContain("stand")
   })
 
   it("knows a German word by its stem, not only by the form the bot happens to use", () => {
-    // The four that were on the screen on 2026-09-14 with every test green. Three are answered
-    // here; `Sperre` is the one that cannot be, and it is in the rules file by hand.
+    /**
+     * The four that can be on the screen with every test green. Three are answered
+     * here; `Sperre` is the one that cannot be, and it is in the rules file by hand.
+     */
     expect(isGerman("Befehle", GERMAN), "inflection: the bundle only says Befehl").toBe(true)
     expect(isGerman("Konfiguration", GERMAN), "compounding: the bundle only says Konfigurationsdateien").toBe(true)
-    // The honest fourth: no stem of it is derivable and it has no German ending, so it is in the
-    // hand list. If that line is ever removed this goes red, which is the point of asserting it.
+    /**
+     * The honest fourth: no stem of it is derivable and it has no German ending, so it is in the
+     * hand list. If that line is ever removed this goes red, which is the point of asserting it.
+     */
     expect(isGerman("Sperre", GERMAN), "Sperre is in the rules file by hand").toBe(true)
 
-    // And it still lets the language this interface is written in through. `started` and `stopped`
-    // are the two that a looser rule flagged: they extend `starte` and `stoppe` by an English `d`.
+    /**
+     * And it still lets the language this interface is written in through. `started` and `stopped`
+     * are the two that a looser rule flagged: they extend `starte` and `stoppe` by an English `d`.
+     */
     const english = [
       "Configuration",
       "Commands",
@@ -227,15 +234,17 @@ describe("nothing in Steward is German", () => {
       "argument",
       "Operations",
     ]
-    for (const word of english) expect(isGerman(word, GERMAN), word).toBe(false)
+    for (const word of english) assert.strictEqual(isGerman(word, GERMAN), false, word)
   })
 
   it("knows German by its shape too, for words the bot has never said", () => {
     expect(hasGermanShape('label="Gelaufen"')).toBe(true)
     expect(hasGermanShape('title="Einstellung"')).toBe(true)
     expect(hasGermanShape("<Button>Verwerfen</Button>")).toBe(true)
-    // The two that are deliberately reachable by no shape: `ge...t` participles share their shape
-    // with `government`, and a guard that cries on `government` is a guard somebody deletes.
+    /**
+     * The two that are deliberately reachable by no shape: `ge...t` participles share their shape
+     * with `government`, and a guard that cries on `government` is a guard somebody deletes.
+     */
     expect(hasGermanShape("const government = readableNumber(x)")).toBe(false)
     expect(hasGermanShape("<span>the gentlest version</span>")).toBe(false)
   })

@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest"
 import { breadcrumbsFor } from "@/app/shell"
 
 /**
- * The third of `steward/04`'s five findings: a URL nobody can read must not be a blank page.
+ * A URL nobody can read must not be a blank page.
  *
  * `decodeURIComponent` throws on a malformed escape, and `/services/%` is enough to produce one.
- * It was being called while the header rendered, so a mistyped address or a link that lost a
- * character took the whole interface down rather than showing an ugly crumb. The fix was a
- * `try`/`catch`; this is the test that was never written for it.
+ * Calling it while the header renders would mean a mistyped address or a link that lost a
+ * character takes the whole interface down rather than showing an ugly crumb. The guard is a
+ * `try`/`catch`, and this is what tests it.
  *
  * The distinction the last group asserts is the one that matters: the segment is shown *as it
  * arrived*. A breadcrumb is not a value anything is computed from, so the honest answer to an

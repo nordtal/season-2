@@ -9,22 +9,20 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
  * The two files this service reads, and what has to be true of them before it starts.
  *
- * <p>Validation happens at load, not at first use. An interface that starts happily and fails on
- * the first click is one whose failure lands on whoever clicked; one that refuses to start names
- * the key and the file while somebody is still looking at a deploy.</p>
+ * Validation happens at load, not at first use, so a bad value names the key and the file at
+ * startup rather than failing on the first click.
  */
 public final class Configs {
 
     private Configs() {}
 
-    public static @NotNull ConfigHandle<UiSpec> ui(final @NotNull Path directory, final @NotNull Logger logger)
-            throws ConfigException {
+    public static ConfigHandle<UiSpec> ui(final Path directory, final Logger logger) throws ConfigException {
         final Path file = directory.resolve("steward-ui.yml");
         final boolean fresh = !Files.isRegularFile(file);
 
@@ -33,10 +31,7 @@ public final class Configs {
                 .validator(config -> {
                     requirePositive("port", config.port());
                     requirePositive("session-days", config.sessionDays());
-                    // A ceiling as well as a floor, because this one is multiplied into seconds
-                    // and put in a cookie's Max-Age, which is an int. A year is already far past
-                    // anything defensible; the point of the bound is that a typo says so instead
-                    // of overflowing into a cookie the browser drops.
+                    // A ceiling too: multiplied into seconds for a cookie's Max-Age, which is an int.
                     if (config.sessionDays() > 365) {
                         throw new IllegalArgumentException("session-days is " + config.sessionDays()
                                 + " - a session lasting longer than a season is not a session");
@@ -60,8 +55,8 @@ public final class Configs {
         return handle;
     }
 
-    public static @NotNull ConfigHandle<DatabaseSpec> database(
-            final @NotNull Path directory, final @NotNull Logger logger) throws ConfigException {
+    public static ConfigHandle<DatabaseSpec> database(final Path directory, final Logger logger)
+            throws ConfigException {
         final Path file = directory.resolve("database.yml");
         final boolean fresh = !Files.isRegularFile(file);
 
@@ -73,10 +68,7 @@ public final class Configs {
                                 "jdbc-url must be a PostgreSQL URL (jdbc:postgresql://host:port/db)");
                     }
                     if (config.password() == null || config.password().isBlank()) {
-                        // The default is the empty string, and an empty password is not a password
-                        // this deployment ever uses - it is the variable that did not arrive.
-                        // Refused here rather than three seconds later as a pool that cannot
-                        // connect, which is the same fault wearing a stack trace.
+                        // Refused here rather than three seconds later as a pool that cannot connect.
                         throw new IllegalArgumentException("password is empty."
                                 + " NORDTAL_STEWARD_UI_DATABASE_PASSWORD is what compose.yml sets"
                                 + " from POSTGRES_PASSWORD; an empty one means the variable did not"
@@ -97,10 +89,9 @@ public final class Configs {
     }
 
     /**
-     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file, so
-     * steward-worker can warn that editing an overridden setting there has no effect until the
-     * variable is removed (steward/76). Best-effort: this is a UI nicety, not a reason for a
-     * correctly loaded config to refuse to start the service.
+     * Writes {@code handle}'s {@link ConfigHandle#environmentOverrides()} next to its file.
+     *
+     * Best-effort: not a reason for a correctly loaded config to refuse to start the service.
      */
     private static void recordEnvironmentOverrides(final ConfigHandle<?> handle, final Logger logger) {
         try {
@@ -113,16 +104,8 @@ public final class Configs {
     /**
      * The one address this interface answers on, and Discord's redirect URI is built from it.
      *
-     * <h2>Starting with http:// is not the same as being a URL</h2>
-     * The check used to be a prefix and a trailing slash, which lets {@code https://} through -
-     * scheme, no host - and {@code https://?x=1} with it. Both start the process happily, and the
-     * failure arrives later and somewhere else: Discord is handed a redirect URI it cannot match
-     * and answers {@code invalid_request}, which reads like a mistake in the Discord application
-     * rather than a line in a YAML file on this host.
-     *
-     * <p>So it is parsed. A query or a fragment is refused for the same reason the trailing slash
-     * is: Discord compares the redirect URI as a string, and {@code /auth/callback} appended to
-     * something already carrying a {@code ?} is not a URL anybody registered.</p>
+     * Parsed rather than pattern-matched, since Discord compares the redirect URI as a string and
+     * refuses anything a query or a fragment would turn it into.
      */
     static void requirePublicUrl(final String url) {
         if (url == null || url.isBlank()) {
@@ -157,22 +140,12 @@ public final class Configs {
     /**
      * The domain a security key is bound to, held against the address the browser actually uses.
      *
-     * <h2>Why this is checked at startup and not left to the browser</h2>
-     * A browser refuses a WebAuthn ceremony whose Relying Party ID is not the origin's domain or a
-     * parent of it - and it refuses it <em>in the browser</em>, as a {@code SecurityError} in a
-     * promise nobody sees, with no request ever reaching this service. So the symptom of one wrong
-     * line in a YAML file would be "the key dialog never opens", on someone else's phone, with
-     * nothing in any log on this host. Refused here it is a container that will not start and a
-     * sentence naming both values.
-     *
-     * <p>Neither is it a thing anybody should be relaxed about getting wrong in the other
-     * direction: if this were allowed to be <em>broader</em> than the public address's domain -
-     * {@code eu}, say - every site under it could ask for these keys. That combination is refused
-     * by browsers too, and it is refused here first.</p>
+     * Checked at startup rather than left to the browser: a mismatched relying party id otherwise
+     * fails silently as a {@code SecurityError} the browser never reports back here.
      */
     private static final String LOCALHOST = "localhost";
 
-    static void requireRelyingParty(final String relyingPartyId, final String publicUrl) {
+    static void requireRelyingParty(final @Nullable String relyingPartyId, final String publicUrl) {
         if (relyingPartyId == null || relyingPartyId.isBlank()) {
             throw new IllegalArgumentException("webauthn.relying-party-id is empty - it is the"
                     + " domain every security key is registered against, e.g. nordtal.eu");
@@ -182,24 +155,7 @@ public final class Configs {
             throw new IllegalArgumentException("webauthn.relying-party-id is a DOMAIN, not a URL"
                     + " - no scheme, no port, no path. Was: " + relyingPartyId);
         }
-        // AT LEAST TWO LABELS, which is as far as this check honestly goes. A browser refuses a
-        // relying party id that is a public suffix - `eu`, `co.uk`, `github.io` - because every
-        // site under one would otherwise share a set of keys. Knowing which strings those are
-        // needs the Public Suffix List: a dependency and a data file that goes stale monthly, for
-        // a value that is set once and is `nordtal.eu`. So this catches the shape of the mistake -
-        // a bare TLD - and leaves the rest to the browser, which refuses it anyway. What it must
-        // not do is accept `eu` silently, which is what a plain "is it a suffix of the host" test
-        // does: every domain ending in .eu passes that.
-        //
-        // LOCALHOST IS THE ONE NAMED EXCEPTION, and it is named rather than let through by a
-        // softer rule (season-2-ops/148). The reason the check above exists does not apply to it:
-        // `localhost` is not a public suffix, every browser accepts it as a relying party, and
-        // `http://localhost` is a secure context - without which there would be no key ceremony
-        // there at all. It is also the only address a Vite dev server can have, and WebAuthn
-        // allows exactly one origin, so a development sign-in is this value or none.
-        //
-        // It is allowed only when the address is localhost too. Nothing widens: `eu` stays refused
-        // by the line below, and a production deployment cannot reach this branch.
+        // At least two labels catches a bare TLD; localhost is the one named exception below.
         final boolean loopback = LOCALHOST.equals(id) && LOCALHOST.equals(hostOf(publicUrl));
         if (!loopback && (!id.contains(".") || id.startsWith(".") || id.endsWith("."))) {
             throw new IllegalArgumentException("webauthn.relying-party-id is " + relyingPartyId
@@ -219,7 +175,7 @@ public final class Configs {
     }
 
     /** The host of {@code public-url}, lowercased, or {@code null} when it names none. */
-    private static String hostOf(final String publicUrl) {
+    private static @Nullable String hostOf(final String publicUrl) {
         final String host;
         try {
             host = new URI(publicUrl).getHost();

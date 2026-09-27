@@ -8,9 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton"
  * A curve with no axis, no grid and no tooltip - the shape of a value over time and nothing else.
  *
  * `SeriesChart` is the full chart, and it is still what a page with 96 px to spend on one metric
- * should reach for. This is what steward/64 needed instead: the start page's metric row has room
- * for a number and a one-line hint, not for tick labels, so the CPU history that used to sit under
- * the Host card shrank to this rather than moving wholesale - a sparkline answers "is this climbing
+ * should reach for. This is what a metric row on the start page needs instead: room
+ * for a number and a one-line hint, not for tick labels - a sparkline answers "is this climbing
  * or flat", which is all a tile this small can ask of it. `SeriesChart` still answers "at what time
  * exactly", on Operations, where there is space for the question.
  *
@@ -33,16 +32,20 @@ export function Sparkline({
     [points],
   )
 
-  // steward/120: no skeleton chart is wanted, only a skeleton of about the size the chart will
-  // have, filling the same area until it is drawn. So no faked axis and no faked curve - the strip
-  // this occupies, shimmering, and nothing else.
+  /**
+   * No skeleton chart is wanted, only a skeleton of about the size the chart will
+   * have, filling the same area until it is drawn. So no faked axis and no faked curve - the strip
+   * this occupies, shimmering, and nothing else.
+   */
   if (points === undefined) {
     return <Skeleton style={{ height }} className="w-full" />
   }
 
-  // A read that came back with nothing in it is a different statement, and it is not an error worth
-  // a sentence here - `SeriesChart` already says so where there is room for it. A flat, empty strip
-  // is the quiet version of the same fact.
+  /**
+   * A read that came back with nothing in it is a different statement, and it is not an error worth
+   * a sentence here - `SeriesChart` already says so where there is room for it. A flat, empty strip
+   * is the quiet version of the same fact.
+   */
   if (data.length === 0) {
     return <div style={{ height }} aria-hidden />
   }

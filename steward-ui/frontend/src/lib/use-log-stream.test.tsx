@@ -28,7 +28,6 @@ class FakeEventSource {
   readonly withCredentials: boolean
   readyState: number = FakeEventSource.CONNECTING
   closeCalls = 0
-  onerror: Listener | null = null
 
   private readonly listeners = new Map<string, Listener[]>()
 
@@ -64,7 +63,7 @@ class FakeEventSource {
   /** An `error` with the ready state the browser would be in - flaky retry, or given up for good. */
   fail(readyState: number): void {
     this.readyState = readyState
-    this.onerror?.(new Event("error"))
+    this.emit("error")
   }
 }
 
@@ -80,7 +79,7 @@ function live(): FakeEventSource {
 
 function mount(limit = 3) {
   const rendered = renderHook(
-    ({ service, limit }: { service: string; limit: number }) => useLogStream(service, limit),
+    ({ service, limit: entryLimit }: { service: string; limit: number }) => useLogStream(service, entryLimit),
     { initialProps: { service: "smp", limit } },
   )
   act(() => live().emit("open"))
@@ -91,7 +90,9 @@ const texts = (result: { current: LogStream }) => result.current.entries.map((en
 
 /** Lets the frame that applies a batch run. */
 function frame(): void {
-  act(() => vi.advanceTimersByTime(20))
+  act(() => {
+    vi.advanceTimersByTime(20)
+  })
 }
 
 function send(...lines: string[]): void {
@@ -104,11 +105,12 @@ function send(...lines: string[]): void {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame"] })
   FakeEventSource.opened = []
-  ;(globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource
+  vi.stubGlobal("EventSource", FakeEventSource)
 })
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 describe("useLogStream", () => {
@@ -153,7 +155,9 @@ describe("useLogStream", () => {
     expect(texts(result)).toEqual(["old1", "old2"])
     expect(FakeEventSource.opened).toHaveLength(1)
 
-    act(() => vi.advanceTimersByTime(backoff(1)))
+    act(() => {
+      vi.advanceTimersByTime(backoff(1))
+    })
     expect(FakeEventSource.opened).toHaveLength(2)
     act(() => live().emit("open"))
     send("old2", "new")
@@ -164,11 +168,15 @@ describe("useLogStream", () => {
     const { result } = mount(10)
     send("old")
     act(() => live().fail(FakeEventSource.CLOSED))
-    act(() => vi.advanceTimersByTime(backoff(1)))
+    act(() => {
+      vi.advanceTimersByTime(backoff(1))
+    })
     act(() => live().emit("open"))
     frame()
     expect(texts(result)).toEqual(["old"])
-    act(() => vi.advanceTimersByTime(600))
+    act(() => {
+      vi.advanceTimersByTime(600)
+    })
     expect(texts(result)).toEqual([])
   })
 
@@ -182,7 +190,9 @@ describe("useLogStream", () => {
     for (let attempt = 1; attempt < QUIET_FAILURES; attempt++) {
       act(() => live().emit("gone", "no running container for smp"))
       expect(result.current.failure).toBeNull()
-      act(() => vi.advanceTimersByTime(backoff(attempt)))
+      act(() => {
+        vi.advanceTimersByTime(backoff(attempt))
+      })
     }
     expect(texts(result)).toEqual(["still here"])
 
@@ -190,7 +200,9 @@ describe("useLogStream", () => {
     expect(result.current.failure).toBe("no running container for smp")
 
     const before = FakeEventSource.opened.length
-    act(() => vi.advanceTimersByTime(30_000))
+    act(() => {
+      vi.advanceTimersByTime(30_000)
+    })
     expect(FakeEventSource.opened.length).toBe(before + 1)
     act(() => live().emit("open"))
     send("back")
@@ -211,7 +223,9 @@ describe("useLogStream", () => {
     const source = live()
     unmount()
     expect(source.closeCalls).toBeGreaterThanOrEqual(1)
-    act(() => vi.advanceTimersByTime(60_000))
+    act(() => {
+      vi.advanceTimersByTime(60_000)
+    })
     expect(FakeEventSource.opened).toHaveLength(1)
   })
 

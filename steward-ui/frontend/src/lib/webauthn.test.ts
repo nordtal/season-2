@@ -8,6 +8,7 @@ import {
   toBase64Url,
   toCreationOptions,
   whyTheKeyFailed,
+  type AttestationCredentialLike,
   type CreationOptionsJson,
 } from "@/lib/webauthn"
 
@@ -20,7 +21,7 @@ import {
  * log on the server. The two alphabets differ in exactly two characters out of sixty-four, so a
  * mistake shows up in roughly one challenge in twenty - which is worse than always.
  *
- * The server half of the same boundary is covered by `StewardUiIntegrationTest` against a real
+ * The server half of the same boundary is covered by `WebAuthnKeyTest` against a real
  * software authenticator; this is the half jsdom can reach.
  */
 
@@ -28,7 +29,32 @@ import {
 const ALPHABET_TRAP = new Uint8Array([0xfb, 0xff, 0xbe])
 
 function bufferOf(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  if (!(buffer instanceof ArrayBuffer)) throw new Error("expected a plain ArrayBuffer, not a shared one")
+  return buffer
+}
+
+/** A minimal attestation credential, as a real browser would return one from `create()`. */
+function credentialOf(extra: Partial<AttestationCredentialLike> = {}): AttestationCredentialLike {
+  return {
+    type: "public-key",
+    id: "Zm9v",
+    rawId: bufferOf(new Uint8Array([0x66, 0x6f, 0x6f])),
+    response: {
+      clientDataJSON: bufferOf(new Uint8Array([0x7b, 0x7d])),
+      attestationObject: bufferOf(new Uint8Array([0xa0])),
+      getTransports: () => ["internal", "hybrid"],
+    },
+    getClientExtensionResults: () => ({}),
+    ...extra,
+  }
+}
+
+/** An `Error` with the given `name`, the way a browser's `DOMException` carries one. */
+function named(name: string, message = ""): Error {
+  const error = new Error(message)
+  error.name = name
+  return error
 }
 
 describe("base64url, which is not base64", () => {
@@ -48,11 +74,13 @@ describe("base64url, which is not base64", () => {
   })
 
   it("round-trips at all three padding lengths", () => {
-    // A challenge is 32 bytes and a credential id is whatever the key chose, so all three
-    // remainders occur in practice - and each one takes a different branch of the four-to-three
-    // byte packing. What this does NOT cover is the `"=".repeat(...)` that puts the padding back:
-    // measured by deleting it, all twenty tests stay green, because `atob` accepts an unpadded
-    // string. It is kept as the explicit thing rather than as one that happens to work.
+    /**
+     * A challenge is 32 bytes and a credential id is whatever the key chose, so all three
+     * remainders occur in practice - and each one takes a different branch of the four-to-three
+     * byte packing. What this does NOT cover is the `"=".repeat(...)` that puts the padding back:
+     * measured by deleting it, all twenty tests stay green, because `atob` accepts an unpadded
+     * string. It is kept as the explicit thing rather than as one that happens to work.
+     */
     for (const length of [1, 2, 3, 31, 32, 33]) {
       const bytes = new Uint8Array(length)
       for (let i = 0; i < length; i += 1) bytes[i] = (i * 37 + 11) % 256
@@ -72,7 +100,7 @@ describe("the server's JSON as the browser's API wants it", () => {
     publicKey: {
       challenge: "AQIDBA",
       rp: { id: "nordtal.eu", name: "Nordtal Steward" },
-      user: { id: "MTIz", name: "till", displayName: "till" },
+      user: { id: "MTIz", name: "ally", displayName: "ally" },
       pubKeyCredParams: [{ alg: -7, type: "public-key" }],
       timeout: 120000,
       attestation: "none",
@@ -81,12 +109,14 @@ describe("the server's JSON as the browser's API wants it", () => {
   }
 
   it("turns the three byte fields into bytes and leaves everything else alone", () => {
-    const options = toCreationOptions(answer) as unknown as Record<string, unknown>
+    const options = toCreationOptions(answer)
 
-    expect(new Uint8Array(options.challenge as ArrayBuffer)).toEqual(new Uint8Array([1, 2, 3, 4]))
-    // "MTIz" is the digits 1, 2, 3 - the user handle is the Discord id as UTF-8 bytes, which is
-    // what `Credentials.handleOf` writes on the other side.
-    expect(new Uint8Array((options.user as { id: ArrayBuffer }).id)).toEqual(new Uint8Array([0x31, 0x32, 0x33]))
+    expect(options.challenge).toEqual(new Uint8Array([1, 2, 3, 4]))
+    /**
+     * "MTIz" is the digits 1, 2, 3 - the user handle is the Discord id as UTF-8 bytes, which is
+     * what `Credentials.handleOf` writes on the other side.
+     */
+    expect(options.user.id).toEqual(new Uint8Array([0x31, 0x32, 0x33]))
     expect(options.rp).toEqual({ id: "nordtal.eu", name: "Nordtal Steward" })
     expect(options.pubKeyCredParams).toEqual([{ alg: -7, type: "public-key" }])
     expect(options.timeout).toBe(120000)
@@ -98,11 +128,11 @@ describe("the server's JSON as the browser's API wants it", () => {
   })
 
   it("keeps the rest of the user object, which is what the dialog prints", () => {
-    const options = toCreationOptions(answer) as unknown as { user: Record<string, unknown> }
+    const options = toCreationOptions(answer)
 
     // A spread that forgot these leaves a dialog offering to register a key for nobody.
-    expect(options.user.name).toBe("till")
-    expect(options.user.displayName).toBe("till")
+    expect(options.user.name).toBe("ally")
+    expect(options.user.displayName).toBe("ally")
   })
 
   it("converts every excluded credential, not only the first", () => {
@@ -116,41 +146,26 @@ describe("the server's JSON as the browser's API wants it", () => {
       },
     }
 
-    const options = toCreationOptions(withKeys) as unknown as {
-      excludeCredentials: Array<{ id: ArrayBuffer; type: string; transports?: string[] }>
-    }
+    const excludeCredentials = toCreationOptions(withKeys).excludeCredentials ?? []
 
-    expect(options.excludeCredentials).toHaveLength(2)
-    expect(new Uint8Array(options.excludeCredentials[0].id)).toEqual(new Uint8Array([1]))
-    expect(new Uint8Array(options.excludeCredentials[1].id)).toEqual(new Uint8Array([2]))
-    expect(options.excludeCredentials[1].transports).toEqual(["usb", "nfc"])
+    expect(excludeCredentials).toHaveLength(2)
+    expect(excludeCredentials[0].id).toEqual(new Uint8Array([1]))
+    expect(excludeCredentials[1].id).toEqual(new Uint8Array([2]))
+    expect(excludeCredentials[1].transports).toEqual(["usb", "nfc"])
   })
 
   it("leaves the exclusion list absent when the server sent none", () => {
-    // An empty array is not the same thing: it is a list, and a browser reading one has been told
-    // there is nothing to exclude rather than nothing to say.
-    const options = toCreationOptions(answer) as unknown as Record<string, unknown>
+    /**
+     * An empty array is not the same thing: it is a list, and a browser reading one has been told
+     * there is nothing to exclude rather than nothing to say.
+     */
+    const options = toCreationOptions(answer)
 
     expect(options.excludeCredentials).toBeUndefined()
   })
 })
 
 describe("the credential as the server's library reads it", () => {
-  function credentialOf(extra: Partial<Record<string, unknown>> = {}) {
-    return {
-      type: "public-key",
-      id: "Zm9v",
-      rawId: bufferOf(new Uint8Array([0x66, 0x6f, 0x6f])),
-      response: {
-        clientDataJSON: bufferOf(new Uint8Array([0x7b, 0x7d])),
-        attestationObject: bufferOf(new Uint8Array([0xa0])),
-        getTransports: () => ["internal", "hybrid"],
-      },
-      getClientExtensionResults: () => ({}),
-      ...extra,
-    } as unknown as PublicKeyCredential
-  }
-
   it("writes the shape the library parses, with the bytes base64url", () => {
     const written = JSON.parse(fromCredential(credentialOf()))
 
@@ -164,8 +179,10 @@ describe("the credential as the server's library reads it", () => {
   })
 
   it("carries the transports, which the browser's own toJSON() does not", () => {
-    // The reason this file exists rather than a call to `credential.toJSON()`: without this list a
-    // later authentication dialog offers every method the browser has instead of the one that works.
+    /**
+     * The reason this file exists rather than a call to `credential.toJSON()`: without this list a
+     * later authentication dialog offers every method the browser has instead of the one that works.
+     */
     const written = JSON.parse(fromCredential(credentialOf()))
 
     expect(written.response.transports).toEqual(["internal", "hybrid"])
@@ -202,16 +219,18 @@ describe("the dialog", () => {
   }
 
   it("asks the browser with the converted options", async () => {
-    const create = vi.fn().mockResolvedValue({
-      type: "public-key",
-      id: "Zm9v",
-      rawId: bufferOf(new Uint8Array([1])),
-      response: {
-        clientDataJSON: bufferOf(new Uint8Array([1])),
-        attestationObject: bufferOf(new Uint8Array([1])),
-      },
-      getClientExtensionResults: () => ({}),
-    })
+    const create = vi
+      .fn<(options: { publicKey: PublicKeyCredentialCreationOptions }) => Promise<AttestationCredentialLike>>()
+      .mockResolvedValue({
+        type: "public-key",
+        id: "Zm9v",
+        rawId: bufferOf(new Uint8Array([1])),
+        response: {
+          clientDataJSON: bufferOf(new Uint8Array([1])),
+          attestationObject: bufferOf(new Uint8Array([1])),
+        },
+        getClientExtensionResults: () => ({}),
+      })
     vi.stubGlobal("navigator", { credentials: { create } })
 
     await createSecurityKey(answer)
@@ -222,7 +241,9 @@ describe("the dialog", () => {
   })
 
   it("throws rather than sending an empty registration when the browser hands back nothing", async () => {
-    vi.stubGlobal("navigator", { credentials: { create: vi.fn().mockResolvedValue(null) } })
+    vi.stubGlobal("navigator", {
+      credentials: { create: vi.fn<() => Promise<null>>().mockResolvedValue(null) },
+    })
 
     await expect(createSecurityKey(answer)).rejects.toThrow(/without a key/)
     vi.unstubAllGlobals()
@@ -230,24 +251,22 @@ describe("the dialog", () => {
 })
 
 describe("what a person is told went wrong", () => {
-  function named(name: string, message = "") {
-    const error = new Error(message)
-    error.name = name
-    return error
-  }
-
   it("tells a cancelled dialog apart from a refused one", () => {
-    // The two that are not faults, and the pair that matters most: one means try again, the other
-    // means try a different key. The browser's own message for both is usually the empty string.
+    /**
+     * The two that are not faults, and the pair that matters most: one means try again, the other
+     * means try a different key. The browser's own message for both is usually the empty string.
+     */
     expect(whyTheKeyFailed(named("NotAllowedError"))).toMatch(/cancelled/)
     expect(whyTheKeyFailed(named("NotAllowedError"))).toMatch(/Nothing was registered/)
     expect(whyTheKeyFailed(named("InvalidStateError"))).toMatch(/already registered/)
   })
 
   it("blames this server for the one failure that is this server's", () => {
-    // A SecurityError is relying-party-id against the page's address - `Configs.requireRelyingParty`
-    // refuses the same mistake at startup. If one ever reaches a browser, the person holding the key
-    // must not be left thinking their key is broken.
+    /**
+     * A SecurityError is relying-party-id against the page's address - `Configs.requireRelyingParty`
+     * refuses the same mistake at startup. If one ever reaches a browser, the person holding the key
+     * must not be left thinking their key is broken.
+     */
     expect(whyTheKeyFailed(named("SecurityError"))).toMatch(/configuration fault on this server/)
   })
 

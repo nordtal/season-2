@@ -5,10 +5,9 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 
 /**
  * A hex colour, picked with a wheel or typed by hand, previewed on the background it will actually
- * be read against (steward/63).
+ * be read against.
  *
- * **Why this exists.** season-2-ingame/22 turned five `private static final` Java constants into
- * settings with a hex value - `#8ba888` and friends, `smp`/`hunger-games`/`limbo`/`proxy`
+ * **Why this exists.** Five settings carry a hex value - `#8ba888` and friends, `smp`/`hunger-games`/`limbo`/`proxy`
  * each with their own `colours.yml` - and a bare text field is a worse interface for a colour than
  * for almost anything else this page draws: a wrong role id is still readable as a role id, but a
  * wrong hex string looks like nothing until it is rendered somewhere.
@@ -17,14 +16,14 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
  * the same way `SnowflakePicker` still takes a pasted snowflake when the guild cannot be listed -
  * the native swatch below is an addition, not a gate in front of the text field.
  *
- * **The preview sits on Minecraft's own chat background, not on this card's.** Till's own case: pick
- * a chat colour on a white field and look at it in game, and all thirteen prestige colours (the
- * other half of this ticket, season-2-ingame/23, not yet shipped) end up looking the same - a light
+ * **The preview sits on Minecraft's own chat background, not on this card's.** Picking
+ * a chat colour on a white field and looking at it in game, all thirteen prestige colours
+ * end up looking the same - a light
  * tone reads fine on white and vanishes on what the game actually paints behind it.
  *
- * **And it starts hidden, behind an eye in the hex field** (Till, 2026-09-18, third round). Two
- * rounds went into the shape of a preview nobody had asked to see: full width read as a second
- * input, one word wide read as a stray dark band. Neither is a problem once the thing is only drawn
+ * **And it starts hidden, behind an eye in the hex field.** A preview shown unconditionally would
+ * be hard to place well: full width reads as a second
+ * input, one word wide reads as a stray dark band. Neither is a problem once the thing is only drawn
  * when somebody asks for it - and asked for, it may have the whole width, which is the size at
  * which a colour is actually worth judging.
  */
@@ -34,21 +33,20 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
  *
  * Source: minecraft.wiki, the `Options.txt` page, `textBackgroundOpacity` (default `0.5`, added in
  * 19w11a / 1.14) paired with `backgroundForChatOnly` (default `true`, meaning the opacity setting
- * applies to chat text and nothing else) - checked 2026-09-16, not taken from memory. That is
+ * applies to chat text and nothing else). That is
  * `rgba(0, 0, 0, 0.5)`, not a rounder-looking dark grey guessed to stand in for it.
  */
 export const MINECRAFT_CHAT_BACKGROUND = "rgba(0, 0, 0, 0.5)"
 
 /**
- * The word the preview paints, and it is **one word on purpose** (steward/63, second round).
+ * The word the preview paints, and it is **one word on purpose**.
  *
- * Till, 2026-09-17, on the first round: it works, but the text preview under each field is not
- * nice to look at. He did not say what about it - so it was photographed at 390px
- * before this changed: the sample read "Nordtal - sample chat text", and in a `colourRuns` column
- * (`min-w-28`, so 112-150px on a phone) five words wrap onto three lines. Five tones that are drawn
- * side by side precisely so they can be compared then stood at three different heights, and the
- * fifth - alone on the next line, therefore full width - at one. The colours were the one thing the
- * row was not showing.
+ * A longer sample text does not work well here: at 390px
+ * a sample like "Nordtal - sample chat text", in a `colourRuns` column
+ * (`min-w-28`, so 112-150px on a phone), wraps onto three lines. Five tones drawn
+ * side by side precisely so they can be compared would then stand at three different heights, with the
+ * fifth - alone on the next line, therefore full width - at one. The colours would be the one thing the
+ * row is not showing.
  *
  * A single word cannot wrap, and the server's own name is a word this interface already says
  * everywhere. It is also the shape the colour is actually used in for half of these files: a
@@ -144,16 +142,20 @@ export function ColourControl({
   )
 }
 
+/** The parent path of an entry: everything before the last `.`, or "" for a top-level entry. */
+function parentOf(entry: ConfigEntry): string {
+  return entry.path.includes(".") ? entry.path.slice(0, entry.path.lastIndexOf(".")) : ""
+}
+
 /**
- * Consecutive scalar entries, sharing a parent, that all look like a colour (steward/63's fourth
- * requirement): what `colourRuns` groups into one row instead of a stack. It is where `colourValue`
- * (`config-controls.tsx`) earns the qualifier in its own name - the four `colours.yml` files this
- * shipped for are exactly five such entries each, in file order, with no heading between them.
+ * Consecutive scalar entries, sharing a parent, that all look like a colour: what `colourRuns`
+ * groups into one row instead of a stack. It is where `colourValue` (`config-controls.tsx`) earns
+ * the qualifier in its own name - the four `colours.yml` files this shipped for are exactly five
+ * such entries each, in file order, with no heading between them.
  *
  * **`isColour` is a parameter, not an import of `colourValue` itself.** `config-controls.tsx`
  * already imports `ColourControl` from this file to draw a lone colour field; importing
- * `colourValue` back from there would close a cycle between the two, the exact thing `discordId`'s
- * own move to `config-controls.tsx` (steward/57) was to get away from. Taking the predicate as an
+ * `colourValue` back from there would close a cycle between the two. Taking the predicate as an
  * argument keeps this file knowing nothing about `config-controls.tsx` at all, in either direction.
  *
  * **What breaks it.** A blank member - `isColour` returning `false` for a value it cannot read as
@@ -167,9 +169,6 @@ export function ColourControl({
 export function colourRuns(entries: ConfigEntry[], isColour: (entry: ConfigEntry) => boolean): ConfigEntry[][] {
   const runs: ConfigEntry[][] = []
   let current: ConfigEntry[] = []
-
-  const parentOf = (entry: ConfigEntry) =>
-    entry.path.includes(".") ? entry.path.slice(0, entry.path.lastIndexOf(".")) : ""
 
   for (const entry of entries) {
     const colour = isColour(entry)

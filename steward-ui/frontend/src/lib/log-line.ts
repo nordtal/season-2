@@ -1,14 +1,14 @@
 /**
  * One console line, taken apart for drawing.
  *
- * Three forms reach the window, none of them carrying ANSI codes (checked with `cat -v`,
- * 2026-09-20), each behind the timestamp Docker puts in front with `timestamps=1`:
+ * Three forms reach the window, none of them carrying ANSI codes (checked with `cat -v`),
+ * each behind the timestamp Docker puts in front with `timestamps=1`:
  *
  * ```
  * [06:00:40] [Server thread/INFO]: [voicechat] Disconnecting client hmtill        Paper
  * [06:25:38] [Netty epoll Worker #2/INFO] [com.velocity…ConnectedPlayer]: …       Velocity
  * 04:46:21.317 [main] INFO  eu.nordtal.s2.discordbot.AccessBot - access-bot is up  Logback
- * 2026-09-24 11:29:30.941 CEST [29] LOG:  checkpoint starting: time                 postgres
+ * YYYY-MM-DD 11:29:30.941 CEST [29] LOG:  checkpoint starting: time                 postgres
  * ```
  *
  * postgres keeps its time and level only: the date, the zone and the pid say nothing a reader of
@@ -48,8 +48,18 @@ function lastComponent(logger: string): string {
   return dot < 0 ? logger : logger.slice(dot + 1)
 }
 
+/** Every word either regex can capture in that position, mapped to the five levels this file draws. */
+const WORD_LEVEL: Record<string, Level> = {
+  TRACE: "TRACE",
+  DEBUG: "DEBUG",
+  INFO: "INFO",
+  WARN: "WARN",
+  ERROR: "ERROR",
+  FATAL: "ERROR",
+}
+
 function level(word: string): Level {
-  return word === "FATAL" ? "ERROR" : (word as Level)
+  return WORD_LEVEL[word] ?? "INFO"
 }
 
 export function parseLogLine(line: string): ParsedLine {

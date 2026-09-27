@@ -1,7 +1,7 @@
 /**
- * The version pair behind two filenames, derived rather than guessed (season-2-ops/142).
+ * The version pair behind two filenames, derived rather than guessed.
  *
- * The owner asked on 2026-09-20 that the Available card read `v1.5 → v1.6` rather than
+ * The Available card reads `v1.5 → v1.6` rather than
  * `Chunky-Bukkit-1.5.3.jar` against `1.6.0`. The obstacle is that **the worker does not know the
  * installed version**: a `Change` carries the installed *filename* and the wanted *file*, and
  * nothing on either side of that comparison is a version number. An invented `v1.5` would be worse

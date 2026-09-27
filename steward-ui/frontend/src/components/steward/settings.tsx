@@ -9,18 +9,19 @@ import {
   MagnifyingGlassIcon,
   TranslateIcon,
 } from "@phosphor-icons/react"
-import { Fragment, useEffect, useMemo, useRef, useState } from "react"
-import type { CSSProperties, ReactNode } from "react"
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import type { ReactNode } from "react"
 import { cn } from "cn"
+import type { CSSVars } from "@/lib/utils"
 
 import type {
+  ConfigDocument,
   ConfigEntry,
   ConfigLocation,
   GuildList,
   MessageBundle,
   MessageBundleLocation,
   MessageEntry,
-  ParsedConfigDocument,
   ReloadAwareConfigDocument,
 } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
@@ -109,7 +110,9 @@ export function ServiceSettings({
   const wide = useWide()
   const [target, setTarget] = useState<Target | null>(null)
   const report = useRef(onFile)
-  report.current = onFile
+  useLayoutEffect(() => {
+    report.current = onFile
+  })
 
   const groups = useMemo(
     () => groupsOf(service, configs.data ?? [], bundles.data ?? []),
@@ -117,14 +120,18 @@ export function ServiceSettings({
   )
   const files = useMemo(() => groups.flatMap((group) => group.items), [groups])
   const loading = configs.isPending || bundles.isPending
-  // On a wide screen the content column is never empty: without a chosen file it shows the first
-  // one. That is derived, not written into the URL - a write from here would still run in the
-  // render that leaves the tab and put it straight back.
+  /**
+   * On a wide screen the content column is never empty: without a chosen file it shows the first
+   * one. That is derived, not written into the URL - a write from here would still run in the
+   * render that leaves the tab and put it straight back.
+   */
   const shown = file ?? (wide ? files.find((item) => item.readable)?.id : undefined)
   const selected = files.find((item) => item.id === shown)
 
-  // A jump from the command palette, whether it arrived with the navigation or while this page was
-  // already open. Each one gets a new number, so the same hit twice lands twice.
+  /**
+   * A jump from the command palette, whether it arrived with the navigation or while this page was
+   * already open. Each one gets a new number, so the same hit twice lands twice.
+   */
   useEffect(() => {
     const land = () => {
       const config = takePendingJump(service)
@@ -195,8 +202,7 @@ export function ServiceSettings({
                 size="icon-sm"
                 aria-label="Back to the files"
                 onClick={() => {
-                  const index = (window.history.state as { __TSR_index?: number } | null)?.__TSR_index ?? 0
-                  if (index > 0) window.history.back()
+                  if (historyEntryIndex() > 0) window.history.back()
                   else onFile(undefined)
                 }}
               >
@@ -234,6 +240,15 @@ type FileItem =
 
 type FileGroup = { label: string | null; items: FileItem[] }
 
+/** The router's own position in the browser history, or 0 for an entry it never numbered. */
+function historyEntryIndex(): number {
+  const state: unknown = window.history.state
+  const key = "__TSR_index"
+  if (typeof state !== "object" || state === null || !(key in state)) return 0
+  const index = state[key]
+  return typeof index === "number" ? index : 0
+}
+
 /**
  * Nordtal's files first - its translations, then its configs - and everything a third-party plugin
  * wrote below them, by the same Nordtal set the plugins tab uses. The headings only appear when
@@ -262,8 +277,8 @@ function groupsOf(service: string, configs: ConfigLocation[], bundles: MessageBu
       location,
     }))
   const thirdParty = (item: FileItem) => item.kind === "config" && item.location.origin === "third-party"
-  const nordtal = [...translations.sort(byLabel), ...settings.filter((item) => !thirdParty(item)).sort(byLabel)]
-  const others = settings.filter(thirdParty).sort(byLabel)
+  const nordtal = [...translations.toSorted(byLabel), ...settings.filter((item) => !thirdParty(item)).toSorted(byLabel)]
+  const others = settings.filter(thirdParty).toSorted(byLabel)
   if (others.length === 0) return [{ label: null, items: nordtal }]
   return [
     { label: "Nordtal", items: nordtal },
@@ -274,10 +289,10 @@ function groupsOf(service: string, configs: ConfigLocation[], bundles: MessageBu
 /** Whether the two-column layout is showing - Tailwind's `lg`. */
 function useWide(): boolean {
   const query = "(min-width: 64rem)"
-  const [wide, setWide] = useState(() => typeof window !== "undefined" && window.matchMedia?.(query).matches === true)
+  const [wide, setWide] = useState(() => typeof window !== "undefined" && window.matchMedia?.(query).matches)
   useEffect(() => {
     const media = window.matchMedia?.(query)
-    if (!media) return
+    if (!media) return undefined
     const update = () => setWide(media.matches)
     update()
     media.addEventListener("change", update)
@@ -326,9 +341,11 @@ function DraftDot() {
   return <span aria-label="Changed" className="size-1.5 shrink-0 rounded-full bg-primary" />
 }
 
-// -----------------------------------------------------------------------------------------------
-// One tree, whatever its leaves are
-// -----------------------------------------------------------------------------------------------
+/**
+ *
+ * One tree, whatever its leaves are
+ *
+ */
 
 type Highlight = { id: string; seq: number; language?: Language }
 
@@ -369,13 +386,15 @@ function TreeView<L>({
   const opened = useOpened(file)
   const top = useRef<HTMLDivElement>(null)
   const search = useRef<HTMLDivElement>(null)
-  const applied = useRef(-1)
-  // The arrow back up only once the search box has left the screen: on a file that fits, there is
-  // nowhere to go back to.
+  const [appliedSeq, setAppliedSeq] = useState(-1)
+  /**
+   * The arrow back up only once the search box has left the screen: on a file that fits, there is
+   * nowhere to go back to.
+   */
   const [scrolledAway, setScrolledAway] = useState(false)
   useEffect(() => {
     const node = search.current
-    if (!node || typeof IntersectionObserver === "undefined") return
+    if (!node || typeof IntersectionObserver === "undefined") return undefined
     const observer = new IntersectionObserver(([entry]) => setScrolledAway(!entry.isIntersecting))
     observer.observe(node)
     return () => observer.disconnect()
@@ -387,18 +406,30 @@ function TreeView<L>({
     [nodes, query, matches],
   )
 
-  useEffect(() => {
-    if (!target || target.file !== file || target.seq === applied.current) return
-    const chain = ancestorsOf(nodes, target.id)
-    if (!chain) return
-    applied.current = target.seq
+  /**
+   * A jump target names a place in the tree the moment it changes, which is state this render
+   * reacts to rather than an external system, so it is adjusted here instead of in an effect - one
+   * render catches up to it directly rather than committing once and then correcting itself.
+   * `appliedSeq` is the target this component has already caught up to; the chain is only real
+   * while it has not.
+   */
+  const chainForTarget =
+    target && target.file === file && target.seq !== appliedSeq ? ancestorsOf(nodes, target.id) : null
+
+  if (chainForTarget && target) {
+    setAppliedSeq(target.seq)
     setQuery("")
-    for (const branch of chain) setOpened(file, branch, true)
     setHighlight({ id: target.id, seq: target.seq, language: target.language })
-  }, [target, file, nodes])
+  }
+
+  /** Opening a branch writes to the shared draft store, an external system, so this part stays an effect. */
+  useEffect(() => {
+    if (!chainForTarget) return
+    for (const branch of chainForTarget) setOpened(file, branch, true)
+  }, [chainForTarget, file])
 
   useEffect(() => {
-    if (!highlight) return
+    if (!highlight) return undefined
     const timeout = window.setTimeout(() => setHighlight(null), 2400)
     return () => window.clearTimeout(timeout)
   }, [highlight])
@@ -565,26 +596,71 @@ function useLanding(highlight: Highlight | null) {
 
 const LIT = "bg-accent ring-2 ring-primary ring-offset-4 ring-offset-background"
 
-// -----------------------------------------------------------------------------------------------
-// A config file
-// -----------------------------------------------------------------------------------------------
+/** A highlight sequence number never actually reaches, so the first render always counts as new. */
+const UNSEEN = Symbol("unseen")
+
+function isLanguage(value: string): value is Language {
+  return value === "en" || value === "de"
+}
+
+/**
+ * Whether `document` carries the two fields every GET and PUT of a config file actually sends.
+ *
+ * `ParsedConfigDocument` itself does not declare them - see `ReloadAwareConfigDocument`'s own
+ * comment for why it is a separate type - so this is what tells the two apart at runtime.
+ */
+function isReloadAware(document: ConfigDocument): document is ReloadAwareConfigDocument {
+  return !document.raw && "restartRequired" in document && typeof document.restartRequired === "boolean"
+}
+
+/**
+ *
+ * A config file
+ *
+ */
 
 function ConfigFile({ item, target }: { item: Extract<FileItem, { kind: "config" }>; target: Target | null }) {
   const document = useConfig(item.location.path)
   return (
     <QueryState query={document} rows={8}>
-      {(read) =>
-        read.raw ? (
-          <RawConfigView file={item.location.path} document={read} origin={item.location.origin} />
-        ) : (
-          <ConfigForm file={item.id} document={read as ReloadAwareConfigDocument} target={target} />
-        )
-      }
+      {(read) => {
+        if (read.raw) {
+          return <RawConfigView file={item.location.path} document={read} origin={item.location.origin} />
+        }
+        if (!isReloadAware(read)) {
+          throw new Error(`${item.location.path}: the worker answered a config document with no restartRequired`)
+        }
+        return <ConfigForm file={item.id} document={read} target={target} />
+      }}
     </QueryState>
   )
 }
 
 type DraftValue = string | string[] | SectionValues[]
+
+function isSectionValues(value: unknown): value is SectionValues {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.values(value).every(
+      (entry) =>
+        typeof entry === "string" ||
+        (Array.isArray(entry) && entry.every((item) => typeof item === "string" || isSectionValues(item))),
+    )
+  )
+}
+
+function isDraftValue(value: unknown): value is DraftValue {
+  return (
+    typeof value === "string" ||
+    (Array.isArray(value) && value.every((item) => typeof item === "string")) ||
+    (Array.isArray(value) && value.every(isSectionValues))
+  )
+}
+
+function isDraftValueRecord(value: unknown): value is Record<string, DraftValue> {
+  return typeof value === "object" && value !== null && Object.values(value).every(isDraftValue)
+}
 
 function ConfigForm({
   file,
@@ -595,7 +671,7 @@ function ConfigForm({
   document: ReloadAwareConfigDocument
   target: Target | null
 }) {
-  const draft = useDraft<DraftValue>(file) as Draft
+  const draft = useDraft<DraftValue>(file, isDraftValueRecord) as Draft
   const save = useSaveConfig(document.path)
   const roles = useGuildRoles()
   const channels = useGuildChannels()
@@ -614,8 +690,7 @@ function ConfigForm({
     const entry = byPath.get(path)
     const same =
       value === undefined ||
-      (entry !== undefined &&
-        Object.keys(changed({ ...document, entries: [entry] } as ParsedConfigDocument, { [path]: value })).length === 0)
+      (entry !== undefined && Object.keys(changed({ ...document, entries: [entry] }, { [path]: value })).length === 0)
     setDraftValue(file, path, same ? undefined : value)
   }
 
@@ -755,15 +830,20 @@ function SettingField({
   )
 }
 
+/**
+ * A number needs room for four digits and no more; the other half - a hex colour, a name - gets
+ * the rest. A custom property rather than an inline grid template, so `fits-on-a-phone.test.ts`
+ * still sees a column count in the class.
+ */
+function span(entry: ConfigEntry): string {
+  return entry.type === "INTEGER" || entry.type === "DECIMAL" ? "5rem" : "minmax(0,1fr)"
+}
+
 /** Two sections with the same keys, as one row per key: the key's name, then both fields. */
 function PairedRows({ pair, field }: { pair: PairedBlocks; field: (entry: ConfigEntry, block: string) => ReactNode }) {
-  // A number needs room for four digits and no more; the other half - a hex colour, a name - gets
-  // the rest. A custom property rather than an inline grid template, so `fits-on-a-phone.test.ts`
-  // still sees a column count in the class.
-  const span = (entry: ConfigEntry) => (entry.type === "INTEGER" || entry.type === "DECIMAL" ? "5rem" : "minmax(0,1fr)")
-  const columns = {
+  const columns: CSSVars = {
     "--paired-columns": `auto ${span(pair.rows[0].left)} ${span(pair.rows[0].right)}`,
-  } as CSSProperties
+  }
 
   return (
     <ul className="flex max-w-xl flex-col">
@@ -787,12 +867,25 @@ function PairedRows({ pair, field }: { pair: PairedBlocks; field: (entry: Config
   )
 }
 
-// -----------------------------------------------------------------------------------------------
-// A message bundle
-// -----------------------------------------------------------------------------------------------
+/**
+ *
+ * A message bundle
+ *
+ */
 
 /** One key's draft: per language, a new text, `null` for "back to the jar", absent for no change. */
 type MessageDraft = Partial<Record<Language, string | null>>
+
+function isMessageDraft(value: unknown): value is MessageDraft {
+  if (typeof value !== "object" || value === null) return false
+  return Object.entries(value).every(
+    ([key, entry]) => (key === "en" || key === "de") && (entry === null || typeof entry === "string"),
+  )
+}
+
+function isMessageDraftRecord(value: unknown): value is Record<string, MessageDraft> {
+  return typeof value === "object" && value !== null && Object.values(value).every(isMessageDraft)
+}
 
 function BundleFile({ item, target }: { item: Extract<FileItem, { kind: "bundle" }>; target: Target | null }) {
   const document = useMessageBundle(item.location.path)
@@ -804,7 +897,7 @@ function BundleFile({ item, target }: { item: Extract<FileItem, { kind: "bundle"
 }
 
 function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBundle; target: Target | null }) {
-  const draft = useDraft<MessageDraft>(file)
+  const draft = useDraft<MessageDraft>(file, isMessageDraftRecord)
   const save = useSaveMessageBundle(bundle.path)
   const [warnings, setWarnings] = useState<string[]>([])
   const nodes = useMemo(() => messageTree(bundle.entries), [bundle.entries])
@@ -826,7 +919,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
     let next = value
     if (typeof next === "string" && next === (saved ?? packagedOf(entry, language) ?? "")) next = undefined
     if (next === null && saved === undefined) next = undefined
-    const languages: MessageDraft = { ...(draft[key] ?? {}) }
+    const languages: MessageDraft = { ...draft[key] }
     if (next === undefined) delete languages[language]
     else languages[language] = next
     setDraftValue(file, key, Object.keys(languages).length > 0 ? languages : undefined)
@@ -1008,9 +1101,11 @@ function MessageField({
   const input = useRef<HTMLTextAreaElement>(null)
   const id = `message-${entry.key}`
 
-  useEffect(() => {
+  const seenSeq = useRef<number | undefined | typeof UNSEEN>(UNSEEN)
+  if (seenSeq.current !== highlight?.seq) {
+    seenSeq.current = highlight?.seq
     if (highlight?.language) setLanguage(highlight.language)
-  }, [highlight?.seq, highlight?.language])
+  }
 
   const typed = draft?.[language]
   const packaged = packagedOf(entry, language)
@@ -1083,7 +1178,7 @@ function MessageField({
               <EraserIcon aria-hidden />
             </InputGroupButton>
           ) : null}
-          <Tabs value={language} onValueChange={(next) => setLanguage(next as Language)}>
+          <Tabs value={language} onValueChange={(next) => (isLanguage(next) ? setLanguage(next) : undefined)}>
             <TabsList className="group-data-horizontal/tabs:h-6 p-0.5">
               {(["en", "de"] as const).map((tab) => (
                 <TabsTrigger key={tab} value={tab} className={cn("gap-1 px-1.5 text-xs", empty(tab) && "opacity-50")}>

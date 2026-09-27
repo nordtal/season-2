@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import { OnlineLine, type Online } from "@/components/steward/online"
 
 /**
- * The one claim the heading makes that nothing else on the start page can check (steward/64).
+ * The one claim the heading makes that nothing else on the start page can check.
  *
  * `OnlineLine` is the variant that went onto the page, and its premise is that the overflow circle
  * is the *general* case rather than the leftovers: Steward knows how many people are in the game
@@ -14,7 +14,7 @@ import { OnlineLine, type Online } from "@/components/steward/online"
  * actually in today.
  *
  * The page's own test file covers the number and the dash through a real fetch; what is here is the
- * circle, because the page cannot render one until steward/111 writes a roster down.
+ * circle, because the page cannot render one until a roster exists.
  */
 const queryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } })
 

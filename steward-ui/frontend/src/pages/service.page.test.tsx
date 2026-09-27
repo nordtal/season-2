@@ -4,10 +4,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ServicePage, offline, serviceSearch } from "@/pages/service"
+import type { Run } from "@/lib/api"
+import { asButton } from "@/lib/test-elements"
+import { urlOf } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * steward/140: every service page has the same head and up to three tabs, and a tab with nothing
+ * Every service page has the same head and up to three tabs, and a tab with nothing
  * behind it is not there. The open tab lives in the URL, so a reload stays on it.
  */
 
@@ -32,7 +35,8 @@ const row = (name: string, over: Record<string, unknown> = {}) => ({
 })
 
 function backend(service: Record<string, unknown>, active: unknown = { run: null }): typeof fetch {
-  return vi.fn(async (url: string) => {
+  return vi.fn<typeof fetch>(async (input) => {
+    const url = urlOf(input)
     if (url.startsWith("/api/services/")) return json(200, service)
     if (url === "/api/updates/active") return json(200, active)
     if (url === "/api/config") {
@@ -43,7 +47,7 @@ function backend(service: Record<string, unknown>, active: unknown = { run: null
     if (url === "/api/deployer") return json(200, { available: true, reachable: true })
     if (url === "/api/schedule") return json(200, { nextBackupAt: null, backupAt: "", zone: "UTC" })
     return json(404, { error: `not stubbed: ${url}` })
-  }) as unknown as typeof fetch
+  })
 }
 
 class SilentEventSource {
@@ -73,7 +77,7 @@ function draw(url: string) {
   render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RouterProvider router={router as never} />
+        <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
@@ -85,7 +89,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe("ServicePage - the head and the tabs (steward/140)", () => {
+describe("ServicePage - the head and the tabs", () => {
   it("gives smp three tabs and its own online line", async () => {
     vi.stubGlobal("EventSource", SilentEventSource)
     vi.stubGlobal("fetch", backend(row("smp", { hasPlugins: true, players: 2 })))
@@ -141,12 +145,12 @@ describe("ServicePage - the head and the tabs (steward/140)", () => {
   })
 })
 
-const openRun = (over: Record<string, unknown> = {}) => ({
+const openRun = (over: Partial<Run> = {}): Run => ({
   id: 41,
   kind: "DOWN",
   status: "PENDING",
   source: "CONSOLE",
-  requestedBy: "till (123456789012345678)",
+  requestedBy: "ally (123456789012345678)",
   scope: ["smp"],
   actorDiscordId: "123456789012345678",
   actorLabel: "",
@@ -169,7 +173,7 @@ describe("ServicePage - a run that is open", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy()
     await waitFor(() => {
       for (const name of ["Update", "Take down", "Recreate"]) {
-        expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true)
+        expect(asButton(screen.getByRole("button", { name })).disabled).toBe(true)
       }
     })
   })
@@ -199,26 +203,29 @@ describe("ServicePage - a run that is open", () => {
 
     const update = await screen.findByRole("button", { name: "Update" })
     await waitFor(() => expect(screen.queryByRole("link", { name: /#\d+/ })).toBeNull())
-    expect((update as HTMLButtonElement).disabled).toBe(false)
+    expect(asButton(update).disabled).toBe(false)
   })
 })
 
 describe("offline", () => {
-  const running = openRun({ status: "RUNNING" }) as never
+  const running = openRun({ status: "RUNNING" })
   it("reads a run taking this service down as going offline", () => {
     expect(offline(running, "smp", "running")).toBe("going")
-    expect(offline(openRun({ status: "RUNNING", scope: [] }) as never, "limbo", "running")).toBe("going")
+    expect(offline(openRun({ status: "RUNNING", scope: [] }), "limbo", "running")).toBe("going")
   })
   it("does not for a run elsewhere, one still counting down, or a Start", () => {
     expect(offline(running, "limbo", "running")).toBeUndefined()
-    expect(offline(openRun() as never, "smp", "running")).toBeUndefined()
-    expect(offline(openRun({ status: "RUNNING", kind: "START" }) as never, "smp", "running")).toBeUndefined()
+    expect(offline(openRun(), "smp", "running")).toBeUndefined()
+    expect(offline(openRun({ status: "RUNNING", kind: "START" }), "smp", "running")).toBeUndefined()
   })
   it("reads a stopped container as offline", () => {
     expect(offline(null, "smp", "exited")).toBe("gone")
     expect(offline(null, "smp", undefined)).toBeUndefined()
   })
 })
+
+/** The default a held promise's resolver starts as, before a test decides to settle it. */
+function noop(): void {}
 
 /** A desktop-wide `matchMedia`: every `min-width` query matches, every `max-width` one does not. */
 function wideScreen() {
@@ -237,7 +244,7 @@ function wideScreen() {
 describe("ServicePage - the actions arrive together", () => {
   it("draws no action button until the service is known, and a skeleton in each place", async () => {
     vi.stubGlobal("EventSource", SilentEventSource)
-    let answer: (response: Response) => void = () => {}
+    let answer: (response: Response) => void = noop
     const pending = new Promise<Response>((resolve) => (answer = resolve))
     const served = backend(row("smp", { hasPlugins: true }))
     vi.stubGlobal(

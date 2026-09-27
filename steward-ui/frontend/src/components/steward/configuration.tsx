@@ -18,13 +18,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 /**
  * `discordId` used to be defined here and stayed exported under this name for
  * `snowflake-picker.test.tsx`, which imports it from this module. The implementation moved to
- * `config-controls.tsx` (steward/57) so `repeatable-cards.tsx` could use it too without importing
+ * `config-controls.tsx` so `repeatable-cards.tsx` could use it too without importing
  * this file back - a card's own fields need the same "is this a role or a channel" heuristic as a
  * top-level key, and a cycle between the two files would follow from importing it the other way.
  */
 export { discordId } from "@/components/steward/config-controls"
 
-/** The marker for a key the file has but the schema does not mention (steward/50, steward/55). */
+/** The marker for a key the file has but the schema does not mention. */
 export function NotInSchemaBadge() {
   return (
     <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
@@ -34,10 +34,10 @@ export function NotInSchemaBadge() {
 }
 
 /**
- * The marker for a key an environment variable currently answers (steward/76): saving it here
+ * The marker for a key an environment variable currently answers: saving it here
  * changes the file, never the running service, until whoever set the variable removes it.
  *
- * The field stays editable regardless - Till's decision, 2026-09-16, is to let the file be
+ * The field stays editable regardless - the decision is to let the file be
  * prepared for the day the variable is gone, not to lock it - so this is a sign next to the field,
  * not a state on it.
  */
@@ -61,14 +61,24 @@ export function EnvironmentOverriddenBadge() {
 }
 
 /**
- * A file steward could not read as YAML, shown exactly as it stands on disk (steward/56) - and,
- * since steward/60, editable as the plain text it is when the mount underneath it allows a write
+ * A file steward could not read as YAML, shown exactly as it stands on disk - and
+ * editable as the plain text it is when the mount underneath it allows a write
  * at all. There is nothing here this class parsed, so there is no form and no per-field save; the
  * whole file is one draft, checked for the syntax its own name implies only once the operator
  * saves it, and never refused for what that check finds. See `RawConfigEditor` for the rest of
  * this - format detection, highlighting, the save itself and its warnings all live there so this
- * function stays just the hand-off steward/56 left it as.
+ * function stays just the hand-off it was built as.
  */
+/**
+ * Whether `document` carries the `revision` the worker now sends on every raw document.
+ *
+ * `RawConfigDocument` itself does not declare the field - see `EditableRawConfigDocument`'s own
+ * comment for why it is a separate type - so this is what tells the two apart at runtime.
+ */
+function isEditable(document: RawConfigDocument): document is EditableRawConfigDocument {
+  return "revision" in document && typeof document.revision === "string"
+}
+
 export function RawConfigView({
   file,
   document,
@@ -78,20 +88,23 @@ export function RawConfigView({
   document: RawConfigDocument
   origin?: "nordtal" | "third-party"
 }) {
-  return (
-    <RawConfigEditor
-      file={file}
-      origin={origin}
-      // The worker sends `revision` on every raw document too, since steward/60 gave this shape a
-      // save path of its own (`ConfigApi#rawDocument`). `RawConfigDocument` itself is left alone,
-      // the same way `ParsedConfigDocument` is above: other work lands in this file the same
-      // night, so the widened shape is its own type in api.ts rather than a change to this one.
-      document={document as EditableRawConfigDocument}
-    />
-  )
+  if (!isEditable(document)) {
+    throw new Error(`${file}: the worker answered a raw document with no revision`)
+  }
+  return <RawConfigEditor file={file} origin={origin} document={document} />
 }
 
 export type Draft = Record<string, string | string[] | SectionValues[]>
+
+function isStringArray(value: Draft[string] | undefined): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string")
+}
+
+function isSectionValuesArray(value: Draft[string] | undefined): value is SectionValues[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null && !Array.isArray(item))
+  )
+}
 
 /**
  * What the form would send: only the keys that actually differ from the file.
@@ -110,17 +123,21 @@ export function changed(document: ParsedConfigDocument, draft: Draft): ConfigCha
       }
       continue
     }
-    // A card's whole list of sections (steward/57) is sent the same way a plain LIST is: as one
-    // value under the parent path, compared whole against the sections the file itself held - a
-    // removed card is invisible in a diff of individual keys, since there is no key left to differ.
+    /**
+     * A card's whole list of sections is sent the same way a plain LIST is: as one
+     * value under the parent path, compared whole against the sections the file itself held - a
+     * removed card is invisible in a diff of individual keys, since there is no key left to differ.
+     */
     if (entry.kind === "SECTIONS") {
-      if (JSON.stringify(value) !== JSON.stringify(sectionsFromEntry(entry))) {
-        changes[entry.path] = value as SectionValues[]
+      if (isSectionValuesArray(value) && JSON.stringify(value) !== JSON.stringify(sectionsFromEntry(entry))) {
+        changes[entry.path] = value
       }
       continue
     }
-    // A secret has no value here to compare against, so any typed value is a change - including an
-    // empty one, which empties it. The field says so out loud rather than doing it quietly.
+    /**
+     * A secret has no value here to compare against, so any typed value is a change - including an
+     * empty one, which empties it. The field says so out loud rather than doing it quietly.
+     */
     if (entry.secret || value !== (entry.value ?? "")) {
       changes[entry.path] = value
     }
@@ -129,7 +146,7 @@ export function changed(document: ParsedConfigDocument, draft: Draft): ConfigCha
 }
 
 /**
- * The one path-keyed exception to "a card has no title beyond its index" (steward/61).
+ * The one path-keyed exception to "a card has no title beyond its index".
  *
  * `languages` in `discord-bot/access.yml` is the only `SECTIONS` entry in the whole config tree
  * that has a natural title - the tag - and nothing in the schema marks a field as "the one that
@@ -151,7 +168,7 @@ function sectionTitleFor(entry: ConfigEntry): ((section: SectionValues, index: n
 }
 
 /**
- * Which control an entry gets: the repeatable cards for a `SECTIONS` entry (steward/57), the plain
+ * Which control an entry gets: the repeatable cards for a `SECTIONS` entry, the plain
  * scalar list rows for a `LIST`, or a leaf's own scalar control - a secret, a schema's choices, a
  * Discord id, a boolean or plain text, in that order of precedence. The leaf branch is
  * `ScalarControl` in `config-controls.tsx`, shared with a field drawn inside a card, so the two
@@ -173,12 +190,14 @@ export function Control({
   onChange: (value: string | string[] | SectionValues[]) => void
 }) {
   if (entry.kind === "LIST") {
-    const items = (draft[entry.path] as string[] | undefined) ?? entry.items ?? []
+    const raw = draft[entry.path]
+    const items = (isStringArray(raw) ? raw : undefined) ?? entry.items ?? []
     return <ListControl id={entry.path} items={items} disabled={disabled} onChange={onChange} />
   }
 
   if (entry.kind === "SECTIONS") {
-    const value = (draft[entry.path] as SectionValues[] | undefined) ?? sectionsFromEntry(entry)
+    const raw = draft[entry.path]
+    const value = (isSectionValuesArray(raw) ? raw : undefined) ?? sectionsFromEntry(entry)
     return (
       <RepeatableCards
         entry={entry}
@@ -192,7 +211,8 @@ export function Control({
     )
   }
 
-  const typed = draft[entry.path] as string | undefined
+  const rawTyped = draft[entry.path]
+  const typed = typeof rawTyped === "string" ? rawTyped : undefined
   const value = typed ?? entry.value ?? ""
 
   return (

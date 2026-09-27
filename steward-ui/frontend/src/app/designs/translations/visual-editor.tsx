@@ -88,6 +88,32 @@ export function VisualEditor({
     [runs, onChange],
   )
 
+  function undo() {
+    const previous = history.current.past.pop()
+    if (!previous) return
+    history.current.future.push(runs)
+    caret.current = { from: totalLength(previous), to: totalLength(previous) }
+    onChange(previous)
+  }
+
+  function redo() {
+    const next = history.current.future.pop()
+    if (!next) return
+    history.current.past.push(runs)
+    caret.current = { from: totalLength(next), to: totalLength(next) }
+    onChange(next)
+  }
+
+  function restyle(change: (style: Style) => Style, at: Range = last.current) {
+    if (at.from === at.to) return
+    commit(applyStyle(runs, at.from, at.to, change), at)
+  }
+
+  function toggle(decoration: "bold" | "italic" | "underlined", at: Range) {
+    const on = commonStyle(runs, at.from, at.to)[decoration] === true
+    restyle((style) => ({ ...style, [decoration]: on ? undefined : true }), at)
+  }
+
   // After every render that moved the caret, put it back where the model says it is.
   useLayoutEffect(() => {
     const element = root.current
@@ -125,7 +151,7 @@ export function VisualEditor({
 
   useEffect(() => {
     const element = root.current
-    if (!element) return
+    if (!element) return undefined
     const onBeforeInput = (event: InputEvent) => {
       if (event.inputType === "insertCompositionText") return
       event.preventDefault()
@@ -216,32 +242,6 @@ export function VisualEditor({
       element.removeEventListener("keydown", onKeyDown)
     }
   })
-
-  function undo() {
-    const previous = history.current.past.pop()
-    if (!previous) return
-    history.current.future.push(runs)
-    caret.current = { from: totalLength(previous), to: totalLength(previous) }
-    onChange(previous)
-  }
-
-  function redo() {
-    const next = history.current.future.pop()
-    if (!next) return
-    history.current.past.push(runs)
-    caret.current = { from: totalLength(next), to: totalLength(next) }
-    onChange(next)
-  }
-
-  function restyle(change: (style: Style) => Style, at: Range = last.current) {
-    if (at.from === at.to) return
-    commit(applyStyle(runs, at.from, at.to, change), at)
-  }
-
-  function toggle(decoration: "bold" | "italic" | "underlined", at: Range) {
-    const on = commonStyle(runs, at.from, at.to)[decoration] === true
-    restyle((style) => ({ ...style, [decoration]: on ? undefined : true }), at)
-  }
 
   const selected = range.from < range.to
   const shared = useMemo(() => (selected ? commonStyle(runs, range.from, range.to) : {}), [runs, range, selected])
@@ -366,7 +366,7 @@ function RunView({
         const colours = run.style.gradient
         return (
           <span data-run={index} style={{ ...textStyle(run.style, format), ...marks }}>
-            {[...run.text].map((char, at) => {
+            {Array.from(run.text).map((char, at) => {
               const colour = gradientAt(colours, total <= 1 ? 0 : (start + at) / (total - 1))
               return (
                 <span key={at} style={{ color: colour, textShadow: `2px 2px 0 ${shadowOf(colour)}` }}>
@@ -421,6 +421,10 @@ function RunView({
           {run.source}
         </span>
       )
+    default: {
+      const exhaustive: never = run
+      throw new Error(`unreachable run kind: ${JSON.stringify(exhaustive)}`)
+    }
   }
 }
 
@@ -465,15 +469,19 @@ function textStyle(style: Style, format: Format): CSSProperties {
   return css
 }
 
+/** How many characters of plain text one run contributes to a gradient span. */
+function runLength(run: Run): number {
+  return run.kind === "text" ? run.text.length : run.kind === "placeholder" ? 1 : 0
+}
+
 function gradientSpan(runs: Run[], index: number): { start: number; total: number } {
   const key = JSON.stringify(runs[index].style.gradient)
   let first = index
   while (first > 0 && JSON.stringify(runs[first - 1].style.gradient) === key) first -= 1
   let end = index
   while (end < runs.length && JSON.stringify(runs[end].style.gradient) === key) end += 1
-  const length = (run: Run) => (run.kind === "text" ? run.text.length : run.kind === "placeholder" ? 1 : 0)
-  const start = runs.slice(first, index).reduce((sum, run) => sum + length(run), 0)
-  const total = runs.slice(first, end).reduce((sum, run) => sum + length(run), 0)
+  const start = runs.slice(first, index).reduce((sum, run) => sum + runLength(run), 0)
+  const total = runs.slice(first, end).reduce((sum, run) => sum + runLength(run), 0)
   return { start, total }
 }
 
@@ -557,7 +565,7 @@ function HoverMenu({
   )
 }
 
-// --- the DOM and the model -------------------------------------------------------------------
+// --- the DOM and the model
 
 function textRuns(text: string, breaks: boolean): Run[] {
   const lines = text.replace(/\r\n?/g, "\n").split("\n")
@@ -714,10 +722,10 @@ function useWide(): boolean {
   const [wide, setWide] = useState(() => typeof window !== "undefined" && window.matchMedia?.(query).matches)
   useEffect(() => {
     const list = window.matchMedia?.(query)
-    if (!list) return
+    if (!list) return undefined
     const update = () => setWide(list.matches)
     list.addEventListener("change", update)
     return () => list.removeEventListener("change", update)
   }, [])
-  return Boolean(wide)
+  return wide
 }

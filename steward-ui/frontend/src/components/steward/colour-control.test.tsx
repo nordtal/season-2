@@ -4,18 +4,21 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { ColourControl, MINECRAFT_CHAT_BACKGROUND, SAMPLE_TEXT, colourRuns } from "@/components/steward/colour-control"
 import { colourValue } from "@/components/steward/config-controls"
 import type { ConfigEntry } from "@/lib/api"
+import { asInput } from "@/lib/test-elements"
 
 /**
- * The colour picker steward/63 asks for, and the heuristic (`colourValue`, `config-controls.tsx`)
- * and grouping (`colourRuns`) that decide when it is drawn at all and whether several of them stand
- * in a row.
+ * The colour picker, and the heuristic (`colourValue`, `config-controls.tsx`) and grouping
+ * (`colourRuns`) that decide when it is drawn at all and whether several of them stand in a row.
  *
- * The ticket's own escape hatch is a heuristic on the VALUE, not the key - the interface recognises
- * that a value looks like `#rrggbb` and shows the picker - deliberately instead of a schema
- * "colour" kind (steward/54), which needs a jcore change out of scope tonight. `colourValue`'s own comment in
- * `config-controls.tsx` explains why it reads `entry.value` and not a live keystroke; the tests
- * below are what proves that choice rather than merely asserting it.
+ * The escape hatch is a heuristic on the VALUE, not the key - the interface recognises that a value
+ * looks like `#rrggbb` and shows the picker - deliberately instead of a schema "colour" kind, which
+ * needs a jcore change out of scope tonight. `colourValue`'s own comment in `config-controls.tsx`
+ * explains why it reads `entry.value` and not a live keystroke; the tests below are what proves that
+ * choice rather than merely asserting it.
  */
+
+/** The preview starts hidden, so every test about it opens it first. */
+const showPreview = () => fireEvent.click(screen.getByRole("button", { name: /preview/i }))
 
 function field(over: Partial<ConfigEntry> & { key: string; path: string }): ConfigEntry {
   return {
@@ -46,19 +49,23 @@ describe("colourValue", () => {
   })
 
   it("never mistakes an empty value for a colour", () => {
-    // RED, first: before this guard the naive regex `#[0-9a-f]{6}$` test against "" is simply
-    // false already, so this looks like it would pass by accident - the case that actually needs
-    // the explicit early return is a value of undefined, which `entry.value` is for a kind this
-    // heuristic must never touch (see the next test). Both are asserted here so a later refactor
-    // that inlines the regex cannot quietly drop either guard.
+    /**
+     * RED, first: before this guard the naive regex `#[0-9a-f]{6}$` test against "" is simply
+     * false already, so this looks like it would pass by accident - the case that actually needs
+     * the explicit early return is a value of undefined, which `entry.value` is for a kind this
+     * heuristic must never touch (see the next test). Both are asserted here so a later refactor
+     * that inlines the regex cannot quietly drop either guard.
+     */
     expect(colourValue(field({ key: "good", path: "good", value: "" }))).toBeNull()
   })
 
   it("rejects an ordinary text value, including one that starts with #", () => {
     expect(colourValue(field({ key: "note", path: "note", value: "just text" }))).toBeNull()
-    // The named failure mode from the code comment: a value that merely starts with a hash and six
-    // hex-looking characters is not enough more than that to be worth a false positive over - but
-    // "#1234567" (seven digits) and "#12345" (five) both still have to be rejected.
+    /**
+     * The named failure mode from the code comment: a value that merely starts with a hash and six
+     * hex-looking characters is not enough more than that to be worth a false positive over - but
+     * "#1234567" (seven digits) and "#12345" (five) both still have to be rejected.
+     */
     expect(colourValue(field({ key: "note", path: "note", value: "#1234567" }))).toBeNull()
     expect(colourValue(field({ key: "note", path: "note", value: "#12345" }))).toBeNull()
   })
@@ -72,58 +79,55 @@ describe("colourValue", () => {
 
 describe("ColourControl", () => {
   it("shows the hex value as text and lets it be typed, not only dragged on a wheel", () => {
-    const onChange = vi.fn()
+    const onChange = vi.fn<(value: string) => void>()
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={onChange} />)
 
-    // Not `getByDisplayValue` - the native swatch's own value is "#8ba888" too, so that query
-    // matches both inputs. `getByRole("textbox")` only matches the plain text field: an
-    // `input[type="color"]` has no such role.
-    const text = screen.getByRole("textbox") as HTMLInputElement
+    /**
+     * Not `getByDisplayValue` - the native swatch's own value is "#8ba888" too, so that query
+     * matches both inputs. `getByRole("textbox")` only matches the plain text field: an
+     * `input[type="color"]` has no such role.
+     */
+    const text = asInput(screen.getByRole("textbox"))
     fireEvent.change(text, { target: { value: "#123456" } })
 
     expect(onChange).toHaveBeenCalledWith("#123456")
   })
 
   it("also writes through the native swatch", () => {
-    const onChange = vi.fn()
+    const onChange = vi.fn<(value: string) => void>()
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={onChange} />)
 
-    const swatch = screen.getByLabelText("Pick a colour") as HTMLInputElement
+    const swatch = asInput(screen.getByLabelText("Pick a colour"))
     expect(swatch.value).toBe("#8ba888")
     fireEvent.change(swatch, { target: { value: "#00ff00" } })
 
     expect(onChange).toHaveBeenCalledWith("#00ff00")
   })
 
-  /** The preview starts hidden since the third round, so every test about it opens it first. */
-  const showPreview = () => fireEvent.click(screen.getByRole("button", { name: /preview/i }))
-
   it("previews the colour on Minecraft's own chat background, not a plain white field", () => {
-    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
 
     const preview = screen.getByRole("img", { name: /preview on minecraft's chat background/i })
     expect(preview.style.backgroundColor).toBe(MINECRAFT_CHAT_BACKGROUND)
 
     const sample = screen.getByText(SAMPLE_TEXT)
-    // jsdom normalises an inline `color` style to `rgb(...)` regardless of how it was written -
-    // "#8ba888" is (139, 168, 136) in decimal.
+    /**
+     * jsdom normalises an inline `color` style to `rgb(...)` regardless of how it was written -
+     * "#8ba888" is (139, 168, 136) in decimal.
+     */
     expect(sample.style.color).toBe("rgb(139, 168, 136)")
   })
 
   /**
-   * steward/63, second round. Till, 2026-09-17: it works, but the text preview under each field is
-   * not nice to look at - without saying which part. Photographed at 390px before anything changed
-   * (`/home/dev/ui-shots/shots/steward-63-colours-390-before.png`): a five-word sample in a column
-   * 112-150px wide wrapped onto three lines, so the five tones of one `colours.yml` stood in a row
-   * of five different heights, and the last one - alone on its own line and therefore full width -
-   * was one line high. Nothing about the colours was comparable, which is the whole point of
-   * drawing them side by side.
+   * A sample that wraps breaks the comparison a row of colours exists for: five tones in a row are
+   * only comparable when the row is a row of equal heights, and a wrapped, multi-line sample makes
+   * one taller than the rest.
    *
    * One word cannot wrap, and `truncate` is what holds that when a column is narrower still.
    */
   it("keeps the sample to one line, so a row of colours is a row of equal heights", () => {
-    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
 
     const sample = screen.getByText(SAMPLE_TEXT)
@@ -132,19 +136,18 @@ describe("ColourControl", () => {
   })
 
   /**
-   * steward/63, third round. Till, 2026-09-18: the preview spans the whole width of the field, the
-   * way the alternative drew it - but it starts hidden, and an eye in the hex field is what brings
-   * it out. A preview nobody asked for is a band of colour on every row of a settings page; asked
-   * for, it is worth the full width.
+   * The preview spans the whole width of the field, but starts hidden - an eye in the hex field is
+   * what brings it out. A preview nobody asked for is a band of colour on every row of a settings
+   * page; asked for, it is worth the full width.
    */
   it("draws no preview until it is asked for", () => {
-    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
 
     expect(screen.queryByText(SAMPLE_TEXT)).toBeNull()
   })
 
   it("brings the preview out on the eye, and takes it back on a second press", () => {
-    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     const eye = screen.getByRole("button", { name: /preview/i })
 
     fireEvent.click(eye)
@@ -156,7 +159,7 @@ describe("ColourControl", () => {
   })
 
   it("gives the shown preview the whole width of the field, not a band the size of the word", () => {
-    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn()} />)
+    render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
 
     const preview = screen.getByRole("img", { name: /preview on minecraft's chat background/i })
@@ -165,14 +168,16 @@ describe("ColourControl", () => {
   })
 
   it("shows the sample dimmed, and no instructions, while the value is not a colour yet", () => {
-    // Typing "#8ba" (still incomplete) must not crash the native colour input, which refuses
-    // anything that is not exactly seven characters - the swatch falls back to a placeholder. The
-    // preview, once open, keeps its place and its height rather than swapping in a sentence: the
-    // box is the same size either way, so nothing below it moves while somebody retypes six digits.
-    render(<ColourControl id="good" value="#8ba" disabled={false} onChange={vi.fn()} />)
+    /**
+     * Typing "#8ba" (still incomplete) must not crash the native colour input, which refuses
+     * anything that is not exactly seven characters - the swatch falls back to a placeholder. The
+     * preview, once open, keeps its place and its height rather than swapping in a sentence: the
+     * box is the same size either way, so nothing below it moves while somebody retypes six digits.
+     */
+    render(<ColourControl id="good" value="#8ba" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
 
-    const swatch = screen.getByLabelText("Pick a colour") as HTMLInputElement
+    const swatch = asInput(screen.getByLabelText("Pick a colour"))
     expect(swatch.value).toBe("#000000")
     const sample = screen.getByText(SAMPLE_TEXT)
     expect(sample.style.color).toBe("")
@@ -182,10 +187,10 @@ describe("ColourControl", () => {
   })
 })
 
-describe("colourRuns", () => {
-  const isColour = (entry: ConfigEntry) => colourValue(entry) !== null
+const isColour = (entry: ConfigEntry) => colourValue(entry) !== null
 
-  it("groups every colour.yml entry into a single row (season-2-ingame/22's five tones)", () => {
+describe("colourRuns", () => {
+  it("groups every colour.yml entry into a single row, one for each of the five tones", () => {
     const entries = [
       field({ key: "good", path: "good", value: "#8ba888" }),
       field({ key: "bad", path: "bad", value: "#a8888b" }),
@@ -235,12 +240,12 @@ describe("colourRuns", () => {
     expect(runs[1].map((entry) => entry.path)).toEqual(["b.good", "b.bad"])
   })
 
-  it("groups the thirteen prestige tiers into one row and leaves admin out of it (season-2-ingame/23)", () => {
-    // The exact shape smp/smp/prestige-colours.yml reads back as from the live worker on
-    // 2026-09-16: `admin` is a sibling scalar at the top level - not a fourteenth tier - and the
-    // thirteen tiers sit under `prestige`, consecutive and nothing else between them. This is the
-    // claim steward/63's own comment made before this file existed ("all thirteen prestige colours
-    // ... not yet shipped"); this test is what proves it rather than merely asserting it.
+  it("groups the thirteen prestige tiers into one row and leaves admin out of it", () => {
+    /**
+     * The exact shape smp/smp/prestige-colours.yml reads back as: `admin` is a sibling scalar at
+     * the top level - not a fourteenth tier - and the thirteen tiers sit under `prestige`,
+     * consecutive and nothing else between them.
+     */
     const entries = [
       field({ key: "admin", path: "admin", value: "#ff5555" }),
       field({ key: "tier-01", path: "prestige.tier-01", value: "#5fbfae" }),
@@ -281,9 +286,11 @@ describe("colourRuns", () => {
   })
 
   it("drops a blank member out of the run rather than guessing it is a colour too", () => {
-    // The documented cost of deciding by value: a colour saved blank splits the run exactly the
-    // way an unrelated field would. Fixed by a schema "colour" kind (steward/54), not by this
-    // function guessing harder.
+    /**
+     * The documented cost of deciding by value: a colour saved blank splits the run exactly the
+     * way an unrelated field would. A schema "colour" kind would fix it; this function guessing
+     * harder would not.
+     */
     const entries = [
       field({ key: "good", path: "good", value: "#8ba888" }),
       field({ key: "bad", path: "bad", value: "" }),

@@ -49,9 +49,11 @@ export function bytes(value: number | null | undefined): string {
     scaled /= 1000
     unit += 1
   }
-  // The loop scales the raw number, and the rounding to one decimal happens after it - so 999 999
-  // came out as "1.000,0 kB", a quantity this function never means to print and the header's own
-  // "base 1000" says it does not. The carry is checked on the rounded value, where it happens.
+  /**
+   * The loop scales the raw number, and the rounding to one decimal happens after it - so 999 999
+   * came out as "1.000,0 kB", a quantity this function never means to print and the header's own
+   * "base 1000" says it does not. The carry is checked on the rounded value, where it happens.
+   */
   if (Math.round(scaled * 10) >= 10_000 && unit < UNITS.length - 1) {
     scaled /= 1000
     unit += 1
@@ -78,8 +80,10 @@ export function percent(value: number | null | undefined, decimals = 1): string 
 const PERCENT_FORMATS = new Map<number, Intl.NumberFormat>()
 
 function percentFormat(decimals: number): Intl.NumberFormat {
-  // Intl throws outside 0..20, and a caller asking for 21 decimals of a percentage has made a
-  // mistake that must not become an exception in a dashboard.
+  /**
+   * Intl throws outside 0..20, and a caller asking for 21 decimals of a percentage has made a
+   * mistake that must not become an exception in a dashboard.
+   */
   const wanted = Math.min(Math.max(Math.trunc(decimals) || 0, 0), 20)
   let format = PERCENT_FORMATS.get(wanted)
   if (!format) {
@@ -127,12 +131,12 @@ export function parseInstant(value: string | null | undefined): Date | null {
 
 /** Date and time, in full. */
 export function dateTime(value: string | Date | null | undefined): string {
-  const date = value instanceof Date ? value : parseInstant(value)
-  return date == null ? "–" : DATE_TIME.format(date)
+  const parsed = value instanceof Date ? value : parseInstant(value)
+  return parsed == null ? "–" : DATE_TIME.format(parsed)
 }
 
 /**
- * The day only, without the clock - for a phone (steward/103).
+ * The day only, without the clock - for a phone.
  *
  * `active until 1 Dec 2026, 00:00` does not fit the access badge on a 390px screen, and a badge
  * clips rather than wraps, so it was drawn as `active until 1 Dec 2026, 00:0` - a date that looks
@@ -147,8 +151,8 @@ export function date(value: string | Date | null | undefined): string {
 
 /** The clock only - for a log line, where the date is the same for every line on screen. */
 export function clock(value: string | Date | null | undefined): string {
-  const date = value instanceof Date ? value : parseInstant(value)
-  return date == null ? "–" : TIME.format(date)
+  const parsed = value instanceof Date ? value : parseInstant(value)
+  return parsed == null ? "–" : TIME.format(parsed)
 }
 
 /**
@@ -170,16 +174,16 @@ const STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
 ]
 
 export function relative(value: string | Date | null | undefined, now = Date.now()): string {
-  const date = value instanceof Date ? value : parseInstant(value)
-  if (date == null) return "–"
-  let delta = (date.getTime() - now) / 1000
+  const parsed = value instanceof Date ? value : parseInstant(value)
+  if (parsed == null) return "–"
+  let delta = (parsed.getTime() - now) / 1000
   for (const [unit, size] of STEPS) {
     if (Math.abs(delta) < size) {
       return RELATIVE.format(Math.round(delta), unit)
     }
     delta /= size
   }
-  return DATE_TIME.format(date)
+  return DATE_TIME.format(parsed)
 }
 
 /**
@@ -207,7 +211,7 @@ export function duration(seconds: number | null | undefined): string {
 /**
  * Play time, in the three units a person thinks in: "1 d 6 h 30 min".
  *
- * Not `duration`, and the difference is the point (steward/126). `duration` measures how long a
+ * Not `duration`, and the difference is the point. `duration` measures how long a
  * backup took and how long a container has been up, where two units are already more precision than
  * anybody reads. Play time is a number somebody TYPES - the dialog asks for days, hours and minutes
  * - and a column that answered "1 d 6 h" to a value that was entered as 1 d 6 h 30 min would make
@@ -252,6 +256,6 @@ export function splitPlaytime(seconds: number | null | undefined): {
 
 /** How long ago an instant was, as a span rather than as "… ago". */
 export function since(value: string | Date | null | undefined, now = Date.now()): string {
-  const date = value instanceof Date ? value : parseInstant(value)
-  return date == null ? "–" : duration((now - date.getTime()) / 1000)
+  const parsed = value instanceof Date ? value : parseInstant(value)
+  return parsed == null ? "–" : duration((now - parsed.getTime()) / 1000)
 }

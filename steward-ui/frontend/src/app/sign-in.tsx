@@ -14,9 +14,9 @@ import { Skeleton } from "@/components/ui/skeleton"
  * behind it: signed out, every API call but this one answers 401, so a shell drawn underneath
  * would be a sidebar full of pages that cannot load.
  *
- * Till, 2026-09-16 (steward/78): as little text as possible everywhere in this app - it is about
+ * As little text as possible everywhere in this app - it is about
  * data and overview, not explanatory copy, and an admin who does not already know why a sign-in
- * needs the guild's role can ask. The sentence that used to stand here saying so is gone with it.
+ * needs the guild's role can ask.
  */
 export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
   const missing = me?.signInUnavailable

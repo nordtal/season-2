@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { RecreateButton } from "@/components/steward/recreate"
+import { asButton, asElement } from "@/lib/test-elements"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
@@ -37,7 +38,7 @@ function backend(
     job?: () => Answer
   } = {},
 ) {
-  return vi.fn(async (url: string, init?: RequestInit) => {
+  return vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url: string, init?: RequestInit) => {
     if (url === "/api/deployer") {
       return json({
         body: {
@@ -61,8 +62,10 @@ function draw(node: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  // The same provider the Shell puts around everything: `StatusBadge` is a Radix tooltip and
-  // throws without one, which would be a test failing for a reason the component does not have.
+  /**
+   * The same provider the Shell puts around everything: `StatusBadge` is a Radix tooltip and
+   * throws without one, which would be a test failing for a reason the component does not have.
+   */
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>{node}</TooltipProvider>
@@ -92,49 +95,59 @@ describe("RecreateButton - before anything is pressed", () => {
   })
 
   it("is not drawn at all for the deployer itself", async () => {
-    // It is the container the request travels through, so it refuses to recreate itself. A button
-    // that is drawn and then refused is a button that teaches an operator to distrust the page.
+    /**
+     * It is the container the request travels through, so it refuses to recreate itself. A button
+     * that is drawn and then refused is a button that teaches an operator to distrust the page.
+     */
     draw(<RecreateButton service="steward-deployer" />)
 
     expect(screen.queryByRole("button")).toBeNull()
   })
 
   it("is disabled with the deployer's own reason on it when there is no shared secret", async () => {
-    // "not set up" is a different sentence from "broken", and only the deployer knows which it
-    // is.
+    /**
+     * "not set up" is a different sentence from "broken", and only the deployer knows which it
+     * is.
+     */
     fetched = backend({ available: false, reason: "No shared secret has been set up." })
     vi.stubGlobal("fetch", fetched)
     draw(<RecreateButton service="smp" />)
 
-    // `toBeDisabled` would need jest-dom, which this project does not install - the property is
-    // the same assertion and one dependency fewer.
-    const button = screen.getByRole("button", { name: /Recreate/ }) as HTMLButtonElement
+    /**
+     * `toBeDisabled` would need jest-dom, which this project does not install - the property is
+     * the same assertion and one dependency fewer.
+     */
+    const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
     await waitFor(() => expect(button.disabled).toBe(true))
     expect(button.title).toBe("No shared secret has been set up.")
   })
 
   it("is disabled when the deployer is configured but its container is not answering", async () => {
-    // `reachable` is not a guess the interface makes: the endpoint performs a real GET
-    // /api/health against steward-deployer and reports what came back
-    // (`InternalClient#isReachable`). A false here is therefore an answer, and answers lock the
-    // button - unlike a first load, which is the absence of one.
-    //
-    // This field travelled in the payload and was read by nobody, which made a configured
-    // deployer with a dead container look exactly like a healthy one, right down to the sentence
-    // promising the image is already on this host.
+    /**
+     * `reachable` is not a guess the interface makes: the endpoint performs a real GET
+     * /api/health against steward-deployer and reports what came back
+     * (`InternalClient#isReachable`). A false here is therefore an answer, and answers lock the
+     * button - unlike a first load, which is the absence of one.
+     *
+     * This field travelled in the payload and was read by nobody, which made a configured
+     * deployer with a dead container look exactly like a healthy one, right down to the sentence
+     * promising the image is already on this host.
+     */
     fetched = backend({ available: true, reachable: false })
     vi.stubGlobal("fetch", fetched)
     draw(<RecreateButton service="smp" />)
 
-    const button = screen.getByRole("button", { name: /Recreate/ }) as HTMLButtonElement
+    const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
     await waitFor(() => expect(button.disabled).toBe(true))
     expect(button.title).toBe("steward-deployer is configured but not answering.")
     expect(button.title).not.toContain("already on this host")
   })
 
   it("says that nobody in the world is warned, before the button is pressed and not after", async () => {
-    // The whole argument for the dialog: an update counts down in front of every player, this
-    // does not. Putting that in front of the button is cheaper than explaining it afterwards.
+    /**
+     * The whole argument for the dialog: an update counts down in front of every player, this
+     * does not. Putting that in front of the button is cheaper than explaining it afterwards.
+     */
     draw(<RecreateButton service="smp" />)
     fireEvent.click(screen.getByRole("button", { name: /Recreate/ }))
 
@@ -142,15 +155,17 @@ describe("RecreateButton - before anything is pressed", () => {
     expect(dialog.textContent).toContain("no countdown")
     expect(dialog.textContent).toContain("thrown out")
     // Nothing has been asked for yet - opening the dialog must not start a compose run.
-    expect(fetched.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST")).toBe(false)
+    expect(fetched.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false)
   })
 })
 
 describe("RecreateButton - when /api/deployer itself cannot be asked", () => {
   it("disables the button and stops claiming a state nobody has checked, on a 404", async () => {
-    // The third state from steward/97: no answer at all, not "answered false". `deployer.data`
-    // stays undefined here, so the old `unavailable = deployer.data?.available === false` read
-    // this as available and drew the confident title regardless.
+    /**
+     * The third state: no answer at all, not "answered false". `deployer.data`
+     * stays undefined here, so the old `unavailable = deployer.data?.available === false` read
+     * this as available and drew the confident title regardless.
+     */
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
@@ -160,7 +175,7 @@ describe("RecreateButton - when /api/deployer itself cannot be asked", () => {
     )
     draw(<RecreateButton service="smp" />)
 
-    const button = screen.getByRole("button", { name: /Recreate/ }) as HTMLButtonElement
+    const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
     await waitFor(() => expect(button.disabled).toBe(true))
     expect(button.title).not.toContain("from the image already on this host")
   })
@@ -168,9 +183,11 @@ describe("RecreateButton - when /api/deployer itself cannot be asked", () => {
 
 describe("RecreateButton - before /api/deployer has answered at all", () => {
   it("keeps the button active but does not claim a state nobody has checked yet", async () => {
-    // The fourth state: the ordinary first load. The decided fix only lets the error case lock
-    // the button - a query that is merely slow must not go grey - but the title still must not
-    // say the confident sentence before anybody has checked anything.
+    /**
+     * The fourth state: the ordinary first load. The decided fix only lets the error case lock
+     * the button - a query that is merely slow must not go grey - but the title still must not
+     * say the confident sentence before anybody has checked anything.
+     */
     let settle!: (response: Response) => void
     vi.stubGlobal(
       "fetch",
@@ -181,7 +198,7 @@ describe("RecreateButton - before /api/deployer has answered at all", () => {
     )
     draw(<RecreateButton service="smp" />)
 
-    const button = screen.getByRole("button", { name: /Recreate/ }) as HTMLButtonElement
+    const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
     expect(button.disabled).toBe(false)
     expect(button.title).not.toContain("from the image already on this host")
 
@@ -232,8 +249,10 @@ describe("RecreateButton - while the job is read", () => {
   })
 
   it("shows the failure, and not Running, when the job cannot be read at all", async () => {
-    // The defect this replaced: `job.data?.state ?? "RUNNING"` drew the working badge for a job
-    // nothing had ever answered about.
+    /**
+     * The defect this replaced: `job.data?.state ?? "RUNNING"` drew the working badge for a job
+     * nothing had ever answered about.
+     */
     vi.stubGlobal(
       "fetch",
       backend({
@@ -302,11 +321,13 @@ describe("RecreateButton - the footer while the job is unreadable", () => {
     broken = true
     await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeNull(), { timeout: 3000 })
 
-    // The body is right and the footer is not. Scoped to the footer on purpose: Radix's own
-    // dismiss icon carries the sr-only name "Close" too, so an unscoped query by that name finds
-    // two buttons and the one this assertion is about is the second.
-    const footer = dialog.querySelector('[data-slot="dialog-footer"]') as HTMLElement
-    const close = within(footer).getByRole("button", { name: /Close|Running/ }) as HTMLButtonElement
+    /**
+     * The body is right and the footer is not. Scoped to the footer on purpose: Radix's own
+     * dismiss icon carries the sr-only name "Close" too, so an unscoped query by that name finds
+     * two buttons and the one this assertion is about is the second.
+     */
+    const footer = asElement(dialog.querySelector('[data-slot="dialog-footer"]'))
+    const close = asButton(within(footer).getByRole("button", { name: /Close|Running/ }))
     expect([close.textContent, close.disabled]).toEqual(["Close", false])
   })
 })

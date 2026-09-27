@@ -3,10 +3,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { ConfigDocument } from "@/lib/api"
+import type { ConfigDocument, ConfigEntry, ParsedConfigDocument } from "@/lib/api"
 import { announcementTargets } from "@/lib/announcement-targets"
 import { AnnouncementsPage, senderName } from "@/pages/announcements"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { asButton, asTextArea } from "@/lib/test-elements"
 
 /**
  * One form writes every language, nothing leaves until every language has its text, and the page
@@ -20,21 +21,49 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-function field(key: string, value: string) {
-  return { path: key, key, label: key, value, kind: "SCALAR" }
+function field(key: string, value: string): ConfigEntry {
+  return {
+    path: key,
+    key,
+    label: key,
+    value,
+    kind: "SCALAR",
+    type: "STRING",
+    comments: [],
+    explanation: "",
+    noExplanationNeeded: false,
+    filled: true,
+    line: 0,
+    editable: true,
+    secret: false,
+    inSchema: true,
+  }
 }
 
-function accessFile({ en = "111", de = "", overridden = false } = {}) {
+function accessFile({ en = "111", de = "", overridden = false } = {}): ParsedConfigDocument {
   return {
+    service: "discord-bot",
     path: "discord-bot/access.yml",
     name: "access.yml",
+    readable: true,
+    writable: true,
     revision: "r1",
     header: [],
     entries: [
       {
         path: "languages",
         key: "languages",
+        label: "languages",
         kind: "SECTIONS",
+        type: "STRING",
+        comments: [],
+        explanation: "",
+        noExplanationNeeded: false,
+        filled: true,
+        line: 0,
+        editable: false,
+        secret: false,
+        inSchema: true,
         environmentOverridden: overridden,
         sections: [
           [field("tag", "en"), field("announcement-channel", en)],
@@ -73,9 +102,9 @@ function backend(file: unknown = accessFile()) {
   const sent: unknown[] = []
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (url: string, init?: RequestInit) => {
+    vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
       if (init?.method === "POST" && url === "/api/announcements") {
-        sent.push(JSON.parse(String(init.body)))
+        sent.push(JSON.parse(init.body ?? ""))
         return json(202, { ids: { en: "21", de: "22" } })
       }
       if (url === "/api/announcements") return json(200, RECENT)
@@ -108,6 +137,11 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** The Send button, narrowed to the type its `disabled` assertions need. */
+function send() {
+  return asButton(screen.getByRole("button", { name: "Send" }))
+}
+
 describe("AnnouncementsPage", () => {
   it("sends nothing until every language has its text, then one text per language", async () => {
     const sent = backend()
@@ -115,7 +149,6 @@ describe("AnnouncementsPage", () => {
 
     const english = await screen.findByLabelText("English")
     const german = screen.getByLabelText("Deutsch")
-    const send = () => screen.getByRole("button", { name: "Send" }) as HTMLButtonElement
 
     fireEvent.change(english, { target: { value: "The end opens tonight." } })
     expect(send().disabled).toBe(true)
@@ -134,7 +167,7 @@ describe("AnnouncementsPage", () => {
     )
     // Twice for the two rows just sent, once in the list of recent ones.
     await waitFor(() => expect(screen.getAllByText("Posted.")).toHaveLength(3))
-    expect((screen.getByLabelText("English") as HTMLTextAreaElement).value).toBe("")
+    expect(asTextArea(screen.getByLabelText("English")).value).toBe("")
   })
 
   it("names the channel each language lands in, and says when one has none", async () => {
@@ -166,13 +199,20 @@ describe("AnnouncementsPage", () => {
 
 describe("announcementTargets", () => {
   it("has nothing to say about a raw file", () => {
-    expect(
-      announcementTargets({ raw: true, content: "", path: "x", name: "x" } as unknown as ConfigDocument),
-    ).toBeNull()
+    const raw: ConfigDocument = {
+      raw: true,
+      content: "",
+      path: "x",
+      name: "x",
+      service: "discord-bot",
+      readable: true,
+      writable: true,
+    }
+    expect(announcementTargets(raw)).toBeNull()
   })
 
   it("reads each language's channel in file order", () => {
-    expect(announcementTargets(accessFile() as unknown as ConfigDocument)).toEqual({
+    expect(announcementTargets(accessFile())).toEqual({
       languages: [
         { tag: "en", channel: "111" },
         { tag: "de", channel: "" },

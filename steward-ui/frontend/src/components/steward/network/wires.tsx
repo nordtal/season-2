@@ -6,14 +6,13 @@ import { EDGES, type Edge, type EdgeKind } from "./topology"
  * The lines, which are the picture - the cards are only where the lines end.
  *
  * <h2>Planned, not measured</h2>
- * The first two rounds of steward/81 laid the cards out with CSS grids and read their positions
- * back out of the DOM, because a grid decides where a box lands and only the browser knows. That
- * bought layouts that reflow for free and cost the one thing the drawing needed: nothing could be
- * checked without a browser, jsdom saw every rectangle as zero, and a line that ran through the
- * middle of a card was only ever found by looking at a screenshot.
+ * Laying the cards out with CSS grids and reading their positions
+ * back out of the DOM - a grid decides where a box lands and only the browser knows - buys layouts
+ * that reflow for free and costs the one thing the drawing needs: nothing can be
+ * checked without a browser, jsdom sees every rectangle as zero, and a line that runs through the
+ * middle of a card is only ever found by looking at a screenshot.
  *
- * Till's note of 2026-09-17 - the grid arrangement is boring, be more creative - removes the
- * reason to keep it. A card is now placed at a point a draft names
+ * A card is instead placed at a point a draft names
  * (see `place.tsx`), so every rectangle in the picture is known before anything renders, geometry
  * is a pure function of the plan, and a test can ask whether two cards overlap or whether a line
  * crosses a card it has no business in. That is the trade: hand-placed arrangements in exchange for
@@ -22,15 +21,15 @@ import { EDGES, type Edge, type EdgeKind } from "./topology"
  * <h2>Two kinds of line, told apart by colour and by shape</h2>
  * `traffic` is the path a request takes and is drawn in the interface's one accent colour, solid,
  * with an arrowhead. `data` is bookkeeping - seven services writing to one database - drawn in the
- * quiet neutral, dashed, thinner, and **merged**: Till asked for lines to be brought together where
+ * quiet neutral, dashed, thinner, and **merged**: lines are brought together where
  * that makes sense, and seven separate strokes converging on one card from seven directions is the
  * clearest case there is. See {@link bundle}.
  *
- * <h2>Curved, because Till chose curved</h2>
- * He picked the sweeping, rounded lines of draft `b` over the rest. Every line here is a cubic
- * leaving the side of a card that faces its target - the orthogonal routing of drafts `d`, `f` and
- * `g` is gone, and with it the failure the orchestrator photographed, where a vertical segment sat
- * exactly on the seam between two cards and read as a border rather than a connection.
+ * <h2>Curved</h2>
+ * Every line here is a cubic
+ * leaving the side of a card that faces its target, rather than the orthogonal routing an earlier
+ * draft used, where a vertical segment sitting
+ * exactly on the seam between two cards would read as a border rather than a connection.
  */
 
 export type Box = { x: number; y: number; width: number; height: number }
@@ -76,7 +75,7 @@ export function inside(box: Box, point: Point, pad = 0): boolean {
  * sweep whenever the other axis is the long one: two cards 40px apart horizontally and 140px apart
  * vertically got a 20px handle and bent almost at a right angle. The reach is therefore the larger
  * of half the axis span and two fifths of the cross span, which is what makes an offset pair read
- * as one continuous S - the shape Till picked out of draft `b`.
+ * as one continuous S.
  *
  * <h2>`bow`</h2>
  * Two edges leaving the same card for two cards stacked under one another are the same line until
@@ -117,13 +116,13 @@ export function curve(from: Box, to: Box, bow = 0, standoff = 3): string {
  * that silently mis-reads a path would make a test that passes for the wrong reason, which is the
  * one failure worse than having no test.
  *
- * <h2>It used to understand one cubic and nothing else</h2>
- * Until steward/121 this matched the first eight numbers of an `M … C …` string and ignored the
- * rest, which had two consequences that both hid real lines from every check: a foot with a
- * straight lead-in before its curve was read as the curve alone, and **the trunk - `M … L …`, with
- * no `C` in it at all - was read as an empty path**, so the one line that was actually drawn
- * through the middle of a card was the one line no assertion could see. The junction's trunk ran
- * from below `postgres` to the *top* of its box, and every test stayed green.
+ * <h2>Understanding more than one cubic</h2>
+ * Matching only the first eight numbers of an `M … C …` string and ignoring the
+ * rest would have two consequences that both hide real lines from every check: a foot with a
+ * straight lead-in before its curve would be read as the curve alone, and **the trunk - `M … L …`, with
+ * no `C` in it at all - would be read as an empty path**, so the one line actually drawn
+ * through the middle of a card would be the one line no assertion could see - for example the
+ * junction's trunk running from below `postgres` to the *top* of its box, with every test staying green.
  *
  * `steps` is per segment, so a two-segment path is sampled twice as densely as a one-segment one -
  * which is what a caller checking clearances wants, rather than a fixed budget spread thinner the
@@ -227,40 +226,35 @@ const LANE_OFFSET = 28
  * Five lines into one, and one line into the card - the database bundle.
  *
  * Every service that writes to the database has the same line to draw, and drawing seven of them
- * separately is what made `postgres` look like it was under attack from all sides in the first
- * round of steward/81. They are gathered instead: each source runs down (or up) **its own lane**,
+ * separately would make `postgres` look like it is under attack from all sides. They are gathered
+ * instead: each source runs down (or up) **its own lane**,
  * flattens onto a shared line at the junction's height, and one trunk leaves the junction for the
  * sink. What a reader then has to follow is one line with a fan hanging off it, and counting the
  * strands of the fan answers "how many services write to the database" without reading a label.
  *
- * <h2>What steward/121 changed, and why</h2>
- * Till, 2026-09-20, looking at the shipped version, translated: it also looks as though the
- * postgres lines are *trying* to bundle, and if so it is certainly not working as intended. He
- * would like them to find a way **between** the services rather than behind them, and to bundle as
- * closely as possible into one. Both halves were real and both were this function:
+ * <h2>Bundling between the services, not behind them</h2>
+ * Two things matter for a bundle to read as one line rather than as several that merely end
+ * together, and both are handled by this function:
  *
- * - **A source left through its own side.** A card whose x was more than half a card away from the
- *   lane exited sideways, at its own height, and curved diagonally to the junction. For the two
- *   sources sitting *above* `postgres` that diagonal ran straight across `postgres` itself - which
- *   is the "behind a service" half, and it was invisible to the test because `postgres` was
- *   excluded from every foot's own crossing check as "the sink it is heading for anyway". The sink
- *   is no longer excluded, and the exit is no longer sideways: a foot leaves through the edge that
+ * - **A source leaves through the edge that faces the junction.** A card whose x is more than half
+ *   a card away from the lane would otherwise exit sideways, at its own height, and curve
+ *   diagonally to the junction - and for a source sitting *above* `postgres` that diagonal would run
+ *   straight across `postgres` itself, reading as a line drawn behind a service rather than between
+ *   them. Instead a foot leaves through the edge that
  *   **faces the junction vertically** and descends in its source's own lane, which is a corridor an
  *   arrangement already has to keep clear for the card itself.
- * - **Nothing was shared.** Each foot aimed at the junction with a handle half its own length away,
- *   so five curves of five different lengths met at a point and agreed about nothing before it.
- *   Now every one of them has the same second handle - {@link BUNDLE_FLAT} back along the junction's
- *   own row - so the last 48px of all five strands lie on top of one another. That is the "as close
- *   to one as possible" half, and it is what makes the fan read as a bus rather than as five lines
- *   that happen to end together.
+ * - **Every foot shares its last stretch.** Aiming each foot at the junction with a handle half its
+ *   own length away would produce five curves of five different lengths that meet at a point and
+ *   agree about nothing before it. Instead every one of them has the same second handle - {@link
+ *   BUNDLE_FLAT} back along the junction's own row - so the last 48px of all five strands lie on top
+ *   of one another, which is what makes the fan read as a bus rather than as five lines that happen
+ *   to end together.
  *
- * <h2>The trunk stops at the near edge, which is the whole of the fourth finding</h2>
- * His fourth finding, translated: where all the lines lead to postgres there is also some other
- * odd line drawn behind postgres. It was this line, and it was not a stray path or an edge to a node
- * that is not there: the trunk was drawn from the junction to `sink.y` - the **top** of the sink's
- * box - while the junction sits *below* the sink. So it ran from below the card, through the whole
- * card, and stopped at its far edge; the card's own `z-10` hid the middle of it and left a stub
- * poking out underneath that belonged to nothing. It now ends at whichever edge faces the junction,
+ * <h2>The trunk stops at the near edge</h2>
+ * Drawing the trunk from the junction to `sink.y` - the **top** of the sink's
+ * box - while the junction sits *below* the sink would run it from below the card, through the whole
+ * card, stopping at its far edge; the card's own `z-10` would hide the middle of it and leave a stub
+ * poking out underneath that belongs to nothing. It instead ends at whichever edge faces the junction,
  * so it is 38px long and entirely outside the card.
  *
  * The junction is the caller's to choose, and choosing it badly is the one way this still goes
@@ -271,25 +265,33 @@ export function bundle(sources: readonly Box[], sink: Box, junction: Point): { f
   if (sources.length === 0) return { feet: [], trunk: "" }
   const feet = sources.map((box) => {
     const from = centre(box)
-    // Which of the source's own horizontal edges faces the junction. A source is never level with
-    // the junction in this arrangement - the junction sits in a row of its own - so this is a
-    // decision and not a guess.
+    /**
+     * Which of the source's own horizontal edges faces the junction. A source is never level with
+     * the junction in this arrangement - the junction sits in a row of its own - so this is a
+     * decision and not a guess.
+     */
     const down = junction.y > from.y
     const exitY = down ? box.y + box.height : box.y
     const way = down ? 1 : -1
     const towards = Math.sign(junction.x - from.x)
-    // The lane this foot runs down: the card's own, stepped LANE_OFFSET clear of the arrow that
-    // leaves the same edge. A source standing in the junction's lane has no direction to step in
-    // and keeps the centre, which is what makes its foot and the trunk one straight line.
+    /**
+     * The lane this foot runs down: the card's own, stepped LANE_OFFSET clear of the arrow that
+     * leaves the same edge. A source standing in the junction's lane has no direction to step in
+     * and keeps the centre, which is what makes its foot and the trunk one straight line.
+     */
     const lane = from.x - towards * LANE_OFFSET
     const drop = Math.abs(junction.y - exitY)
     const across = Math.abs(junction.x - lane)
-    // How far above (or below) the junction's row the turn begins - the straight part before it is
-    // what keeps a foot inside its own lane until it is past the sink's row.
+    /**
+     * How far above (or below) the junction's row the turn begins - the straight part before it is
+     * what keeps a foot inside its own lane until it is past the sink's row.
+     */
     const bend = Math.min(drop, across * BUNDLE_BEND, BUNDLE_BEND_MAX)
-    // Capped by the offset itself as well as by BUNDLE_FLAT, so a source standing in the junction's
-    // own lane (`discord-bot`) gets a flat length of zero and draws a straight line down rather
-    // than a curve that leaves the lane in order to come back to it.
+    /**
+     * Capped by the offset itself as well as by BUNDLE_FLAT, so a source standing in the junction's
+     * own lane (`discord-bot`) gets a flat length of zero and draws a straight line down rather
+     * than a curve that leaves the lane in order to come back to it.
+     */
     const flat = Math.min(BUNDLE_FLAT, across * 0.4)
     const turn = junction.y - way * bend
     return (
@@ -306,7 +308,7 @@ export function bundle(sources: readonly Box[], sink: Box, junction: Point): { f
  * Where an edge actually ends: a member's own box, or - when the member sits inside a group -
  * the group's frame instead, addressed by the group's own id.
  *
- * This is the one seam that makes "one arrow into the group" (Till, 2026-09-18) fall out of the
+ * This is the one seam that makes "one arrow into the group" fall out of the
  * existing edge list rather than needing a second one written for it: `proxy -> smp`,
  * `-> hunger-games` and `-> limbo` all resolve their `to` end to the same key, the Paper group's
  * id, and the caller below draws one key once instead of three paths to three boxes.
@@ -392,10 +394,12 @@ export function Wires({
 }) {
   if (geometry.width === 0 || geometry.height === 0) return null
 
-  // Resolved through `resolveEndpoint` rather than `geometry.boxes` directly, and deduplicated by
-  // the resulting key: several edges that all resolve to the same group on both ends - the three
-  // traffic edges into the Paper group, `steward-ui`'s two into the deploy group - are the same
-  // drawn line once their endpoints collapse, and only the first is kept.
+  /**
+   * Resolved through `resolveEndpoint` rather than `geometry.boxes` directly, and deduplicated by
+   * the resulting key: several edges that all resolve to the same group on both ends - the three
+   * traffic edges into the Paper group, `steward-ui`'s two into the deploy group - are the same
+   * drawn line once their endpoints collapse, and only the first is kept.
+   */
   const drawn: Array<{ key: string; kind: EdgeKind; d: string }> = []
   const seen = new Set<string>()
   for (const edge of edges) {

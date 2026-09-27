@@ -113,15 +113,14 @@ export function SeriesChart({
  * `payload[0].payload.at` there yields `undefined`, and an `undefined` that reaches
  * `Intl.DateTimeFormat` is "Invalid Date" across the top of the tooltip.
  *
- * **Be precise about what this function changed, because the inline expression it replaced was not
- * broken.** It read `Number(payload?.[0]?.payload?.at ?? Date.now())`, and the optional chaining
- * plus `??` already covered every missing case - no payload, no entry, no `at`, an explicit `null`.
- * `steward/04` listed "null values in the chart tooltip" as a finding, and for those cases the
- * finding was already answered. Two things are actually new:
+ * **Be precise about what this function changes, because the inline expression it replaces is not
+ * broken.** It reads `Number(payload?.[0]?.payload?.at ?? Date.now())`, and the optional chaining
+ * plus `??` already covers every missing case - no payload, no entry, no `at`, an explicit `null`.
+ * Two things are actually new:
  *
  * 1. **It is testable.** As an argument to a JSX prop inside a chart inside a container, that
  *    expression could only be reached by rendering recharts in jsdom and hovering it. Nothing
- *    asserted any of it; `steward/04` found it by reading, which is how it stayed unasserted.
+ *    asserted any of it before, which is how it stayed unasserted.
  * 2. **A value that is present but not a number now falls back too.** `at: "not a date"` passes
  *    `??`, becomes `NaN`, and renders as "Invalid Date" - the one hole the old expression left. It
  *    needs a malformed timestamp out of `/api/metrics`, so it is a guard against the backend and

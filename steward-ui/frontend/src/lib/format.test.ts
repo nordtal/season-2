@@ -36,8 +36,10 @@ describe("bytes", () => {
   })
 
   it("treats a kilobyte as a thousand bytes, because that is what df on this host says", () => {
-    // The header of the file argues this explicitly: matching the machine's own tools beats the
-    // pedantically correct GiB, so 1024 B is 1.0 kB and not 1.0 KiB.
+    /**
+     * The header of the file argues this explicitly: matching the machine's own tools beats the
+     * pedantically correct GiB, so 1024 B is 1.0 kB and not 1.0 KiB.
+     */
     expect(bytes(1000)).toBe("1.0 kB")
     expect(bytes(1024)).toBe("1.0 kB")
     expect(bytes(1500)).toBe("1.5 kB")
@@ -56,14 +58,16 @@ describe("bytes", () => {
   })
 
   it("shows a dash for anything that is not a number, including both infinities", () => {
-    for (const value of NOT_A_NUMBER) expect(bytes(value as number)).toBe(NOTHING)
+    for (const value of NOT_A_NUMBER) expect(bytes(value)).toBe(NOTHING)
   })
 
   it("never prints a thousand of one unit, because that is the next unit", () => {
-    // FINDING - fails today. The scaling loop looks at the raw value and the rounding happens
-    // afterwards, so 999 999 B is scaled to 999.999 kB and then printed as "1,000.0 kB". Every
-    // byte count in [999 950, 999 999] reads as a thousand kilobytes rather than as a megabyte,
-    // and these are integers the host really reports.
+    /**
+     * FINDING - fails today. The scaling loop looks at the raw value and the rounding happens
+     * afterwards, so 999 999 B is scaled to 999.999 kB and then printed as "1,000.0 kB". Every
+     * byte count in [999 950, 999 999] reads as a thousand kilobytes rather than as a megabyte,
+     * and these are integers the host really reports.
+     */
     expect(bytes(999_999)).toBe("1.0 MB")
     expect(bytes(999_999_999)).toBe("1.0 GB")
   })
@@ -71,8 +75,10 @@ describe("bytes", () => {
 
 describe("percent", () => {
   it("prints a whole number when no decimals were asked for", () => {
-    // The regression this test exists for: Intl's own default is three fraction digits, so the
-    // zero-decimal call printed "87.457 %" where the page had asked for "87 %".
+    /**
+     * The regression this test exists for: Intl's own default is three fraction digits, so the
+     * zero-decimal call printed "87.457 %" where the page had asked for "87 %".
+     */
     expect(percent(87.4567, 0)).toBe("87 %")
     expect(percent(0, 0)).toBe("0 %")
     expect(percent(100, 0)).toBe("100 %")
@@ -90,15 +96,17 @@ describe("percent", () => {
   })
 
   it("honours a decimal count other than zero or one", () => {
-    // FINDING - fails today. The signature takes `decimals: number`, so this call type-checks, but
-    // the implementation is `decimals === 0 ? NO_DECIMAL : ONE_DECIMAL` and every value that is not
-    // 0 silently means 1. Either the formatter is chosen by the argument or the type says `0 | 1`;
-    // accepting a number and ignoring it is the one option that cannot be seen at the call site.
+    /**
+     * FINDING - fails today. The signature takes `decimals: number`, so this call type-checks, but
+     * the implementation is `decimals === 0 ? NO_DECIMAL : ONE_DECIMAL` and every value that is not
+     * 0 silently means 1. Either the formatter is chosen by the argument or the type says `0 | 1`;
+     * accepting a number and ignoring it is the one option that cannot be seen at the call site.
+     */
     expect(percent(12.3456, 2)).toBe("12.35 %")
   })
 
   it("shows a dash for anything that is not a number", () => {
-    for (const value of NOT_A_NUMBER) expect(percent(value as number)).toBe(NOTHING)
+    for (const value of NOT_A_NUMBER) expect(percent(value)).toBe(NOTHING)
     expect(percent(null, 0)).toBe(NOTHING)
   })
 })
@@ -115,7 +123,7 @@ describe("count", () => {
   })
 
   it("shows a dash for anything that is not a number", () => {
-    for (const value of NOT_A_NUMBER) expect(count(value as number)).toBe(NOTHING)
+    for (const value of NOT_A_NUMBER) expect(count(value)).toBe(NOTHING)
   })
 })
 
@@ -131,7 +139,7 @@ describe("load", () => {
   })
 
   it("shows a dash for anything that is not a number", () => {
-    for (const value of NOT_A_NUMBER) expect(load(value as number)).toBe(NOTHING)
+    for (const value of NOT_A_NUMBER) expect(load(value)).toBe(NOTHING)
   })
 })
 
@@ -147,14 +155,16 @@ describe("euros", () => {
   })
 
   it("shows a dash for anything that is not a number", () => {
-    for (const value of NOT_A_NUMBER) expect(euros(value as number)).toBe(NOTHING)
+    for (const value of NOT_A_NUMBER) expect(euros(value)).toBe(NOTHING)
   })
 })
 
 describe("parseInstant", () => {
   it("reads the four characters null as SQL NULL rather than as a date", () => {
-    // The backend prints String.valueOf(instant), so a NULL column arrives as the word. Handled
-    // here once, because forgetting once puts "null" on the screen.
+    /**
+     * The backend prints String.valueOf(instant), so a NULL column arrives as the word. Handled
+     * here once, because forgetting once puts "null" on the screen.
+     */
     expect(parseInstant("null")).toBeNull()
     expect(parseInstant("")).toBeNull()
     expect(parseInstant(null)).toBeNull()
@@ -177,9 +187,11 @@ describe("parseInstant", () => {
 })
 
 describe("dateTime and clock", () => {
-  // These two are the only assertions in this file that must not name a time zone: the tests run
-  // wherever they run, so what is pinned is the en-GB shape - day first, a named month, and a
-  // 24-hour clock - rather than the digits, which depend on the machine.
+  /**
+   * These two are the only assertions in this file that must not name a time zone: the tests run
+   * wherever they run, so what is pinned is the en-GB shape - day first, a named month, and a
+   * 24-hour clock - rather than the digits, which depend on the machine.
+   */
   const LOCALE_DATE_TIME = /^\d{1,2} \w+ \d{4}, \d{2}:\d{2}$/
   const LOCALE_CLOCK = /^\d{2}:\d{2}:\d{2}$/
 
@@ -266,7 +278,7 @@ describe("duration", () => {
   })
 
   it("shows a dash for anything that is not a number", () => {
-    for (const value of NOT_A_NUMBER) expect(duration(value as number)).toBe(NOTHING)
+    for (const value of NOT_A_NUMBER) expect(duration(value)).toBe(NOTHING)
   })
 })
 
@@ -279,9 +291,11 @@ describe("since", () => {
   })
 
   it("shows a dash for an instant in the future", () => {
-    // Pinned rather than endorsed: "how long ago" has no answer for the future, but the browser
-    // clock and the worker's clock are two clocks, and a timestamp two seconds ahead reads as
-    // "nothing here" rather than as "0 s". See the findings.
+    /**
+     * Pinned rather than endorsed: "how long ago" has no answer for the future, but the browser
+     * clock and the worker's clock are two clocks, and a timestamp two seconds ahead reads as
+     * "nothing here" rather than as "0 s". See the findings.
+     */
     expect(since(new Date(NOW + 2_000), NOW)).toBe(NOTHING)
   })
 
@@ -292,7 +306,7 @@ describe("since", () => {
 })
 
 /**
- * steward/126. Till, 2026-09-20: play time is asked for in days, hours and minutes, so it has to be
+ * Play time is asked for in days, hours and minutes, so it has to be
  * answered in them too - a column that says "1 d 6 h" to something entered as 1 d 6 h 30 min looks
  * like a save that lost the minutes.
  */
@@ -305,19 +319,23 @@ describe("playtime", () => {
   })
 
   it("keeps the minutes `duration` would have dropped", () => {
-    // THE WHOLE DIFFERENCE between the two, in one line: duration stops at two units because an
-    // uptime does not need a third, and this one cannot.
+    /**
+     * THE WHOLE DIFFERENCE between the two, in one line: duration stops at two units because an
+     * uptime does not need a third, and this one cannot.
+     */
     expect(duration(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h")
     expect(playtime(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h 30 min")
   })
 
   it("answers zero with a zero and nothing at all with a dash", () => {
-    // Two different people: one has been online and has almost no time, the other has never been
-    // online. "0 min" and the dash are the two answers and they must not be the same one.
+    /**
+     * Two different people: one has been online and has almost no time, the other has never been
+     * online. "0 min" and the dash are the two answers and they must not be the same one.
+     */
     expect(playtime(0)).toBe("0 min")
     expect(playtime(59)).toBe("0 min")
     expect(playtime(-1)).toBe(NOTHING)
-    for (const value of NOT_A_NUMBER) expect(playtime(value as number)).toBe(NOTHING)
+    for (const value of NOT_A_NUMBER) expect(playtime(value)).toBe(NOTHING)
   })
 
   it("drops seconds rather than rounding, so a value read back is the value written", () => {

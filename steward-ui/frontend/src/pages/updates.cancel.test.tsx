@@ -2,17 +2,28 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import type { Mock } from "vitest"
 import { toast } from "sonner"
 
 import { UpdatesPage } from "@/pages/updates"
+import type { Run } from "@/lib/api"
+import { urlOf } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-// The toasts, read rather than drawn: `<Toaster />` lives in the shell and this test renders one
-// page. What is asserted below is the sentence handed to sonner, which is the part this page owns.
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }))
+/**
+ * The toasts, read rather than drawn: `<Toaster />` lives in the shell and this test renders one
+ * page. What is asserted below is the sentence handed to sonner, which is the part this page owns.
+ */
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn<(message: string) => void>(),
+    error: vi.fn<(message: string) => void>(),
+    info: vi.fn<(message: string) => void>(),
+  },
+}))
 
 /**
- * The way back out of a run somebody has just started (steward/131).
+ * The way back out of a run somebody has just started.
  *
  * The rule itself is unit-tested in `operations.test.ts`; what this file is for is the two things
  * only the drawn page can be asked. First, that the button is on the ROW and only on the row that
@@ -30,13 +41,14 @@ function json(status: number, body: unknown): Response {
 }
 
 /** A row as `/api/updates` answers with one; the caller says which run it is. */
-function run(over: Record<string, unknown> = {}) {
+function run(over: Partial<Run> = {}): Run {
   return {
     id: 79,
     kind: "RESTART",
     status: "PENDING",
     source: "CONSOLE",
     requestedBy: "hmtill",
+    scope: [],
     actorDiscordId: "",
     actorLabel: "hmtill",
     system: false,
@@ -49,10 +61,12 @@ function run(over: Record<string, unknown> = {}) {
   }
 }
 
-function backend(runs: unknown[], onCancel?: () => Response): typeof fetch {
-  return vi.fn(async (url: string, init?: RequestInit) => {
+function backend(runs: Run[], onCancel?: () => Response): Mock<typeof fetch> {
+  const impl: typeof fetch = async (input, init) => {
+    const url = urlOf(input)
     if (url === "/api/updates/cancel" && init?.method === "POST") {
-      return onCancel ? onCancel() : json(200, { ...(runs[0] as object), status: "CANCELLED" })
+      const [first] = runs
+      return onCancel ? onCancel() : json(200, { ...first, status: "CANCELLED" })
     }
     if (url.startsWith("/api/updates/available")) {
       return json(200, {
@@ -78,12 +92,15 @@ function backend(runs: unknown[], onCancel?: () => Response): typeof fetch {
       return json(200, { nextBackupAt: null, backupAt: "04:45", zone: "UTC" })
     }
     throw new Error(`the page asked for ${url}, which this test did not expect`)
-  }) as unknown as typeof fetch
+  }
+  return vi.fn<typeof fetch>(impl)
 }
+
+/** A route this test never draws, only routes to. */
+const nothing = () => null
 
 function draw() {
   const root = createRootRoute()
-  const nothing = () => null
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/operations/updates", component: UpdatesPage }),
     createRoute({ getParentRoute: () => root, path: "/operations/updates/$id", component: nothing }),
@@ -98,7 +115,7 @@ function draw() {
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RouterProvider router={router as never} />
+        <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
@@ -133,8 +150,10 @@ describe("the Cancel is on the row, and only while there is something to cancel"
   })
 
   it("is gone once the run is actually under way", async () => {
-    // Same RUNNING status as a countdown; the moment has simply passed. The worker holds the lock
-    // by now and its SQL would answer "too late", so there must be nothing to press.
+    /**
+     * Same RUNNING status as a countdown; the moment has simply passed. The worker holds the lock
+     * by now and its SQL would answer "too late", so there must be nothing to press.
+     */
     vi.stubGlobal("fetch", backend([run({ status: "RUNNING", notBefore: new Date(Date.now() - 1000).toISOString() })]))
     draw()
 
@@ -168,16 +187,17 @@ describe("pressing it asks the backend at once", () => {
     fireEvent.click(cancelButtons()[0])
 
     await waitFor(() => {
-      const calls = (fetchMock as unknown as { mock: { calls: unknown[][] } }).mock.calls
-      const cancel = calls.find((call) => call[0] === "/api/updates/cancel")
+      const cancel = fetchMock.mock.calls.find((call) => urlOf(call[0]) === "/api/updates/cancel")
       expect(cancel).toBeTruthy()
-      expect((cancel![1] as RequestInit).method).toBe("POST")
+      expect(cancel?.[1]?.method).toBe("POST")
     })
   })
 
   it("says what the backend said when the countdown ran out first", async () => {
-    // A 409 here is not this interface failing: the row was claimed between the tap and the
-    // request. The sentence on screen has to be that, and not "the interface cannot be reached".
+    /**
+     * A 409 here is not this interface failing: the row was claimed between the tap and the
+     * request. The sentence on screen has to be that, and not "the interface cannot be reached".
+     */
     const fetchMock = backend([run()], () => json(409, { title: "too late - the countdown has already run out" }))
     vi.stubGlobal("fetch", fetchMock)
     draw()

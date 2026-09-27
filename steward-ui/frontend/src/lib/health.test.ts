@@ -56,7 +56,7 @@ function archiveOf(volume: string, hoursAgo: number): Backup {
 }
 
 /**
- * The other kind of file in `/backups`, and the one steward/39 showed was never there.
+ * The other kind of file in `/backups`, and the one that was never actually there.
  *
  * `DatabaseDump` writes `nordtal-<stamp>.dump`, `TarSnapshots` writes `<volume>-<stamp>.tar.zst`,
  * and `/api/backups` lists the directory naming each file as it lies there. So the suffix is the
@@ -121,10 +121,12 @@ describe("summarise - a stack with nothing wrong", () => {
   })
 
   it("is yellow for a service table that was answered and is empty", () => {
-    // Till's call, 2026-09-13. This used to be green on the grounds that no service is no failing
-    // service. But compose.yml declares eight services on this host and none of them is optional
-    // enough to explain an empty table, so an answered empty list means the daemon has nothing
-    // left to show - the same family as the green light on failed queries that was just removed.
+    /**
+     * This is deliberately yellow rather than green on the grounds that no service is no failing
+     * service. compose.yml declares eight services on this host and none of them is optional
+     * enough to explain an empty table, so an answered empty list means the daemon has nothing
+     * left to show - the same family as the green light on failed queries that was just removed.
+     */
     const { level, triggers } = summarise({ table: table([]), now: NOW })
 
     expect(level).toBe("warn")
@@ -134,19 +136,23 @@ describe("summarise - a stack with nothing wrong", () => {
   })
 
   it("says nothing about an empty list that was never asked for", () => {
-    // Undefined is "not answered yet", and a page that has not finished loading must not accuse
-    // the host of having lost every container.
+    /**
+     * Undefined is "not answered yet", and a page that has not finished loading must not accuse
+     * the host of having lost every container.
+     */
     expect(summarise({ host: host(), backups: withDump(backup(1)), now: NOW }).level).toBe("ok")
   })
 })
 
 describe("summarise - a standby that is off", () => {
   it("a stopped standby is not a fault, because being off is what it is for", () => {
-    // steward/125, reported by Till on 2026-09-19: both standbys were showing up as issues on the
-    // start page whenever they were simply off. They live in the `standby` compose profile and are
-    // stopped for all but a minute of the season, so without this the front page reported two faults on a
-    // completely healthy stack - every day, which is how a fault counter stops being read and how
-    // the third fault goes unnoticed.
+    /**
+     * Both standbys would otherwise show up as issues on the
+     * start page whenever they were simply off. They live in the `standby` compose profile and are
+     * stopped for all but a minute of the season, so without this the front page reported two faults on a
+     * completely healthy stack - every day, which is how a fault counter stops being read and how
+     * the third fault goes unnoticed.
+     */
     const { level, triggers } = summarise({
       ...healthy(),
       table: table([
@@ -170,10 +176,12 @@ describe("summarise - a standby that is off", () => {
   })
 
   it("the marker has to come from the worker - a stopped service without it is still a fault", () => {
-    // The exemption is keyed on `standby === true` and nothing else. A stopped container is the
-    // same container state whether it is a standby or a crashed backend, so if this ever starts
-    // being decided by the name ending in "-standby", a real outage on a service somebody named
-    // badly goes silent.
+    /**
+     * The exemption is keyed on `standby === true` and nothing else. A stopped container is the
+     * same container state whether it is a standby or a crashed backend, so if this ever starts
+     * being decided by the name ending in "-standby", a real outage on a service somebody named
+     * badly goes silent.
+     */
     const { level, triggers } = summarise({
       ...healthy(),
       table: table([service({ service: "proxy-standby", state: "exited", status: "Exited (1)" })]),
@@ -188,10 +196,12 @@ describe("summarise - a service somebody put down on purpose", () => {
   const SINCE = new Date(NOW - HOUR).toISOString()
 
   it("two held services are not two faults, because somebody decided both of them", () => {
-    // steward/134, and the same argument steward/125 makes one describe above for the standbys: a
-    // state an operator produced on purpose must not be reported as a fault, or the counter stops
-    // being read. The difference between "put down" and "fell over" exists only in `service_hold`,
-    // and `hold` is the worker passing that row through - so this is keyed on it and nothing else.
+    /**
+     * The same argument as one describe above for the standbys: a
+     * state an operator produced on purpose must not be reported as a fault, or the counter stops
+     * being read. The difference between "put down" and "fell over" exists only in `service_hold`,
+     * and `hold` is the worker passing that row through - so this is keyed on it and nothing else.
+     */
     const { level, triggers } = summarise({
       ...healthy(),
       table: table([
@@ -215,8 +225,10 @@ describe("summarise - a service somebody put down on purpose", () => {
   })
 
   it("a held service that is RUNNING and unhealthy is still red", () => {
-    // A hold says "this is meant to be stopped". A container that is up anyway and failing its own
-    // healthcheck is not what anybody asked for, so the exemption ends where the standbys' does.
+    /**
+     * A hold says "this is meant to be stopped". A container that is up anyway and failing its own
+     * healthcheck is not what anybody asked for, so the exemption ends where the standbys' does.
+     */
     const { level, triggers } = summarise({
       ...healthy(),
       table: table([
@@ -264,7 +276,7 @@ describe("summarise - a service that is not running", () => {
     expect(level).toBe("down")
     expect(triggers).toHaveLength(1)
     expect(triggers[0].text).toBe("smp is not running (Exited (1) 2 minutes ago).")
-    // The short word the start page prints instead of the sentence above (steward/64).
+    // The short word the start page prints instead of the sentence above.
     expect(triggers[0].subject).toBe("smp")
   })
 
@@ -310,8 +322,10 @@ describe("summarise - a service that is not running", () => {
   })
 
   it("is quiet for a container with no healthcheck and for one still starting", () => {
-    // Absent is not unhealthy, and neither is "starting" - a container in its grace period would
-    // otherwise paint the whole page red every deploy.
+    /**
+     * Absent is not unhealthy, and neither is "starting" - a container in its grace period would
+     * otherwise paint the whole page red every deploy.
+     */
     expect(summarise({ ...healthy(), table: table([service({ health: undefined })]) }).level).toBe("ok")
     expect(summarise({ ...healthy(), table: table([service({ health: "starting" })]) }).level).toBe("ok")
   })
@@ -371,12 +385,15 @@ describe("summarise - image drift", () => {
   })
 
   it("does not turn yellow for a single image that carries no registry digest", () => {
-    // Till's call, 2026-09-13, asked rather than assumed. overview.tsx argues that UNKNOWN is
-    // "deliberately not silent and deliberately not green", and A24 is the story this whole light
-    // came from - but a single unanswered registry, or a container whose exact image is gone, is
-    // not worth a yellow that never goes away. A yellow that never clears is a light nobody reads
-    // any more, which costs more than the case it would catch. The page footnotes the count
-    // instead.
+    /**
+     * This is asked rather than assumed. overview.tsx argues that UNKNOWN is
+     * "deliberately not silent and deliberately not green", and an unnoticed stale image is the
+     * reason this whole light exists - but a single unanswered registry, or a container whose exact
+     * image is gone, is
+     * not worth a yellow that never goes away. A yellow that never clears is a light nobody reads
+     * any more, which costs more than the case it would catch. The page footnotes the count
+     * instead.
+     */
     const { level } = summarise({
       ...healthy(),
       table: table([service({ drift: "UNKNOWN" })], { unverifiable: ["smp"] }),
@@ -386,9 +403,11 @@ describe("summarise - image drift", () => {
   })
 
   it("does not turn yellow for a locally built image - LOCAL is not a milder OUTDATED", () => {
-    // steward/75: steward-ui and steward-worker on this host on 2026-09-16, both running a local
-    // `docker build` never pushed anywhere. Ahead of the registry, not behind it - the opposite of
-    // what this trigger exists to catch, so it must stay silent about it entirely.
+    /**
+     * steward-ui and steward-worker, both running a local
+     * `docker build` never pushed anywhere. Ahead of the registry, not behind it - the opposite of
+     * what this trigger exists to catch, so it must stay silent about it entirely.
+     */
     const { level, triggers } = summarise({
       ...healthy(),
       table: table([
@@ -404,8 +423,10 @@ describe("summarise - image drift", () => {
 
 describe("summarise - the backup", () => {
   it("says nothing when the backup list was never asked for", () => {
-    // Undefined is "not asked yet". Reading it as "there is no backup" would put a red light on
-    // every first render, which is how a real alarm stops being read.
+    /**
+     * Undefined is "not asked yet". Reading it as "there is no backup" would put a red light on
+     * every first render, which is how a real alarm stops being read.
+     */
     expect(summarise({ table: table([service()]), host: host(), now: NOW }).level).toBe("ok")
   })
 
@@ -419,8 +440,10 @@ describe("summarise - the backup", () => {
   })
 
   it("distinguishes no backup at all from one that was only ever started", () => {
-    // A23: run 23 reported success having saved zero volumes. A .partial file is the shape that
-    // failure leaves behind, and it must not read as an archive.
+    /**
+     * A23: run 23 reported success having saved zero volumes. A .partial file is the shape that
+     * failure leaves behind, and it must not read as an archive.
+     */
     const { level, triggers } = summarise({ ...healthy(), backups: [backup(1, { partial: true })] })
 
     expect(level).toBe("down")
@@ -428,8 +451,10 @@ describe("summarise - the backup", () => {
   })
 
   it("is quiet for a backup exactly at the age the thresholds still allow", () => {
-    // "How old the newest backup may be": at 36 h it still may be. A run that finishes at 04:45
-    // every night is 36 h old for nobody, but the boundary is where an off-by-one lives.
+    /**
+     * "How old the newest backup may be": at 36 h it still may be. A run that finishes at 04:45
+     * every night is 36 h old for nobody, but the boundary is where an off-by-one lives.
+     */
     expect(summarise({ ...healthy(), backups: withDump(backup(DEFAULT_THRESHOLDS.backupAgeHours)) }).level).toBe("ok")
   })
 
@@ -441,8 +466,10 @@ describe("summarise - the backup", () => {
 
     expect(level).toBe("down")
     expect(triggers[0].text).toContain("36 hours")
-    // The age is spelled by `relative`, which at day distance uses the calendar words. Pinned so
-    // that a sentence saying only "older than allowed" without saying how old would break here.
+    /**
+     * The age is spelled by `relative`, which at day distance uses the calendar words. Pinned so
+     * that a sentence saying only "older than allowed" without saying how old would break here.
+     */
     expect(triggers[0].text).toContain("2 days ago")
     // `backup()`'s default name is a `nordtal-s2_mc-smp` archive - the volume name, not the sentence.
     expect(triggers[0].subject).toBe("nordtal-s2_mc-smp")
@@ -458,8 +485,10 @@ describe("summarise - the backup", () => {
   })
 
   it("does not let a fresh .partial rescue an old finished backup", () => {
-    // The half-written archive of a run that is going wrong right now is the worst possible reason
-    // to believe there is a backup.
+    /**
+     * The half-written archive of a run that is going wrong right now is the worst possible reason
+     * to believe there is a backup.
+     */
     const { level, triggers } = summarise({
       ...healthy(),
       backups: withDump(backup(40), backup(0.5, { partial: true, name: "fresh.tar.zst.partial" })),
@@ -470,8 +499,10 @@ describe("summarise - the backup", () => {
   })
 
   it("is red rather than quietly fine when the newest archive has no readable timestamp", () => {
-    // The backend prints String.valueOf(instant), so a NULL arrives as the word "null" and the age
-    // is NaN. NaN is not "young enough".
+    /**
+     * The backend prints String.valueOf(instant), so a NULL arrives as the word "null" and the age
+     * is NaN. NaN is not "young enough".
+     */
     const { level } = summarise({ ...healthy(), backups: withDump(backup(1, { modified: "null" })) })
 
     expect(level).toBe("down")
@@ -486,15 +517,17 @@ describe("summarise - the backup", () => {
 })
 
 describe("summarise - the database dump, which is not a volume archive", () => {
-  // steward/39: pg_dump runs as `postgres`, the backup volume's root belongs to root:root 0755, and
-  // so not one dump was ever written. The nightly run came back FAILED - and this page stayed green,
-  // because the eight volume archives beside it are written by a root container and succeed.
-  //
-  // That is the asymmetry worth a check of its own. A world and a set of configs can be rebuilt from
-  // the repository and a paintbrush. The accesses, the payments and the Discord links cannot.
+  /**
+   * pg_dump runs as `postgres`, the backup volume's root belongs to root:root 0755, and
+   * so not one dump was ever written. The nightly run came back FAILED - and this page stayed green,
+   * because the eight volume archives beside it are written by a root container and succeed.
+   *
+   * That is the asymmetry worth a check of its own. A world and a set of configs can be rebuilt from
+   * the repository and a paintbrush. The accesses, the payments and the Discord links cannot.
+   */
 
   it("is red when every archive is fresh and there is no dump at all", () => {
-    // The exact shape of /backups on 2026-09-15: sixteen .tar.zst from 04:45, zero .dump.
+    // A representative shape of /backups: fresh .tar.zst archives, zero .dump.
     const { level, triggers } = summarise({
       ...healthy(),
       backups: [backup(0.5), backup(0.5, { name: "nordtal-s2_mc-smp-20260915T024543Z.tar.zst" })],
@@ -511,9 +544,11 @@ describe("summarise - the database dump, which is not a volume archive", () => {
   })
 
   it("does not accept a .partial dump as a dump", () => {
-    // The file pg_dump was writing when it died is named `nordtal-<stamp>.dump.partial`, so it does
-    // not even end in `.dump` - but a check that looked only at the suffix would be one rename away
-    // from being fooled. `partial` is the backend's own flag and is what this trusts.
+    /**
+     * The file pg_dump was writing when it died is named `nordtal-<stamp>.dump.partial`, so it does
+     * not even end in `.dump` - but a check that looked only at the suffix would be one rename away
+     * from being fooled. `partial` is the backend's own flag and is what this trusts.
+     */
     const { level } = summarise({
       ...healthy(),
       backups: [backup(1), dump(0.1, { partial: true, name: "nordtal-20260915T024501Z.dump.partial" })],
@@ -523,8 +558,10 @@ describe("summarise - the database dump, which is not a volume archive", () => {
   })
 
   it("judges the dump's own age, not the age of the newest file in the directory", () => {
-    // The archives are minutes old and the dump is a week old: a run has been half-failing for days.
-    // Reducing the directory to one newest file is exactly how that goes unseen.
+    /**
+     * The archives are minutes old and the dump is a week old: a run has been half-failing for days.
+     * Reducing the directory to one newest file is exactly how that goes unseen.
+     */
     const { level, triggers } = summarise({ ...healthy(), backups: [backup(0.5), dump(200)] })
 
     expect(level).toBe("down")
@@ -532,8 +569,10 @@ describe("summarise - the database dump, which is not a volume archive", () => {
   })
 
   it("says so about the archives too when only a dump is there", () => {
-    // The mirror image, and it must not be silent either: a database saved with nothing to restore
-    // it into is half a backup as much as the other way round.
+    /**
+     * The mirror image, and it must not be silent either: a database saved with nothing to restore
+     * it into is half a backup as much as the other way round.
+     */
     const { level, triggers } = summarise({ ...healthy(), backups: [dump(1)] })
 
     expect(level).toBe("down")
@@ -541,8 +580,10 @@ describe("summarise - the database dump, which is not a volume archive", () => {
   })
 
   it("still says there is no backup at all rather than naming one of the two kinds", () => {
-    // An empty directory is not "the dump is missing". The sentence that was already there is the
-    // better one, and the two new triggers must not push past it.
+    /**
+     * An empty directory is not "the dump is missing". The sentence that was already there is the
+     * better one, and the two new triggers must not push past it.
+     */
     const { triggers } = summarise({ ...healthy(), backups: [] })
 
     expect(triggers[0].text).toBe("There is not a single backup.")
@@ -565,10 +606,12 @@ describe("summarise - the database dump, which is not a volume archive", () => {
 })
 
 describe("summarise - one volume out of eight", () => {
-  // The same blindness as the dump, one level down, and it was already there: reducing the whole
-  // directory to a single newest file means seven small volumes written tonight hide the world
-  // volume that stopped being written three weeks ago. `TarSnapshots.prune` groups per volume for
-  // exactly this reason - a per-volume tar failure is a FAILED line for that volume alone.
+  /**
+   * The same blindness as the dump, one level down, and it was already there: reducing the whole
+   * directory to a single newest file means seven small volumes written tonight hide the world
+   * volume that stopped being written three weeks ago. `TarSnapshots.prune` groups per volume for
+   * exactly this reason - a per-volume tar failure is a FAILED line for that volume alone.
+   */
 
   it("is red when one volume has gone stale behind seven fresh ones", () => {
     const { level, triggers } = summarise({
@@ -624,8 +667,10 @@ describe("summarise - one volume out of eight", () => {
   })
 
   it("does not count a file it cannot classify as a volume archive", () => {
-    // `.unverified` marks sit beside archives, and restore instructions get dropped in by hand.
-    // Reading either as "there is an archive" is the same mistake as reading a .partial as one.
+    /**
+     * `.unverified` marks sit beside archives, and restore instructions get dropped in by hand.
+     * Reading either as "there is an archive" is the same mistake as reading a .partial as one.
+     */
     const { level, triggers } = summarise({
       ...healthy(),
       backups: [
@@ -663,16 +708,20 @@ describe("summarise - disk and memory", () => {
   })
 
   it("prints the disk figure as a whole percent, not to three decimals", () => {
-    // This sentence is where the Intl default showed up: "87.457 % full" in a line an
-    // operator is meant to read at a glance.
+    /**
+     * This sentence is where the Intl default showed up: "87.457 % full" in a line an
+     * operator is meant to read at a glance.
+     */
     const { triggers } = summarise({
       ...healthy(),
       host: host({ diskTotalBytes: 100_000_000_000, diskUsedBytes: 87_456_700_000 }),
     })
 
     expect(triggers[0].text).toContain("87 % full")
-    // The byte counts in the same sentence do carry a decimal, so only the percentage is pinned:
-    // what must not come back is "87.457 % full".
+    /**
+     * The byte counts in the same sentence do carry a decimal, so only the percentage is pinned:
+     * what must not come back is "87.457 % full".
+     */
     expect(triggers[0].text).toMatch(/is \d+ % full/)
   })
 
@@ -686,8 +735,10 @@ describe("summarise - disk and memory", () => {
   })
 
   it("measures memory as total minus available, which is not total minus used", () => {
-    // 8 GB with 400 MB available is 95 % in use, cache included - the number the host itself
-    // reports as available is the only one worth alarming on.
+    /**
+     * 8 GB with 400 MB available is 95 % in use, cache included - the number the host itself
+     * reports as available is the only one worth alarming on.
+     */
     const { level, triggers } = summarise({
       ...healthy(),
       host: host({ memoryTotalBytes: 8_000_000_000, memoryAvailableBytes: 400_000_000 }),
@@ -709,8 +760,10 @@ describe("summarise - disk and memory", () => {
   })
 
   it("does not divide by a size it does not have", () => {
-    // A host whose df could not be read arrives with the fields missing, and "NaN % full" is
-    // worse than silence.
+    /**
+     * A host whose df could not be read arrives with the fields missing, and "NaN % full" is
+     * worse than silence.
+     */
     for (const broken of [
       { diskTotalBytes: undefined, diskUsedBytes: 40_000_000_000 },
       { diskTotalBytes: 0, diskUsedBytes: 0 },
@@ -732,8 +785,10 @@ describe("summarise - disk and memory", () => {
 
 describe("summarise - several things at once", () => {
   it("lists a yellow trigger next to a red one rather than hiding it behind the worse news", () => {
-    // Two errands: a service is down and an image is behind. Showing only the first means the
-    // second is discovered a week later.
+    /**
+     * Two errands: a service is down and an image is behind. Showing only the first means the
+     * second is discovered a week later.
+     */
     const { level, triggers } = summarise({
       ...healthy(),
       table: table([
@@ -775,9 +830,11 @@ describe("summarise - several things at once", () => {
   })
 
   it("is green with no input at all, which is the whole reason shownLevel exists", () => {
-    // summarise on nothing cannot find a fault, so it reports none. That is correct and it is also
-    // exactly the state that drew a green tick over a grey footnote saying the page had read
-    // nothing. The fix is not here; it is the next describe.
+    /**
+     * summarise on nothing cannot find a fault, so it reports none. That is correct and it is also
+     * exactly the state that drew a green tick over a grey footnote saying the page had read
+     * nothing. The fix is not here; it is the next describe.
+     */
     expect(summarise({}).level).toBe("ok")
   })
 })
@@ -809,10 +866,12 @@ describe("shownLevel", () => {
   })
 
   it("keeps the light and the sentence saying the same thing with everything failed", () => {
-    // End to end, the defect as it was reported: a page with every query failed used to draw the
-    // green tick and its all-clear sentence while its own footnote said it had read nothing.
-    // steward/64 removed that sentence rather than fixing its wording - the green case now prints
-    // nothing at all - so what is left to pin here is that a FAILED read is never silently "ok".
+    /**
+     * End to end, the defect as it was reported: a page with every query failed used to draw the
+     * green tick and its all-clear sentence while its own footnote said it had read nothing.
+     * That sentence is removed rather than its wording fixed - the green case now prints
+     * nothing at all - so what is left to pin here is that a FAILED read is never silently "ok".
+     */
     const { level, triggers } = summarise({})
 
     expect(triggers).toEqual([])
@@ -844,9 +903,11 @@ function blind() {
 
 describe("summarise - with no thresholds, the checks that need a number", () => {
   it("does not judge the disk at all, not even one that is nearly full", () => {
-    // 99 % of the disk, and silence. That is not a bug being asserted: the number this would be
-    // compared against is the one that has not arrived, and inventing one is how the screen and
-    // the Discord channel came to disagree.
+    /**
+     * 99 % of the disk, and silence. That is not a bug being asserted: the number this would be
+     * compared against is the one that has not arrived, and inventing one is how the screen and
+     * the Discord channel came to disagree.
+     */
     const { level, triggers } = summarise({
       ...blind(),
       host: host({ diskTotalBytes: 100_000_000_000, diskUsedBytes: 99_000_000_000 }),
@@ -867,10 +928,12 @@ describe("summarise - with no thresholds, the checks that need a number", () => 
   })
 
   it("says nothing about the age of the newest backup, however old it is", () => {
-    // Three weeks, and green. The page is what has to catch this: overview.tsx's Issues tile puts
-    // `settings` in `waiting` and in `failed` alongside the other three queries, so an unanswered
-    // /api/settings draws either the tile's reading placeholder or its "could not be read" note.
-    // Take that away and this green is what the operator sees over a backup from the 23rd.
+    /**
+     * Three weeks, and green. The page is what has to catch this: overview.tsx's Issues tile puts
+     * `settings` in `waiting` and in `failed` alongside the other three queries, so an unanswered
+     * /api/settings draws either the tile's reading placeholder or its "could not be read" note.
+     * Take that away and this green is what the operator sees over a backup from the 23rd.
+     */
     const { level, triggers } = summarise({ ...blind(), backups: withDump(backup(500)) })
 
     expect(level).toBe("ok")
@@ -878,17 +941,21 @@ describe("summarise - with no thresholds, the checks that need a number", () => 
   })
 
   it("is red about the very same backup the moment the thresholds arrive", () => {
-    // The pair to the test above, and the point of both: the only difference between the two
-    // calls is the three numbers.
+    /**
+     * The pair to the test above, and the point of both: the only difference between the two
+     * calls is the three numbers.
+     */
     const { level } = summarise({ ...blind(), thresholds: DEFAULT_THRESHOLDS, backups: withDump(backup(500)) })
 
     expect(level).toBe("down")
   })
 
   it("does not quietly reach for DEFAULT_THRESHOLDS at any of its three numbers", () => {
-    // The regression in one test. Each of these is comfortably past the shipped default and must
-    // still be silent, so that reinstating `?? DEFAULT_THRESHOLDS` turns this red rather than
-    // going unnoticed for the four releases the last one did.
+    /**
+     * The regression in one test. Each of these is comfortably past the shipped default and must
+     * still be silent, so that reinstating `?? DEFAULT_THRESHOLDS` turns this red rather than
+     * going unnoticed for the four releases the last one did.
+     */
     const over = [
       { ...blind(), host: host({ diskTotalBytes: 100e9, diskUsedBytes: 90e9 }) },
       { ...blind(), host: host({ memoryTotalBytes: 8e9, memoryAvailableBytes: 400e6 }) },
@@ -902,10 +969,12 @@ describe("summarise - with no thresholds, the checks that need a number", () => 
   })
 
   it("is silent about a backup whose timestamp cannot be read, which is not obviously right", () => {
-    // `!thresholds` returns before the NaN check, so an archive the backend printed as the word
-    // "null" is red with thresholds and invisible without them. Whether "this file has no
-    // readable date" is an age comparison at all is a judgement; pinned here so that changing it
-    // is a decision somebody makes rather than a side effect.
+    /**
+     * `!thresholds` returns before the NaN check, so an archive the backend printed as the word
+     * "null" is red with thresholds and invisible without them. Whether "this file has no
+     * readable date" is an age comparison at all is a judgement; pinned here so that changing it
+     * is a decision somebody makes rather than a side effect.
+     */
     expect(summarise({ ...blind(), backups: withDump(backup(1, { modified: "null" })) }).level).toBe("ok")
     expect(
       summarise({ ...blind(), thresholds: DEFAULT_THRESHOLDS, backups: withDump(backup(1, { modified: "null" })) })
@@ -916,8 +985,10 @@ describe("summarise - with no thresholds, the checks that need a number", () => 
 
 describe("summarise - with no thresholds, the checks that need no number", () => {
   it("still says there is no backup at all", () => {
-    // "Is there an archive" is a question about a list being empty. No number is involved, so
-    // nothing about it may wait for /api/settings.
+    /**
+     * "Is there an archive" is a question about a list being empty. No number is involved, so
+     * nothing about it may wait for /api/settings.
+     */
     const { level, triggers } = summarise({ ...blind(), backups: [] })
 
     expect(level).toBe("down")
@@ -997,7 +1068,7 @@ describe("summarise - with no thresholds, the checks that need no number", () =>
  *
  * - `UiSpec.java` notes its defaults as method bodies - `default int diskPercent() { return 85; }`;
  *   there is no `@Default` annotation anywhere in that package, and each of the three names occurs
- *   exactly once in the file (checked 2026-09-14).
+ *   exactly once in the file.
  * - `StewardUi.java` is what decides which JSON key carries which of them, in the only three
  *   `config.alerts()` calls in the file. Reading that too is the difference between a mirror and a
  *   guess: the mapping from `diskPercent()` to `disk` is not this file's to assume.
@@ -1049,7 +1120,7 @@ function wiring(java: string): Record<string, string> {
   const found = [...java.matchAll(/"(\w+)",\s*config\.alerts\(\)\.(\w+)\(\)/g)]
   if (found.length === 0) {
     throw new Error(
-      "StewardUi.java no longer builds /api/settings out of config.alerts() - the mapping this " +
+      "Settings.java no longer builds /api/settings out of config.alerts() - the mapping this " +
         "test reads is gone and the mirror has to be rewritten",
     )
   }
@@ -1058,12 +1129,14 @@ function wiring(java: string): Record<string, string> {
 
 describe("DEFAULT_THRESHOLDS - the mirror of UiSpec.AlertSpec", () => {
   const spec = read("src/main/java/eu/nordtal/s2/steward/ui/config/UiSpec.java")
-  const routes = read("src/main/java/eu/nordtal/s2/steward/ui/StewardUi.java")
+  const routes = read("src/main/java/eu/nordtal/s2/steward/ui/Settings.java")
 
   it("carries the same three numbers steward-ui.yml would be written with", () => {
-    // The whole point of the constant. If the deployment's default disk threshold moves to 80 and
-    // this still says 85, every test in this file that reads "the shipped default" is testing a
-    // number nobody ships.
+    /**
+     * The whole point of the constant. If the deployment's default disk threshold moves to 80 and
+     * this still says 85, every test in this file that reads "the shipped default" is testing a
+     * number nobody ships.
+     */
     const mirrored = Object.fromEntries(
       Object.entries(wiring(routes)).map(([key, method]) => [key, specDefault(spec, method)]),
     )
@@ -1072,8 +1145,10 @@ describe("DEFAULT_THRESHOLDS - the mirror of UiSpec.AlertSpec", () => {
   })
 
   it("is about the same three keys the route actually sends", () => {
-    // Not only the values: a `Thresholds` field renamed on one side and not the other means
-    // `thresholds.disk` is `undefined` and every comparison against it is quietly false.
-    expect(Object.keys(wiring(routes)).sort()).toEqual(Object.keys(DEFAULT_THRESHOLDS).sort())
+    /**
+     * Not only the values: a `Thresholds` field renamed on one side and not the other means
+     * `thresholds.disk` is `undefined` and every comparison against it is quietly false.
+     */
+    expect(Object.keys(wiring(routes)).toSorted()).toEqual(Object.keys(DEFAULT_THRESHOLDS).toSorted())
   })
 })

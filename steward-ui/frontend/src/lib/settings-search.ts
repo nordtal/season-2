@@ -8,13 +8,13 @@ import type {
 } from "@/lib/api"
 
 /**
- * Settings search (steward/58), in both the shapes the ticket asked for: a box confined to one
+ * Settings search, in both shapes: a box confined to one
  * service's own files, and the command palette's search across every file the mount holds. Both
  * end up calling the functions below, so "which four things does a query match" is answered once
  * rather than twice - and so the one rule that actually matters, the one about a secret, is
  * enforced in exactly one place instead of trusted to be repeated correctly at every call site.
  *
- * steward/87 adds a second supplier - the message bundles of steward/48 - rather than a second
+ * The message bundles are a second supplier - rather than a second
  * search. `searchAcross` (config files) and `searchMessagesAcross` (bundles) below share the same
  * shape of question ("does this haystack contain this needle, case-insensitively") and both feed
  * {@link SettingsHit}, the one type `command-palette.tsx` reads. A bundle has no `secret` key, so the guard that matters for config has nothing to
@@ -93,7 +93,7 @@ export type SettingsHit = ConfigSettingsHit | MessageSettingsHit
  * Every hit across a set of files, given each file's already-fetched document (or `undefined` -
  * still loading, failed, or never asked for).
  *
- * A raw document (steward/56 - a foreign file, or a `.yml` steward could not parse) has no
+ * A raw document (a foreign file, or a `.yml` steward could not parse) has no
  * `entries` and matches nothing: there is no key here for a hit to point at.
  */
 export function searchAcross(
@@ -111,7 +111,7 @@ export function searchAcross(
   return hits
 }
 
-// --- message bundles (steward/87) ---------------------------------------------------------------
+// --- message bundles
 
 /**
  * What one language of one bundle entry is found by, lower-cased: the key (shared by both
@@ -157,12 +157,14 @@ export function searchMessagesAcross(
     if (!bundle) continue
     for (const entry of bundle.entries) {
       for (const language of ["en", "de"] as const) {
-        // A language with neither packaged text nor an override for this key is not a place to
-        // jump to - measured on this host, 2026-09-17, every key in all five bundles carries both
-        // languages, so this only matters for a malformed bundle. Without it, a query that matches
-        // only the key (shared by both languages, see `messageEntryHaystack`) would still produce
-        // a "de" hit for an English-only key, identical in every visible respect to the "en" one
-        // it sits next to - two rows a person cannot tell apart is worse than one.
+        /**
+         * A language with neither packaged text nor an override for this key is not a place to
+         * jump to - every key in a well-formed bundle carries both
+         * languages, so this only matters for a malformed bundle. Without it, a query that matches
+         * only the key (shared by both languages, see `messageEntryHaystack`) would still produce
+         * a "de" hit for an English-only key, identical in every visible respect to the "en" one
+         * it sits next to - two rows a person cannot tell apart is worse than one.
+         */
         const packaged = language === "en" ? entry.english : entry.german
         const override = language === "en" ? entry.overrideEnglish : entry.overrideGerman
         if (packaged === undefined && override === undefined) continue
@@ -176,9 +178,9 @@ export function searchMessagesAcross(
 }
 
 /**
- * Both suppliers, one list, not two groups (Till, steward/87): config hits and
+ * Both suppliers, one list, not two groups: config hits and
  * message hits are concatenated rather than grouped, config first only because that preserves the
- * order the two existing callers already drew config hits in before this ticket. `command-palette.tsx`'s
+ * order the two existing callers already draw config hits in. `command-palette.tsx`'s
  * global search is the caller.
  */
 export function searchSettingsAndMessages(
@@ -189,24 +191,24 @@ export function searchSettingsAndMessages(
   return [...searchAcross(configs, query), ...searchMessagesAcross(messages, query)]
 }
 
-// --- ranking what was found (steward/105) -------------------------------------------------------
+// --- ranking what was found
 
 /**
  * How a searchable row is written down: its **name on the first line**, everything else after it.
  *
- * Till, 2026-09-17: typing "Donor" listed every service page and not the setting called Donor.
- * Measured here on 2026-09-18 before anything was changed, with the real `discord-bot/access.yml`
- * off this host: `roles.donor` came 15th of 16 rows, below all ten services, and cmdk's own default
- * filter was not the whole story. Two separate things were wrong.
+ * Typing "Donor" would otherwise list every service page and not the setting called Donor: with
+ * the real `discord-bot/access.yml`, `roles.donor` would come near the bottom of the list, below
+ * every service, because cmdk's own default filter is not the whole story. Two separate things are
+ * wrong with the default.
  *
  * 1. **cmdk's default filter is a subsequence match.** "donor" is d-o-n-o-r, and
  *    "smp Services Log win**d**ow and c**o**nsole f**o**r smp. **r**estart" contains those five
- *    letters in order - so *every* service page matched a query that has nothing to do with any of
+ *    letters in order - so *every* service page matches a query that has nothing to do with any of
  *    them.
- * 2. **Group order cannot be scored around.** cmdk 1.1.1 sorts items *within* their group and then
+ * 2. **Group order cannot be scored around.** cmdk sorts items *within* their group and then
  *    tries to sort the groups themselves by their best item - but it looks a group up by
  *    `data-value` while holding its React id, so that lookup never matches and the groups keep
- *    their DOM order. Measured the same day: two of this palette's five groups even render
+ *    their DOM order. Some of this palette's groups even render
  *    `data-value="undefined"`, having no heading. The Settings group is written last, so **no score
  *    on earth lifts a setting above a page** as long as the page is shown at all.
  *
@@ -280,10 +282,10 @@ export function hitValue(hit: SettingsHit): string {
  * than a hope.
  */
 export function rankHits<T extends SettingsHit>(hits: T[], query: string): T[] {
-  return [...hits].sort((a, b) => rankValue(hitValue(b), query) - rankValue(hitValue(a), query))
+  return [...hits].toSorted((a, b) => rankValue(hitValue(b), query) - rankValue(hitValue(a), query))
 }
 
-// --- carrying a hit across a navigation ---------------------------------------------------------
+// --- carrying a hit across a navigation
 
 /** Where a hit found outside a service's own page hands a hit to it. */
 export type PendingJump = { file: string; path: string }
@@ -300,11 +302,10 @@ export type PendingJump = { file: string; path: string }
 const pendingJumps = new Map<string, PendingJump>()
 
 /**
- * The same subscriber set {@link onPendingMessageJump} keeps, and it is here for the same reason -
- * belatedly (steward/127).
+ * The same subscriber set {@link onPendingMessageJump} keeps, and it is here for the same reason.
  *
- * A config jump was read only by a component about to mount, which is right for "palette, then
- * navigate to another service" and wrong for the case Till found: searching while already standing
+ * A config jump read only by a component about to mount is right for "palette, then
+ * navigate to another service" and wrong for the case of searching while already standing
  * on the service page the hit belongs to. `navigate` to the route you are on is a no-op, nothing
  * remounts, the effect keyed on `service` does not run, and the click does nothing at all - and the
  * jump then sits in the map and fires the next time somebody arrives on that page, which is a
@@ -338,7 +339,7 @@ export function takePendingJump(service: string): PendingJump | undefined {
   return jump
 }
 
-// --- carrying a hit into the messages tool (steward/87) -----------------------------------------
+// --- carrying a hit into the messages tool
 
 /**
  * Where a bundle hit hands its destination to the messages tool: which bundle, which language tab,

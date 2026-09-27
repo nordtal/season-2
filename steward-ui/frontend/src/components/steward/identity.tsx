@@ -9,22 +9,22 @@ import { Skeleton } from "@/components/ui/skeleton"
 /**
  * The one display of a person, and the one place a Discord id or a Minecraft UUID may be drawn.
  *
- * Till, 2026-09-15 (steward/45): identifiers belong in exactly one place - this display's popover,
+ * Identifiers belong in exactly one place - this display's popover,
  * for copying. Nowhere else - not in the Access list, not in picker lists, not in channel fields.
  * **Closed**, this component draws an avatar and a name and never the id behind either. Opened,
  * its popover is where both ids live, each next to a button that copies it - see
  * {@link copyToClipboard} for what happens when the browser will not let a script touch the
  * clipboard at all.
  *
- * `steward/46` puts this to work in the Access table; `steward/53` is what is left of the rest of
- * the interface. Neither of those tickets is this file's to enforce - {@link identityLeakPattern}
+ * This is put to work in the Access table, and it is what is left of the rest of
+ * the interface. Enforcing that is not this file's job - {@link identityLeakPattern}
  * exists so that a *consumer* can assert its own output never shows a raw id outside this
  * component, without this module having to know which pages exist.
  */
 
 /*
- * THERE IS NO STALENESS MARK HERE ANY MORE. Till asked on 2026-09-19 (steward/123) for the
- * asterisk behind the Discord name and the Minecraft name to go.
+ * THERE IS NO STALENESS MARK HERE ANY MORE. The
+ * asterisk behind the Discord name and the Minecraft name is gone.
  *
  * `STALE_AFTER_MS`, `isStale`, the ` *` after a name, the `data-stale` attribute and the two
  * `title` tooltips all stood here until then and are gone together, because once the asterisk went
@@ -48,17 +48,21 @@ import { Skeleton } from "@/components/ui/skeleton"
 export function minecraftHeadUrl(baseUrl: string | undefined, mcUuid: string): string | null {
   if (!baseUrl) return null
 
-  // THE UUID GOES INTO THE PATH, NEVER ONTO THE END OF THE QUERY. The configured base may carry
-  // one - the default does, because api.mineatar.io serves 32x32 unless asked otherwise and the
-  // identity display draws a head at up to 32 CSS pixels, which is 96 real ones on a phone
-  // (steward/122, Till chose `?scale=16`). Appending blindly would produce
-  // `…/face?scale=16/<uuid>`, a path that is not the uuid's and an image nobody ever sees.
+  /**
+   * THE UUID GOES INTO THE PATH, NEVER ONTO THE END OF THE QUERY. The configured base may carry
+   * one - the default does, because api.mineatar.io serves 32x32 unless asked otherwise and the
+   * identity display draws a head at up to 32 CSS pixels, which is 96 real ones on a phone
+   * (`?scale=16`, chosen deliberately). Appending blindly would produce
+   * `…/face?scale=16/<uuid>`, a path that is not the uuid's and an image nobody ever sees.
+   */
   const [path, query] = splitQuery(baseUrl)
 
-  // steward/111, re-measured 2026-09-19 for steward/122: hyphens stripped. All three services this
-  // has ever pointed at - mineatar, mc-heads, crafatar - answer 200 to BOTH spellings, so this is
-  // no longer the compatibility claim it was written as. It stays because one spelling has to be
-  // chosen and a stable URL is a cached one: two spellings of the same face are two cache entries.
+  /**
+   * Hyphens stripped. All three services this
+   * has ever pointed at - mineatar, mc-heads, crafatar - answer 200 to BOTH spellings, so this is
+   * no longer the compatibility claim it was written as. It stays because one spelling has to be
+   * chosen and a stable URL is a cached one: two spellings of the same face are two cache entries.
+   */
   return `${path.replace(/\/+$/, "")}/${mcUuid.replace(/-/g, "")}${query}`
 }
 
@@ -83,7 +87,7 @@ export const IDENTIFIER_PATTERN =
  * Copies text to the clipboard where the browser allows it, and never fails silently.
  *
  * `navigator.clipboard` needs a secure context - true on `https://steward.dev.nordtal.eu`, false on
- * `http://127.0.0.1:8080` while developing (steward/45's footnote). Rather than a button that does
+ * `http://127.0.0.1:8080` while developing. Rather than a button that does
  * nothing and says nothing on the second of those, the id is always ALSO drawn as selectable text
  * next to it - see {@link CopyableId} - so the fallback is not this function succeeding, it is the
  * text having been selectable the entire time.
@@ -114,7 +118,7 @@ export type PersonIdentityProps = {
   avatarBaseUrl?: string
   className?: string
   /**
-   * Steward itself did this, not a person (steward/82) - the nightly backup clock, an orphan
+   * Steward itself did this, not a person - the nightly backup clock, an orphan
    * settle, a journal line the bot wrote with nobody behind it. Drawn as the server's own mark and
    * the word "Steward", in the same closed shape a person gets, and with no popover: there is no id
    * behind this one to reveal, so opening one would show nothing rather than something.
@@ -187,11 +191,12 @@ export function PersonIdentity(props: PersonIdentityProps) {
         <button
           type="button"
           className={
-            // `max-w-full` alongside `min-w-0` (steward/103): `min-w-0` only lets this box shrink,
-            // it does not cap it, so with nothing to shrink against the button sized itself to the
-            // name and the cell clipped the remainder with no ellipsis - `no Discord name on
-            // recora`, measured at 1440px on 2026-09-17. The `truncate` below cannot act until the
-            // box it lives in has an upper bound.
+            /**
+             * `max-w-full` alongside `min-w-0`: `min-w-0` only lets this box shrink,
+             * it does not cap it, so with nothing to shrink against the button would size itself to
+             * the name and the cell would clip the remainder with no ellipsis. The `truncate` below
+             * cannot act until the box it lives in has an upper bound.
+             */
             "inline-flex min-w-0 max-w-full items-center gap-2 rounded-full text-left outline-none " +
             "hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
             (props.className ?? "")
@@ -304,19 +309,18 @@ function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: str
 /**
  * The small rounded-square Minecraft head, drawn from a composed URL.
  *
- * <h2>Three states, one size (steward/120)</h2>
- * Till, 2026-09-19, asking for this: a head that loads in with nothing drawn where it is going to
- * be looks worse than anything else on the page. He is describing the second of these three, which
- * had no drawing at all:
+ * <h2>Three states, one size</h2>
+ * A head that loads in with nothing drawn where it is going to
+ * be looks worse than anything else on the page:
  *
  * <ul>
  *   <li><b>Nothing to draw yet</b> - `mcUuid` undefined, because the row around this head is itself
  *       still waiting. A skeleton in the head's exact size.</li>
  *   <li><b>On its way</b> - the URL is composed and the image has not decoded. The same skeleton
  *       sits underneath it and the image fades in over the top, so the box is never empty and never
- *       changes size. This is the one that used to be a blank bordered square.</li>
+ *       changes size.</li>
  *   <li><b>It will not come</b> - a question mark on a flat surface. Crafatar and mc-heads are free
- *       services with no uptime promise (steward/45); a broken-image icon says the page is damaged,
+ *       services with no uptime promise; a broken-image icon says the page is damaged,
  *       and it is not.</li>
  * </ul>
  *
@@ -338,8 +342,10 @@ export function MinecraftHead({
   const [loaded, setLoaded] = useState(false)
   const url = mcUuid ? minecraftHeadUrl(baseUrl, mcUuid) : undefined
 
-  // `undefined` and `""` are different statements and both reach here: nobody has said yet, and
-  // nobody has one. The first waits, the second is the question mark at the bottom.
+  /**
+   * `undefined` and `""` are different statements and both reach here: nobody has said yet, and
+   * nobody has one. The first waits, the second is the question mark at the bottom.
+   */
   if (mcUuid === undefined) {
     return <Skeleton className={`${size} shrink-0 ${rounded}`} />
   }

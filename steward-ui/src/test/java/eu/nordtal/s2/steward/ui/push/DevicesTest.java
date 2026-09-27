@@ -3,21 +3,19 @@ package eu.nordtal.s2.steward.ui.push;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * {@link Devices#nameOf} against the User-Agents that actually reach this service.
  *
- * <p>The strings below are real ones, copied rather than invented - the three that matter are an
- * iPhone (the device steward/06's acceptance is about), a desktop Chrome and a desktop Firefox. The
+ * The strings below are real ones, copied rather than invented - the three that matter are an
+ * iPhone, a desktop Chrome and a desktop Firefox. The
  * point of each assertion is the trap it walks past: every one of these carries the word "Mozilla",
- * Chrome's carries "Safari", and Edge's carries both "Chrome" and "Safari".</p>
+ * Chrome's carries "Safari", and Edge's carries both "Chrome" and "Safari".
  */
 class DevicesTest {
 
     @Test
-    @DisplayName("an iPhone is an iPhone, and Safari on it is Safari")
     void iphoneSafari() {
         assertEquals(
                 "iPhone, Safari",
@@ -26,7 +24,6 @@ class DevicesTest {
     }
 
     @Test
-    @DisplayName("Chrome is not Safari, however much its own User-Agent says so")
     void chromeIsNotSafari() {
         assertEquals(
                 "Linux, Chrome",
@@ -35,7 +32,6 @@ class DevicesTest {
     }
 
     @Test
-    @DisplayName("Edge is not Chrome, however much its own User-Agent says so")
     void edgeIsNotChrome() {
         assertEquals(
                 "Windows, Edge",
@@ -44,7 +40,6 @@ class DevicesTest {
     }
 
     @Test
-    @DisplayName("Firefox on a Mac")
     void firefoxOnAMac() {
         assertEquals(
                 "Mac, Firefox",
@@ -53,7 +48,6 @@ class DevicesTest {
     }
 
     @Test
-    @DisplayName("nothing to say is null, never the word for it")
     void nothingToSayIsNull() {
         assertNull(Devices.nameOf(null));
         assertNull(Devices.nameOf(""));

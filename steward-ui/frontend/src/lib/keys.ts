@@ -10,15 +10,22 @@
  * `navigator.platform` is deprecated and still the only thing every browser answers. The
  * user-agent's own `platform` is asked first where it exists.
  */
-export function usesCommandKey(navigatorLike: Navigator | undefined = globalThis.navigator): boolean {
+/** The three fields this file reads off `Navigator`, so a test can build one without the rest of it. */
+export type NavigatorLike = {
+  platform?: string
+  userAgent?: string
+  userAgentData?: { platform?: string }
+}
+
+export function usesCommandKey(navigatorLike: NavigatorLike | undefined = globalThis.navigator): boolean {
   if (!navigatorLike) return false
-  const hinted = (navigatorLike as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform
+  const hinted = navigatorLike.userAgentData?.platform
   const platform = hinted || navigatorLike.platform || navigatorLike.userAgent || ""
   return /mac|iphone|ipad|ipod/i.test(platform)
 }
 
 /** `⌘` or `Ctrl`, for a `<kbd>`. */
-export function modifierLabel(navigatorLike?: Navigator): string {
+export function modifierLabel(navigatorLike?: NavigatorLike): string {
   return usesCommandKey(navigatorLike) ? "⌘" : "Ctrl"
 }
 
@@ -28,6 +35,6 @@ export function modifierLabel(navigatorLike?: Navigator): string {
  * The plus is part of the difference, not a separate decision - `⌘+K` is not how a Mac writes it
  * and `CtrlK` is not how anything else does.
  */
-export function shortcutLabel(key: string, navigatorLike?: Navigator): string {
+export function shortcutLabel(key: string, navigatorLike?: NavigatorLike): string {
   return usesCommandKey(navigatorLike) ? `⌘${key}` : `Ctrl+${key}`
 }

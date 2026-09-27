@@ -14,12 +14,12 @@ import { useSidebar } from "@/components/ui/sidebar"
  * The frame everything signed-in is drawn inside.
  *
  * <h2>Two shapes, picked out of four</h2>
- * The last sidebar looked unfinished - uneven gaps, an island that jumped as the column opened -
- * and four directions were built side by side for Till to hold a phone and compare. He picked two
- * of them on 2026-09-24, one per kind of screen: the island at the top left over a column that
+ * An unfinished-looking sidebar - uneven gaps, an island that jumped as the column opened -
+ * led to four directions being built side by side to compare on a phone. Two were chosen,
+ * one per kind of screen: the island at the top left over a column that
  * slides in beneath it for a desktop or a tablet ({@link DesktopFrame}), and a dock at the bottom
- * that grows upward into the navigation for a phone ({@link PhoneFrame}). The two he did not pick
- * are deleted rather than kept behind a query parameter; what they tried is in the ticket.
+ * that grows upward into the navigation for a phone ({@link PhoneFrame}). The two not chosen
+ * are deleted rather than kept behind a query parameter.
  *
  * The line between them is `useIsMobile`'s 640px, the same line the sidebar provider already keeps
  * its two open states apart by: `open` for the column, `openMobile` for the dock.
@@ -56,7 +56,7 @@ function useNav() {
 
   // Escape closes whatever is open, on both devices.
   useEffect(() => {
-    if (!shown) return
+    if (!shown) return undefined
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return
       if (isMobile) setOpenMobile(false)

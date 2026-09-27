@@ -11,18 +11,7 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(here, "src") },
   },
-  // Gradle owns this directory: processResources copies it into build/resources/main/web, which is
-  // where the Javalin process serves it from inside the jar. It deliberately sits outside the npm
-  // project so that nothing generated ever lands next to the sources.
-  //
-  // `VITE_OUT_DIR` is how Gradle says where that is (season-2-ops/30). `-PbuildRoot` moves every
-  // module's output tree somewhere else so two agents can build at once, and it moves this module's
-  // `frontendDistDirectory` with it - but Vite is a separate process reading this file, it has
-  // never heard of the property, and it used to keep writing into the one shared directory. Nothing
-  // failed loudly: `processResources` copied faithfully out of the moved directory, which was
-  // empty, and the first sign of it was Javalin refusing to start a test with "Static resource
-  // directory with path: '/web' does not exist". The fallback is the value that stood here before,
-  // so `npm run build` by hand, without Gradle, lands where it always did.
+  // VITE_OUT_DIR lets Gradle redirect the output when it moves this module's build root; Vite has no other way to learn of that move.
   build: {
     outDir: process.env.VITE_OUT_DIR ?? path.resolve(here, "../build/frontend-dist"),
     emptyOutDir: true,
@@ -30,38 +19,21 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // `npm run dev` talks to a locally running StewardUi rather than to the container behind Caddy.
-    //
-    // BOTH prefixes, and the second one is not decoration (season-2-ops/144). The sign-in, the
-    // sign-out and all four WebAuthn steps live under `/auth`, not under `/api`, and a prefix that
-    // is missing here does not fail - it falls through to Vite's SPA fallback, which answers
-    // `index.html` with a 200. So the dev server looked fine and no page in it worked: `Gate`
-    // wants a held key for every read and a fresh one for every write, and neither ceremony could
-    // complete. `src/dev-server-proxies-every-prefix.test.ts` is what keeps a third prefix from
-    // being added the same way.
+    // A prefix missing here does not fail loudly: it falls through to Vite's SPA fallback, which answers with index.html instead of a 404.
     proxy: {
       "/api": "http://127.0.0.1:8080",
       "/auth": "http://127.0.0.1:8080",
     },
   },
-  // The tests run under jsdom because two of the four things worth testing here - the log window's
-  // buffer and the traffic light - are a hook and a decision that only exist inside React. A pure Node
-  // environment would leave exactly those untested, which is where the bugs were.
+  // jsdom is required because the log window's buffer and the traffic light are a hook and a decision that only exist inside React.
   test: {
     environment: "jsdom",
     // Raises Testing Library's async budget; the file says why.
     setupFiles: ["./src/vitest.setup.ts"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
-    // No globals. `describe`, `it` and `expect` are imported in every test file, so a reader can
-    // see where they come from and the type-check covers them like any other import.
+    // No globals: describe, it and expect are imported explicitly so the type-check covers them.
     globals: false,
-    // A CEILING, NOT A TUNING (season-2-ops/114). Each worker builds its own jsdom - 53 of them per
-    // run, measured at ~350 MB a piece - and vitest's default is one per core. On the dev host that
-    // is six workers on a six-core machine that is also running three Minecraft servers, Postgres
-    // and the proxy, with no swap; on 2026-09-18 a full build there took the load average to 90 and
-    // the kernel's OOM killer answered by shooting the SMP server. Four is deliberately not a
-    // measured optimum: it is the largest number that cannot, on its own, be the reason something
-    // else on the machine dies. A CI runner has four cores anyway, so it loses nothing here.
+    // A ceiling, not a tuning: small enough that the worker pool alone cannot saturate a host that also runs other services.
     maxWorkers: 4,
   },
 })

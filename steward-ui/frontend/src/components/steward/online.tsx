@@ -7,13 +7,13 @@ import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
- * WHO IS IN THE GAME, AT THE TOP OF THE START PAGE (steward/64).
+ * WHO IS IN THE GAME, AT THE TOP OF THE START PAGE.
  *
- * Till, 2026-09-17: the word "Overview" at the top of the start page is a label on a page nobody
- * reached by accident, and it goes. What takes its place is the one thing about this stack that
+ * The word "Overview" at the top of the start page is a label on a page nobody
+ * reached by accident, so it is gone. What takes its place is the one thing about this stack that
  * changes minute to minute and that no tile below says - how many people are actually in the game
- * right now. He named a shape (up to three faces, then a `+N`, then the count in words) and then
- * asked for alternatives to it, explicitly including one with Minecraft heads overlapping as a
+ * right now, shown as a shape (up to three faces, then a `+N`, then the count in words), with
+ * alternatives considered explicitly including one with Minecraft heads overlapping as a
  * triangle rather than sitting in a pill. The three below are those alternatives.
  *
  * <h2>The count is real; the faces are not available yet, and that is not a bug in this file</h2>
@@ -26,7 +26,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
  * general case and a face is the enrichment.** With no roster at all, the stack is a single circle
  * reading `+7` beside "7 players online" - the same object, the same size, the same line, and not
  * one pixel of it is a claim the data does not support. The day a roster exists, three heads move
- * in front of it and the `+N` becomes `+4` on its own. steward/111 is that roster.
+ * in front of it and the `+N` becomes `+4` on its own, once a roster exists.
  *
  * <h2>Nobody online is the normal case on this host, so it is drawn, not handled</h2>
  * The number is the anchor of all three variants and the faces are what hangs off it, which is
@@ -70,11 +70,12 @@ export function useOnline(roster?: OnlinePlayer[]): Online {
       const row = rows.find((service) => service.service === name)
       return row?.players === undefined ? [] : [{ service: name, players: row.players }]
     }),
-    // steward/111: from the same row the total comes from, and not from a parameter nobody
-    // passed. The worker has been putting a `roster` on this row since the roster existed; the
-    // page called `useOnline()` with no argument, so the stack drew a count and never a face -
-    // which is exactly what Till saw as the only player online: `+1`, and no head. An explicit
-    // argument still wins, for a caller that has a better list than the network's.
+    /**
+     * From the same row the total comes from, and not from a parameter nobody
+     * passed: `useOnline()` called with no argument should still draw a face, not just a count,
+     * whenever the roster is available on the network row already. An explicit
+     * argument still wins, for a caller that has a better list than the network's.
+     */
     roster: roster ?? proxy?.roster ?? [],
     pending: services.isPending,
   }
@@ -90,7 +91,7 @@ function said(total: number | undefined): { number: string; word: string } {
  * The faces, overlapping, with the overflow as the last circle.
  *
  * <h2>What the web had to say, and what was taken from it</h2>
- * Three to five faces before the rest collapse is the going figure; Till said three, which is at
+ * Three to five faces before the rest collapse is the going figure; three is
  * the tight end of it and right for a line that also has to hold a number at 390px. The part worth
  * taking was about the overflow: **`+N` is not decoration.** It is a fact nobody can otherwise
  * reach, so it carries its own name for a screen reader, and the stack itself is a list with one
@@ -98,13 +99,17 @@ function said(total: number | undefined): { number: string; word: string } {
  */
 function Stack({ online, size = "size-8", base }: { online: Online; size?: string; base: string | undefined }) {
   const shown = online.roster.slice(0, 3)
-  // Never negative, and never computed from the faces alone: with no roster the overflow IS the
-  // whole count, which is the state this interface is actually in today.
+  /**
+   * Never negative, and never computed from the faces alone: with no roster the overflow IS the
+   * whole count, which is the state this interface is actually in today.
+   */
   const rest = Math.max((online.total ?? 0) - shown.length, 0)
 
-  // steward/120: `pending` has been arriving on this object since it existed and was read by
-  // nobody. One circle, because one circle is the shape this stack has on almost every day of the
-  // season - and because an invented number of them would be a guess about how busy the server is.
+  /**
+   * `pending` is read here as a single circle, because one circle is the shape this stack has on
+   * almost every day of the season - and because an invented number of them would be a guess about
+   * how busy the server is.
+   */
   if (online.pending) {
     return (
       <ul className="flex shrink-0 items-center -space-x-2">
@@ -167,10 +172,10 @@ function Where({ online, className }: { online: Online; className?: string }) {
 }
 
 /**
- * VARIANT A - the line Till quoted, without the pill.
+ * VARIANT A - a line without the pill.
  *
  * Faces, the overflow, then the count in words, all on one line. It is the reference shape from
- * shadcnstudio's avatar 20 and 21 with the one change Till made when he offered the alternatives:
+ * shadcnstudio's avatar 20 and 21 with one change:
  * no pill around it. The pill is what turns a group of people into a control, and nothing here is
  * tappable.
  *
@@ -203,10 +208,10 @@ export function OnlineLine({ online }: { online: Online }) {
 }
 
 /**
- * VARIANT B - the triangle Till asked for himself.
+ * VARIANT B - a triangle of faces.
  *
- * Three heads, overlapping, two below and one above the gap between them, which is the arrangement
- * he described. It is the only variant whose shape says something the number does not: a cluster
+ * Three heads, overlapping, two below and one above the gap between them. It is the only variant
+ * whose shape says something the number does not: a cluster
  * reads as a group of people standing together, where a row reads as a list of them. The overflow
  * sits at the lower right of the cluster rather than in line with it, because a fourth circle in
  * the row would flatten the triangle back into a stack.
@@ -302,7 +307,7 @@ function Heading({ children }: { children: ReactNode }) {
 }
 
 /**
- * The same line on a service page, counted for that service alone (steward/140).
+ * The same line on a service page, counted for that service alone.
  *
  * The faces come from the roster row *of this service* - `ServicesApi.freshRoster` already files
  * each player under the backend they are on, and `proxy`'s row is the whole network. The line is

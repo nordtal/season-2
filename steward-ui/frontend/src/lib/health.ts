@@ -5,24 +5,23 @@ import { bytes, percent, relative } from "@/lib/format"
 /**
  * The traffic light of concept §10c.
  *
- * Four triggers, and the point is which four. Two of them are the two failures measured on this
- * host on 2026-09-12:
+ * Four triggers, and the point is which four. Two of them guard against real failure shapes:
  *
- * - **A24** — four releases shipped while the running containers kept an older image, and nothing
- *   said so, because the thing doing the deploying never asked a registry.
- * - **A23** — run 23 reported success having saved zero volumes. "The run did not complain" is not
+ * - A release can ship while the running containers keep an older image, and nothing
+ *   says so, if the thing doing the deploying never asks a registry.
+ * - A run can report success having saved zero volumes. "The run did not complain" is not
  *   "there is a backup".
  *
- * Had this existed, neither would have gone unnoticed. That is the argument for these four and not
+ * Catching both is the argument for these four triggers and not
  * for a wall of tiles.
  *
  * **Reasons, not a field of symbols.** `summarise` returns the worst level and every trigger that
  * produced it, in order, worst first. A red trigger outranks a yellow one and never hides it: both
  * are counted, because "a service is down" and "the backup is missing" are two errands.
  *
- * **`text` is the whole sentence; `subject` is what the start page actually prints** (steward/64).
- * The page used to render `text` for every trigger, one line each - which is exactly the "wall of
- * tiles" this file argued against replacing itself with a wall of sentences instead. It now prints
+ * **`text` is the whole sentence; `subject` is what the start page actually prints.**
+ * Rendering `text` for every trigger, one line each, would be exactly the "wall of
+ * tiles" this file argues against replaced with a wall of sentences instead. It prints
  * "Errors in {subjects}" plus one link, and `text` stays here for the page that link leads to: the
  * full sentence never had to move, because nothing outside `overview.tsx` ever read it.
  */
@@ -37,9 +36,8 @@ export type Trigger = {
    * The word (or short, comma-joined list of words) this trigger is about - "smp", "disk", "database
    * dump". Never a sentence.
    *
-   * steward/64: the start page stopped printing `text` for warn/down and prints "Errors in
-   * {subjects}" instead, because Till's own words for what should replace a screenful of prose were
-   * a reference, not a second sentence per trigger. `text` still exists and still says the whole
+   * The start page does not print `text` for warn/down; it prints "Errors in
+   * {subjects}" instead, a reference rather than a second sentence per trigger. `text` still exists and still says the whole
    * thing - it is what the page this trigger links to is for - so a page that wants a service name
    * or a volume name does not have to parse it back out of the prose.
    */
@@ -86,19 +84,23 @@ export function summarise(input: {
   thresholds?: Thresholds
   now?: number
 }): { level: Level; triggers: Trigger[] } {
-  // Undefined until `/api/settings` has answered. Everything that needs a number to compare
-  // against is skipped while it is, and the page says so instead of quietly using its own.
+  /**
+   * Undefined until `/api/settings` has answered. Everything that needs a number to compare
+   * against is skipped while it is, and the page says so instead of quietly using its own.
+   */
   const thresholds = input.thresholds
   const now = input.now ?? Date.now()
   const triggers: Trigger[] = []
 
-  // 0 - an answered, EMPTY service list. Yellow, and Till's call on 2026-09-13.
-  //
-  // This used to be green, because no service is no failing service. But the list being answered
-  // and empty is not "nothing to report": compose.yml declares eight services here and none of
-  // them is optional enough to explain an empty table, so the reading is that the daemon has
-  // nothing left to show - which is the loudest thing this page could ever have to say. It is the
-  // same family as the green light on failed queries: no data must not read as fine.
+  /**
+   * 0 - an answered, EMPTY service list. Yellow.
+   *
+   * This used to be green, because no service is no failing service. But the list being answered
+   * and empty is not "nothing to report": compose.yml declares eight services here and none of
+   * them is optional enough to explain an empty table, so the reading is that the daemon has
+   * nothing left to show - which is the loudest thing this page could ever have to say. It is the
+   * same family as the green light on failed queries: no data must not read as fine.
+   */
   if (input.table && input.table.services.length === 0) {
     triggers.push({
       level: "warn",
@@ -108,27 +110,31 @@ export function summarise(input: {
     })
   }
 
-  // 1 - a service stopped or unhealthy. Red: without this it would not be a traffic light.
-  //
-  // WITH ONE EXCEPTION, AND IT IS NOT A SOFTENING (steward/125): a standby that is not running is
-  // not a fault, it is the standby doing what it is for. `proxy-standby` and `limbo-standby` live
-  // in the `standby` compose profile and are stopped for all but a minute of the season - so
-  // without this the front page said "2 issues" on a perfectly healthy stack, every day, which is
-  // precisely how a fault counter stops being read and how the third fault goes unnoticed.
-  //
-  // A standby that IS running and reports itself unhealthy stays red, because that is the one
-  // minute it matters. The marker comes from the worker (Topology.standbyNames()) and not from a
-  // name match here: a stopped standby and a crashed backend are the same container state, so
-  // nothing on this side could tell them apart.
+  /**
+   * 1 - a service stopped or unhealthy. Red: without this it would not be a traffic light.
+   *
+   * WITH ONE EXCEPTION, AND IT IS NOT A SOFTENING: a standby that is not running is
+   * not a fault, it is the standby doing what it is for. `proxy-standby` and `limbo-standby` live
+   * in the `standby` compose profile and are stopped for all but a minute of the season - so
+   * without this the front page said "2 issues" on a perfectly healthy stack, every day, which is
+   * precisely how a fault counter stops being read and how the third fault goes unnoticed.
+   *
+   * A standby that IS running and reports itself unhealthy stays red, because that is the one
+   * minute it matters. The marker comes from the worker (Topology.standbyNames()) and not from a
+   * name match here: a stopped standby and a crashed backend are the same container state, so
+   * nothing on this side could tell them apart.
+   */
   for (const service of input.table?.services ?? []) {
     if (service.standby === true && !isUp(service.state)) {
       continue
     }
-    // The same exemption for the same reason, one ticket later (steward/134): a service somebody
-    // put down on purpose is not a fault either. `hold` is the `service_hold` row the worker passes
-    // through, and it is the only thing that can tell a deliberate stop from a crash - the
-    // container is `exited` in both cases. A held service that is RUNNING and unhealthy falls
-    // through to the check below and stays red, exactly as a standby does.
+    /**
+     * The same exemption for the same reason: a service somebody
+     * put down on purpose is not a fault either. `hold` is the `service_hold` row the worker passes
+     * through, and it is the only thing that can tell a deliberate stop from a crash - the
+     * container is `exited` in both cases. A held service that is RUNNING and unhealthy falls
+     * through to the check below and stays red, exactly as a standby does.
+     */
     if (service.hold !== undefined && !isUp(service.state)) {
       continue
     }
@@ -151,8 +157,10 @@ export function summarise(input: {
     }
   }
 
-  // 2 - image drift. Yellow: nothing is broken, and this is exactly the state that went unnoticed
-  // for four releases.
+  /**
+   * 2 - image drift. Yellow: nothing is broken, and this is exactly the state that went unnoticed
+   * for four releases.
+   */
   const outdated = (input.table?.services ?? []).filter((service) => service.drift === "OUTDATED")
   if (outdated.length > 0) {
     triggers.push({
@@ -168,21 +176,24 @@ export function summarise(input: {
     })
   }
 
-  // The comparison that could not be made is its own sentence, and a quiet one. It is not a fault
-  // in the stack - but reporting "up to date" for an image nobody compared is the fault above.
-  //
-  // A SINGLE service whose own drift is UNKNOWN is deliberately NOT a trigger (Till, 2026-09-13).
-  // overview.tsx argues the opposite for the badge, and A24 is this light's whole reason to exist -
-  // but a registry that could not be asked about one image, or a container whose exact image is no
-  // longer on file locally, is not rare enough here for a yellow that never clears to be worth
-  // reading. The Operations page footnotes how many could not be compared. This trigger is the
-  // other case: the registry as a whole did not answer, which is temporary and therefore worth a
-  // sentence.
-  //
-  // LOCAL is not checked here at all, on purpose (steward/75): it is the opposite direction from
-  // OUTDATED, not a milder version of it, and a service built here and never published is a known
-  // answer - never "nobody looked", never a reason to turn the light yellow.
-  if (input.table && input.table.drift.reached === false) {
+  /**
+   * The comparison that could not be made is its own sentence, and a quiet one. It is not a fault
+   * in the stack - but reporting "up to date" for an image nobody compared is the fault above.
+   *
+   * A SINGLE service whose own drift is UNKNOWN is deliberately NOT a trigger.
+   * overview.tsx argues the opposite for the badge, and an unnoticed stale image is this light's
+   * whole reason to exist - but a registry that could not be asked about one image, or a container
+   * whose exact image is no
+   * longer on file locally, is not rare enough here for a yellow that never clears to be worth
+   * reading. The Operations page footnotes how many could not be compared. This trigger is the
+   * other case: the registry as a whole did not answer, which is temporary and therefore worth a
+   * sentence.
+   *
+   * LOCAL is not checked here at all, on purpose: it is the opposite direction from OUTDATED, not
+   * a milder version of it, and a service built here and never published is a known answer -
+   * never "nobody looked", never a reason to turn the light yellow.
+   */
+  if (input.table && !input.table.drift.reached) {
     triggers.push({
       level: "warn",
       text: `The images were not compared: ${input.table.drift.message ?? "the registry did not answer"}.`,
@@ -191,9 +202,11 @@ export function summarise(input: {
     })
   }
 
-  // 3 - the backup. Red, and this one is about the files on the disk, not about a run that
-  // reported success. Since steward/40 it asks for both kinds of file: a run that reports success
-  // having written only half of them is the shape this stack actually had.
+  /**
+   * 3 - the backup. Red, and this one is about the files on the disk, not about a run that
+   * reported success. It asks for both kinds of file: a run that reports success
+   * having written only half of them is a real failure shape.
+   */
   triggers.push(...backupTriggers(input.backups, thresholds, now))
 
   // 4 - disk and memory over the configured thresholds. Yellow.
@@ -258,8 +271,10 @@ function tooOld(rows: Backup[], what: string, subject: string, thresholds: Thres
 }
 
 function backupTriggers(backups: Backup[] | undefined, thresholds: Thresholds | undefined, now: number): Trigger[] {
-  // Undefined means "not asked yet" and must not read as "there is no backup". Only an answered,
-  // empty list is an accusation.
+  /**
+   * Undefined means "not asked yet" and must not read as "there is no backup". Only an answered,
+   * empty list is an accusation.
+   */
   if (backups === undefined) return []
 
   const finished = backups.filter((backup) => !backup.partial)
@@ -277,17 +292,19 @@ function backupTriggers(backups: Backup[] | undefined, thresholds: Thresholds | 
     ]
   }
 
-  // BOTH KINDS ARE REQUIRED, and this is steward/40. Counting files in `/backups` finds plenty on
-  // a stack where pg_dump has never once succeeded: the volume archives are written by a root
-  // container and the dump runs as `postgres` against a root-owned directory (steward/39). The
-  // nightly run came back FAILED on 2026-09-15 and this page drew the green tick over it, because
-  // sixteen fresh .tar.zst answered the only question it asked.
-  //
-  // The asymmetry is why it matters rather than being pedantry: a world and a set of configs can be
-  // rebuilt from the repository and a paintbrush. The accesses, payments and Discord links cannot.
-  // `archived` is the same classifier the Operations page lists the directory with, and asking it
-  // rather than the suffix is the difference between "not a dump" and "is an archive": an
-  // `.unverified` mark and a README an operator dropped in are neither.
+  /**
+   * BOTH KINDS ARE REQUIRED. Counting files in `/backups` alone finds plenty on
+   * a stack where pg_dump has never once succeeded: the volume archives are written by a root
+   * container and the dump runs as `postgres` against a root-owned directory. A failed
+   * nightly run could otherwise draw a green tick over it, because
+   * fresh archive files answer a different question than a successful dump does.
+   *
+   * The asymmetry is why it matters rather than being pedantry: a world and a set of configs can be
+   * rebuilt from the repository and a paintbrush. The accesses, payments and Discord links cannot.
+   * `archived` is the same classifier the Operations page lists the directory with, and asking it
+   * rather than the suffix is the difference between "not a dump" and "is an archive": an
+   * `.unverified` mark and a README an operator dropped in are neither.
+   */
   const dumps: Backup[] = []
   const volumes = new Map<string, Backup[]>()
   for (const backup of finished) {
@@ -302,8 +319,10 @@ function backupTriggers(backups: Backup[] | undefined, thresholds: Thresholds | 
   }
   const triggers: Trigger[] = []
 
-  // Presence is not a number, so neither of these waits for /api/settings - same argument as "there
-  // is not a single backup" above. The age below is a number and does wait.
+  /**
+   * Presence is not a number, so neither of these waits for /api/settings - same argument as "there
+   * is not a single backup" above. The age below is a number and does wait.
+   */
   if (dumps.length === 0) {
     triggers.push({
       level: "down",
@@ -338,8 +357,8 @@ function backupTriggers(backups: Backup[] | undefined, thresholds: Thresholds | 
  * A green light on no evidence is the one thing this page must not do. With every query failed
  * there is nothing to summarise, so `summarise` returns no trigger and the level is "ok" - and the
  * page used to draw the green tick and its all-clear sentence above a grey footnote saying the
- * opposite. Not knowing is yellow. It is this file's own argument: A24 went unnoticed for four
- * releases because nothing said it did not know.
+ * opposite. Not knowing is yellow. It is this file's own argument: a stale image can go unnoticed
+ * for a long time because nothing says it does not know.
  *
  * A measured warning or a measured failure outranks the doubt and is shown as it is - "a service
  * is down" is a more useful sentence than "something could not be read".
@@ -351,9 +370,10 @@ export function shownLevel(level: Level, failed: boolean): Level {
 /** What the traffic light says when it found nothing wrong and also could not look. */
 export const UNKNOWN = "Whether everything is in order cannot be said right now."
 
-// There used to be an ALL_CLEAR string here - "Everything is in order.", printed above the light
-// whenever `ok` had nothing to report. steward/64 removed the banner for that case entirely rather
-// than replacing its text: Till's own instruction was that a stack with nothing wrong should not
-// say so, it should simply start with the numbers. The constant is gone with the sentence, not kept
-// unused - the only thing that read it was the page itself, and `shownLevel` above already argues
-// why a green line printed on no evidence at all is worse than none.
+/**
+ * There is deliberately no ALL_CLEAR string here - "Everything is in order.", printed above the
+ * light whenever `ok` had nothing to report. A stack with nothing wrong should not
+ * say so, it should simply start with the numbers. The constant stays gone with the sentence, not kept
+ * unused - the only thing that would read it is the page itself, and `shownLevel` above already argues
+ * why a green line printed on no evidence at all is worse than none.
+ */

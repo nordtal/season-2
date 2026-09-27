@@ -21,8 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
  * the list is kept and shown as itself rather than cleared: a channel the bot cannot see is not a
  * value this page gets to delete.
  *
- * **The open list draws a name and nothing else** (steward/53, applying steward/45's rule to roles
- * and channels): a raw snowflake never appears in a row here, even in a muted corner. Searching is
+ * **The open list draws a name and nothing else**, applying the identifier rule to roles
+ * and channels: a raw snowflake never appears in a row here, even in a muted corner. Searching is
  * a different question from showing - the filter above the list matches the id as well as the
  * name, because somebody holding an id copied from a log or from Discord's own "Copy ID" has to be
  * able to paste it in and land on the right row without ever being shown what they pasted. The one
@@ -30,6 +30,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
  * where the id *is* the only honest thing to show, and it is drawn to look like exactly that - a
  * missing name, not an ordinary row.
  */
+/** A stable identity for "no entries", so a memo keyed on it does not recompute every render. */
+const NO_ENTRIES: GuildEntry[] = []
+
 export function SnowflakePicker({
   id,
   value,
@@ -46,16 +49,20 @@ export function SnowflakePicker({
   disabled: boolean
   onChange: (value: string) => void
 }) {
-  const entries = directory?.available ? directory.entries : []
+  const entries = directory?.available ? directory.entries : NO_ENTRIES
 
-  // A category (Discord type 4) is not a channel anything here posts in, but it is what tells two
-  // channels of the same name apart, so it is kept as a heading rather than dropped.
+  /**
+   * A category (Discord type 4) is not a channel anything here posts in, but it is what tells two
+   * channels of the same name apart, so it is kept as a heading rather than dropped.
+   */
   const options = useMemo(() => withUnknown(entries, value), [entries, value])
   const [query, setQuery] = useState("")
-  // The row that is set now is never filtered out, whatever is typed. Radix reads the closed
-  // trigger's text off the mounted item, so hiding the chosen row empties the control the person is
-  // looking at - and being told your setting has no value because you typed in a search box is a
-  // worse lie than a row that does not match sitting in the list.
+  /**
+   * The row that is set now is never filtered out, whatever is typed. Radix reads the closed
+   * trigger's text off the mounted item, so hiding the chosen row empties the control the person is
+   * looking at - and being told your setting has no value because you typed in a search box is a
+   * worse lie than a row that does not match sitting in the list.
+   */
   const visible = useMemo(
     () => (query.trim() ? options.filter((entry) => entry.id === value || matchesQuery(entry, what, query)) : options),
     [options, query, value, what],
@@ -83,8 +90,10 @@ export function SnowflakePicker({
   }
 
   return (
-    // The empty option is a real choice and says what choosing it means, because "none" in this
-    // interface is never "the default" - it is the feature switched off, and the bot says which.
+    /**
+     * The empty option is a real choice and says what choosing it means, because "none" in this
+     * interface is never "the default" - it is the feature switched off, and the bot says which.
+     */
     <Select
       value={value === "" ? NOTHING : value}
       disabled={disabled}
@@ -148,7 +157,7 @@ function label(entry: GuildEntry, what: "role" | "channel"): string {
 
 /**
  * Whether `entry` matches a typed `query` - by the name the list actually draws, or by the raw
- * snowflake it never draws (steward/53). Searching and showing are different questions: the row
+ * snowflake it never draws. Searching and showing are different questions: the row
  * never prints an id, but a person holding one from a log or from Discord's own "Copy ID" still
  * has to be able to paste it here and land on the right row.
  */

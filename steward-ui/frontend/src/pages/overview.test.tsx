@@ -13,12 +13,10 @@ import { TooltipProvider } from "@/components/ui/tooltip"
  * how complete that decision is - the half that lives in `overview.tsx` and that no unit test can
  * see, because the tile's text is drawn from `waiting` and `failed` rather than from the level.
  *
- * **steward/80 moved this suite off a banner and onto a tile.** Till removed the alert-style banner
- * entirely and asked for its content to become a tile in the number row, in the same shape as
- * `Behind` - a count, and beneath it the names. The defect this file was originally written for
- * still applies to the tile: the loading state only fires while there is NOTHING to report yet, so
- * with one trigger already found - an image behind, say - the tile must not look as settled as it
- * would once every query has actually answered.
+ * The tile is in the number row, in the same shape as `Behind` - a count, and beneath it the names.
+ * The loading state only fires while there is NOTHING to report yet, so with one trigger already
+ * found - an image behind, say - the tile must not look as settled as it would once every query has
+ * actually answered.
  *
  * The page is rendered inside a real memory router rather than behind a stubbed `Link`: the
  * triggers carry `to` and `params`, and a stub would happily draw a link to a route that does not
@@ -68,7 +66,7 @@ function backup(hoursAgo: number) {
 }
 
 /**
- * The other file in `/backups`, which since steward/40 has to be there too.
+ * The other file in `/backups`, which has to be there too.
  *
  * A fixture that carries only archives is a stack whose database has never been dumped, and the
  * tile is red about it - correctly. Every test here is about something else, so they all get one.
@@ -95,7 +93,7 @@ function backend(over: {
   settings?: () => Promise<unknown>
   season?: unknown
 }) {
-  return vi.fn(async (url: string) => {
+  return vi.fn<(url: string) => Promise<Response>>(async (url: string) => {
     if (url === "/api/services") {
       return json(200, {
         services: over.services ?? [service()],
@@ -107,10 +105,12 @@ function backend(over: {
     if (url === "/api/settings") {
       return json(200, await (over.settings?.() ?? Promise.resolve({ disk: 85, memory: 90, backupAgeHours: 36 })))
     }
-    // The other tiles in the row. None of them feeds `waiting` or `failed`; they answer emptily so
-    // that nothing else on the page can be the reason a test passes or fails.
-    // The network picture's nodes each carry a recreate button, which asks whether the deployer is
-    // reachable at all before it decides to be disabled (steward/81).
+    /**
+     * The other tiles in the row. None of them feeds `waiting` or `failed`; they answer emptily so
+     * that nothing else on the page can be the reason a test passes or fails.
+     * The network picture's nodes each carry a recreate button, which asks whether the deployer is
+     * reachable at all before it decides to be disabled.
+     */
     if (url === "/api/deployer") return json(200, { available: true })
     if (url.startsWith("/api/metrics")) return json(200, { points: [] })
     if (url.startsWith("/api/updates")) return json(200, [])
@@ -128,9 +128,14 @@ function backend(over: {
  * `/` carries the page itself, so `useRouterState` and every `Link` resolve against a real router
  * - including `/services/$name`, which a trigger builds with `params`.
  */
+/** A route this test never draws, only routes to. */
+const nothing = () => null
+
+/** The default a held promise's resolver starts as, before a test decides to settle it. */
+const noop = () => undefined
+
 function draw() {
   const root = createRootRoute()
-  const nothing = () => null
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/", component: OverviewPage }),
     createRoute({ getParentRoute: () => root, path: "/operations", component: nothing }),
@@ -145,13 +150,15 @@ function draw() {
   })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-  // The provider the Shell normally supplies: the service table's badges are Radix tooltips and
-  // throw without one, which the router turns into its error boundary rather than into a failure
-  // anybody could read.
+  /**
+   * The provider the Shell normally supplies: the service table's badges are Radix tooltips and
+   * throw without one, which the router turns into its error boundary rather than into a failure
+   * anybody could read.
+   */
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RouterProvider router={router as never} />
+        <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
@@ -182,8 +189,10 @@ afterEach(() => {
 
 describe("OverviewPage - the Issues tile while /api/settings is still on its way", () => {
   it("says so beside a tile that already has something to report", async () => {
-    // The defect, in one render: an image is behind, so the tile already has a count to show, and
-    // it must not look as settled as it would once every query has actually answered.
+    /**
+     * The defect, in one render: an image is behind, so the tile already has a count to show, and
+     * it must not look as settled as it would once every query has actually answered.
+     */
     vi.stubGlobal(
       "fetch",
       backend({
@@ -193,8 +202,10 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
     )
     draw()
 
-    // steward/64: the tile does not print the full sentence for a trigger, only its subject
-    // ("bot" rather than "bot is running an older image..."), so this test follows suit.
+    /**
+     * The tile does not print the full sentence for a trigger, only its subject ("bot" rather
+     * than "bot is running an older image..."), so this test follows suit.
+     */
     await waitFor(() => expect(said()).toContain("bot"))
     expect(said()).toMatch(STILL_READING)
     // And not the other sentence: nothing failed, it is simply not finished.
@@ -202,14 +213,11 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
   })
 
   it("keeps the tile empty while there is nothing to report at all", async () => {
-    // The branch that already worked, kept here so that the fix cannot be a sentence that is now
-    // printed twice, or one that replaced the quiet first render. A settled "0" must never appear
-    // before every query has actually answered - that is the steward/40 trap this tile still guards
-    // against, one level down from the banner it replaced.
-    //
-    // steward/120 changed what "not settled" is drawn AS: the dash and the word "reading" were the
-    // only vocabulary the row had before there was a skeleton. The assertion that matters is
-    // unchanged and is the second one.
+    /**
+     * The branch that already worked, kept here so that the fix cannot be a sentence that is now
+     * printed twice, or one that replaced the quiet first render. A settled "0" must never appear
+     * before every query has actually answered. The assertion that matters is the second one.
+     */
     vi.stubGlobal("fetch", backend({ settings: () => new Promise(() => {}) }))
     draw()
 
@@ -227,10 +235,12 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
   })
 
   it("is judging over less than it should, and the sentence is the only warning of it", async () => {
-    // End to end, and the reason the sentence is worth anything: while /api/settings is open the
-    // tile is YELLOW over one trigger, and the answer adds a second, RED one - a backup older than
-    // the threshold that had not arrived yet. Same stack, same moment, two verdicts.
-    let answer: (value: unknown) => void = () => undefined
+    /**
+     * End to end, and the reason the sentence is worth anything: while /api/settings is open the
+     * tile is YELLOW over one trigger, and the answer adds a second, RED one - a backup older than
+     * the threshold that had not arrived yet. Same stack, same moment, two verdicts.
+     */
+    let answer: (value: unknown) => void = noop
     const held = new Promise<unknown>((resolve) => {
       answer = resolve
     })
@@ -259,8 +269,10 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
   })
 
   it("still says which of the two it is when a query actually failed", async () => {
-    // `failed` and `waiting` are different sentences and the tile must not collapse them: one is
-    // "not finished", the other is "will not be finished".
+    /**
+     * `failed` and `waiting` are different sentences and the tile must not collapse them: one is
+     * "not finished", the other is "will not be finished".
+     */
     vi.stubGlobal("fetch", async (url: string) => {
       if (url === "/api/settings") return json(503, { error: "Broken." })
       return backend({ services: [service({ service: "bot", drift: "OUTDATED" })] })(url)
@@ -272,24 +284,15 @@ describe("OverviewPage - the Issues tile while /api/settings is still on its way
   })
 })
 
-describe("OverviewPage - the tile that replaced steward/64's banner", () => {
+describe("OverviewPage - the tile that replaced the old banner", () => {
   /**
-   * The seam the ticket names by name: "a test that requires the page says something when
-   * `waiting` and nothing when `ok` must fail before the rebuild" - migrated here to what the
-   * ticket asks the tile to keep proving, now that there is no banner left to appear or disappear.
-   *
-   * Before steward/80, a healthy settled stack printed no banner at all - "ok" and "nothing read
-   * yet" were told apart by presence versus absence of a whole element. The tile is never absent
-   * (it is built "in the same shape as Behind", steward/80's own words, and Behind always shows a
-   * number) so the same distinction now has to live in the VALUE: a placeholder while waiting, and
-   * only once settled the "0" that means evidenced and fine. Those two must never read alike.
-   *
-   * Run against the pre-steward/80 page (the banner still standing, no Issues tile at all) this
-   * fails outright: `issuesTile()` never resolves, because `screen.queryByText("Issues")` finds
-   * nothing to close in on.
+   * The tile is never absent (it is built in the same shape as `Behind`, which always shows a
+   * number) so the distinction between "ok" and "nothing read yet" has to live in the VALUE: a
+   * placeholder while waiting, and only once settled the "0" that means evidenced and fine. Those
+   * two must never read alike.
    */
   it("shows a placeholder while reading, and a settled zero only once a healthy stack answers", async () => {
-    let answerSettings: (value: unknown) => void = () => undefined
+    let answerSettings: (value: unknown) => void = noop
     const held = new Promise<unknown>((resolve) => {
       answerSettings = resolve
     })
@@ -304,8 +307,10 @@ describe("OverviewPage - the tile that replaced steward/64's banner", () => {
       answerSettings({ disk: 85, memory: 90, backupAgeHours: 36 })
     })
 
-    // Settled, and every reading is fine: the tile now shows the evidenced zero, and nothing about
-    // it reads as "still reading" or "could not be read".
+    /**
+     * Settled, and every reading is fine: the tile now shows the evidenced zero, and nothing about
+     * it reads as "still reading" or "could not be read".
+     */
     await waitFor(() => expect(said()).toContain("0"))
     expect(said()).not.toMatch(STILL_READING)
     expect(said()).not.toMatch(COULD_NOT_READ)
@@ -313,20 +318,13 @@ describe("OverviewPage - the tile that replaced steward/64's banner", () => {
 })
 
 /**
- * steward/92: the number row tore open between the first two rows at 390px, and closed again
- * between the second and third - a gap of ~66px where the grid's own `gap-y-5` is 20px.
- *
- * Measured with `getBoundingClientRect` (jsdom draws no layout, so this could only be done in a
- * real browser, see the ticket): CPU is the only tile of the six that carries both a bar and a
- * sparkline beneath its number, which makes it 110px tall against 64-76px for every other tile -
- * in every state, whether the sparkline is drawing a real curve or the placeholder it shows while
- * empty, because `Sparkline` reserves the same height either way. A CSS grid row is as tall as its
- * tallest item, and every other item in that row stretches to match by default, so whichever tile
- * happened to share a row with CPU inherited blank space nothing of its own explains - Issues at
- * 390px width, Memory and Disk at the 3-column width in between. No `items-*` alignment fixes this:
- * track sizing is content-based regardless of alignment, which was checked by hand before writing
- * this rule (`items-start` moved the blank space from inside Issues' own box to the grid track
- * beside it, at the same position on the page - see the ticket for the numbers).
+ * CPU is the only tile of the six that carries both a bar and a sparkline beneath its number, which
+ * makes it taller than every other tile in every state, whether the sparkline is drawing a real
+ * curve or the placeholder it shows while empty, because `Sparkline` reserves the same height
+ * either way. A CSS grid row is as tall as its tallest item, and every other item in that row
+ * stretches to match by default, so whichever tile happens to share a row with CPU inherits blank
+ * space nothing of its own explains. No `items-*` alignment fixes this: track sizing is
+ * content-based regardless of alignment.
  *
  * The fix, and the rule this test holds: **the tile that is taller than every sibling must never
  * share a row-track with one of them.** Below `lg`, where the six tiles are never all in one row
@@ -335,18 +333,17 @@ describe("OverviewPage - the tile that replaced steward/64's banner", () => {
  * grid cell costs nothing to look at. At `lg`, all six already sit in one row regardless of order,
  * so CPU returns to a single column there - which this test also holds, because a `col-span` left
  * on past `lg` would silently break the "one row of six" desktop layout instead.
- *
- * Confirmed red by removing `className="col-span-2 min-[26rem]:col-span-3 lg:col-span-1"` from the
- * CPU tile and watching this fail before restoring it.
  */
-describe("OverviewPage - the CPU tile never shares a row with a shorter one (steward/92)", () => {
+describe("OverviewPage - the CPU tile never shares a row with a shorter one", () => {
   it("spans the whole row below `lg`, where it would otherwise stretch a shorter neighbour", async () => {
     vi.stubGlobal("fetch", backend({}))
     draw()
 
     await waitFor(() => expect(screen.getByText("CPU")).toBeTruthy())
-    // CPU's own label sits inside `Stat`'s wrapping div; the grid item - the one carrying the
-    // column span - is that div's parent, the div `MetricTile` renders.
+    /**
+     * CPU's own label sits inside `Stat`'s wrapping div; the grid item - the one carrying the
+     * column span - is that div's parent, the div `MetricTile` renders.
+     */
     const tile = screen.getByText("CPU").closest("div")?.parentElement
     expect(tile?.className).toContain("col-span-2")
     expect(tile?.className).toContain("min-[26rem]:col-span-3")
@@ -355,13 +352,9 @@ describe("OverviewPage - the CPU tile never shares a row with a shorter one (ste
 })
 
 /**
- * The order Till named on 2026-09-17, and the two names in it (steward/64).
- *
- * He named it as a sequence and as one rename, nothing else: CPU, Memory, Disk, Latest backup
- * (the tile formerly called "Newest backup"), then Behind, and Issues last - the resources first, because they are the reason the page is opened on a phone at
- * all, and the two counts that are normally zero last. `Issues` is not a new tile: steward/80 had
- * already turned the traffic-light banner into one and put it first, so this ticket moves it to
- * the end rather than adding anything.
+ * The tile order is a fixed sequence: CPU, Memory, Disk, Latest backup, Behind, and Issues last -
+ * the resources first, because they are the reason the page is opened on a phone at all, and the
+ * two counts that are normally zero last.
  *
  * The labels are read out of the grid in DOM order rather than looked up one by one, because the
  * defect this guards against is an order, and six `getByText` calls pass in any order at all.
@@ -371,7 +364,7 @@ function metricLabels(): string[] {
   return Array.from(grid?.children ?? []).map((tile) => tile.querySelector("span")?.textContent ?? "")
 }
 
-describe("OverviewPage - the order of the number row (steward/64)", () => {
+describe("OverviewPage - the order of the number row", () => {
   it("reads CPU, Memory, Disk, Latest backup, Behind, Issues", async () => {
     vi.stubGlobal("fetch", backend({}))
     draw()
@@ -382,21 +375,18 @@ describe("OverviewPage - the order of the number row (steward/64)", () => {
 })
 
 /**
- * What stands where the word "Overview" used to (steward/64).
- *
- * Till: the title goes, and what replaces it is how many people are in the game. The count is
- * `proxy`'s own row - the proxy sees every player exactly once, where a sum over the
- * three backends silently drops a server whose row is stale.
+ * What stands where a page title would otherwise go is how many people are in the game. The count
+ * is `proxy`'s own row - the proxy sees every player exactly once, where a sum over the three
+ * backends silently drops a server whose row is stale.
  *
  * The dash matters as much as the number: `players` is optional on purpose (see `Service` in
  * `api.ts`), and "nobody has said" must never settle into a confident `0`.
  */
 /**
- * steward/112: the tile linked nowhere - the only one of the six that did not, since `/operations`
- * carried its own copy of the archive list and the new `/operations/backups` (steward/95) is where
- * that list lives now.
+ * The tile links to `/operations/backups`, which holds the full archive list; the tile itself
+ * shows only the latest entry.
  */
-describe("OverviewPage - the Latest backup tile links to the page that holds the detail (steward/112)", () => {
+describe("OverviewPage - the Latest backup tile links to the page that holds the detail", () => {
   it("points the tile at /operations/backups", async () => {
     vi.stubGlobal("fetch", backend({ backups: [backup(2), dump(2)] }))
     draw()
@@ -408,7 +398,7 @@ describe("OverviewPage - the Latest backup tile links to the page that holds the
   })
 })
 
-describe("OverviewPage - the heading is how many are in the game (steward/64)", () => {
+describe("OverviewPage - the heading is how many are in the game", () => {
   it("says the count instead of the page's own name", async () => {
     vi.stubGlobal(
       "fetch",
@@ -433,19 +423,17 @@ describe("OverviewPage - the heading is how many are in the game (steward/64)", 
 })
 
 /**
- * The bottom section is the network picture and, beside it, the actions - and the
- * service table that used to stand above it is gone (steward/81).
+ * The bottom section is the network picture and, beside it, the actions; there is no service
+ * table alongside it.
  *
- * Two assertions, because the ticket is two things: the picture arrived, and the thing it replaced
- * left. The second half is the one worth a test - a page that gained the picture and kept the table
- * would look finished on a screenshot and would be exactly the half-done state the ticket warns
- * about, since both draw the same ten services.
+ * Two assertions, because both halves matter: the picture is drawn, and no table is drawn beside
+ * it - a page that gained the picture but kept the table would look finished on a screenshot while
+ * drawing the same ten services twice.
  *
  * Positions are not asserted here and cannot be: jsdom has no layout, so `order-last` and
- * `lg:grid-cols-2` are class names in the DOM rather than a measured arrangement. Whether the
- * halves are halves needs a browser at 1440px and a phone at 390px, which is Till's own pass.
+ * `lg:grid-cols-2` are class names in the DOM rather than a measured arrangement.
  */
-describe("OverviewPage - the bottom section (steward/81)", () => {
+describe("OverviewPage - the bottom section", () => {
   it("draws the network picture and no longer draws the service table", async () => {
     vi.stubGlobal(
       "fetch",
@@ -461,13 +449,17 @@ describe("OverviewPage - the bottom section (steward/81)", () => {
 
     await waitFor(() => expect(document.querySelector('[data-node="smp"]')).not.toBeNull())
     expect(screen.getByRole("heading", { name: "Network" })).toBeTruthy()
-    // Every service the arrangement names is drawn, including the seven this stub does not carry -
-    // a box with no container behind it is still a box (the picture is the stack's shape, not its
-    // answer), which is why this counts nodes rather than rows.
+    /**
+     * Every service the arrangement names is drawn, including the seven this stub does not carry -
+     * a box with no container behind it is still a box (the picture is the stack's shape, not its
+     * answer), which is why this counts nodes rather than rows.
+     */
     expect(document.querySelector('[data-node="postgres"]')).not.toBeNull()
 
-    // The disclosure steward/64 built and steward/81 replaced: its summary line is the one string
-    // that was only ever on this page.
+    /**
+     * No disclosure element remains: the summary line it once carried was the one string only
+     * ever on this page.
+     */
     expect(document.querySelector("details")).toBeNull()
     expect(screen.queryByText(/of 3 healthy/)).toBeNull()
   })

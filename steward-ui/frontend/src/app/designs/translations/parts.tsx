@@ -269,7 +269,12 @@ export function ColourMenu({
         className="flex w-72 flex-col gap-3"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        <Tabs value={mode} onValueChange={(value) => setMode(value as "colour" | "gradient")}>
+        <Tabs
+          value={mode}
+          onValueChange={(value) => {
+            if (value === "colour" || value === "gradient") setMode(value)
+          }}
+        >
           <TabsList className="w-full">
             <TabsTrigger value="colour">Colour</TabsTrigger>
             <TabsTrigger value="gradient">Gradient</TabsTrigger>
@@ -383,6 +388,12 @@ const CLICK_LABELS: Record<ClickAction, string> = {
   copy_to_clipboard: "Copy",
 }
 
+const CLICK_ACTIONS: ClickAction[] = ["open_url", "run_command", "suggest_command", "copy_to_clipboard"]
+
+function isClickAction(value: string): value is ClickAction {
+  return (CLICK_ACTIONS as string[]).includes(value)
+}
+
 export function ClickMenu({
   click,
   onChange,
@@ -408,12 +419,17 @@ export function ClickMenu({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="flex w-72 flex-col gap-2">
-        <Select value={draft.action} onValueChange={(action) => setDraft({ ...draft, action: action as ClickAction })}>
+        <Select
+          value={draft.action}
+          onValueChange={(action) => {
+            if (isClickAction(action)) setDraft({ ...draft, action })
+          }}
+        >
           <SelectTrigger className="w-full" aria-label="On click">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(Object.keys(CLICK_LABELS) as ClickAction[]).map((action) => (
+            {CLICK_ACTIONS.map((action) => (
               <SelectItem key={action} value={action}>
                 {CLICK_LABELS[action]}
               </SelectItem>

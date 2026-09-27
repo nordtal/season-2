@@ -3,15 +3,14 @@ import type { Arrangement } from "./place"
 /**
  * The arrangement the network view is drawn from - one arrangement, for every width.
  *
- * It began as draft **h**, chosen by Till on 2026-09-18 out of a throwaway page of letters and
- * rebuilt to his six follow-up changes from the same message. steward/121 took away the one thing
- * that was still hand-written twice: there was a `wide` table of coordinates and a `narrow` one,
- * and the drawing jumped from the second to the first at 600px. Now there is this, in lanes, and
+ * This removes the one thing
+ * that was still hand-written twice: a `wide` table of coordinates and a `narrow` one,
+ * with the drawing jumping from the second to the first at 600px. Now there is this, in lanes, and
  * `place.tsx` resolves it against whatever width the panel has.
  *
  * <h2>Three lanes and a row per thing</h2>
  * Lane 0 is the left column, lane 1 the right, lane 0.5 the middle, and what those mean in pixels
- * is `place.tsx`'s one formula. The shape is unchanged from the letter Till picked: two branches
+ * is `place.tsx`'s one formula. Two branches
  * run down opposite edges and the database lane runs between them.
  *
  * `y` is absolute and deliberately not stretched - the vertical is not where a wider window's extra
@@ -21,7 +20,7 @@ import type { Arrangement } from "./place"
  * `wide` was 700 and only the old `narrow` was this tall. The height is set by the two group
  * frames and by `discord-bot` under them, and the one layout that was shorter - `discord-bot`
  * between the two frames on their shared bottom line - only fits from about 600px up, which is
- * exactly the reflow this ticket exists to remove.
+ * exactly the reflow a single arrangement removes.
  *
  * <h2>Why the middle lane's cards each get a row of their own</h2>
  * At `minWidth` the three lanes overlap: a 144px card in lane 0.5 and one in lane 0 share 36px of
@@ -31,7 +30,7 @@ import type { Arrangement } from "./place"
  * use to cross the picture. `geometry.test.ts` runs the whole collision suite at several widths
  * rather than one, which is what turns that sentence into a check.
  *
- * <h2>The six changes of 2026-09-18, and where each one lives below</h2>
+ * <h2>Six choices, and where each one lives below</h2>
  *
  * 1. **`players` at top centre** - "not between the services", so it stays above the `caddy`/`proxy`
  *    row rather than moving into the grid that row implies.
@@ -60,22 +59,26 @@ import type { Arrangement } from "./place"
  * itself the evidence the collapsing did its job rather than something hand-tuned away.
  */
 export const PLAN: Arrangement = {
-  // 372px, measured rather than chosen: at a 1024px viewport the start page's two columns and the
-  // sidebar are all present at once, and the panel holding this picture is exactly that wide there
-  // (2026-09-20), and the table takes over below the 640px line. Since that line moved down from
-  // 768px (2026-09-24) there is one narrower place: at 640px with the column open the panel is
-  // about 368px, so the picture is scaled by 0.99 there - the safety net below, not a new size.
-  //
-  // It is a floor and not a design size. What sets it is the 32px corridor between the two group
-  // frames, which `discord-bot`'s foot runs up; go much below this and the line has single-figure
-  // clearance on each side and stops reading as passing *between* them. A browser that takes a few
-  // pixels for a scrollbar lands just under it and the picture is scaled by 0.98, which is the
-  // safety net doing its job rather than a mode being entered.
+  /**
+   * 372px, measured rather than chosen: at a 1024px viewport the start page's two columns and the
+   * sidebar are all present at once, and the panel holding this picture is exactly that wide there,
+   * and the table takes over below the 640px line. There is one narrower place: at 640px with the
+   * column open the panel is
+   * about 368px, so the picture is scaled by 0.99 there - the safety net below, not a new size.
+   *
+   * It is a floor and not a design size. What sets it is the 32px corridor between the two group
+   * frames, which `discord-bot`'s foot runs up; go much below this and the line has single-figure
+   * clearance on each side and stops reading as passing *between* them. A browser that takes a few
+   * pixels for a scrollbar lands just under it and the picture is scaled by 0.98, which is the
+   * safety net doing its job rather than a mode being entered.
+   */
   minWidth: 372,
-  // 720px, and it is a judgement rather than a measurement: at the 820px the panel gets on a 1920px
-  // screen the three lanes are 328px apart, the two traffic arrows that cross the picture are
-  // longer than anything they connect, and the middle is empty. 720 is where the arrows still read
-  // as arrows. Past it the drawing is centred in the room it has instead of filling it.
+  /**
+   * 720px, and it is a judgement rather than a measurement: at the 820px the panel gets on a 1920px
+   * screen the three lanes are 328px apart, the two traffic arrows that cross the picture are
+   * longer than anything they connect, and the middle is empty. 720 is where the arrows still read
+   * as arrows. Past it the drawing is centred in the room it has instead of filling it.
+   */
   maxWidth: 720,
   height: 956,
   junction: { lane: 0.5, y: 520 },
@@ -92,11 +95,15 @@ export const PLAN: Arrangement = {
     { id: "discord-bot", lane: 0.5, y: 888 },
   ],
   groups: [
-    // The three Paper servers - `proxy` is the only thing that routes to any of them, and the group
-    // is what turns three arrows into one. Its frame runs 562..818.
+    /**
+     * The three Paper servers - `proxy` is the only thing that routes to any of them, and the group
+     * is what turns three arrows into one. Its frame runs 562..818.
+     */
     { id: "paper", members: ["smp", "hunger-games", "limbo"], lane: 1, y: 690 },
-    // `steward-ui` calls both of these; same collapse, same reasoning, one lane over. Its frame runs
-    // 642..818, so the two groups finish on the same bottom line.
+    /**
+     * `steward-ui` calls both of these; same collapse, same reasoning, one lane over. Its frame runs
+     * 642..818, so the two groups finish on the same bottom line.
+     */
     { id: "steward-ops", members: ["steward-worker", "steward-deployer"], lane: 0, y: 730 },
   ],
 }

@@ -15,11 +15,10 @@ export type RowAction = {
 /**
  * The actions of one table row: inline while there are at most two, behind a popover past that.
  *
- * <h2>Two is the number, and it is Till's</h2>
- * steward/106 asks for a popover as soon as there are too many actions for a row, and leaves the
- * number open. At 390px a table row is a card about 310px wide and a ghost button is roughly 90px,
- * so three buttons in a line is already wider than the card - the same overflow steward/103 is
- * about. The threshold is therefore not a taste: it is the width at which the row stops fitting.
+ * <h2>Two is the number</h2>
+ * A popover is needed as soon as there are too many actions for a row. At 390px a table row is a
+ * card about 310px wide and a ghost button is roughly 90px,
+ * so three buttons in a line is already wider than the card. The threshold is therefore not a taste: it is the width at which the row stops fitting.
  *
  * <h2>Nothing in here opens its own dialog, and that is a hard rule</h2>
  * A Radix popover closes on an interaction outside it, and a dialog's overlay is outside it. A
@@ -30,8 +29,7 @@ export type RowAction = {
  *
  * <h2>The set is decided by the row, not by this component</h2>
  * It draws what it is given. "Which actions does this person allow" is a question about one
- * person's state and belongs where that state is read - steward/47's finding was precisely that
- * the answer had been the same for everybody.
+ * person's state and belongs where that state is read, rather than being the same for everybody.
  */
 export function RowActions({ actions, label }: { actions: RowAction[]; label: string }) {
   if (actions.length === 0) return null
@@ -62,7 +60,7 @@ export function RowActions({ actions, label }: { actions: RowAction[]; label: st
         {/* `align="start"` and a collision padding, because the trigger sits at the LEFT edge of a
          * stacked table card (`index.css` gives a mobile cell `justify-items: start`). Aligned to
          * its end, a 13rem panel resolves to a negative left offset, and Radix then parks it flush
-         * against x=0 where it reads as cut off - measured at 390px on 2026-09-17. */}
+         * against x=0 where it reads as cut off - measured at 390px. */}
         <PopoverContent align="start" collisionPadding={8} className="w-52 p-1">
           <div className="flex flex-col items-stretch gap-0.5 [&_[data-slot=button]]:w-full [&_[data-slot=button]]:justify-start">
             {actions.map((action) => (

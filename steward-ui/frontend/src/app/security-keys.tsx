@@ -28,18 +28,16 @@ import { Label } from "@/components/ui/label"
 /**
  * The keys registered on this account: add, rename, remove.
  *
- * **This is the old settings page's section, moved rather than rewritten** (steward/89). The
- * mutations, the wording and the question before a removal are the ones that were already there.
- * Three things changed, and all three are ordered:
+ * The keys stand in the user popover as a
+ * list. A dialog opens where one belongs - registering a key, renaming one, and the question
+ * before a removal - and nowhere else. An inline form for registering would grow the popover
+ * under the reader's thumb as it unfolds, which is why it is a dialog instead.
  *
- * - **The list is never behind a click.** Till, 2026-09-17: the keys stand in the user popover as a
- *   list. A dialog opens where one belongs - registering a key, renaming one, and the question
- *   before a removal - and nowhere else. Registering used to be an inline form; it is a dialog now,
- *   because a form unfolding inside a popover grows the popover under the reader's thumb.
- * - **Nothing in here is bordered.** The popover is already a bordered surface and the settings
- *   page draws this inside a card, so every framed box this section used - the form, each key row,
- *   the two alerts - is a plain row now. The rule is Till's, 2026-09-17, and it is general.
- * - **The state lives above the list**, in {@link useSecurityKeyActions}, so the dialogs can be
+ * **Nothing in here is bordered.** The popover is already a bordered surface and the settings
+ * page draws this inside a card, so every framed box this section uses - the form, each key row,
+ * the two alerts - is a plain row.
+ *
+ * **The state lives above the list**, in {@link useSecurityKeyActions}, so the dialogs can be
  *   mounted outside the popover. A dialog rendered inside it dies the moment the popover closes -
  *   and the popover closes on the first outside click, which is the dialog's own overlay.
  */
@@ -59,7 +57,7 @@ export function useSecurityKeyActions(me: Me | undefined) {
   return {
     keys,
     /**
-     * Whether `/api/me` has answered at all (steward/120).
+     * Whether `/api/me` has answered at all.
      *
      * `keys` is `me?.keys ?? []`, so an unanswered session and an account with no key are the same
      * empty array here - and the list said "No key is registered." to somebody who has three. This
@@ -120,7 +118,7 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-muted-foreground">Security keys</span>
-        <Button type="button" variant="ghost" size="sm" onClick={state.startAdding}>
+        <Button type="button" variant="ghost" size="sm" onClick={() => state.startAdding()}>
           <PlusIcon aria-hidden />
           Add
         </Button>

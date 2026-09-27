@@ -23,12 +23,14 @@ export type AnnouncementTargets = {
  * list of sections - and the page then writes in {@link FALLBACK_LANGUAGES} without naming a
  * channel. The bot's answer on each row still says whether it posted.
  */
+function field(section: ConfigEntry[], key: string) {
+  return section.find((candidate) => candidate.key === key)?.value?.trim() ?? ""
+}
+
 export function announcementTargets(document: ConfigDocument | undefined): AnnouncementTargets | null {
   if (!document || document.raw) return null
   const entry = document.entries.find((candidate) => candidate.path === "languages")
   if (!entry || entry.kind !== "SECTIONS" || !entry.sections) return null
-  const field = (section: ConfigEntry[], key: string) =>
-    section.find((candidate) => candidate.key === key)?.value?.trim() ?? ""
   const languages = entry.sections
     .map((section) => ({ tag: field(section, "tag"), channel: field(section, "announcement-channel") }))
     .filter((language) => language.tag !== "")

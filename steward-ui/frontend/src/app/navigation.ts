@@ -12,6 +12,7 @@ import {
   WrenchIcon,
 } from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
+import type { LinkProps } from "@tanstack/react-router"
 
 /**
  * The one list of places in this interface.
@@ -46,15 +47,15 @@ export type NavEntry = {
   /** Stable id, used as a React key and as the command palette's search value. */
   id: string
   label: string
-  to: string
-  /** Route params, for the parameterised routes. */
-  params?: Record<string, string>
   /** One line of what the page is for. The command palette shows it; so does the placeholder. */
   note: string
   icon?: Icon
   /** Words an admin might type that are not in the label. */
   keywords?: string[]
-}
+} & (
+  | { to: "/services/$name"; params: { name: string } }
+  | { to: Exclude<LinkProps["to"], undefined | "/services/$name">; params?: undefined }
+)
 
 export type NavGroup = {
   id: string
@@ -89,11 +90,12 @@ export const NAVIGATION: NavGroup[] = [
         id: "overview",
         label: "Overview",
         to: "/",
-        // steward/66, 2026-09-16: three claims, and steward/64 had retired all three. There is no
-        // traffic light in the ordinary case any more - it appears only when something is amber or
-        // red; "host load" became a metric row of CPU, memory, disk, backlog and the last backup;
-        // and the table of every service collapsed into one line saying how many of how many are
-        // healthy. A note is a promise about the page behind it, so it names what is there.
+        /**
+         * There is no traffic light in the ordinary case - it appears only when something is amber or
+         * red; "host load" is a metric row of CPU, memory, disk, backlog and the last backup;
+         * and the table of every service collapses into one line saying how many of how many are
+         * healthy. A note is a promise about the page behind it, so it names what is there.
+         */
         note: "Whether anything needs attention, the numbers behind it, and the season.",
         icon: PulseIcon,
         keywords: ["home", "dashboard", "health", "overview", "status"],
@@ -128,10 +130,11 @@ export const NAVIGATION: NavGroup[] = [
         keywords: ["update", "drift", "image", "plugin", "restart", "schedule"],
       },
       {
-        // steward/95: this used to point at `/operations/backups/$id` with the id "latest", which
-        // is not a backup's name - the report page then asked the worker for a file called
-        // "latest". It leads to the list page instead, which is the thing somebody typing "backup"
-        // is looking for and which links every report from its own rows.
+        /**
+         * Points at the list page rather than `/operations/backups/$id` with an id of "latest" -
+         * "latest" is not a backup's name, and the list page is the thing somebody typing "backup"
+         * is looking for; it links every report from its own rows.
+         */
         id: "operations-backups",
         label: "Backups",
         to: "/operations/backups",

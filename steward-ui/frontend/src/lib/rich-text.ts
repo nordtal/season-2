@@ -67,7 +67,7 @@ export function formatOf(value: string | undefined): Format {
   return value === "DISCORD_MARKDOWN" || value === "PLAIN" ? value : "MINIMESSAGE"
 }
 
-// --- parsing -------------------------------------------------------------------------------
+// --- parsing
 
 export function parse(source: string, format: Format, args: MessageArg[]): Run[] {
   if (format === "DISCORD_MARKDOWN") return normalize(parseMarkdown(source, args))
@@ -250,9 +250,12 @@ function opening(parts: string[], args: MessageArg[]): { name: string; apply: (s
     const hover = normalize(parseMini(rest[1], args))
     return { name: "hover", apply: (style) => ({ ...style, hover }) }
   }
-  if (lower === "click" && rest.length === 2 && CLICK_ACTIONS.has(rest[0].toLowerCase())) {
-    const click: Click = { action: rest[0].toLowerCase() as ClickAction, value: rest[1] }
-    return { name: "click", apply: (style) => ({ ...style, click }) }
+  if (lower === "click" && rest.length === 2) {
+    const action = CLICK_ACTIONS[rest[0].toLowerCase()]
+    if (action) {
+      const click: Click = { action, value: rest[1] }
+      return { name: "click", apply: (style) => ({ ...style, click }) }
+    }
   }
   const negated = lower.startsWith("!")
   const decoration = DECORATION_NAMES[negated ? lower.slice(1) : lower]
@@ -263,7 +266,12 @@ function opening(parts: string[], args: MessageArg[]): { name: string; apply: (s
   return null
 }
 
-const CLICK_ACTIONS = new Set<string>(["open_url", "run_command", "suggest_command", "copy_to_clipboard"])
+const CLICK_ACTIONS: Record<string, ClickAction> = {
+  open_url: "open_url",
+  run_command: "run_command",
+  suggest_command: "suggest_command",
+  copy_to_clipboard: "copy_to_clipboard",
+}
 
 function closes(frame: string, closing: string): boolean {
   const lower = closing.replace(/^!/, "")
@@ -278,16 +286,16 @@ function closes(frame: string, closing: string): boolean {
 function splitArgs(tag: string): string[] {
   const parts: string[] = []
   let current = ""
-  let quote: string | null = null
+  let quoteChar: string | null = null
   for (let index = 0; index < tag.length; index += 1) {
     const char = tag[index]
-    if (quote) {
-      if (char === "\\" && (tag[index + 1] === quote || tag[index + 1] === "\\")) {
+    if (quoteChar) {
+      if (char === "\\" && (tag[index + 1] === quoteChar || tag[index + 1] === "\\")) {
         current += tag[index + 1]
         index += 1
-      } else if (char === quote) quote = null
+      } else if (char === quoteChar) quoteChar = null
       else current += char
-    } else if (char === "'" || char === '"') quote = char
+    } else if (char === "'" || char === '"') quoteChar = char
     else if (char === ":") {
       parts.push(current)
       current = ""
@@ -299,14 +307,14 @@ function splitArgs(tag: string): string[] {
 
 /** The `>` that ends the tag at `start`, skipping quoted arguments; -1 when the `<` opens nothing. */
 function tagEnd(source: string, start: number): number {
-  let quote: string | null = null
+  let quoteChar: string | null = null
   for (let index = start + 1; index < source.length; index += 1) {
     const char = source[index]
-    if (quote) {
+    if (quoteChar) {
       if (char === "\\") index += 1
-      else if (char === quote) quote = null
+      else if (char === quoteChar) quoteChar = null
     } else if (char === "'" || char === '"') {
-      quote = char
+      quoteChar = char
     } else if (char === ">") {
       return index === start + 1 ? -1 : index
     } else if (char === "<" || char === "\n" || char === " ") {
@@ -367,7 +375,7 @@ function parseMarkdown(source: string, args: MessageArg[]): Run[] {
       if (end > index + 1) {
         flush()
         const inner = parsePlain(source.slice(index + 1, end), args)
-        for (const run of inner) out.push({ ...run, style: { ...style, code: true } } as Run)
+        for (const run of inner) out.push({ ...run, style: { ...style, code: true } })
         index = end + 1
         continue
       }
@@ -377,8 +385,7 @@ function parseMarkdown(source: string, args: MessageArg[]): Run[] {
       if (link) {
         flush()
         const click: Click = { action: "open_url", value: link[2] }
-        for (const run of parseMarkdown(link[1], args))
-          out.push({ ...run, style: { ...run.style, ...style, click } } as Run)
+        for (const run of parseMarkdown(link[1], args)) out.push({ ...run, style: { ...run.style, ...style, click } })
         index += link[0].length
         continue
       }
@@ -401,7 +408,7 @@ function parseMarkdown(source: string, args: MessageArg[]): Run[] {
   return out
 }
 
-// --- serializing ---------------------------------------------------------------------------
+// --- serializing
 
 export function serialize(runs: Run[], format: Format, args: MessageArg[]): string {
   const tokens = new Map(args.map((arg) => [arg.name, tokenOf(arg)]))
@@ -412,8 +419,8 @@ export function serialize(runs: Run[], format: Format, args: MessageArg[]): stri
 
 type Level = {
   of: (style: Style) => unknown
-  open: (value: never, format: Format, tokens: Map<string, string>) => string
-  close: (value: never) => string
+  open(value: unknown, format: Format, tokens: Map<string, string>): string
+  close(value: unknown): string
 }
 
 const decorationLevel = (name: Decoration): Level => ({
@@ -477,8 +484,7 @@ function group(runs: Run[], levels: Level[], depth: number, tokens: Map<string, 
     // A break carries no style of its own worth splitting a tag over.
     while (end < runs.length && same(level.of(runs[end].style), value)) end += 1
     const inner = group(runs.slice(start, end), levels, depth + 1, tokens, format)
-    out +=
-      value === undefined ? inner : level.open(value as never, format, tokens) + inner + level.close(value as never)
+    out += value === undefined ? inner : level.open(value, format, tokens) + inner + level.close(value)
     start = end
   }
   return out
@@ -500,6 +506,10 @@ function leaf(run: Run, tokens: Map<string, string>, format: Format): string {
       return format === "MINIMESSAGE" ? "<newline>" : "\n"
     case "raw":
       return run.source
+    default: {
+      const exhaustive: never = run
+      throw new Error(`unreachable run kind: ${JSON.stringify(exhaustive)}`)
+    }
   }
 }
 
@@ -507,7 +517,7 @@ function quote(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")
 }
 
-// --- editing -------------------------------------------------------------------------------
+// --- editing
 
 export function same(a: unknown, b: unknown): boolean {
   if (a === b) return true
@@ -517,7 +527,7 @@ export function same(a: unknown, b: unknown): boolean {
 }
 
 export function cleanStyle(style: Style): Style {
-  return Object.fromEntries(Object.entries(style).filter(([, value]) => value !== undefined)) as Style
+  return Object.fromEntries(Object.entries(style).filter(([, value]) => value !== undefined))
 }
 
 /** Adjacent text runs of one style merged, empty ones dropped, undefined fields gone. */
@@ -529,7 +539,7 @@ export function normalize(runs: Run[]): Run[] {
     const last = out[out.length - 1]
     if (run.kind === "text" && last?.kind === "text" && same(last.style, style)) {
       out[out.length - 1] = { ...last, text: last.text + run.text }
-    } else out.push({ ...run, style } as Run)
+    } else out.push({ ...run, style })
   }
   return out
 }
@@ -566,7 +576,7 @@ export function applyStyle(runs: Run[], from: number, to: number, change: (style
   const first = splitAt(runs, from)
   const second = splitAt(first.runs, to)
   const next = second.runs.map((run, index) =>
-    index >= first.index && index < second.index ? ({ ...run, style: change(run.style) } as Run) : run,
+    index >= first.index && index < second.index ? { ...run, style: change(run.style) } : run,
   )
   return normalize(next)
 }
@@ -583,7 +593,7 @@ export function insert(runs: Run[], offset: number, inserted: Run[], inherit = t
   const { runs: split, index } = splitAt(runs, offset)
   const before = split[index - 1] ?? split[index]
   const style = inherit && before ? before.style : {}
-  const placed = inserted.map((run) => (Object.keys(run.style).length === 0 ? ({ ...run, style } as Run) : run))
+  const placed = inserted.map((run) => (Object.keys(run.style).length === 0 ? { ...run, style } : run))
   return normalize([...split.slice(0, index), ...placed, ...split.slice(index)])
 }
 
@@ -600,14 +610,32 @@ export function commonStyle(runs: Run[], from: number, to: number): Style {
   }
   if (covered.length === 0) return {}
   const [first, ...rest] = covered
-  return cleanStyle(
-    Object.fromEntries(
-      Object.entries(first).map(([key, value]) => [
-        key,
-        rest.every((style) => same(style[key as keyof Style], value)) ? value : undefined,
-      ]),
-    ) as Style,
-  )
+  const result: Style = {}
+  for (const key of STYLE_KEYS) {
+    if (!(key in first)) continue
+    setShared(result, key, first, rest)
+  }
+  return cleanStyle(result)
+}
+
+const STYLE_KEYS: (keyof Style)[] = [
+  "colour",
+  "gradient",
+  "bold",
+  "italic",
+  "underlined",
+  "strikethrough",
+  "obfuscated",
+  "code",
+  "hover",
+  "click",
+]
+
+/** Copies `first`'s value for `key` into `result`, only when every style in `rest` agrees with it. */
+function setShared<K extends keyof Style>(result: Style, key: K, first: Style, rest: Style[]): Style[K] | undefined {
+  const value = first[key]
+  if (rest.every((style) => same(style[key], value))) result[key] = value
+  return value
 }
 
 /** The plain characters of the runs, with placeholders as their names - for counting and search. */
@@ -627,7 +655,7 @@ export function plainText(runs: Run[], fill: (name: string) => string = (name) =
     .join("")
 }
 
-// --- colour --------------------------------------------------------------------------------
+// --- colour
 
 export function hexOf(colour: string): string {
   return HEX.test(colour) ? colour : (NAMED_COLOURS[colour.toLowerCase()] ?? "#FFFFFF")

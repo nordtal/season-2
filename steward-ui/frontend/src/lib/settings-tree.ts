@@ -94,7 +94,7 @@ function parentPath(path: string): string | null {
   return at < 0 ? null : path.slice(0, at)
 }
 
-// --- config files -------------------------------------------------------------------------------
+// --- config files
 
 export type ConfigLeafValue =
   | { kind: "entry"; entry: ConfigEntry }
@@ -120,8 +120,10 @@ export function configTree(entries: ConfigEntry[]): TreeNode<ConfigLeafValue>[] 
   for (const run of runs) for (const member of run) runOf.set(member.path, run)
   const labelOf = new Map(entries.filter((entry) => entry.kind === "MAP").map((entry) => [entry.path, entry.label]))
 
-  // A section the document never listed as a MAP of its own still gets a branch, named after its
-  // last segment, so a leaf always has somewhere to hang.
+  /**
+   * A section the document never listed as a MAP of its own still gets a branch, named after its
+   * last segment, so a leaf always has somewhere to hang.
+   */
   const ensure = (path: string | null): string | null => {
     if (path === null) return null
     if (!builder.has(path)) {
@@ -185,7 +187,7 @@ export function configLeafMatches(value: ConfigLeafValue, query: string): boolea
   return entries.some((entry) => entryHaystack(entry).includes(needle))
 }
 
-// --- message bundles ----------------------------------------------------------------------------
+// --- message bundles
 
 export function messageTree(entries: MessageEntry[]): TreeNode<MessageEntry>[] {
   const builder = new Builder<MessageEntry>()
@@ -218,7 +220,7 @@ export function messageLeafMatches(entry: MessageEntry, query: string): boolean 
     .includes(needle)
 }
 
-// --- walking a tree -----------------------------------------------------------------------------
+// --- walking a tree
 
 /** How many keys a tree draws - what decides whether it starts open. */
 export function leafCount<L>(nodes: TreeNode<L>[]): number {

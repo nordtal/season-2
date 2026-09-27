@@ -9,13 +9,14 @@ import { NetworkTable } from "@/components/steward/network/table"
 import { SECTIONS } from "@/components/steward/network/topology"
 import { NetworkPanel } from "@/components/steward/network/view"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { datasetOf } from "@/lib/test-elements"
+import type { Service } from "@/lib/api"
 
 /**
  * The network view, rendered against a fake `/api/services`.
  *
- * It was two drafts under a throwaway route until Till chose `h` on 2026-09-18; the route and the
- * loser are deleted and every assertion below now runs once, against the panel the start page
- * actually holds, rather than twice against two letters.
+ * Every assertion below runs once, against the panel the start page
+ * actually holds.
  *
  * <h2>What a test here can and cannot answer</h2>
  * jsdom has no layout, so nothing about where a box ended up or where a line was drawn is visible
@@ -27,7 +28,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
  * ticket says it will be looked at.
  */
 
-function service(over: Record<string, unknown> = {}) {
+function service(over: Partial<Service> = {}): Service {
   return {
     service: "smp",
     containerId: "abc",
@@ -77,20 +78,24 @@ function draw(table: unknown = TABLE, component: () => React.ReactNode = Network
     "fetch",
     vi.fn(async (url: string) => {
       if (url === "/api/services") return json(table)
-      // Every node's toolbar carries a `RecreateButton` (steward/81, second round), and that
-      // component asks `/api/deployer` unconditionally to know whether to disable itself - not
-      // something a rendering test of the graph itself has any reason to special-case per node.
+      /**
+       * Every node's toolbar carries a `RecreateButton`, and that component asks `/api/deployer`
+       * unconditionally to know whether to disable itself - not something a rendering test of the
+       * graph itself has any reason to special-case per node.
+       */
       if (url === "/api/deployer") return json({ available: true })
       throw new Error(`the view asked for ${url}, which this test did not expect`)
     }),
   )
 
-  // A real router, because a node's identifier is a `Link` into `/services/$name`. The panel itself
-  // has no route of its own any more - it is half of the start page - so the tree here is the one
-  // thing it links into and a root that draws it.
+  /**
+   * A real router, because a node's identifier is a `Link` into `/services/$name`. The panel itself
+   * has no route of its own any more - it is half of the start page - so the tree here is the one
+   * thing it links into and a root that draws it.
+   */
   const root = createRootRoute()
   const routeTree = root.addChildren([
-    createRoute({ getParentRoute: () => root, path: "/", component: component as never }),
+    createRoute({ getParentRoute: () => root, path: "/", component: component }),
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: () => null }),
   ])
   const router = createRouter({
@@ -102,7 +107,7 @@ function draw(table: unknown = TABLE, component: () => React.ReactNode = Network
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RouterProvider router={router as never} />
+        <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
@@ -130,12 +135,14 @@ afterEach(() => {
 describe("the network view", () => {
   it("draws every service in navigation.ts, plus the box the traffic comes from", async () => {
     draw()
-    // The BOX is no longer the signal that the answer arrived: since steward/120 the whole picture
-    // is drawn from `PLAN` before `/api/services` has said anything, and only the three fetched
-    // things inside a box wait. So these wait on one of those instead.
+    /**
+     * The BOX is not the signal that the answer arrived: the whole picture
+     * is drawn from `PLAN` before `/api/services` has said anything, and only the three fetched
+     * things inside a box wait. So these wait on one of those instead.
+     */
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
-    const drawn = [...document.querySelectorAll("[data-node]")].map((node) => (node as HTMLElement).dataset.node)
+    const drawn = [...document.querySelectorAll("[data-node]")].map((node) => datasetOf(node).node)
     for (const name of SERVICES) expect(drawn, `${name} is not drawn`).toContain(name)
     expect(drawn).toContain("players")
     // One box each. An arrangement that placed a service twice would draw its lines twice too.
@@ -159,8 +166,10 @@ describe("the network view", () => {
     expect(within(box("smp")).getByTitle("players").textContent).toBe("3")
     expect(within(box("limbo")).getByTitle("players").textContent).toBe("4")
     expect(within(box("proxy")).getByTitle("players").textContent).toBe("7")
-    // Nobody is on, and that is a number: a server with zero players is a running server, and the
-    // box has to say so rather than look like one that never answered (steward/86).
+    /**
+     * Nobody is on, and that is a number: a server with zero players is a running server, and the
+     * box has to say so rather than look like one that never answered.
+     */
     expect(within(box("hunger-games")).getByTitle("players").textContent).toBe("0")
     // The entry box carries the network's total, which is proxy's own row.
     expect(within(box("players")).getByTitle("players").textContent).toBe("7")
@@ -174,13 +183,12 @@ describe("the network view", () => {
    * The identifier never shares its row with the count, because that is what took its characters
    * away.
    *
-   * Measured on 2026-09-17 at 390px on the drafts of the second round: they fell back to a
-   * two-column grid there, two of them narrowed it further with the rail margin their database bus
-   * needed, and the identifier - which
-   * carries `truncate` so that it yields rather than break the box - was the thing that yielded.
-   * `proxy` and `hunger-games` rendered as `network-co…` and `hunger-ga…`, and the
-   * identifier is the *first* of the four things steward/81 says a node carries. It must not be the
-   * first to go.
+   * At 390px, the layout falls back to a
+   * two-column grid, and two of the cards narrow it further with the rail margin their database bus
+   * needs, so the identifier - which
+   * carries `truncate` so that it yields rather than break the box - is the thing that yields.
+   * `proxy` and `hunger-games` can render as `network-co…` and `hunger-ga…`, and the
+   * identifier is the *first* of the four things a node carries. It must not be the first to go.
    *
    * Sixty-four tests were green through all of it, because every one of them finds the count with
    * `getByTitle("players")` and none of them cares which row it sits in. This one does: it asks
@@ -199,9 +207,11 @@ describe("the network view", () => {
       )
     }
 
-    // And the one deliberate exception, written down rather than implied: the entry box has no
-    // second line to put a count on, so its count does sit beside the label - which is harmless
-    // there, because "players" is short enough that nothing has ever had to yield to it.
+    /**
+     * And the one deliberate exception, written down rather than implied: the entry box has no
+     * second line to put a count on, so its count does sit beside the label - which is harmless
+     * there, because "players" is short enough that nothing has ever had to yield to it.
+     */
     const entry = box("players")
     expect(within(entry).getByText("players").parentElement).toBe(within(entry).getByTitle("players").parentElement)
   })
@@ -231,13 +241,15 @@ describe("the network view", () => {
   })
 
   it("drops a count that the worker no longer trusts, rather than drawing a zero", async () => {
-    // proxy stopped writing, so `/api/services` omits `players` everywhere. That is not
-    // an empty network; it is nobody having said (steward/86). Four boxes lose an item and the
-    // picture keeps its shape.
+    /**
+     * proxy stopped writing, so `/api/services` omits `players` everywhere. That is not
+     * an empty network; it is nobody having said. Four boxes lose an item and the picture keeps
+     * its shape.
+     */
     const silent = {
       ...TABLE,
-      services: TABLE.services.map((row) => {
-        const without: Record<string, unknown> = { ...row }
+      services: TABLE.services.map((entry) => {
+        const without: Record<string, unknown> = { ...entry }
         delete without.players
         return without
       }),
@@ -260,9 +272,9 @@ describe("the network view", () => {
  * `geometry.test.ts` passing, because none of them render anything). This is the one test that
  * actually renders `h` and counts the `<path>` elements the browser would draw.
  */
-describe("a stopped node says nothing rather than half of something (steward/123)", () => {
+describe("a stopped node says nothing rather than half of something", () => {
   /**
-   * Till, 2026-09-19: nothing incomplete is to be shown where there is nothing to show. A
+   * Nothing incomplete is to be shown where there is nothing to show. A
    * container that is not running reports no `cpuPercent` and no `memoryBytes`, and `format.ts`
    * answers an en dash for both - which is exactly right in a table column, where a dash in a
    * value cell means "no value", and wrong behind the word "cpu", where it reads as a rendering
@@ -290,7 +302,7 @@ describe("a stopped node says nothing rather than half of something (steward/123
   })
 
   it("still draws both for a container that is running, which is the point of having them", () => {
-    render(<Vitals service={service() as never} />)
+    render(<Vitals service={service()} />)
 
     const text = document.body.textContent ?? ""
     expect(text).toContain("cpu")
@@ -299,28 +311,32 @@ describe("a stopped node says nothing rather than half of something (steward/123
   })
 })
 
-describe("the view collapses a group's edges into one drawn line each (Till, 2026-09-18)", () => {
+describe("the view collapses a group's edges into one drawn line each", () => {
   it("draws one traffic edge into each group and one data foot out of each group", async () => {
     draw()
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
-    const edgeKeys = [...document.querySelectorAll("[data-edge]")].map((el) => (el as HTMLElement).dataset.edge)
-    // Three raw edges - proxy to each of smp, hunger-games and limbo - collapse to this
-    // one key; two more - steward-ui to steward-worker and to steward-deployer - collapse to the
-    // other. The three edges that were never grouped (players to proxy, players to caddy,
-    // caddy to steward-ui) are untouched by the collapse and still draw one each.
+    const edgeKeys = [...document.querySelectorAll("[data-edge]")].map((el) => datasetOf(el).edge)
+    /**
+     * Three raw edges - proxy to each of smp, hunger-games and limbo - collapse to this
+     * one key; two more - steward-ui to steward-worker and to steward-deployer - collapse to the
+     * other. The three edges that were never grouped (players to proxy, players to caddy,
+     * caddy to steward-ui) are untouched by the collapse and still draw one each.
+     */
     expect(edgeKeys.filter((key) => key === "proxy-paper")).toHaveLength(1)
     expect(edgeKeys.filter((key) => key === "steward-ui-steward-ops")).toHaveLength(1)
     expect(edgeKeys).toHaveLength(5)
 
-    // The database fan: five sources once the Paper trio and the deploy pair have each collapsed
-    // to their group's own frame, down from the seven raw database clients in topology.ts.
+    /**
+     * The database fan: five sources once the Paper trio and the deploy pair have each collapsed
+     * to their group's own frame, down from the seven raw database clients in topology.ts.
+     */
     expect(document.querySelectorAll("[data-foot]")).toHaveLength(5)
   })
 })
 
 /**
- * The phone's half of steward/121: below 640px the drawing is a list of rows.
+ * The phone's half of the layout: below 640px the drawing is a list of rows.
  *
  * `NetworkTable` is rendered directly rather than through `NetworkPanel` with a narrowed window,
  * and that is the honest way round: `useIsMobile` reads `window.innerWidth` and a `matchMedia` that
@@ -329,16 +345,18 @@ describe("the view collapses a group's edges into one drawn line each (Till, 202
  * panel picks is one line and is stated in `view.tsx`; what the table itself draws is ten rows, and
  * that is what is worth holding.
  */
-describe("the network on a phone (steward/121)", () => {
+describe("the network on a phone", () => {
   it("draws one row per service, in the sections' order, and no row for players", async () => {
     draw(TABLE, NetworkTable)
     await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
 
-    const drawn = [...document.querySelectorAll("[data-row]")].map((node) => (node as HTMLElement).dataset.row)
+    const drawn = [...document.querySelectorAll("[data-row]")].map((node) => datasetOf(node).row)
     for (const name of SERVICES) expect(drawn, `${name} has no row`).toContain(name)
     expect(new Set(drawn).size).toBe(drawn.length)
-    // The order is the sections', flattened - which is the only thing left in the table that says
-    // anything about the topology, Till having ruled out a "connected to" column.
+    /**
+     * The order is the sections', flattened - which is the only thing left in the table that says
+     * anything about the topology; there is deliberately no "connected to" column.
+     */
     expect(drawn).toEqual(SECTIONS.flatMap((section) => section.members))
     // `players` is a box in the drawing and not a service; it gets no row. See SECTIONS.
     expect(drawn).not.toContain("players")

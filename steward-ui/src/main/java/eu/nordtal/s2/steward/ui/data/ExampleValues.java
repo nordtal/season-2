@@ -9,21 +9,18 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import javax.sql.DataSource;
-import org.jetbrains.annotations.NotNull;
 
 /**
- * What a translation editor fills a placeholder with, per context type rather than per message: one
- * player, one team, one milestone for every text that names one.
+ * What a translation editor fills a placeholder with, per context type rather than per message.
  *
- * <p>Real rows first - the asking admin's own account before anybody else's - and a fixed value per
- * type when the table has nothing, so a preview never shows an empty hole. A milestone is its config
- * key: its name is a translation itself, and may be the very text being edited.</p>
+ * Real rows first, then a fixed value per type when the table has nothing, so a preview never
+ * shows an empty hole.
  */
 public final class ExampleValues {
 
     private final DataSource dataSource;
 
-    public ExampleValues(final @NotNull DataSource dataSource) {
+    public ExampleValues(final DataSource dataSource) {
         this.dataSource = dataSource;
     }
 
@@ -32,8 +29,7 @@ public final class ExampleValues {
      * @param displayName the admin's name from the session, the last resort for a Discord member
      * @return type to property to value, one entry per context type
      */
-    public @NotNull Map<String, Map<String, String>> of(
-            final @NotNull String discordId, final @NotNull String displayName) {
+    public Map<String, Map<String, String>> of(final String discordId, final String displayName) {
         final Map<String, Map<String, String>> answer = new LinkedHashMap<>();
         try (Connection connection = dataSource.getConnection()) {
             answer.put(

@@ -12,18 +12,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The journal says what the dialog asked for (steward/126).
+ * The journal says what the dialog asked for.
  *
- * <p>Till: the play time dialog asks in days, hours and minutes rather than in decimal hours,
- * because a slipped decimal point is invisible in a field that accepts both. The list was pulled
- * across with it. This holds the last place a raw number of seconds reached a person - the
- * {@code SET_PLAYTIME} journal line, which the bot writes since Steward asks it to - to the same
- * wording, and holds the Java half of the formatting against the TypeScript half, which is a
- * second implementation of one rule and would otherwise drift in silence.</p>
+ * Holds the Java half of the formatting against the TypeScript half, which is a second
+ * implementation of one rule and would otherwise drift in silence.
  */
 class PlaytimeWordingTest {
 
@@ -41,7 +36,6 @@ class PlaytimeWordingTest {
             List.of("1 d 6 h 30 min", "2 d", "6 h 30 min", "30 min", "0 min", "0 min", "1 h");
 
     @Test
-    @DisplayName("the three units, the empty ones left out, and a total of nothing still says 0 min")
     void theWordingIsTheOneTheInterfaceUses() {
         for (final long[] each : CASES) {
             assertEquals(EXPECTED.get((int) each[1]), PlaytimeWording.of(each[0]), each[0] + " seconds");
@@ -49,21 +43,15 @@ class PlaytimeWordingTest {
     }
 
     @Test
-    @DisplayName("seconds are dropped and never rounded up, so a value read back is the one written")
     void secondsAreDropped() {
-        // The interface splits the same way. A Java half that rounded 3 659 up to "1 h 1 min" would
-        // make the journal disagree with the column beside it for every value not on a minute.
+        // Rounding 3 659 up to "1 h 1 min" would disagree with the column beside it in the journal.
         assertEquals("1 h", PlaytimeWording.of(3_659));
         assertEquals("0 min", PlaytimeWording.of(-1));
     }
 
     @Test
-    @DisplayName("the journal line carries the wording and not a number of seconds")
     void theJournalDoesNotSaySeconds() throws IOException {
-        // THE FAILURE THIS CATCHES: somebody edits the record(...) call back to ask.seconds because
-        // it reads more precise. It is not more precise to a person - it is 111600, and the number
-        // that is actually precise is in the log line, where nobody has to divide by 3600 to read
-        // the journal.
+        // Catches record(...) reverting to ask.seconds: precise to a machine, not to a person reading it.
         final Path source = repository()
                 .resolve("discord-bot/src/main/java/eu/nordtal/s2/discordbot/discord/BotAccessEffects.java");
         final String text = Files.readString(source, StandardCharsets.UTF_8);

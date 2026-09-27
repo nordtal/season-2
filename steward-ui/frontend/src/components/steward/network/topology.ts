@@ -1,8 +1,7 @@
 import { SERVICES, type ServiceName } from "@/app/navigation"
 
 /**
- * What is wired to what, and who may appear as a box - the one model all three drafts of
- * steward/81 draw.
+ * What is wired to what, and who may appear as a box - the one model every arrangement draws.
  *
  * <h2>The names are not a second list</h2>
  * Every box is a {@link ServiceName} out of `navigation.ts`, which is the list the sidebar and the
@@ -16,7 +15,7 @@ import { SERVICES, type ServiceName } from "@/app/navigation"
  * the proxy, and "the proxy is the front door" is the fact the picture is supposed to carry.
  *
  * <h2>Where the edges come from</h2>
- * Read off `compose.yml` on 2026-09-17, not invented:
+ * Read off `compose.yml`, not invented:
  *
  * - `players` reaches `proxy` on 25565 and `caddy` on 443, the only two published ports.
  * - `caddy` proxies `steward-ui`; `steward-ui` calls `steward-worker` and `steward-deployer` over
@@ -55,11 +54,11 @@ export const DATABASE_CLIENTS: ServiceName[] = [
 ]
 
 /**
- * The order and the grouping the picture turns into on a phone (steward/121).
+ * The order and the grouping the picture turns into on a phone.
  *
- * Till, 2026-09-19, translated: on the mobile view the whole thing has to become a table again,
- * with every service node drawn as one row carrying what it carries in the network plan. Asked what
- * then happens to the wiring: **no "connected to" column** - the table is subdivided by the plan's
+ * On the mobile view the whole thing becomes a table,
+ * with every service node drawn as one row carrying what it carries in the network plan. **No
+ * "connected to" column** - the table is subdivided by the plan's
  * own groups instead, and the topology becomes the reading order.
  *
  * So this is the third thing in this file that is a second copy of something, and like the other
@@ -68,7 +67,7 @@ export const DATABASE_CLIENTS: ServiceName[] = [
  * it asks the drawing's own arrangement.
  *
  * <h2>Five sections, and why not four</h2>
- * Till named four - proxy, the Paper services, Steward, the database - which covers nine of the ten.
+ * Four obvious groups - proxy, the Paper services, Steward, the database - cover nine of the ten.
  * `discord-bot` is in none of them: it talks to no service in this project except the database, it
  * is not part of the way in and it is not part of Steward, which is exactly why the drawing puts it
  * on its own at the bottom with no traffic edge at all. It gets its own line here for the same
@@ -111,13 +110,15 @@ export const EDGES: Edge[] = [
  * silently, because a box that is not drawn looks exactly like a box that is somewhere further
  * down. This returns what is wrong so a test can say which name it is.
  */
-export function layoutFaults(placed: readonly NodeId[]): string[] {
+/** Takes plain strings, not just `NodeId`, because a wrong name in a hand-written arrangement is exactly the fault this looks for. */
+export function layoutFaults(placed: readonly string[]): string[] {
   const faults: string[] = []
-  const seen = new Set<NodeId>()
+  const seen = new Set<string>()
+  const known: readonly string[] = SERVICES
   for (const id of placed) {
     if (seen.has(id)) faults.push(`${id} is placed twice`)
     seen.add(id)
-    if (id !== INGRESS && !SERVICES.includes(id as ServiceName)) {
+    if (id !== INGRESS && !known.includes(id)) {
       faults.push(`${id} is not in SERVICES`)
     }
   }
@@ -135,17 +136,15 @@ export function layoutFaults(placed: readonly NodeId[]): string[] {
  * between two deployments is always the five. A reference pinned by digest has no tag to print, so
  * the first seven of the digest stand in - short, and still enough to tell two of them apart.
  *
- * **A bare image id is the case that is actually on this host**, not a theoretical one: measured
- * 2026-09-17, `steward-worker`'s row carries
+ * **A bare image id is a real case**, not a theoretical one: `steward-worker`'s row can carry
  * `sha256:334951d4c54754fa0bcc40bc7e483f2af78c7244fbefc28eff775ffa40c1ce07` and nothing else,
- * because its tag was rebuilt without the container being recreated - the same situation
+ * because its tag can be rebuilt without the container being recreated - the same situation
  * `DriftBadge`'s `UNKNOWN` text describes. Sixty-four hex characters under a name is not a version,
  * it is a line of noise as wide as the box, so it is shortened like any other digest.
  *
  * **A shortened digest is prefixed with `#`, and that prefix is not decoration.** Seven hex
- * characters with nothing else around them reads as a number - the network view's first review
- * (steward/81, 2026-09-17) found exactly that: `steward-worker` showing `334951d` next to the
- * "not compared" mark was read as "334951 days", because a hex string with no letters near its
+ * characters with nothing else around them read as a number: `steward-worker` showing `334951d` next to the
+ * "not compared" mark would otherwise read as "334951 days", because a hex string with no letters near its
  * front end is indistinguishable from a large number at a glance. `#` is what a reader's eye
  * already parses as "identifier, not quantity" - a version tag never carries one, so it also keeps
  * the two cases visually apart from each other, not just from a duration.
@@ -153,14 +152,16 @@ export function layoutFaults(placed: readonly NodeId[]): string[] {
 export function imageTag(image: string | undefined): string {
   if (!image) return "–"
   const [reference, digest] = image.split("@")
-  if (/^sha256:/.test(reference)) {
+  if (reference.startsWith("sha256:")) {
     return `#${reference.slice("sha256:".length, "sha256:".length + 7)}`
   }
   const name = reference.slice(reference.lastIndexOf("/") + 1)
   const colon = name.lastIndexOf(":")
   if (colon !== -1) return name.slice(colon + 1)
   if (digest) return `#${digest.replace(/^sha256:/, "").slice(0, 7)}`
-  // Docker's own default when a reference carries no tag. Printing the repository name here
-  // instead would put `caddy` on a line whose whole job is to say which version of caddy.
+  /**
+   * Docker's own default when a reference carries no tag. Printing the repository name here
+   * instead would put `caddy` on a line whose whole job is to say which version of caddy.
+   */
   return "latest"
 }

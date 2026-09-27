@@ -56,7 +56,7 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
   }
   const add = (run: Run) => {
     const style = runs[runs.length - 1]?.style ?? {}
-    onChange([...runs, { ...run, style: run.kind === "break" ? {} : style } as Run])
+    onChange([...runs, { ...run, style: run.kind === "break" ? {} : style }])
     setOpen(run.kind === "text" ? runs.length : null)
   }
 
@@ -144,14 +144,14 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
                       format={format}
                       style={run.style}
                       disabled={disabled}
-                      onStyle={(change) => set(index, { ...run, style: change(run.style) } as Run)}
+                      onStyle={(change) => set(index, { ...run, style: change(run.style) })}
                       hover={
                         <HoverRow
                           hover={run.style.hover}
                           args={args}
                           glyphs={glyphs}
                           fill={fill}
-                          onChange={(hover) => set(index, { ...run, style: { ...run.style, hover } } as Run)}
+                          onChange={(hover) => set(index, { ...run, style: { ...run.style, hover } })}
                         />
                       }
                     />
@@ -164,7 +164,7 @@ export function SegmentEditor({ runs, onChange, format, args, glyphs, fill, disa
                     glyphs={glyphs}
                     fill={fill}
                     expanded
-                    onChange={(hover) => set(index, { ...run, style: { ...run.style, hover } } as Run)}
+                    onChange={(hover) => set(index, { ...run, style: { ...run.style, hover } })}
                   />
                 ) : null}
               </div>
@@ -268,6 +268,10 @@ function Summary({
       return <span className="text-sm text-muted-foreground">{"↵"}</span>
     case "raw":
       return <span className="truncate font-mono text-xs text-muted-foreground">{run.source}</span>
+    default: {
+      const exhaustive: never = run
+      throw new Error(`unreachable run kind: ${JSON.stringify(exhaustive)}`)
+    }
   }
 }
 

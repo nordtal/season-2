@@ -115,10 +115,10 @@ interface CommandRequestDao {
             @Bind("locale") String locale,
             @Bind("expires") Instant expires,
             @Bind("action") String action,
-            @Bind("actor") String actor,
-            @Bind("subject") String subject,
-            @Bind("auditUuid") UUID auditUuid,
-            @Bind("detail") String detail);
+            @Bind("actor") @Nullable String actor,
+            @Bind("subject") @Nullable String subject,
+            @Bind("auditUuid") @Nullable UUID auditUuid,
+            @Bind("detail") @Nullable String detail);
 
     /**
      * Take the oldest pending request for this target, atomically.

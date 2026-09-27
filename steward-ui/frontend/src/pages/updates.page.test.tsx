@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { UpdatesPage } from "@/pages/updates"
 import { runPath } from "@/lib/run-path"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { changesOf } from "@/lib/query-fixtures"
 
 /**
  * The Updates page: built like Backups, and kept apart from it.
@@ -86,12 +87,12 @@ function run(id: number, kind: string) {
 }
 
 function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; runs?: unknown[] } = {}) {
-  return vi.fn(async (url: string, init?: RequestInit) => {
+  return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/config") {
       return json(200, [{ service: "steward-worker", name: "steward.yml", path: FILE, readable: true, writable: true }])
     }
     if (url === `/api/config/${FILE}`) {
-      if (init?.method === "PUT") return (over.put ?? (() => json(200, workerConfig())))(JSON.parse(String(init.body)))
+      if (init?.method === "PUT") return (over.put ?? (() => json(200, workerConfig())))(JSON.parse(init?.body ?? ""))
       return json(200, workerConfig())
     }
     if (url.startsWith("/api/updates/available")) {
@@ -129,9 +130,11 @@ function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; 
   })
 }
 
+/** A route this test never draws, only routes to. */
+const nothing = () => null
+
 function draw() {
   const root = createRootRoute()
-  const nothing = () => null
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/operations/updates", component: UpdatesPage }),
     createRoute({ getParentRoute: () => root, path: "/operations/updates/$id", component: nothing }),
@@ -145,7 +148,7 @@ function draw() {
   return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RouterProvider router={router as never} />
+        <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
@@ -158,12 +161,12 @@ afterEach(() => {
 
 describe("UpdatesPage - its own schedule", () => {
   it("saves the picked days under update.days and leaves backup.days alone", async () => {
-    let sent: { changes: Record<string, unknown> } | undefined
+    let sent: unknown
     vi.stubGlobal(
       "fetch",
       backend({
         put: (body) => {
-          sent = body as typeof sent
+          sent = body
           return json(200, workerConfig())
         },
       }),
@@ -171,8 +174,10 @@ describe("UpdatesPage - its own schedule", () => {
     draw()
 
     fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
-    // The fixture's update.days is Sunday alone; backup.days is Monday. Monday unpressed here is
-    // what proves this dialog reads the update keys and not the backup ones.
+    /**
+     * The fixture's update.days is Sunday alone; backup.days is Monday. Monday unpressed here is
+     * what proves this dialog reads the update keys and not the backup ones.
+     */
     expect((await screen.findByRole("button", { name: "Sun" })).getAttribute("aria-pressed")).toBe("true")
     expect(screen.getByRole("button", { name: "Mon" }).getAttribute("aria-pressed")).toBe("false")
 
@@ -180,7 +185,7 @@ describe("UpdatesPage - its own schedule", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
     await waitFor(() => expect(sent).toBeTruthy())
-    expect(sent!.changes).toEqual({ "update.days": ["WEDNESDAY", "SUNDAY"] })
+    expect(changesOf(sent)).toEqual({ "update.days": ["WEDNESDAY", "SUNDAY"] })
   })
 
   it("says there is no schedule when the update clock is off", async () => {

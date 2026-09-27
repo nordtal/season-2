@@ -22,12 +22,12 @@ export { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 /**
  * The fallback shape, for the places whose own layout is a single block anyway.
  *
- * **This is not the normal way to wait any more** (steward/120). A component that carries data
+ * **This is not the normal way to wait.** A component that carries data
  * draws its own skeleton, because a generic grey row is not what replaces it and the difference
  * shows as a jump the moment the answer lands. `rows` stays for the handful of views whose loading
  * state genuinely is n bars of the same height - and for the ones where the real layout cannot be
- * drawn without the data, which is a case the ticket foresaw and asked to be written down where it
- * happens rather than smuggled in.
+ * drawn without the data, a case worth writing down where it
+ * happens rather than smuggling in.
  */
 export function Loading({ rows = 5, label }: { rows?: number; label?: string }) {
   return (
@@ -112,9 +112,11 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
             </p>
           ) : null}
           {api?.detail ? (
-            // `whitespace-pre-wrap`: a server's detail is one long line, and a box that only
-            // scrolls sideways on a phone is a box that reads "There is no config file called
-            // steward-w" and stops.
+            /**
+             * `whitespace-pre-wrap`: a server's detail is one long line, and a box that only
+             * scrolls sideways on a phone is a box that reads "There is no config file called
+             * steward-w" and stops.
+             */
             <pre className="mt-1 max-h-32 overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
               {api.detail}
             </pre>
@@ -136,7 +138,7 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
  * The three states around one query, in one place - and the fourth, which is not a state of the
  * query at all.
  *
- * <h2>One layout expression per call site (steward/120)</h2>
+ * <h2>One layout expression per call site</h2>
  * `children` is called **twice**: once with `undefined` while the answer is on its way, and again
  * with the data. So a call site names its layout once
  *
@@ -153,15 +155,15 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
  * shape is n bars of one height anyway, and for the few that cannot be drawn without their data.
  *
  * **The skeleton appears immediately and only on the first load.** No delay and no minimum
- * duration - Till named the Minecraft heads as the case that made the point, where an image
+ * duration - the Minecraft heads are the case that makes the point, where an image
  * arriving into nothing is worse than anything a delay would save. `isPending` is false as soon as
  * there is anything to show,
  * so a refetch leaves the old data standing rather than greying the page out on every poll.
  *
- * **A disabled query is `isPending` for ever**, and that is the trap this component fell into.
- * Measured on 2026-09-14 on `/configuration`: skeletons, and nothing after them, because the page
- * had mounted `useConfig("")` and `enabled: Boolean(file)` had switched it off. There is no data
- * and none is coming, so "loading" was a lie the interface told indefinitely. `fetchStatus` tells
+ * **A disabled query is `isPending` for ever**, and that is a trap this component avoids.
+ * On `/configuration`, mounting `useConfig("")` with `enabled: Boolean(file)` switched off would
+ * otherwise show skeletons, and nothing after them: there is no data
+ * and none is coming, so "loading" would be a lie the interface tells indefinitely. `fetchStatus` tells
  * the two apart - `"idle"` beside `isPending` is switched off, `"fetching"` is on its way - and it
  * is optional here because some callers hand in a plain object rather than a query result.
  *
@@ -219,7 +221,6 @@ export function QueryState<T>(
   ),
 ) {
   const { query, empty, isEmpty } = props
-  const draw = props.children as (data: T | undefined) => ReactNode
 
   if (query.isPending && query.fetchStatus === "idle") {
     return (
@@ -231,8 +232,9 @@ export function QueryState<T>(
   }
   if (query.error && !transient(query)) return <Failure error={query.error} onRetry={query.refetch} />
   if (query.isPending || query.data === undefined) {
-    return props.rows === undefined ? <>{draw(undefined)}</> : <Loading rows={props.rows} />
+    if (props.rows === undefined) return <>{props.children(undefined)}</>
+    return <Loading rows={props.rows} />
   }
   if (empty && isEmpty?.(query.data)) return <Empty title={empty.title} note={empty.note} />
-  return <>{draw(query.data)}</>
+  return <>{props.children(query.data)}</>
 }

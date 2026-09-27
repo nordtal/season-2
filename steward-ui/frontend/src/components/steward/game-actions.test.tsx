@@ -5,9 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { HungerGamesActions, SmpActions, keyName } from "@/components/steward/game-actions"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { asButton } from "@/lib/test-elements"
 
 /**
- * Decided 2026-09-20: these actions must never look like commands in any way. These hold that the smp and hunger-games actions are picked, not typed; that they are
+ * These actions must never look like commands in any way. These hold that the smp and hunger-games actions are picked, not typed; that they are
  * asked for by what they act on; and that the late answer - EXPIRED above all - is said in words.
  */
 
@@ -34,24 +35,26 @@ type Row = { status: string; result?: string }
 
 function backend({
   row = { status: "DONE", result: "Objective closed." },
-  round = { state: "REGISTRATION", registered: 4 } as Record<string, unknown>,
+  round = { state: "REGISTRATION", registered: 4 },
   roundAfter,
 }: { row?: Row; round?: Record<string, unknown>; roundAfter?: Record<string, unknown> } = {}) {
   const sent: { url: string; body: unknown }[] = []
   let answered = false
-  const fetched = vi.fn(async (url: string, init?: RequestInit) => {
-    if (init?.method === "POST") {
-      sent.push({ url, body: JSON.parse(String(init.body)) })
-      return json(202, { id: String(sent.length), status: "PENDING" })
-    }
-    if (url === "/api/smp/track") return json(200, TRACK)
-    if (url === "/api/hunger-games/round") return json(200, answered && roundAfter ? roundAfter : round)
-    if (url.startsWith("/api/commands/")) {
-      answered = true
-      return json(200, { id: url.split("/").pop(), ...row })
-    }
-    throw new Error(`the card asked for ${url}, which this test did not expect`)
-  })
+  const fetched = vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(
+    async (url, init) => {
+      if (init?.method === "POST") {
+        sent.push({ url, body: JSON.parse(init.body ?? "") })
+        return json(202, { id: String(sent.length), status: "PENDING" })
+      }
+      if (url === "/api/smp/track") return json(200, TRACK)
+      if (url === "/api/hunger-games/round") return json(200, answered && roundAfter ? roundAfter : round)
+      if (url.startsWith("/api/commands/")) {
+        answered = true
+        return json(200, { id: url.split("/").pop(), ...row })
+      }
+      throw new Error(`the card asked for ${url}, which this test did not expect`)
+    },
+  )
   vi.stubGlobal("fetch", fetched)
   return sent
 }
@@ -133,7 +136,7 @@ describe("HungerGamesActions", () => {
     draw(<HungerGamesActions />)
 
     expect(await screen.findByText("No round is open.")).toBeTruthy()
-    expect((screen.getByRole("button", { name: "Start round" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(asButton(screen.getByRole("button", { name: "Start round" })).disabled).toBe(true)
   })
 
   it("starts with a confirmation and no word to type", async () => {

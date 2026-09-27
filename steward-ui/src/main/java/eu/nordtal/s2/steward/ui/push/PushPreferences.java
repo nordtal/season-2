@@ -9,28 +9,20 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Which kinds of alert each account wants pushed (steward/98, Till's review of 2026-09-18) - rows in
- * {@code steward_push_preference}, and the rule that a missing row is the type's own default.
+ * Which kinds of alert each account wants pushed, and the rule that a missing row is the default.
  *
- * <h2>A missing row is not "off"</h2>
- * Nothing here ever writes a row for an account that has not touched a switch, and that is the whole
- * design rather than an omission. Steward has no accounts table (see {@code V20}), so there is no
- * moment at which defaults could be materialised - and if there were, the answer an account got
- * would depend on which release it first signed in under. Reading a default out of {@link AlertType}
- * every time makes it a property of the code: changeable in one place, identical for everyone.
- *
- * <p>Turning a switch back to where it started writes a row saying so rather than deleting one.
- * "I chose this" and "I have never looked" are different facts, and only the second one should
- * follow a changed default.</p>
+ * Nothing here ever writes a row for an account that has not touched a switch. Turning a switch
+ * back to where it started writes a row saying so rather than deleting one: "chose this" and
+ * "never looked" are different facts.
  */
 public final class PushPreferences {
 
     private final PushPreferenceDao dao;
 
-    public PushPreferences(final @NotNull DataSource dataSource) {
+    public PushPreferences(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
         this.dao = Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
@@ -39,17 +31,17 @@ public final class PushPreferences {
     }
 
     /** One account's effective answer for every type - defaults where it has never chosen. */
-    public @NotNull Map<AlertType, Boolean> of(final @NotNull String discordId) {
+    public Map<AlertType, Boolean> of(final String discordId) {
         return effective(dao.forAccount(discordId));
     }
 
     /**
      * Every account's effective answer, in one query - what {@link AlertWatch} asks once per push.
      *
-     * <p>An account with no row at all is simply absent from this map; {@link #enabled} answers the
-     * default for it, which is the same thing said in one less row.</p>
+     * An account with no row at all is simply absent from this map; {@link #enabled} answers the
+     * default for it.
      */
-    public @NotNull Map<String, Map<AlertType, Boolean>> all() {
+    public Map<String, Map<AlertType, Boolean>> all() {
         final Map<String, Map<AlertType, Boolean>> chosen = new HashMap<>();
         for (final Row row : dao.all()) {
             final AlertType type = AlertType.of(row.alertType());
@@ -67,7 +59,7 @@ public final class PushPreferences {
      *
      * @param chosen that account's own map out of {@link #all}, or null when it has chosen nothing
      */
-    public static boolean enabled(final Map<AlertType, Boolean> chosen, final @NotNull AlertType type) {
+    public static boolean enabled(final @Nullable Map<AlertType, Boolean> chosen, final AlertType type) {
         if (chosen == null) {
             return type.enabledByDefault();
         }
@@ -75,7 +67,7 @@ public final class PushPreferences {
     }
 
     /** One switch, set by the account it belongs to. */
-    public void set(final @NotNull String discordId, final @NotNull AlertType type, final boolean enabled) {
+    public void set(final String discordId, final AlertType type, final boolean enabled) {
         dao.set(discordId, type.key(), enabled);
     }
 
@@ -96,7 +88,7 @@ public final class PushPreferences {
 
     /** One row of {@code steward_push_preference}. */
     public record Row(
-            @ColumnName("discord_id") @NotNull String discordId,
-            @ColumnName("alert_type") @NotNull String alertType,
+            @ColumnName("discord_id") String discordId,
+            @ColumnName("alert_type") String alertType,
             boolean enabled) {}
 }

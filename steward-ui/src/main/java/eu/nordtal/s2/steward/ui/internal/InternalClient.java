@@ -9,31 +9,13 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * How the interface reaches the two services behind it: steward-worker and steward-deployer.
  *
- * <h2>Why there is a client here at all</h2>
- * §3 says this process holds no docker socket, and it means it: the container runs without one. So
- * every question about a container is an HTTP call to the service that does hold it, over the
- * internal network, with a shared secret. That is a hop the interface would not need if it had the
- * socket - and the hop is the point, because this is the part an attacker reaches first.
- *
- * <h2>One class for both, because it is one protocol</h2>
- * The worker and the deployer speak the same three sentences: JSON in, JSON out, the secret in
- * {@code X-Steward-Token}. They are two services rather than one because they hold different
- * privileges - the deployer may create containers and the worker may not - and that boundary lives
- * in the deployment, not in a second copy of an HTTP client. What the two do not share is their
- * secret: {@link #name} is which of them this instance is, and it is what a failure says out loud,
- * because "steward-deployer is not answering" is a sentence somebody can act on.
- *
- * <h2>It answers with the other service's own JSON, unparsed</h2>
- * Deliberately. The shapes belong over there, the browser is the only consumer, and a DTO in the
- * middle would be a third copy of the same fields that goes stale on the day somebody adds one. The
- * exception is errors: those are turned into something the interface can show, because "the worker
- * said 502" is a sentence and an empty page is not.
+ * Both speak JSON in, JSON out, with the shared secret in {@code X-Steward-Token}, and both answer
+ * with the other service's own JSON, unparsed; only a failure is turned into something to show.
  */
 public final class InternalClient {
 
@@ -54,11 +36,7 @@ public final class InternalClient {
      *                stream is the exception and carries {@link #FOLLOW_DEADLINE} instead, because
      *                a log follow is allowed to take hours over saying nothing
      */
-    public InternalClient(
-            final @NotNull String name,
-            final @NotNull String baseUrl,
-            final @NotNull String token,
-            final @NotNull Duration timeout) {
+    public InternalClient(final String name, final String baseUrl, final String token, final Duration timeout) {
         this.name = name;
         final String trimmed = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.baseUrl = token.isBlank() ? trimmed : plaintextOnlyInside(name, trimmed);
@@ -70,19 +48,8 @@ public final class InternalClient {
     /**
      * Refuses to send a token in clear to an address that is not inside this deployment.
      *
-     * <p>There is no TLS between these three containers and there is deliberately not going to be:
-     * they share one Docker network on one host, and a certificate authority for a link that never
-     * leaves the machine would be a second thing to renew for no attacker it stops. Somebody who
-     * can read that network already has the host, and with it the docker socket the deployer is
-     * holding.</p>
-     *
-     * <p>What this does stop is the configuration mistake. {@code base-url} is a setting, it is
-     * editable from the interface itself, and pointing it at a public address would put the
-     * deployer's token - the one credential in this stack that may create containers - in clear on
-     * the way there, with nothing anywhere saying so. So plain {@code http} is allowed to a name
-     * with no dot in it (a compose service, which cannot be a public DNS name) or to loopback, and
-     * anything else has to be {@code https}. A client with no token configured is not checked at
-     * all: it sends no secret, and it is already refusing to do anything.</p>
+     * Plain {@code http} is allowed to a compose service name or to loopback; anything else must be
+     * {@code https}, so an editable {@code base-url} cannot leak the token to a public address.
      */
     private static String plaintextOnlyInside(final String name, final String baseUrl) {
         final URI uri = URI.create(baseUrl);
@@ -102,11 +69,8 @@ public final class InternalClient {
     /**
      * Whether a host is somewhere this network can still be called internal.
      *
-     * <p><b>An IPv6 literal is its own case, and it has to be</b>: {@code URI.getHost()} answers
-     * {@code [::1]} <em>with</em> the brackets, so a bare {@code "::1".equals(host)} never matched
-     * anything - and worse, a literal contains no dot, so the compose-service rule below would have
-     * waved {@code http://[2001:db8::1]:8081} through as if it were a service name on this host.
-     * A bracketed host is therefore decided here and nowhere else, and only loopback passes.</p>
+     * {@code URI.getHost()} keeps the brackets on an IPv6 literal, so it is checked here rather
+     * than falling through to the dotless-name rule, which would wave any such literal through.
      */
     private static boolean isInside(final String host) {
         if (host.startsWith("[")) {
@@ -117,7 +81,7 @@ public final class InternalClient {
     }
 
     /** Which service this is, for a message that names it. */
-    public @NotNull String name() {
+    public String name() {
         return name;
     }
 
@@ -135,22 +99,17 @@ public final class InternalClient {
         }
     }
 
-    public @NotNull String get(final @NotNull String path) {
+    public String get(final String path) {
         return get(path, timeout);
     }
 
     /**
-     * The same, for the one kind of read whose work is the waiting (season-2-ops/142).
+     * The same, for the one kind of read whose work is the waiting.
      *
-     * <p>The configured timeout is sized for a worker answering out of its own memory, which is
-     * what every other route here does. {@code /api/updates/available?refresh} is not that kind of
-     * call: it throws the six-hour cache away and asks GitHub, Modrinth and the Fill API again on
-     * the thread the caller is waiting on. It is slow because it is doing the thing, and cutting it
-     * off at ten seconds would turn a button that works into a 504 that looks like a broken worker.
-     * The deadline belongs to the route rather than to the client, so it is an argument and not a
-     * second field.</p>
+     * The deadline is an argument rather than a field, since a call like a forced cache refresh is
+     * legitimately slower than the configured timeout, which is sized for an answer out of memory.
      */
-    public @NotNull String get(final @NotNull String path, final @NotNull Duration deadline) {
+    public String get(final String path, final Duration deadline) {
         try {
             final HttpResponse<String> response =
                     http.send(request(path, deadline).GET().build(), HttpResponse.BodyHandlers.ofString());
@@ -172,7 +131,7 @@ public final class InternalClient {
         }
     }
 
-    public @NotNull String post(final @NotNull String path, final @NotNull String json) {
+    public String post(final String path, final String json) {
         try {
             final HttpResponse<String> response = http.send(
                     request(path)
@@ -181,9 +140,7 @@ public final class InternalClient {
                             .build(),
                     HttpResponse.BodyHandlers.ofString());
             if (isNotSuccess(response.statusCode())) {
-                // The same sentence `get` builds. The body used to be the message, and most of the
-                // statuses this now catches have no body at all - a 307 from a proxy, a bodiless
-                // 502 - so the browser was handed {"error":""} and the log line ended in a colon.
+                // Many of these statuses (a proxy's 307, a bodiless 502) carry no body of their own.
                 throw new Failure(
                         name,
                         response.statusCode(),
@@ -201,14 +158,8 @@ public final class InternalClient {
         }
     }
 
-    /**
-     * The same, as a {@code DELETE}, and with no body in either direction.
-     *
-     * <p>Its own method for the reason {@link #put} gives: the three verbs differ in nothing but
-     * the verb, and a {@code method} argument is how a request eventually arrives at a route that
-     * does not accept it with the failure showing up as a 405 nobody can place.</p>
-     */
-    public @NotNull String delete(final @NotNull String path) {
+    /** The same, as a {@code DELETE}, and with no body in either direction. */
+    public String delete(final String path) {
         try {
             final HttpResponse<String> response =
                     http.send(request(path).DELETE().build(), HttpResponse.BodyHandlers.ofString());
@@ -230,14 +181,8 @@ public final class InternalClient {
         }
     }
 
-    /**
-     * The same, as a {@code PUT}.
-     *
-     * <p>One verb and one method, rather than a parameter: the two calls differ in nothing else,
-     * and a {@code method} argument is how a {@code POST} eventually gets sent to a route that
-     * only accepts {@code PUT} with the failure showing up as a 405 nobody can place.</p>
-     */
-    public @NotNull String put(final @NotNull String path, final @NotNull String json) {
+    /** The same, as a {@code PUT}. */
+    public String put(final String path, final String json) {
         try {
             final HttpResponse<String> response = http.send(
                     request(path)
@@ -264,23 +209,11 @@ public final class InternalClient {
     }
 
     /**
-     * Opens a stream and hands the caller the body to read.
+     * Opens a stream for the log follow, a proxy rather than a redirect.
      *
-     * <p>Used for the log follow, which is an SSE stream on both sides: the worker sends events,
-     * this reads them, and the browser is given the same events again. A proxy rather than a
-     * redirect because the browser must never be given the worker's address or its token.</p>
-     *
-     * <h2>Closing the returned stream is not, on its own, closing the connection</h2>
-     * Measured on this host on 2026-09-13: closing the {@code InputStream} of a response cancels
-     * the subscription, and the JDK's client tears the connection down when something next happens
-     * on it - an arriving byte, an error. On a stream that says <em>nothing</em> that moment never
-     * comes, and the socket stays open with nobody reading it.
-     *
-     * <p>That is why {@code steward-worker} sends a comment every ten seconds on a follow, and it
-     * is not only politeness at the other end: it is what makes a cancellation here actually land,
-     * within one beat. The two are one mechanism and they ship in one version together.</p>
+     * Closing it does not close the connection until traffic next moves on it.
      */
-    public @NotNull InputStream stream(final @NotNull String path) {
+    public InputStream stream(final String path) {
         try {
             final HttpResponse<InputStream> response = http.send(
                     request(path, FOLLOW_DEADLINE)
@@ -289,9 +222,7 @@ public final class InternalClient {
                             .build(),
                     HttpResponse.BodyHandlers.ofInputStream());
             if (isNotSuccess(response.statusCode())) {
-                // ofInputStream hands back an open body for a failure too, and this branch used to
-                // drop it on the floor: a connection to the worker held open by a request that was
-                // already refused, one per rejected follow.
+                // ofInputStream hands back an open body for a failure too; drain it, do not leak it.
                 try (InputStream refused = response.body()) {
                     refused.readAllBytes();
                 } catch (IOException ignored) {
@@ -305,13 +236,9 @@ public final class InternalClient {
             }
             return response.body();
         } catch (HttpConnectTimeoutException unanswered) {
-            // Connect is bounded by `timeout` even here: the twelve hours are the request's
-            // deadline, and the handshake never had them. Caught first because it is a subclass -
-            // without this line a refused handshake after ten seconds reported "within 43200s".
+            // The handshake is bounded by `timeout`, not FOLLOW_DEADLINE; caught first as a subclass.
             throw new Failure(name, 504, tooSlow(path, timeout), null);
         } catch (HttpTimeoutException slow) {
-            // FOLLOW_DEADLINE, not `timeout` - a follow is allowed twelve hours and the sentence
-            // has to say the number that actually ran out.
             throw new Failure(name, 504, tooSlow(path, FOLLOW_DEADLINE), null);
         } catch (IOException e) {
             throw new Failure(name, 502, unreachable(path), null);
@@ -321,34 +248,15 @@ public final class InternalClient {
         }
     }
 
-    /**
-     * Anything that is not 2xx, which includes the redirect nobody is going to follow.
-     *
-     * <p>It was {@code >= 400}, and the gap in the middle had a real answer in it: this client is
-     * built with the JDK's default redirect policy, which is {@code NEVER}. A proxy in front of
-     * the deployer answering {@code 307} therefore came back here as a success with an empty body,
-     * and {@code DeployerApi.recreate} reported {@code 202} for a job that was never accepted.</p>
-     */
+    /** Anything that is not 2xx, including a redirect: this client's policy is {@code NEVER}. */
     private static boolean isNotSuccess(final int status) {
         return status < 200 || status >= 300;
     }
 
     /**
-     * The two sentences a failed call can end in, and they are not the same evening.
+     * A timeout's own sentence, told apart from an unreachable service: too slow is not down.
      *
-     * <p><b>They were one sentence until 2026-09-14, and it was the wrong one.</b>
-     * {@link HttpTimeoutException} extends {@link IOException}, so a service that accepted the
-     * connection and answered a second too late was reported as a service that could not be
-     * reached at all. Measured on the dev host that day: steward-ui logged
-     * {@code steward-worker could not be reached at http://steward-worker:8082} about once a
-     * minute, for hours, about a container that was healthy and answering - because
-     * {@code GET /api/services} takes 11.5 s whenever steward-worker's one-minute drift cache has
-     * expired, against the 10 s deadline here. An operator reading that goes looking at a network
-     * that is fine.</p>
-     *
-     * <p>Both name the path now. The log line is one line and used to name only the service, which
-     * is the half a reader already knows - what they cannot find out from anywhere else is
-     * <em>which</em> of a dozen calls is the slow one.</p>
+     * {@link HttpTimeoutException} extends {@link IOException}, so the two must be caught in order.
      */
     private String tooSlow(final String path, final Duration deadline) {
         return name + " did not answer " + path + " within " + deadline.toSeconds() + "s";
@@ -361,11 +269,8 @@ public final class InternalClient {
     /**
      * A request that has to be answered within the configured timeout.
      *
-     * <p><b>connectTimeout is not a deadline.</b> It bounds the TCP handshake and nothing after it,
-     * so a worker that accepts a connection and then stops answering - a daemon mid-restart, a
-     * thread pool that has filled - left an ordinary page request hanging for the twelve hours that
-     * belong to the log follow. The comment here used to claim every non-stream call carried its
-     * own shorter deadline "through the server it talks to", and nothing did.</p>
+     * {@code connectTimeout} bounds only the TCP handshake, not the answer, hence the explicit
+     * per-request {@code deadline} passed here.
      */
     private HttpRequest.Builder request(final String path) {
         return request(path, timeout);
@@ -392,7 +297,7 @@ public final class InternalClient {
         }
 
         /** Which service did not answer. The interface shows it, so it must not be a guess. */
-        public @NotNull String where() {
+        public String where() {
             return where;
         }
 

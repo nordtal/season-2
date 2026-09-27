@@ -1,7 +1,9 @@
 # `.run/` — the run configurations
 
-IntelliJ (and other JetBrains IDEs) read run configurations from this directory automatically.
-Thirty of them are one `deploy/dev` subcommand each, grouped into five folders in the Run dropdown:
+IntelliJ (and other JetBrains IDEs) read run configurations from this directory automatically. None
+of them needs bash: they run the same on Windows, macOS and Linux.
+
+Thirty-one of them are one `dev` command each, grouped into five folders in the Run dropdown:
 
 | folder                      | what is in it                                                   |
 | --------------------------- | --------------------------------------------------------------- |
@@ -11,46 +13,34 @@ Thirty of them are one `deploy/dev` subcommand each, grouped into five folders i
 | `dev: console and database` | `console` per server, `mc`, `psql`                              |
 | `dev: reset (destructive)`  | `reset` per server                                              |
 
-**They are a keystroke, not an abstraction.** Every one of them runs `deploy/dev <subcommand>` and
-nothing else — no environment, no arguments the script does not define, no second copy of a
-default. `deploy/dev help` stays the list, the script stays the thing that can be typed by hand,
-and a change to what a subcommand does needs no change here.
+**They are a keystroke, not an abstraction.** Each is an Application configuration of
+`eu.nordtal.s2.dev.Dev` in the `:dev` module with one command as its program arguments, and nothing
+else: no environment, no second copy of a default. `dev help` stays the list, and
+`./gradlew -q :dev:run --args="<command>"` is the same thing typed in a terminal.
+`RunConfigurationsTest` in `:dev` fails when a configuration names a command the program does not
+have.
 
-The thirty-first, `steward-ui (Java, :8080)`, is the odd one out and has its own header.
+**Everything that asks runs in the Run window.** `init` asks its questions there, `reset` wants the
+service name typed back, `console` sends every typed line to the server and `psql` reads one
+statement per line. A secret typed into `init` there is visible, because only a real terminal can
+hide input. The working directory is the repository root, which is what makes the relative paths in
+`deploy/dev.env` (`./deploy/servers/...`, `./deploy/pack`) mean what they say.
 
 The `resource pack` folder is for whoever draws the pack, not for the stack: `pack: 1. choose
-Minecraft instance` and `pack: 2. install into Minecraft` are Gradle configurations and need neither
-bash nor Docker, so they run the same on Windows, macOS and Linux. `resource-pack/README.md` says
-how they are used.
+Minecraft instance` and `pack: 2. install into Minecraft` are Gradle configurations.
+`resource-pack/README.md` says how they are used.
 
-## Three settings, and why they are what they are
-
-**`INTERPRETER_PATH` is `/usr/bin/env` with `bash` as its option, and not `/bin/bash`.** On macOS
-`/bin/bash` is 3.2.57 and always will be — it is the last GPLv2 release — and both `deploy/dev` and
-`deploy/nordtal.sh` need the associative arrays bash 4 added. Going through `env` picks up whatever
-is first on `PATH`, which is a current bash on any machine that has one. Where there is none, the
-scripts now say so in a sentence naming `brew install bash`; before 2026-09-20 they failed with
-`STEWARD_HOST: unbound variable`, which reads like a complaint about the environment file and is
-not one.
-
-**`EXECUTE_IN_TERMINAL` is `true` everywhere, including for the commands that only print.** Four of
-these need a keyboard and would otherwise hang on their first question: `init` asks, `psql` is a
-shell, `reset` makes you type the service name back, and `console` attaches to the real server
-console over tmux. Three more need Ctrl-C to mean what the script documents: `ui` and the `logs`
-variants. Making the quiet ones match costs nothing and means there is no rule to remember about
-which button does what.
-
-**`SCRIPT_WORKING_DIRECTORY` is `$PROJECT_DIR$`.** `deploy/dev` `cd`s to the repository root itself
-and works from anywhere, so this is belt and braces — but it is also what makes the relative paths
-in `deploy/dev.env` (`./deploy/servers/...`, `./deploy/pack`) read in the terminal the way they read
-in the file.
+The `tests:` folders are Gradle configurations, so results land in the Run window's test tree.
+`tests: deploy scripts` runs the suites of the scripts that stay bash because they run on the Linux
+host and in the containers; without bash 4 on the PATH, as on Windows, they are skipped with a line
+saying so, and CI always runs them.
 
 ## What is deliberately not here
 
 - **No `mc <service> <command>` per command.** `dev mc smp list` is in the dropdown as a working
-  template; anything else is editing `SCRIPT_OPTIONS` or copying the configuration. Guessing which
-  console commands somebody wants on a hotkey is how a directory like this turns into a hundred
-  files nobody reads.
+  template; anything else is editing the program arguments or copying the configuration. Guessing
+  which console commands somebody wants on a hotkey is how a directory like this turns into a
+  hundred files nobody reads.
 - **No configuration that wraps two commands.** `stop` then `up` is two clicks, and a third
   configuration that did both would be a third thing to keep true.
 - **Nothing for the standby services or `nordtal.sh`.** The standbys come up only during a

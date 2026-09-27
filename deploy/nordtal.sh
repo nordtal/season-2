@@ -110,8 +110,7 @@ die()  { printf '\033[31m[nordtal]\033[0m %s\n' "$*" >&2; exit 1; }
 # turns that into `STEWARD_HOST: unbound variable` - a sentence about the environment file, pointing
 # at a variable the example file sets, on a run that has not read either one yet.
 #
-# Checked here rather than in deploy/dev because dev sources this file before its own first line,
-# so this is the earliest point either script can speak at all.
+# Checked here because this is the earliest point the script can speak at all.
 if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 ]]; then
     die "this needs bash 4 or newer and found ${BASH_VERSION:-an unknown version} at ${BASH:-bash}.
        macOS ships bash 3.2 and cannot be talked out of it. Install a current one and make sure it
@@ -195,7 +194,7 @@ dir_owner() { if [[ "$1" == *:* ]]; then printf '%s' "${1#*:}"; fi; }
 # decisions, kept apart so they can be tested
 # Everything in this block is a question with an answer and no side effect, which is what lets
 # deploy/nordtal-test.sh drive it without a Docker daemon, without a network and without an
-# environment file that has anything real in it. The same arrangement as deploy/dev and
+# environment file that has anything real in it. The same arrangement as
 # deploy/minecraft/entrypoint.sh, and for the same reason: the parts that decide are the parts worth
 # pinning, and two of these decide whether a host gets a certificate or waits forever.
 
@@ -472,7 +471,7 @@ shown_value() {
 # What a typed menu answer means: `quit`, `deploy`, `edit <n>`, or nothing at all for an answer
 # that is none of those.
 #
-# A bare return is not a deploy, the same decision deploy/restore.sh and `deploy/dev reset` make
+# A bare return is not a deploy, the same decision deploy/restore.sh and `dev reset` make
 # about a confirmation: the one answer somebody gives without reading is the empty one, and here it
 # would stop four Minecraft servers. It redraws the menu instead.
 menu_choice() {
@@ -635,14 +634,11 @@ looks_like_this_script() {
 }
 
 # asking, and writing down an answer
-# These four are above the seam so that `deploy/dev` can use them: the two scripts share the
-# QUESTIONS table and nothing else. A local setup asks a person the same things in the same words,
-# with the same shape checks and the same "a secret is never echoed" rule, and then does none of
-# what the rest of this file does - no images pulled, no /etc/nordtal, no waiting on DNS, no root.
+# These four are definitions and not calls; the call sites stay below the seam, where the
+# installation is. They read $ENV_FILE and $CHECK_ONLY, which section 2 below sets.
 #
-# They read $ENV_FILE and $CHECK_ONLY, which a caller sets: this file sets them in section 2 below,
-# `deploy/dev` sets them itself. That is the whole of the contract, and it is why they are
-# definitions and not calls - the call sites stay down there, where the installation is.
+# The local `dev init` in the :dev module asks some of the QUESTIONS table in the same words, and
+# its NordtalQuestionsTest holds those prompts against this table.
 
 # Asks once for one variable and writes it. `kind` is one of:
 #   plain            required, echoed while typing
@@ -888,7 +884,7 @@ update_is_over() {
 # sourced rather than executed
 # Everything above this line is definitions; everything below reaches for Docker, the resolver and
 # the filesystem. deploy/nordtal-test.sh sources this file to exercise the decisions above, the same
-# way dev-test.sh sources deploy/dev - see the long comment there.
+# way deploy/minecraft/entrypoint-test.sh sources the entrypoint.
 #
 # Spelt out rather than `[[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0`: under `curl ... | bash`
 # there is no BASH_SOURCE at all, so reading it is an error under `set -u` - and if it were not, the
@@ -1246,8 +1242,8 @@ fi
 #   without a terminal nothing is asked at all - the run stops and names what is missing, because a
 #   setup script reading a secret from a pipe is a setup script writing one into a CI log.
 #
-# `ask_for`, `ask_question`, `default_for` and `set_secret` are defined above the seam, because
-# `deploy/dev` uses them too. What is below here is only the calls - which
+# `ask_for`, `ask_question`, `default_for` and `set_secret` are defined above the seam. What is
+# below here is only the calls - which
 # question this installation asks, in which order, and what it does with a no.
 
 default_for COMPOSE_PROFILES     "db,bot,mc,backup,steward"

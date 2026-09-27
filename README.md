@@ -187,12 +187,14 @@ The proxy has none. Anything involving the proxy, the login path, the resource p
 once wants the whole network, which runs on your own machine off the same `compose.yml` the
 production host uses:
 
+**dev init** and then **dev up** from IntelliJ's Run menu (folder _dev: stack_), or in a terminal:
+
 ```bash
-deploy/dev init && deploy/dev up
+./gradlew -q :dev:run --args="init" && ./gradlew -q :dev:run --args="up"
 ```
 
-`deploy/dev deploy smp` then rebuilds one module and restarts one container. The runbook is
-[deploy/README.md](deploy/README.md).
+`dev deploy smp` then rebuilds one module and restarts one container. It is a Java program and needs
+Java and Docker, on Windows, macOS and Linux alike. The runbook is [deploy/README.md](deploy/README.md).
 
 ## Releasing
 

@@ -62,29 +62,6 @@ val checkEntrypoint =
         }
     }
 
-// `deploy/dev reset` deletes a server's volume, which on smp is a hand-built world that is in no
-// repository and in no release; dev-test.sh drives the guard that stops it.
-val devScript = layout.projectDirectory.file("deploy/dev")
-val devTest = layout.projectDirectory.file("deploy/dev-test.sh")
-
-val checkDev =
-    tasks.register<Exec>("checkDev") {
-        group = "verification"
-        description = "Runs deploy/dev-test.sh against deploy/dev's reset guard."
-        commandLine("bash", devTest.asFile.absolutePath)
-        inputs.file(devScript).withPropertyName("dev")
-        inputs.file(devTest).withPropertyName("test")
-        val marker = layout.buildDirectory.file("checkDev/passed")
-        outputs.file(marker).withPropertyName("marker")
-        doLast {
-            marker
-                .get()
-                .asFile
-                .apply { parentFile.mkdirs() }
-                .writeText("passed\n")
-        }
-    }
-
 // deploy/nordtal.sh waits until what the domain resolves to matches this host before deploying;
 // getting that comparison wrong in the lenient direction produces a host whose certificate can
 // never be issued, so nordtal-test.sh checks the comparison and the menu around it.
@@ -109,7 +86,7 @@ val checkSetup =
         }
     }
 
-// deploy/restore.sh empties a volume before it fills it, the same hazard as `deploy/dev reset`.
+// deploy/restore.sh empties a volume before it fills it, the same hazard as `dev reset`.
 val restoreScript = layout.projectDirectory.file("deploy/restore.sh")
 val restoreTest = layout.projectDirectory.file("deploy/restore-test.sh")
 
@@ -131,7 +108,7 @@ val checkRestore =
         }
     }
 
-// Unlike the other four, this has no single script it tests: it scans every `pipefail` script
+// Unlike the other three, this has no single script it tests: it scans every `pipefail` script
 // under deploy/ for an early-exiting pipe reader (`| head`, `| grep -q`, and the like), which turns
 // that reader's SIGPIPE into the whole pipeline's exit status. See deploy/pipe-safety-test.sh for
 // the exception list of hits that are harmless.
@@ -155,4 +132,16 @@ val checkPipeSafety =
         }
     }
 
-tasks.named("check") { dependsOn(checkEntrypoint, checkDev, checkSetup, checkRestore, checkPipeSafety) }
+// The scripts these four test run on the Linux host and in the containers, and need bash 4. A machine
+// without it - Windows, or a Mac with only the system bash 3.2 - skips them with a line saying so;
+// CI always has it.
+listOf(checkEntrypoint, checkSetup, checkRestore, checkPipeSafety).forEach { suite ->
+    suite.configure {
+        onlyIf("bash 4 or later is on the PATH") {
+            eu.nordtal.s2.build.Bash
+                .atLeast4()
+        }
+    }
+}
+
+tasks.named("check") { dependsOn(checkEntrypoint, checkSetup, checkRestore, checkPipeSafety) }

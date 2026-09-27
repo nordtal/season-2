@@ -4,7 +4,7 @@
 #
 # restore.sh empties a volume before it fills it, and one of those volumes is nordtal-s2_mc-smp -
 # Nordtal, a hand-built world that is in no repository and in no release. It is the same class of
-# thing as `deploy/dev reset`, which is why the confirmation below has the same shape, and it is
+# thing as `dev reset`, which is why the confirmation below has the same shape, and it is
 # tested for the same reason: running it and looking is too late.
 #
 # What it cannot say anything about is whether a restored volume then holds what the archive held.

@@ -165,39 +165,6 @@ public interface Command {
         @Name("Network")
         Reload network();
 
-        Root root();
-
-        @Name("Root")
-        interface Root {
-
-            @Name("SMP")
-            MessageRef smp();
-
-            @Name("Hunger Games")
-            MessageRef hg();
-
-            @Name("Limbo")
-            MessageRef limbo();
-
-            @Name("Network")
-            MessageRef network();
-
-            @Name("Phase")
-            MessageRef phase();
-
-            @Name("Access")
-            MessageRef access();
-
-            @Name("Messages")
-            MessageRef messages();
-
-            @Name("Update")
-            MessageRef update();
-
-            @Name("Backup")
-            MessageRef backup();
-        }
-
         Access access();
 
         @Name("Access")
@@ -311,38 +278,5 @@ public interface Command {
         @Name("Local")
         @Key("LOCAL")
         MessageRef local();
-    }
-
-    Argument argument();
-
-    @Name("Argument")
-    interface Argument {
-
-        @Name("Player")
-        MessageRef player();
-
-        @Name("Delta")
-        MessageRef delta();
-
-        @Name("Member")
-        MessageRef member();
-
-        @Name("Confirm")
-        MessageRef confirm();
-
-        @Name("Key")
-        MessageRef key();
-
-        @Name("When")
-        MessageRef when();
-
-        @Name("Phase")
-        MessageRef phase();
-
-        @Name("Days")
-        MessageRef days();
-
-        @Name("Reference")
-        MessageRef reference();
     }
 }

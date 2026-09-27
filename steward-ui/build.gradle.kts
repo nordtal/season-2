@@ -172,6 +172,14 @@ val viteTest =
         // seconds, which is a smaller price than a cache that can report a pass nobody ran.
     }
 
+// The Vite dev server on :5173, proxying /api and /auth to the container; `dev ui` starts it.
+tasks.register<NpmTask>("viteDev") {
+    group = "application"
+    description = "Runs the Steward frontend's Vite dev server."
+    dependsOn(tasks.named("npmInstall"))
+    npmCommand.set(listOf("run", "dev"))
+}
+
 // Formatting of the frontend and of every YAML, Markdown and JSON file in the repository; see .oxfmtrc.json.
 val oxfmtCheck =
     tasks.register<NodeTask>("oxfmtCheck") {
@@ -237,7 +245,7 @@ tasks.named<ProcessResources>("processResources") {
 // `:steward-ui:run` takes its configuration from deploy/dev.env, if there is one.
 //
 // WHY THE BUILD READS AN ENVIRONMENT FILE AT ALL. This task is the half of local development that
-// is not `deploy/dev ui`: the container for frontend work, the IDE for Java work. Started from an
+// is not `dev ui`: the container for frontend work, the IDE for Java work. Started from an
 // IDE it inherits that IDE's environment, which has none of this in it, so it used to refuse on
 // the first required value and the way round it was to paste secrets into a run configuration -
 // a file that is checked in. Reading the gitignored file the local stack already uses means the
@@ -248,7 +256,7 @@ tasks.named<ProcessResources>("processResources") {
 // key or a value - this is the process that holds the Discord client secret.
 //
 // BOTH HALVES WANT :8080 and cannot run at once. Docker reports that as a bind failure and this
-// reports it as "Address already in use"; `deploy/dev stop` is the way out of the first one.
+// reports it as "Address already in use"; `dev stop` is the way out of the first one.
 // `providers.fileContents`, not `File.readLines()`: the configuration cache only knows about a
 // file the build read if it was read through a provider, and a cache that does not know is a cache
 // that hands back yesterday's environment after the file changed.

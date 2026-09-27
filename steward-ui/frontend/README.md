@@ -8,9 +8,7 @@ process in `steward-ui/src/main/java`, which talks to steward-worker.
 
 **One command, and it is described in one place:**
 
-```sh
-deploy/dev ui
-```
+The run configuration **dev ui**, or `./gradlew -q :dev:run --args="ui"` in a terminal.
 
 It brings up the stack and the three steward services, gets Node and the packages through Gradle,
 and runs Vite on http://localhost:5173. What that starts, why the port matters, and how to work on
@@ -24,7 +22,8 @@ npm run typecheck    # tsc -b --noEmit, the same check `npm run build` runs firs
 npm run test         # vitest
 ```
 
-Both need the private Node on `PATH`, which `deploy/dev ui` puts there for Vite and nothing else:
+Both need the private Node that Gradle downloads on `PATH`; `./gradlew :steward-ui:viteTest` runs the
+tests without it:
 
 ```sh
 export PATH="$PWD/steward-ui/build/nodejs/node-v24.21.0-linux-x64/bin:$PATH"

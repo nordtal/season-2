@@ -3,6 +3,7 @@
 
 import eu.nordtal.s2.build.CheckSourcesTracked
 import eu.nordtal.s2.build.RepositoryRootTestInputs
+import org.gradle.process.CommandLineArgumentProvider
 
 plugins {
     id("java")
@@ -35,12 +36,31 @@ dependencies {
 val repositoryRootTestInputs =
     extensions.create<RepositoryRootTestInputs>("repositoryRootTestInputs", rootProject.layout.projectDirectory)
 
+// The assembled resource pack, for a module that opts in with `resourcePack(project(":resource-pack",
+// "pack"))`. Its tests find it through the system property `nordtal.pack`, because part of the pack
+// is generated and src/ alone is not what the client receives.
+val resourcePack = configurations.dependencyScope("resourcePack")
+val resourcePackFiles =
+    configurations.resolvable("resourcePackFiles") {
+        extendsFrom(resourcePack.get())
+    }
+
 tasks.named<Test>("test") {
     useJUnitPlatform()
     inputs
         .files(repositoryRootTestInputs.files)
         .withPropertyName("repositoryRootTestInputs")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    val pack = resourcePackFiles.map { it.incoming.files }
+    inputs
+        .files(pack)
+        .withPropertyName("resourcePack")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    jvmArgumentProviders.add(
+        CommandLineArgumentProvider {
+            pack.get().files.map { "-Dnordtal.pack=${it.absolutePath}" }
+        },
+    )
 }
 
 // Read here, not inside the task block: a Task is ExtensionAware too, and the<SourceSetContainer>() there resolves against the task instead.

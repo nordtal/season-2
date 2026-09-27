@@ -57,6 +57,9 @@ include("paper-common")
 // The architecture rules of CONVENTIONS.md, checked across every module's classes.
 include("architecture")
 
+// The local network, driven from IntelliJ or a terminal on any operating system.
+include("dev")
+
 // Non-Java module: packs src/ into the resource pack zip.
 include("resource-pack")
 

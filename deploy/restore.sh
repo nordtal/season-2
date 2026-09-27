@@ -17,7 +17,7 @@
 #
 # A VOLUME ARCHIVE REPLACES A VOLUME. Not merges - replaces. Everything in that volume that is
 # younger than the archive is gone, and on nordtal-s2_mc-smp that is Nordtal, a hand-built world
-# that is in no repository and in no release. So this script does what `deploy/dev reset` does: it
+# that is in no repository and in no release. So this script does what `dev reset` does: it
 # makes you type the name of the thing it is about to overwrite. Not "yes" - the name.
 #
 # A DATABASE DUMP DOES NOT REPLACE ANYTHING. It is restored into a NEW database beside the live one,
@@ -38,7 +38,7 @@ warn() { printf '\033[33m[restore]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[restore]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # decisions, kept apart so they can be tested
-# Same arrangement as deploy/nordtal.sh and deploy/dev: everything above the source guard is a question
+# Same arrangement as deploy/nordtal.sh: everything above the source guard is a question
 # with an answer and no side effect, and deploy/restore-test.sh drives it without Docker. The two
 # that matter are which kind of file this is and whether a confirmation counts - one decides whether
 # a world is overwritten, the other decides whether it happens on a bare Return.
@@ -105,7 +105,7 @@ stamp_of() {
     grep -oE "$STAMP_PATTERN" <<<"$name" | sed -n '1p'
 }
 
-# Whether a typed confirmation matches. Deliberately identical in shape to deploy/dev's: the name
+# Whether a typed confirmation matches. Deliberately identical in shape to `dev reset`'s: the name
 # itself, nothing else, and an empty target confirms nothing - otherwise a bare Return on a prompt
 # somebody did not read would overwrite a world.
 restore_confirmed() {

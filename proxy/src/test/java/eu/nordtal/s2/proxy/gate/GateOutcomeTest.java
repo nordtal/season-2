@@ -228,7 +228,7 @@ class GateOutcomeTest {
     @Test
     void aNullPhaseIsTreatedAsMaintenanceRatherThanCrashingTheLoginPath() {
         final AccessState state = new AccessState(
-                PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, false, Locale.ENGLISH, null, null);
+                PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, false, false, Locale.ENGLISH, null, null);
 
         assertEquals(SeasonPhase.MAINTENANCE, state.phase());
         // The guess lands on MAINTENANCE: "everybody waits in limbo", harmless for an unlocatable player.
@@ -267,6 +267,7 @@ class GateOutcomeTest {
                 MemberState.MEMBER,
                 false,
                 Instant.now().plus(Duration.ofDays(30)),
+                false,
                 false,
                 false,
                 Locale.ENGLISH,
@@ -309,6 +310,7 @@ class GateOutcomeTest {
                 accessActive ? Instant.now().plus(Duration.ofDays(1)) : null,
                 false,
                 admin,
+                false,
                 Locale.ENGLISH,
                 phase,
                 null);

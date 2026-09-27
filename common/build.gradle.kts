@@ -1,5 +1,30 @@
+import eu.nordtal.s2.build.GenerateGlyphAdvances
+
 plugins {
     id("nordtal.java-base")
+}
+
+// The plugins compose boss bar pills and menu rows, so they carry how wide every glyph of those
+// fonts is. The tables are derived from the assembled pack on every build and never committed: a
+// redrawn glyph reaches the plugins with the next build, and cannot leave a stale copy behind.
+val assembledPack = configurations.resolvable("packForAdvances") { extendsFrom(configurations["resourcePack"]) }
+
+val bossbarAdvances =
+    tasks.register<GenerateGlyphAdvances>("generateBossbarAdvances") {
+        pack.from(assembledPack)
+        font.set("nordtal/font/bossbar.json")
+        target.set(layout.buildDirectory.file("generated/advances/nordtal/hud/bossbar-advances.properties"))
+    }
+
+val menuAdvances =
+    tasks.register<GenerateGlyphAdvances>("generateMenuAdvances") {
+        pack.from(assembledPack)
+        font.set("nordtal/font/gui_r0.json")
+        target.set(layout.buildDirectory.file("generated/advances/nordtal/menu/gui-row-advances.properties"))
+    }
+
+sourceSets.main {
+    resources.srcDir(files(layout.buildDirectory.dir("generated/advances")).builtBy(bossbarAdvances, menuAdvances))
 }
 
 // Files outside this module's source sets that :common's tests read as text. Without these
@@ -42,12 +67,6 @@ repositoryRootTestInputs {
 
     reads("smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java")
-    reads("resource-pack/src/assets/nordtal/font/bossbar.json")
-    reads("resource-pack/src/assets/nordtal/font/board.json")
-
-    // Whole trees rather than file lists: a list goes stale the first time somebody adds a file,
-    // and that new file is exactly what the rules are about.
-    readsTree("resource-pack/src/assets")
 
     reads("smp/src/main/resources/messages/smp/en.properties")
     reads("smp/src/main/resources/messages/smp/de.properties")
@@ -78,6 +97,10 @@ repositoryRootTestInputs {
 }
 
 dependencies {
+    // The assembled pack, which the tests read through the nordtal.pack system property and the
+    // two advance tables above are derived from.
+    "resourcePack"(project(":resource-pack", "pack"))
+
     // NullAway's own annotations reference this at the class-file level (TypeUseLocation), so
     // without it on the compile classpath javac cannot fully resolve them and -Werror turns that
     // into a build failure. Version matches what NullAway 0.14.2 itself pulls in

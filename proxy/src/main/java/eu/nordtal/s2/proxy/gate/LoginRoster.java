@@ -12,7 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * What the login query already told us about the players currently connected.
  *
- * Their Discord id, their language, and whether they are an admin.
+ * Their Discord id, their language, whether they are an admin, and whether an admin let them through
+ * without the resource pack.
  *
  * Not a cache of the access decision - {@link FallbackCache} is that. This exists because two things
  * outside the gate need facts the gate reads anyway and must not re-read:
@@ -31,12 +32,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class LoginRoster {
 
     /**
-     * @param discordId the linked Discord account, never {@code null} - an unlinked player is not
-     *                  in this roster at all
-     * @param locale    the player's language as of their login
-     * @param admin     the admin flag as of their login
+     * @param discordId  the linked Discord account, never {@code null} - an unlinked player is not
+     *                   in this roster at all
+     * @param locale     the player's language as of their login
+     * @param admin      the admin flag as of their login
+     * @param packExempt whether they may play without the resource pack, as of their login
      */
-    public record Session(String discordId, Locale locale, boolean admin) {}
+    public record Session(String discordId, Locale locale, boolean admin, boolean packExempt) {}
 
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
 
@@ -53,7 +55,7 @@ public final class LoginRoster {
         Objects.requireNonNull(state, "state");
         if (state.linked()) {
             final String discordId = Objects.requireNonNull(state.discordId(), "linked() guarantees discordId is set");
-            sessions.put(mcUuid, new Session(discordId, state.locale(), state.admin()));
+            sessions.put(mcUuid, new Session(discordId, state.locale(), state.admin(), state.packExempt()));
         } else {
             sessions.remove(mcUuid);
         }
@@ -75,6 +77,16 @@ public final class LoginRoster {
      */
     public boolean isAdmin(final UUID mcUuid) {
         return of(mcUuid).map(Session::admin).orElse(Boolean.FALSE);
+    }
+
+    /**
+     * @param mcUuid the account
+     * @return whether an admin exempted it from the resource pack; {@code false} for anyone this
+     *         roster has never heard of - a login answered from the fallback cache included - because
+     *         the pack is what every player gets unless an admin said otherwise
+     */
+    public boolean isPackExempt(final UUID mcUuid) {
+        return of(mcUuid).map(Session::packExempt).orElse(Boolean.FALSE);
     }
 
     /**
@@ -107,7 +119,9 @@ public final class LoginRoster {
             if (admin != session.admin()) {
                 // replace(), not put(): a player who disconnected while this ran must not be put back into the map.
                 if (sessions.replace(
-                        entry.getKey(), session, new Session(session.discordId(), session.locale(), admin))) {
+                        entry.getKey(),
+                        session,
+                        new Session(session.discordId(), session.locale(), admin, session.packExempt()))) {
                     changed++;
                 }
             }

@@ -29,6 +29,28 @@ public final class RepositoryRoot {
         return at;
     }
 
+    /**
+     * The resource pack as the client receives it: {@code resource-pack/src} plus the fonts the build generates.
+     *
+     * Gradle assembles it and names it in the system property {@code nordtal.pack}, for a module that declares
+     * {@code resourcePack(project(":resource-pack", "pack"))}.
+     *
+     * @return the assembled pack's root, holding {@code pack.mcmeta} and {@code assets}
+     */
+    public static Path pack() {
+        final String pack = System.getProperty("nordtal.pack");
+        if (pack == null) {
+            throw new IllegalStateException("nordtal.pack is not set: this module's build.gradle.kts needs"
+                    + " resourcePack(project(\":resource-pack\", \"pack\"))");
+        }
+        return Path.of(pack);
+    }
+
+    /** @return the assembled pack's {@code assets} directory, as a path {@link #resolve} and {@link #read} accept */
+    public static String packAssets() {
+        return pack().resolve("assets").toString();
+    }
+
     /** @return {@code relative}, resolved against the repository root */
     public static Path resolve(final String relative) {
         return path().resolve(relative);

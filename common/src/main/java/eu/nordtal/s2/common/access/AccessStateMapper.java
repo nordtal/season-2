@@ -37,6 +37,7 @@ public final class AccessStateMapper implements RowMapper<AccessState> {
                 AccessGrantMapper.instant(rs, "valid_until"),
                 rs.getBoolean("donor"),
                 rs.getBoolean("admin"),
+                rs.getBoolean("pack_exempt"),
                 Locales.parse(rs.getString("locale")),
                 SeasonPhase.fromDatabase(rs.getString("phase")),
                 AccessGrantMapper.instant(rs, "launch"));

@@ -21,7 +21,7 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds {@link MenuFont}'s advance table against the six row fonts it was exported from.
+ * Holds {@link MenuFont}'s advance table against the six row fonts it was derived from.
  *
  * <b>Why this is the check that matters</b>
  *
@@ -31,9 +31,9 @@ import org.junit.jupiter.api.Test;
  * not a failure anywhere. Nothing throws, nothing logs, the menu opens, and the number at the right
  * edge sits a hair inside or outside its pill for the rest of the season.
  *
- * The way that happens is somebody redrawing a glyph and not re-running
- * {@code resource-pack/tools/generate_gui_rows.py}. So this derives the whole table from the pack
- * again, by the client's own rule - a {@code space} provider's number, or the rightmost column of
+ * The build derives the table from the pack on every run, so a redrawn glyph cannot leave it stale;
+ * what remains is the rule itself being wrong. So this derives the whole table from the pack again,
+ * independently of the build, by the client's own rule - a {@code space} provider's number, or the rightmost column of
  * the glyph's cell that carries any alpha, plus one for that column and one the client adds after
  * every glyph - and fails if the shipped resource disagrees. It is the same arrangement, and the
  * same reason, as {@code BossBarAdvancesTest}.
@@ -48,7 +48,7 @@ import org.junit.jupiter.api.Test;
  */
 class MenuFontTest {
 
-    private static final String ASSETS = "resource-pack/src/assets";
+    private static final String ASSETS = RepositoryRoot.packAssets();
 
     /** The pill's inset inside its slot cell - the same two pixels a balloon card is inset by. */
     private static final int INSET = 2;
@@ -63,11 +63,9 @@ class MenuFontTest {
         assertEquals(
                 new TreeMap<>(derive()),
                 new TreeMap<>(MenuFont.table()),
-                "common/src/main/resources/nordtal/menu/gui-row-advances.properties disagrees with"
-                        + " the row fonts it was exported from. Re-run"
-                        + " resource-pack/tools/generate_gui_rows.py: a redrawn glyph whose"
-                        + " rightmost column moved is a row laid out on the old width, and nothing"
-                        + " about that fails anywhere but on a client");
+                "the generated gui-row-advances.properties disagrees with the client's rule applied"
+                        + " to the row fonts - GlyphAdvances in build-logic and this test have drifted,"
+                        + " and a row laid out on the wrong width fails nowhere but on a client");
     }
 
     @Test
@@ -173,8 +171,7 @@ class MenuFontTest {
                             + " three pixels in ui/gui/row_text.png. They stand next to each other"
                             + " in every distance, every coordinate and every progress number this"
                             + " font draws, so telling them apart cannot be a hunt for one pixel."
-                            + " Re-run resource-pack/tools/generate_gui_rows.py after changing"
-                            + " SMALL, and keep the difference in the outline");
+                            + " Keep the difference in the outline");
         }
     }
 

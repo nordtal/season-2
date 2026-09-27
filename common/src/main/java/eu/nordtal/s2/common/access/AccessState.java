@@ -17,6 +17,7 @@ import org.jspecify.annotations.Nullable;
  * @param accessValidUntil the end of the whole current run of access, {@code null} when there is none
  * @param donor            whether the linked account has the permanent donor flag
  * @param admin            whether the linked account carries the admin flag mirrored from Discord
+ * @param packExempt       whether an admin let this account through without the resource pack
  * @param locale           the player's language, English when unknown
  * @param phase            the season phase when this was read, {@link SeasonPhase#MAINTENANCE} if unreadable
  * @param launch           when the network opens, {@code null} when no date has been announced
@@ -29,6 +30,7 @@ public record AccessState(
         @Nullable Instant accessValidUntil,
         boolean donor,
         boolean admin,
+        boolean packExempt,
         Locale locale,
         SeasonPhase phase,
         @Nullable Instant launch) {
@@ -48,12 +50,12 @@ public record AccessState(
     /**
      * The answer for a UUID nobody has linked, in a network whose phase <em>is</em> known.
      *
-     * @param minecraftAccount the UUID that was asked about
-     * @param phase            the phase the row carried
+     * @param account the UUID that was asked about
+     * @param phase   the phase the row carried
      * @return an unlinked state
      */
-    public static AccessState unlinked(final UUID minecraftAccount, final SeasonPhase phase) {
-        return new AccessState(minecraftAccount, null, null, false, null, false, false, Locale.ENGLISH, phase, null);
+    public static AccessState unlinked(final UUID account, final SeasonPhase phase) {
+        return new AccessState(account, null, null, false, null, false, false, false, Locale.ENGLISH, phase, null);
     }
 
     /** @return whether a Discord account is linked to this UUID */

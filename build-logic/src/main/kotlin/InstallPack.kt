@@ -27,7 +27,7 @@ import javax.inject.Inject
  */
 @DisableCachingByDefault(because = "Writes into a Minecraft instance, outside the build")
 abstract class InstallPack : DefaultTask() {
-    /** The pack's `src`, holding `pack.mcmeta` and `assets`. */
+    /** The assembled pack, holding `pack.mcmeta` and `assets`. */
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val pack: DirectoryProperty

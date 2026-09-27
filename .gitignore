@@ -57,9 +57,6 @@ bunq-config.conf
 /bin/
 /*/bin/
 
-### Python ###
-/resource-pack/tools/__pycache__/
-
 ### Mac OS ###
 .DS_Store
 

@@ -61,10 +61,10 @@ class BossBarFontTest {
     @Test
     void theFontKeysAreTheNamespacedIdsThePacksFontFilesActuallyLiveAt() {
         assertTrue(
-                Files.isRegularFile(RepositoryRoot.resolve("resource-pack/src/assets/nordtal/font/bossbar.json")),
+                Files.isRegularFile(RepositoryRoot.resolve(RepositoryRoot.packAssets() + "/nordtal/font/bossbar.json")),
                 "Glyphs.FONT_BOSSBAR is " + Glyphs.FONT_BOSSBAR + " but no font file exists at that id");
         assertTrue(
-                Files.isRegularFile(RepositoryRoot.resolve("resource-pack/src/assets/nordtal/font/board.json")),
+                Files.isRegularFile(RepositoryRoot.resolve(RepositoryRoot.packAssets() + "/nordtal/font/board.json")),
                 "Glyphs.FONT_BOARD is " + Glyphs.FONT_BOARD + " but no font file exists at that id");
     }
 

@@ -35,8 +35,6 @@ deploy/
   nordtal-test.sh      its checks, without Docker or a resolver (runs on `check`)
   restore.sh           put one archive back - a volume, or a dump into a NEW database
   restore-test.sh      its guards, without Docker (runs on `check`)
-  dev                  the local stack: init · up · deploy · pack · reset - see Locally below
-  dev-test.sh          the guard on `dev reset`, without Docker (runs on `check`)
   dev.env.example      every setting the local stack needs; copy to dev.env
   servers/             not in git. Local plugin directories for the dev stack
   pack/                not in git. The locally built resource pack the devpack profile serves
@@ -606,27 +604,28 @@ whatever container recreated a service last.
 The same `compose.yml`, the same `Dockerfile`s, the same `steward-worker`. What differs is a second
 env file and jars out of `build/libs` instead of a GitHub release.
 
-```bash
-deploy/dev init          # writes deploy/dev.env, generates the two secrets, makes the directories
-deploy/dev up            # builds the five jars and both images, then brings the stack up
-deploy/dev deploy smp    # rebuild :smp, replace the jar, restart that one container
+`dev` is a Java program, the `:dev` module, and needs Java and Docker on Windows, macOS and Linux
+alike. Every command is a run configuration in IntelliJ's Run menu (the `dev:` folders), and in a
+terminal it is `./gradlew -q :dev:run --args="<command>"`:
+
+```text
+dev init          # writes deploy/dev.env, generates the four secrets, makes the directories
+dev up            # builds the five jars and both images, then brings the stack up
+dev deploy smp    # rebuild :smp, replace the jar, restart that one container
 ```
 
 The first `up` takes a while: `steward-worker` fetches Paper, Velocity, DisplayTags, PacketEvents
 and the SMP's two world-generation datapacks. It does **not** fetch our five jars, because
-`deploy/dev up` has already put them in `plugins/` and the bootstrap installs only what is missing.
+`dev up` has already put them in `plugins/` and the bootstrap installs only what is missing.
 Then join `localhost` with a real client.
 
-**On a Mac, install a current bash first: `brew install bash`.** macOS ships 3.2.57 as `/bin/bash`
-and never will ship anything newer, and both scripts need the associative arrays bash 4 added. Both
-say so themselves rather than failing with `STEWARD_HOST: unbound variable` from `deploy/dev init`,
-which reads like a complaint about the env file and is not one.
-
-`deploy/dev` also carries `ui`, `logs`, `console`, `mc`, `psql`, `ps`, `stop`, `down`, `pack` and
-`reset`;
-`deploy/dev help` prints the list. Everything it does is `docker compose` with
+`dev` also carries `ui`, `logs`, `console`, `mc`, `psql`, `ps`, `stop`, `down`, `pack` and
+`reset`; `dev help` prints the list. `console` shows a server's log and sends every line typed as a
+console command, which works in IntelliJ's Run window; in a real terminal,
+`docker compose --env-file deploy/dev.env exec smp console` attaches to the server's own console
+instead. Everything it does is `docker compose` with
 `--env-file deploy/dev.env`, so any of it can be typed by hand. **After editing `deploy/dev.env`,
-run `deploy/dev up` and not `deploy` —** `deploy` restarts the existing container, which reuses the
+run `dev up` and not `deploy` —** `deploy` restarts the existing container, which reuses the
 environment it was created with, and a setting that did not take effect looks exactly like a setting
 that does not work.
 
@@ -644,7 +643,7 @@ that does not work.
 - **Four `<SERVICE>_PLUGINS` variables pointing at `./deploy/servers/<service>/plugins`**, which is
   what turns each server's plugins folder into a bind mount you can edit with a text editor. An
   existing `deploy/dev.env` needs those four lines added by hand — the file is gitignored, so
-  nothing migrated it. `deploy/dev` refuses a value with no `/` in it rather than writing jars into
+  nothing migrated it. `dev` refuses a value with no `/` in it rather than writing jars into
   a directory no container mounts.
 - **Small heaps and `NETWORK_MAX_PLAYERS=20`.**
 
@@ -653,43 +652,41 @@ that does not work.
 Two halves, and the reason there is a command for it at all is that they are easy to start in the
 wrong order.
 
-```bash
-deploy/dev ui
+```text
+dev ui
 ```
 
 brings up everything `COMPOSE_PROFILES` selects, adds the three steward services, asks Gradle for
 the private Node and the npm packages, and then runs Vite in the foreground. The interface is on
 **http://localhost:5173**; the Java process behind it answers on `127.0.0.1:8080`, and Vite proxies
-`/api` and `/auth` to it. **Ctrl-C stops Vite and leaves the containers running** — the
-counter-command is `deploy/dev stop`.
+`/api` and `/auth` to it. **Stopping it stops Vite and leaves the containers running** — the
+counter-command is `dev stop`.
 
 - **The whole stack, not only what the interface talks to directly.** What it draws is the servers,
   their plugins and their players; a page whose every card says _not running_ is not a page worth
-  working on. The first `deploy/dev up` still has to have happened — `ui` starts containers, it
+  working on. The first `dev up` still has to have happened — `ui` starts containers, it
   does not build jars.
 - **The three steward services are named, never added to `COMPOSE_PROFILES`.** Naming a service
   activates its profile, so nothing here needs `--profile`. Caddy comes up with `mc` anyway, as
   the guard in front of the game port; for `steward.localhost` it issues its own local certificate
   and asks Let's Encrypt nothing.
 - **`PACK_PORT` is 8081 because `STEWARD_UI_PORT` is 8080.** Both defaulted to 8080, and with
-  `devpack` on and the interface up they are on at the same time now. `deploy/dev ui` refuses to
+  `devpack` on and the interface up they are on at the same time now. `dev ui` refuses to
   start when the two are equal rather than letting Docker explain it three services later.
-- **There is no Node on this host and there is not going to be one.** `:steward-ui:npmInstall`
-  downloads its own under `steward-ui/build/nodejs/`, and `deploy/dev ui` _searches_ for it rather
-  than spelling the path out — the directory name carries the platform, so a written path works on
-  one machine only. (`npx vitest` with no Node on `PATH` exits 0 having tested nothing, which is
-  how this matters.)
+- **No Node has to be installed.** `:steward-ui:npmInstall` downloads its own under
+  `steward-ui/build/nodejs/`, and `dev ui` runs Vite through Gradle's `:steward-ui:viteDev`, so
+  it never needs to know where that copy is.
 - **Working on the Java half instead** means running `:steward-ui:run` and pointing Vite's proxy at
   it — the same `:8080`, so the container and the Gradle process cannot both have it. Stop the
   container first (`docker compose --env-file deploy/dev.env stop steward-ui`) or set
   `STEWARD_UI_PORT` to something else in `deploy/dev.env`. The `run` task reads `deploy/dev.env`
   into its environment, so it needs no configuration of its own and carries no secret in a run
-  configuration; `.run/steward-ui.run.xml` is that configuration for IntelliJ.
+  configuration.
 - **`STEWARD_UI_PUBLIC_URL` is the address the browser uses**, which locally is
   `http://localhost:5173` and not the container's port. Discord compares the redirect URI as a
   string and WebAuthn compares the relying party to the page's own host, so a value that names the
   wrong half fails at sign-in rather than at startup. `STEWARD_WEBAUTHN_RP_ID` is that address's
-  host, and `deploy/dev init` derives it rather than asking twice.
+  host, and `dev init` derives it rather than asking twice.
 
 ### The resource pack
 
@@ -697,8 +694,8 @@ The pack and the plugins are one change — a glyph code point is declared in `:
 a font file and in a PNG — so testing the drawn half against the previous release's pack answers
 nothing.
 
-```bash
-deploy/dev pack
+```text
+dev pack
 ```
 
 builds the zip, puts it under `PACK_ROOT`, and writes `url` and `sha1` into the proxy's `pack.yml` —
@@ -710,7 +707,7 @@ the client is almost always the hash and not the network — rerun after any cha
 
 ### Rehearsing the restart path locally
 
-`deploy/dev deploy` restarts one container and is what you want ninety-nine times out of a hundred.
+`dev deploy` restarts one container and is what you want ninety-nine times out of a hundred.
 The hundredth is the restart path itself — the button, the countdown, the stop and start of each
 container — and **that needs nothing extra installed.** The worker uses the Docker socket
 `compose.yml` already mounts, so `/update restart` against a local stack exercises the real
@@ -845,7 +842,7 @@ sudo bash deploy/restore.sh nordtal-<stamp>.dump                    # the databa
 **A volume archive replaces a volume.** Not merges — replaces: the script empties it and unpacks the
 archive into it, so anything younger than the archive is gone. On `nordtal-s2_mc-smp` that is
 Nordtal. So it stops whatever mounts the volume, prints what it is about to do, and **makes you type
-the volume's name back** — not "yes", the name, the same guard `deploy/dev reset` has and for the
+the volume's name back** — not "yes", the name, the same guard `dev reset` has and for the
 same reason. Afterwards it starts again exactly what it stopped.
 
 **A database dump replaces nothing.** It is restored into a _new_ database called

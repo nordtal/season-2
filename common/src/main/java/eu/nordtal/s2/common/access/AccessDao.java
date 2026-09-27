@@ -262,6 +262,7 @@ interface AccessDao {
                    usr.locale,
                    usr.donor,
                    usr.admin,
+                   usr.pack_exempt_at IS NOT NULL                           AS pack_exempt,
                    EXISTS (SELECT 1
                            FROM access_grant grant_row
                            WHERE grant_row.discord_id = link.discord_id

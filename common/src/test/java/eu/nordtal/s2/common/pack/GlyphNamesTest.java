@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.common.RepositoryRoot;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -21,7 +22,7 @@ import org.junit.jupiter.api.Test;
 class GlyphNamesTest {
 
     private static final FontFile DEFAULT_FONT =
-            FontFile.load("minecraft:default", "resource-pack/src/assets/minecraft/font/default.json");
+            FontFile.load("minecraft:default", RepositoryRoot.packAssets() + "/minecraft/font/default.json");
 
     @Test
     void everyNameIsAGlyphsConstantTheDefaultFontDeclares() {

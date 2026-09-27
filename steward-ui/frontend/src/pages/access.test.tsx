@@ -159,6 +159,9 @@ function backend(
       const kind = asked.get(id) ?? "UNKNOWN"
       return json(200, over.answer?.(kind) ?? { id, kind, status: "DONE", result: {} })
     }
+    if (url.startsWith("/api/pack-exemptions/") && init?.method === "POST") {
+      return json(200, { outcome: "CHANGED" })
+    }
     if (url.startsWith("/api/admins/") && init?.method === "POST") {
       return json(200, { outcome: url.endsWith("/grant") ? "GRANTED" : "REVOKED", removed: [] })
     }
@@ -918,5 +921,58 @@ describe("AccessPage - the admin tree", () => {
     expect(requestBody(call[1])).toEqual({
       discordId: "510000000000000003",
     })
+  })
+})
+
+describe("AccessPage - playing without the resource pack", () => {
+  const LINKED = { minecraftUuid: "11111111-2222-3333-4444-555555555555", mcName: "Painter" }
+  const ROSTER = [
+    person({ discordId: ME, discordUsername: "me", admin: true, adminGrantedBy: null }),
+    person({ discordId: "520000000000000001", discordUsername: "painter", ...LINKED }),
+    person({
+      discordId: "520000000000000002",
+      discordUsername: "exempt",
+      ...LINKED,
+      minecraftUuid: "66666666-2222-3333-4444-555555555555",
+      packExemptBy: ME,
+      packExemptAt: "2026-09-27T12:00:00Z",
+    }),
+    person({ discordId: "520000000000000003", discordUsername: "unlinked" }),
+  ]
+
+  it("offers Skip resource pack last, and only for somebody with a Minecraft account", async () => {
+    vi.stubGlobal("fetch", backend({ people: () => ROSTER }))
+    draw(<AccessPage />)
+    const actions = await actionsOf("painter")
+    expect(actions.at(-1)).toBe("Skip resource pack")
+    cleanup()
+    draw(<AccessPage />)
+    expect(await actionsOf("unlinked")).not.toContain("Skip resource pack")
+  })
+
+  it("marks an exempt player in the list and offers to enforce the pack again", async () => {
+    vi.stubGlobal("fetch", backend({ people: () => ROSTER }))
+    draw(<AccessPage />)
+    const row = await rowFor("exempt")
+    expect(within(row).getByText("No resource pack")).toBeTruthy()
+    expect(within(await rowFor("painter")).queryByText("No resource pack")).toBeNull()
+    expect(await actionsOf("exempt")).toContain("Enforce resource pack")
+  })
+
+  it("sends the row's own Discord id to the exemption", async () => {
+    const fetched = backend({ people: () => ROSTER })
+    vi.stubGlobal("fetch", fetched)
+    draw(<AccessPage />)
+
+    const scope = await openActions("painter")
+    fireEvent.click(within(scope).getByRole("button", { name: "Skip resource pack" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Skip resource pack" }))
+
+    await waitFor(() => {
+      expect(fetched.mock.calls.find(([url]) => url === "/api/pack-exemptions/exempt")).toBeTruthy()
+    })
+    const call = fetched.mock.calls.find(([url]) => url === "/api/pack-exemptions/exempt")!
+    expect(requestBody(call[1])).toEqual({ discordId: "520000000000000001" })
   })
 })

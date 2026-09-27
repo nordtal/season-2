@@ -279,7 +279,7 @@ services:
   # It exists because the pack and the plugins are one change and not two: a glyph code point is
   # declared in :common's Glyphs, in a font file and in a PNG, and every menu panel is a texture the
   # Java arithmetic is derived from, so testing against the previous release's pack answers nothing.
-  # `deploy/dev pack` builds the zip into PACK_ROOT and writes exactly url and sha1 into pack.yml.
+  # `dev pack` builds the zip into PACK_ROOT and writes exactly url and sha1 into pack.yml.
   #
   # The client runs on the machine that runs Docker here, so the URL is a plain
   # http://localhost:${PACK_PORT}/<name>.zip; the bind stays on loopback.

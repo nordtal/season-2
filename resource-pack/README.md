@@ -5,7 +5,7 @@ handful of vanilla overrides.
 
 **This file owns the code point allocation.** `minecraft/font/default.json`,
 `nordtal/font/bossbar.json`, `nordtal/font/board.json`, `nordtal/font/gui.json`,
-`nordtal/font/gui_r0.json` … `gui_r5.json` and `:common`'s `Glyphs` are all _mirrors_ of the tables
+[`templates/gui_row.json`](templates/gui_row.json) and `:common`'s `Glyphs` are all _mirrors_ of the tables
 below — a change is a change in all of them, in one commit, and `ResourcePackTest` holds them
 against each other on every build.
 
@@ -29,7 +29,9 @@ Linux alike. You need Minecraft 26.2.
 4. In the game, press **F3+T** to load what you installed.
 
 A server's pack sits on top of every local one, so on the Nordtal network the network's pack covers
-your work; test it in single player.
+your work. To see it there, ask an admin to switch the pack off for you: in Steward under Users,
+the last entry of your row's actions is **Skip resource pack**. From your next login on the network
+sends you no pack and yours shows, until an admin chooses **Enforce resource pack** on the same row.
 
 ## Building and deploying
 
@@ -40,15 +42,16 @@ This is a module of the [season-2](../) build. From the repository root:
 ```
 
 produces `resource-pack/build/distributions/nordtal-resource-pack-<version>.zip` and a
-`.sha1` file next to it. The zip's root is the contents of [`src/`](src/) — `pack.mcmeta` and
-`assets/` must sit at the top level, not inside a `src/` folder.
+`.sha1` file next to it. The zip's root is the assembled pack, `resource-pack/build/pack`: the
+contents of [`src/`](src/) plus what the build derives (see below) — `pack.mcmeta` and `assets/` must
+sit at the top level, not inside a `src/` folder.
 
 The client is sent the zip's URL **and** its SHA-1, and refuses the pack if they disagree, which
 is why the hash is generated on every build rather than written down. The zip and its hash are
 attached to each GitHub release, and the **proxy** offers the pack while the player waits in
 `limbo` — see [Hosting](#hosting).
 
-To test locally, see [Editing the art](#editing-the-art). `deploy/dev pack` builds the zip and
+To test locally, see [Editing the art](#editing-the-art). `dev pack` builds the zip and
 points a local stack at it.
 
 `pack_format` is **88** (Minecraft 26.2).
@@ -73,31 +76,23 @@ the proxy fails closed until they are filled in.
   at `url` is a question only a client can answer, and it answers it with `FAILED_DOWNLOAD` — which
   reads as a network problem and is not one.
 
-## Generated art
+## What the build derives
 
-Most of the art in this pack is drawn by deterministic, dependency-free Python scripts (no Pillow,
-no ImageMagick) from the metrics in this file. **Re-run the relevant script after changing a size, a
-shape or an allocation here**; each overwrites only the files it owns.
+Nothing derived from the art is committed, so a redrawn glyph cannot leave a stale copy behind and
+nobody needs anything beyond the Gradle wrapper to regenerate it:
 
-```bash
-python3 resource-pack/tools/generate_dummy_textures.py   # badges, crests, system icons, arrows, board frame
-python3 resource-pack/tools/generate_hud.py              # boss bar pills and the 10x10 status icons
-python3 resource-pack/tools/generate_gui_panels.py       # the chest panels and the travel panel
-python3 resource-pack/tools/generate_gui_rows.py         # row plates, row icons, the 5px sheet, the six row fonts
-python3 resource-pack/tools/export_bossbar_advances.py   # bossbar advances -> :common resource
-```
+- **The six chest-row fonts** `nordtal/font/gui_r0.json` … `gui_r5.json` are written by
+  `generateRowFonts` from [`templates/gui_row.json`](templates/gui_row.json), which is row 0; every
+  other row is the same font with each bitmap 18 pixels lower. `assemblePack` puts them next to
+  `src/` in `build/pack`, and the zip, `checkPack`, `installPack` and the tests all read that.
+- **Two advance tables** the plugins read, because the server composes a pill or a row and therefore
+  has to know how wide a glyph is: `nordtal/hud/bossbar-advances.properties` and
+  `nordtal/menu/gui-row-advances.properties`, derived by `:common` from the assembled pack with the
+  client's own rule. `BossBarAdvancesTest` and `MenuFontTest` apply that rule again independently.
 
-Two of them also write advance tables the plugins read, because the server composes a row or a pill
-and therefore has to know how wide a glyph is:
-`common/src/main/resources/nordtal/hud/bossbar-advances.properties` and
-`common/src/main/resources/nordtal/menu/gui-row-advances.properties`. `BossBarAdvancesTest` and
-`MenuFontTest` derive both again from the pack and fail `check` if either is stale.
-
-`generate_dummy_textures.py` additionally writes two placeholders outside this table's scope: the
-balloon's item-model scaffold (`assets/nordtal/items/balloon.json`, its model and two flat-colour
-textures) and the hunger-games lobby maps (`hunger-games/src/main/resources/lobby/map-{en,de}.png`,
-384 × 384). The real balloon geometry is a Blockbench task and the real lobby map is a hand-prepared
-aerial image; neither script can produce them.
+**A width change reaches a server only with a plugin rollout.** The advance tables ship inside the
+plugin jars, so a redrawn glyph whose width changed is laid out on its new width once the plugins
+built after the change are deployed, and not when the new pack alone is.
 
 # Code point allocation
 
@@ -110,7 +105,7 @@ Four fonts and a family of six, and the difference matters: a glyph only lines u
 | `nordtal:bossbar`           | [`nordtal/font/bossbar.json`](src/assets/nordtal/font/bossbar.json)     | the boss bar HUDs only, with the vanilla bar made invisible                               | height 14 / ascent 6 for bar segments, height 10 / ascent 4 for icons, height 8 / ascent 3 for text |
 | `nordtal:board`             | [`nordtal/font/board.json`](src/assets/nordtal/font/board.json)         | the objective board and aura leaderboard's frame only — drawn by `:common`'s `BoardFrame` | height 9 / ascent 8                                                                                 |
 | `nordtal:gui`               | [`nordtal/font/gui.json`](src/assets/nordtal/font/gui.json)             | the menu panels, drawn out of a chest inventory's **title**                               | ascent 13, height = the window's own pixel height (132…222)                                         |
-| `nordtal:gui_r0` … `gui_r5` | [`nordtal/font/gui_r0.json`](src/assets/nordtal/font/gui_r0.json) …     | everything drawn **on a chest row** — a list entry's plate, its icon, its label           | six copies of one font, one per row; three ascents each (see below)                                 |
+| `nordtal:gui_r0` … `gui_r5` | [`templates/gui_row.json`](templates/gui_row.json), generated per row   | everything drawn **on a chest row** — a list entry's plate, its icon, its label           | six copies of one font, one per row; three ascents each (see below)                                 |
 
 The fonts allocate **independently**. `\uFE001` is a reserved player-badge code point in
 `minecraft:default`, a 1-pixel bar segment in `nordtal:bossbar`, and (as `\uFF001` specifically, in
@@ -137,8 +132,8 @@ message bundle carries a private-use character in either plane, and the glyph re
 `{parameter}` instead.
 
 **Status column.** _keep_ and _keep — season 1_ rows exist today, in the pack and in `Glyphs`.
-_generated — final candidate_ is programmatically drawn geometry plausible as shipping art;
-_generated — placeholder_ is a stand-in that exists only so the font, the HUD and the board can be
+_final candidate_ is programmatically drawn geometry plausible as shipping art;
+_placeholder_ is a stand-in that exists only so the font, the HUD and the board can be
 exercised on a running server before the real design happens. _removed_ rows are gone from the pack,
 the fonts and `Glyphs`.
 
@@ -148,7 +143,7 @@ the fonts and `Glyphs`.
 
 | Char code             | File                                                         | Description                                      | Status                        |
 | --------------------- | ------------------------------------------------------------ | ------------------------------------------------ | ----------------------------- |
-| `\uFE000`             | ![source](src/assets/nordtal/textures/badges/donor_star.png) | Donor star, from the permanent donor role, 7 × 7 | generated — final candidate   |
+| `\uFE000`             | ![source](src/assets/nordtal/textures/badges/donor_star.png) | Donor star, from the permanent donor role, 7 × 7 | final candidate               |
 | `\uFE001`             | —                                                            | _(free)_                                         | removed — was the citizen tag |
 | `\uFE002`             | —                                                            | _(free)_                                         | removed — was the knight tag  |
 | `\uFE003`             | —                                                            | _(free)_                                         | removed — was the lord tag    |
@@ -188,12 +183,12 @@ Thirteen design tiers of one coat of arms, assigned by total online time. The ti
 this table. 9 × 9 at height 9 / ascent 8 fills a 9 px text row without colliding with the line above
 or below in the tab list or chat.
 
-| Char code             | File                                                         | Description                           | Status                  |
-| --------------------- | ------------------------------------------------------------ | ------------------------------------- | ----------------------- |
-| `\uFE030`             | ![source](src/assets/nordtal/textures/prestige/crest_01.png) | Prestige crest, tier 1, 9 × 9, h9/a8  | generated — placeholder |
-| `\uFE031` – `\uFE03B` | `prestige/crest_02.png` – `crest_12.png`                     | Prestige crest, tiers 2 – 12          | generated — placeholder |
-| `\uFE03C`             | ![source](src/assets/nordtal/textures/prestige/crest_13.png) | Prestige crest, tier 13, 9 × 9, h9/a8 | generated — placeholder |
-| `\uFE03D` – `\uFE03F` | —                                                            | reserved                              | —                       |
+| Char code             | File                                                         | Description                           | Status      |
+| --------------------- | ------------------------------------------------------------ | ------------------------------------- | ----------- |
+| `\uFE030`             | ![source](src/assets/nordtal/textures/prestige/crest_01.png) | Prestige crest, tier 1, 9 × 9, h9/a8  | placeholder |
+| `\uFE031` – `\uFE03B` | `prestige/crest_02.png` – `crest_12.png`                     | Prestige crest, tiers 2 – 12          | placeholder |
+| `\uFE03C`             | ![source](src/assets/nordtal/textures/prestige/crest_13.png) | Prestige crest, tier 13, 9 × 9, h9/a8 | placeholder |
+| `\uFE03D` – `\uFE03F` | —                                                            | reserved                              | —           |
 
 The placeholder art is a shield outline with a bottom-up fill gauge proportional to the tier —
 enough to order the thirteen tiers at a glance for testing, not the real coat-of-arms design.
@@ -211,15 +206,15 @@ glyph's texture by the component's text colour, so white art can be tinted to wh
 bundle asks for and black art cannot be tinted lighter than black. Every one of these six sits in a
 chat line whose colour an operator can change without a release.
 
-| Char code             | File                                                          | Description                                                                                               | Status                      |
-| --------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `\uFE080`             | ![source](src/assets/nordtal/textures/system/separator.png)   | Chat separator, 3 × 7, h7/a7 — a hairline rule, not a character                                           | generated — final candidate |
-| `\uFE081`             | ![source](src/assets/nordtal/textures/system/join.png)        | Joined, 7 × 7 — a triangle pointing in                                                                    | generated — placeholder     |
-| `\uFE082`             | ![source](src/assets/nordtal/textures/system/leave.png)       | Left, 7 × 7 — the same triangle, mirrored                                                                 | generated — placeholder     |
-| `\uFE083`             | ![source](src/assets/nordtal/textures/system/death.png)       | Death, 7 × 7 — a headstone, because the season answers a death with a grave                               | generated — placeholder     |
-| `\uFE084`             | ![source](src/assets/nordtal/textures/system/advancement.png) | Advancement, 7 × 7 — a four-point spark, four so it cannot be read as the five-point donor star beside it | generated — placeholder     |
-| `\uFE085`             | ![source](src/assets/nordtal/textures/system/announce.png)    | Server-wide announcement, 7 × 7 — a horn                                                                  | generated — placeholder     |
-| `\uFE086` – `\uFE08F` | —                                                             | reserved                                                                                                  | —                           |
+| Char code             | File                                                          | Description                                                                                               | Status          |
+| --------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------- |
+| `\uFE080`             | ![source](src/assets/nordtal/textures/system/separator.png)   | Chat separator, 3 × 7, h7/a7 — a hairline rule, not a character                                           | final candidate |
+| `\uFE081`             | ![source](src/assets/nordtal/textures/system/join.png)        | Joined, 7 × 7 — a triangle pointing in                                                                    | placeholder     |
+| `\uFE082`             | ![source](src/assets/nordtal/textures/system/leave.png)       | Left, 7 × 7 — the same triangle, mirrored                                                                 | placeholder     |
+| `\uFE083`             | ![source](src/assets/nordtal/textures/system/death.png)       | Death, 7 × 7 — a headstone, because the season answers a death with a grave                               | placeholder     |
+| `\uFE084`             | ![source](src/assets/nordtal/textures/system/advancement.png) | Advancement, 7 × 7 — a four-point spark, four so it cannot be read as the five-point donor star beside it | placeholder     |
+| `\uFE085`             | ![source](src/assets/nordtal/textures/system/announce.png)    | Server-wide announcement, 7 × 7 — a horn                                                                  | placeholder     |
+| `\uFE086` – `\uFE08F` | —                                                             | reserved                                                                                                  | —               |
 
 ## `nordtal:board`
 
@@ -240,7 +235,7 @@ the end of SPUA-A; wider shifts repeat the `+32`.
 The consequence: **the board's width is configuration** (`smp`'s `config.yml`, `boards[].width`,
 32–240 px), and a line that outgrows it draws over the right-hand edge rather than wrapping.
 
-The frame is drawn in the menu panels' own two colours, out of `generate_gui_panels.py`'s `PALETTE`:
+The frame is drawn in the menu panels' own two colours:
 border, corners and verticals in `highlight` (#4E5668), the interior divider in `accent` (#B08A4A).
 A board hangs on a Text Display's dark translucent background, so the frame must not be drawn dark.
 
@@ -250,19 +245,19 @@ glyphs serve as both the top and the bottom border, and corners meet the edges a
 point (4.5, 4.5), each a single line bent there with one stub reaching toward whichever edge
 continues from it.
 
-| Char code             | File                                                          | Description                                                                                               | Status                      |
-| --------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `\uFE040`             | ![source](src/assets/nordtal/textures/ui/board/corner_tl.png) | Corner, top left                                                                                          | generated — final candidate |
-| `\uFE041`             | ![source](src/assets/nordtal/textures/ui/board/corner_tr.png) | Corner, top right                                                                                         | generated — final candidate |
-| `\uFE042`             | ![source](src/assets/nordtal/textures/ui/board/corner_bl.png) | Corner, bottom left                                                                                       | generated — final candidate |
-| `\uFE043`             | ![source](src/assets/nordtal/textures/ui/board/corner_br.png) | Corner, bottom right                                                                                      | generated — final candidate |
-| `\uFE044` – `\uFE04B` | `ui/board/edge_h_{1,2,4,8,16,32,64,128}.png`                  | Horizontal edge, 1 / 2 / 4 / 8 / 16 / 32 / 64 / 128 px                                                    | generated — final candidate |
-| `\uFE04C`             | ![source](src/assets/nordtal/textures/ui/board/edge_v_l.png)  | Vertical edge, left                                                                                       | generated — final candidate |
-| `\uFE04D`             | ![source](src/assets/nordtal/textures/ui/board/edge_v_r.png)  | Vertical edge, right                                                                                      | generated — final candidate |
-| `\uFE04E` – `\uFE055` | `ui/board/divider_{1,2,4,8,16,32,64,128}.png`                 | Divider, a horizontal rule inside the board, same eight widths as the outer edge                          | generated — final candidate |
-| `\uFF001` – `\uFF128` | —                                                             | Space advances, −1 to −128. Verbatim `nordtal:bossbar`'s block; `ResourcePackTest` fails if the two drift | —                           |
-| `\uFFF01` – `\uFFF32` | —                                                             | Space advances, +1 to +32. No +64 or +128 — see above                                                     | —                           |
-| `\uFE056` – `\uFE05F` | —                                                             | reserved                                                                                                  | —                           |
+| Char code             | File                                                          | Description                                                                                               | Status          |
+| --------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------- |
+| `\uFE040`             | ![source](src/assets/nordtal/textures/ui/board/corner_tl.png) | Corner, top left                                                                                          | final candidate |
+| `\uFE041`             | ![source](src/assets/nordtal/textures/ui/board/corner_tr.png) | Corner, top right                                                                                         | final candidate |
+| `\uFE042`             | ![source](src/assets/nordtal/textures/ui/board/corner_bl.png) | Corner, bottom left                                                                                       | final candidate |
+| `\uFE043`             | ![source](src/assets/nordtal/textures/ui/board/corner_br.png) | Corner, bottom right                                                                                      | final candidate |
+| `\uFE044` – `\uFE04B` | `ui/board/edge_h_{1,2,4,8,16,32,64,128}.png`                  | Horizontal edge, 1 / 2 / 4 / 8 / 16 / 32 / 64 / 128 px                                                    | final candidate |
+| `\uFE04C`             | ![source](src/assets/nordtal/textures/ui/board/edge_v_l.png)  | Vertical edge, left                                                                                       | final candidate |
+| `\uFE04D`             | ![source](src/assets/nordtal/textures/ui/board/edge_v_r.png)  | Vertical edge, right                                                                                      | final candidate |
+| `\uFE04E` – `\uFE055` | `ui/board/divider_{1,2,4,8,16,32,64,128}.png`                 | Divider, a horizontal rule inside the board, same eight widths as the outer edge                          | final candidate |
+| `\uFF001` – `\uFF128` | —                                                             | Space advances, −1 to −128. Verbatim `nordtal:bossbar`'s block; `ResourcePackTest` fails if the two drift | —               |
+| `\uFFF01` – `\uFFF32` | —                                                             | Space advances, +1 to +32. No +64 or +128 — see above                                                     | —               |
+| `\uFE056` – `\uFE05F` | —                                                             | reserved                                                                                                  | —               |
 
 The divider has the same power-of-two tiling as `edge_h`, because a rule _inside_ the board must
 span the board's width exactly as the outer edge does; it is allocated separately from `edge_h`
@@ -300,8 +295,7 @@ scaled up.
 
 **These compose a pill, not a bar.** A HUD line is one rounded pill per piece of information, and a
 pill is `START`, a body of segments, `END`, sized to what it holds. The body is dark and
-**translucent** (about 77 %) with a one-pixel lighter rim, drawn by
-[`tools/generate_hud.py`](tools/generate_hud.py). And **every segment is exactly as wide as its name
+**translucent** (about 77 %) with a one-pixel lighter rim. And **every segment is exactly as wide as its name
 while the client advances a bitmap glyph by its width plus one**, so two segments butted together
 leave a one-pixel gap unless the composer steps back after each — `BossBarWidth` does.
 
@@ -320,13 +314,11 @@ leave a one-pixel gap unless the composer steps back after each — `BossBarWidt
 
 The code points are named after the pixel width in decimal, which is why they are not contiguous.
 
-**The plugins know every advance in this font**, which is what lets them size a pill:
-[`tools/export_bossbar_advances.py`](tools/export_bossbar_advances.py) derives the table from
-`bossbar.json` and its PNGs the way the client does — a `space` provider's number, or a bitmap's
-rightmost drawn column plus two — and writes it to
-`common/src/main/resources/nordtal/hud/bossbar-advances.properties`. `BossBarAdvancesTest` derives
-it again from the same files and fails `check` if the resource is stale, so **re-run the export
-after redrawing anything in this font.**
+**The plugins know every advance in this font**, which is what lets them size a pill: the build
+derives the table from `bossbar.json` and its PNGs the way the client does — a `space` provider's
+number, or a bitmap's rightmost drawn column plus two — into `:common`'s
+`nordtal/hud/bossbar-advances.properties`, and `BossBarAdvancesTest` derives it again independently.
+See [What the build derives](#what-the-build-derives) for when a redrawn glyph reaches a server.
 
 ### ` ` – `~` and above — ASCII override
 
@@ -341,22 +333,22 @@ metrics. `\uFEF20` – `\uFEF2F` is reserved in case a larger display set is eve
 
 Height 10, ascent 4.
 
-| Char code             | File                                                                      | Description                                                                                                                           | Status                      |
-| --------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `\uFEF00`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/compass.png)       | Compass, 10 × 10 — a red needle, in the same style as the eight below                                                                 | generated — final candidate |
-| `\uFEF01`             | `ui/bossbar/icons/fblue.png`, 8 × 10                                      | Land flag, blue — inside a player's preserved area                                                                                    | keep — season 1             |
-| `\uFEF02`             | `ui/bossbar/icons/fgreen.png`, 8 × 10                                     | Land flag, green — permanent land, untouched by the reset                                                                             | keep — season 1             |
-| `\uFEF03`             | `ui/bossbar/icons/fred.png`, 8 × 10                                       | Land flag, red — reset zone                                                                                                           | keep — season 1             |
-| `\uFEF04`             | `ui/bossbar/icons/fwhite.png`, 8 × 10                                     | Land flag, white — server-protected spawn area                                                                                        | keep — season 1             |
-| `\uFEF05`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_overworld.png) | Dimension: Nordtal (overworld), 10 × 10 — a mountain with a snow cap                                                                  | generated — final candidate |
-| `\uFEF06`             | —                                                                         | _free._ Was the farm-world dimension icon; the farm world is gone. Left as a gap rather than renumbered — a code point is an address. | —                           |
-| `\uFEF07`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_nether.png)    | Dimension: Nether, 10 × 10 — a flame                                                                                                  | generated — final candidate |
-| `\uFEF08`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_end.png)       | Dimension: End, 10 × 10 — an ender eye                                                                                                | generated — final candidate |
-| `\uFEF09`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_alive.png)  | Players alive, 10 × 10 — a heart                                                                                                      | generated — final candidate |
-| `\uFEF0A`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_deaths.png) | Deaths, 10 × 10 — a skull                                                                                                             | generated — final candidate |
-| `\uFEF0B`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_loot.png)   | Loot point, 10 × 10 — a chest                                                                                                         | generated — final candidate |
-| `\uFEF0C`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_border.png) | World border, 10 × 10 — a dashed square                                                                                               | generated — final candidate |
-| `\uFEF0D` – `\uFEF0F` | —                                                                         | reserved                                                                                                                              | —                           |
+| Char code             | File                                                                      | Description                                                                                                                           | Status          |
+| --------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `\uFEF00`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/compass.png)       | Compass, 10 × 10 — a red needle, in the same style as the eight below                                                                 | final candidate |
+| `\uFEF01`             | `ui/bossbar/icons/fblue.png`, 8 × 10                                      | Land flag, blue — inside a player's preserved area                                                                                    | keep — season 1 |
+| `\uFEF02`             | `ui/bossbar/icons/fgreen.png`, 8 × 10                                     | Land flag, green — permanent land, untouched by the reset                                                                             | keep — season 1 |
+| `\uFEF03`             | `ui/bossbar/icons/fred.png`, 8 × 10                                       | Land flag, red — reset zone                                                                                                           | keep — season 1 |
+| `\uFEF04`             | `ui/bossbar/icons/fwhite.png`, 8 × 10                                     | Land flag, white — server-protected spawn area                                                                                        | keep — season 1 |
+| `\uFEF05`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_overworld.png) | Dimension: Nordtal (overworld), 10 × 10 — a mountain with a snow cap                                                                  | final candidate |
+| `\uFEF06`             | —                                                                         | _free._ Was the farm-world dimension icon; the farm world is gone. Left as a gap rather than renumbered — a code point is an address. | —               |
+| `\uFEF07`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_nether.png)    | Dimension: Nether, 10 × 10 — a flame                                                                                                  | final candidate |
+| `\uFEF08`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_end.png)       | Dimension: End, 10 × 10 — an ender eye                                                                                                | final candidate |
+| `\uFEF09`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_alive.png)  | Players alive, 10 × 10 — a heart                                                                                                      | final candidate |
+| `\uFEF0A`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_deaths.png) | Deaths, 10 × 10 — a skull                                                                                                             | final candidate |
+| `\uFEF0B`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_loot.png)   | Loot point, 10 × 10 — a chest                                                                                                         | final candidate |
+| `\uFEF0C`             | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_border.png) | World border, 10 × 10 — a dashed square                                                                                               | final candidate |
+| `\uFEF0D` – `\uFEF0F` | —                                                                         | reserved                                                                                                                              | —               |
 
 `fblue`, `fgreen`, `fred` and `fwhite` are **land-status flags** — the `f` is _flag_, not a boss bar
 colour. All four are pixel-identical 8 × 10 sprites of a pennant on a dark-brown pole down the left
@@ -372,18 +364,17 @@ picked exactly one of them for the player's current position and paired it with 
 `\uFEF00`'s compass was the companion icon naming the world itself. **Nothing in season 2 draws any
 of the five season-1 land-status icons yet**, so the meanings above are recorded rather than in
 force, for whatever builds the SMP HUD. The eight rows at `\uFEF05`–`\uFEF0C` are drawn now, as
-10 × 10 pixel art in one style — a dark outline and one leading colour per world. The pixel maps in
-[`tools/generate_hud.py`](tools/generate_hud.py) are the art; edit them there.
+10 × 10 pixel art in one style — a dark outline and one leading colour per world. The PNGs are the art.
 
 ### `\uFEF10` – `\uFEF1F` — bearing arrows
 
 Height 10, ascent 4. Sixteen steps of 22.5°, `\uFEF10` pointing straight ahead and running
 clockwise to `\uFEF1F` at 337.5°.
 
-| Char code             | File                                  | Bearing                               | Status                      |
-| --------------------- | ------------------------------------- | ------------------------------------- | --------------------------- |
-| `\uFEF10`             | `ui/bossbar/arrows/arrow_000_0.png`   | 0°                                    | generated — final candidate |
-| `\uFEF11` – `\uFEF1F` | `arrow_022_5.png` … `arrow_337_5.png` | 22.5° … 337.5°, 22.5° steps clockwise | generated — final candidate |
+| Char code             | File                                  | Bearing                               | Status          |
+| --------------------- | ------------------------------------- | ------------------------------------- | --------------- |
+| `\uFEF10`             | `ui/bossbar/arrows/arrow_000_0.png`   | 0°                                    | final candidate |
+| `\uFEF11` – `\uFEF1F` | `arrow_022_5.png` … `arrow_337_5.png` | 22.5° … 337.5°, 22.5° steps clockwise | final candidate |
 
 Drawn as sixteen rotations of one arrowhead-and-shaft polygon, rasterized directly from the angle
 rather than freehand per step, so all sixteen agree with each other exactly (0° up, 90° right, 180°
@@ -426,36 +417,36 @@ its icon before the name beside it, so a row is composed left to right.
 
 ### `\uFE060` – `\uFE065` — chest panels
 
-| Char code | File                 | Description                  | Status                  |
-| --------- | -------------------- | ---------------------------- | ----------------------- |
-| `\uFE060` | `ui/gui/panel_1.png` | 1-row chest panel, 176 × 132 | generated — placeholder |
-| `\uFE061` | `ui/gui/panel_2.png` | 2-row chest panel, 176 × 150 | generated — placeholder |
-| `\uFE062` | `ui/gui/panel_3.png` | 3-row chest panel, 176 × 168 | generated — placeholder |
-| `\uFE063` | `ui/gui/panel_4.png` | 4-row chest panel, 176 × 186 | generated — placeholder |
-| `\uFE064` | `ui/gui/panel_5.png` | 5-row chest panel, 176 × 204 | generated — placeholder |
-| `\uFE065` | `ui/gui/panel_6.png` | 6-row chest panel, 176 × 222 | generated — placeholder |
+| Char code | File                 | Description                  | Status      |
+| --------- | -------------------- | ---------------------------- | ----------- |
+| `\uFE060` | `ui/gui/panel_1.png` | 1-row chest panel, 176 × 132 | placeholder |
+| `\uFE061` | `ui/gui/panel_2.png` | 2-row chest panel, 176 × 150 | placeholder |
+| `\uFE062` | `ui/gui/panel_3.png` | 3-row chest panel, 176 × 168 | placeholder |
+| `\uFE063` | `ui/gui/panel_4.png` | 4-row chest panel, 176 × 186 | placeholder |
+| `\uFE064` | `ui/gui/panel_5.png` | 5-row chest panel, 176 × 204 | placeholder |
+| `\uFE065` | `ui/gui/panel_6.png` | 6-row chest panel, 176 × 222 | placeholder |
 
 ### `\uFE066` – `\uFE06A` — the travel panel and its overlays
 
-| Char code | File                                                            | Ascent | Description                                                                                                                                                                                                                                                                                    | Status                      |
-| --------- | --------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `\uFE066` | ![source](src/assets/nordtal/textures/ui/gui/travel.png)        | 13     | The balloon's panel: a 6-row window with no title strip and the three world cards baked in — Nordtal, Nether / End — each 68 × 50 at x 9 or 99, y 19 or 73, covering slot columns 0–3 and 5–8 of rows 0–2 and 3–5; the bottom right is empty since 2026-09-20, where the farm world's card was | generated — final candidate |
-| `\uFE067` | ![source](src/assets/nordtal/textures/ui/gui/travel_locked.png) | −6     | Locked: a translucent shade with a padlock, the size of one card, landing on the **upper** row                                                                                                                                                                                                 | generated — final candidate |
-| `\uFE068` | the same file                                                   | −60    | Locked, landing on the **lower** row                                                                                                                                                                                                                                                           | —                           |
-| `\uFE069` | ![source](src/assets/nordtal/textures/ui/gui/travel_here.png)   | −6     | "You are here": a 2 px white frame, transparent inside, upper row                                                                                                                                                                                                                              | generated — final candidate |
-| `\uFE06A` | the same file                                                   | −60    | The same, lower row                                                                                                                                                                                                                                                                            | —                           |
+| Char code | File                                                            | Ascent | Description                                                                                                                                                                                                                                                                                    | Status          |
+| --------- | --------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `\uFE066` | ![source](src/assets/nordtal/textures/ui/gui/travel.png)        | 13     | The balloon's panel: a 6-row window with no title strip and the three world cards baked in — Nordtal, Nether / End — each 68 × 50 at x 9 or 99, y 19 or 73, covering slot columns 0–3 and 5–8 of rows 0–2 and 3–5; the bottom right is empty since 2026-09-20, where the farm world's card was | final candidate |
+| `\uFE067` | ![source](src/assets/nordtal/textures/ui/gui/travel_locked.png) | −6     | Locked: a translucent shade with a padlock, the size of one card, landing on the **upper** row                                                                                                                                                                                                 | final candidate |
+| `\uFE068` | the same file                                                   | −60    | Locked, landing on the **lower** row                                                                                                                                                                                                                                                           | —               |
+| `\uFE069` | ![source](src/assets/nordtal/textures/ui/gui/travel_here.png)   | −6     | "You are here": a 2 px white frame, transparent inside, upper row                                                                                                                                                                                                                              | final candidate |
+| `\uFE06A` | the same file                                                   | −60    | The same, lower row                                                                                                                                                                                                                                                                            | —               |
 
 ### `\uFE06B` – `\uFE070` — the same six panels without container recesses
 
-| Char code             | File                       | Description                                    | Status                  |
-| --------------------- | -------------------------- | ---------------------------------------------- | ----------------------- |
-| `\uFE06B`             | `ui/gui/panel_1_plain.png` | 1-row chest panel, no chest-area slot recesses | generated — placeholder |
-| `\uFE06C`             | `ui/gui/panel_2_plain.png` | 2-row, the same                                | generated — placeholder |
-| `\uFE06D`             | `ui/gui/panel_3_plain.png` | 3-row, the same                                | generated — placeholder |
-| `\uFE06E`             | `ui/gui/panel_4_plain.png` | 4-row, the same                                | generated — placeholder |
-| `\uFE06F`             | `ui/gui/panel_5_plain.png` | 5-row, the same                                | generated — placeholder |
-| `\uFE070`             | `ui/gui/panel_6_plain.png` | 6-row, the same — what `/navigate` opens on    | generated — placeholder |
-| `\uFE071` – `\uFE07F` | —                          | reserved for this font's growth                | —                       |
+| Char code             | File                       | Description                                    | Status      |
+| --------------------- | -------------------------- | ---------------------------------------------- | ----------- |
+| `\uFE06B`             | `ui/gui/panel_1_plain.png` | 1-row chest panel, no chest-area slot recesses | placeholder |
+| `\uFE06C`             | `ui/gui/panel_2_plain.png` | 2-row, the same                                | placeholder |
+| `\uFE06D`             | `ui/gui/panel_3_plain.png` | 3-row, the same                                | placeholder |
+| `\uFE06E`             | `ui/gui/panel_4_plain.png` | 4-row, the same                                | placeholder |
+| `\uFE06F`             | `ui/gui/panel_5_plain.png` | 5-row, the same                                | placeholder |
+| `\uFE070`             | `ui/gui/panel_6_plain.png` | 6-row, the same — what `/navigate` opens on    | placeholder |
+| `\uFE071` – `\uFE07F` | —                          | reserved for this font's growth                | —           |
 
 A list menu draws a pill across a whole row, and a recess under it shows above it, below it and on
 both sides of it. **The player's own three rows and the hotbar keep their recesses in both
@@ -477,13 +468,12 @@ more panel, its overlays and a slot map — no Java changes.
 heights are even, which is what makes "a panel per size" safe; the hopper (133, odd) is the one
 container where it would not be, and no menu opens one.
 
-Drawn by [`tools/generate_gui_panels.py`](tools/generate_gui_panels.py), which is anchored to the
-**measurements** rather than to an image, so a hand-drawn panel of the same dimensions drops in
-without a line of Java changing; the palette at the top of that script is the whole design surface.
+The panels are anchored to the **measurements** rather than to an image, so a hand-drawn panel of
+the same dimensions drops in without a line of Java changing.
 The slot grid was read off the extracted 26.2 `generic_54.png`, with one correction a real client
 forced: the player's rows sit one pixel _higher_ than the texture has them, because `ChestScreen`
 blits the texture's bottom part one row up and the slots follow the client's arithmetic, not the
-file (see `PLAYER_MAIN_FROM_BOTTOM` in the script) — the drawable cell starts at **(7, 17)**, not at
+file — the drawable cell starts at **(7, 17)**, not at
 the (8, 18) every tutorial quotes. **Re-measure at every version bump:** 1.21.9 moved the villager
 trading result slot by one pixel.
 
@@ -494,18 +484,18 @@ purpose is one ascent per layer per row, and a card two rows tall has no row. Th
 `nordtal:gui` with an ascent apiece, exactly as the balloon's overlays do — and, exactly as there, a
 picture that can land on two different rows is **declared twice**, once per ascent.
 
-| Char code                                                           | File                                                                  | Ascent | Description                                                                                                                                                                                                                                                                                        | Status                  |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `\uFE200`                                                           | ![source](src/assets/nordtal/textures/ui/gui/objective_card.png)      | −24    | An objective card, 68 × 32 — four slot columns and two slot rows, inset 2, with the progress bar's **track** sunk into it at (3, 14). The balloon's card at half the height. Upper card row, top y 37                                                                                              | generated — placeholder |
-| `\uFE201`                                                           | the same file                                                         | −60    | The same card on the lower card row, top y 73                                                                                                                                                                                                                                                      | —                       |
-| `\uFE202`                                                           | ![source](src/assets/nordtal/textures/ui/gui/objective_card_done.png) | −24    | The green wash over a finished card. Laid over the bar too, on purpose: a finished objective's bar is full, and washing only its heading would say the card was half settled                                                                                                                       | generated — placeholder |
-| `\uFE203`                                                           | the same file                                                         | −60    | The same wash, lower card row                                                                                                                                                                                                                                                                      | —                       |
-| `\uFE204`                                                           | ![source](src/assets/nordtal/textures/ui/gui/handin_tray.png)         | −4     | The hand-in screen's tray, 162 × 54 — **one** sunken surface over three chest rows, drawn from the slot cell's own corner rather than inset, because it _is_ the cells                                                                                                                             | generated — placeholder |
-| `\uFE205` – `\uFE209`                                               | `ui/gui/grave_slab_{1..5}.png`                                        | −4     | The grave's slab: a dark recess **per slot** on stone, one glyph per row count. Five is the most there can be — a player carries at most forty-one stacks, and the window's sixth row is the grave's footer                                                                                        | generated — placeholder |
-| `\uFE210` – `\uFE215`                                               | `ui/gui/bar_fill_{1,2,4,8,16,32}.png`                                 | −39    | The progress bar's **fill**, in powers of two, 3px tall. Upper card row                                                                                                                                                                                                                            | generated — placeholder |
-| `\uFE218` – `\uFE21D`                                               | the same six files                                                    | −75    | The same six, lower card row                                                                                                                                                                                                                                                                       | —                       |
-| `\uFE20A`                                                           | ![source](src/assets/nordtal/textures/ui/gui/wheel_ring.png)          | 13     | The wheel's own panel, 176 × 204 — a five-row window with a band round twelve prize cells, a hub, and a two-pixel white frame on the cell the winner rests in. A **whole panel** like the balloon's, because a circle on a nine-by-five grid is the band _between_ the cells and belongs to no row | generated — placeholder |
-| `\uFE20B` – `\uFE20F`, `\uFE216` – `\uFE217`, `\uFE21E` – `\uFE2FF` | —                                                                     |        | reserved for this block's growth                                                                                                                                                                                                                                                                   | —                       |
+| Char code                                                           | File                                                                  | Ascent | Description                                                                                                                                                                                                                                                                                        | Status      |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `\uFE200`                                                           | ![source](src/assets/nordtal/textures/ui/gui/objective_card.png)      | −24    | An objective card, 68 × 32 — four slot columns and two slot rows, inset 2, with the progress bar's **track** sunk into it at (3, 14). The balloon's card at half the height. Upper card row, top y 37                                                                                              | placeholder |
+| `\uFE201`                                                           | the same file                                                         | −60    | The same card on the lower card row, top y 73                                                                                                                                                                                                                                                      | —           |
+| `\uFE202`                                                           | ![source](src/assets/nordtal/textures/ui/gui/objective_card_done.png) | −24    | The green wash over a finished card. Laid over the bar too, on purpose: a finished objective's bar is full, and washing only its heading would say the card was half settled                                                                                                                       | placeholder |
+| `\uFE203`                                                           | the same file                                                         | −60    | The same wash, lower card row                                                                                                                                                                                                                                                                      | —           |
+| `\uFE204`                                                           | ![source](src/assets/nordtal/textures/ui/gui/handin_tray.png)         | −4     | The hand-in screen's tray, 162 × 54 — **one** sunken surface over three chest rows, drawn from the slot cell's own corner rather than inset, because it _is_ the cells                                                                                                                             | placeholder |
+| `\uFE205` – `\uFE209`                                               | `ui/gui/grave_slab_{1..5}.png`                                        | −4     | The grave's slab: a dark recess **per slot** on stone, one glyph per row count. Five is the most there can be — a player carries at most forty-one stacks, and the window's sixth row is the grave's footer                                                                                        | placeholder |
+| `\uFE210` – `\uFE215`                                               | `ui/gui/bar_fill_{1,2,4,8,16,32}.png`                                 | −39    | The progress bar's **fill**, in powers of two, 3px tall. Upper card row                                                                                                                                                                                                                            | placeholder |
+| `\uFE218` – `\uFE21D`                                               | the same six files                                                    | −75    | The same six, lower card row                                                                                                                                                                                                                                                                       | —           |
+| `\uFE20A`                                                           | ![source](src/assets/nordtal/textures/ui/gui/wheel_ring.png)          | 13     | The wheel's own panel, 176 × 204 — a five-row window with a band round twelve prize cells, a hub, and a two-pixel white frame on the cell the winner rests in. A **whole panel** like the balloon's, because a circle on a nine-by-five grid is the band _between_ the cells and belongs to no row | placeholder |
+| `\uFE20B` – `\uFE20F`, `\uFE216` – `\uFE217`, `\uFE21E` – `\uFE2FF` | —                                                                     |        | reserved for this block's growth                                                                                                                                                                                                                                                                   | —           |
 
 **The wheel's ring sits two slot columns left of centre**, which frees columns 5–8 for the "again"
 button and the two lines telling a player how many spins are left. The resting cell therefore wears
@@ -578,25 +568,24 @@ heard of into `?`. A POI name is typed by a player, so that is the ordinary case
 the client's missing-glyph box, which is six pixels wide, is in no table, and would make every
 position computed after it wrong.
 
-**The advances travel to the plugins.** `tools/generate_gui_rows.py` writes them to
-`common/src/main/resources/nordtal/menu/gui-row-advances.properties`, the same arrangement
-`nordtal:bossbar` has and for the same reason: the server composes the row, so the server has to
-know how wide a name is. **Re-run that tool after redrawing anything in these fonts** —
-`MenuFontTest` derives the table again from the pack and fails the build when the two disagree.
+**The advances travel to the plugins.** The build derives them into `:common`'s
+`nordtal/menu/gui-row-advances.properties`, the same arrangement `nordtal:bossbar` has and for the
+same reason: the server composes the row, so the server has to know how wide a name is.
+`MenuFontTest` derives the table again independently and fails the build when the two disagree.
 
 ### `\uFE100` – `\uFE107` — row plates
 
-| Char code             | File                                                                   | Size     | Description                                                                                                                                                                                                                                            | Status                  |
-| --------------------- | ---------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
-| `\uFE100`             | ![source](src/assets/nordtal/textures/ui/gui/row_pill.png)             | 158 × 14 | A list entry's plate: the slot area inset 2 on each side, so it covers all nine cells of its row and ends two pixels inside the ninth                                                                                                                  | generated — placeholder |
-| `\uFE101`             | ![source](src/assets/nordtal/textures/ui/gui/row_frame.png)            | 158 × 14 | The active marker: a 2px white frame, hollow — the same white `travel_here` uses. Drawn **last** on its row                                                                                                                                            | generated — placeholder |
-| `\uFE102`             | ![source](src/assets/nordtal/textures/ui/gui/row_button_wide.png)      | 52 × 14  | A refusing button plate, three slot cells wide — `/navigate`'s "stop"                                                                                                                                                                                  | generated — placeholder |
-| `\uFE103`             | ![source](src/assets/nordtal/textures/ui/gui/row_button_small.png)     | 14 × 14  | A square button plate, one slot cell inset 2                                                                                                                                                                                                           | generated — placeholder |
-| `\uFE104`             | ![source](src/assets/nordtal/textures/ui/gui/row_button_small_off.png) | 14 × 14  | The same, greyed — a page button with no page on the other side of it                                                                                                                                                                                  | generated — placeholder |
-| `\uFE105`             | ![source](src/assets/nordtal/textures/ui/gui/row_pill_dark.png)        | 158 × 14 | The same plate in a darker grey — a **heading** row rather than an entry. The objective menu's top row names the milestone the cards below belong to, and drawn in the entry grey it reads as a fifth thing to click                                   | generated — placeholder |
-| `\uFE106`             | ![source](src/assets/nordtal/textures/ui/gui/row_button_confirm.png)   | 50 × 14  | A button plate in the **affirming** style — gold, the brand's own, three slot cells inset 2. The only plate here that is not neutral grey or refusing red, because it is the only button in these menus whose click cannot be undone by clicking again | generated — placeholder |
-| `\uFE107`             | ![source](src/assets/nordtal/textures/ui/gui/row_button_take.png)      | 68 × 14  | The same affirming plate, four slot cells wide — the grave's "take everything", which is a longer sentence in both languages than anything else on a plate here                                                                                        | generated — placeholder |
-| `\uFE108` – `\uFE10F` | —                                                                      |          | reserved                                                                                                                                                                                                                                               | —                       |
+| Char code             | File                                                                   | Size     | Description                                                                                                                                                                                                                                            | Status      |
+| --------------------- | ---------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| `\uFE100`             | ![source](src/assets/nordtal/textures/ui/gui/row_pill.png)             | 158 × 14 | A list entry's plate: the slot area inset 2 on each side, so it covers all nine cells of its row and ends two pixels inside the ninth                                                                                                                  | placeholder |
+| `\uFE101`             | ![source](src/assets/nordtal/textures/ui/gui/row_frame.png)            | 158 × 14 | The active marker: a 2px white frame, hollow — the same white `travel_here` uses. Drawn **last** on its row                                                                                                                                            | placeholder |
+| `\uFE102`             | ![source](src/assets/nordtal/textures/ui/gui/row_button_wide.png)      | 52 × 14  | A refusing button plate, three slot cells wide — `/navigate`'s "stop"                                                                                                                                                                                  | placeholder |
+| `\uFE103`             | ![source](src/assets/nordtal/textures/ui/gui/row_button_small.png)     | 14 × 14  | A square button plate, one slot cell inset 2                                                                                                                                                                                                           | placeholder |
+| `\uFE104`             | ![source](src/assets/nordtal/textures/ui/gui/row_button_small_off.png) | 14 × 14  | The same, greyed — a page button with no page on the other side of it                                                                                                                                                                                  | placeholder |
+| `\uFE105`             | ![source](src/assets/nordtal/textures/ui/gui/row_pill_dark.png)        | 158 × 14 | The same plate in a darker grey — a **heading** row rather than an entry. The objective menu's top row names the milestone the cards below belong to, and drawn in the entry grey it reads as a fifth thing to click                                   | placeholder |
+| `\uFE106`             | ![source](src/assets/nordtal/textures/ui/gui/row_button_confirm.png)   | 50 × 14  | A button plate in the **affirming** style — gold, the brand's own, three slot cells inset 2. The only plate here that is not neutral grey or refusing red, because it is the only button in these menus whose click cannot be undone by clicking again | placeholder |
+| `\uFE107`             | ![source](src/assets/nordtal/textures/ui/gui/row_button_take.png)      | 68 × 14  | The same affirming plate, four slot cells wide — the grave's "take everything", which is a longer sentence in both languages than anything else on a plate here                                                                                        | placeholder |
+| `\uFE108` – `\uFE10F` | —                                                                      |          | reserved                                                                                                                                                                                                                                               | —           |
 
 ### `\uFE110` – `\uFE11A` — row icons
 
@@ -604,27 +593,27 @@ One 88 × 8 sheet, `ui/gui/row_icons.png`, eleven cells. **Drawn white and tinte
 the same rule the system-line icons follow: the client multiplies a glyph by its component's
 colour, so white art can be painted any colour and dark art cannot be painted lighter.
 
-| Char code             | Cell | Description                                                          | Status                  |
-| --------------------- | ---- | -------------------------------------------------------------------- | ----------------------- |
-| `\uFE110`             | 0    | A house — a world's spawn                                            | generated — placeholder |
-| `\uFE111`             | 1    | A skull — where you last died                                        | generated — placeholder |
-| `\uFE112`             | 2    | A map pin — a player-made POI                                        | generated — placeholder |
-| `\uFE113`             | 3    | A cross — stop                                                       | generated — placeholder |
-| `\uFE114`             | 4    | A left arrow — the previous page                                     | generated — placeholder |
-| `\uFE115`             | 5    | A right arrow — the next page                                        | generated — placeholder |
-| `\uFE116`             | 6    | A hand — a `HAND_IN` objective, the one kind you can click           | generated — placeholder |
-| `\uFE117`             | 7    | A pickaxe — a `STATISTIC` objective, which counts itself             | generated — placeholder |
-| `\uFE118`             | 8    | A medal — an `ADVANCEMENT` objective, earned somewhere else entirely | generated — placeholder |
-| `\uFE119`             | 9    | A tick — a finished objective, whichever kind it was                 | generated — placeholder |
-| `\uFE11A`             | 10   | An experience orb — the objective menu's share line                  | generated — placeholder |
-| `\uFE11B` – `\uFE1FF` | —    | reserved for this block's growth                                     | —                       |
+| Char code             | Cell | Description                                                          | Status      |
+| --------------------- | ---- | -------------------------------------------------------------------- | ----------- |
+| `\uFE110`             | 0    | A house — a world's spawn                                            | placeholder |
+| `\uFE111`             | 1    | A skull — where you last died                                        | placeholder |
+| `\uFE112`             | 2    | A map pin — a player-made POI                                        | placeholder |
+| `\uFE113`             | 3    | A cross — stop                                                       | placeholder |
+| `\uFE114`             | 4    | A left arrow — the previous page                                     | placeholder |
+| `\uFE115`             | 5    | A right arrow — the next page                                        | placeholder |
+| `\uFE116`             | 6    | A hand — a `HAND_IN` objective, the one kind you can click           | placeholder |
+| `\uFE117`             | 7    | A pickaxe — a `STATISTIC` objective, which counts itself             | placeholder |
+| `\uFE118`             | 8    | A medal — an `ADVANCEMENT` objective, earned somewhere else entirely | placeholder |
+| `\uFE119`             | 9    | A tick — a finished objective, whichever kind it was                 | placeholder |
+| `\uFE11A`             | 10   | An experience orb — the objective menu's share line                  | placeholder |
+| `\uFE11B` – `\uFE1FF` | —    | reserved for this block's growth                                     | —           |
 
 The four at `\uFE116`–`\uFE119` are one set and never stand beside each other: the icon on an
 objective card **is** that objective's state, so exactly one of them is drawn per card.
 
-Drawn by [`tools/generate_gui_rows.py`](tools/generate_gui_rows.py), which also writes the six font
-files themselves — they are generated and checked in, like the PNGs, because six files of eight
-providers each hand-edited is six chances for one of them to disagree with the other five.
+The six font files are not written by hand: the build generates them from
+[`templates/gui_row.json`](templates/gui_row.json), because six files of eleven providers each
+hand-edited is six chances for one of them to disagree with the other five.
 
 ## Vanilla overrides
 

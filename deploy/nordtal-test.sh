@@ -3,7 +3,7 @@
 # The decisions in deploy/nordtal.sh, exercised without a Docker daemon, without a resolver and
 # without a real environment file.
 #
-# This is the same shape of reason as dev-test.sh and entrypoint-test.sh: two of the functions
+# This is the same shape of reason as entrypoint-test.sh: two of the functions
 # below decide whether a host gets a certificate or waits forever, and one decides whether a
 # secrets file is read or executed. None of the three can be checked by running the script and
 # looking - the run either waits or it deploys.

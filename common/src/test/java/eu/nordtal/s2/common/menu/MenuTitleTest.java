@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
  */
 class MenuTitleTest {
 
-    private static final String FONT = "resource-pack/src/assets/nordtal/font/gui.json";
+    private static final String FONT = RepositoryRoot.packAssets() + "/nordtal/font/gui.json";
 
     /** Code point to advance, for the {@code space} provider. */
     private static final Map<Integer, Integer> ADVANCES = new LinkedHashMap<>();

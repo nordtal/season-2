@@ -21,6 +21,7 @@ tasks.withType<JavaCompile>().configureEach {
 // see them, and an edit to one would leave :smp:test UP-TO-DATE.
 repositoryRootTestInputs {
     // TravelPanelTest asserts the panel's PNG and gui.json agree with TravelPanel's geometry.
+    // PanelWalk reads the assembled pack instead, through the resourcePack dependency below.
     readsTree("resource-pack/src/assets")
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
@@ -46,6 +47,9 @@ repositories {
 }
 
 dependencies {
+    // The assembled resource pack, for PanelWalk: the chest-row fonts only exist there.
+    "resourcePack"(project(":resource-pack", "pack"))
+
     implementation(project(":paper-common"))
     // jcore carries this repository's config system and the JDBI 3 / HikariCP / PostgreSQL stack.
     // Flyway is excluded: this plugin never migrates anything (the bot owns the schema), and

@@ -203,6 +203,13 @@ public final class PackStation {
         if (offer == null) {
             return;
         }
+        // Read from the login query only: a login the fallback cache answered is not in the roster, and gets the pack.
+        if (roster.isPackExempt(player.getUniqueId())) {
+            if (book.packExempt(player.getUniqueId())) {
+                logger.info("{} is exempt from the resource pack by an admin; no offer sent", player.getUsername());
+            }
+            return;
+        }
         if (!book.claimOffer(player.getUniqueId())) {
             return;
         }

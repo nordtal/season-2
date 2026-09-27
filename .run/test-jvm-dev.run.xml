@@ -1,13 +1,11 @@
 <!--
-  gradlew checkDev
+  gradlew :dev:test
 
-  `deploy/dev-test.sh` — deploy/dev's reset guard - that a service has to be NAMED and the name typed back - plus the borrowed question table and the help header.
-
-  Why these are Gradle configurations while the `dev:` folders are shell ones - and what the
-  interpreter note means - is in .run/README.md.
+  The dev program's tests: the reset guard, the questions init borrows from deploy/nordtal.sh,
+  and the run configurations here.
 -->
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="tests: checkDev" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: deploy scripts">
+  <configuration default="false" name="tests: jvm dev" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: jvm">
     <ExternalSystemSettings>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -18,7 +16,7 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value="checkDev" />
+          <option value=":dev:test" />
         </list>
       </option>
       <option name="vmOptions" />

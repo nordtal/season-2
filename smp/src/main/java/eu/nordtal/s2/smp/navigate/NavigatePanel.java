@@ -29,8 +29,7 @@ import net.kyori.adventure.text.Component;
  * <b>The geometry, and where it is decided</b>
  *
  * Everything below is derived from {@link SlotGeometry} and {@link #INSET}, which is the same arrangement
- * {@code TravelPanel} has and for the same reason: the pack's generator (
- * {@code resource-pack/tools/generate_gui_rows.py}) draws the pill and the buttons from those numbers, and
+ * {@code TravelPanel} has and for the same reason: the pack draws the pill and the buttons from those numbers, and
  * {@code NavigatePanelTest} reads the PNGs and the row fonts back and asserts the two sides still agree. Nothing
  * here restates a pixel the pack decides.
  */

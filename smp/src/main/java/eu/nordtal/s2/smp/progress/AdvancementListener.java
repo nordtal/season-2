@@ -24,16 +24,9 @@ import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Advancements, which do two separate things in this design and are easy to confuse.
+ * Advancements, which feed {@code ADVANCEMENT} objectives and, separately, the curated aura awards.
  *
- * - <b>An {@code ADVANCEMENT} objective</b> counts how many distinct players have earned a given advancement. Each
- *   player contributes 1, once.
- *
- * - <b>The advancement awards</b> in {@code config.yml} pay a player 2-10 aura for a curated list of achievements,
- *   and have nothing to do with the track.
- *
- * One event feeds both, which is why they are in one listener - and why the two are spelled out above, because a
- * reader who conflates them will eventually make one pay twice.
+ * An objective counts each player once; an award pays 2 to 10 aura and has nothing to do with the track.
  */
 public final class AdvancementListener implements Listener {
 
@@ -45,7 +38,7 @@ public final class AdvancementListener implements Listener {
     private final PlayerLocales locales;
     private final SmpSounds sounds;
 
-    /** The curated award list, flattened once at construction rather than scanned per advancement. */
+    /** The curated award list, flattened once at construction. */
     private final Map<String, Integer> awards = new HashMap<>();
 
     public AdvancementListener(

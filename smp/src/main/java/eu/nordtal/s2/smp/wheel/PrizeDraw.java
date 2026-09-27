@@ -3,18 +3,7 @@ package eu.nordtal.s2.smp.wheel;
 import java.util.List;
 import java.util.Random;
 
-/**
- * The weighted draw behind the wheel.
- *
- * The pool and its weights live in {@code config.yml} and are meant to be retuned without a release; what is here is
- * only the arithmetic that turns them into one prize. Three bands are intended - common, uncommon and rare - but
- * nothing in this class knows about bands: a band is simply a group of entries whose weights add up to roughly the
- * share it should have.
- *
- * Pure and given its {@link Random}, so the distribution is asserted rather than hoped for. That matters more than
- * it looks: the wheel is the only reward channel in this design that pays out actual items, so it is the one worth
- * abusing and the one worth getting arithmetically right.
- */
+/** The weighted draw behind the wheel, pure and given its {@link Random} so the distribution can be asserted. */
 public final class PrizeDraw {
 
     private PrizeDraw() {}
@@ -22,8 +11,7 @@ public final class PrizeDraw {
     /**
      * Picks an index into {@code weights}, each with probability proportional to its weight.
      *
-     * @throws IllegalArgumentException on an empty pool, which the config validation already
-     *                                  refuses - the wheel has to have something to land on
+     * @throws IllegalArgumentException on an empty pool, which config validation already refuses
      */
     public static int draw(final List<Integer> weights, final Random random) {
         if (weights == null || weights.isEmpty()) {
@@ -55,16 +43,10 @@ public final class PrizeDraw {
     }
 
     /**
-     * The thresholds at which contributing to an objective earns extra spins.
-     *
-     * Staggered by contribution share - one spin at the qualifying threshold, two at the next, three at the highest
-     * - and hung off the <em>same</em> percentages as the aura share, so there is one rule to understand and one
-     * place to change it. That the biggest contributors collect both the aura and the most spins is accepted: this
-     * is the only place in the design where effort compounds, and it compounds into loot rather than into rank.
+     * The extra spins a contribution share earns: one per threshold in {@code percents} it reaches.
      *
      * @param percents the configured thresholds, in any order
-     * @param share this contributor's share of the objective, 0-100
-     * @return how many extra spins, which is how many thresholds were met
+     * @param share this contributor's share of the objective, 0 to 100
      */
     public static int extraSpinsFor(final List<Integer> percents, final double share) {
         if (percents == null || percents.isEmpty()) {

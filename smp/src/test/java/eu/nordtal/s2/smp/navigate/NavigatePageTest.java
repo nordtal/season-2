@@ -13,15 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/**
- * What one page of {@code /navigate} contains, which is the half of that menu a test can hold.
- *
- * Paging replaced something that quietly did the wrong thing: the window used to be
- * sized to the destination count and then <em>truncated</em> at whatever six rows held, so a server with more than
- * forty-five POIs simply stopped showing some of them and said nothing at all about it. Everything below is a case
- * where the failure would look like the menu working - the last page one entry short, the active marker on the wrong
- * row after a page turn, a distance measured through a dimension the player is not standing in.
- */
+/** What one page of {@code /navigate} contains, which is the half of that menu a test can hold. */
 class NavigatePageTest {
 
     private static final Messages MESSAGES =

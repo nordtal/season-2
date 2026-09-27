@@ -7,27 +7,15 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Whether a milestone file is internally coherent, before it is compared to anything in the database.
+ * Whether a milestone file is internally coherent, before it is compared to the database.
  *
- * {@link TrackValidation} answers "may this file replace the running one"; this answers the earlier question, "is
- * this file a track at all". They are separate because they fail for different people: a shape problem is a typo in
- * a diff somebody just wrote, and an orphaning problem is a conflict with a season that has been running for a week.
- *
- * It deliberately does <b>not</b> check that an item name, a statistic or an advancement exists: that needs an
- * initialised Bukkit registry, so it would not run at config-load time or in a test. The plugin binds the names once
- * at enable and refuses to start on one it cannot resolve.
- *
- * Nor does it check the arithmetic behind a pot - the formula produced the defaults, and enforcing it would make
- * retuning a pot impossible.
+ * Names of items, statistics and advancements are bound at enable, and pot arithmetic is not checked.
  */
 public final class TrackShape {
 
     private TrackShape() {}
 
-    /**
-     * @param milestones the milestones as parsed from the file, in file order
-     * @return every problem found. Empty means the file is a coherent track
-     */
+    /** Returns every problem in the file, empty when it is a coherent track. */
     public static List<TrackValidation.Problem> validate(final List<Milestone> milestones) {
         Objects.requireNonNull(milestones, "milestones");
         final List<TrackValidation.Problem> problems = new ArrayList<>();

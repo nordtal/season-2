@@ -10,19 +10,9 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
- * A grave settling has to say so, out loud, to everyone standing nearby.
+ * A grave settling plays a sound to everyone nearby when {@code erase} removes its entities.
  *
- * A grave settles at the moment {@code erase} removes its three entities.
- *
- * <b>Why a text search, not a behavioural test</b>
- *
- * Spawning and removing real display entities and playing a real sound both need a running Paper server, which this
- * module's test suite does not have - {@link OneGraveOneWindowTest} is in the same position for the same reason.
- * This holds the shape the rest of {@code Graves} ' tests already hold: the source itself, rather than a mocked
- * server.
- *
- * It cannot tell whether {@code entity.skeleton.death} actually sounds right at a grave - that needs a person with
- * headphones on, standing next to one.
+ * A text search, since display entities and sounds need a running server.
  */
 class GraveEraseSoundTest {
 

@@ -10,21 +10,9 @@ import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 /**
- * The wheel's animation, in the only half of it a test can reach.
+ * The wheel's animation: the strip lands on the prize already won, for every pool size and winner.
  *
- * What is asserted here is that the strip <b>lands on the prize that was already won</b>, over every pool size the
- * config can produce and every winner in it. That is the property the whole design rests on: the spin is spent in
- * SQL before a frame is drawn, so an animation that could stop anywhere else would be a second, disagreeing answer
- * about one spin.
- *
- * <b>Two shapes, and one of them is the real one</b>
- *
- * The strip stopped being nine cells with the marker in the middle when the ring replaced the row: it
- * is twelve cells resting on the first now. Every case below runs against {@link WheelPanel#shape()} - the one the
- * server actually builds - <em>and</em> against the old nine-and-four, because a resting cell at index 0 has no left
- * neighbour and is therefore the one shape that could pass an assertion by not reaching it.
- *
- * What no test here can say is whether it looks like a wheel. That is a rehearsal item.
+ * Each case runs against {@link WheelPanel#shape()} and the old nine-and-four, whose centre has a left neighbour.
  */
 class WheelStripTest {
 
@@ -69,13 +57,7 @@ class WheelStripTest {
         }
     }
 
-    /**
-     * From three prizes up, because two is not solvable and the code says so.
-     *
-     * A cell whose left neighbour is already fixed and whose right neighbour is the winner has two forbidden values;
-     * with a pool of two there is no third, and the strip is drawn with the duplicate rather than looping forever
-     * looking for one.
-     */
+    /** From three prizes up, because a pool of two cannot avoid a duplicate beside the winner. */
     @Test
     void neighboursDiffer() {
         for (final WheelStrip.Shape shape : SHAPES) {
@@ -103,7 +85,7 @@ class WheelStripTest {
                 for (int winner = 0; winner < poolSize; winner++) {
                     final int[] last = WheelStrip.landingOn(poolSize, winner, new Random(winner), shape)
                             .cells(WheelStrip.steps() - 1);
-                    // Cell 0 has no left neighbour; guarded, not skipped - the right one is what the eye follows.
+                    // Cell 0 has no left neighbour; guarded, not skipped, since the right one is what the eye follows.
                     if (shape.centre() > 0) {
                         assertNotEquals(
                                 winner,

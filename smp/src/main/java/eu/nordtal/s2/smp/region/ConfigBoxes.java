@@ -6,12 +6,7 @@ import eu.nordtal.s2.smp.config.SpawnRegionSpec;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Turns the two box lists in {@code config.yml} into {@link Boxes}.
- *
- * Its own class so that {@link Box} and {@link Boxes} stay free of the config system and can be tested as plain
- * values - the conversion is the only place the two worlds meet.
- */
+/** Turns the box lists in {@code config.yml} into {@link Boxes}. */
 public final class ConfigBoxes {
 
     private ConfigBoxes() {}
@@ -31,7 +26,7 @@ public final class ConfigBoxes {
         return new Boxes(boxes);
     }
 
-    /** The wheel of fortune's own box, the same shape for the same reason. */
+    /** The wheel of fortune's own box. */
     public static Boxes wheelRegions(final SmpSpec config) {
         final List<Box> boxes = new ArrayList<>();
         for (final SpawnRegionSpec region : config.wheelRegions()) {

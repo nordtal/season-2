@@ -5,39 +5,12 @@ import java.util.Random;
 /**
  * Where a spinning wheel's icons sit at every step of the animation, and how long each step lasts.
  *
- * <b>The prize is decided first, and the strip is built to land on it</b>
- *
- * This is the whole reason the class exists rather than the animation picking a winner as it slows down. A spin is
- * <b>spent in SQL</b> before anything is drawn - {@code Wheel} takes the row, and only the update that changed a row
- * gets a prize - so by the time there is anything to look at the outcome is already a fact. An animation that
- * decided the winner would be a second decision about the same spin, and the two would disagree the first time a
- * player closed the window early, or logged off, or the server lagged through a tick.
- *
- * So {@link #landingOn} fills the sequence with noise and then <em>writes the winner into the cell the centre marker
- * will be pointing at on the last step</em>. The wheel is honest about what it shows and dishonest about nothing:
- * the player watches a real outcome arrive.
- *
- * <b>The deceleration is a table, not a formula</b>
- *
- * Twelve steps at two ticks each is a blur; the last nine are what a wheel losing its momentum looks like, and the
- * final 18-tick pause is the one that makes people lean in. A closed-form ease would be shorter to write and
- * impossible to retune by eye - and this is a thing that is tuned by watching it, once, on a real client. Total is
- * {@value #TOTAL_TICKS} ticks, a little over five seconds, which is about as long as a reveal can hold somebody who
- * has done it before.
- *
- * Everything here is arithmetic, so {@code WheelStripTest} covers it without a server. What no test here can say
- * anything about is whether it <em>looks</em> like a wheel; that is a rehearsal item in the owner's checklist.
+ * The prize is spent in SQL first; {@link #landingOn} writes it into the cell the marker rests on at the last step.
  */
 public final class WheelStrip {
 
     /**
-     * Visible cells and the one the winner stops in, as a pair.
-     *
-     * <b>Why these are not constants any more</b>: they were 9 and 4 - one chest row, marker in the middle - because
-     * that was the only shape a wheel had. The ring the owner chose has <b>twelve</b> cells laid round a hub and
-     * stops on the top one, so the window's width and the resting index are properties of the surface rather than
-     * of this class. Nothing else changes: the sequence, the anti-repeat rule and the deceleration table are the
-     * same, which is exactly what the design artifact says a ring mode costs.
+     * The visible cells and the one the winner stops in, as the surface defines them.
      *
      * @param count how many cells the surface shows at once
      * @param centre which of them the winner stops in, counted from the first
@@ -54,14 +27,7 @@ public final class WheelStrip {
         }
     }
 
-    /**
-     * Ticks to wait <em>after</em> drawing each frame.
-     *
-     * The last entry is not a gap between frames - there is no frame after it. It is the beat between the wheel
-     * stopping
-     * and the prize landing, and it is the longest one on purpose: the strike wants a moment of silence in front of it
-     * or it reads as part of the ticking.
-     */
+    /** Ticks to wait after drawing each frame; the last is the pause before the strike. */
     private static final int[] DELAYS = {
         2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 4, 5, 6, 8, 10, 13, 16, 18,
     };
@@ -77,13 +43,9 @@ public final class WheelStrip {
     }
 
     /**
-     * A strip for a pool of {@code poolSize} prizes.
+     * A strip for a pool of {@code poolSize} prizes whose last step rests {@code winner} on the shape's resting cell.
      *
-     * Its last step rests {@code winner} on {@code shape}'s own resting cell.
-     *
-     * @throws IllegalArgumentException on an empty pool or a winner outside it - both are
-     *                                  programming errors, and a wheel drawn from a pool it does not
-     *                                  have would land on whatever index happened to be in range
+     * @throws IllegalArgumentException on an empty pool or a winner outside it
      */
     public static WheelStrip landingOn(final int poolSize, final int winner, final Random random, final Shape shape) {
         if (poolSize < 1) {

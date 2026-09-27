@@ -13,9 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Thirteen prestige colours plus the one that overrides them all.
  *
- * A bad hex value has to fall back to the default rather than vanish, and the admin colour must never equal a
- * prestige tier's own default - {@code PlayerCompositionTest} already proves the admin override wins on a real
- * composition, this file is the palette on its own.
+ * A bad hex falls back to the default, and the admin colour never equals a tier's default.
  */
 class PrestigeColoursTest {
 

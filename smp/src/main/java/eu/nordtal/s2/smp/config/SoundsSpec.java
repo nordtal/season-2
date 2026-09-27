@@ -8,44 +8,23 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
-/**
- * {@code sounds.yml} - what each feedback category sounds like.
- *
- * A file of its own rather than a block in {@code config.yml} because it is the one config an operator iterates on
- * <b>by ear</b>, with players online: {@code /smp reload} re-reads it, while {@code config.yml} is deliberately not
- * reloadable.
- *
- * Ten categories, eleven entries - open and close are the two halves of one. A call site picks a category and
- * nothing else; {@code SoundVocabularyTest} in {@code :common} fails the build if one ever names a sound directly.
- */
+/** {@code sounds.yml}: what each feedback category sounds like, reloadable, since it is tuned by ear. */
 @ConfigSpec(
         header = {
-            "smp - sounds",
+            "smp: sounds",
             "",
-            "What each feedback category sounds like. Ten categories, eleven entries - open and close are",
-            "the two halves of one - and a call site in the plugin can pick a category and nothing else.",
-            "That is a structural rule: a codebase where every call site names its own sound drifts",
-            "into nine different chimes for the same kind of event.",
+            "What each feedback category sounds like. The plugin plays categories, never a sound of",
+            "its own, so one change here reaches every call site. Open and close share one category.",
             "",
             "A KEY IS A NAMESPACED REGISTRY KEY, NOT A BUKKIT CONSTANT: minecraft:ui.button.click, never",
-            "UI_BUTTON_CLICK. The constant names change between Minecraft versions and the registry keys",
-            "do not - and a key can name a sound out of our own resource pack, which is how a custom",
-            "chime arrives later without a line of Java changing.",
+            "UI_BUTTON_CLICK. A key may name a sound from our own resource pack.",
             "",
-            "AN EMPTY KEY SILENCES THAT CATEGORY. That is the escape hatch for a sound that turns out to",
-            "be irritating with twenty people in a tavern, and it works everywhere in this plugin at",
-            "once rather than at thirteen call sites. This file is separate from config.yml precisely so",
-            "that /smp reload can pick the change up without restarting the season.",
+            "AN EMPTY KEY SILENCES THAT CATEGORY, and /smp reload picks the change up without a restart.",
+            "An unparseable key is reported in the console and silences its category; it never stops the",
+            "server. A key that names no sound plays nothing, as a pack sound does before the pack is in.",
             "",
-            "A key that is not a parseable namespaced key is reported in the console and silences its",
-            "category; it never stops the server. A key that parses but names no sound simply plays",
-            "nothing, which is exactly what a pack sound does before the pack is installed.",
-            "",
-            "Volume 1.0 is the sound's own level - above 1 does not get louder, it widens the radius",
-            "other players hear it from. Pitch is playback speed and the client clamps it to 0.5 - 2.0.",
-            "",
-            "SoundDefaultsTest resolves every key below against Bukkit's own sound list on every",
-            "build."
+            "Volume above 1 does not get louder, it widens the radius other players hear it from.",
+            "Pitch is playback speed; the client clamps it to 0.5 to 2.0."
         })
 public interface SoundsSpec {
 
@@ -143,13 +122,10 @@ public interface SoundsSpec {
     @Name("Staging")
     @Key("staging")
     @Comment({
-        "A staged moment - today only the season's opening on a player's first join.",
-        "",
-        "SHIPS EMPTY, deliberately: a staged moment's sound arrives in the resource pack with",
-        "its artwork and does not exist yet. An empty key is silence until then."
+        "A staged moment, such as the season's opening on a player's first join.",
+        "SHIPS EMPTY: the sound arrives in the resource pack with its artwork."
     })
-    @Explain(
-            "A staged moment - today only the season's opening on a player's first join. Ships empty until the resource pack has the sound.")
+    @Explain("A staged moment, such as the season's opening. Ships empty until the resource pack has the sound.")
     default SoundSpec staging() {
         return DefaultSounds.STAGING;
     }
@@ -157,8 +133,7 @@ public interface SoundsSpec {
     @Order(12)
     @Name("Reclaimed")
     @Key("reclaimed")
-    @Comment("A grave settling once it is empty. Played as a WORLD sound at the grave, not to the"
-            + " looter alone - everyone standing nearby hears it too.")
+    @Comment("A grave settling once it is empty. A WORLD sound at the grave, heard by everyone nearby.")
     @Explain("A grave settling once emptied. Heard by everyone standing nearby, not only the looter.")
     default SoundSpec reclaimed() {
         return DefaultSounds.RECLAIMED;
@@ -168,7 +143,7 @@ public interface SoundsSpec {
     @ConfigSpec
     interface SoundSpec {
 
-        // No @Comment: written out ten times, and the header above says what a key is and does.
+        // No @Comment: written out ten times, and the header says what a key does.
         @Order(1)
         @Name("Sound")
         @Key("key")

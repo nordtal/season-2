@@ -16,20 +16,7 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * That {@link Worlds#balloonSpawnPoint} hands back the point that was configured for that role.
  *
- * <b>Why this is worth a test at all</b>
- *
- * It is three lines of {@code switch} and it has exactly one way to be wrong: two arms crossed. That is invisible
- * everywhere it matters - the three points are all valid coordinates, the teleport succeeds, {@code LandingSite}
- * finds ground, the player is told they arrived, and the only symptom is somebody standing in the wrong world's
- * landing site wondering what happened. Nothing throws and no log line is written.
- *
- * Crossed arms are also what the defaults cannot catch: the Nether and End placeholders in {@code DefaultSmp} share
- * their x and z, so a config.yml round trip would pass with those two arms crossed in everything but height. Hence
- * the deliberately distinct numbers below rather than the real defaults.
- *
- * <b>No server.</b> {@code Worlds}' constructor reads three strings out of the config and {@code balloonSpawnPoint}
- * reads the config again - neither touches {@code Bukkit}, which is the whole reason this one method can be tested
- * here while the rest of the class cannot.
+ * Every number is distinct so two crossed {@code switch} arms cannot pass.
  */
 class WorldsTest {
 
@@ -58,13 +45,7 @@ class WorldsTest {
         assertAll(checks);
     }
 
-    /**
-     * A point whose five numbers are all different from every other point's.
-     *
-     * An anonymous implementation rather than {@code Specs.createUnsafe}: every method on these interfaces is a
-     * {@code default}, so overriding the five that are read is enough, and it keeps this test out of {@code DefaultSmp}
-     * 's package-private company.
-     */
+    /** A point whose five numbers are all different from every other point's. */
     private static SpawnPointSpec point(final int seed) {
         return new SpawnPointSpec() {
             @Override

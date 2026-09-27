@@ -1,15 +1,9 @@
 package eu.nordtal.s2.smp.board;
 
 /**
- * A progress bar made of characters, for the objective board.
+ * A progress bar made of characters, which scale with a Text Display at any distance, unlike pixel glyphs.
  *
- * Not the boss bar's glyph technique: this one hangs in the world as a Text Display, at whatever distance the reader
- * happens to stand, and a bar composed from pixel-width glyph segments is measured in screen pixels that a Text
- * Display does not have. Characters scale with the text they sit in, which is the only thing that is true at every
- * distance.
- *
- * Pure, so the rounding is asserted rather than eyeballed - and the rounding is the whole of it: a bar that shows
- * "full" at 99.6 % is a bar that lies at the only moment anybody is watching it.
+ * Pure, so the rounding is asserted: a bar that shows full at 99.6 % lies at the only moment anybody watches.
  */
 public final class ProgressBar {
 
@@ -19,8 +13,9 @@ public final class ProgressBar {
     private ProgressBar() {}
 
     /**
-     * @param ratio 0.0 to 1.0; anything outside is clamped rather than refused, because a lowered
-     *              target can legitimately leave more collected than is wanted
+     * Returns the bar.
+     *
+     * @param ratio 0.0 to 1.0, clamped, since a lowered target can leave more collected than wanted
      * @param width how many characters wide
      */
     public static String of(final double ratio, final int width) {
@@ -36,7 +31,7 @@ public final class ProgressBar {
         } else if (filled >= width) {
             filled = width - 1;
         }
-        // And anything that has started must show something, or "1 of 3000" looks like "not begun".
+        // Anything started shows something, or "1 of 3000" looks like "not begun".
         if (filled == 0 && clamped > 0.0) {
             filled = 1;
         }

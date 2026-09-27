@@ -30,17 +30,9 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What the winner of the start event carries into the season.
+ * What the winner of the start event carries into the season, paid on their first SMP join.
  *
- * The SMP grants it and {@code hunger-games} writes nothing: this module reads {@code hg_game.winner_member_id},
- * resolves it to a Discord id, and pays out from its own config the first time that player joins the SMP. Paying at
- * the moment of the decision instead would let a winner who never turns up be paid, and the head start is meant to
- * be seen.
- *
- * {@link SmpDao#grantHeadStart} claims the flag and books the aura in one transaction before the items are handed
- * over, so a player reconnecting twice in a second cannot win two elytras. Unlike the wheel, this cannot be put back
- * - {@code hg_winner_reward_granted} is a single boolean - so the one path that can lose the items is logged with
- * the {@code UPDATE} that retries it.
+ * {@link SmpDao#grantHeadStart} claims the flag and books the aura in one transaction before the items are handed over.
  */
 public final class HeadStart implements Listener {
 
@@ -72,12 +64,7 @@ public final class HeadStart implements Listener {
         this.sounds = sounds;
     }
 
-    /**
-     * Checked on every join, because the winner's first one is the only one that can be recognised as first.
-     *
-     * {@link EventPriority#MONITOR} and off the main thread: nothing here changes the join, and the two queries behind
-     * it must not run on the server thread.
-     */
+    /** Checked on every join, off the main thread, because only the winner's first join pays. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
@@ -97,7 +84,7 @@ public final class HeadStart implements Listener {
         }
         final int aura = config.hgWinnerAura();
         if (!dao.grantHeadStart(discordId, aura, AuraReason.HG_WINNER.stored())) {
-            // Already paid - the ordinary answer on every join after the first.
+            // Already paid: the ordinary answer on every join after the first.
             return;
         }
         final Integer balance = dao.auraOf(discordId).orElse(null);
@@ -107,7 +94,6 @@ public final class HeadStart implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> hand(mcUuid, name, discordId, aura, balance, items));
     }
 
-    /** The main-thread half: the items, the number, the line and the sound. */
     private void hand(
             final java.util.UUID mcUuid,
             final String name,
@@ -156,11 +142,7 @@ public final class HeadStart implements Listener {
         surfaces.refreshAll();
     }
 
-    /**
-     * The configured items, skipping any this server does not know.
-     *
-     * The aura is already booked by the time this is read, so one bad line must not stop the rest of the head start.
-     */
+    /** The configured items, skipping any this server does not know. */
     private List<ItemStack> items() {
         final List<ItemStack> stacks = new ArrayList<>();
         for (final WheelPrizeSpec entry : config.hgWinnerItems()) {

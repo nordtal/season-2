@@ -14,12 +14,7 @@ import org.junit.jupiter.api.Test;
 /**
  * That every node of this plugin's two hand-built command trees can be typed on its own.
  *
- * A Brigadier node with children and no {@code executes} parses nothing by itself, and Paper answers that with the
- * same line a typo gets - so a bare {@code /poi} told the player a command their own tab completion had just offered
- * them did not exist. These two trees are built by hand, outside the path that supplies that answer automatically,
- * so the check is on the shape of the tree rather than on the wording of a message.
- *
- * Nothing is executed and no server is involved, which is why the constructor arguments can be null here.
+ * A node with children and no {@code executes} answers like a typo; nothing is executed, so arguments can be null.
  */
 class EveryNodeAnswersTest {
 

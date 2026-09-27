@@ -6,78 +6,46 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The lists a fresh {@code config.yml} is written with.
+ * The lists a fresh {@code config.yml} is written with; placeholders until the spawn is built.
  *
- * Same mechanism and same caveat as {@link DefaultTrack} and {@code discord-bot} 's {@code DefaultTiers}: a default
- * method on a spec interface can only return values, a nested spec is served by a reflective proxy, and
- * {@code Specs.createUnsafe} does <b>not</b> apply defaults - every key of the spec has to appear in the map or it
- * comes out null.
- *
- * Everything here is a proposal. See {@link SmpSpec} 's comments for the reasoning behind each list; this class is
- * only the values.
+ * {@code Specs.createUnsafe} applies no defaults, so every key of a spec has to appear in its map.
  */
 final class DefaultSmp {
 
-    /**
-     * Placeholder boxes.
-     *
-     * The spawn build does not exist yet, so these describe the shape of the setting rather than the real spawn -
-     * one box per world with a balloon, generous enough to cover a small built area, and meant to be replaced once
-     * there is something to measure.
-     */
+    /** One box per world with a balloon. */
     static final List<SpawnRegionSpec> SPAWN_REGIONS = List.of(
             region("nordtal", 106 - 32, 40, 88 - 32, 106 + 32, 140, 88 + 32),
             region("nordtal_nether", -32, 20, -32, 32, 120, 32));
 
     /**
-     * Placeholder balloon volumes, one per world that has one - Nordtal and the Nether. The End has none on purpose.
+     * One balloon per world that has one; the End has none.
      *
-     * Nordtal's box sits at radius ~15 of the border centre X 106 / Z 88, which is the only one of these numbers that
-     * is
-     * not arbitrary: it has to land between radius 10 and 21.5 so that border 20 withholds travel and the opening
-     * expansion to 43 hands it over. The real box comes from the built spawn; this one is shaped so the constraint is
-     * satisfied by the defaults and a mistake in the real coordinates is what the enable-time check catches.
+     * Nordtal's box sits at radius ~15 of the border centre, between the 10 and 21.5 that {@code start()} checks.
      */
     static final List<BalloonSpec> BALLOONS = List.of(
             balloon("nordtal", 106 + 13, 64, 88 - 2, 106 + 17, 68, 88 + 2),
             balloon("nordtal_nether", -2, 32, -2, 2, 36, 2));
 
-    /**
-     * Placeholder board anchors, both in Nordtal near the border centre.
-     *
-     * Replaced from the built spawn; what matters about them is only that there are two and that they are inside
-     * radius 10, with everything else social, so the opening minutes withhold travel and nothing else.
-     */
+    /** Both in Nordtal, inside radius 10 of the border centre. */
     static final List<BoardSpec> BOARDS = List.of(
             board("OBJECTIVE", "nordtal", 106 - 4, 68, 88 + 6, 0f), board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
 
-    /**
-     * Placeholder duel platforms, both 3 x 3 and both inside radius 10 of the border centre.
-     */
+    /** Both 3 x 3 and inside radius 10 of the border centre. */
     static final List<DuelPlatformSpec> DUEL_PLATFORMS = List.of(
             platform("SWORD", "nordtal", 106 - 7, 68, 88 - 1, 106 - 5, 69, 88 + 1),
             platform("BOW", "nordtal", 106 + 5, 68, 88 - 1, 106 + 7, 69, 88 + 1));
 
-    /** A placeholder wheel, inside radius 10 with everything else social. */
+    /** Inside radius 10 with everything else social. */
     static final List<SpawnRegionSpec> WHEEL_REGIONS =
             List.of(region("nordtal", 106 - 2, 68, 88 + 2, 106 - 1, 70, 88 + 3));
 
-    /** A placeholder NPC, inside radius 10 with everything else social. */
+    /** Inside radius 10 with everything else social. */
     static final NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "", "Nordtal");
 
     /**
-     * Placeholder landing points for the balloon, one per world it flies to.
+     * Landing points around the border centres; the Nether's Y is 32, since 64 there is as likely rock as air.
      *
-     * Chosen to agree with the other placeholders in this file rather than to be neutral: Nordtal's is the border
-     * centre
-     * X 106 / Z 88 that the NPC, the boards and the duel platforms are already written around, and the other three are
-     * the 0/0 their borders are centred on. The Nether's Y follows its balloon box at 32 for the same reason the box is
-     * there - 64 in the Nether is as likely to be inside rock as above it.
-     *
-     * None of that makes them right. They are the shape of the setting, and every one of them is replaced from the
-     * built
-     * spawn; what keeps a wrong one from killing anybody in the meantime is {@code LandingSite#findSafeAt}, not the
-     * numbers.
+     * {@code LandingSite#findSafeAt} is what keeps a wrong one from killing anybody.
      */
     static final SpawnPointSpec BALLOON_SPAWN_POINT_NORDTAL = spawnPoint(106.5, 68.0, 88.5, 0f, 0f);
 
@@ -89,23 +57,12 @@ final class DefaultSmp {
     static final BalloonSpawnPointsSpec BALLOON_SPAWN_POINTS =
             balloonSpawnPoints(BALLOON_SPAWN_POINT_NORDTAL, BALLOON_SPAWN_POINT_NETHER, BALLOON_SPAWN_POINT_END);
 
-    /**
-     * A placeholder first-join point, in Nordtal on the border centre with everything else social.
-     *
-     * The world name is written out rather than taken from {@link SmpSpec#worldNordtal()} - a {@code default} method on
-     * a spec interface can only return values, so there is nothing here to read it from. That duplication is named in
-     * the key's own comment.
-     */
+    /** On Nordtal's border centre; the world name is written out, since a spec default cannot read another key. */
     static final FirstJoinSpawnSpec FIRST_JOIN_SPAWN = firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
 
-    /**
-     * The curated advancement list.
-     *
-     * Twenty-two entries across the four bands described in {@link SmpSpec#advancementAwards()}, chosen to follow
-     * the shape of a playthrough.
-     */
+    /** Twenty-two advancements across the four bands described in {@link SmpSpec#advancementAwards()}. */
     static final List<AdvancementAwardSpec> ADVANCEMENT_AWARDS = List.of(
-            // 2 - the first hours. Everybody gets these and they are worth noticing, not rewarding.
+            // 2: the first hours, worth noticing rather than rewarding.
             award("minecraft:story/mine_stone", 2),
             award("minecraft:story/upgrade_tools", 2),
             award("minecraft:story/smelt_iron", 2),
@@ -113,46 +70,36 @@ final class DefaultSmp {
             award("minecraft:husbandry/plant_seed", 2),
             award("minecraft:husbandry/breed_an_animal", 2),
 
-            // 4 - a first real project: diamonds, a bed, a working farm.
+            // 4: a first real project, such as diamonds, a bed or a working farm.
             award("minecraft:story/mine_diamond", 4),
             award("minecraft:story/shiny_gear", 4),
             award("minecraft:story/enchant_item", 4),
             award("minecraft:husbandry/make_a_sign_glow", 4),
             award("minecraft:adventure/trade", 4),
 
-            // 6 - a real trip. Every one of these needs the Nether, which is a milestone in itself.
+            // 6: a real trip, each needing the Nether.
             award("minecraft:nether/root", 6),
             award("minecraft:nether/obtain_blaze_rod", 6),
             award("minecraft:nether/find_fortress", 6),
             award("minecraft:nether/obtain_crying_obsidian", 6),
             award("minecraft:adventure/kill_a_mob", 6),
 
-            // 8 - a project measured in evenings, and mostly a group one.
+            // 8: a project measured in evenings, mostly a group one.
             award("minecraft:end/root", 8),
             award("minecraft:nether/obtain_ancient_debris", 8),
             award("minecraft:adventure/hero_of_the_village", 8),
             award("minecraft:end/find_end_city", 8),
 
-            // 10 - the two that take a season, and the only two worth as much as a small objective.
+            // 10: the two that take a season.
             award("minecraft:end/kill_dragon", 10),
             award("minecraft:nether/netherite_armor", 10));
 
-    /**
-     * The winner's head start.
-     *
-     * The thing everybody wants and nobody has on day one, plus a head start on gear that is spent the moment it
-     * is used.
-     */
+    /** The winner's head start: the thing nobody has on day one, plus gear that is spent once used. */
     static final List<WheelPrizeSpec> HG_WINNER_ITEMS = List.of(item("ELYTRA", 1, 1), item("NETHERITE_INGOT", 1, 1));
 
-    /**
-     * The wheel's pool.
-     *
-     * Weights are relative; as written, the common band is about 70 % of spins, the uncommon band about 26 %, and
-     * the rare band about one spin in twenty-five.
-     */
+    /** The wheel's pool; the common band is about 70 % of spins, uncommon 26 %, rare one in twenty-five. */
     static final List<WheelPrizeSpec> WHEEL_PRIZES = List.of(
-            // common - useful, never decisive. Total weight 700.
+            // Common: useful, never decisive. Total weight 700.
             item("COOKED_BEEF", 32, 120),
             item("OAK_LOG", 64, 110),
             item("COAL", 32, 110),
@@ -162,7 +109,7 @@ final class DefaultSmp {
             item("BREAD", 32, 60),
             item("GLASS", 64, 50),
 
-            // uncommon - pleasant, still ordinary. Total weight 260.
+            // Uncommon: pleasant, still ordinary. Total weight 260.
             item("IRON_INGOT", 32, 70),
             item("REDSTONE", 64, 50),
             item("LAPIS_LAZULI", 32, 40),
@@ -170,7 +117,7 @@ final class DefaultSmp {
             item("GOLDEN_APPLE", 4, 30),
             item("EXPERIENCE_BOTTLE", 16, 30),
 
-            // rare: occasionally needed, hated to farm; weight 40, roughly one spin in twenty-five.
+            // Rare: occasionally needed, hated to farm. Total weight 40.
             item("ANCIENT_DEBRIS", 2, 12),
             item("SHULKER_SHELL", 2, 10),
             item("END_CRYSTAL", 2, 8),
@@ -239,15 +186,7 @@ final class DefaultSmp {
         return Specs.createUnsafe(BalloonSpec.class, values);
     }
 
-    /**
-     * One default board.
-     *
-     * <b>Every key the spec declares has to appear in this map.</b> {@code createUnsafe} builds a proxy that answers
-     * from it and nothing else - not from the interface's {@code default} method - so a key left out here comes back as
-     * {@code null} and the first thing that reads it throws. That is not theoretical: {@code width} was added and
-     * forgotten here, and {@code smp} 's own {@code ConfigsTest} is what caught it, at exactly the moment
-     * {@code Configs.validate} first touched the new getter.
-     */
+    /** One default board; every key the spec declares has to appear in this map. */
     private static BoardSpec board(
             final String kind, final String world, final double x, final double y, final double z, final float yaw) {
         final Map<String, Object> values = new LinkedHashMap<>();

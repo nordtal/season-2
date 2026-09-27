@@ -13,24 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * That {@code /smp reload} actually reaches everything that reads the milestone track.
  *
- * <b>What the reload is for</b>
- *
- * {@code milestones.yml} is a separate, reloadable file for one stated reason: a milestone is appended and a target
- * lowered <em>mid-season</em>, and re-reading it must not cost a restart of the season. A consumer holding the
- * instance it was given at enable defeats exactly that - it goes on paying against the old targets, and the console
- * says "the milestone track was reloaded" regardless.
- *
- * <b>Why a text search, again</b>
- *
- * The same reason every wiring test here is one: what it protects is which reference a constructor is
- * <em>handed</em> during {@code onEnable}, and reaching {@code onEnable} needs a Paper server. The type of the
- * parameter already stops the plain instance being passed; what this catches is the next step, somebody capturing a
- * local and handing on {@code () -> captured}.
- *
- * Four consumers used to hold the startup instance - {@code ObjectiveEngine}, which decides what an
- * objective pays; {@code StatisticPoller}, which decides when one is reached; {@code NpcListener}; and
- * {@code BalloonListener}. It was found by review rather than by a test, and the symptom would have been a reload
- * that reports success and changes nothing that matters.
+ * A text search, because the wiring happens in {@code onEnable}, which needs a Paper server.
  */
 class ReloadReachesTheTrackTest {
 
@@ -78,7 +61,7 @@ class ReloadReachesTheTrackTest {
 
     @Test
     void aLoweredTargetTakesEffectAtOnce() throws IOException {
-        // An objective nobody can add to still completes on the next hand-in - that is the case the promise is for.
+        // An objective nobody can add to still completes on the next hand-in: the case the promise is for.
         final String source = (read(PLUGIN) + "\n" + read(START));
 
         final int applied = source.indexOf("track = candidate;");

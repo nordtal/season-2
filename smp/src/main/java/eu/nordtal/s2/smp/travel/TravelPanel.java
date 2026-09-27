@@ -8,23 +8,9 @@ import java.util.Optional;
 import net.kyori.adventure.text.Component;
 
 /**
- * Draws the balloon's surface: the travel panel, and a state overlay on every card that needs one.
+ * Draws the balloon's surface: the travel panel, plus a state overlay on every card that needs one.
  *
- * <b>What is baked in and what is laid over</b>
- *
- * The panel ( {@link Glyphs#GUI_TRAVEL_PANEL}) carries all three world cards, because all three are always shown in
- * the same places. What varies per player is a card's state - {@code LOCKED} gets a shade with a padlock,
- * {@code HERE} gets a white frame, {@code OPEN} gets nothing - and each state is one card-sized glyph declared twice
- * in {@code gui.json}, once per card row at the ascent that lands it there. {@link MenuTitle.Canvas} walks the
- * cursor to the card's x and draws it.
- *
- * <b>The geometry, and where it is decided</b>
- *
- * A card is drawn {@link #INSET} pixels inside the slot cells it covers, so the two rows of cards read as separate
- * and the clickable area still ends within two pixels of the art. {@code resource-pack/tools/generate_gui_panels.py}
- * draws the cards from the same three numbers ( {@link SlotGeometry} 's origin and pitch, and the inset);
- * {@code TravelPanelTest} reads the panel PNG back and asserts every card is where this class says it is, so the two
- * cannot drift apart without the build saying so.
+ * Cards sit {@link #INSET} pixels inside their slots; {@code TravelPanelTest} holds the panel PNG to this geometry.
  */
 public final class TravelPanel {
 

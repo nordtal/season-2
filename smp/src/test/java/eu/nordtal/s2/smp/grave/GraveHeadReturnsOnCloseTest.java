@@ -13,17 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The head is not loot: an emptied grave hands it over on close, by itself.
  *
- * <b>What this guarantees</b>
- *
- * With every item taken out, closing the window puts the head into the player's inventory - dropped if it does not
- * fit - and the grave goes. The head itself is not something anybody picks up; pressing "take everything" a second
- * time just to collect it is exactly the step that does not happen.
- *
- * <b>Why a text search, again</b>
- *
- * The same reason {@link OneGraveOneWindowTest} gives: a grave being emptied is a server, a client and an inventory
- * of slots, and none of the three exists in a unit test here. What can be held is the shape - which method reads the
- * head slot, and what the emptiness decision is made of.
+ * A text search, since emptying a grave needs a server and a client.
  */
 class GraveHeadReturnsOnCloseTest {
 
@@ -90,11 +80,7 @@ class GraveHeadReturnsOnCloseTest {
         return Math.min(privateAt, publicAt);
     }
 
-    /**
-     * The same upward search {@link OneGraveOneWindowTest} uses.
-     *
-     * The working directory of a test is the module, and the path above is written from the repository root.
-     */
+    /** The same upward search {@link OneGraveOneWindowTest} uses, since tests run in the module directory. */
     private static String read() {
         try {
             Path candidate = Path.of("").toAbsolutePath();

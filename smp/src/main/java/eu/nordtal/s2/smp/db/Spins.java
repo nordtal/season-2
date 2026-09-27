@@ -4,14 +4,7 @@ import java.time.LocalDate;
 import org.jspecify.annotations.Nullable;
 
 /**
- * How many spins somebody has right now, and which kind the next one is.
- *
- * <b>A day is a calendar day in the server's own time zone</b>, by decision: the free spin renews at midnight
- * Europe/Berlin, which is what {@code smp_spin.last_free} being a {@code date} already assumes. Predictable beat
- * fair-to-the-second here - somebody who plays late and again the next morning gets two spins close together, and
- * that feels like a gift rather than a rule. A rolling 24 hours would have been strictly fairer, would have moved
- * the time later every day, and would have needed a migration to {@code timestamptz}. Pure, so the boundary is
- * asserted rather than waited for.
+ * How many spins somebody has now; a day is a calendar day in the server's time zone.
  *
  * @param granted extra spins earned by contributing to objectives, cumulative
  * @param used how many of those have been spun
@@ -30,7 +23,7 @@ public record Spins(int granted, int used, @Nullable LocalDate lastFree) {
         return lastFree == null || lastFree.isBefore(today);
     }
 
-    /** How many earned spins are left. Never negative, even if the two columns ever disagree. */
+    /** How many earned spins are left, never negative. */
     public int extras() {
         return Math.max(0, granted - used);
     }
@@ -46,8 +39,7 @@ public record Spins(int granted, int used, @Nullable LocalDate lastFree) {
     /**
      * Which kind the next spin is.
      *
-     * The free one goes first, deliberately: an earned spin kept is an earned spin, but a free one not taken today is
-     * gone at midnight.
+     * The free one goes first, since an unused free spin is gone at midnight.
      */
     public boolean nextIsFree(final LocalDate today) {
         return hasFree(today);

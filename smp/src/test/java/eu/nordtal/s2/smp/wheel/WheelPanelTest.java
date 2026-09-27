@@ -17,14 +17,7 @@ import java.util.Set;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
-/**
- * Walks the wheel's composed window and holds it against the ring the pack drew.
- *
- * The two that carry the most are {@link #theRingIsWhereTheItemsAre} - the panel is baked and the slot map is Java,
- * so a cell painted in one place and filled in another is a prize icon sitting on bare panel with a hole in the ring
- * beside it - and {@link #theRingHasMovedTwoColumnsLeft}, which is the whole of what the owner asked for and the
- * reason the controls have anywhere to be.
- */
+/** Walks the wheel's composed window and holds it against the ring the pack drew. */
 class WheelPanelTest {
 
     @Test

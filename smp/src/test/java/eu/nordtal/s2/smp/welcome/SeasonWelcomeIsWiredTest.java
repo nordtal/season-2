@@ -12,24 +12,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The season's opening moment is switched on, and it runs late enough to be in the right language.
  *
- * <b>The two failures it exists for, and neither has a symptom</b>
- *
- * - <b>Nothing calls it.</b> A moment that happens once per player per season, on a path nobody runs twice, is the
- *   definition of a mechanism that can be complete, tested and never invoked - exactly
- *   {@code AdminOperators#refresh}, and exactly the head start, which was configured, migrated and
- *   documented and had no reader at all until it was built. Nobody reports a welcome they were never
- *   told to expect.
- *
- * - <b>It runs too early.</b> {@code PlayerLocales#of} answers English until the row lands, so a moment hung off
- *   {@code PlayerJoinEvent} is a moment in English for every German player, for the whole season, with nothing
- *   anywhere saying so. That is a mistake this module already made once - and the callback in
- *   {@code PresenceListener} is the only place in it where the language is known.
- *
- * <b>Why a text search</b>
- *
- * All three sites are a constructor call and a registration. Reaching them needs a server, a database and a player;
- * what they protect is one line each, which is what a merge drops. The same reason {@code HeadStartIsWiredTest} and
- * {@code AdminWatchWiringTest} are text searches.
+ * A text search: nothing calling it, or calling it from {@code PlayerJoinEvent}, would both go unnoticed.
  */
 class SeasonWelcomeIsWiredTest {
 
@@ -91,7 +74,7 @@ class SeasonWelcomeIsWiredTest {
                 "the welcome is called before the join line, so a staged moment would begin while the join"
                         + " is still settling");
 
-        // The join handler runs immediately; the callback runs once the row is back - calling it from onJoin is wrong.
+        // The callback runs once the row is back, after the join handler, so calling it from onJoin is wrong.
         final int onJoin = presence.indexOf("public void onJoin(");
         final int loadLanguage = presence.indexOf("private void loadLanguage(");
         assertTrue(

@@ -10,62 +10,28 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code prestige.yml} - the thirteen crest tiers.
+ * {@code prestige.yml}: the thirteen crest tiers, when each is reached and the colour a name is drawn in.
  *
- * When each one is reached, and what a name at that tier is drawn in.
- *
- * <b>One file, because a tier is one thing</b>
- *
- * {@link #hours()} and {@link #colours()} belong together by position: whoever edits the seventh line of one has to
- * find the seventh line of the other and trust that the orders agree. Splitting them into two lists would make that
- * an unwritten contract, and the failure - tier 7 turning gold at tier 8's hours - would be invisible in both files.
- *
- * So {@link #hours()} and {@link #colours()} are two sibling blocks with the <b>same thirteen keys</b>, in the same
- * order, in one file. Steward draws them as one row per tier, and the matching key sets are what lets it (see
- * {@code pairedBlocks} in the frontend).
- *
- * A file of its own rather than a block in {@code config.yml}, for the same reason {@code colours.yml} is:
- * {@code /smp reload} re-reads it, and a season that is retuning its crest ladder should not need a restart to see
- * the change.
- *
- * Every colour is a hex string, for the same reason {@link ColoursSpec} 's are: a configured colour has to be
- * something a colour picker can hand back, and {@link eu.nordtal.s2.smp.prestige.PrestigeColours#parse} is where a
- * bad one is caught - it reports the problem and falls back to the default rather than stopping the server. The
- * hours are stricter, and they have to be: {@link eu.nordtal.s2.smp.prestige.Prestige} 's constructor refuses a
- * ladder that is not thirteen values rising strictly from zero, because a crest ladder that skips is not a smaller
- * mistake than a missing one.
- *
- * {@link #admin()} sits beside both blocks rather than inside either: it is not a fourteenth prestige tier, it is
- * the one colour that overrides all thirteen. Keeping it a sibling is what keeps steward's colour picker from ever
- * offering it as part of a tier row, and what keeps the two blocks' key sets identical.
+ * Hours and colours are sibling blocks with the same keys, so steward pairs them; {@code admin} sits beside both.
  */
 @ConfigSpec(
         header = {
-            "smp - the prestige crest ladder",
+            "smp: the prestige crest ladder",
             "",
             "Thirteen tiers, each with the online time that reaches it and the colour a name is drawn",
-            "in once it does: chat, the tab list, the nametag above their head and every system line",
-            "that names them (join, leave, death, advancement).",
+            "in once it does: chat, the tab list, the nametag and every system line that names them.",
             "",
-            "THE TWO BLOCKS BELOW HAVE THE SAME THIRTEEN KEYS, ON PURPOSE. 'hours' and 'colours' are",
-            "one ladder written twice, and steward shows them as one row per tier. Do not add a key to",
-            "one without adding it to the other.",
+            "THE TWO BLOCKS BELOW HAVE THE SAME THIRTEEN KEYS. 'hours' and 'colours' are one ladder",
+            "written twice; do not add a key to one without adding it to the other.",
             "",
-            "HOURS are network-wide online time, AFK included on purpose: this is a measure of",
-            "presence, not of effort, and it is the reason play time is not an aura source. The list",
-            "must be exactly thirteen values, the first 0, rising strictly - thirteen because that is",
-            "how many crest designs the resource pack draws, and a fourteenth tier would have nothing",
-            "to render as. The tier is DERIVED and never stored, so retuning this is an edit and a",
-            "'/smp reload' rather than a migration plus a backfill.",
+            "HOURS are network-wide online time, AFK included. Exactly thirteen values, the first 0,",
+            "rising strictly: the resource pack draws thirteen crests. The tier is derived and never",
+            "stored, so retuning this is an edit and a '/smp reload'.",
             "",
-            "EVERY COLOUR IS A HEX COLOUR, like #5fbfae. A value that is not a parseable hex colour is",
-            "reported in the console and the default takes its place - it never stops the server,",
-            "because a typo there is not worth the season going offline. A bad HOUR does stop the",
-            "load, because a ladder that does not rise is not a colour that looks odd.",
+            "EVERY COLOUR IS A HEX COLOUR, like #5fbfae. An invalid one is reported in the console and",
+            "the default takes its place; it never stops the server. A bad HOUR does stop the load.",
             "",
-            "'admin' is not a fourteenth prestige tier. It is the one colour that wins over all",
-            "thirteen: an admin at tier 13 still shows this colour, never tier 13's, because authority",
-            "is a role that can be revoked in an instant and a prestige tier is earned over a season.",
+            "'admin' is not a fourteenth tier. It is the one colour that wins over all thirteen.",
             "",
             "Every setting can be overridden with an environment variable named",
             "NORDTAL_SMP_PRESTIGE_<PATH>, with '.' and '-' both becoming '_'."
@@ -75,12 +41,8 @@ public interface PrestigeSpec {
     @Order(1)
     @Name("Admin")
     @Key("admin")
-    @Comment({
-        "Wins over every prestige tier. Default is vanilla's own RED (#ff5555) - no prestige",
-        "tier's default is anywhere near it, so an admin's name never reads as \"maybe a high",
-        "tier\" by accident."
-    })
-    @Explain("Overrides every prestige tier below - not a fourteenth tier of its own.")
+    @Comment("Wins over every prestige tier. Keep it far from every tier's colour, as vanilla RED is.")
+    @Explain("Overrides every prestige tier below, rather than being a fourteenth tier of its own.")
     default String admin() {
         return "#ff5555";
     }
@@ -90,12 +52,10 @@ public interface PrestigeSpec {
     @Key("hours")
     @Comment({
         "When each tier is reached, in hours of network-wide online time. Exactly thirteen,",
-        "the first 0, rising strictly. Calibrated so tier 13 is reachable in two to three",
-        "months by somebody who plays regularly and leaves the client running some nights."
+        "the first 0, rising strictly."
     })
     @NoExplanationNeeded
     default TierHoursSpec hours() {
-        // createDefault fills the instance from TierHoursSpec's own defaults.
         return Specs.createDefault(TierHoursSpec.class);
     }
 
@@ -238,7 +198,7 @@ public interface PrestigeSpec {
         @Order(1)
         @Name("Tier 1")
         @Key("tier-01")
-        @Comment("Teal - the colour of a crest nobody has worn for long.")
+        @Comment("Teal, the colour of a crest nobody has worn for long.")
         @NoExplanationNeeded
         default String tier01() {
             return "#5fbfae";
@@ -346,7 +306,7 @@ public interface PrestigeSpec {
         @Order(13)
         @Name("Tier 13")
         @Key("tier-13")
-        @Comment("Legend - the brightest, warmest colour of all fourteen (thirteen tiers plus admin).")
+        @Comment("Legend, the brightest and warmest colour of all fourteen, admin included.")
         @NoExplanationNeeded
         default String tier13() {
             return "#fff6d8";

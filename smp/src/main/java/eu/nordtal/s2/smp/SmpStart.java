@@ -64,18 +64,14 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
- * Everything {@link SmpPlugin#start()} wires up once its refusals have already passed.
+ * Everything {@link SmpPlugin#start()} wires up once its refusals have passed.
  *
- * A separate file rather than a longer {@code start()}, so that method stays the thin sequence of steps it reads as.
- * <b>This class never assigns a field of {@link SmpPlugin} directly</b> - it only builds and returns values; every
- * assignment happens in {@code SmpPlugin} itself, in the same statement NullAway's {@code KnownInitializers} check
- * can see, because that check cannot follow a call into a different class.
+ * It only returns values: NullAway's initializer check cannot follow a field assignment into another class.
  */
 final class SmpStart {
 
     private SmpStart() {}
 
-    /** The pool, JDBI handle, DAO, identities cache and messaging built for the plugin. */
     record Database(
             HikariDataSource pool,
             Jdbi jdbi,
@@ -90,7 +86,7 @@ final class SmpStart {
         final SmpDao dao = jdbi.onDemand(SmpDao.class);
         final Identities identities = new Identities(dao);
 
-        // Later message roots win, so this module's own keys override the shared ones.
+        // Later roots win, so this module's own keys override the shared ones.
         final Messages messages = Messages.load(
                 plugin.getClass().getClassLoader(),
                 java.util.List.of("messages/paper-common", "messages/commands", "messages/smp"),
@@ -110,7 +106,7 @@ final class SmpStart {
                 new SmpHud(plugin, plugin.worlds, plugin.season, plugin.navigation, plugin.messages, plugin.locales);
         hud.start();
 
-        // Discord announcements ride on this: one command_request row per language, fire and forget.
+        // Discord announcements: one {@code command_request} row per language, fire and forget.
         final CommandRequests requests = CommandRequests.borrowing(plugin.pool);
         final Announcer announcer = new Announcer(
                 requests,
@@ -120,11 +116,10 @@ final class SmpStart {
         return new HudAndAnnouncer(hud, requests, announcer);
     }
 
-    /** {@code effects}, the two objects that read the player composition, and the started boards. */
     record Surfaces(WorldEffects effects, PlayerComposition composition, PlayerSurfaces surfaces, Boards boards) {}
 
     static Surfaces wireEffectsAndSurfaces(final SmpPlugin plugin, final SmpSpec config) {
-        // One instance: whichever object stamped a rocket must be the one WorldEffects#onDamage asks.
+        // One instance: whichever object stamped a rocket must be the one {@code WorldEffects#onDamage} asks.
         final WorldEffects effects = new WorldEffects(plugin);
         plugin.getServer().getPluginManager().registerEvents(effects, plugin);
 
@@ -139,14 +134,14 @@ final class SmpStart {
     }
 
     static AdminOperators startSurfaceRefreshAndOperatorSweep(final SmpPlugin plugin) {
-        // One async sweep for everything a surface reads from the database, drawn far more often than it changes.
+        // Surfaces are drawn far more often than their data changes.
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, plugin::refreshSurfaceData, 100L, 100L);
-        // The one main-thread read of the player collection, for /smp status - see the field.
+        // The one main-thread read of the player collection, for {@code /smp status}.
         Bukkit.getScheduler()
                 .runTaskTimer(
                         plugin, () -> plugin.online = Bukkit.getOnlinePlayers().size(), 20L, 20L);
 
-        // The sweep runs before any join can be handled, since ops.json is persistent across a crash.
+        // Sweeps before any join, since {@code ops.json} survives a crash.
         final AdminOperators operators = BukkitOps.create();
         operators.sweep();
         return operators;
@@ -159,19 +154,18 @@ final class SmpStart {
             SeasonWelcome welcome) {}
 
     static Presence wirePresenceInputs(final SmpPlugin plugin, final SmpSpec config, final Surfaces surfaces) {
-        // One instance shared with the watcher below, so the fullness check never reads a stale cache.
+        // Shared with the watcher so the fullness check never reads a stale cache.
         final FullServerAdmission admission = new FullServerAdmission();
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(new JoinGate(plugin.identities, admission, plugin.messages, plugin.logger()), plugin);
-        // The composition is this server's half of the shared lines; the rest is :paper-common's, on every backend.
         final SystemLines systemLines = new SystemLines(
                 player ->
                         surfaces.composition().chatPrefix(player.getName(), plugin.identities.of(player.getUniqueId())),
                 plugin.messages,
                 plugin.locales);
 
-        // Stopped at disable because Paper disables plugins before saving players, or a blindness gets saved too.
+        // Paper disables plugins before saving players, so a blindness would otherwise be saved too.
         final BukkitCinematics cinematics = new BukkitCinematics(plugin, plugin.sounds::play);
         plugin.getServer().getPluginManager().registerEvents(cinematics, plugin);
         final SeasonWelcome welcome =
@@ -203,7 +197,7 @@ final class SmpStart {
                 .registerEvents(
                         new NavigateListener(plugin, plugin.dao, plugin.navigation, plugin.identities, plugin.sounds),
                         plugin);
-        // The start event's winner is paid on their first join here, never by hunger-games; see HeadStart for why.
+        // The start event's winner is paid on their first join here, never by hunger-games.
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
@@ -219,12 +213,7 @@ final class SmpStart {
                         plugin);
     }
 
-    /**
-     * Keeps an admin an operator only for as long as the database still says so.
-     *
-     * The admin flag also feeds {@link Identities}, so a nametag's admin tag is redrawn only when the roster
-     * actually changed.
-     */
+    /** Keeps an admin an operator only for as long as the database still says so. */
     static AdminWatch buildAdminWatch(
             final SmpPlugin plugin,
             final AdminOperators operators,
@@ -269,10 +258,10 @@ final class SmpStart {
     static Activities wireActivities(final SmpPlugin plugin, final SmpSpec config, final WorldEffects effects) {
         final Graves graves = new Graves(
                 plugin, plugin.dao, plugin.identities, plugin.messages, plugin.locales, plugin.sounds, effects, config);
-        // Grave decay runs once a minute and immediately on start, so graves are not left standing after downtime.
+        // Also immediately on start, so graves do not outlive their decay across downtime.
         Bukkit.getScheduler()
                 .runTaskTimerAsynchronously(plugin, () -> graves.expire(config.graveMaxAgeHours()), 20L, 20L * 60L);
-        // Ticks once a second on the main thread since TextDisplay#text is a packet, but writes only near expiry.
+        // Every second on the main thread, but it writes only near expiry.
         Bukkit.getScheduler().runTaskTimer(plugin, graves::tickHolograms, 20L, 20L);
         final Duels duels = new Duels(
                 plugin,
@@ -329,7 +318,7 @@ final class SmpStart {
     }
 
     static SpawnNpc wireNpc(final SmpPlugin plugin, final SmpSpec config) {
-        // The figure in the tavern, and the only way a HAND_IN objective can be fulfilled.
+        // The only way a {@code HAND_IN} objective can be fulfilled.
         final SpawnNpc npc = new SpawnNpc(plugin, config);
         npc.spawn();
         plugin.getServer()
@@ -347,7 +336,7 @@ final class SmpStart {
                                 plugin.locales,
                                 plugin.sounds),
                         plugin);
-        // Separate from NpcListener, which is what the figure is for; this only keeps it standing against damage.
+        // Only keeps the figure standing against damage.
         plugin.getServer().getPluginManager().registerEvents(new NpcProtection(npc), plugin);
         return npc;
     }
@@ -378,7 +367,7 @@ final class SmpStart {
                                 plugin.sounds,
                                 effects),
                         plugin);
-        // The balloon a player sees, as opposed to the box they step into: one item display per configured box.
+        // One item display per configured box.
         final BalloonDisplay balloonDisplay = new BalloonDisplay(plugin, balloons);
         balloonDisplay.spawn();
         plugin.getServer()
@@ -388,7 +377,7 @@ final class SmpStart {
                                 plugin, plugin.worlds, plugin.season, plugin.messages, plugin.locales, plugin.sounds),
                         plugin);
 
-        // One listener for every menu's SURFACE_OPEN/CLOSE; the grave inventory has a null holder, hence the predicate.
+        // One listener for every menu; the grave inventory has a null holder, hence the predicate.
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(new SurfaceListener(plugin.sounds, plugin.graves::isShowingGrave), plugin);
@@ -396,10 +385,7 @@ final class SmpStart {
     }
 
     /**
-     * The command surface: built after the activities, started before the admin watch.
-     *
-     * Half of what /smp does goes through the objective engine, and the inbox rides on the admin watch's LISTEN
-     * connection, which carries both nordtal_admin and nordtal_command.
+     * The command surface, built after the activities and started before the admin watch it shares a connection with.
      */
     record CommandLayer(
             BukkitSmpEffects chatEffects,
@@ -432,11 +418,10 @@ final class SmpStart {
                 commandWaiter,
                 (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
 
-        // Built here rather than in the inbox so /smp reload can replace it, instead of answering with stale wording.
+        // Built here so {@code /smp reload} can replace it.
         final Messages sharedMessages = PaperCommandInbox.sharedBundle(plugin);
         final PaperCommandInbox inbox =
                 new PaperCommandInbox(plugin, Target.SMP, plugin.requests, access, sharedMessages);
-        // Inline, on purpose - see BukkitSmpEffects' own field comment on SmpPlugin.
         final SmpEffects inboxEffects = new BukkitSmpEffects(
                 plugin,
                 Runnable::run,
@@ -454,7 +439,7 @@ final class SmpStart {
 
     static CommandFilter wireCommandFilterAndStartWatch(
             final SmpPlugin plugin, final SmpSpec config, final DatabaseSpec database, final PaperCommandInbox inbox) {
-        // The command allowlist: what this server tells a client exists at all; fails open until one is published.
+        // Fails open until an allowlist is published.
         final CommandFilter commandFilter = new CommandFilter(
                 plugin,
                 CommandFilter.Source.of(AllowlistDirectory.using(plugin.pool)),

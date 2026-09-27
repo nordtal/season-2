@@ -23,19 +23,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * The arithmetic behind {@code /aura}, against a real PostgreSQL running the real migrations.
  *
- * <b>Why this needs a container</b>
- *
- * Every part of it is the database's. The place is a {@code count(*) FILTER (WHERE ...)}, which is PostgreSQL's own
- * syntax and not something a fake evaluates; the population is a join through {@code account_link}, so who is
- * counted is decided by a row existing rather than by any Java; and the two numbers come back through a constructor
- * mapper, where a renamed column is a runtime failure and not a compile one.
- *
- * What the numbers are <em>for</em> is the reason it is worth the container: {@code /aura} prints "number 4 of 37"
- * and then a list under it, and the list is drawn by {@link SmpDao#topAura(int)} from exactly this population. If
- * the two ever counted different people the sentence would sit above a list that contradicts it - and nobody reports
- * that, because it looks like a leaderboard.
- *
- * It <b>skips itself</b> when no Docker daemon is reachable.
+ * The place and {@link SmpDao#topAura(int)} must count the same people; skips itself without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AuraPlaceIntegrationTest {

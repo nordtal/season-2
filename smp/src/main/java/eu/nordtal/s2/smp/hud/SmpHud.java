@@ -33,33 +33,16 @@ import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The SMP's two boss bar lines, drawn with the same technique as the hunger games' bar.
+ * The SMP's two boss bar lines: dimension and milestone, and the target while {@code /navigate} is on.
  *
- * The vanilla bar is made invisible by the resource pack, and one rounded pill per piece of information is drawn,
- * each sized to what it holds ({@link BossBarLine}).
- *
- * The two lines: line 1 is always shown and carries the current dimension, and the current
- * milestone with its progress - the dimension alone once the track has run out. Line 2 shows only
- * while {@code /navigate} is active, and carries the target, an arrow to it and the distance.
- *
- * <b>There is no season countdown</b>, and there never will be one: the season has no fixed end
- * date, and nothing in this design may depend on knowing when it stops.
- *
- * Line 2 is hidden rather than emptied when nobody is navigating. An empty bar still occupies its
- * strip of screen, and {@code /navigate} being off by default means most players would see that
- * strip most of the time.
+ * The second line is hidden rather than emptied; there is no season countdown, as the season has no end date.
  */
 public final class SmpHud {
 
     /** Four times a second: fast enough that the navigation arrow tracks a turning player. */
     private static final long REFRESH_TICKS = 5L;
 
-    /**
-     * How long a status-bar announcement stays up before the ordinary line comes back.
-     *
-     * Short, because the bar's ordinary line is the one that carries the dimension and the milestone: an announcement
-     * that held it for longer would hide both to say something that has already been read.
-     */
+    /** How long a status-bar announcement stays up before the dimension and milestone come back. */
     private static final Duration ANNOUNCEMENT = Duration.ofSeconds(8);
 
     private final Plugin plugin;
@@ -72,12 +55,7 @@ public final class SmpHud {
     private final Map<UUID, BossBar> statusBars = new HashMap<>();
     private final Map<UUID, BossBar> navigateBars = new HashMap<>();
 
-    /**
-     * Who is currently being told something, and until when.
-     *
-     * Main thread only, hence the plain {@link HashMap}. A stale entry is dropped by the tick that reads it rather than
-     * by a sweep.
-     */
+    /** Who is currently being told something, and until when; main thread only. */
     private final Map<UUID, Announcement> announcements = new HashMap<>();
 
     private @Nullable BukkitTask task;
@@ -117,9 +95,8 @@ public final class SmpHud {
     }
 
     /**
-     * Takes the status line over for {@link #ANNOUNCEMENT}, keeping the dimension icon. Main thread.
-     *
-     * The icon stays: a bar that changes shape as well as text reads as a glitch rather than as a message.
+     * Takes the status line over for {@link #ANNOUNCEMENT}, keeping the dimension icon.
+     * Main thread.
      *
      * @param line already rendered, in the player's own language, and short enough for the bar
      */
@@ -171,7 +148,7 @@ public final class SmpHud {
     }
 
     /**
-     * The world's pill, then the milestone's - or the world's alone once there is no milestone left.
+     * The world's pill, then the milestone's, or the world's alone once the track has run out.
      *
      * An announcement takes the world's pill over rather than adding a third.
      */
@@ -223,7 +200,7 @@ public final class SmpHud {
                 Pill.of(messages.format(locale, MESSAGES.smp().hud().distance(distance))));
     }
 
-    /** The live announcement for a player, or null - dropping it here rather than on a timer. */
+    /** The live announcement for a player, or null, dropping an expired one here. */
     private @Nullable String announcementFor(final UUID player) {
         final Announcement announcement = announcements.get(player);
         if (announcement == null) {

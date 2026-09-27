@@ -4,44 +4,28 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * The prestige crest: a tier from 1 to 13, derived from a player's total online time.
+ * The prestige crest: a tier from 1 to 13, derived from a player's total online time, AFK included.
  *
- * AFK time counts on purpose: this measures presence, not effort, which is why play time is not an aura source.
- *
- * <b>The tier is derived, never stored</b>, so retuning the thresholds is a config edit rather than a migration and
- * a backfill. This class therefore has no state and no database: it is called from render paths many times a second
- * and must never do anything but arithmetic.
- *
- * The seconds come from {@code player_playtime}, written by <b>the proxy</b>: only the proxy sees a whole session
- * across servers.
+ * Derived and never stored, and pure arithmetic, because render paths call it many times a second.
  */
 public final class Prestige {
 
     /** The lowest tier, which everybody has from their first second. */
     public static final int MINIMUM_TIER = 1;
 
-    /**
-     * The number of crest designs the resource pack draws, and therefore a hard cap rather than a configuration choice.
-     *
-     * {@code Glyphs} allocates thirteen code points, and a fourteenth tier would have nothing to render as.
-     */
+    /** The number of crest designs the resource pack draws, and therefore a hard cap. */
     public static final int TIER_COUNT = 13;
 
-    /**
-     * The config default, in hours.
-     *
-     * Calibrated so tier 13 is reachable in two to three months by somebody who plays regularly.
-     */
+    /** The config default in hours, so a regular player reaches tier 13 in two to three months. */
     public static final List<Integer> DEFAULT_THRESHOLD_HOURS =
             List.of(0, 2, 5, 10, 20, 35, 55, 85, 125, 175, 250, 350, 500);
 
     private final long[] thresholdSeconds;
 
     /**
-     * @param thresholdHours thirteen ascending hour thresholds, the first of which must be zero -
-     *                       tier 1 is what a player has before they have played at all, so a
-     *                       non-zero first threshold would leave a brand new player with no crest
-     *                       to draw
+     * Builds the tier table.
+     *
+     * @param thresholdHours thirteen ascending hour thresholds, the first zero so a new player has a crest
      * @throws IllegalArgumentException if the list is not thirteen ascending values starting at zero
      */
     public Prestige(final List<Integer> thresholdHours) {
@@ -72,14 +56,15 @@ public final class Prestige {
         }
     }
 
-    /** @return the tier table built from {@link #DEFAULT_THRESHOLD_HOURS} */
+    /** Returns the tier table built from {@link #DEFAULT_THRESHOLD_HOURS}. */
     public static Prestige defaults() {
         return new Prestige(DEFAULT_THRESHOLD_HOURS);
     }
 
     /**
-     * @param seconds total online time, network-wide, from {@code player_playtime.seconds}; a
-     *                negative value is treated as none
+     * Returns the crest tier for an online time.
+     *
+     * @param seconds total network-wide online time; a negative value is treated as none
      * @return the crest tier, between {@link #MINIMUM_TIER} and {@link #TIER_COUNT}
      */
     public int tierOf(final long seconds) {
@@ -96,6 +81,8 @@ public final class Prestige {
     }
 
     /**
+     * Returns the online time at which a tier is reached.
+     *
      * @param tier a tier between 1 and 13
      * @return the online time in seconds at which it is reached
      * @throws IllegalArgumentException if the tier is outside the table
@@ -109,7 +96,7 @@ public final class Prestige {
     }
 
     /**
-     * How far a player is through their current tier, for a progress bar that has somewhere to go.
+     * How far a player is from their next tier.
      *
      * @param seconds total online time
      * @return the seconds still needed for the next tier, or {@code 0} at tier 13

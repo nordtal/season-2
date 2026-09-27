@@ -6,15 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * The crest tier, which is a pure function of one number.
- *
- * It is rendered thousands of times a session - in the tab list, on every nametag and in every chat line.
- *
- * The boundaries are what is worth pinning. A player who has just crossed a threshold and does not see the new crest
- * is a bug report; a player who sees it one second early is not, but the off-by-one that produces the second is the
- * same off-by-one that produces the first.
- */
+/** The crest tier, a pure function of play time, pinned at its boundaries. */
 class PrestigeTest {
 
     private static final long HOUR = 3600L;
@@ -63,7 +55,7 @@ class PrestigeTest {
     void theDistanceToTheNextTierIsWhatABoardWouldPrint() {
         assertEquals(2 * HOUR, prestige.secondsToNextTier(0L));
         assertEquals(HOUR, prestige.secondsToNextTier(HOUR));
-        // At exactly tier 2 (2 h), the next is tier 3 at 5 h - three hours away.
+        // At exactly tier 2 (2 h), the next is tier 3 at 5 h: three hours away.
         assertEquals(3 * HOUR, prestige.secondsToNextTier(2 * HOUR));
     }
 

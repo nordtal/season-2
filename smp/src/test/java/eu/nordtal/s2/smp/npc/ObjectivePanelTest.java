@@ -21,10 +21,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Walks the spawn NPC's composed window and holds it against the PNGs the pack drew.
  *
- * The cursor walk is {@link PanelWalk}; what is asserted here is what is true of design {@code O3} and of nothing
- * else. The one that carries the most is {@link #theBarIsTheRatioAndTheTrackIsTheCard}: the bar is the only thing in
- * this window whose <em>width</em> is a computed number rather than a fixed one, so it is the only thing that can be
- * wrong by a little rather than by a lot - and a bar that shows a quarter as a third is not a failure anywhere.
+ * The bar matters most: its width is computed, so it is the one thing that can be wrong by a little.
  */
 class ObjectivePanelTest {
 

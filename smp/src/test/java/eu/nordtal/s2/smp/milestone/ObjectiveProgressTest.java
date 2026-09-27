@@ -6,13 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Advancing an objective, and the one moment that fires everything else.
- *
- * "Did that hand-in complete the objective" is the question behind the payout, the announcement, the milestone
- * unlock and possibly a border move. It has to be true <b>exactly once</b>: an objective that completed twice would
- * pay its pot twice.
- */
+/** Advancing an objective, and the one moment that fires everything else, exactly once. */
 class ObjectiveProgressTest {
 
     @Test

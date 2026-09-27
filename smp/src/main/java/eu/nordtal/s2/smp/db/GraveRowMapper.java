@@ -12,10 +12,7 @@ import org.jdbi.v3.core.statement.StatementContext;
 /**
  * Maps a row of {@link SmpDao#openGraves()}.
  *
- * Written out rather than reached for with {@code ConstructorMapper}, for the reason {@code AccessGrantMapper} in
- * {@code :common} gives: {@code created} comes back as {@code timestamptz}, and going through {@link OffsetDateTime}
- * is the only reliable way to get an {@link Instant} out of the PostgreSQL driver without going through the JVM's
- * default time zone.
+ * Reads {@code created} through {@link OffsetDateTime}, the only way to avoid the JVM's default time zone.
  */
 public final class GraveRowMapper implements RowMapper<GraveRow> {
 
@@ -35,7 +32,6 @@ public final class GraveRowMapper implements RowMapper<GraveRow> {
     }
 
     static Instant instant(final ResultSet rs, final String column) throws SQLException {
-        // NOT NULL DEFAULT now() in the schema (V6__smp.sql) - every row has one.
         final OffsetDateTime value = rs.getObject(column, OffsetDateTime.class);
         return Objects.requireNonNull(value, column).toInstant();
     }

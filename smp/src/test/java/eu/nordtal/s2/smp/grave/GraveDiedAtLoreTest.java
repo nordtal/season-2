@@ -9,14 +9,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
 
-/**
- * The grave head's lore prints "Died dd/mm/yyyy at x y z".
- *
- * This holds the rendered text in both languages against the real {@code messages/smp} bundle, the same way
- * {@link eu.nordtal.s2.smp.MessageBundlesTest} holds the wheel's prize line - there is no running Paper server in
- * this module's tests, so {@code Graves#head} itself (which needs a live {@code SkullMeta}) cannot be exercised
- * directly; the bundle key it renders through can be.
- */
+/** The grave head's lore prints "Died dd/mm/yyyy at x y z", checked through the real bundle in both languages. */
 class GraveDiedAtLoreTest {
 
     private static final Messages MESSAGES =

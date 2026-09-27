@@ -9,15 +9,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Finds somewhere in a world that a person can be put down without dying.
  *
- * A configured arrival point is a coordinate somebody typed, and terrain is not obliged to agree with it - a lava
- * lake, the roof of a ravine, a hundred blocks of ocean. So the arrival point is searched for: a square spiral
- * outwards from the given point, taking the first column with solid ground, two blocks of air above it and nothing
- * dangerous underfoot.
- *
- * Every balloon arrival, every portal and the season welcome go through it: a configured point is a lottery in
- * exactly the way an unsearched one would be.
- *
- * Runs on the main thread against a world whose chunks are already on disk, so no generation happens here.
+ * Searches a square spiral out from a point for safe ground under two blocks of air, on the main thread.
  */
 public final class LandingSite {
 
@@ -26,30 +18,18 @@ public final class LandingSite {
 
     private LandingSite() {}
 
-    /**
-     * The first safe spot at or near the world centre.
-     *
-     * Falls back to the world's own spawn when the search finds nothing: an unsafe arrival is still better than a world
-     * nobody can enter.
-     */
+    /** The first safe spot at or near the world centre, or the world spawn when the search finds nothing. */
     public static Location find(final World world) {
         final Location found = find(world, 0, 0);
         return found == null ? world.getSpawnLocation() : found;
     }
 
-    /**
-     * The same search, around a point of the caller's choosing.
-     *
-     * @param world   the world
-     * @param centreX the column to start from
-     * @param centreZ the column to start from
-     * @return the first safe column, or {@code null} if none was found within {@link #MAX_RADIUS}
-     */
+    /** The same search around a given column, or null when nothing is found within {@link #MAX_RADIUS}. */
     public static @Nullable Location find(final World world, final int centreX, final int centreZ) {
         for (int radius = 0; radius <= MAX_RADIUS; radius += 4) {
             for (int dx = -radius; dx <= radius; dx += 4) {
                 for (int dz = -radius; dz <= radius; dz += 4) {
-                    // Only the ring, not the filled square - the inside was covered by a smaller radius already.
+                    // Only the ring: smaller radii already covered the inside.
                     if (radius > 0 && Math.abs(dx) != radius && Math.abs(dz) != radius) {
                         continue;
                     }
@@ -66,30 +46,14 @@ public final class LandingSite {
     /**
      * A spot a player can be put down at, as close to {@code preferred} as possible.
      *
-     * The preferred spot wins whenever it is habitable: a built spawn is a decision somebody took, and moving a
-     * player off it is worse than landing them on a slab this check happens to dislike. Only when it is
-     * uninhabitable does this search outwards from that column.
-     *
-     * @param world the world
-     * @param preferred where the caller would like them
-     * @return {@code preferred} if a player fits there, the nearest column where one does otherwise, and
-     *     {@code preferred} again if the search finds nothing
+     * {@code preferred} itself when habitable, else the nearest safe column, else {@code preferred} again.
      */
     public static Location safeAt(final World world, final Location preferred) {
         return findSafeAt(world, preferred).orElse(preferred);
     }
 
     /**
-     * The same search, for a caller that is allowed to say no.
-     *
-     * {@link #safeAt} 's fallback to {@code preferred} is right where not arriving is worse than arriving badly - a
-     * duel has to end. The balloon is the one caller where it is not: it already has a "destination unavailable"
-     * branch, and its success path tells the player they arrived somewhere they may not survive.
-     *
-     * @param world the world
-     * @param preferred where the caller would like them
-     * @return {@code preferred} if a player fits there, the nearest column where one does otherwise, and empty if there
-     *     is no such column within {@link #MAX_RADIUS}
+     * The same search, for a caller that is allowed to say no: empty when no column within {@link #MAX_RADIUS} fits.
      */
     public static java.util.Optional<Location> findSafeAt(final World world, final Location preferred) {
         if (fits(world, preferred)) {
@@ -98,12 +62,7 @@ public final class LandingSite {
         return java.util.Optional.ofNullable(find(world, preferred.getBlockX(), preferred.getBlockZ()));
     }
 
-    /**
-     * Whether two <b>air</b> blocks stand at this spot with ground worth standing on underneath.
-     *
-     * Air rather than "passable", and {@link #isGoodGround} rather than "solid": a liquid is passable, so a world spawn
-     * sitting in lava would pass the loose test.
-     */
+    /** Whether two air blocks stand at this spot over good ground; a liquid is passable but never fits. */
     private static boolean fits(final World world, final Location at) {
         final Block feet = world.getBlockAt(at.getBlockX(), at.getBlockY(), at.getBlockZ());
         final Block head = feet.getRelative(0, 1, 0);

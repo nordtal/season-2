@@ -6,16 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The track a fresh {@code milestones.yml} is written with.
+ * The track a fresh {@code milestones.yml} is written with; every key of a spec has to appear in its map.
  *
- * A nested spec is served by a reflective proxy, so there is no {@code new MilestoneEntry(...)} to write;
- * {@code Specs.createUnsafe} builds one from a map of its keys. <b> {@code createUnsafe} does not apply
- * defaults</b>, so <em>every</em> key of the spec has to be listed in the map - a new setting on
- * {@link MilestonesSpec.ObjectiveEntry} that is not added to {@link #objective} comes out null.
- *
- * The <em>shape</em> is the decision: how many objectives a milestone has, which type each is, which role it serves
- * and which share of the budget it carries. The items and advancements are worked examples and are expected to be
- * corrected. The pots are arithmetic: {@code round((budget ÷ objectives) × 5, to 10)}.
+ * The shape is the decision; the items are examples, and each pot is {@code round((budget ÷ objectives) × 5, to 10)}.
  */
 final class DefaultTrack {
 
@@ -54,7 +47,7 @@ final class DefaultTrack {
                             statistic("zombies", "combat", 500, "KILL_ENTITY", List.of("ZOMBIE")),
                             advancement("iron-tools", 10, "minecraft:story/iron_tools"))),
 
-            // M3 settlement: 4 objectives, 45 h, pot 60 each, gate 10 players, day 1-2.
+            // M3 settlement: 4 objectives, 45 h, pot 60 each, gate 10 players, days 1 to 2.
             milestone(
                     "settlement",
                     "BORDER",
@@ -88,7 +81,7 @@ final class DefaultTrack {
                                             "BREEZE")),
                             advancement("mine-diamond", 10, "minecraft:story/mine_diamond"))),
 
-            // M4 nether: 4 objectives, 60 h, pot 80 each, gate 8 players, day 2-3.
+            // M4 nether: 4 objectives, 60 h, pot 80 each, gate 8 players, days 2 to 3.
             milestone(
                     "nether",
                     "NETHER",
@@ -101,7 +94,7 @@ final class DefaultTrack {
                             statistic("gold", "mining", 512, "MINE_BLOCK", List.of("GOLD_ORE", "DEEPSLATE_GOLD_ORE")),
                             advancement("form-obsidian", 8, "minecraft:story/form_obsidian"))),
 
-            // M5 end: 5 objectives, 75 h, pot 80 each, gate 8 players, day 3-4; 200 of 480 hours sit at or before here.
+            // M5 end: 5 objectives, 75 h, pot 80 each, gate 8 players, days 3 to 4.
             milestone(
                     "end",
                     "END",
@@ -211,7 +204,6 @@ final class DefaultTrack {
 
     private static MilestonesSpec.ObjectiveEntry advancement(
             final String key, final long players, final String advancement) {
-        // Always the participation gate, so its role is never anything else and is not a parameter.
         return objective(key, "ADVANCEMENT", "participation", players, List.of(), "", List.of(), advancement);
     }
 

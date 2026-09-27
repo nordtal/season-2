@@ -20,20 +20,13 @@ import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
 /**
- * The balloon itself - the thing a player sees standing at the spawn, as opposed to the box they step into.
+ * The balloon a player sees at the spawn: one {@link ItemDisplay} per balloon box, scaled to fill it.
  *
- * One {@link ItemDisplay} per configured balloon box, showing the pack's {@code nordtal:balloon} item model, scaled
- * to fill the box. The entity only names the item model, so replacing the art is a pack change and no Java change.
- *
- * An item display rather than blocks: it has no hitbox, no collision, no AI, no drops and no despawn timer, and one
- * transformation scales it.
- *
- * Spawned non-persistent and removed at disable, so a restart never leaves a second balloon behind; any left by a
- * crash are swept from the box at start.
+ * Non-persistent and removed at disable; any left by a crash are swept from the box at start.
  */
 public final class BalloonDisplay {
 
-    /** The pack's balloon item model - {@code resource-pack/src/assets/nordtal/items/balloon.json}. */
+    /** The pack's balloon item model, {@code resource-pack/src/assets/nordtal/items/balloon.json}. */
     public static final Key MODEL = Key.key("nordtal", "balloon");
 
     private final Plugin plugin;
@@ -45,7 +38,7 @@ public final class BalloonDisplay {
         this.balloons = balloons;
     }
 
-    /** Puts a balloon in every configured box, removing any this plugin left behind first. Main thread. */
+    /** Puts a balloon in every configured box, removing any this plugin left behind first, on the main thread. */
     public void spawn() {
         remove();
         for (final Box box : balloons.all()) {
@@ -85,7 +78,7 @@ public final class BalloonDisplay {
         return stack;
     }
 
-    /** The box's centre - inclusive corners, so the centre is half a block in from each edge's block. */
+    /** The box's centre, half a block in from each inclusive corner block. */
     static Location centre(final World world, final Box box) {
         return new Location(
                 world,

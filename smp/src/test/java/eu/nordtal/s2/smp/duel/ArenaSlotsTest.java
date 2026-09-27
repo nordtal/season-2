@@ -7,12 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Where a duel arena is built, and - the part that matters - that two are never built in the same place.
- *
- * Arenas are placed as real blocks and taken away again, so two duels sharing a slot would mean four people in one
- * box, and the second one to finish would tear down the first one's floor.
- */
+/** Where a duel arena is built, and that two are never built in the same place. */
 class ArenaSlotsTest {
 
     @Test

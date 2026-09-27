@@ -11,10 +11,7 @@ import org.junit.jupiter.api.Test;
 /**
  * That a duel does not begin inside the move event that started it.
  *
- * A text search, because the failure needs two real players on a real server. The trap has no symptom:
- * {@code PlayerMoveEvent} applies {@code event.getTo()} <em>after</em> every handler has returned, so a teleport
- * performed inside one is silently undone for that player - {@code Player#teleport} still returned {@code true}
- * .
+ * A teleport inside a {@code PlayerMoveEvent} handler is undone once the handlers return.
  */
 class DuelStartIsDeferredTest {
 
@@ -34,7 +31,7 @@ class DuelStartIsDeferredTest {
 
     @Test
     void theEndIsScheduled() throws IOException {
-        // GraveListener asks "in an arena?" at HIGH and DuelListener ends the duel at LOWEST, so the answer is
+        // DuelListener runs at LOWEST, before GraveListener asks "in an arena?" at HIGH, so the decision waits a tick.
         final String source = read("smp/src/main/java/eu/nordtal/s2/smp/duel/DuelListener.java");
         final int death = source.indexOf("public void onDeath(");
         assertTrue(death >= 0, "DuelListener has no onDeath");

@@ -6,19 +6,9 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * What a hand-in actually takes, worked out without a server.
+ * What a hand-in takes, worked out without a server: only wanted items, and no more than still needed.
  *
- * Two refusals:
- *
- * - <b>Nothing can be handed in that no objective wants.</b> A stack of dirt in the deposit screen comes straight
- *   back rather than disappearing politely.
- *
- * - <b>No more than the objective still needs.</b> Over-delivery is not credited and the surplus is returned, not
- *   absorbed.
- *
- * Deliberately knows nothing about {@code ItemStack}: this is the one place where a bug takes items off a player and
- * gives nothing back, so it is expressed as material names and counts and unit-tested without a server. The GUI does
- * the stack-shuffling against the answer.
+ * Material names and counts rather than {@code ItemStack}, so the one place that takes items is unit-tested.
  */
 public final class HandIn {
 
@@ -46,7 +36,7 @@ public final class HandIn {
     /**
      * Sorts a deposit into what is taken and what stays.
      *
-     * @param offered     everything in the deposit screen; empty slots simply are not listed
+     * @param offered     everything in the deposit screen; empty slots are not listed
      * @param wanted      the material names the objective accepts, case-insensitively
      * @param stillNeeded how much the objective is still short of its target
      */

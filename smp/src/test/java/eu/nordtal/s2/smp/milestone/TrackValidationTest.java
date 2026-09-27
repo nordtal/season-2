@@ -10,9 +10,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The rule that decides whether a reloaded milestone file may replace the running one.
  *
- * Both halves are asserted: it must <b>refuse</b> a change that orphans stored progress, and it must <b>permit</b>
- * lowering the target of a live objective. A validation that only did the first would look correct and would quietly
- * delete the first escape hatch.
+ * It must refuse a change that orphans stored progress and permit lowering a live objective's target.
  */
 class TrackValidationTest {
 
@@ -90,7 +88,7 @@ class TrackValidationTest {
 
     @Test
     void changingAnObjectivesTypeIsRefusedOnceItHasProgress() {
-        // `amount` differs per type - items, a statistic, distinct players - carrying it across is the wrong unit.
+        // `amount` differs per type (items, a statistic, distinct players), so carrying it across is the wrong unit.
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.STATISTIC, 100, 2048, false));
 

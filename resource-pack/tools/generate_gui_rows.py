@@ -1,28 +1,19 @@
 #!/usr/bin/env python3
 """Draws the row furniture the list menus are built from, and the six `nordtal:gui_rN` fonts.
 
-SIX FONTS, NOT SIX HUNDRED CODE POINTS. A menu panel is a glyph in the inventory title, and
-the only way a glyph moves vertically is its font's `ascent`. A list menu wants the same
-picture on any of the six chest rows, so the row is carried by the FONT: one font per row
-and nothing per picture. `nordtal:gui_r2` is "everything, drawn on chest row 2".
-
-Each of the six files declares the same characters at the three ascents a row has:
+A glyph moves vertically only through its font's `ascent`, so each chest row gets its own font
+with the same characters. Each declares them at the three ascents a row has:
 
     furniture (14 px tall, top y = 19 + 18r)   ascent  -6 - 18r
     icons      (8 px tall, top y = 22 + 18r)   ascent  -9 - 18r
     text       (5 px tall, top y = 23 + 18r)   ascent -10 - 18r
 
-All three are centred in the same 18 px cell. The one that surprises is the text: five rows
-centred in fourteen lands at 23, not 22, and getting it wrong puts every line one pixel high
-in every menu at once.
+All three are centred in the same 18 px cell; five text rows centred in fourteen land at 23.
 
-The 5 px sheet is a transcription of the owner's design table, not new art, except `0`, `O`
-and `8`, which were redrawn so the three silhouettes cannot be confused. All capitals, no
-descenders: at 5 px thirty-eight characters fit across a window. Lower case is folded onto
-capitals on the way in, except ss, which has no single-character upper case; `MenuFont` in
-:common is the Java side of that fold and reads the widths this tool exports.
+The 5 px font is capitals only. `MenuFont` in :common folds lower case onto it, except ss,
+and reads the widths this tool exports.
 
-Pure standard library. The PNG codec is pngio.py, shared with the other generators.
+Standard library only; the PNG codec is pngio.py.
 
 Usage:
     python3 resource-pack/tools/generate_gui_rows.py
@@ -48,10 +39,7 @@ ADVANCES_OUT = os.path.join(REPO_ROOT, "common", "src", "main", "resources", "no
 
 ROWS = 6
 
-# --- Where a row's three layers sit, in window pixels. ------------------------------
-#
-# The pill is inset 2 from its slot cell, exactly as a balloon card is, so a row of
-# furniture ends within two pixels of the slots that make it clickable.
+# Where a row's three layers sit, in window pixels. The pill is inset 2 from its slot cell.
 INSET = 2
 FURNITURE_TOP = SLOT_ORIGIN_Y + INSET                 # 19
 FURNITURE_HEIGHT = ROW_PITCH - 2 * INSET              # 14
@@ -60,14 +48,13 @@ ICON_TOP = FURNITURE_TOP + (FURNITURE_HEIGHT - ICON_SIZE) // 2      # 22
 TEXT_HEIGHT = 5
 TEXT_TOP = FURNITURE_TOP + (FURNITURE_HEIGHT - TEXT_HEIGHT) // 2    # 23
 
-# The title's baseline. A glyph's top lands at BASELINE - ascent, which is the one piece of
-# arithmetic every ascent below is derived from rather than tabulated.
+# The title's baseline; a glyph's top lands at BASELINE minus its ascent.
 BASELINE = 13
 
 # The full width of a one-per-row list entry: the window's slot area inset 2 on each side.
 ROW_WIDTH = 158
 
-# --- Code points. The block the owner reserved for these building blocks is U+FE100+. ---
+# Code points, in the block from U+FE100.
 CP_PILL = 0xFE100
 CP_FRAME = 0xFE101
 CP_BUTTON_WIDE = 0xFE102
@@ -81,29 +68,16 @@ CP_ICONS = 0xFE110          # the icon sheet's first cell; the rest follow in or
 
 BUTTON_WIDE_WIDTH = 52
 BUTTON_SMALL_WIDTH = 14
-# Three slot cells inset 2, the width the hand-in screen's one button gets. It is 50 and not
-# 52 because it starts on a cell boundary and BUTTON_WIDE starts on one too - the two are
-# the same three cells, and the difference is that the wide one is drawn from x(0) and
-# eats its own inset on the left only.
+# Three slot cells inset 2 on both sides; BUTTON_WIDE is inset on the left only.
 BUTTON_CONFIRM_WIDTH = 3 * ROW_PITCH - 2 * INSET
-# Four slot cells inset 2: the grave's "take all", which is a longer sentence in
-# both languages than anything else on a plate here.
+# Four slot cells inset 2, for the grave's longer "take all".
 BUTTON_TAKE_WIDTH = 4 * ROW_PITCH - 2 * INSET
-# Seven slot cells inset 2: the same pill, ending where the last two cells of a row begin.
-# A row that carries controls on its right - today only the objective menu's page arrows -
-# needs its plate to stop before them rather than run underneath: the sentence on it is
-# already shortened to that point, so the grey island would otherwise reach two cells further
-# than anything drawn on it.
+# Seven slot cells inset 2, for a row whose last two cells carry controls.
 PILL_SHORT_WIDTH = 7 * ROW_PITCH - 2 * INSET
 
-# --- The palette. Everything here is the panel's own, plus the three button styles. ---
-#
-# The buttons are art and not text, so they carry their own colours: the five-colour rule is
-# about what a *sentence* is painted, and none of these is a sentence.
+# The buttons are art, not text, so the five-colour rule does not cover them.
 PILL_FILL = (214, 214, 218, 255)
-# A second, darker pill. It is a HEADING and not another entry: the objective menu's top row
-# names the milestone the four cards below belong to, and drawing it in the entry grey would
-# make it read as a fifth thing you can click. 178 is the artifact's own `titlebar`.
+# The darker pill is a heading, so it must not look like an entry you can click.
 PILL_DARK_FILL = (178, 178, 182, 255)
 PILL_LINE = (150, 150, 156, 255)
 PILL_LIGHT = (232, 232, 236, 255)
@@ -114,49 +88,15 @@ BUTTONS = {
     "wide": ((176, 74, 66, 255), (222, 130, 120, 255), (110, 40, 34, 255), (70, 20, 16, 255)),
     "small": ((172, 172, 178, 255), (206, 207, 212, 255), (118, 118, 124, 255), (60, 60, 66, 255)),
     "small_off": ((188, 188, 192, 255), (204, 205, 208, 255), (160, 160, 164, 255), (140, 140, 144, 255)),
-    # The one affirming plate in the pack: gold, the brand's own. It is the ONLY button in
-    # any of these menus that makes something happen that cannot be undone by clicking again,
-    # which is why it does not share the neutral grey every other control has.
+    # Gold, for the only button whose action cannot be undone by clicking again.
     "primary": ((176, 138, 74, 255), (222, 192, 120, 255), (120, 90, 40, 255), (70, 50, 26, 255)),
 }
 
 CHAMFER = (1,)              # one pixel off each corner, the size a 14 px tall tile can carry
 
-# --- The 5 px sheet, transcribed from the artifact's SMALL_SRC. ----------------------
-#
-# Five rows per glyph, '#' a pixel and '.' nothing. Widths vary: most are three, M and W
-# five, N four, and the punctuation as narrow as one. The advance is the drawn width plus
-# one, which the client works out for itself from the pixels - so this table is the whole
-# specification of the font, and MenuFont's copy of the widths is exported from it below.
-#
-# `0`, `O` and `8` are told apart by their SILHOUETTE and not by an interior pixel: at 5 px
-# an interior pixel is what a reader has to go looking for, and this font prints coordinates
-# and distances.
-#
-#     O   .#.  round: the top and bottom rows are tapered, like C G Q and every other
-#         #.#  letter loop on this sheet - unchanged from the artifact
-#         #.#
-#         #.#
-#         .#.
-#
-#     0   ###  square: flat top and bottom, like 1 2 3 5 7 and the rest of the digits, so
-#         #.#  a zero reads as a digit at a glance and never as the letter beside it
-#         #.#
-#         #.#
-#         ###
-#
-#     8   ###  square and WAISTED: two loops joined at the middle. Against the zero that
-#         #.#  is three pixels rather than one, and the waist is visible at 1x
-#         .#.
-#         #.#
-#         ###
-#
-# All three stay three pixels wide, so every advance in this font is unchanged and a column
-# of numbers still lines up. A four-pixel zero would have been easier to draw and would
-# have made "2048" and "1240" different widths.
-#
-# What is NOT fixed here, and was not asked to be: U and V are the same five rows in the
-# artifact and still are.
+# The 5 px font, '#' a pixel. The advance is the drawn width plus one, so this table is the
+# whole font and MenuFont's widths are exported from it. `0`, `O` and `8` differ by silhouette
+# and stay three pixels wide, so columns of numbers line up.
 SMALL = {
     'A': '.#.|#.#|###|#.#|#.#', 'B': '##.|#.#|##.|#.#|##.', 'C': '.##|#..|#..|#..|.##',
     'D': '##.|#.#|#.#|#.#|##.', 'E': '###|#..|##.|#..|###', 'F': '###|#..|##.|#..|#..',
@@ -165,8 +105,7 @@ SMALL = {
     'M': '#...#|##.##|#.#.#|#...#|#...#', 'N': '#..#|##.#|#.##|#..#|#..#',
     'O': '.#.|#.#|#.#|#.#|.#.', 'P': '##.|#.#|##.|#..|#..', 'Q': '.#.|#.#|#.#|#.#|.##',
     'R': '##.|#.#|##.|#.#|#.#', 'S': '.##|#..|.#.|..#|##.', 'T': '###|.#.|.#.|.#.|.#.',
-    # U is flat-bottomed and V tapers - the conventional 3x5 pair. Drawn as one shape, BURG and
-    # BVRG render identically.
+    # U is flat-bottomed and V tapers, so the two never render alike.
     'U': '#.#|#.#|#.#|#.#|###', 'V': '#.#|#.#|#.#|#.#|.#.',
     'W': '#...#|#...#|#.#.#|#.#.#|.#.#.', 'X': '#.#|#.#|.#.|#.#|#.#',
     'Y': '#.#|#.#|.#.|.#.|.#.', 'Z': '###|..#|.#.|#..|###',
@@ -184,9 +123,8 @@ SMALL = {
     '█': '####|####|####|####|####', '░': '#.#.|.#.#|#.#.|.#.#|#.#.',
 }
 
-# The sheet's own layout: eight columns, seven rows, 56 cells and 56 characters, so no cell
-# is unclaimed - ResourcePackTest fails both a declared character with no pixels and a drawn
-# cell no character points at, and an exact grid is the cheapest way to satisfy both.
+# Eight by seven, exactly one character per cell, since ResourcePackTest fails both an empty
+# declared cell and a drawn one nothing points at.
 SHEET_ROWS = [
     "ABCDEFGH",
     "IJKLMNOP",
@@ -197,20 +135,12 @@ SHEET_ROWS = [
     '"ÄÖÜß∙█░',
 ]
 
-# A space is drawn by nothing at all, so it cannot be a cell in the sheet: an empty cell has
-# no rightmost drawn column and the client would advance it one pixel. It is a `space`
-# provider instead, at the width the artifact gives it (2) plus the usual one.
+# A space is a `space` provider, since an empty cell would advance one pixel.
 SPACE_ADVANCE = 3
 
-# The negative and positive cursor moves, the same powers of two nordtal:gui carries. Every
-# row font needs them too: a row is composed left to right - pill, then icon, then text -
-# and the walk between two pictures inside one font has to happen without leaving it.
-#
-# The code point is the block plus the DECIMAL digits of the step, which is the convention
-# gui.json, board.json and bossbar.json already use: -16 is U+FF016 and not U+FF010. The
-# positive block mirrors it one bit higher, so a positive advance is its negative with the
-# 0x800 set. Positive advances did not exist anywhere in this pack until now, because
-# nothing in a menu title ever moved right - a row does, between its pill and its label.
+# Cursor moves, so a row composes pill, icon and text without leaving its font. The code point
+# is the block plus the step's decimal digits, as in the other fonts: -16 is U+FF016. A positive
+# move is its negative with 0x800 set.
 SHIFTS = (1, 2, 4, 8, 16, 32, 64, 128)
 SHIFT_MINUS = 0xFF000
 SHIFT_PLUS = 0xFF800
@@ -221,7 +151,7 @@ def shift_code_point(step, negative):
 
 
 def icon(rows):
-    """An 8x8 pictogram from the artifact's PICT table, white so a component can tint it."""
+    """Draws an 8 x 8 pictogram in white, so a component can tint it."""
     buf = blank(ICON_SIZE, ICON_SIZE, (0, 0, 0, 0))
     for y, row in enumerate(rows):
         for x, cell in enumerate(row):
@@ -230,32 +160,26 @@ def icon(rows):
     return buf
 
 
-# The three entry kinds /navigate can point at, then the three controls. Drawn white and tinted
-# by the component: white art can be painted any colour, dark art cannot be painted lighter.
+# The entry kinds /navigate can point at, the controls, then the objective menu's states.
 ICONS = {
-    # A house: the world's spawn, the one place everybody knows.
+    # A house, for spawn.
     "spawn": ('...##...', '..####..', '.######.', '########',
               '.######.', '.##..##.', '.##..##.', '.##..##.'),
-    # The artifact's skull, verbatim.
+
     "death": ('..####..', '.######.', '##.##.##', '########',
               '.######.', '..####..', '..#..#..', '..#..#..'),
-    # The artifact's map pin, verbatim.
+
     "poi": ('..####..', '.##..##.', '.##..##.', '.######.',
             '..####..', '...##...', '...##...', '....#...'),
-    # The artifact's cross.
+
     "stop": ('##....##', '.##..##.', '..####..', '...##...',
              '..####..', '.##..##.', '##....##', '........'),
-    # Both arrows span columns 2..5 of their cell, so the two are mirror images and land on the
-    # same middle when a page button centres them. Drawn on an even width they cannot come to a
-    # single apex, which is why the tip is two rows tall.
+    # Both arrows span columns 2 to 5, so they mirror each other and centre alike.
     "prev": ('.....#..', '....##..', '...###..', '..####..',
              '..####..', '...###..', '....##..', '.....#..'),
     "next": ('..#.....', '..##....', '..###...', '..####..',
              '..####..', '..###...', '..##....', '..#.....'),
-    # The five below are the artifact's PICT table, verbatim, and they are the objective
-    # menu's whole state machine: the icon on a card IS what kind of objective it is and
-    # whether it is done. A hand you can hand something to, a pickaxe that counts itself,
-    # a medal earned somewhere else, a tick when it is finished.
+    # An objective card's icon is its kind, or the tick once it is done.
     "handin": ('...##...', '...##...', '.######.', '..####..',
                '...##...', '........', '##....##', '########'),
     "statistic": ('...#####', '..##...#', '.#.##...', '...##...',
@@ -264,7 +188,7 @@ ICONS = {
                     '##.##.##', '.######.', '..####..', '........'),
     "done": ('.......#', '......##', '.....##.', '#...##..',
              '##.##...', '.###....', '..#.....', '........'),
-    # An experience orb: what the share line is about, since a share is what pays aura.
+    # An experience orb, for aura.
     "aura": ('..####..', '.##.####', '##...###', '##..####',
              '########', '########', '.######.', '..####..'),
 }
@@ -274,7 +198,7 @@ ICON_ORDER = ("spawn", "death", "poi", "stop", "prev", "next",
 
 
 def text_sheet():
-    """The 5 px sheet: eight columns of five pixels, seven rows of five."""
+    """Draws the 5 px sheet."""
     cell = 5
     width, height = cell * len(SHEET_ROWS[0]), cell * len(SHEET_ROWS)
     buf = blank(width, height, (0, 0, 0, 0))
@@ -293,7 +217,7 @@ def text_sheet():
 
 
 def icon_sheet():
-    """The six 8 x 8 pictograms, side by side in one row."""
+    """Draws the pictograms side by side in one row."""
     width, height = ICON_SIZE * len(ICON_ORDER), ICON_SIZE
     buf = blank(width, height, (0, 0, 0, 0))
     for index, name in enumerate(ICON_ORDER):
@@ -305,13 +229,7 @@ def icon_sheet():
 
 
 def pill(width, fill=PILL_FILL):
-    """One list entry's plate: the panel's own pill, with transparent corners.
-
-    The artifact paints the four chamfered corners in the panel's ground grey, because it
-    draws onto the panel. A glyph does not - it is laid over one - so the corners are cut
-    out and the ground shows through. Painting them grey would work today and be a grey
-    notch the day a pill lands on anything but flat ground.
-    """
+    """Draws one list entry's plate, with transparent corners so the ground beneath shows."""
     height = FURNITURE_HEIGHT
     buf = blank(width, height, fill)
     outline(buf, width, 0, 0, width - 1, height - 1, PILL_LINE)
@@ -321,7 +239,7 @@ def pill(width, fill=PILL_FILL):
 
 
 def frame(width):
-    """The 'this is the active one' marker: a 2 px white frame, hollow, over a pill."""
+    """Draws the active entry's marker: a hollow 2 px white frame over a pill."""
     height = FURNITURE_HEIGHT
     buf = blank(width, height, (0, 0, 0, 0))
     outline(buf, width, 0, 0, width - 1, height - 1, HERE_FRAME)
@@ -335,7 +253,7 @@ def frame(width):
 
 
 def button(width, style):
-    """A pressable plate, the shape vanilla's own buttons have: lit top-left, shaded bottom-right."""
+    """Draws a button plate, lit top-left and shaded bottom-right as vanilla's."""
     height = FURNITURE_HEIGHT
     fill, light, dark, edge = BUTTONS[style]
     buf = blank(width, height, fill)
@@ -348,10 +266,7 @@ def button(width, style):
     return width, height, bytes(buf)
 
 
-# Every row plate, once. Three places need this list - the font providers, the exported advance
-# table and the writer below - and a plate added to only two of them is a code point the client
-# draws and the server cannot measure, which lays out the whole row on the wrong width.
-#
+# Every row plate, once, for the font providers, the advance table and the writer alike.
 # `builder` takes the width and returns (width, height, pixels).
 PLATES = (
     (CP_PILL, "row_pill", ROW_WIDTH, lambda w: pill(w)),
@@ -368,12 +283,7 @@ PLATES = (
 
 
 def assert_full_width(path, expected):
-    """A glyph's advance is its rightmost drawn column plus two; the Java side assumes width + 1.
-
-    Every plate here is opaque to its own right edge, so this holds - the check is here for
-    the day somebody redraws one with a transparent margin, which would silently narrow the
-    advance and pull everything drawn after it left.
-    """
+    """Fails unless the rightmost column is drawn; the Java side assumes an advance of width + 1."""
     width, height, rgba = read_png(path)
     rightmost = rightmost_drawn_column(rgba, width, height)
     assert rightmost == expected - 1, \
@@ -382,7 +292,7 @@ def assert_full_width(path, expected):
 
 
 def font(row, out):
-    """One `nordtal:gui_rN`: the same characters as every other row, three ascents lower."""
+    """Writes one `nordtal:gui_rN` font: every row's characters at this row's ascents."""
     furniture = BASELINE - (FURNITURE_TOP + ROW_PITCH * row)
     icons = BASELINE - (ICON_TOP + ROW_PITCH * row)
     text = BASELINE - (TEXT_TOP + ROW_PITCH * row)
@@ -424,14 +334,7 @@ def font(row, out):
 
 
 def export_advances():
-    """Writes the row fonts' advances where :common's MenuFont can read them.
-
-    Same rule and same reason as export_bossbar_advances.py: the server composes the row, so
-    the server has to know how wide "BAECKEREI AM FLUSS" is - and it can, because every
-    advance here is a property of a PNG in this repository. A redrawn glyph whose rightmost
-    column moved is caught by MenuFontTest at `check` rather than by somebody noticing a
-    line overflowing its pill on a client.
-    """
+    """Writes the row fonts' advances for :common's MenuFont, which MenuFontTest checks."""
     table = {ord(" "): SPACE_ADVANCE}
 
     width, height, rgba = read_png(os.path.join(TEXTURES, "row_text.png"))

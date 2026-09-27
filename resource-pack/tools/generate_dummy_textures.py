@@ -1,16 +1,7 @@
 #!/usr/bin/env python3
-"""Generates every still-undrawn resource-pack glyph as a dummy PNG at final pixel
-dimensions, plus the balloon item-model scaffold and the hunger-games lobby map
-placeholders.
+"""Draws every undrawn glyph as a placeholder PNG at its final size, plus the balloon model and lobby maps.
 
-The code point allocation table already fixes which code points, which font and which
-pixel metrics every glyph gets; this draws deterministic placeholder art at those exact
-dimensions so the pack, the font JSON and Glyphs can be wired up and tested against a
-running server before the real design pass. Re-run it whenever a metric changes.
-
-Pure standard library - no Pillow, no ImageMagick. PNG encoding is a minimal RGBA/8
-writer; shading is a supersampled polygon/line/circle rasterizer producing anti-aliased
-black-on-transparent icons.
+Re-run it whenever a glyph metric in the allocation table changes. Standard library only.
 
 Usage:
     python3 resource-pack/tools/generate_dummy_textures.py
@@ -28,20 +19,15 @@ HG_RES = os.path.join(REPO_ROOT, "hunger-games", "src", "main", "resources")
 
 BLACK = (0, 0, 0)
 
-# The board frame's two colours, and deliberately not the menus': a board hangs in the world on
-# a Text Display's dark translucent ground, where the menus' light frame would glare and a black
-# one would be invisible. The two surfaces share a shape rather than a palette. The accent goes
-# on the divider and not the border, which is the same rule the menu panels follow.
+# Not the menus' colours: a board sits on a dark translucent ground, where a light frame glares.
 BOARD_LINE = (78, 86, 104)      # PALETTE["highlight"]
 BOARD_ACCENT = (176, 138, 74)   # PALETTE["accent"]
 
-# The system-line icons are drawn WHITE because Minecraft multiplies a glyph's texture by the
-# component's text colour: white art takes any colour a message wants, black art cannot be
-# tinted lighter. Each of these sits in a chat line whose colour the bundle decides.
+# White, because the client multiplies a glyph by its text colour and the bundle picks that colour.
 SYSTEM_WHITE = (255, 255, 255)
 
 
-# --- The PNG writer lives in pngio.py; the name stays importable here. ----------------
+# The PNG writer lives in pngio.py; the name stays importable here.
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pngio import write_png as _write_png  # noqa: E402
@@ -51,12 +37,8 @@ def write_png(path, width, height, rgba_bytes):
     _write_png(path, width, height, rgba_bytes, REPO_ROOT)
 
 
-# --- Supersampled rasterizer -------------------------------------------------------
-
 class Canvas:
-    """Coverage-based rasterizer: shapes are drawn into an (w*ss) x (h*ss) boolean
-    mask, then downsampled into a per-pixel alpha (0..255) that becomes the glyph's
-    anti-aliased opacity. Color is fixed per canvas (black, per the request)."""
+    """Draws shapes into a supersampled mask and downsamples it into per-pixel alpha."""
 
     def __init__(self, w, h, ss=8):
         self.w, self.h, self.ss = w, h, ss
@@ -133,7 +115,6 @@ class Canvas:
         write_png(path, self.w, self.h, self.to_rgba(color))
 
 
-# --- Shapes -------------------------------------------------------------------------
 
 def star_points(cx, cy, r_outer, r_inner, points=5, rotation_deg=-90):
     pts = []
@@ -151,9 +132,7 @@ def donor_star():
 
 
 def prestige_crests():
-    # A shield outline (thin stroke) with a bottom-up fill gauge proportional to the
-    # tier (1..13) - a placeholder that at least visually orders the thirteen tiers,
-    # not an attempt at the real coat-of-arms art (design work, out of scope here).
+    # A placeholder shield whose fill rises with the tier, so the thirteen tiers read in order.
     outline = [(1, 1), (8, 1), (8, 5), (4.5, 8.5), (1, 5)]
     for tier in range(1, 14):
         c = Canvas(9, 9, ss=10)
@@ -172,16 +151,14 @@ def prestige_crests():
 
 
 BOARD_WIDTHS = [1, 2, 4, 8, 16, 32, 64, 128]
-LINE_Y = 4.5  # vertically centered row in a 9-tall cell, per the confirmed design
+LINE_Y = 4.5  # the centre row of a 9 px cell
 LINE_THICKNESS = 1.1
 
 
 def board_frame():
     out = os.path.join(RP, "nordtal/textures/ui/board")
 
-    # Corners: an L-shaped stub meeting at the cell's center (4.5, 4.5), so that when
-    # placed next to an edge/divider segment (also centered at row 4.5) the lines butt
-    # up seamlessly regardless of which line of the board a cell sits on.
+    # Each corner meets at the cell's centre, where the edge segments run, so the lines butt up.
     def corner(name, horiz_dir, vert_dir):
         c = Canvas(9, 9, ss=10)
         cx, cy = 4.5, 4.5
@@ -200,8 +177,7 @@ def board_frame():
         c = Canvas(w, 9, ss=10)
         c.stroke_line(0, LINE_Y, w, LINE_Y, LINE_THICKNESS)
         c.save(os.path.join(out, f"edge_h_{w}.png"), BOARD_LINE)
-        # Same geometry as the outer edge, different colour: the divider carries the accent, the
-        # way the menu panel's one accent line sits under its title bar.
+        # The divider is the edge in the accent colour.
         c2 = Canvas(w, 9, ss=10)
         c2.stroke_line(0, LINE_Y, w, LINE_Y, LINE_THICKNESS)
         c2.save(os.path.join(out, f"divider_{w}.png"), BOARD_ACCENT)
@@ -215,21 +191,21 @@ def board_frame():
 def dimension_icons():
     out = os.path.join(RP, "nordtal/textures/ui/bossbar/icons")
 
-    c = Canvas(10, 10, ss=10)  # Nordtal (overworld) - a simple globe/sun disc
+    c = Canvas(10, 10, ss=10)  # Nordtal (overworld): a simple globe/sun disc
     c.fill_circle(5, 5, 3.6)
     c.save(os.path.join(out, "dim_overworld.png"))
 
-    c = Canvas(10, 10, ss=10)  # farm world - a sprout/leaf triangle
+    c = Canvas(10, 10, ss=10)  # farm world: a sprout/leaf triangle
     c.fill_polygon([(5, 1.5), (8.5, 8.5), (1.5, 8.5)])
     c.save(os.path.join(out, "dim_farmworld.png"))
 
-    c = Canvas(10, 10, ss=10)  # Nether - a flame silhouette
+    c = Canvas(10, 10, ss=10)  # Nether: a flame silhouette
     c.fill_polygon([
         (5, 1), (6.6, 4), (8.5, 5.5), (7, 9), (3, 9), (1.5, 5.5), (3.4, 4),
     ])
     c.save(os.path.join(out, "dim_nether.png"))
 
-    c = Canvas(10, 10, ss=10)  # End - a four-point sparkle
+    c = Canvas(10, 10, ss=10)  # End: a four-point sparkle
     c.fill_polygon(star_points(5, 5, 4, 1.1, points=4, rotation_deg=-90))
     c.save(os.path.join(out, "dim_end.png"))
 
@@ -237,20 +213,20 @@ def dimension_icons():
 def status_icons():
     out = os.path.join(RP, "nordtal/textures/ui/bossbar/icons")
 
-    c = Canvas(10, 10, ss=10)  # alive - filled dot
+    c = Canvas(10, 10, ss=10)  # alive: filled dot
     c.fill_circle(5, 5, 3.4)
     c.save(os.path.join(out, "status_alive.png"))
 
-    c = Canvas(10, 10, ss=10)  # deaths - X mark
+    c = Canvas(10, 10, ss=10)  # deaths: X mark
     c.stroke_line(1.8, 1.8, 8.2, 8.2, 1.6)
     c.stroke_line(8.2, 1.8, 1.8, 8.2, 1.6)
     c.save(os.path.join(out, "status_deaths.png"))
 
-    c = Canvas(10, 10, ss=10)  # loot point - diamond
+    c = Canvas(10, 10, ss=10)  # loot point: diamond
     c.fill_polygon([(5, 1), (9, 5), (5, 9), (1, 5)])
     c.save(os.path.join(out, "status_loot.png"))
 
-    c = Canvas(10, 10, ss=10)  # border - square outline
+    c = Canvas(10, 10, ss=10)  # border: square outline
     c.fill_rect(1.3, 1.3, 8.7, 8.7)
     inner = Canvas(10, 10, ss=10)
     inner.fill_rect(2.6, 2.6, 7.4, 7.4)
@@ -283,8 +259,7 @@ def bearing_arrows():
 
 
 def balloon_scaffold():
-    # Flat two-tone placeholder textures - a scaffold for the item-model plumbing,
-    # not the balloon's real art (a Blockbench modelling task, out of scope here).
+    # Flat placeholder textures for the item model's plumbing, not the balloon's art.
     envelope = Canvas(16, 16, ss=4)
     envelope.fill_rect(0, 0, 16, 16)
     write_png(os.path.join(RP, "nordtal/textures/item/balloon_envelope.png"), 16, 16,
@@ -358,9 +333,7 @@ BALLOON_ITEM_DEFINITION_JSON = """{
 
 
 def lobby_maps():
-    # 3x3 grid @ 128px/map = 384x384, matching HungerGamesSpec.LobbySpec. One flat background
-    # plus a visible 3x3 grid so frame boundaries are checkable in-game, and a corner swatch
-    # distinguishing en/de so LobbyMaps#renderLanguage is verifiable at a glance.
+    # 3 x 3 maps of 128 px, as HungerGamesSpec.LobbySpec expects; the corner swatch tells en from de.
     size = 384
     cell = 128
 
@@ -393,22 +366,15 @@ def lobby_maps():
 
 
 def system_icons():
-    """The six \uFE080-\uFE085 chat-line icons, in minecraft:default at the 7 x 7 / ascent 7
-    metrics every other default-font glyph in this pack uses.
-
-    Six shapes for six lines, and they have to be distinguishable at seven pixels while somebody is
-    mining, which is why none of them is a small picture of the thing it means: an arrow in, an
-    arrow out, a headstone, a spark, a horn, and a rule that is not an icon at all.
-    """
+    """The six \uFE080-\uFE085 chat-line icons, 7 x 7 at ascent 7 in minecraft:default."""
     out = os.path.join(RP, "nordtal/textures/system")
 
-    # A separator, not a character: one hairline, 1 px of air either side.
+    # One hairline with 1 px of air on each side.
     c = Canvas(3, 7, ss=10)
     c.fill_rect(1.0, 0.5, 2.0, 6.5)
     c.save(os.path.join(out, "separator.png"), SYSTEM_WHITE)
 
-    # Joined / left: the same triangle, mirrored. Direction is the only thing carrying the meaning,
-    # so they are deliberately identical apart from it.
+    # Joined and left are the same triangle, mirrored.
     c = Canvas(7, 7, ss=10)
     c.fill_polygon([(1.5, 0.8), (6.0, 3.5), (1.5, 6.2)])
     c.save(os.path.join(out, "join.png"), SYSTEM_WHITE)
@@ -417,8 +383,7 @@ def system_icons():
     c.fill_polygon([(5.5, 0.8), (1.0, 3.5), (5.5, 6.2)])
     c.save(os.path.join(out, "leave.png"), SYSTEM_WHITE)
 
-    # A headstone rather than a skull: at seven pixels a skull is three grey blobs, and the season
-    # already answers a death with a grave standing where you fell.
+    # A headstone, since a skull at seven pixels is three blobs.
     c = Canvas(7, 7, ss=10)
     c.fill_circle(3.5, 3.1, 2.3)
     c.fill_rect(1.2, 3.1, 5.8, 6.4)
@@ -429,8 +394,7 @@ def system_icons():
     c.fill_polygon(star_points(3.5, 3.5, 3.4, 0.85, points=4))
     c.save(os.path.join(out, "advancement.png"), SYSTEM_WHITE)
 
-    # A horn, for the lines the whole server is told. Convex and asymmetric, so it cannot be
-    # confused with the sparkle beside it.
+    # A horn for announcements, asymmetric so it never reads as the sparkle.
     c = Canvas(7, 7, ss=10)
     c.fill_polygon([(1.3, 2.1), (5.7, 0.7), (5.7, 6.3), (1.3, 4.9)])
     c.save(os.path.join(out, "announce.png"), SYSTEM_WHITE)
@@ -441,8 +405,7 @@ def main():
     donor_star()
     prestige_crests()
     board_frame()
-    # dimension_icons() and status_icons() are generate_hud.py's now; the placeholder shapes
-    # below are kept only as a record of what the HUD was tested against before it had art.
+    # generate_hud.py draws the dimension and status icons; the functions here are not called.
     bearing_arrows()
     system_icons()
     balloon_scaffold()

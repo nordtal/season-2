@@ -1,16 +1,8 @@
 #!/usr/bin/env python3
-"""Reads and writes PNGs without Pillow, which this repository's tools may not assume.
+"""Reads and writes PNGs without Pillow.
 
-Why a reader exists here at all: two tools have to *look at* the pack rather than only produce it.
-`export_bossbar_advances.py` derives every glyph's advance from the rightmost drawn column of its
-cell, the way the client does, and the panel generator reads its own output back to assert the
-advance it promises. Both need to read the season-1 sheets too (`ascii.png`, the flags, the
-compass), and those were not written by `write_png` - they are palette PNGs at 4 or 8 bits, so the
-reader handles colour types 0, 2, 3, 4 and 6 at bit depths 1, 2, 4 and 8, non-interlaced, which is
-every PNG in `resource-pack/src/assets` (checked 2026-09-05).
-
-The writer is the one `generate_dummy_textures.py` has carried since 2026-08-31, moved here so the
-generators share it rather than each importing the other.
+The reader takes colour types 0, 2, 3, 4 and 6 at bit depths 1, 2, 4 and 8, non-interlaced,
+which covers the palette PNGs in `resource-pack/src/assets`.
 """
 import os
 import struct
@@ -20,7 +12,7 @@ SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 def write_png(path, width, height, rgba_bytes, repo_root=None):
-    """Writes 8-bit RGBA, unfiltered, non-interlaced - the one shape every reader takes."""
+    """Writes 8-bit RGBA, unfiltered and non-interlaced."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
     def chunk(tag, data):
@@ -141,11 +133,9 @@ def read_png(path):
 
 
 def rightmost_drawn_column(rgba, width, height, x0=0, y0=0, cell_width=None, cell_height=None):
-    """The rightmost column with any alpha inside a cell, or -1 - the client's own measure.
+    """Returns the rightmost column with any alpha inside a cell, or -1.
 
-    A bitmap glyph's advance is this plus two (one for the column itself, one the client adds
-    after every glyph), which is what `BoardFrameTest` and `MenuTitleTest` both derive and what
-    `export_bossbar_advances.py` writes down for the plugins.
+    A bitmap glyph's advance is this plus two, as the client measures it.
     """
     cell_width = cell_width or width
     cell_height = cell_height or height

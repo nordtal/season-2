@@ -1,18 +1,8 @@
 #!/usr/bin/env python3
 """Draws the German characters into the nordtal:bossbar font's own ascii.png.
 
-nordtal/font/bossbar.json carries its own 128x128 ascii sheet, so the readable half of a
-boss bar line is rendered by the same font as the glyphs beside it. That sheet was drawn
-with the pure-ASCII rows only, which leaves a German HUD line one umlaut away from a row
-of missing-glyph boxes with nothing in the build to say so.
-
-The characters are drawn at their canonical positions in Minecraft's own ascii.png map,
-not at free cells, so dropping the real vanilla sheet in here still lines up with
-bossbar.json. The art is derived from the base letters already on the sheet: lowercase
-keeps its shape and takes the diaeresis on the free top row; uppercase is compressed by
-one duplicated row, as the vanilla font does.
-
-Idempotent - it clears each target cell before drawing, so re-running changes nothing.
+They go at their positions in Minecraft's own ascii.png map, so the vanilla sheet still lines
+up with bossbar.json. Each target cell is cleared first, so a rerun changes nothing.
 
 Usage:
     python3 resource-pack/tools/draw_ascii_extras.py
@@ -43,9 +33,7 @@ PLACEMENT = {
     "ß": (14, 1),
 }
 
-# 8x8 art. '#' is an opaque white pixel, '.' is transparent. The glyph's advance is
-# derived by Minecraft from the rightmost occupied column, so the trailing dots are not
-# padding that costs anything - they are just the rest of the cell.
+# 8x8 art: '#' is opaque white, '.' transparent. The advance ends at the rightmost '#'.
 ART = {
     # Lowercase: the base letter untouched at rows 2..6, diaeresis on row 0.
     "ä": [".#.#....",
@@ -72,8 +60,7 @@ ART = {
           "#...#...",
           ".####...",
           "........"],
-    # Uppercase: seven rows compressed into six by dropping one repeated stem row, so
-    # the diaeresis fits on row 0 without the letter growing out of its cell.
+    # Uppercase: one repeated stem row dropped, so the diaeresis fits on row 0.
     "Ä": [".#.#....",
           ".###....",
           "#...#...",
@@ -98,8 +85,7 @@ ART = {
           "#...#...",
           ".###....",
           "........"],
-    # Eszett: an ascender-height stem with the upper bowl closed and the lower one open
-    # to the right, which is what distinguishes it from a B at this size.
+    # Eszett: the lower bowl open to the right, which tells it from a B at this size.
     "ß": ["........",
           ".##.....",
           "#..#....",

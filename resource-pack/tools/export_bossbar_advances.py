@@ -1,22 +1,10 @@
 #!/usr/bin/env python3
-"""Writes down how far every `nordtal:bossbar` glyph moves the cursor, for the plugins.
+"""Writes how far every `nordtal:bossbar` glyph moves the cursor, as a resource in :common.
 
-WHY THE PLUGINS NEED THIS. Since 2026-09-05 a HUD line is one pill per piece of information,
-and a pill is drawn as wide as what it holds. The server composes the pill, so the server has
-to know the width of "Nordtal" in the bossbar font - and it can, because that font's ascii
-sheet is ours: every advance is a property of a PNG in this repository, not of the client.
-The plugins do not ship the pack, so the table travels as a resource in :common instead.
-
-HOW AN ADVANCE IS DERIVED, the way the client does it (and the way BoardFrameTest and
-MenuTitleTest already derive it): a `space` provider's number, or for a bitmap the
-rightmost column of the glyph's cell that carries any alpha, plus one for that column
-itself and one the client adds after every glyph. The first provider to declare a code
-point wins, which is why the space provider's " " (+3) beats the ascii sheet's.
-
-WHAT KEEPS IT HONEST. `BossBarAdvancesTest` in :common derives the same table from the
-same files with the same rule and fails if this resource disagrees - so a redrawn icon
-whose rightmost column moved is caught at `check`, not on a player's screen as a pill
-one pixel too narrow.
+The server sizes each pill to its content, so it needs these widths. An advance is derived as
+the client does: a `space` provider's number, or a bitmap's rightmost drawn column plus two.
+The first provider to declare a code point wins. `BossBarAdvancesTest` fails when the resource
+is stale.
 
 Usage:
     python3 resource-pack/tools/export_bossbar_advances.py
@@ -66,9 +54,7 @@ def advances():
                     continue
                 rightmost = rightmost_drawn_column(rgba, width, height, column_index * cell_width,
                                                    row_index * cell_height, cell_width, cell_height)
-                # The client: int(0.5 + width * scale) + 1, with width = rightmost + 1. Every
-                # provider here is drawn 1:1, so scale is 1.0 and this is rightmost + 2 - but
-                # the formula is kept whole so a scaled provider does not silently lie.
+                # The client's formula, kept whole so a scaled provider stays correct.
                 table[code_point] = int(0.5 + (rightmost + 1) * scale) + 1
     return table
 

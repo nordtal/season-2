@@ -62,3 +62,6 @@ bunq-config.conf
 
 ### Mac OS ###
 .DS_Store
+
+### The Minecraft instance the resource pack is installed into, one per machine ###
+/resource-pack/minecraft-instance.properties

@@ -18,6 +18,11 @@ and a change to what a subcommand does needs no change here.
 
 The thirty-first, `steward-ui (Java, :8080)`, is the odd one out and has its own header.
 
+The `resource pack` folder is for whoever draws the pack, not for the stack: `pack: 1. choose
+Minecraft instance` and `pack: 2. install into Minecraft` are Gradle configurations and need neither
+bash nor Docker, so they run the same on Windows, macOS and Linux. `resource-pack/README.md` says
+how they are used.
+
 ## Three settings, and why they are what they are
 
 **`INTERPRETER_PATH` is `/usr/bin/env` with `bash` as its option, and not `/bin/bash`.** On macOS

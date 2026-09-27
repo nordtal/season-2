@@ -63,9 +63,13 @@ object PackRules {
         images: Map<File, BufferedImage?>,
     ): List<String> {
         val parsed =
-            runCatching { JsonSlurper().parse(font) as Map<*, *> }
+            runCatching { JsonSlurper().parse(font) }
                 .getOrElse { return listOf("${name(assets, font)} is not valid JSON: ${it.message}") }
-        return (parsed["providers"] as List<*>)
+        val providers = (parsed as? Map<*, *>)?.get("providers") as? List<*>
+        if (providers == null || providers.any { it !is Map<*, *> }) {
+            return listOf("${name(assets, font)} has no list of providers. Ask a developer.")
+        }
+        return providers
             .map { it as Map<*, *> }
             .filter { it["type"] == "bitmap" }
             .flatMap { provider -> bitmapFindings(assets, font, provider, images) }
@@ -77,11 +81,16 @@ object PackRules {
         provider: Map<*, *>,
         images: Map<File, BufferedImage?>,
     ): List<String> {
-        val file = texture(assets, provider["file"] as String)
+        val id = provider["file"] as? String
+        val chars = provider["chars"] as? List<*>
+        if (id == null || chars.isNullOrEmpty() || chars.any { it !is String || it.isEmpty() }) {
+            return listOf("${name(assets, font)} has a bitmap provider without a texture or without glyphs. Ask a developer.")
+        }
+        val file = texture(assets, id)
         val texture = name(assets, file)
         if (!file.isFile) return listOf("$texture is missing, and ${name(assets, font)} needs it.")
         val image = images[file] ?: return emptyList()
-        val grid = (provider["chars"] as List<*>).map { (it as String).codePoints().toArray() }
+        val grid = chars.map { (it as String).codePoints().toArray() }
         val columns = grid.maxOf { it.size }
         if (grid.any { it.size != columns }) {
             return listOf("${name(assets, font)} gives $texture rows of different lengths. Ask a developer.")

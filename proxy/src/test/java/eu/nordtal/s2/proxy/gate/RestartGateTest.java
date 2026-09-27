@@ -132,6 +132,7 @@ class RestartGateTest {
                 Instant.now().plus(Duration.ofDays(1)),
                 false,
                 false,
+                false,
                 Locale.GERMAN,
                 SeasonPhase.SMP,
                 null);

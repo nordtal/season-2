@@ -71,13 +71,42 @@ class LoginRosterTest {
     }
 
     @Test
+    void thePackIsEnforcedForAnybodyTheLoginQueryDidNotExempt() {
+        assertFalse(roster.isPackExempt(STRANGER), "a login the fallback cache answered is not in the roster");
+        assertFalse(roster.isPackExempt(null));
+        roster.remember(PLAYER, state(false, Locale.ENGLISH));
+        assertFalse(roster.isPackExempt(PLAYER));
+    }
+
+    @Test
+    void anExemptionComesFromTheLoginQueryAndSurvivesAnAdminRefresh() {
+        roster.remember(
+                PLAYER,
+                new AccessState(
+                        PLAYER,
+                        DISCORD_ID,
+                        MemberState.MEMBER,
+                        true,
+                        null,
+                        false,
+                        false,
+                        true,
+                        Locale.ENGLISH,
+                        SeasonPhase.SMP,
+                        null));
+        assertTrue(roster.isPackExempt(PLAYER));
+        roster.refreshAdmins(java.util.Set.of(DISCORD_ID));
+        assertTrue(roster.isPackExempt(PLAYER), "refreshing the admin flag dropped the exemption");
+    }
+
+    @Test
     void anUnknownAccountsLocaleFallsBackToEnglish() {
         assertEquals(Locale.ENGLISH, roster.localeOf(STRANGER));
     }
 
     private static AccessState state(final boolean admin, final Locale locale) {
         return new AccessState(
-                PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, admin, locale, SeasonPhase.SMP, null);
+                PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, admin, false, locale, SeasonPhase.SMP, null);
     }
 
     // M9: revocation reaches a live session

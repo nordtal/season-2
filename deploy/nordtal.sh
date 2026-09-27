@@ -559,7 +559,8 @@ at_risk_images() {
         {
             if (!($1 in seen)) { order[++count] = $1 }
             seen[$1] = 1
-            services[$1] = ($1 in services ? services[$1] "," : "") $2
+            # mawk creates services[$1] before the right side runs, so the test cannot be inline.
+            if ($1 in services) { services[$1] = services[$1] "," $2 } else { services[$1] = $2 }
         }
         END {
             for (i = 1; i <= count; i++) {

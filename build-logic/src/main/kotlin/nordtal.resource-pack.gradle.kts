@@ -1,9 +1,13 @@
-// Not a Java module. Its only job is packing src/ into the zip the release ships and the
-// pack-install server serves. The client is sent a URL and a SHA-1 and refuses the pack if they
-// disagree, so the hash is generated on every build rather than written down anywhere.
+// Not a Java module. It packs src/ into the zip the release ships and the pack-install server
+// serves, and installs src/ into a local Minecraft instance for whoever draws the pack. The
+// client is sent a URL and a SHA-1 and refuses the pack if they disagree, so the hash is
+// generated on every build rather than written down anywhere.
 
 import eu.nordtal.s2.build.CheckNoTrackerIds
+import eu.nordtal.s2.build.CheckPack
 import eu.nordtal.s2.build.CheckSourcesTracked
+import eu.nordtal.s2.build.InstallPack
+import eu.nordtal.s2.build.MinecraftInstanceChooser
 import eu.nordtal.s2.build.Sha1File
 
 plugins {
@@ -76,4 +80,38 @@ val checkNoTrackerIds =
 
 tasks.named("check") {
     dependsOn(checkNoTrackerIds)
+}
+
+val checkPack =
+    tasks.register<CheckPack>("checkPack") {
+        assets.set(packSource.dir("assets"))
+    }
+
+tasks.named("check") {
+    dependsOn(checkPack)
+}
+
+// Two tasks for whoever draws the pack: pick the game once, then copy the pack into it after every change.
+val minecraftInstance = layout.projectDirectory.file("minecraft-instance.properties")
+
+tasks.register<JavaExec>("chooseMinecraftInstance") {
+    group = "resource pack"
+    description = "Asks for the Minecraft instance the pack is installed into."
+    mainClass.set(MinecraftInstanceChooser::class.java.name)
+    classpath(
+        MinecraftInstanceChooser::class.java.protectionDomain.codeSource.location
+            .toURI(),
+        KotlinVersion::class.java.protectionDomain.codeSource.location
+            .toURI(),
+    )
+    args(minecraftInstance.asFile.absolutePath)
+    argumentProviders.add(providers.gradleProperty("minecraftInstance").map { listOf(it) }.orElse(emptyList())::get)
+    jvmArgs("-Dapple.awt.application.name=Nordtal")
+}
+
+tasks.register<InstallPack>("installPack") {
+    dependsOn(checkPack)
+    pack.set(packSource)
+    instanceFile.set(minecraftInstance)
+    packName.set("nordtal-dev")
 }

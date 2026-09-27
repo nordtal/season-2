@@ -14,6 +14,23 @@ A glyph of `minecraft/font/default.json` also has a **name**, which is what a me
 `common/src/main/resources/eu/nordtal/s2/common/glyph-names.txt`, and `GlyphNamesTest` fails a
 build in which a glyph of that font has no name or a name points at nothing.
 
+## Editing the art
+
+Everything here runs from IntelliJ's Run menu, folder **resource pack**, on Windows, macOS and
+Linux alike. You need Minecraft 26.2.
+
+1. Run **pack: 1. choose Minecraft instance** once and pick the folder your launcher runs the game
+   in, the one holding `options.txt` and `resourcepacks`. Run it again to switch instances.
+2. Drag an image from `src/assets/nordtal/textures` into Aseprite, edit it and save it in place.
+3. Run **pack: 2. install into Minecraft**. It checks the images first and names every file it
+   cannot use and why, then copies the pack into the game as `nordtal-dev` and switches it on if
+   the game is closed. If the game is open, enable `nordtal-dev` once under Options > Resource
+   Packs.
+4. In the game, press **F3+T** to load what you installed.
+
+A server's pack sits on top of every local one, so on the Nordtal network the network's pack covers
+your work; test it in single player.
+
 ## Building and deploying
 
 This is a module of the [season-2](../) build. From the repository root:
@@ -31,8 +48,8 @@ is why the hash is generated on every build rather than written down. The zip an
 attached to each GitHub release, and the **proxy** offers the pack while the player waits in
 `limbo` — see [Hosting](#hosting).
 
-To test locally, copy the contents of [`src/`](src/) into a folder in your game's
-`resourcepacks/` directory. `deploy/dev pack` builds the zip and points a local stack at it.
+To test locally, see [Editing the art](#editing-the-art). `deploy/dev pack` builds the zip and
+points a local stack at it.
 
 `pack_format` is **88** (Minecraft 26.2).
 

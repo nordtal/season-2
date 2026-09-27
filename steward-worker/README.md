@@ -171,7 +171,7 @@ What it does with it:
 |                 |                                                                                                                                                        |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | reads           | state, health, image, uptime, CPU and memory per container, the log stream, `/system/df`                                                               |
-| asks a registry | `GET /distribution/{ref}/json` against the image's own digests, to check for drift                                                                    |
+| asks a registry | `GET /distribution/{ref}/json` against the image's own digests, to check for drift                                                                     |
 | writes          | one stop, one start, and `mc <command>` into the four Minecraft consoles                                                                               |
 | **refuses**     | creating a container. That needs the compose file, which `steward-deployer` owns, and a container rebuilt from an inspect would drift from it silently |
 

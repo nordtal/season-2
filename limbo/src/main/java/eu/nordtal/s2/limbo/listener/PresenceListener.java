@@ -31,15 +31,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 /**
  * Everything that has to be true for the waiting room to be a waiting room.
  *
- * Players arrive in the empty world, cannot see each other, cannot speak, cannot be hurt, and cannot do anything at
- * all. Each handler covers a thing that would otherwise be visible on a black screen. A chat message from somebody
- * else is text over the title; a hunger bar is a HUD element; a death is a respawn screen. The world's gamerules and
- * the player's own flags cover most of this already - these are the cases where a rule exists but an event can
- * still fire.
- *
- * There is no chat here and no commands either: a player who types sees nothing happen, which is intended. Everybody
- * in the waiting room is invisible to everybody else and is about to leave, and nothing said in a room nobody
- * moderates may reach anybody outside it - {@code /msg} included.
+ * Nobody here can see, hear, speak to or hurt anybody; each handler covers an event a gamerule does not stop.
  */
 public final class PresenceListener implements Listener {
 
@@ -51,11 +43,7 @@ public final class PresenceListener implements Listener {
     private final MessageRenderer messages;
     private final AdminOperators operators;
 
-    /**
-     * The admin flag, cached at pre-login by {@link FullServerGate} on the thread that is allowed to wait.
-     *
-     * Read here, never queried: this is the main thread.
-     */
+    /** The admin flag {@link FullServerGate} cached at pre-login; read here, never queried. */
     private final FullServerAdmission admission;
 
     public PresenceListener(
@@ -77,15 +65,7 @@ public final class PresenceListener implements Listener {
         this.messages = new MessageRenderer(Objects.requireNonNull(messages, "messages"));
     }
 
-    /**
-     * Draws the tab list frame this one player sees.
-     *
-     * Only this player, and no count: {@link #hideEverybodyFromEachOther} means the list above the footer holds
-     * exactly one name - their own - so the {@code {online}/{max}} the SMP and the hunger games put there would sit
-     * over a list that contradicts it. limbo's {@code tab.footer} therefore says something else, and is the one of
-     * the three that is allowed to differ; see {@code TabListTest}. The header is shared, because a player who
-     * presses Tab here has just arrived on the network and the logo is the only thing on the screen that says where.
-     */
+    /** Draws this player's tab list; the footer shows no count, since the list holds only their own name. */
     private void sendTabList(final Player player) {
         final java.util.Locale locale = locales.of(player.getUniqueId());
         player.sendPlayerListHeaderAndFooter(
@@ -96,9 +76,7 @@ public final class PresenceListener implements Listener {
     /**
      * Puts the player in the empty world <b>before</b> they are spawned anywhere.
      *
-     * The alternative - teleporting them in {@link #onJoin} - shows the server's own {@code level-name} world for a
-     * frame or two: terrain, a sky and a sun, on a server whose whole point is that there is nothing to see. This event
-     * fires while the connection is still being configured, so there is no frame to see.
+     * Teleporting in {@link #onJoin} would show the server's own world for a frame or two.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onSpawnLocation(final AsyncPlayerSpawnLocationEvent event) {
@@ -109,7 +87,7 @@ public final class PresenceListener implements Listener {
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
 
-        // Read, never queried - this is the main thread. FullServerGate filled it at pre-login.
+        // Read, never queried, on the main thread; FullServerGate filled it at pre-login.
         operators.onJoin(player.getUniqueId(), admission.admits(player.getUniqueId()));
 
         // Nobody is here to read a join message, and the screen has exactly one line on it.
@@ -134,21 +112,7 @@ public final class PresenceListener implements Listener {
         loadLanguage(player);
     }
 
-    /**
-     * Reads the player's language <b>off the main thread</b> and redraws the title once it is known.
-     *
-     * The lookup is one indexed round trip and it is still one too many to run here. This is the
-     * server every single login passes through: a database that has stopped answering would freeze
-     * it for the pool's connection timeout <em>per join</em>, and a frozen waiting room is the whole
-     * network down rather than one backend hesitating. Until the answer arrives,
-     * {@code PlayerLocales#of} returns English - which is the fallback docs/i18n.md builds
-     * everything on, so the cost is that a German player may see one English line before the right
-     * one replaces it.
-     *
-     * The redraw is deliberately unconditional rather than "only if the language turned out not to
-     * be English": re-showing the same title is free, and a conditional here would be a second place
-     * that has to know what {@code of()} would have answered a moment ago.
-     */
+    /** Reads the language off the main thread and redraws the title; until then the title is English. */
     private void loadLanguage(final Player player) {
         // A failed lookup leaves one English title up rather than being retried, which is not worth chasing.
         final var _ = locales.joinAsync(player.getUniqueId(), async())
@@ -181,17 +145,9 @@ public final class PresenceListener implements Listener {
     }
 
     /**
-     * Cancels every command, because {@code /msg} is chat with a different prefix.
+     * Cancels every command for non-admins, because {@code /msg} is chat with a different prefix.
      *
-     * A player who cannot type in chat can still {@code /msg}, {@code /me} or {@code /tell} from here, and every
-     * one of those is a sentence delivered out of a room nobody moderates. Blocked as a class rather than by a list
-     * of names: a list is a hole the next Minecraft version fills in for us.
-     *
-     * Silently, exactly like {@link #onChat}. The screen holds one title saying what is being waited for, and an
-     * error over it would be the waiting room talking back for the first time - about a command nobody here needs.
-     *
-     * An admin keeps their commands: {@code /limbo} is the only reason anybody with a client would run one here,
-     * and the flag is the same one every other backend uses.
+     * Silently, like {@link #onChat}, and as a class rather than a list the next Minecraft version would outgrow.
      */
     @EventHandler(ignoreCancelled = true)
     public void onCommand(final PlayerCommandPreprocessEvent event) {
@@ -204,8 +160,7 @@ public final class PresenceListener implements Listener {
     /**
      * Whether this player's commands are swallowed.
      *
-     * A method rather than a condition inside the handler so a test can hold the rule on a module whose every
-     * other line needs a running server.
+     * A method so a test can hold the rule without a server.
      */
     public static boolean mutes(final boolean admin) {
         return !admin;
@@ -238,12 +193,7 @@ public final class PresenceListener implements Listener {
         event.setCancelled(true);
     }
 
-    /**
-     * Hides the joining player from everybody already here, and everybody already here from them.
-     *
-     * Both directions, because {@code hidePlayer} is one-way. The proxy can have several people in the waiting room at
-     * once - a restarting backend puts everybody in here at the same moment - and none of them may see another.
-     */
+    /** Hides the joining player and everybody here from each other, both ways, since {@code hidePlayer} is one-way. */
     private void hideEverybodyFromEachOther(final Player joining) {
         for (final Player other : plugin.getServer().getOnlinePlayers()) {
             if (other.equals(joining)) {

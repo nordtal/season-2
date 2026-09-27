@@ -9,9 +9,7 @@ import org.bukkit.plugin.Plugin;
 /**
  * {@link LimboEffects} against this server.
  *
- * Off the main thread for the chat path, because this reads files and this server's whole job is to be responsive to
- * players who are already staring at a black screen. Inline for the inbox, for the reason every effects
- * implementation here is: the inbox settles a request row when the command returns.
+ * Off the main thread for chat, since this reads files; inline for the inbox, which settles its row on return.
  */
 public final class BukkitLimboEffects implements LimboEffects {
 
@@ -21,10 +19,7 @@ public final class BukkitLimboEffects implements LimboEffects {
     private final Messages shared;
 
     /**
-     * @param messages this plugin's layered bundle - what it says on its own surface
-     * @param shared   {@code :commands}' bundle as the command inbox renders it. Two views of the
-     *                 same files, so a reload that moved only one of them would leave a command
-     *                 answering differently in chat and in Discord
+     * Takes this plugin's bundle and {@code :commands}' shared one, which reload together so chat and Discord agree.
      */
     public BukkitLimboEffects(
             final Plugin plugin, final Executor executor, final Messages messages, final Messages shared) {

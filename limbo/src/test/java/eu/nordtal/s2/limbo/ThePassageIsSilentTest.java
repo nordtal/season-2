@@ -12,9 +12,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Nobody in the waiting room reaches anybody else: no chat, no commands, no seeing or hearing another player.
  *
- * Half of this file is therefore the rule and half is a source rule, for the reason {@code WaitingTextTest} gives at
- * the top of this module: everything here is Bukkit, and a handler that stops existing cannot be noticed by any test
- * that has no server to run on. Reading the file is the cheapest guard that can see it at all.
+ * Partly a source rule: a handler that stops existing cannot be noticed without a server.
  */
 class ThePassageIsSilentTest {
 

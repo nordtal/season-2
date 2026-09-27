@@ -6,7 +6,6 @@ plugins {
 }
 
 repositories {
-    // jcore is published via JitPack, not Maven Central.
     maven("https://jitpack.io")
 }
 
@@ -22,8 +21,7 @@ tasks.withType<JavaCompile>().configureEach {
 
 dependencies {
     implementation(project(":paper-common"))
-    // jcore carries the config system and the JDBI/HikariCP/PostgreSQL stack :common's AccessDirectory needs.
-    // Flyway is excluded because this plugin never migrates anything and flyway-core drags in Jackson databind.
+    // jcore carries the config system and the database stack; Flyway is excluded, since this plugin never migrates.
     implementation(libs.jcore) {
         exclude(group = "org.flywaydb")
     }

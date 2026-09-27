@@ -25,19 +25,15 @@ import org.slf4j.LoggerFactory;
 /**
  * Tracks who is still alive and decides the game.
  *
- * Last player standing wins; two deaths within the same short window ("the same moment") are
- * resolved by {@link Tiebreak} on total kills, with equal kills meaning no winner; and a same-team
- * final two is announced rather than resolved automatically - friendly fire is on from the first
- * second, so there is nothing to "unlock".
- *
- * "The same moment" is a short wall-clock window ({@link #SIMULTANEOUS_WINDOW}), not literally
- * the same server tick - a strict same-tick check would make the tiebreaker nearly unreachable.
+ * Deaths within {@link #SIMULTANEOUS_WINDOW} go to {@link Tiebreak}; a same-team final two is only announced.
  */
 public final class WinTracker {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WinTracker.class);
 
-    /** How close together two deaths have to be to count as "the same moment" for the tiebreaker. */
+    /**
+     * How close together two deaths count as "the same moment"; a strict same-tick check would be nearly unreachable.
+     */
     private static final Duration SIMULTANEOUS_WINDOW = Duration.ofMillis(500);
 
     private final HungerGamesDao dao;
@@ -45,7 +41,7 @@ public final class WinTracker {
     private final PlayerLocales locales;
     private final HungerGamesSounds sounds;
 
-    /** memberId -> alive, for the current game. Removed once dead. */
+    /** The living members of the current game; a member is removed on death. */
     private final java.util.Map<UUID, Instant> aliveSince = new ConcurrentHashMap<>();
 
     private final ConcurrentLinkedQueue<UUID> recentDeaths = new ConcurrentLinkedQueue<>();
@@ -81,14 +77,11 @@ public final class WinTracker {
     }
 
     /**
-     * Records one member's death.
+     * Records one member's death, and returns the outcome once the game has ended.
      *
-     * Returns the game's outcome once this death leaves at most one player alive (or resolves a
-     * simultaneous-death pair); empty while the game continues.
-     *
-     * @param gameId          the running game
-     * @param victimMemberId  who died
-     * @param killerMemberId  who killed them, if anyone (border/environment deaths have none)
+     * @param gameId the running game
+     * @param victimMemberId who died
+     * @param killerMemberId who killed them, if anyone; border and environment deaths have none
      * @return the outcome, if the game just ended
      */
     public Optional<Outcome> recordDeath(
@@ -110,7 +103,7 @@ public final class WinTracker {
         }
 
         if (aliveSince.isEmpty() && simultaneous) {
-            // Last two died at the same moment; recentDeaths holds the two victim member ids in order.
+            // The last two died at the same moment; recentDeaths holds the two victim member ids in order.
             recentDeaths.add(victimMemberId);
             while (recentDeaths.size() > 2) {
                 recentDeaths.poll();
@@ -126,7 +119,7 @@ public final class WinTracker {
                 // The kill counts travel with the outcome: the ceremony prints "3 kills to 2", not just "won".
                 return Optional.of(winner.map(id -> Outcome.tieBroken(
                                 id, Math.max(firstKills, secondKills), Math.min(firstKills, secondKills)))
-                        // Equal by definition in this branch - Tiebreak returns empty only then.
+                        // Equal by definition in this branch: Tiebreak returns empty only then.
                         .orElseGet(() -> Outcome.tieNoWinner(firstKills)));
             }
         } else {
@@ -148,12 +141,7 @@ public final class WinTracker {
         return Optional.empty();
     }
 
-    /**
-     * Announces a final two who share a team.
-     *
-     * Friendly fire is on from the first second, so there is nothing to unlock - the passive border
-     * shrink is what resolves the stalemate.
-     */
+    /** Announces a final two who share a team; the passive border shrink resolves the stalemate. */
     public void announceIfSameTeamFinalTwo(final World world, final List<HgMember> activeMembers) {
         if (aliveSince.size() != 2) {
             return;
@@ -182,17 +170,12 @@ public final class WinTracker {
     }
 
     /**
-     * The result of a game ending, in the four shapes the ceremony has to be able to tell apart.
-     *
-     * {@code tie} means the last two died within {@link #SIMULTANEOUS_WINDOW} of each other and the
-     * kill counts decided it. It is not a synonym for "nobody won": a tiebreak can produce a winner,
-     * and a game can end without one for a reason that is not a tiebreak at all.
+     * The result of a game ending, in the four shapes the ceremony tells apart.
      *
      * @param winnerMemberId the winner, or {@code null} when the game ended without one
-     * @param tie            whether the tiebreaker decided this outcome
-     * @param winnerKills    on a tiebreak, the higher kill count - or the shared one when the
-     *                       tiebreak found no winner. Zero on an ordinary win
-     * @param loserKills     on a tiebreak, the lower kill count. Zero otherwise
+     * @param tie whether the tiebreaker decided this outcome, with or without a winner
+     * @param winnerKills on a tiebreak, the higher or the shared kill count; zero otherwise
+     * @param loserKills on a tiebreak, the lower kill count; zero otherwise
      */
     public record Outcome(@Nullable UUID winnerMemberId, boolean tie, int winnerKills, int loserKills) {
 
@@ -206,12 +189,12 @@ public final class WinTracker {
             return new Outcome(winnerMemberId, true, winnerKills, loserKills);
         }
 
-        /** The last two died together with the same number of kills - nobody wins. */
+        /** The last two died together with the same number of kills, so nobody wins. */
         static Outcome tieNoWinner(final int kills) {
             return new Outcome(null, true, kills, kills);
         }
 
-        /** Everybody is dead and no tiebreak applies. Should not happen; see the warning above. */
+        /** Everybody is dead and no tiebreak applies, which should not happen. */
         static Outcome noWinner() {
             return new Outcome(null, false, 0, 0);
         }

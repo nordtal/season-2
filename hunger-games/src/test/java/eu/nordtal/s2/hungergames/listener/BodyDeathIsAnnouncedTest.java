@@ -9,18 +9,9 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
- * That a body's death reaches the kill feed, and that both sentences exist to reach it with.
+ * Checks by text search that a body's death reaches the kill feed, in both languages.
  *
- * Why a text search: the same reason `AdminWatchWiringTest` is one: what has to be protected is
- * whether anything <em>calls</em> the announcement, and reaching {@code onMarkerDeath} needs a
- * running server, an armor stand and a damage source.
- *
- * It is not hypothetical, and the shape of the bug is this repository's most repeated one.
- * `onMarkerDeath` once booked the death, cleared the protection, played the sound and removed
- * the body - everything except saying so. Vanilla writes no death message for an
- * {@code EntityDeathEvent}, so {@code SystemLines#onDeath} never saw it, and the one elimination the
- * victim is not present for was also the one nobody else was told about. Every half of the wire
- * existed; nothing joined them.
+ * Vanilla writes no death message for an {@code EntityDeathEvent}, so {@code onMarkerDeath} has to announce it.
  */
 class BodyDeathIsAnnouncedTest {
 

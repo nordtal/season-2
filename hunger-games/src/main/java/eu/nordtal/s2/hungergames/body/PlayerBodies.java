@@ -13,14 +13,9 @@ import org.bukkit.inventory.PlayerInventory;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Bodies standing in for absent players.
+ * Killable armour stands standing in for absent players, before or during a game.
  *
- * One who was ready in the lobby but disconnected before the countdown finished, and one who
- * disconnects mid-game. Both go through this one class.
- *
- * An offline player has no entity in vanilla, so a killable {@link ArmorStand} approximates one.
- * It is not a player: {@code hg_member}/{@code hg_event} track life and death, driven by the
- * marker's damage and death events mapped back to their owner through this class.
+ * Their damage and death map back to the owner through this class; {@code hg_member} tracks life.
  */
 public final class PlayerBodies {
 
@@ -30,13 +25,9 @@ public final class PlayerBodies {
     private final Map<UUID, UUID> playerByMarker = new ConcurrentHashMap<>();
 
     /**
-     * Spawns a body copying the player's equipment.
+     * Spawns a body copying the player's equipment and returns the marker's UUID.
      *
      * Call from the quit listener while the {@code Player} object is still usable.
-     *
-     * @param player the player who just disconnected
-     * @param at     where to place the body - their last location
-     * @return the marker entity's UUID
      */
     public UUID spawn(final Player player, final Location at) {
         final ArmorStand marker = baseArmorStand(at, player.getName());
@@ -56,25 +47,12 @@ public final class PlayerBodies {
         return marker.getUniqueId();
     }
 
-    /**
-     * Spawns a body with no equipment, for a participant never seen online this session.
-     *
-     * Their gear only exists as stored NBT this plugin does not parse.
-     *
-     * @param at          where to place the body
-     * @param displayName shown above the marker
-     * @return the marker entity's UUID
-     */
+    /** Spawns a bare body for a participant never seen online this session, and returns the marker's UUID. */
     public UUID spawnBareArmorStand(final Location at, final String displayName) {
         return baseArmorStand(at, displayName).getUniqueId();
     }
 
-    /**
-     * As {@link #spawnBareArmorStand(Location, String)}.
-     *
-     * Also registers the marker against a known Minecraft UUID so
-     * {@link #ownerOf(UUID)}/{@link #hasBody(UUID)} work for it.
-     */
+    /** As {@link #spawnBareArmorStand(Location, String)}, registered against a UUID for {@link #ownerOf(UUID)}. */
     public UUID spawnBareArmorStand(final Location at, final String displayName, final UUID mcUuid) {
         final ArmorStand marker = baseArmorStand(at, displayName);
         register(mcUuid, marker.getUniqueId());
@@ -100,12 +78,12 @@ public final class PlayerBodies {
         playerByMarker.put(markerUuid, mcUuid);
     }
 
-    /** @return the Minecraft account a marker entity stands in for, if it is one of ours */
+    /** Returns the Minecraft account a marker entity stands in for, if it is one of ours. */
     public @Nullable UUID ownerOf(final UUID markerEntityUuid) {
         return playerByMarker.get(markerEntityUuid);
     }
 
-    /** @return whether this player currently has a body standing in for them */
+    /** Returns whether this player currently has a body standing in for them. */
     public boolean hasBody(final UUID mcUuid) {
         return markerByPlayer.containsKey(mcUuid);
     }
@@ -114,7 +92,7 @@ public final class PlayerBodies {
         return markerByPlayer.get(mcUuid);
     }
 
-    /** Removes the bookkeeping for a marker - call after despawning it, on reconnect or on death. */
+    /** Removes the bookkeeping for a marker; call after despawning it, on reconnect or on death. */
     public void remove(final UUID mcUuid) {
         final UUID marker = markerByPlayer.remove(mcUuid);
         if (marker != null) {

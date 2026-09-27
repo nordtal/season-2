@@ -7,20 +7,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Everything about the currently running game that lives only in memory.
+ * Everything about the running game that lives only in memory, not in the {@code hg_*} rows.
  *
- * It is not one of the {@code hg_*} rows themselves.
- *
- * {@code org.bukkit.WorldBorder} does not expose "am I mid-transition" (verified against Paper
- * 26.2's actual interface: {@code getSize()}, {@code setSize(double, long)} and
- * {@code changeSize(double, long)} are the whole surface - there is no "current target" or
- * "time remaining" getter), so the plugin has to track shrink state itself. This is that state,
- * held once per running game and reset when a new one starts.
+ * {@code WorldBorder} exposes no in-transition state, so the shrink is tracked here, reset per game.
  */
 public final class GameState {
 
     private volatile @Nullable UUID gameId;
-    /** {@code true} only from release (end of countdown) onward - see {@link #release()}. */
+    /** {@code true} from release, the end of the countdown, onward. */
     private volatile boolean running;
 
     private volatile int effectiveParticipants;
@@ -30,12 +24,12 @@ public final class GameState {
     private volatile boolean shrinking;
     /** The diameter the current shrink is heading toward. Meaningless while {@link #shrinking} is false. */
     private volatile double shrinkTarget;
-    /** When the current shrink is expected to finish - used to decide whether a new death extends it. */
+    /** When the current shrink should finish, which decides whether a new death extends it. */
     private volatile @Nullable Instant shrinkEndsAt;
     /** {@code true} when the in-flight shrink is the slow passive one rather than a death-triggered one. */
     private volatile boolean passiveShrink;
 
-    /** The last time any player died or was eliminated - drives the quiet-period timer. */
+    /** The last time any player died or was eliminated, which drives the quiet-period timer. */
     private volatile @Nullable Instant lastDeathAt;
 
     /** Minecraft UUID -> the instant PvP protection ends for that player. */
@@ -58,12 +52,12 @@ public final class GameState {
         this.protectedUntil.clear();
     }
 
-    /** Marks the game as released - called once, when the countdown finishes. */
+    /** Marks the game as released, once, when the countdown finishes. */
     public void release() {
         this.running = true;
     }
 
-    /** @return whether the game has been released (countdown finished); false during COUNTDOWN */
+    /** Returns whether the countdown has finished; false during COUNTDOWN. */
     public boolean isRunning() {
         return running;
     }

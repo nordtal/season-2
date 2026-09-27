@@ -10,26 +10,9 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
- * A frozen participant must not be kicked for standing still.
+ * A frozen participant must not be kicked for floating.
  *
- * The two halves that make a loop: {@code FreezeListener} cancels every position change for the
- * whole countdown, so a participant placed above air does not fall - they hover. Vanilla kicks a
- * hovering player after about five seconds ("<i>was kicked for floating too long</i>" /
- * "<i>Flying is not enabled on this server</i>"), and the kick is not the end of it: the proxy puts
- * them back on the backend, the start places them on the same tower, and the five seconds run
- * again. Measured once on the local stack: both participants cycled through kick and rejoin
- * indefinitely, and the only way out was ending the phase from outside the game.
- *
- * Locally the towers are missing because the arena world is in no repository. On the real arena
- * they are built - but the freeze is what turns "a tower's top block is one lower than
- * {@code spawn-tower-height}, or somebody mined it" into a failure that takes out <em>every</em>
- * participant at once, at the one moment in the season that cannot be retried.
- *
- * Why the fix is mayfly: {@code mayfly} is the flag vanilla's check reads, so granting it removes
- * the failure mode rather than the local instance of it. It grants no actual movement, because
- * {@code FreezeListener} cancels that for as long as the freeze lasts, and {@code release} takes it
- * back. Building the towers from the plugin was the alternative and is a much larger decision - the
- * arena is hand-built and this module places nothing.
+ * A frozen player above air hovers; {@code mayfly} disables vanilla's floating kick.
  */
 class FrozenPlayersAreNotKickedTest {
 

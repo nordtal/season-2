@@ -30,9 +30,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Schedules the loot refills configured under {@code refill-tiers}.
  *
- * At each tier's delay, every loot point still inside the border is restocked. The chest block
- * itself is part of the hand-built world and is never replaced - only its inventory is cleared and
- * repopulated.
+ * Each refill clears and restocks the chest of every loot point still inside the border.
  */
 public final class LootRefill {
 
@@ -68,10 +66,7 @@ public final class LootRefill {
         this.sounds = sounds;
     }
 
-    /**
-     * When the next refill is due, or {@code null} when none is - read by the HUD's second line.
-     * Derived rather than pushed, so it cannot go stale.
-     */
+    /** When the next refill is due, or {@code null} when none is; derived for the HUD, so it cannot go stale. */
     public @Nullable Instant nextRefillAt() {
         final Instant released = releasedAt;
         if (released == null) {
@@ -115,7 +110,6 @@ public final class LootRefill {
         for (final HungerGamesSpec.LootPointSpec point : config.lootPoints()) {
             final Location location = new Location(world, point.x(), point.y(), point.z());
             if (!border.isInside(location)) {
-                // A point the border has cut off is simply gone.
                 continue;
             }
 
@@ -151,11 +145,7 @@ public final class LootRefill {
         }
     }
 
-    /**
-     * {@code NETWORK_EVENT}: nobody caused it, and it happens to the whole world at once.
-     *
-     * It is the one announcement here a player is expected to act on - so it is not chat alone.
-     */
+    /** {@code NETWORK_EVENT}, and not chat alone: the one announcement here a player is expected to act on. */
     private void announce() {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(MessageRenderer.of(messages)

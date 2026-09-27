@@ -13,30 +13,9 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.slf4j.Logger;
 
 /**
- * Lets an admin onto this server when it is already full.
+ * Lets an admin onto this server when it is already full, and reads every login's admin flag.
  *
- * {@link FullServerAdmission} carries the whole reasoning: one player limit for the network,
- * written into this server's {@code server.properties} from the same {@code .env} variable the
- * proxy is given, and the proxy's admin exemption rebuilt here so that it survives the change. It
- * also carries the one thing about the ordering of these two events that is assumed rather than
- * proved.
- *
- * Why this server, of all three: the start event is the one moment the network is deliberately all
- * in one place - every registered player is routed here at once, so this is the backend most likely
- * to actually sit at its cap, and it is the worst possible time for the admin who has to start the
- * game to be told the server is full.
- *
- * {@link FullServerAdmission#worthAsking} used to keep an ordinary login free of a query and pay
- * for it only during that burst. The flag is now read on every login instead, because an admin is a
- * server operator for the length of their session
- * ({@link eu.nordtal.s2.common.access.AdminOperators}) and the join handler that grants it runs on
- * the main thread and cannot query. It is one round trip on the pre-login thread, which is where
- * this module already does its waiting.
- *
- * What a failure here does, and does not, do: nothing. A lookup that throws leaves the player
- * un-warmed and Paper's own answer standing, which for everybody but an admin at a full server is
- * the right answer anyway. Refusing the login from here instead would replace a screen that
- * explains itself with one that does not.
+ * A failed lookup leaves Paper's own answer standing; {@link FullServerAdmission} has the reasoning.
  */
 public final class FullServerGate implements Listener {
 
@@ -51,18 +30,15 @@ public final class FullServerGate implements Listener {
     }
 
     /**
-     * Reads the admin flag, on the one thread this server is allowed to wait on a database from.
+     * Reads the admin flag for every allowed login, on the one thread this server may wait on a database from.
      *
-     * Only for a login close enough to the cap that the answer could change anything.
-     * {@link FullServerAdmission#remember} is called either way, including with {@code false}: that
-     * is what keeps an answer from an earlier connection out of this one.
+     * Every login, since the operator grant needs it; {@code false} is remembered too, clearing an earlier answer.
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPreLogin(final AsyncPlayerPreLoginEvent event) {
         if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
             return;
         }
-        // Read on every login: the main-thread join handler granting operator status cannot query it itself.
         boolean admin = false;
         try {
             admin = dao.isAdmin(event.getUniqueId()).orElse(Boolean.FALSE);
@@ -79,10 +55,7 @@ public final class FullServerGate implements Listener {
     /**
      * Overturns the fullness check, and only that one.
      *
-     * {@code PlayerServerFullCheckEvent} rather than {@code PlayerLoginEvent}: Paper 26.2 deprecated
-     * the latter and names this one for exactly this purpose, because it decides without forcing the
-     * player entity into existence first. A ban, a whitelist or any other refusal never reaches this
-     * event at all.
+     * Paper 26.2 names {@code PlayerServerFullCheckEvent} for this; it decides without creating the player entity.
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onFullCheck(final PlayerServerFullCheckEvent event) {

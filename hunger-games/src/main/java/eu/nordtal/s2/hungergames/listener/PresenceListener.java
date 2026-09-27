@@ -27,12 +27,7 @@ import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Wires {@link PlayerLocales} and the disconnected-body mechanism.
- *
- * On quit mid-game a body takes the player's place; on reconnect the body is removed and whatever
- * gear it still has is returned.
- */
+/** Wires {@link PlayerLocales} and the bodies that replace players who quit mid-game. */
 public final class PresenceListener implements Listener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PresenceListener.class);
@@ -44,14 +39,10 @@ public final class PresenceListener implements Listener {
     private final MessageRenderer messages;
     private final AdminOperators operators;
 
-    /**
-     * The admin flag, cached at pre-login by {@link FullServerGate}, on the thread allowed to wait.
-     *
-     * Read here, never queried: this is the main thread.
-     */
+    /** The admin flag cached at pre-login by {@link FullServerGate}, read here since this is the main thread. */
     private final FullServerAdmission admission;
 
-    /** The five shared system lines. Held for one call: the join line, once the locale has landed. */
+    /** The shared system lines, held for the join line once the locale has landed. */
     private final SystemLines lines;
 
     public PresenceListener(
@@ -73,11 +64,7 @@ public final class PresenceListener implements Listener {
         this.lines = lines;
     }
 
-    /**
-     * Rewrites the tab list header and footer for everybody online, not just the player who moved.
-     *
-     * The footer carries the player count.
-     */
+    /** Rewrites the tab list header and footer, which carries the player count, for everybody online. */
     private void refreshTabList() {
         for (final Player online : Bukkit.getOnlinePlayers()) {
             final java.util.Locale locale = locales.of(online.getUniqueId());
@@ -144,12 +131,7 @@ public final class PresenceListener implements Listener {
         }
     }
 
-    /**
-     * Copies whatever gear the marker still has back onto the reconnecting player.
-     *
-     * It may have lost pieces to death - looting is not modelled - and this is the inverse of
-     * {@code PlayerBodies#spawn}.
-     */
+    /** Returns the marker's remaining gear to the reconnecting player, the inverse of {@code PlayerBodies#spawn}. */
     private void returnEquipment(final Player player, final ArmorStand marker) {
         final EntityEquipment equipment = marker.getEquipment();
         if (equipment == null) {

@@ -21,12 +21,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The post-game ceremony.
- *
- * Everyone back to the lobby, an evaluation of the result, the game marked {@code DECIDED}.
- * Switching the season phase stays an explicit admin action elsewhere.
- */
+/** The post-game ceremony: everyone back to the lobby, the result announced, the game marked {@code DECIDED}. */
 public final class Ceremony {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Ceremony.class);
@@ -42,17 +37,12 @@ public final class Ceremony {
     }
 
     /**
-     * Everything the ceremony needs, all of it read off the main thread before it starts.
+     * Everything the ceremony needs, read off the main thread before it starts, so {@code Ceremony} holds no DAO.
      *
-     * The record exists so that guarantee is structural: {@code Ceremony} holds no DAO at all.
-     *
-     * @param outcome      what {@code WinTracker} decided
-     * @param winnerMcUuid the winner's Minecraft account, or {@code null} when nobody won or the
-     *                     winner never linked one. The only thing that tells the one player who won
-     *                     from the ones being told about it
-     * @param members      every active membership, for the names on the tally
-     * @param kills        member id to kill count, from one grouped query. Members with none are
-     *                     absent
+     * @param outcome what {@code WinTracker} decided
+     * @param winnerMcUuid the winner's Minecraft account, or {@code null} when there is none
+     * @param members every active membership, for the names on the tally
+     * @param kills member id to kill count; members with none are absent
      */
     public record Decision(
             WinTracker.Outcome outcome,
@@ -61,20 +51,13 @@ public final class Ceremony {
             Map<UUID, Integer> kills) {}
 
     /**
-     * Teleports everyone in the world back to the lobby and prints the evaluation, per player language.
+     * Teleports everyone in the world back to the lobby and announces the result in each player's language.
      *
-     * Runs on the main thread and touches no database: the caller already wrote the game as
-     * decided, off the thread, along with everything in {@link Decision}.
-     *
-     * @param world    the event world everyone is currently standing in
-     * @param lobby    the lobby teleport point
-     * @param gameId   the game that just ended, for the log line
-     * @param decision every fact this needs, read before it was called
+     * Main thread, no database: the caller already wrote the game as decided.
      */
     public void run(final World world, final Location lobby, final UUID gameId, final Decision decision) {
-        // Deliberately silent although TRAVEL exists: the result lands in the same breath as this.
         for (final Player player : world.getPlayers()) {
-            // Fire-and-forget: a failed teleport still gets the announcement below, just standing wherever it was.
+            // Fire-and-forget: a failed teleport still gets the announcement, wherever the player stands.
             final var _ = player.teleportAsync(lobby);
         }
 
@@ -87,13 +70,7 @@ public final class Ceremony {
                 decision.outcome().winnerMemberId());
     }
 
-    /**
-     * One line for everybody and two sounds.
-     *
-     * {@code BIG_SUCCESS} for the winner, {@code NETWORK_EVENT} for everybody else - a
-     * congratulation everybody hears congratulates nobody. The four wordings stay four; only the
-     * sounds collapse into two.
-     */
+    /** One line for everybody; {@code BIG_SUCCESS} for the winner and {@code NETWORK_EVENT} for everybody else. */
     private void announce(final Player player, final Decision decision) {
         final WinTracker.Outcome outcome = decision.outcome();
         final List<HgMember> allMembers = decision.members();
@@ -113,7 +90,7 @@ public final class Ceremony {
                                             outcome.winnerKills(),
                                             outcome.loserKills())));
         } else if (outcome.winnerMemberId() != null) {
-            // The one line of the four with an icon; the glyph is a parameter since Glyphs names code points.
+            // The one line with an icon; the glyph is a parameter since Glyphs names code points.
             player.sendMessage(MessageRenderer.of(messages)
                     .format(
                             locale,

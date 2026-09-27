@@ -18,7 +18,7 @@ import net.kyori.adventure.text.Component;
 @MessageSpec("hunger-games")
 public interface HungerGamesMessages {
 
-    /** The messages; stateless, so one instance serves every caller. */
+    /** The one shared instance; it is stateless. */
     HungerGamesMessages MESSAGES = MessageSpecs.create(HungerGamesMessages.class);
 
     Hg hg();

@@ -19,23 +19,15 @@ import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
 /**
- * That the world {@code compose.yml} tells Paper to generate is the world this plugin runs in.
+ * Checks that the world {@code compose.yml} tells Paper to generate is the world this plugin runs in.
  *
- * Why this file exists: this module does <b>not</b> create its world - the event map is hand-built
- * and shipped as a folder, and the plugin disables itself when the world is not loaded. The
- * {@code hunger-games} service once had no {@code LEVEL_NAME} at all, so Paper generated
- * {@code world} while {@code config.yml}'s {@code world-name} said {@code hunger_games} - and
- * {@code deploy/README.md} told the operator to {@code docker cp} the map into {@code /data/world/},
- * which produces a world under the one name the plugin will not look for. Following the documented
- * runbook to the letter left this module permanently disabled, and nothing here could see it: the
- * two halves of the fact were a YAML file the build never read and a Java default nothing compared
- * it against.
+ * The plugin never creates its world and disables itself when the configured one is not loaded.
  */
 class ComposeWorldTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ComposeWorldTest.class);
 
-    /** {@code ${HUNGER_GAMES_LEVEL_NAME:-hunger_games}} - the fallback an unfilled .env leaves. */
+    /** {@code ${HUNGER_GAMES_LEVEL_NAME:-hunger_games}}: the fallback an unfilled .env leaves. */
     private static final Pattern DEFAULTED = Pattern.compile("^\\$\\{[A-Z0-9_]+:-(.*)}$");
 
     @TempDir
@@ -53,8 +45,6 @@ class ComposeWorldTest {
                         + " config.yml's world-name defaults to '" + named + "'. The plugin does not"
                         + " load a world of its own - it disables itself when that one is missing.");
     }
-
-    // reading the real file
 
     private static Map<String, Object> environmentOf(final String service) {
         final Path compose = repositoryRoot().resolve("compose.yml");

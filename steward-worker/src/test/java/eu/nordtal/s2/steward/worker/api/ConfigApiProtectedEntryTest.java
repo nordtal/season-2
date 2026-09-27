@@ -17,17 +17,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * The one step between {@code ConfigFiles} and the browser: whether {@code protectedEntry} actually reaches the wire.
- *
- * jcore builds the schema node, {@code ConfigFiles} carries it onto the entry and refuses the removal, and
- * {@code repeatable-cards.tsx} greys out the section it names - none of which proves the wire answer carries the
- * key. {@link ConfigApi#document} writes its answer key by key into a {@link java.util.LinkedHashMap}, and a key
- * nobody adds is simply absent - nothing throws, nothing warns, and every suite on either side of it stays green.
- * The refusal still works, so nothing is unsafe; what would be dead is the half an operator sees, which is the half
- * that stops somebody trying. A hand-written map is a place where "the field exists" and "the field is sent" are
- * two different facts, so this holds the second one.
- */
+/** {@code protectedEntry} actually reaches the wire, since the hand-built answer map drops a key nobody adds. */
 class ConfigApiProtectedEntryTest {
 
     private static final Gson GSON = new Gson();

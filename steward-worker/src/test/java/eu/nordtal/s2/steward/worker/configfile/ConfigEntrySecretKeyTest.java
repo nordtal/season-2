@@ -8,8 +8,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The name heuristic behind a hidden value.
  *
- * A key called just {@code key} is the ID of an entry in this repository - a milestone, an objective, a sound - and
- * hiding it blanks the title of every card that shows one. Every credential here is named {@code something-key}.
+ * A key called just {@code key} is an entry id here; every credential is named {@code something-key}.
  */
 class ConfigEntrySecretKeyTest {
 

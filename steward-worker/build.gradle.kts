@@ -4,45 +4,32 @@ plugins {
 
 application.mainClass.set("eu.nordtal.s2.steward.worker.StewardWorker")
 
-// TopologyTest reads the real compose.yml; without declaring it, editing that file alone would
-// leave :steward-worker:test UP-TO-DATE.
+// Tests that read files as text declare them here, or editing one alone leaves the tests UP-TO-DATE.
 repositoryRootTestInputs {
     reads("compose.yml")
 
-    // DocumentedCommandsTest reads every file that writes `docker compose run --rm steward-worker` down for
-    // a person to copy, so those documents have to be inputs too.
+    // DocumentedCommandsTest reads every document that shows a `steward-worker` command.
     reads(".env.example")
     reads("steward-worker/Dockerfile")
     reads("steward-worker/README.md")
     reads("deploy/README.md")
 
-    // Runner as text, for the two tests that read it rather than call it.
-    // CountdownComesAfterResolvingTest asserts the order of two statements inside one method, and
-    // BackupSavesBeforeItSettlesTest asserts that the backup is written before the run decides it
-    // is a failure. Gradle's own input is the compiled class, which says nothing about either. If
-    // one of those tests is ever deleted, leave this line: the other one still needs it, and a
-    // declaration that quietly goes with the wrong test is exactly the failure they guard against.
+    // Read as text by the tests that assert statement order inside these sequences.
     reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/Runner.java")
     reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/BackupSequence.java")
     reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/RestartSequence.java")
     reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/UpdateSequence.java")
 
-    // And WorkerApi as text, for the same reason: HeartbeatLeavesTheTimerTest asserts which
-    // executor the heartbeat comment is written on, and folding that back into the timer's own
-    // lambda is a change Gradle's compiled input would not necessarily notice.
+    // HeartbeatLeavesTheTimerTest asserts which executor writes the heartbeat.
     reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/api/WorkerApi.java")
 
-    // TopologyTest asks the release workflow whether it pushes every ghcr.io/nordtal image
-    // compose.yml defaults to. It is a text read of the workflow, so Gradle has to be told.
+    // TopologyTest checks that the release workflow pushes every image compose.yml names.
     reads(".github/workflows/release.yml")
 
-    // And StewardDeployer as text, for the one default that has to be the same on both sides of
-    // the socket: the compose project name.
+    // The compose project name must match on both sides of the socket.
     reads("steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/StewardDeployer.java")
 
-    // TopologyDeploymentTest holds deploy/dev.env.example against every required variable in compose.yml:
-    // compose interpolates the whole file before filtering by profile, so one unset `${X:?}` stops
-    // the local stack even for a service it never starts.
+    // TopologyDeploymentTest holds dev.env.example against every required variable in compose.yml.
     reads("deploy/dev.env.example")
 }
 
@@ -55,56 +42,34 @@ dependencies {
     compileOnly("org.checkerframework:checker-qual:4.2.3")
     testCompileOnly("org.checkerframework:checker-qual:4.2.3")
 
-    // The internal API steward-ui calls. It is here rather than in the interface because §3 keeps
-    // the docker socket away from the web layer: the part an attacker reaches must not be the part
-    // that can stop a container. Javalin brings jetty and slf4j and nothing else that matters -
-    // its jackson and gson support are both `optional`, so the mapper is a choice, not a surprise.
+    // The internal API steward-ui calls, kept out of steward-ui so the web layer holds no docker socket.
     implementation(libs.javalin)
 
-    // The config system and the Flyway migration. jcore exports gson and snakeyaml as api
-    // dependencies, so nothing here declares a parser of its own: a second copy of gson on the
-    // classpath is how you get two Gson types that are not each other.
+    // jcore exports gson and snakeyaml, so nothing here declares a parser of its own.
     implementation(libs.jcore)
 
-    // jcore exports no logging backend, and without one SLF4J binds to a no-op and every line this
-    // module logs disappears.
+    // jcore exports no logging backend, and without one every log line disappears.
     runtimeOnly(libs.logback.classic)
 
-    // Compiled against in tests only, and for one reason: WorkerShutdownTest counts warnings. The
-    // defect it holds does not fail anything - it logs, tens of thousands of times a second - so
-    // the backend is what the assertion is made of.
+    // WorkerShutdownTest counts logged warnings.
     testImplementation(libs.logback.classic)
 
-    // The only process holding a bunq credential and calling bunq's API directly; the bot writes a
-    // row asking for a tab and reads back the result.
-    // `com/bunq/sdk/http/BunqRequestBuilder.java` patches the SDK's own class in its own package to
-    // win on the classpath; read that file before touching this line or the OkHttp version.
+    // BunqRequestBuilder patches the SDK's own class; read it before touching this or the OkHttp version.
     implementation(libs.bunq.sdk)
 
-    // Compiled against, not merely shipped: the patched BunqRequestBuilder above extends
-    // okhttp3.Request.Builder, and the SDK's POM puts OkHttp at RUNTIME scope only - so without
-    // this line the patch does not compile, which is how this was found. `implementation` and not
-    // `compileOnly` on purpose: Gradle then resolves one version for both classpaths, so a bunq
-    // bump that moves OkHttp can never leave this module compiling against one major and running
-    // on another. See the comment beside `okhttp` in libs.versions.toml.
+    // The patched BunqRequestBuilder extends okhttp3.Request.Builder, which the SDK ships at runtime scope only.
     implementation(libs.okhttp)
 
-    // Compiled against, not just shipped: PostgresNotifications unwraps org.postgresql.PGConnection
-    // to call getNotifications(int), the only way pgjdbc exposes LISTEN/NOTIFY. Declared here so the
-    // version comes from this repo's catalog rather than from jcore's POM.
+    // PostgresNotifications unwraps PGConnection for LISTEN and NOTIFY.
     implementation(libs.postgresql.driver)
 
-    // Where the migration SQL lives: common/src/main/resources/db/migration, on this module's
-    // classpath because :common is shaded into its jar. :common declares JDBI, HikariCP and slf4j
-    // compileOnly, so this brings no stack of its own.
+    // Shaded in, and with it the migration SQL.
     implementation(project(":common"))
 
-    // ServeLockIntegrationTest needs a real PostgreSQL: an advisory lock is a property of a database
-    // session, with no in-JVM stand-in. It skips itself when no Docker daemon is reachable.
+    // ServeLockIntegrationTest needs a real PostgreSQL for advisory locks, and skips without Docker.
     testImplementation(libs.testcontainers.postgresql)
 
-    // ConfigFilesOwnershipTest needs a file owned by somebody other than the test process; an
-    // in-memory filesystem is the only place that is testable, on this host or in CI.
+    // ConfigFilesOwnershipTest needs a file owned by another user, which only an in-memory filesystem gives.
     testImplementation(libs.jimfs)
 
     compileOnly(libs.lombok)

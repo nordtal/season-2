@@ -13,20 +13,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 /**
- * Nobody waits for a refresh they did not ask for.
+ * A refresh runs beside the reader who triggers it, never in front of them.
  *
- * A refresh that blocks the reader who triggers it is a trap: whichever request arrives first after the drift
- * cache expires goes to a registry over the internet with the whole response waiting behind it - and behind a
- * {@code synchronized}, so every other request waits too. steward-ui allows ten seconds, so that one request in
- * every sixty times out, and its log says {@code steward-worker could not be reached} about a container that is
- * healthy.
- *
- * The cache was not wrong to be a minute old; it was wrong about who pays for making it new. A reader gets the
- * answer that exists and the refresh happens beside them.
+ * A blocking refresh would hold that reader on a registry round trip, and every other reader behind the lock.
  */
 class RefreshedTest {
 
-    /** An executor that runs nothing until a test says so, which is what makes "beside" visible. */
+    /** An executor that runs nothing until a test says so. */
     private static final class Later implements java.util.concurrent.Executor {
         private final Deque<Runnable> queued = new ArrayDeque<>();
 
@@ -74,7 +67,7 @@ class RefreshedTest {
         assertEquals("read 1", value.get());
         tick(Duration.ofMinutes(2));
 
-        // The old answer, immediately: the reader is not the one who pays for the registry round trip.
+        // The old answer, immediately; the refresh has not run yet.
         assertEquals("read 1", value.get());
         assertEquals(1, reads.get(), "the reader must not have done the read itself");
         assertEquals(1, later.pending());
@@ -99,7 +92,7 @@ class RefreshedTest {
 
     @Test
     void aRefreshThatFailsKeepsTheOldAnswerAndTheNextReaderAsksAgain() {
-        // An unreachable registry is not a reason to have no drift column: the old answer stands, aged, not current.
+        // An unreachable registry keeps the old answer, aged rather than current.
         final AtomicInteger reads = new AtomicInteger();
         final Later later = new Later();
         final Refreshed<String> value = new Refreshed<>(

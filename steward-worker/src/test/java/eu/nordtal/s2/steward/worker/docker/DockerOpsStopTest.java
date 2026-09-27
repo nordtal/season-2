@@ -24,11 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * How a stop ended, which the stop call itself does not say.
  *
- * Why a hand-written daemon: The case is a container that ignores SIGTERM until Docker kills it, and a real daemon
- * will only perform that after the full grace period - thirty seconds of test, every build, to observe one integer.
- * The integer is all that is being read here, so the daemon is a unix socket answering two requests by hand. What
- * the real one puts in that field is checked by {@code DockerIntegrationTest} against a container that really did
- * exit.
+ * A hand-written daemon reports the exit code at once, where a real one would wait out the grace period.
  */
 class DockerOpsStopTest {
 
@@ -52,7 +48,7 @@ class DockerOpsStopTest {
 
     @Test
     void aContainerDockerHadToKillIsARefusedStopNotASuccessfulOne() throws IOException {
-        // 137 is SIGKILL after the grace period ran out mid-write - a world half saved, then tarred as a backup.
+        // 137 is SIGKILL after the grace period ran out mid-write: a world half saved, then tarred as a backup.
         final RedeployResult result = ops(137).stop("smp-container");
 
         assertFalse(result.triggered(), result.message());
@@ -164,7 +160,7 @@ class DockerOpsStopTest {
 
     @FunctionalInterface
     private interface Answer {
-        /** @return the JSON body, the empty string for a 204, or {@code null} to hang up unanswered */
+        /** The JSON body, an empty string for a 204, or {@code null} to hang up unanswered. */
         String to(String request);
     }
 }

@@ -22,12 +22,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * The sampler, end to end: the real daemon on one side, a real PostgreSQL on the other.
+ * The sampler, end to end: the real daemon on one side, a throwaway PostgreSQL on the other.
  *
- * Why a throwaway database and not the one on this host: The live database belongs to a deployment running the
- * released jar. Applying this branch's migration to it would leave a version in its history the deployed bot does
- * not know, and the bot calls {@code validate()} and refuses to start against exactly that. So the migration is
- * proved where breaking it costs nothing, and the live one is left alone until the cutover.
+ * The live database stays untouched, since a migration it does not know would stop the deployed bot.
  */
 class SamplerIntegrationTest {
 
@@ -42,7 +39,7 @@ class SamplerIntegrationTest {
         postgres = new PostgreSQLContainer<>("postgres:17-alpine");
         postgres.start();
 
-        // The worker's own migration path, not a hand-rolled Flyway call - as a migration arrives in production.
+        // The worker's own migration path, not a hand-rolled Flyway call, as a migration arrives in production.
         database = Schema.open(new DatabaseSpec() {
             @Override
             public String jdbcUrl() {

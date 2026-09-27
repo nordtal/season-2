@@ -10,14 +10,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * {@link Topology#servicesWith} - where the {@code List.of(...)} in the code and the rows in {@code service_plugin}
- * become one list.
- *
- * This method is the feature. Everything the ticket asks for downstream - a plugin added in the browser running in
- * the update cycle, a Nordtal plugin that cannot be removed - is a consequence of what this returns, which is why it
- * is tested here rather than through a resolve.
- */
+/** {@link Topology#servicesWith}, where the fixed plugin lists and the {@code service_plugin} rows become one list. */
 class TopologyMergeTest {
 
     private static ManagedPlugin added(final String service, final String slug) {
@@ -43,7 +36,7 @@ class TopologyMergeTest {
         assertTrue(find(merged, Topology.SMP).plugins().contains("worldedit"));
         assertFalse(find(merged, Topology.LIMBO).plugins().contains("worldedit"));
         assertFalse(find(merged, Topology.PROXY).plugins().contains("worldedit"));
-        // The fixed rows are still there and still first - a merge that reordered them would reorder every report.
+        // The fixed rows are still there and still first; reordering them would reorder every report.
         assertEquals(Topology.SMP, find(merged, Topology.SMP).plugins().getFirst());
     }
 

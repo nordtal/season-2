@@ -13,14 +13,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * The one rule {@code /api/services} has about these two fields, held where it can be held without a Docker daemon.
+ * A subject {@link ServicesApi} does not name gets no online fields at all, not even {@code 0} or {@code null}.
  *
- * A subject {@link ServicesApi} does not name produces no field at all - not {@code 0}, not {@code null}, not
- * {@code []}.
- *
- * It is two {@code null} checks in {@code ServiceRows#putOnline} and that is precisely why it is tested: a later edit
- * could make either one a {@code getOrDefault} and every other test in this module would still pass, while the start
- * page would start drawing "nobody is playing" over "nobody has said".
+ * Otherwise the start page would draw "nobody is playing" where it should draw "nobody has said".
  */
 class ServiceRowOnlineFieldsTest {
 

@@ -18,7 +18,7 @@ final class ScalarWriter {
                     + " in this file and cannot hold more than one line");
         }
 
-        // The cheap and common case: only the value's characters move, so a trailing comment stays untouched.
+        // Only the value's characters move, so a trailing comment stays untouched.
         if (!multiLine && !span.multiLine() && span.onKeyLine()) {
             final String rendered = Scalars.render(entry.type(), value, entry.path());
             lines.set(span.line(), LineEdits.splice(lines.get(span.line()), span, rendered));
@@ -43,7 +43,7 @@ final class ScalarWriter {
                 replacement.add(line.isEmpty() ? inner : indent + line + inner);
             }
         } else {
-            // A value collapsing a block, or one no block could carry: double-quoted at worst, never wrong.
+            // A value collapsing a block, or one no block could carry: double-quoted.
             final String written = Scalars.render(entry.type(), value, entry.path());
             rendered = entry.type() == ConfigEntry.Type.STRING ? value : written;
             replacement.add(prefix + " " + written + comment + inner);
@@ -60,7 +60,7 @@ final class ScalarWriter {
             rendered.add(Scalars.renderItem(entry.type(), item, entry.path(), span.flow()));
         }
 
-        // A list written `[a, b]` stays written `[a, b]`, rather than a five-line diff for one changed word.
+        // A list written `[a, b]` stays written that way.
         if (span.flow()) {
             lines.set(
                     span.line(),
@@ -76,7 +76,7 @@ final class ScalarWriter {
 
         final List<String> replacement = new ArrayList<>();
         if (rendered.isEmpty()) {
-            // `[]` says "empty on purpose" where a bare `key:` says "null", and those are different configs.
+            // `[]` means empty where a bare `key:` means null.
             replacement.add(keyBody.substring(0, colon + 1) + " []" + comment + inner);
         } else {
             replacement.add(keyBody.substring(0, colon + 1) + comment + inner);

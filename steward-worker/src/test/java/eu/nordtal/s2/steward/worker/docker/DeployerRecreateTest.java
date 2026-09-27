@@ -28,14 +28,7 @@ import org.junit.jupiter.api.Timeout;
 /**
  * {@link DeployerRecreate} against a hand-written stand-in for steward-deployer's HTTP API.
  *
- * Recreating {@code smp} and the other Docker-Compose services is steward-deployer's job, not this process's own
- * socket: every test below constructs the client and checks it against the same three answers
- * {@link RedeployResult} always distinguishes: {@link RedeployResult#triggered}, {@link RedeployResult#refused} and
- * {@link RedeployResult#unverified}.
- *
- * Why every test is bounded: a fake clock that never reaches the deadline it is asked about turns
- * {@code DeployerRecreate#poll} into a busy loop with no network wait left in it at all. {@link Timeout} here fails
- * the same mistake in seconds instead of hanging the build.
+ * Every test is bounded, since a fake clock that never reaches its deadline turns the poll into a busy loop.
  */
 @Timeout(10)
 class DeployerRecreateTest {

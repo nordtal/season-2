@@ -12,11 +12,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * The filename rule, pinned against every jar this deployment actually runs.
+ * The filename rule, pinned against every jar this deployment runs.
  *
- * These six names come from the live APIs and {@code compose.yml}. The test is here so that a source which starts
- * publishing a differently shaped name breaks a build rather than a server: the failure mode of a mis-read prefix is
- * Paper loading two versions of the same plugin, which it does silently.
+ * A mis-read prefix makes Paper load two versions of the same plugin, silently.
  */
 class JarNameTest {
 

@@ -8,26 +8,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The console of §10a.2: one line, typed into one server.
+ * Sends one line to a Minecraft server's console; the reply lands in {@code docker logs}, where the interface reads it.
  *
- * The answer does not come back here, and that is not a limitation: {@code mc} inside the Minecraft image hands the
- * line to the tmux session the server runs in and returns immediately - the server's reply is printed on its console
- * and therefore lands in {@code docker logs}, where the interface is already watching. So a command and its answer
- * arrive on the same stream and in the same order as everybody else's, which is what makes a second admin's line
- * visible to the first. A console that collected its own replies privately would make two people typing look like
- * one person hallucinating.
- *
- * Four services have one, six do not: The four Minecraft servers run a console because they have one.
- * {@code postgres} and {@code caddy} have no such thing; {@code discord-bot} 's interface is Discord;
- * steward-worker's own is this. The rule lives here rather than in {@link Docker} deliberately: a general-purpose
- * exec that quietly refuses some containers is a puzzle, while a named boundary is a boundary. It is also why the
- * interface shows no console field at all for those six, rather than a disabled one (§10c).
+ * Only the four Minecraft servers have a console; every other service is refused by name.
  */
 public final class Console {
 
     private static final Logger log = LoggerFactory.getLogger(Console.class);
 
-    /** The four that have a console. Everything else is refused by name. */
+    /** The four that have a console. */
     public static final Set<String> WITH_A_CONSOLE =
             Set.of(Topology.PROXY, Topology.LIMBO, Topology.HUNGER_GAMES, Topology.SMP);
 
@@ -44,13 +33,10 @@ public final class Console {
     }
 
     /**
-     * Sends one line to a server's console.
+     * Sends one line to a server's console, as an argument and never through a shell.
      *
-     * The command is passed as an argument and never through a shell: no quoting, no interpretation, no way for a
-     * semicolon in a message to become a second command.
-     *
-     * @param service the compose service name, which must be one of {@link #WITH_A_CONSOLE}
-     * @param command the line as typed, without a leading slash - {@code list}, {@code say hello}
+     * @param service the compose service name, one of {@link #WITH_A_CONSOLE}
+     * @param command the line as typed, without a leading slash
      * @throws IllegalArgumentException if that service has no console, naming what it has instead
      * @throws DockerException if the container is not there or the exec failed
      */
@@ -66,15 +52,15 @@ public final class Console {
                 .orElseThrow(() -> new DockerException(
                         "no running container for " + service + ", so there is no console to type into"));
 
-        // `mc` exits as soon as tmux has the line, so an empty answer here is success, not silence.
+        // `mc` exits once tmux has the line, so an empty answer is success.
         final Docker.ExecResult answer = docker.exec(containerId, List.of("mc", command));
         if (!answer.ok()) {
-            // `mc` failing is not the server refusing it - it never saw a line `mc` could not hand to tmux.
+            // `mc` failing means the server never saw the line.
             throw new DockerException("`mc " + command + "` in " + service + " exited " + answer.exitCode() + ": "
                     + answer.output().strip());
         }
         if (!answer.output().isBlank()) {
-            // Only `mc` itself talks here, when unhappy about something it survived; the server's reply never does.
+            // Only `mc` itself writes here; the server's reply never does.
             log.info("console {}: {}", service, answer.output().strip());
         }
     }
@@ -93,7 +79,7 @@ public final class Console {
             case "postgres" ->
                 "a database is not driven by typing into a terminal, and `psql` on "
                         + "the host is the tool for the times when it is";
-            // NOT the Velocity proxy: that service is a Minecraft server and is in WITH_A_CONSOLE instead.
+            // Caddy, not the Velocity proxy, which has a console.
             case "caddy" -> "a reverse proxy has no console; its configuration is a file";
             default -> "it runs no console";
         };

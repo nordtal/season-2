@@ -38,84 +38,36 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Reads the message bundles a module ships in its jar, merged with whatever an operator has overridden on disk.
+ * Reads the message bundles a module ships in its jar, merged with what an operator has overridden on disk.
  *
- * The jar is the source of the packaged text, never the disk. A plugin's data directory only ever holds the keys
- * somebody has already overridden - almost none of them, on a fresh deployment - while the jar carries the whole
- * bundle: {@code eu.nordtal.s2.common.message.Messages} loads it from the classpath at runtime, and this class opens
- * the same jar from the outside to draw the same picture without a plugin class on this process's classpath. Editing
- * a line in the interface is what creates the override; before that edit, nothing about that key exists on disk at
- * all.
- *
- * Finding the jar: A bundle is discovered from its override directory - a {@code messages/} directory under the
- * configs mount, which {@code Messages.load} creates (with its {@code README.txt}) the first time a module starts,
- * whether or not it has ever been used. The jar that goes with it is found by {@link JarName#prefixOf}, the same
- * rule {@code Installation} and {@code entrypoint.sh} already use to name a jar by its artefact id: the plugin's own
- * data directory (or the service name, for a standalone jar with no {@code plugins/} layer) is the prefix, and it is
- * looked for first among the jars sitting directly in the service's configs directory - where a Paper or Velocity
- * plugin's own jar sits, next to its data folder - and then, for a service with none there, among the jars in the
- * matching volumes directory. That second lookup is the one discord-bot needs: its jar is not under the configs
- * mount at all.
- *
- * The merge: A module usually loads several roots as one bundle - {@code commands} plus its own root, a Paper plugin
- * also {@code paper-common} - and the single override directory beside it holds one {@code en.properties} and one
- * {@code de.properties} for all of them together, key by key ( {@link eu.nordtal.s2.common.message.Messages} 's own
- * javadoc explains why: a whole-file override would freeze the wording at the day it was copied). {@link #read}
- * reproduces that merge by reading every {@code messages/<root>/{en,de}.properties} entry the jar has and folding
- * them into one map per language, so the picture shown here is the one bundle the module itself would build.
+ * The jar holds the packaged text; overrides merge per key across every root, as {@code Messages} does.
  */
 public final class MessageBundles {
 
     private static final Logger LOG = LoggerFactory.getLogger(MessageBundles.class);
 
-    /** {@code messages/<root>/en.properties} or {@code messages/<root>/de.properties}, anywhere in a jar. */
     private static final Pattern BUNDLE_ENTRY = Pattern.compile("messages/([^/]+)/(en|de)\\.properties");
 
-    /**
-     * {@code messages/<root>/schema.json}: the names, placeholders and sections a root's message spec declares.
-     *
-     * Written into the jar at build time by {@code eu.nordtal.s2.common.message.spec.MessageSchema}.
-     */
+    /** The schema a root's message spec writes into the jar at build time. */
     private static final Pattern SCHEMA_ENTRY = Pattern.compile("messages/([^/]+)/schema\\.json");
 
-    /** A placeholder as a message spec declares it: {@code {name}} for text, {@code <_name>} for a legacy tag. */
+    /** A placeholder as a spec declares it: {@code {name}} for text, {@code <_name>} for a legacy tag. */
     private static final Pattern DECLARABLE = Pattern.compile("\\{([A-Za-z0-9_.-]+)}|<(_[A-Za-z0-9_-]+)>");
 
-    /**
-     * A parameter this project writes two ways.
-     *
-     * {@code {name}} - substituted by {@code eu.nordtal.s2.common.message.Messages#format} - and {@code <_name>},
-     * the underscored MiniMessage tags the Paper plugins resolve their own placeholders through (Adventure's
-     * ordinary formatting tags, {@code <bold>}, {@code <gray>}, carry no leading underscore and are deliberately
-     * not matched: they are not filled in from data, so a line that drops one changes how a message looks, never
-     * whether it still works).
-     */
+    /** A placeholder in either form; plain MiniMessage formatting tags such as {@code <bold>} are not matched. */
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{[A-Za-z0-9_.-]+}|<_[A-Za-z0-9_-]+>");
 
-    /**
-     * The directory a module's saved translations live in, beside its config.
-     *
-     * It makes a message bundle here, and it keeps {@link ConfigFiles#discover} from listing the same files as
-     * configs.
-     */
+    /** The directory a module's saved translations live in, which {@link ConfigFiles#discover} skips. */
     static final String DIRECTORY = "messages";
 
     private MessageBundles() {}
 
-    // Discovery
-
     /**
-     * Every message bundle under the configs mount.
+     * Every message bundle under the configs mount; one whose jar is not there yet is left out with a warning.
      *
-     * Cheap on purpose, the same way {@link ConfigFiles#discover} is: it only looks for the override directory and
-     * the jar beside it, never opens either. A bundle whose jar cannot be found - a deployment mid-way through
-     * installing a module for the first time - is left out with a warning rather than reported broken; there is
-     * nothing to show packaged text from yet.
-     *
-     * @param configsRoot the configs mount, e.g. {@code /configs}
-     * @param volumesRoot the volumes mount, e.g. {@code /volumes} - where a standalone jar such as discord-bot's
-     *     actually lives; {@code null} to search the configs mount only
-     * @return every bundle found, by service then module. Empty if {@code configsRoot} does not exist
+     * @param configsRoot the configs mount
+     * @param volumesRoot the volumes mount, where a standalone jar lives; {@code null} to search the configs mount only
+     * @return every bundle found, by service then module; empty if {@code configsRoot} does not exist
      */
     public static List<MessageBundleLocation> discover(final Path configsRoot, final @Nullable Path volumesRoot) {
         if (!Files.isDirectory(configsRoot)) {
@@ -139,7 +91,7 @@ public final class MessageBundles {
             final Path configsRoot, final @Nullable Path volumesRoot, final Path messagesDirectory) {
         final Path relative = configsRoot.relativize(messagesDirectory);
         if (relative.getNameCount() < 2) {
-            // "messages" directly at the mount's root has no service directory above it to search a jar under.
+            // A messages directory at the mount's root has no service directory to search a jar under.
             return null;
         }
         final String service = relative.getName(0).toString();
@@ -191,10 +143,8 @@ public final class MessageBundles {
         return null;
     }
 
-    // Reading
-
     /**
-     * Opens {@code location}'s jar and its override directory, and merges them into one bundle.
+     * Opens {@code location}'s jar and override directory and merges them into one bundle.
      *
      * @param location where to read from
      * @return the bundle, the schema's keys in its order, then the rest sorted
@@ -218,7 +168,7 @@ public final class MessageBundles {
     private static Packaged readPackaged(final MessageBundleLocation location) throws IOException {
         final Map<String, String> packagedEnglish = new HashMap<>();
         final Map<String, String> packagedGerman = new HashMap<>();
-        // Root name to its schema, sorted so entry order does not depend on the jar's directory order.
+        // Sorted, so entry order does not depend on the jar's directory order.
         final Map<String, List<SchemaEntry>> schemas = new TreeMap<>();
         try (ZipFile jar = new ZipFile(location.jar().toFile())) {
             final Enumeration<? extends ZipEntry> entries = jar.entries();
@@ -288,12 +238,7 @@ public final class MessageBundles {
             @Nullable String format,
             @Nullable String shown) {}
 
-    /**
-     * One {@code schema.json}.
-     *
-     * A file this process cannot make sense of is logged and read as empty: the texts are still worth showing
-     * without their names, and refusing the whole bundle over it would hide the texts as well.
-     */
+    /** One {@code schema.json}; one that cannot be parsed is logged and read as empty, so the texts still show. */
     private static List<SchemaEntry> readSchema(
             final MessageBundleLocation location, final String name, final InputStream in) throws IOException {
         final String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
@@ -352,7 +297,7 @@ public final class MessageBundles {
                 expand(argName, context, properties, false, args);
             }
         }
-        // A message naming a global's role itself has filled it; the global would only repeat it.
+        // A message naming the global's role has filled it already.
         for (final MessageArg global : globals) {
             if (!roles.contains(global.name().substring(0, global.name().indexOf('.')))) {
                 args.add(global);
@@ -423,15 +368,7 @@ public final class MessageBundles {
         }
     }
 
-    /**
-     * A {@code .properties} stream, read as UTF-8.
-     *
-     * Read through a {@link Reader} rather than {@code Properties.load(InputStream)}: the {@code InputStream}
-     * overload treats the bytes as ISO-8859-1 and expects a non-ASCII character spelled out as {@code \\uXXXX},
-     * which is not how these bundles are written (they are UTF-8, and an umlaut is a literal umlaut) - see
-     * {@code Messages#read} for the same reasoning on the plugin side, and {@link #escapeValue} for the write side
-     * of the same round trip.
-     */
+    /** A {@code .properties} stream, read as UTF-8 through a {@link Reader} so an umlaut stays literal. */
     private static Map<String, String> readProperties(final InputStream in) throws IOException {
         final Properties properties = new Properties();
         try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
@@ -442,19 +379,12 @@ public final class MessageBundles {
         return map;
     }
 
-    // Writing
-
     /**
-     * Applies changes to one language's override file, creating or updating it.
-     *
-     * A read-modify-write of the whole file, unlike {@link ConfigFiles#write}: an override file carries no comments
-     * and no key order an operator relies on - it exists purely because this interface, or an operator copying its
-     * {@code README.txt}, wrote a key into it - so there is nothing lost by rewriting it whole and sorted.
+     * Writes changes to one language's override file, rewriting it whole and sorted since it holds no comments.
      *
      * @param location the bundle
      * @param language {@code "en"} or {@code "de"}
-     * @param changes key to new value; a {@code null} value removes the key from the override rather than writing an
-     *     empty string - resetting a line is not the same as blanking it
+     * @param changes key to new value; a {@code null} value removes the key rather than writing an empty string
      * @throws IllegalArgumentException if {@code language} is anything but {@code "en"} or {@code "de"}
      * @throws IOException if the directory or the file cannot be written
      */
@@ -504,11 +434,7 @@ public final class MessageBundles {
         }
     }
 
-    /**
-     * Escapes a key for the {@code .properties} format.
-     *
-     * A plain-text writer's counterpart to {@link Properties#load(Reader)}, which is what reads this back.
-     */
+    /** Escapes a key for the {@code .properties} format that {@link Properties#load(Reader)} reads back. */
     private static String escapeKey(final String key) {
         final StringBuilder out = new StringBuilder(key.length() + 8);
         for (int i = 0; i < key.length(); i++) {
@@ -528,18 +454,9 @@ public final class MessageBundles {
     }
 
     /**
-     * Escapes a value.
+     * Escapes a backslash, a newline, a carriage return, a tab and a leading space, and nothing else.
      *
-     * A backslash, a real newline, carriage return or tab, and any leading space (which
-     * {@link Properties#load(Reader)} would otherwise trim as insignificant whitespace).
-     *
-     * {@code :} and {@code =} need no escaping here - the parser only treats them specially before the first
-     * unescaped separator, which is the key {@link #escapeKey} has already produced.
-     *
-     * Never {@code \\uXXXX}. That escaping belongs to {@code Properties.store(OutputStream, ...)}, which assumes
-     * ISO-8859-1; writing straight UTF-8 characters through a UTF-8 {@link Files#writeString} and reading them back
-     * through {@link #readProperties} is the same round trip {@code Messages} itself relies on, and it is what
-     * keeps "Mühle" from becoming "MÃ¼hle".
+     * Never {@code \\uXXXX}: the file is written and read as UTF-8, which keeps "Mühle" from becoming "MÃ¼hle".
      */
     private static String escapeValue(final String value) {
         final StringBuilder out = new StringBuilder(value.length() + 8);
@@ -562,18 +479,10 @@ public final class MessageBundles {
         return out.toString();
     }
 
-    // Placeholders
-
     /**
-     * The placeholders {@code edited} uses that {@code entry} 's schema does not declare, each once, in order.
+     * The placeholders {@code edited} uses that {@code entry}'s schema does not declare, each once, in order.
      *
-     * Such a text cannot be filled: the plugin substitutes the declared arguments and nothing else, so an unknown
-     * {@code {name}} would draw literally.
-     *
-     * Only {@code {name}} and the underscored {@code <_name>} tags are checked. An ordinary MiniMessage tag such as
-     * {@code <bold>} is formatting, not a placeholder, and a Component argument's own tag ( {@code <player>}) is
-     * indistinguishable from one without a list of every tag Adventure knows. An entry the schema does not describe
-     * is never checked.
+     * Only {@code {name}} and {@code <_name>} are checked, and an entry the schema does not describe never is.
      */
     public static List<String> unknownPlaceholders(final MessageEntry entry, final @Nullable String edited) {
         if (!entry.described() || edited == null || edited.isEmpty()) {
@@ -608,18 +517,11 @@ public final class MessageBundles {
     }
 
     /**
-     * The placeholders {@code original} names that {@code edited} no longer does.
+     * The placeholders {@code original} names that {@code edited} no longer does, for a warning on save.
      *
-     * Never the other way round, and never a rejection.
-     *
-     * A new placeholder is somebody's choice; a lost one is worth a warning on save, the same way a syntax error is
-     * in the raw editor.
-     *
-     * @param original the packaged text the operator started from - see {@link MessageBundles} for
-     *                 why that is the jar's text and not a previous override
-     * @param edited   what is about to be saved
-     * @return the missing tokens, each once, in the order {@code original} has them; empty if none
-     *         are missing or {@code original} names none at all
+     * @param original the packaged text the operator started from
+     * @param edited what is about to be saved
+     * @return the missing tokens, each once, in {@code original}'s order; empty if none are missing
      */
     public static List<String> missingPlaceholders(final @Nullable String original, final @Nullable String edited) {
         final List<String> before = placeholdersOf(original);

@@ -15,54 +15,20 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Everything that has to happen at bunq, driven by the {@code payment_request} table.
+ * Does everything that has to happen at bunq, driven by the {@code payment_request} table.
  *
- * The five things one pass does, in this order
- *
- * - Expire. An open request past its TTL is closed and its tab asked to go away. First, so the three steps below
- *   never work on a request that is already over.
- *
- * - Create the tabs somebody asked for. {@code tab_requested} without a {@code bunq_tab_id} - the row the bot writes
- *   instead of calling a bank from inside a Discord interaction.
- *
- * - Cancel the tabs somebody asked to go away. A closed request whose bunq.me URL still works is a link that can
- *   still be paid, against a reference nothing will book on its own.
- *
- * - Match by tab. A bunq.me tab knows which payments settled it: an exact link, no text parsing.
- *
- * - Match by reference. The fallback, for money that reached the account outside a tab - a bank transfer somebody
- *   typed by hand.
- *
- * What it does NOT do: It never books. Attribution and booking are two halves in two processes: this one writes
- * {@code matched_cents} and {@code matched_by} onto a row that stays {@code OPEN}, and
- * {@code discord-bot} turns that into days, a role, a DM and a public thank-you - none of which this container can
- * do, because it has no Discord connection and no idea what a tier is. {@code payment_request_settled_iff_paid} is
- * never crossed here.
- *
- * Why the claim happens here and not at the booking: {@code recordMatch} writes {@code bunq_payment_id}, and the
- * partial unique index on that column is still the only thing in the system that prevents one payment from buying
- * access twice. Claiming at attribution rather than at booking means two requests can never both be told "this
- * payment is yours"; it also means {@code alreadyBooked} answers yes for a payment this pass has only just found,
- * which is what keeps the tab path and the reference path from finding the same money twice inside one pass.
+ * A pass expires, creates tabs, cancels tabs, then matches by tab and by reference; it never books.
  */
 @Slf4j
 public final class Payments {
 
-    /**
-     * The reason string on a {@code payment_notice} for a payment no open request claims.
-     * Not booked automatically, ever - see {@code /settle}.
-     */
+    /** The reason on a {@code payment_notice} for a payment no open request claims; never booked automatically. */
     private static final String UNMATCHED = "UNMATCHED";
 
     /** A payment that arrived on a reference belonging to a request that is no longer open. */
     private static final String EXPIRED_REFERENCE = "EXPIRED_REFERENCE";
 
-    /**
-     * Two requests claiming one payment.
-     *
-     * Unreachable unless something above is wrong, which is exactly why it is reported rather than logged: it
-     * means money was attributed to nobody.
-     */
+    /** Two requests claiming one payment, which means money was attributed to nobody. */
     private static final String DOUBLE_CLAIM = "DOUBLE_CLAIM";
 
     /** How much of a failure message is worth putting in front of the person who is waiting. */
@@ -76,9 +42,9 @@ public final class Payments {
     /**
      * Wires up one pass over the payment queue.
      *
-     * @param bunq               the bank
-     * @param requests           the seam
-     * @param watermark          payments created before it are ignored, completely and forever
+     * @param bunq the bank
+     * @param requests the seam
+     * @param watermark payments created before it are ignored, completely and forever
      * @param recentPaymentCount how many recent payments the fallback scan reads per pass
      */
     public Payments(
@@ -93,10 +59,9 @@ public final class Payments {
     }
 
     /**
-     * One pass.
+     * Runs one pass.
      *
-     * Never throws, for the same reason the bot's poll never did: a loop that dies on one bad response from a bank is a
-     * deployment that silently stops noticing payments, and nothing about it looks unhealthy.
+     * Never throws: a loop that dies on one bad response silently stops noticing payments.
      */
     public void pass() {
         step("the expiry sweep", this::expireOverdue);
@@ -106,13 +71,7 @@ public final class Payments {
         step("matching payments against their reference", this::matchByReference);
     }
 
-    /**
-     * Guards one step of the pass.
-     *
-     * Each of the five is guarded separately rather than the pass as a whole. A bank that refuses
-     * one call must not stop the cancel sweep from running, and a row that cannot be written must
-     * not cost this pass its matching.
-     */
+    /** Guards one step of the pass, so one failing step does not cost the others. */
     private void step(final String what, final Runnable work) {
         try {
             work.run();
@@ -126,10 +85,9 @@ public final class Payments {
     }
 
     /**
-     * Closes what is past its TTL and asks for its tab.
+     * Closes what is past its TTL and asks for its tab, in one transaction.
      *
-     * Both writes are one transaction, which is what {@code Purchases.close()} did with a synchronous bunq call in
-     * front of it. The bunq call itself happens in {@link #cancelTabs()}, on the next step of this same pass.
+     * The bunq call happens in {@link #cancelTabs()}, the next step of this pass.
      */
     private void expireOverdue() {
         for (final PaymentRequest request : requests.dueForExpiry()) {
@@ -145,7 +103,7 @@ public final class Payments {
             try {
                 tab = bunq.createTab(request.amountCents(), request.reference());
             } catch (final RuntimeException failure) {
-                // The row leaves the queue carrying what bunq said, replacing "your link is being created."
+                // The row leaves the queue carrying what bunq said.
                 final String reason = reasonOf(failure);
                 log.warn("bunq refused a tab for {}: {}", request.reference(), reason);
                 requests.failTab(request.id(), reason);
@@ -157,7 +115,7 @@ public final class Payments {
                 continue;
             }
 
-            // The row closed between the queue read and now. The tab is live and unclaimed, so it is cancelled here.
+            // The row closed since the queue read, so its live, unclaimed tab is cancelled here.
             log.warn(
                     "Request {} closed while its tab was being created; cancelling tab {}",
                     request.reference(),
@@ -171,7 +129,7 @@ public final class Payments {
             final long tabId = request.tab().orElseThrow();
             final boolean accepted = bunq.cancelTab(tabId);
 
-            // Recorded either way: cancelTab returns false for an already-cancelled tab; else it retries forever.
+            // Recorded either way, since cancelTab returns false for an already-cancelled tab.
             if (requests.recordCancelled(request.id())) {
                 log.info(
                         "Cancelled bunq.me tab {} for {}{}",
@@ -206,7 +164,7 @@ public final class Payments {
             final String description = payment.getDescription() == null ? "" : payment.getDescription();
             final Matcher matcher = PaymentRequests.REFERENCE_PATTERN.matcher(description.toUpperCase(Locale.ROOT));
             if (!matcher.find()) {
-                // Money with nothing to do with this network - reporting every one would flood the admin channel.
+                // Money unrelated to this network; reporting every one would flood the admin channel.
                 log.debug("Payment {} carries no NT- reference; ignoring it", payment.getId());
                 continue;
             }
@@ -234,13 +192,7 @@ public final class Payments {
         }
     }
 
-    /**
-     * Writes the attribution, and turns the one exception it can raise into something a human hears about.
-     *
-     * {@code recordMatch} passes a unique violation on rather than swallowing it: this is the single writer of
-     * {@code bunq_payment_id}, so a second claim is a bug here and not a race. The money is real either way, so it goes
-     * to the admin channel as an unbookable payment rather than into a log line.
-     */
+    /** Writes the attribution, and reports a second claim on a payment to the admin channel as unbookable. */
     private void attribute(
             final PaymentRequest request, final long paymentId, final int cents, final PaymentMatch how) {
         try {
@@ -270,8 +222,9 @@ public final class Payments {
     }
 
     /**
-     * @return the amount in cents when this payment may be considered at all, {@code null}
-     *         otherwise - not EUR, not positive, before the watermark, or already claimed by a row
+     * Returns the amount in cents when this payment may be considered at all.
+     *
+     * @return the cents, or {@code null} when not EUR, not positive, before the watermark or already claimed
      */
     private @Nullable Integer eligible(final PaymentApiObject payment) {
         if (payment.getId() == null) {
@@ -287,12 +240,7 @@ public final class Payments {
         return BunqGateway.positiveEuroCents(payment);
     }
 
-    /**
-     * What to write into {@code tab_failed}.
-     *
-     * The person waiting sees this, so it is the message rather than the stack trace, bounded: a bunq error can carry a
-     * whole JSON body, and a Discord message has a length.
-     */
+    /** Returns what to write into {@code tab_failed}: the message, bounded, since the person waiting sees it. */
     private static String reasonOf(final RuntimeException failure) {
         final String message =
                 failure.getMessage() == null || failure.getMessage().isBlank()

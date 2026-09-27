@@ -1,20 +1,15 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <configuration>
-    <!-- Stderr, not stdout: this process prints its result - the plan and what was done - on
-         stdout, and that text is read, pasted and put into a Discord embed. Log lines interleaved
-         with it would break all three. -->
+    <!-- Stderr, since stdout carries the result that is pasted into Discord. -->
     <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
         <target>System.err</target>
-        <!-- An <encoder>, not a <layout>: a layout warns, and a logback warning makes logback print
-             its entire startup status report on stdout - the stream this program's output lives on. -->
+        <!-- An encoder, since a layout warns and a warning prints logback's status report on stdout. -->
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Hikari narrates every pool state change at DEBUG, which for a pool that lives one migration
-         is six lines of nothing. Flyway's own INFO lines stay: they are the record of what happened
-         to the schema. -->
+    <!-- Hikari's DEBUG pool narration is noise; Flyway's INFO lines stay as the schema's record. -->
     <logger name="com.zaxxer.hikari" level="INFO"/>
     <logger name="org.jdbi" level="INFO"/>
 

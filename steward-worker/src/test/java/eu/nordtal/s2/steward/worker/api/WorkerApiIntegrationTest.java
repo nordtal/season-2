@@ -26,13 +26,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/**
- * The API steward-ui will call, answered by the daemon that is actually running here.
- *
- * It is served on a port of its own for the length of the test and asked over real HTTP, because what is being
- * checked is the contract - status codes, the token, the shape of the JSON - and none of that is exercised by
- * calling the methods behind it.
- */
+/** The worker API served over real HTTP, so status codes, the token and the JSON shape are what gets checked. */
 class WorkerApiIntegrationTest {
 
     private static final String PROJECT = "nordtal-s2";
@@ -93,7 +87,7 @@ class WorkerApiIntegrationTest {
             assertTrue(first.has(column), column + " is missing from " + first);
         }
 
-        // The four Minecraft services have a console and the others do not, so those draw no console field at all.
+        // Only the four Minecraft services carry a console field.
         boolean sawConsole = false;
         boolean sawNone = false;
         for (final var element : services) {
@@ -116,7 +110,7 @@ class WorkerApiIntegrationTest {
         assertTrue(drift.has("checkedAt"), "no age means the interface cannot say how old it is");
         assertTrue(drift.has("reached"), "whether a registry answered at all is not optional");
 
-        // Cached for a minute: a second call inside the TTL must report the SAME instant, not a fresh one.
+        // Cached for a minute, so a second call reports the same instant.
         final JsonObject again = GSON.fromJson(get("/api/services"), JsonObject.class);
         assertEquals(
                 drift.get("checkedAt"),
@@ -138,7 +132,7 @@ class WorkerApiIntegrationTest {
                 HttpResponse.BodyHandlers.ofInputStream());
         assertEquals(200, follow.statusCode());
 
-        // Jetty drops a connection with nothing written on it after a while, and keepAlive() writes nothing itself.
+        // Jetty drops a silent connection after a while, and keepAlive() writes nothing itself.
         try (var lines = new java.io.BufferedReader(
                 new java.io.InputStreamReader(follow.body(), java.nio.charset.StandardCharsets.UTF_8))) {
             // A DAEMON thread: closing the response body does not unblock a read already parked in it.
@@ -182,15 +176,7 @@ class WorkerApiIntegrationTest {
         assertEquals(4, next.getHour(), "read in the zone the worker was given, not this JVM's");
     }
 
-    /**
-     * A service with a container actually running, or a skipped test.
-     *
-     * Why not the first row: The table lists every service of the project, stopped ones included, so on a host where
-     * half the stack is down the first row is a service whose log has no container behind it. The follow then answers
-     * 200 and ends at once - which from this side is indistinguishable from the dropped connection the heartbeat exists
-     * to prevent. The test failed for a reason that had nothing to do with what it holds, which is the worst kind of
-     * red.
-     */
+    /** A service with a running container, or a skipped test; a stopped one's follow ends at once. */
     private static String aRunningService() throws Exception {
         for (final var row : serviceRows()) {
             final JsonObject service = row.getAsJsonObject();
@@ -202,7 +188,7 @@ class WorkerApiIntegrationTest {
         throw new AssertionError("unreachable");
     }
 
-    /** The rows out of the envelope. Three tests want them and none of them wants the envelope. */
+    /** The rows out of the envelope. */
     private static JsonArray serviceRows() throws Exception {
         return GSON.fromJson(get("/api/services"), JsonObject.class).getAsJsonArray("services");
     }

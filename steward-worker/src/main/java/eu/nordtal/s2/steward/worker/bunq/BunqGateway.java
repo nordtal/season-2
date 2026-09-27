@@ -26,20 +26,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Everything this network does at bunq.
+ * Everything this network does at bunq, and the only class that talks to a bank.
  *
- * Create a tab, cancel a tab, ask a tab who paid it, and list recent payments on the account.
- *
- * This is the only class anywhere that talks to a bank, and it lives here rather than in {@code discord-bot}.
- * The reason is not tidiness: the bot is a process with a gateway connection to a third party and a
- * permanent invitation for strangers to press its buttons, and the bunq key was sitting in it. The bot now writes a
- * row saying what it wants and reads back what happened, and holds no credential that moves money.
- *
- * A payment is matched primarily through {@link #paymentsFor(long)} - a bunq.me tab knows the payments that settled
- * it, an exact link with no text parsing. The reference in the description is only the fallback, for money that
- * reaches the account outside a tab.
- *
- * EUR only: another currency is refused rather than converted at a rate nobody agreed on.
+ * EUR only: another currency is refused rather than converted.
  */
 @Slf4j
 // No HTTP timeout is set here: the SDK's own ApiClient already bounds every call at 30 seconds.
@@ -52,12 +41,7 @@ public final class BunqGateway {
     /** The status string bunq's own API uses to close a tab. */
     private static final String STATUS_CANCELLED = "CANCELLED";
 
-    /**
-     * bunq renders timestamps in UTC with no zone in the string.
-     *
-     * The shape is {@code yyyy-MM-dd HH:mm:ss.SSSSSS}, and {@code BunqGsonBuilder} parses them with exactly this
-     * pattern.
-     */
+    /** bunq's UTC timestamp shape, the same pattern {@code BunqGsonBuilder} parses with. */
     private static final DateTimeFormatter TIMESTAMP =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]");
 
@@ -68,8 +52,9 @@ public final class BunqGateway {
     private boolean contextLoaded;
 
     /**
-     * @param config the loaded {@code steward.yml} bunq block; the account id, if there is one, is
-     *               known to be numeric because {@code Configs.steward()} checked it at startup
+     * Creates the gateway from the loaded bunq block.
+     *
+     * @param config the {@code steward.yml} bunq block, whose account id {@code Configs.steward()} checked is numeric
      */
     public BunqGateway(final StewardSpec.BunqSpec config) {
         this.config = Objects.requireNonNull(config, "config");
@@ -77,28 +62,13 @@ public final class BunqGateway {
         this.accountId = configured ? Long.parseLong(config.accountId().trim()) : 0L;
     }
 
-    /**
-     * Whether a credential was filled in at all.
-     *
-     * The same question {@code discord-bot}'s {@code Configured.isSet} asks, written out here because that
-     * class is Discord's and this module has no reason to know about it.
-     */
+    /** Returns whether a credential was filled in at all. */
     private static boolean isSet(final String value) {
         return value != null && !value.isBlank();
     }
 
     /**
-     * Whether there is a bunq account behind this at all.
-     *
-     * A season without one is a season whose network does everything except take money: the roles, the link codes, the
-     * hunger games and the update commands are untouched. The caller decides what to do about it - the poll loop is not
-     * started at all - because a gateway that quietly answered "no payments" would look exactly like a bank that had
-     * nothing new, which is the one thing this must never be mistaken for.
-     *
-     * Whichever it is, {@code StewardWorker} says so in one line at startup and writes it into {@code bot_setting} for
-     * the bot to repeat. That is not decoration: the two variables are deliberately not {@code :?} in
-     * {@code compose.yml}, so an environment file carrying the wrong variable names produces a perfectly
-     * healthy stack in which no payment is ever noticed again.
+     * Returns whether there is a bunq account behind this at all.
      *
      * @return whether an API key and an account id were both configured
      */
@@ -107,20 +77,10 @@ public final class BunqGateway {
     }
 
     /**
-     * The one line this container says about bunq on every start, and the reason it is not negotiable.
-     *
-     * What it is for: The two variables behind {@link StewardSpec.BunqSpec#apiKey()} and
-     * {@link StewardSpec.BunqSpec#accountId()} are deliberately not {@code :?} in {@code compose.yml}: a season without
-     * a bank account is a valid season. So an environment file carrying the wrong variable names -
-     * anything other than {@code NORDTAL_STEWARD_BUNQ_*} - produces a stack where every container is
-     * healthy, every log is quiet, nobody can buy anything and no payment is ever noticed again. There is no error to
-     * find, because nothing went wrong; there is only an absence. This line is the whole of the evidence.
-     *
-     * It never contains the key: The account id is in it because an id pointed at the wrong account is the other way
-     * this goes wrong quietly. The API key is not, and must never be.
+     * Returns the one line this container says about bunq on every start, never containing the key.
      *
      * @param poll how often the bank will be asked, for the "on" half
-     * @return one line, ready to log - at INFO when {@link #configured()}, at WARN when not
+     * @return one line to log, at INFO when {@link #configured()} and WARN when not
      */
     public String startupLine(final Duration poll) {
         if (configured) {
@@ -136,14 +96,7 @@ public final class BunqGateway {
     }
 
     /**
-     * Writes {@link #startupLine(Duration)} to this class's own log.
-     *
-     * At the level that matches which of the two sentences it is. Why the level is here and not at the call
-     * site: it is half the message. "bunq is OFF" at INFO is a line nobody reads in a container that prints
-     * several hundred of them at startup, and the whole point of the sentence is to be found by somebody who has
-     * just renamed two variables and wants to know whether it worked. It is also the one thing about this that
-     * can be driven from a test without a bank, a database or a deployment: an appender sees the level and the
-     * text, both branches, without a rollout.
+     * Writes {@link #startupLine(Duration)} to this class's log at the level that matches it.
      *
      * @param poll how often the bank will be asked
      */
@@ -168,9 +121,8 @@ public final class BunqGateway {
     /**
      * Creates a bunq.me tab.
      *
-     * @param amountCents what it asks for; the payer can edit this on the bunq.me page, which is
-     *                    why nothing downstream trusts it
-     * @param description what the payer and we both see - the {@code NT-XXXXXX} reference
+     * @param amountCents what it asks for; the payer can edit it, so nothing downstream trusts it
+     * @param description what the payer and we both see, the {@code NT-XXXXXX} reference
      * @return the tab id and the URL to send the payer to
      */
     public Tab createTab(final int amountCents, final String description) {
@@ -187,11 +139,7 @@ public final class BunqGateway {
     }
 
     /**
-     * Closes a tab so it can no longer be paid.
-     *
-     * A real call to bunq, not a status flip in our own table: a superseded request whose tab stays live is a
-     * URL somebody can still pay, and that payment would arrive against a reference the bot refuses to book
-     * automatically.
+     * Closes a tab at bunq so it can no longer be paid.
      *
      * @param tabId the tab
      * @return whether bunq accepted the cancellation
@@ -210,7 +158,7 @@ public final class BunqGateway {
     }
 
     /**
-     * The payments that settled one tab - the exact link between a request and money.
+     * Returns the payments that settled one tab.
      *
      * @param tabId the tab
      * @return the payments bunq attributes to it, possibly empty
@@ -230,7 +178,7 @@ public final class BunqGateway {
     }
 
     /**
-     * The most recent payments on the account, newest first - the fallback path's input.
+     * Returns the most recent payments on the account, newest first, for the fallback path.
      *
      * @param count how many to ask for
      * @return the payments
@@ -243,9 +191,10 @@ public final class BunqGateway {
     }
 
     /**
+     * Returns a payment's amount in cents.
+     *
      * @param payment a payment
-     * @return its amount in cents, or {@code null} when it is not a positive EUR amount - which is
-     *         every outgoing payment and anything in another currency
+     * @return the cents, or {@code null} for anything outgoing or not in EUR
      */
     public static @Nullable Integer positiveEuroCents(final PaymentApiObject payment) {
         final AmountObject amount = payment.getAmount();
@@ -262,10 +211,10 @@ public final class BunqGateway {
     }
 
     /**
+     * Returns when bunq says a payment was created.
+     *
      * @param payment a payment
-     * @return when bunq says it was created, or {@code null} if that cannot be read - a payment
-     *         with no readable timestamp is treated as being before every watermark, so it is
-     *         ignored rather than booked
+     * @return the moment, or {@code null} if unreadable, which puts it before every watermark
      */
     public static @Nullable Instant createdAt(final PaymentApiObject payment) {
         final String created = payment.getCreated();
@@ -280,12 +229,7 @@ public final class BunqGateway {
         }
     }
 
-    /**
-     * Loads or creates the bunq API context, once per process.
-     *
-     * The context file holds credentials and the installed device key, and belongs to one environment - there
-     * is only {@link ApiEnvironmentType#PRODUCTION}.
-     */
+    /** Loads or creates the bunq API context, once per process. */
     private synchronized void loadContext() {
         if (contextLoaded) {
             return;
@@ -325,7 +269,7 @@ public final class BunqGateway {
     /**
      * A created bunq.me tab.
      *
-     * @param id       the tab id, needed to cancel it and to ask who paid it
+     * @param id the tab id, needed to cancel it and to ask who paid it
      * @param shareUrl the URL the payer is sent to
      */
     public record Tab(long id, String shareUrl) {}

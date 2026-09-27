@@ -9,13 +9,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The two clocks - the nightly backup and the optional scheduled update - kept in step with {@code steward.yml}.
+ * Keeps the nightly backup and the scheduled update clocks in step with {@code steward.yml}.
  *
- * Both used to be read once, at start, so a schedule saved in Steward only took effect after the container
- * restarted, while the page already showed the new one. {@link #arm()} is called at start and again after every save
- * of this worker's own config: it closes whatever is running and builds both clocks again from the values as they
- * now stand. {@code config} is the live instance of a {@code ConfigHandle}, so a reload of that handle is all it
- * takes for the values to be new.
+ * {@link #arm()} runs at start and after every save of this worker's config, rebuilding both clocks.
  */
 public final class Schedules implements AutoCloseable {
 
@@ -59,7 +55,7 @@ public final class Schedules implements AutoCloseable {
         }
     }
 
-    /** Whether each clock is running - for the test, which cannot wait until 04:45. */
+    /** Returns whether each clock is running. */
     synchronized boolean[] running() {
         return new boolean[] {backup != null, update != null};
     }

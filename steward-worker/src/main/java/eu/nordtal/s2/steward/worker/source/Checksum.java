@@ -3,23 +3,9 @@ package eu.nordtal.s2.steward.worker.source;
 import java.util.Locale;
 
 /**
- * A digest as the API that published it writes it: an algorithm name and lowercase hex.
+ * A digest as the API that published it writes it: sha256 from Fill, sha512 from Modrinth, sha1 for the pack.
  *
- * Three algorithms, one per source, and none of them is a choice we made
- *
- * - sha256 - the PaperMC Fill API, on every server jar.
- *
- * - sha512 - Modrinth, on every file. It is also what the datapack pins in {@code compose.yml} already use, for the
- *   same reason: it is what the API hands out, so the pin can be copied rather than computed, and a pin nobody can
- *   re-derive is a pin that rots.
- *
- * - sha1 - the resource pack, because that is what the Minecraft client checks.
- *
- * GitHub publishes none: a release asset comes with a size and no digest of any kind. So our own five jars and the
- * DisplayTags jar are fetched unverified, exactly as {@code entrypoint.sh}
- * fetches them today. That is a real gap and it is written down rather than papered over: the mitigation is that
- * those URLs are {@code github.com} over TLS and that a truncated download produces a jar the JVM refuses to load,
- * loudly, at start.
+ * GitHub assets carry no digest, so our own jars and DisplayTags are fetched over TLS unverified.
  */
 public record Checksum(String algorithm, String hex) {
 
@@ -40,7 +26,7 @@ public record Checksum(String algorithm, String hex) {
         return new Checksum("sha512", hex);
     }
 
-    /** The short form a report shows - a full sha512 is 128 characters and says nothing more. */
+    /** The short form a report shows, since a full sha512 is 128 characters. */
     public String shortHex() {
         return hex.length() <= 12 ? hex : hex.substring(0, 12);
     }

@@ -6,10 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/** {@link RawSyntax} - the raw editor's save-time warning, never a refusal. */
+/** {@link RawSyntax}, the raw editor's save-time warning, never a refusal. */
 class RawSyntaxTest {
 
-    // Format detection - by the file's own name, never its content
+    // Format detection, by the file's own name and never its content
 
     @Test
     void formatIsDecidedByTheLastExtensionServiceDirectoryIncluded() {
@@ -73,7 +73,7 @@ class RawSyntaxTest {
         assertTrue(warning.sentence().startsWith("Line 4:"), warning.sentence());
     }
 
-    // Properties - one check, not a parser
+    // Properties: one check, not a parser
 
     @Test
     void ordinaryPropertiesTextGetsNoWarning() {
@@ -89,7 +89,7 @@ class RawSyntaxTest {
         assertTrue(warning.sentence().contains("uXXXX"), warning.sentence());
     }
 
-    // TOML and plain text - the "too expensive" fallback the ticket names outright
+    // TOML and plain text: no check
 
     @Test
     void tomlIsNeverCheckedHoweverBroken() {

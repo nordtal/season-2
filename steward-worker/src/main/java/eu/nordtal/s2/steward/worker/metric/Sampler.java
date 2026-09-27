@@ -24,31 +24,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The clock behind the curves on the start page.
+ * Samples the host and each container every 30 seconds for the start page's charts, and compacts old samples.
  *
- * What it writes and why that much: Every 30 seconds, for the host and for each container of the project. Counted
- * for this host in §10c: eleven series, 2 880 points per series per day, some 32 000 rows a day, about a million and
- * 60 MB after 30 days - after which raw samples become hourly means, which is the same month at a thirtieth of the
- * size and still a year of history.
- *
- * That table is inside the backup. Retention here is therefore also a decision about how big every night's snapshot
- * is, which is why the compaction runs on this clock rather than being left to somebody to remember.
- *
- * Why it is not on the request loop: One stats sample costs about a second of wall clock, because the daemon takes
- * two readings to give a real CPU delta (see {@link Docker#stats}). Ten of those in sequence would be ten seconds of
- * a thirty-second period spent waiting, so the containers are read in parallel on virtual threads, and the whole
- * thing runs on its own schedule. A sampling failure never touches an update run: it is logged and the next tick
- * tries again. Missing points in a chart are a nuisance; a backup that did not happen because a chart failed is a
- * disaster.
+ * Containers are read in parallel on virtual threads; a failed sample is logged and never touches an update run.
  */
 public final class Sampler implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(Sampler.class);
 
-    /** §10c: every 30 seconds. */
+    /** Every 30 seconds. */
     public static final Duration PERIOD = Duration.ofSeconds(30);
 
-    /** §10c: raw samples live 30 days, then they are hourly means. */
+    /** Raw samples live 30 days, then they become hourly means. */
     public static final Duration RAW_RETENTION = Duration.ofDays(30);
 
     /** How long one round of sampling may take before it is abandoned for this tick. */
@@ -73,9 +60,9 @@ public final class Sampler implements AutoCloseable {
         this.project = project;
     }
 
-    /** Starts the clock. Sampling begins one period from now, not immediately. */
+    /** Starts the clock; sampling begins one period from now. */
     public void start() {
-        // One period of delay: the first CPU reading has nothing to subtract from yet.
+        // The first CPU reading has nothing to subtract from yet.
         final var _ =
                 clock.scheduleAtFixedRate(this::tickQuietly, PERIOD.toSeconds(), PERIOD.toSeconds(), TimeUnit.SECONDS);
         final var _ = clock.scheduleAtFixedRate(this::compactQuietly, 1, 1, TimeUnit.HOURS);
@@ -91,7 +78,7 @@ public final class Sampler implements AutoCloseable {
         }
     }
 
-    /** One round. Visible for tests, which call it directly rather than waiting 30 seconds. */
+    /** One round of sampling; tests call it directly. */
     public int tick(final Instant at) {
         final List<MetricSample> samples = new ArrayList<>(hostSamples(at));
         samples.addAll(containerSamples(at));
@@ -161,23 +148,9 @@ public final class Sampler implements AutoCloseable {
     record Reading(String service, long memoryBytes, java.util.OptionalDouble cpuPercent) {}
 
     /**
-     * One sample per service and metric, however many containers that service is running.
+     * One sample per service and metric, summed over its containers, since a second row with the same key is dropped.
      *
-     * Two containers, one key: A metric row is keyed by {@code (subject, metric, resolution, at)} and written with
-     * {@code ON CONFLICT DO NOTHING}, and the subject here is the compose service. Two containers of one service in the
-     * same round therefore produce two rows with the same key, of which the database silently keeps whichever arrived
-     * first: the chart would show one replica's memory and call it the service's, and nothing anywhere would say a
-     * number had been dropped.
-     *
-     * This stack runs one container per service and the deployer never scales anything, so today that is a fold over
-     * lists of one. It is here because the failure it prevents is invisible: somebody trying {@code --scale smp=2} for
-     * an afternoon would get a graph that is quietly wrong rather than one that is obviously broken.
-     *
-     * Memory adds up and so does CPU - both are "what this service is using on this host", and a percentage that is
-     * already relative to the whole host stays meaningful when summed. A service whose containers gave no CPU
-     * reading at all gets no CPU sample rather than a zero, for the reason {@link HostSnapshot#cpuPercent()} gives:
-     * a chart that
-     * opens at zero because nothing was measured is a lie the page then inherits.
+     * A service whose containers gave no CPU reading gets no CPU sample rather than a zero.
      */
     static List<MetricSample> byService(final List<Reading> readings, final Instant at) {
         final Map<String, Double> memory = new LinkedHashMap<>();

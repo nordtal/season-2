@@ -12,10 +12,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * A schedule saved in Steward has to reach the clocks without a restart.
+ * A schedule saved in Steward reaches the clocks without a restart.
  *
- * The config here is a live object whose values change between two {@link Schedules#arm()} calls, which is exactly
- * what a {@code ConfigHandle} reload does to the instance the worker holds.
+ * The config is a live object whose values change between two {@link Schedules#arm()} calls, as a reload does.
  */
 class SchedulesTest {
 
@@ -66,7 +65,7 @@ class SchedulesTest {
         return type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, handler));
     }
 
-    /** Arming never writes a row - only firing does, and nothing here waits long enough to fire. */
+    /** Arming never writes a row, only firing does, and nothing here waits long enough to fire. */
     private static UpdateDirectory noDirectory() {
         return section(UpdateDirectory.class, (proxy, method, args) -> {
             throw new AssertionError("the clock asked the database: " + method.getName());

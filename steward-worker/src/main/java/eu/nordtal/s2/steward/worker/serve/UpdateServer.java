@@ -10,34 +10,9 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * {@code steward-worker serve}: the loop that turns rows in {@code update_request} into runs.
+ * {@code steward-worker serve}: the loop that turns {@code update_request} rows into runs; nothing runs without one.
  *
- * The poll is the guarantee, the notification is the speed: Exactly the rule the phase model states and for the same
- * reason: notifications are lost while a process is disconnected, so every reconnect drains the table
- * unconditionally before it waits for anything, and a listener that has died costs latency rather than correctness.
- * The payload is empty on purpose - there is nothing to be tempted into trusting.
- *
- * Why this container is allowed to run all the time: The first rule of this module is that nothing updates on a
- * schedule: a crash restart at three in the morning must not move a version. That rule is about what the loop does,
- * not about whether it exists. This loop does nothing at all until somebody writes a row - there is no timer, no
- * watch and no "check for updates on boot". A container that comes back up comes back on exactly the jars it was
- * running.
- *
- * Looking is not running: the rule above forbids executing without being asked. It has never forbidden asking the
- * sources what is newest, and this container does exactly that: {@code GET /api/updates/available} resolves on
- * demand and caches the answer for six hours, so the interface can
- * say what an update would do. That path calls {@code Runs#resolve}, which writes nothing anywhere - no row in
- * {@code update_request}, no container touched, no jar moved.
- *
- * The sentence is here rather than only in {@code WorkerApi} because this is where the next session reads the rule,
- * and a resolve on a timer looks like a breach of it until somebody says out loud which half is forbidden. Checking,
- * yes. Running, never. If a future change makes something in this module start a run without a row somebody wrote,
- * that is the rule breaking - not this.
- *
- * Sleeping exactly as long as it should: A restart request sits in the table for a minute before it may be claimed,
- * and the proxy counts players down towards that instant. Sleeping for a fixed poll interval would fire it up to a
- * poll late - a counter that reaches zero and then waits. So each wait is the shorter of the poll interval and the
- * time until the next pending row is due.
+ * Every reconnect drains the table before waiting, so a lost notification costs latency, not a run.
  */
 @Slf4j
 public final class UpdateServer implements AutoCloseable {
@@ -45,12 +20,7 @@ public final class UpdateServer implements AutoCloseable {
     /** How long to wait before opening a new {@code LISTEN} connection after one failed. */
     private static final Duration RECONNECT_BACKOFF = Duration.ofSeconds(5);
 
-    /**
-     * The floor on any wait.
-     *
-     * Without it, a row whose {@code not_before} has just passed but which cannot be claimed - for the moment another
-     * worker holds it - would spin this loop as fast as the database can answer.
-     */
+    /** The floor on any wait, so a due row another worker holds cannot spin the loop. */
     private static final Duration MINIMUM_WAIT = Duration.ofSeconds(1);
 
     private final UpdateDirectory directory;
@@ -87,12 +57,7 @@ public final class UpdateServer implements AutoCloseable {
         this.reconnectBackoff = reconnectBackoff;
     }
 
-    /**
-     * Runs until {@link #close()}.
-     *
-     * Blocks the calling thread - this is the container's whole job, so it is {@code main}'s thread and not a
-     * daemon one.
-     */
+    /** Runs until {@link #close()}, blocking the calling thread, which is {@code main}'s. */
     public void serve() {
         settleOrphans();
 
@@ -100,7 +65,7 @@ public final class UpdateServer implements AutoCloseable {
             try (Notifications notifications = connector.listen()) {
                 log.info("Listening for update requests on {}", UpdateDirectory.CHANNEL);
                 while (running) {
-                    // THE rule: drain before waiting for anything - a notification received while disconnected is lost.
+                    // Drain before waiting for anything: a notification received while disconnected is lost.
                     drain();
                     notifications.awaitNotification(waitFor());
                 }
@@ -124,13 +89,7 @@ public final class UpdateServer implements AutoCloseable {
         }
     }
 
-    /**
-     * Runs everything that is due, oldest first, until nothing is.
-     *
-     * Package-visible for the test. Draining rather than taking one row per wake-up matters on the path where it is
-     * least convenient: a request written while steward-worker was busy with the previous one produced a notification
-     * that arrived during the run and was never waited for.
-     */
+    /** Runs everything that is due, oldest first, until nothing is, since a notification can arrive mid-run. */
     void drain() {
         Optional<UpdateRequest> claimed = directory.claimNext();
         while (running && claimed.isPresent()) {
@@ -144,10 +103,10 @@ public final class UpdateServer implements AutoCloseable {
 
             // The row is the progress bar: every stage the run reaches redraws the Discord embed and chat line.
             final Outcome outcome = runner.run(request, report -> {
-                // A progress write must never decide the run: an exception here would leave a stopped service stopped.
+                // A progress write must never decide the run, or a stopped service would stay stopped.
                 try {
                     if (!directory.progress(request.id(), eu.nordtal.s2.common.update.UpdateReports.toJson(report))) {
-                        // Not RUNNING any more - cancelled, or settled by somebody else. The run carries on regardless.
+                        // No longer RUNNING, cancelled or settled elsewhere; the run carries on regardless.
                         log.warn(
                                 "Request {} is no longer RUNNING, so its progress was not"
                                         + " recorded; the run itself continues",
@@ -158,7 +117,7 @@ public final class UpdateServer implements AutoCloseable {
                 }
             });
 
-            // Empty when the row is not RUNNING - ordinarily a stopped countdown - so this must not be overwritten
+            // Empty when the row is no longer RUNNING, ordinarily a stopped countdown, so nothing is overwritten.
             if (directory
                     .finish(request.id(), outcome.status(), outcome.report())
                     .isEmpty()) {
@@ -173,12 +132,7 @@ public final class UpdateServer implements AutoCloseable {
         }
     }
 
-    /**
-     * How long to block before looking again.
-     *
-     * Package-visible and side-effect free apart from the one query, because the arithmetic is the part worth testing:
-     * this is what decides whether a countdown fires on time.
-     */
+    /** How long to block before looking again: the poll interval or the time until the next row is due. */
     Duration waitFor() {
         final Instant now = clock.instant();
         final Duration untilDue =
@@ -189,25 +143,9 @@ public final class UpdateServer implements AutoCloseable {
     }
 
     /**
-     * Settles whatever the previous instance of this container left behind.
+     * Settles whatever the previous instance of this container left behind as failed.
      *
-     * Nothing is running those rows: the only process that claims one is a worker, and this one has just started.
-     *
-     * A restart is no longer read as having succeeded: a restart cycles the four Minecraft services one at a time and
-     * never stops the worker, so an orphaned one means what every other kind means - it died in the middle. See
-     * {@code UpdateDirectory#settleOrphans}.
-     *
-     * That first sentence is a premise, and it is enforced: it is only true while exactly one {@code serve} exists.
-     * With two, this method takes the other one's in-flight {@code UPDATE} - a run that is at that moment
-     * installing jars - and marks it {@code FAILED}; the real worker's {@code finish(...)} then matches no
-     * {@code RUNNING} row, so its report is dropped and the row keeps the sentence "steward-worker stopped while
-     * this request was running", which is the opposite of what happened.
-     *
-     * Two of them was easy to produce: {@code docker compose run} inherits the service's {@code command}, so
-     * every operator who typed what five documents called the read-only report started a second daemon. That is
-     * fixed at the source - the report has a name now - and {@code ServeLock} makes the premise a fact rather
-     * than a hope: {@code StewardWorker.serve} holds a session advisory lock for its whole life, and a second
-     * serve refuses to start.
+     * Safe only because {@code ServeLock} keeps a second {@code serve} from starting.
      */
     private void settleOrphans() {
         try {
@@ -219,7 +157,7 @@ public final class UpdateServer implements AutoCloseable {
                 log.info("Settled {} request(s) left open by the previous instance", settled);
             }
         } catch (final RuntimeException failure) {
-            // Not fatal: the loop still works and the stale rows are cosmetic - refusing to start over it is worse.
+            // Not fatal: the stale rows are cosmetic, and refusing to start over them is worse.
             log.error("Could not settle the requests left open by the previous instance", failure);
         }
     }

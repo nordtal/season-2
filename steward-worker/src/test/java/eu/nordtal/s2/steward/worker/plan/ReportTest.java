@@ -9,14 +9,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * That one outage produces one explanation.
+ * One outage produces one explanation.
  *
- * What went wrong: A GitHub failure makes every season row {@code UNRESOLVED}, and each carried the whole reason -
- * the URL, the advice about the rate limit, and 300 characters of trimmed JSON body. Eight rows of that is roughly 4
- * 600 characters. {@code UpdateCommand.DESCRIPTION_BUDGET} cuts a Discord embed description at 4 000, so what fell
- * off the end was everything after the rows: the summary line that says the list is not the whole picture, and the
- * "jars nothing accounts for" list. The two parts that tell an admin what to do were the two parts that did not
- * survive the outage they were written for.
+ * Repeating it on every row pushed the summary past the Discord description budget.
  */
 class ReportTest {
 

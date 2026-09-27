@@ -13,16 +13,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * The database dump against the PostgreSQL that is actually running here.
+ * The database dump against the PostgreSQL running here, into {@code /tmp} inside the container.
  *
- * It dumps the live season database - which is a read, taken as an MVCC snapshot, and changes nothing - into
- * {@code /tmp} inside the postgres container rather than into the shared backup directory, because a test has no
- * business writing into the real one. Everything else is the real path: the real {@code pg_dump}, the real
- * verification, the real rename, the real file size.
- *
- * The directory is created root-owned on purpose. {@code pg_dump} runs as {@code postgres}, so a root-owned
- * directory is the whole of finding 39 - and the setup here used to hand the directory over itself, which is why the
- * test stayed green for months while not one dump was ever written on the running stack.
+ * The directory is root-owned on purpose: {@code pg_dump} runs as {@code postgres}, so that is the real case.
  */
 class DatabaseDumpIntegrationTest {
 
@@ -82,7 +75,7 @@ class DatabaseDumpIntegrationTest {
         final SnapshotResult result =
                 new DatabaseDump(docker, PROJECT, "postgres", "/proc/nowhere", Clock.systemUTC()).save();
 
-        // The A23 shape: this has to be a red line in the report, never a quiet success.
+        // This has to be a red line in the report, never a quiet success.
         assertFalse(result.ok());
         assertTrue(result.bytes() == 0, "a failed dump reported " + result.bytes() + " bytes");
         assertTrue(result.message().contains("/proc/nowhere"), result.message());

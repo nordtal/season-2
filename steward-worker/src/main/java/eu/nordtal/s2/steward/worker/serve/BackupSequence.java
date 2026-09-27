@@ -19,7 +19,7 @@ final class BackupSequence {
 
     /** The database dump line, plus a PLANNED line for each service {@code backup.stop-services} names. */
     static UpdateReport prepareReport(final Runner runner, final Consumer<UpdateReport> progress) {
-        // THE DATABASE FIRST, WITH EVERYTHING RUNNING: pg_dump's MVCC snapshot needs nothing stopped.
+        // The database first, with everything running: pg_dump's MVCC snapshot needs nothing stopped.
         final SnapshotResult dumped = runner.backups.saveDatabase();
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING)
                 .with(new UpdateReport.ServiceLine(
@@ -42,7 +42,7 @@ final class BackupSequence {
         return planned;
     }
 
-    /** What was kept and what was removed, put into the report - a retention nobody sees may be wrong for months. */
+    /** What was kept and what was removed, put into the report so a wrong retention shows. */
     static UpdateReport pruneAfterBackup(final Runner runner, final UpdateReport saved) {
         final BackupSpec.RetentionSpec keep = runner.config.backup().retention();
         final Retention policy = new Retention(keep.daily(), keep.weekly(), keep.monthly(), keep.collapseAfterDays());
@@ -77,11 +77,7 @@ final class BackupSequence {
                 run.verify(back, stopped.services(), UpdateRun.Waiting.real()).withStage(UpdateReport.Stage.FAILED)));
     }
 
-    /**
-     * Stops the network, saves the volumes and starts it again.
-     *
-     * The same choreography an update runs, with nothing installed in between.
-     */
+    /** Stops the network, saves the volumes and starts it again, as an update does with nothing installed. */
     static Outcome runUnderLock(
             final Runner runner,
             final UpdateRequest request,
@@ -91,7 +87,7 @@ final class BackupSequence {
             final Consumer<UpdateReport> progress) {
         UpdateReport planned = prepareReport(runner, progress);
 
-        // A BACKUP RUNS THE SAME CHOREOGRAPHY AS AN UPDATE: stopping for a snapshot throws people out just as hard.
+        // The same choreography as an update, since a snapshot stop throws people out just as hard.
         final Choreography choreography = new Choreography(runner.containers, runner.occupancy(), runner.waiting);
         final Choreography.Window window = choreography.open(Runner.movingServices(planned));
         if (!window.opened()) {
@@ -110,7 +106,7 @@ final class BackupSequence {
                 return Runner.cancelled();
             }
 
-            // Wait for them to be gone, then stop anyway after the cap - see Choreography.
+            // Wait for them to be gone, then stop anyway after the cap.
             final String stillOn = choreography.waitUntilEmpty(Runner.movingServices(planned));
             if (stillOn != null) {
                 planned = planned.withNote(stillOn);
@@ -125,7 +121,7 @@ final class BackupSequence {
             }
 
             final UpdateReport saved = run.save(stopped.report(), volumes);
-            // Deliberately while the servers are still down: quick, and it frees disk before the next run.
+            // While the servers are still down: quick, and it frees disk before the next run.
             final UpdateReport swept = pruneAfterBackup(runner, saved);
 
             final UpdateReport started = run.start(new UpdateRun.Stopped(swept, stopped.services(), runtime));

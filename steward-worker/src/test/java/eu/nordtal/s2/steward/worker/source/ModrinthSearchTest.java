@@ -14,9 +14,7 @@ import org.junit.jupiter.api.Test;
 /**
  * {@link Modrinth#search} against the payload the live API returns.
  *
- * The assertion that carries the weight is the one about the facets. A search that sends them wrong does not fail:
- * it answers plugins for every platform and every Minecraft version, and the interface then offers an admin a Fabric
- * mod to install on a Paper server. There is no symptom until the jar is in the folder.
+ * Wrong facets do not fail, they offer plugins for every platform, so the facets carry the weight.
  */
 class ModrinthSearchTest {
 
@@ -33,7 +31,7 @@ class ModrinthSearchTest {
         assertEquals("1u6JkXh5", first.projectId(), "the id is the identity, not the slug");
         assertEquals("worldedit", first.slug());
         assertEquals("WorldEdit", first.title());
-        // The link is built from the slug, not the payload - the payload has no such field to take one from.
+        // The link is built from the slug, since the payload has no such field.
         assertEquals("https://modrinth.com/plugin/worldedit", first.pageUrl());
         assertTrue(
                 first.iconUrl().startsWith("https://cdn.modrinth.com/"),
@@ -48,7 +46,7 @@ class ModrinthSearchTest {
         new Modrinth(http).search("worldedit", MC, "velocity");
 
         final String asked = URLDecoder.decode(http.requested().getFirst().toString(), StandardCharsets.UTF_8);
-        // The loader is a CATEGORY here, not a `loaders` filter - getting it wrong is empty, not an error.
+        // The loader is a CATEGORY here, not a `loaders` filter; getting it wrong is empty, not an error.
         assertTrue(
                 asked.contains("facets=[[\"categories:velocity\"],[\"versions:26.2\"]," + "[\"project_type:plugin\"]]"),
                 asked);

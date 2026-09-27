@@ -20,12 +20,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The loop, without a network, a database or four volumes.
  *
- * Two things here are worth a test and the rest is plumbing. The first is the arithmetic that decides when to wake
- * up: a restart sits in the table for a minute while the proxy counts players down towards it, and a loop that
- * sleeps for its poll interval regardless would fire the restart after the counter had already reached zero. The
- * second is that a drain empties the queue rather than taking one row per wake-up - the case that matters is a
- * request written while the worker was busy with the previous one, whose notification arrived during the run and was
- * never waited for.
+ * It checks when the loop wakes for a due restart, and that a drain empties the queue rather than taking one row.
  */
 class UpdateServerTest {
 

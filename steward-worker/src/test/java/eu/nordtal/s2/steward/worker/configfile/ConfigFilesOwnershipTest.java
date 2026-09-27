@@ -19,17 +19,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * The worker runs as root and edits other services' config volumes through {@code /configs/<service>}.
+ * A write through {@code /configs/<service>} keeps the file's owner, although the worker runs as root.
  *
- * That is a file it does not itself own. A write has to leave that file owned by whoever it belonged to, not by the
- * writing process, because the temp-file-plus-rename {@link ConfigFiles#write} otherwise uses to stay atomic quietly
- * drops exactly that attribute: {@link Files#createTempFile} makes the new file owned by the process running it.
- *
- * Why an in-memory filesystem, and not the real one: the only way to prove ownership survives is to start from a
- * file owned by somebody other than the test process, and the real filesystem does not let an unprivileged process
- * hand that out - while a session running as uid 0 can chown to anything and would make the interesting failure
- * untestable for the opposite reason. Jimfs enforces no privilege model at all: a fabricated owner is carried, or is
- * not, on the write code's own merits, on every host this runs on.
+ * Jimfs carries a fabricated owner on any host; the real filesystem would need privilege to set one up.
  */
 class ConfigFilesOwnershipTest {
 
@@ -40,7 +32,7 @@ class ConfigFilesOwnershipTest {
 
     @BeforeEach
     void aFileOwnedBySomebodyElse() throws IOException {
-        // unix() alone does not turn "posix" on for Files.getFileAttributeView - it has to be named explicitly.
+        // unix() alone does not enable posix for Files.getFileAttributeView; it has to be named.
         fs = Jimfs.newFileSystem(Configuration.unix().toBuilder()
                 .setAttributeViews("basic", "owner", "posix", "unix")
                 .build());
@@ -49,7 +41,7 @@ class ConfigFilesOwnershipTest {
         file = directory.resolve("steward-ui.yml");
         Files.writeString(file, "port: 8080\n");
 
-        // Not the identity Jimfs hands a fresh file - the write below must keep this, not the JVM's own.
+        // Not the identity Jimfs hands a fresh file; the write below must keep this one.
         owner = fs.getUserPrincipalLookupService().lookupPrincipalByName("10001");
         group = fs.getUserPrincipalLookupService().lookupPrincipalByGroupName("10001");
         final PosixFileAttributeView view = Files.getFileAttributeView(file, PosixFileAttributeView.class);
@@ -71,7 +63,7 @@ class ConfigFilesOwnershipTest {
         assertEquals(owner.getName(), after.owner().getName());
         assertEquals(group.getName(), after.group().getName());
         assertEquals(PosixFilePermissions.fromString("rw-------"), after.permissions());
-        // And the edit itself still happened - this is not a test that passed by refusing to write anything.
+        // And the edit itself happened, so the test did not pass by refusing to write.
         assertEquals("port: 9090\n", Files.readString(file));
     }
 }

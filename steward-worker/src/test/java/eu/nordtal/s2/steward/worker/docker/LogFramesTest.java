@@ -14,15 +14,10 @@ import java.util.Deque;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * What the reader does at the boundaries nobody chooses.
- *
- * The end of a frame, the end of a read, and the end of the stream. None of it needs a daemon: a docker log stream
- * is bytes in an order, and the two shapes are described exactly enough in {@link LogFrames} to be written out here.
- */
+/** What the reader does at the end of a frame, the end of a read and the end of the stream. */
 class LogFramesTest {
 
-    private static final String LINE = "[04:45:12 INFO]: Zoë fell into lava – hard luck\n";
+    private static final String LINE = "[04:45:12 INFO]: Zoë fell into lava \u2013 hard luck\n";
 
     @Test
     void aCharacterSplitAcrossTwoReadsIsOneCharacterNotTwoQuestionMarks() throws IOException {
@@ -112,12 +107,7 @@ class LogFramesTest {
         return lines;
     }
 
-    /**
-     * A stream that hands over exactly these chunks, one per read.
-     *
-     * That is the whole point: {@code InputStream.read(byte[])} may return any number of bytes, and everything here
-     * is about what happens at the seam between two of them.
-     */
+    /** A stream that hands over exactly these chunks, one per read. */
     private static InputStream delivering(final byte[]... chunks) {
         final Deque<byte[]> queue = new ArrayDeque<>(List.of(chunks));
         return new InputStream() {

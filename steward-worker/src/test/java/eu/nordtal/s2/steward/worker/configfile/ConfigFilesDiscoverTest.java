@@ -13,13 +13,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Finding the config files under the mount.
- *
- * The layout is one directory per compose service, and inside it whatever that service's volume happens to contain -
- * a single {@code steward.yml} for the worker, a whole {@code plugins/<name>/config.yml} tree for a Minecraft
- * server.
- */
+/** Finding the config files under the mount, one directory per compose service. */
 class ConfigFilesDiscoverTest {
 
     @TempDir
@@ -204,11 +198,7 @@ class ConfigFilesDiscoverTest {
     /**
      * A symbolic link is not a config file, however much its name ends in {@code .yml}.
      *
-     * {@link ConfigFiles} says of itself that a file is found by matching and never by joining, and that this is what
-     * makes {@code ../../etc/shadow} a 404 rather than a question about decoding. A link defeats exactly that claim
-     * from the other end: {@code Files.isRegularFile} follows it, so the discovered {@link ConfigLocation} points
-     * wherever the link does and both the read and the save cross the mount. Whoever can drop a file into a shared
-     * config volume can drop a link into it, so the boundary has to be checked where the list is made.
+     * A link would carry the read and the save outside the mount, so the list refuses it.
      */
     @Test
     void aSymbolicLinkOutOfTheMountIsNotListed() throws IOException {

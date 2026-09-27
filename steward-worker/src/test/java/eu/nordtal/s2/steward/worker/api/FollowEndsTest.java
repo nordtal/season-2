@@ -27,22 +27,9 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 /**
- * What happens to a log follow when the browser watching it goes away, and when the worker stops.
+ * A log follow ends quietly when its browser goes away and when the worker stops.
  *
- * Why this counts warnings instead of asserting something: neither ending fails anything. Javalin does not throw
- * when a client has gone: writing to a terminated {@code SseClient} logs "Cannot send data" and returns - so the
- * follow reads on happily through the container's backlog and reports every line of it to nobody, one warning per
- * line. A chatty container has far more than the {@code tail=200} this test asks for.
- *
- * There is no status code and no exception in any of that. The symptom is the logging, so the logging is what this
- * counts.
- *
- * The shutdown at the end is the second half, and it is held less tightly on purpose: the failure there - an emitter
- * closed against a request Jetty has already recycled, which throws, which the exception mapper cannot report
- * because it throws too, retried thousands of times a second until the JVM runs out of memory - needs a client that
- * is still connected at the moment Jetty stops, and a test that hangs on to a socket that precisely is a test that
- * will one day fail for its own reasons. What is asserted here is that closing a worker with a follow behind it is
- * quiet. See {@code WorkerApi#follows} for the order that keeps it that way.
+ * Neither ending throws; a dead client shows only as one warning per line, so warnings are what this counts.
  */
 class FollowEndsTest {
 
@@ -96,7 +83,7 @@ class FollowEndsTest {
                                 + " will not tell it any other way");
             }
         } finally {
-            // The close IS the thing under test, so it happens above; this is only for the paths that never got there.
+            // The close is what is under test, so it happens above; this only covers paths that never got there.
             if (!closedByTheTest) {
                 api.close();
             }
@@ -176,7 +163,7 @@ class FollowEndsTest {
         }
     }
 
-    /** A service with a container actually running, or a skip - a stopped one never follows. */
+    /** A service with a container actually running, or a skip, since a stopped one never follows. */
     private static String aRunningService(final HttpClient http) throws Exception {
         final HttpResponse<String> response = http.send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + PORT + "/api/services"))

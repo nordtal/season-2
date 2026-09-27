@@ -15,29 +15,9 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Makes each standby's {@code plugins/} a copy of the service it stands in for.
+ * Makes each standby's {@code plugins/} an exact copy of the service it stands in for, configs included.
  *
- * Why this is a copy and not a second install: A standby exists to carry the network for the seconds its model is
- * being restarted, and it has to come up on the jar that was just installed - not on "the newest release", which is
- * the same thing only until somebody publishes one between the two resolves. Resolving a standby separately would
- * also double every row in every report and every call to GitHub, for an answer that has to be identical anyway. So
- * nothing is resolved here: the live service's {@code plugins/} is mirrored across after {@link Applier} has
- * finished with it, and the standby is by construction what the live service is about to be.
- *
- * The whole directory, not just the jars: {@code plugins/} holds the jars and every configuration the plugin reads -
- * including {@code plugins/proxy/pack.yml}, which is the resource pack's URL and sha1. A standby with its own
- * pack.yml would hand a transferred player a different pack to download, and a standby with no pack.yml is a proxy
- * that refuses to start. Mirroring the directory is what makes "identical to its model" true of the settings as well
- * as of the code.
- *
- * Extra files in the standby are deleted. This is a copy, not a merge: a jar left behind there is a plugin the
- * replacement runs and the original does not.
- *
- * A deployment without standbys is not an error: When the standby's directory is not mounted into this container at
- * all, nothing is written and no row appears in the report - a stack whose compose.yml predates this feature must
- * not grow a skipped line in every run. That silence is affordable for one reason: the failure it could hide is
- * caught loudly one step later, because a standby started with an empty {@code plugins/} is refused by the Minecraft
- * entrypoint, which stops the container and names the folder.
+ * Copied rather than resolved, so it matches what was just installed; a standby that is not mounted is skipped.
  */
 @Slf4j
 public final class Standbys {
@@ -48,7 +28,7 @@ public final class Standbys {
      * Mirrors {@code plugins/} onto the standby of every named service that has one.
      *
      * @param volumesRoot where the services' volumes are mounted in this container
-     * @param services    the services this run touched; anything without a standby is ignored
+     * @param services the services this run touched; anything without a standby is ignored
      * @return one row per standby that is mounted, under the standby's own compose service name
      */
     public static List<ApplyResult.Outcome> fill(final Path volumesRoot, final Collection<String> services) {
@@ -117,19 +97,14 @@ public final class Standbys {
     /**
      * One directory, recursively, made equal to another.
      *
-     * A file is copied when its bytes differ, and that is the comparison rather than a cheaper one for a measured
-     * reason. Timestamps do not work: on this host two operations in the same clock tick produce the identical
-     * modification time, so a copy of a file that has changed is indistinguishable from one that has not. Size does
-     * not work either, and the file that proves it is the one that matters most here - {@code pack.yml}, whose sha1
-     * is forty hex characters whatever the pack is. Reading a plugins folder twice is a few megabytes once per
-     * update.
+     * Files are compared by content, since timestamps collide and {@code pack.yml} keeps its size.
      */
     private static void copyInto(final Path source, final Path target, final Tally tally) throws IOException {
         final Set<String> wanted = new LinkedHashSet<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(source)) {
             for (final Path entry : entries) {
                 final String name = entry.getFileName().toString();
-                // Applier's own half-written downloads, left by a run that died mid-phase; never copy them.
+                // Applier's half-written downloads, left by a run that died mid-phase.
                 if (Applier.STAGING.equals(name)) {
                     continue;
                 }
@@ -156,12 +131,12 @@ public final class Standbys {
         }
     }
 
-    /** Whether the two files differ in content. {@code Files.mismatch} answers -1 when they do not. */
+    /** Whether the two files differ in content. */
     private static boolean isDifferent(final Path source, final Path destination) throws IOException {
         return !Files.isRegularFile(destination) || Files.mismatch(source, destination) != -1L;
     }
 
-    /** @return how many files were removed. */
+    /** Deletes a file or tree and returns how many files were removed. */
     private static int deleteRecursively(final Path entry) throws IOException {
         int removed = 0;
         if (Files.isDirectory(entry)) {
@@ -177,7 +152,7 @@ public final class Standbys {
         return removed + 1;
     }
 
-    /** What one mirror did, counted rather than listed: a plugins folder is dozens of files. */
+    /** What one mirror did, counted rather than listed. */
     private static final class Tally {
         private int copied;
         private int removed;

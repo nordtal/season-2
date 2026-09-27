@@ -21,17 +21,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Asks every source what is newest, looks at what is on disk, and says what the difference is.
+ * Compares what every source calls newest with what is on disk, writing nothing.
  *
- * Nothing here writes anything, anywhere.
- *
- * Each source is asked inside its own try, so one outage costs only its own rows. An unreachable source never reads
- * as "unchanged", though: {@link UpdatePlan#hasFailures()} exists so that "nothing to do" and "nothing could be
- * asked" can be told apart.
- *
- * "No build for this Minecraft version" is a third answer - {@link Change.Status#UNSUPPORTED} - and not a failure,
- * because a failure row makes the whole service skipped: one plugin lagging behind the platform must not stop the
- * season jar beside it from ever being installed.
+ * One source's outage costs only its own rows and never reads as unchanged.
  */
 @Slf4j
 public final class Resolver {
@@ -53,10 +45,9 @@ public final class Resolver {
     }
 
     /**
-     * @param plugins the plugins an admin added from the interface, merged into
-     *                the fixed topology by {@link Topology#servicesWith}. {@code PluginDirectory#NONE}
-     *                for a caller with no database - the command-line {@code report}, and every
-     *                test that is about the fixed rows
+     * Resolves against the fixed topology plus the plugins an admin added.
+     *
+     * @param plugins merged in by {@link Topology#servicesWith}; {@code PluginDirectory#NONE} without a database
      */
     public Resolver(
             final StewardSpec config,
@@ -76,17 +67,17 @@ public final class Resolver {
     public UpdatePlan resolve() {
         final Map<String, RemoteFile> newest = new LinkedHashMap<>();
         final Map<String, String> failures = new HashMap<>();
-        // Kept apart from `failures`: both mean "no file to install", only one means the report is untrustworthy.
+        // Apart from `failures`: both mean no file, only a failure makes the report untrustworthy.
         final Map<String, String> unsupported = new HashMap<>();
         final List<String> notes = new ArrayList<>();
-        // The season jars our release answered for but carries no file of; the reason is an answer, not an outage.
+        // Season jars our release answered for without a file; the reason is an answer, not an outage.
         final Set<String> unreleased = new HashSet<>();
 
         final GitHubReleases.Release season = resolveSeason(newest, failures, unreleased);
         resolveDisplayTags(newest, failures);
         resolveModrinth(newest, failures, unsupported, Topology.PACKETEVENTS, config.packetEventsProject(), "paper");
         resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT, config.voiceChatProject(), "paper");
-        // The same Modrinth project, asked again for the Velocity build: two jars, told apart by the loader.
+        // The same Modrinth project asked again for the Velocity build; the loader tells the two jars apart.
         resolveModrinth(
                 newest, failures, unsupported, Topology.VOICE_CHAT_PROXY, config.voiceChatProject(), "velocity");
         resolveModrinth(newest, failures, unsupported, Topology.CORE_PROTECT, config.coreProtectProject(), "paper");
@@ -114,13 +105,7 @@ public final class Resolver {
                 List.copyOf(notes));
     }
 
-    /**
-     * The rows of {@code service_plugin}, or none of them.
-     *
-     * A database that cannot be read must not cost the network its report. Everything else here already works
-     * that way - one unreachable source costs only its own rows - and this is the same rule for the one source
-     * that is not over the internet.
-     */
+    /** The rows of {@code service_plugin}, or none when the database cannot be read. */
     private List<eu.nordtal.s2.common.plugin.ManagedPlugin> readAdded() {
         try {
             return plugins.all();
@@ -132,14 +117,7 @@ public final class Resolver {
         }
     }
 
-    /**
-     * The plugins somebody added in the interface, merged into the fixed topology.
-     *
-     * Read once, before anything is compared: the merged topology is what the whole loop below walks, so the
-     * added rows are not a second pass, they are extra plugins on services that already exist. A database that
-     * cannot be read costs the added rows and nothing else - {@link #readAdded} answers an empty list rather
-     * than throwing, so the network's own jars still resolve.
-     */
+    /** The fixed topology plus the plugins added in the interface; an unreadable database costs only the added rows. */
     private List<Topology.Service> mergeAddedPlugins(
             final Map<String, RemoteFile> newest,
             final Map<String, String> failures,
@@ -165,7 +143,7 @@ public final class Resolver {
         for (final Topology.Service service : services) {
             final Installation installed = scan(service.name(), root.resolve(service.name()));
 
-            // Every jar the topology accounts for on this service, by filename prefix; what is left over is unclaimed.
+            // Every jar the topology accounts for on this service, by filename prefix; the rest is unclaimed.
             final Set<String> claimed = new HashSet<>();
 
             final List<String> artifacts = new ArrayList<>(service.plugins());
@@ -186,13 +164,7 @@ public final class Resolver {
         }
     }
 
-    /**
-     * Asks Modrinth for every added plugin, once per artefact id.
-     *
-     * The loader comes from the service the row names, which is why this walks the merged services rather than
-     * the rows: one slug added on {@code smp} and on {@code proxy} is two artefact ids and two questions, exactly
-     * as Simple Voice Chat already is ( {@link Topology#addedArtifact}).
-     */
+    /** Asks Modrinth once per artefact id for every added plugin, so one slug on two loaders is two questions. */
     private void resolveAdded(
             final Map<String, RemoteFile> newest,
             final Map<String, String> failures,
@@ -205,7 +177,7 @@ public final class Resolver {
                     continue;
                 }
                 final String artifact = Topology.addedArtifact(plugin.artifact(), service.kind());
-                // Already answered: the same plugin on two services of one kind is one question; the fixed row wins.
+                // Already answered: one plugin on two services of one kind is one question; the fixed row wins.
                 if (newest.containsKey(artifact)
                         || unsupported.containsKey(artifact)
                         || failures.containsKey(artifact)) {
@@ -228,7 +200,7 @@ public final class Resolver {
         try {
             release = github.latest(config.seasonRepo());
         } catch (final IOException failed) {
-            // Our own jars and the pack all come from this one call, so one reason covers every row.
+            // Our own jars and the pack come from this one call, so one reason covers every row.
             final String why =
                     "could not read the latest release of " + config.seasonRepo() + ": " + failed.getMessage();
             log.warn("Season release unresolved - {}", why);
@@ -239,7 +211,7 @@ public final class Resolver {
 
         for (final GitHubReleases.Asset asset : release.assets()) {
             final String prefix = JarName.prefixOf(asset.name());
-            // The asset's own prefix is the artifact id ('smp-0.2.0.jar' is 'smp'); an extra asset is just ignored.
+            // The asset's prefix is the artifact id ('smp-0.2.0.jar' is 'smp'); an extra asset is ignored.
             if (prefix != null && Topology.SEASON_JARS.contains(prefix)) {
                 newest.put(
                         prefix,
@@ -259,12 +231,7 @@ public final class Resolver {
         return release;
     }
 
-    /**
-     * The pack zip and the SHA-1 sitting next to it.
-     *
-     * The hash is read, not computed: it is a 41-byte asset the release workflow writes, and the Minecraft
-     * client checks it against the zip itself.
-     */
+    /** The pack zip and the SHA-1 asset beside it, which is read rather than computed. */
     private void resolvePackAsset(
             final GitHubReleases.Release release,
             final Map<String, RemoteFile> newest,
@@ -284,7 +251,7 @@ public final class Resolver {
             return;
         }
         if (sha1 == null) {
-            // Refused, not worked around: the client is sent the URL and hash together and rejects a mismatch.
+            // Refused, not worked around: the client gets URL and hash together and rejects a mismatch.
             failures.put(
                     Topology.RESOURCE_PACK,
                     "release " + release.tag() + " carries " + zip.name() + " but no " + zip.name()
@@ -336,9 +303,7 @@ public final class Resolver {
     }
 
     /**
-     * One Modrinth-hosted plugin, with the two ways of having no file kept apart.
-     * {@link Modrinth.Unsupported} is not an outage and must not be reported as one: a failure row
-     * makes {@code Applier} skip the whole service the plugin sits on.
+     * One Modrinth-hosted plugin; {@link Modrinth.Unsupported} is not an outage, since a failure row skips the service.
      */
     private void resolveModrinth(
             final Map<String, RemoteFile> newest,
@@ -361,12 +326,7 @@ public final class Resolver {
         }
     }
 
-    /**
-     * The newest stable build of {@link Platform#MINECRAFT}.
-     *
-     * An exact version, not a family: a new Minecraft version is a season decision, and a Fill family also
-     * lists its release candidates.
-     */
+    /** The newest stable build of {@link Platform#MINECRAFT}, an exact version rather than a family. */
     private void resolvePaper(final Map<String, RemoteFile> newest, final Map<String, String> failures) {
         try {
             newest.put(Topology.PAPER, fill.newestStable(Topology.PAPER, Platform.MINECRAFT));
@@ -378,11 +338,7 @@ public final class Resolver {
     /**
      * The newest stable build inside {@link Platform#VELOCITY_FAMILY}.
      *
-     * The proxy follows Velocity's minors where Paper stays on one exact version.
-     *
-     * A run that moves past {@link Platform#VELOCITY_API} leaves {@code proxy} running on an API it was not
-     * built for. That is noted rather than refused: the skew is usually harmless, and blocking the proxy's
-     * update over it is the worse failure.
+     * Moving past {@link Platform#VELOCITY_API} is noted, not refused.
      */
     private void resolveVelocity(
             final Map<String, RemoteFile> newest, final Map<String, String> failures, final List<String> notes) {
@@ -414,7 +370,7 @@ public final class Resolver {
         if (wanted == null) {
             final String none = unsupported.get(artifact);
             if (none != null) {
-                // Deliberately claims nothing on disk: a hand-installed jar then shows up in UpdatePlan#unclaimed.
+                // Claims nothing on disk, so a hand-installed jar shows up in UpdatePlan#unclaimed.
                 return Change.unsupported(service, artifact, none);
             }
             final String why = failures.getOrDefault(artifact, "no source answered for this artefact");
@@ -455,11 +411,7 @@ public final class Resolver {
     /**
      * The bot and steward-worker: one jar each, in a volume of their own, with no {@code plugins/} folder.
      *
-     * Both containers run whatever jar is in their volume and fall back to the one baked into the image only when the
-     * volume is empty, which is what makes a first deployment possible.
-     *
-     * The worker's own row is installed like the bot's and cannot take effect during the run that installs it - the new
-     * jar waits for the next start, which is the restart.
+     * The worker's new jar takes effect at the next start, which is the restart.
      */
     private Change resolveStandalone(
             final Path root,
@@ -482,7 +434,7 @@ public final class Resolver {
                     wanted,
                     installed.directory() + " is not mounted in this container");
         }
-        // No unsupported map: these two come from our own release, which either carries their jar or does not.
+        // No unsupported map: our own release either carries these jars or does not.
         return compare(artifact, artifact, installed, newest, failures, Map.of(), unreleased, new HashSet<>());
     }
 
@@ -516,7 +468,7 @@ public final class Resolver {
                             : PackState.fileIn(root.resolve(Topology.PROXY)) + " does not exist yet");
         }
 
-        // The hash is the identity, not the URL: compared case-insensitively, since a typed hash differs in case.
+        // The hash is the identity, compared case-insensitively since a typed hash may differ in case.
         final Checksum checksum = wanted.checksum();
         final String wantedSha1 = checksum == null ? null : checksum.hex();
         if (wantedSha1 != null && wantedSha1.equalsIgnoreCase(state.sha1())) {
@@ -526,7 +478,6 @@ public final class Resolver {
         return new Change(Topology.PROXY, Topology.RESOURCE_PACK, Change.Status.OUTDATED, state.sha1(), wanted, null);
     }
 
-    /** The bot's and steward-worker's volumes: the jar is in the root, there is no plugins folder. */
     private Installation scanFlat(final String service, final Path directory) {
         try {
             return Installation.scanFlat(service, directory);
@@ -540,19 +491,18 @@ public final class Resolver {
         try {
             return Installation.scan(service, directory);
         } catch (final IOException failed) {
-            // A directory that exists but cannot be listed is a mount permissions problem, not an empty server.
+            // A directory that exists but cannot be listed is a mount permission problem, not an empty server.
             log.warn("Could not read {} for {}: {}", directory, service, failed.getMessage());
             return Installation.absent(service, directory);
         }
     }
 
-    /** The version out of the filename, falling back to the tag when the name carries none. */
     private static String versionOrTag(final String fileName, final String tag) {
         final String version = JarName.versionOf(fileName);
         if (version != null) {
             return version;
         }
-        // A zip, not a jar: nordtal-resource-pack-0.2.0.zip. Same rule, applied by hand.
+        // A zip, not a jar (nordtal-resource-pack-0.2.0.zip), so the same rule is applied by hand.
         final int dot = fileName.lastIndexOf('.');
         final String stem = dot < 0 ? fileName : fileName.substring(0, dot);
         final int dash = stem.lastIndexOf('-');

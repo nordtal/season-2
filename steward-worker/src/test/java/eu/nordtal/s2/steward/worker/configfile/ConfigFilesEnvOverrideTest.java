@@ -15,12 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * {@link ConfigEntry#environmentOverridden()} comes from the {@code <name>.env-overrides.txt} a service writes.
  *
- * It writes that file beside its own config file with {@link EnvOverrideFile#write} - never from re-deriving the
- * {@code NORDTAL_<PREFIX>_<PATH>} naming rule here, which this class exists to reject as a second opinion.
- *
- * Three states, not two, and this file exists to keep them apart: {@code null} (no service ever reported),
- * {@code true} (this exact path is overridden right now) and {@code false} (a service reported, and this path was
- * not among the overridden ones).
+ * Three states: {@code null} if nothing reported, {@code true} if this path is overridden, else {@code false}.
  */
 class ConfigFilesEnvOverrideTest {
 

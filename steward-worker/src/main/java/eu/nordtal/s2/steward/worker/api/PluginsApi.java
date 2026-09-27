@@ -29,29 +29,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The four routes behind "the plugins on this server".
+ * The routes behind the plugins on one server: list, search, add and remove.
  *
- * The list is read off the disk, and the table only says what may be removed: What is installed is the jars in the
- * volume - that is {@code Installation} 's rule and it is not weakened here. So {@link #list} walks {@code plugins/}
- * and then asks {@code service_plugin} which of those jars somebody added from the interface. A jar no row claims is
- * one the network gives, and it carries no remove button because there is no row to delete. That is the enforcement,
- * not a greyed-out control.
- *
- * The unclaimed jars fall into two groups by name: a season jar ( {@code smp-0.9.5.jar}) is a Nordtal plugin,
- * anything else is preinstalled. A jar somebody copied into the volume by hand lands in the second group too; the
- * place it is meant to become visible is the update plan, which lists it under {@code unclaimed}. Whether a
- * preinstalled jar came from Modrinth is told by its hash ( {@link JarIdentity}), which is what gives it a name, a
- * picture and a link.
- *
- * A row with no jar is not installed: installing is asking, not doing. The row is written and the jar arrives with
- * the next update run that can fetch it. So a row whose {@code file_prefix} matches nothing on
- * disk is drawn as not installed, and so is a plugin the network gives that is not on the disk - a list that claimed
- * the plugin was running would be describing a server that does not have it.
- *
- * Removing deletes the folder too, which is why the answer names it, even though
- * {@code plugins/<name>/} is the only hand-edited thing in the whole installation. The consequence taken on with it
- * is that the confirmation has to name the directory, so {@link #list} reads it out of each jar's own descriptor (
- * {@link PluginFolder}) and hands it over before anybody presses anything.
+ * The list is the jars on disk; only a jar a {@code service_plugin} row claims can be removed.
  */
 public final class PluginsApi {
 
@@ -60,11 +40,7 @@ public final class PluginsApi {
     /**
      * The only host an icon may be loaded from.
      *
-     * Why the URL is checked here and not trusted from the browser: The add request carries what a search hit said, and
-     * a request can say anything. An {@code icon_url} that is stored and then rendered as {@code <img src>} on an admin
-     * page behind two factors is a beacon somebody else controls - it reports every visit, and it is the one field of
-     * this row that a browser fetches by itself. Modrinth serves every project icon from this host, so anything else is
-     * dropped and the plugin is drawn without a picture.
+     * A stored icon URL is fetched by every admin's browser, so anything not served by Modrinth is dropped.
      */
     private static final String ICON_HOST = "https://cdn.modrinth.com/";
 
@@ -76,11 +52,11 @@ public final class PluginsApi {
     private final Map<String, String> fixedProjects;
 
     /**
-     * @param volumesRoot where the services' volumes are mounted in this container, or {@code null}
-     *                    in a deployment that mounts none - the list then says the mount is missing
-     *                    rather than reporting an empty server
-     * @param gameVersion the Minecraft version every search and every resolve is filtered to,
-     *                    which is {@code Platform#MINECRAFT}
+     * Builds the API with no fixed Modrinth plugins.
+     *
+     * @param volumesRoot where the services' volumes are mounted here, or {@code null} when none are, which the list
+     *     reports
+     * @param gameVersion the Minecraft version every search and resolve is filtered to
      */
     public PluginsApi(
             final PluginDirectory plugins,
@@ -91,8 +67,9 @@ public final class PluginsApi {
     }
 
     /**
-     * @param fixedProjects the Modrinth project id of each plugin the network gives from Modrinth,
-     *                      keyed by artefact id - what names and draws one that is not on the disk
+     * Builds the API.
+     *
+     * @param fixedProjects the Modrinth project id of each plugin the network gives, keyed by artefact id
      */
     public PluginsApi(
             final PluginDirectory plugins,
@@ -114,7 +91,7 @@ public final class PluginsApi {
         final List<ManagedPlugin> added = plugins.on(service.name());
         final Installation installed = scan(service.name());
 
-        // The jars no row claims are the ones the network gives; Modrinth-published ones drawn like an added plugin.
+        // Unclaimed jars are the ones the network gives; Modrinth ones are drawn like an added plugin.
         final List<Installation.Jar> given = installed.plugins().stream()
                 .filter(jar -> ownerOf(jar, added) == null && !isNordtal(jar))
                 .toList();
@@ -136,7 +113,7 @@ public final class PluginsApi {
         ctx.json(answer);
     }
 
-    /** One row per jar in the volume, name and picture filled in from a row or from Modrinth where either answers. */
+    /** One row per jar in the volume, named and pictured from a row or from Modrinth where either answers. */
     private List<Map<String, Object>> installedRows(
             final Installation installed,
             final List<ManagedPlugin> added,
@@ -167,12 +144,7 @@ public final class PluginsApi {
         return rows;
     }
 
-    /**
-     * The plugins the network gives that are absent from disk.
-     *
-     * Named and drawn like the ones that are, marked not running; no install action, since the next update run is
-     * what puts them there, if it can.
-     */
+    /** The plugins the network gives that are absent from disk, marked not running and with no install action. */
     private List<Map<String, Object>> absentRows(
             final Topology.Service service,
             final Installation installed,
@@ -204,11 +176,7 @@ public final class PluginsApi {
         return rows;
     }
 
-    /**
-     * A row nothing on disk answered for is not installed yet.
-     *
-     * That includes one whose jar was deleted underneath it: the row is the wish, and the wish is still there.
-     */
+    /** A row nothing on disk answered for is not installed yet, even if its jar was deleted underneath it. */
     private List<Map<String, Object>> notYetInstalledRows(final List<ManagedPlugin> added, final List<String> claimed) {
         final List<Map<String, Object>> rows = new ArrayList<>();
         for (final ManagedPlugin plugin : added) {
@@ -227,10 +195,10 @@ public final class PluginsApi {
             final Installation.@Nullable Jar jar,
             final boolean running) {
         final Map<String, Object> row = new LinkedHashMap<>();
-        // The title when there is a row, else the filename prefix - never the artefact id ("wg-bukkit" vs "WorldGuard")
+        // The title when there is a row, else the filename prefix, never the artefact id.
         row.put("name", plugin != null ? plugin.title() : prefix == null ? jarName(jar) : prefix);
         row.put("running", running);
-        // The whole point of the pair: what may be deleted is exactly what has a row.
+        // What may be deleted is exactly what has a row.
         row.put("removable", plugin != null);
         if (prefix != null) {
             row.put("filePrefix", prefix);
@@ -240,7 +208,7 @@ public final class PluginsApi {
             if (jar.version() != null) {
                 row.put("version", jar.version());
             }
-            // Read now, before anything is deleted, since the confirmation must say it aloud; no descriptor, no field.
+            // Read before anything is deleted, since the confirmation must name it; no descriptor, no field.
             final String folder = PluginFolder.nameIn(jar.path());
             if (folder != null) {
                 row.put("dataFolder", folder);
@@ -279,10 +247,7 @@ public final class PluginsApi {
     /**
      * The service's fixed plugins that are not on the disk, in topology order.
      *
-     * A Nordtal jar is there when its filename prefix is. A Modrinth one is there when a jar was identified as
-     * that project, or - for when Modrinth could not be asked - when a jar's prefix starts with the artefact id
-     * ( {@code CoreProtect-CE}, {@code voicechat-bukkit}). A fixed plugin that is neither, the platform itself
-     * for one, is not listed at all.
+     * Modrinth ones match by identified project, else by a jar prefix starting with the artefact id.
      */
     static List<String> absentFixed(
             final Topology.Service service,
@@ -320,13 +285,13 @@ public final class PluginsApi {
     /** {@code GET /api/services/{name}/plugins/search?q=} */
     public void search(final Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
-        // Blank is allowed and not an error: an empty search box shows the popular plugins, not a typing prompt.
+        // Blank is allowed: an empty search box shows the popular plugins.
         final String query = Optional.ofNullable(ctx.queryParam("q")).orElse("");
         final List<Modrinth.Hit> hits;
         try {
             hits = modrinth.search(query, gameVersion, service.kind().modrinthLoader());
         } catch (final IOException failed) {
-            // 502, not 500: what failed is somebody else's API, and the difference decides who checks this log.
+            // 502, not 500: what failed is somebody else's API.
             throw new BadGatewayResponse("Modrinth could not be searched: " + failed.getMessage());
         }
 
@@ -341,7 +306,7 @@ public final class PluginsApi {
             row.put("iconUrl", icon(hit.iconUrl()));
             row.put("pageUrl", hit.pageUrl());
             row.put("downloads", hit.downloads());
-            // Both kinds of "already there" told apart: one added last week, the other given by the network.
+            // Both kinds of "already there": added by an admin, or given by the network.
             row.put("added", added.stream().anyMatch(plugin -> plugin.artifact().equals(hit.slug())));
             row.put("fixed", service.plugins().contains(Topology.addedArtifact(hit.slug(), service.kind())));
             rows.add(row);
@@ -365,23 +330,14 @@ public final class PluginsApi {
         public @Nullable String slug;
         public @Nullable String title;
         public @Nullable String iconUrl;
-        /**
-         * Who pressed it, as steward-ui knows them.
-         *
-         * Taken from the body rather than a header because steward-ui is the only caller and the only process with
-         * a session. The worker's own token says the request is allowed; this says whose name goes on the row.
-         */
+        /** Who pressed it, as steward-ui knows them; the worker's token only says the request is allowed. */
         public @Nullable String by;
     }
 
     /**
-     * {@code POST /api/services/{name}/plugins} - the button that says Install.
+     * {@code POST /api/services/{name}/plugins}: the Install button, which writes a row the next run fulfils.
      *
-     * It resolves before it writes, and that is the load-bearing part: a search hit is a claim about a project;
-     * {@code Modrinth#newest} is an answer about a version, and only the second one can say whether there is a
-     * build for this Minecraft version on this loader. Asking it here means an admin finds out while looking at
-     * the dialog, instead of the row becoming a plugin that silently never installs. It also produces the
-     * filename prefix, which is the one thing the removal later cannot work out for itself.
+     * It resolves the newest build first, so an admin learns in the dialog when none fits this version.
      */
     public void add(final Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
@@ -402,7 +358,7 @@ public final class PluginsApi {
                 addition.prefix(),
                 title == null ? addition.slug() : title,
                 icon(ask.iconUrl),
-                // Built here, never from the body: a request may only decide which Modrinth project this points at.
+                // Built here, never from the body: a request may only choose the Modrinth project.
                 "https://modrinth.com/plugin/" + addition.slug(),
                 java.time.Instant.now(),
                 by));
@@ -438,7 +394,7 @@ public final class PluginsApi {
     /** Validates the slug, refuses a plugin the network already gives, and asks Modrinth for the newest build. */
     private Addition resolveAddition(final Topology.Service service, final String slug, final String projectId) {
         if (!slug.matches("[A-Za-z0-9!@$()`.+,_\"-]+")) {
-            // Modrinth's own slug alphabet - checked because this becomes an artefact id in a report line and filename.
+            // Modrinth's own slug alphabet, since this becomes an artefact id and a filename.
             throw new BadRequestResponse(slug + " is not a Modrinth slug");
         }
 
@@ -461,7 +417,7 @@ public final class PluginsApi {
 
         final String prefix = JarName.prefixOf(newest.fileName());
         if (prefix == null) {
-            // Refused rather than stored with a guess: without a prefix nothing can find this jar again to remove it.
+            // Refused rather than guessed: without a prefix nothing could find this jar again to remove it.
             throw new ConflictResponse(newest.fileName() + " does not split into a name and a"
                     + " version, so this installation could never be undone. See JarName.");
         }
@@ -469,12 +425,9 @@ public final class PluginsApi {
     }
 
     /**
-     * {@code DELETE /api/services/{name}/plugins/{artifact}} - the jar and the folder, both.
+     * {@code DELETE /api/services/{name}/plugins/{artifact}}: the jar and the folder, both.
      *
-     * The files go first and the row goes last: if deleting the folder fails - a permission on the mount, a file
-     * being written - the row is still there, so the plugin still appears in the list and the button can be
-     * pressed again. The other order would leave a jar nothing knows about, which the next plan would report as
-     * unclaimed and nobody could remove from here.
+     * The files go first and the row last, so a failed delete leaves the plugin listed and removable again.
      */
     public void remove(final Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
@@ -508,7 +461,7 @@ public final class PluginsApi {
 
         if (folder != null) {
             final Path directory = pluginsDirectory(service.name()).resolve(folder);
-            // resolve() on a name from a jar somebody else wrote, checked rather than trusted: "../../world" is one.
+            // A name from a jar somebody else wrote is checked, since "../../world" is one.
             if (!directory
                     .normalize()
                     .startsWith(pluginsDirectory(service.name()).normalize())) {

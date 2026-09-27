@@ -2,13 +2,7 @@ package eu.nordtal.s2.steward.worker.docker;
 
 import org.jspecify.annotations.Nullable;
 
-/**
- * Anything the daemon answered that the caller cannot use.
- *
- * It carries the status and the body because Docker's error bodies are short and say what is actually wrong (
- * {@code {"message":"No such container: smp"}}), and a stack trace that has thrown that away leaves the reader
- * guessing at a thing the daemon already explained.
- */
+/** Anything the daemon answered that the caller cannot use, carrying its status and short error body. */
 public class DockerException extends RuntimeException {
 
     private final int status;
@@ -29,7 +23,7 @@ public class DockerException extends RuntimeException {
         this.body = body;
     }
 
-    /** The HTTP status, or 0 when the request never got an answer at all. */
+    /** The HTTP status, or 0 when the request never got an answer. */
     public int status() {
         return status;
     }

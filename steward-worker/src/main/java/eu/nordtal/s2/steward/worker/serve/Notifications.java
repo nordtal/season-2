@@ -4,12 +4,9 @@ import java.sql.SQLException;
 import java.time.Duration;
 
 /**
- * One live {@code LISTEN nordtal_update} connection, reduced to a single question.
+ * One live {@code LISTEN nordtal_update} connection: has anything been announced, and is it still alive?
  *
- * The question the server asks: "has anything been announced, and if not, has this connection died?"
- *
- * An interface for the same reason {@code proxy} 's {@code PhaseNotifications} is one: the reconnect loop above it
- * is worth testing and a real dropped socket is not something a test can produce.
+ * An interface so the reconnect loop above it can be tested without a real dropped socket.
  */
 public interface Notifications extends AutoCloseable {
 
@@ -18,6 +15,8 @@ public interface Notifications extends AutoCloseable {
     interface Connector {
 
         /**
+         * Opens the connection.
+         *
          * @return a connection with {@code LISTEN nordtal_update} already issued on it
          * @throws SQLException if the connection could not be opened or the {@code LISTEN} failed
          */
@@ -27,11 +26,9 @@ public interface Notifications extends AutoCloseable {
     /**
      * Waits for a notification.
      *
-     * @param timeout how long to block. The server passes the time until its next piece of work is
-     *                due, so a countdown ending sooner than the poll interval wakes it on time
+     * @param timeout how long to block, up to the server's next due piece of work
      * @return {@code true} if something was announced, {@code false} on a plain timeout
-     * @throws SQLException when the connection is no longer usable - which is the reconnect loop's
-     *                      cue, and the reason a timeout is followed by a liveness check
+     * @throws SQLException when the connection is no longer usable, the reconnect loop's cue
      */
     boolean awaitNotification(Duration timeout) throws SQLException;
 

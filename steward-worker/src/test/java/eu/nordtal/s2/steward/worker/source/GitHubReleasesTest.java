@@ -25,7 +25,7 @@ class GitHubReleasesTest {
 
         final GitHubReleases.Asset smp = release.asset("smp-0.1.0.jar");
         assertNotNull(smp);
-        // A tiny jar is the scaffold's two log lines, not a real build; nothing in the API says so - the size does.
+        // A tiny jar is the scaffold's two log lines, not a real build; only the size says so.
         assertEquals(51_273, smp.size());
         assertTrue(
                 smp.url().toString().startsWith("https://github.com/nordtal/season-2/releases/download/"),

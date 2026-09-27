@@ -10,31 +10,16 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What is actually lying in one service's volume.
+ * What is lying in one service's volume: the jars in {@code plugins/} and the server jar in {@code .server/}.
  *
- * The jars in {@code plugins/} and the server jar in {@code .server/}.
- *
- * Disk is the truth, and nothing else is: the alternative would be a table this module writes after every run. It
- * is not chosen, and the reason is the fault this whole module exists to avoid: a record of what should be installed
- * can pin a release whose actual jar is a completely different, scaffolded build. A second such record would be a
- * second thing that can be right about a server that is wrong.
- *
- * A missing mount is reported, never created: {@link #scan} on a directory that is not there returns an
- * {@link #absent} installation rather than making one. A worker that quietly reports "nothing installed" for a
- * running SMP server, because its volume was left out of the compose file, would be worse than one that says the
- * mount is missing - the first reads as "all up to date" after the swap.
+ * Disk is the only truth. A missing mount is reported as {@link #absent}, never created or read as empty.
  */
 public record Installation(String service, Path directory, boolean mounted, List<Jar> plugins, List<Jar> serverJars) {
 
     /** Where a service keeps its plugin jars, relative to the volume root. */
     public static final String PLUGINS = "plugins";
 
-    /**
-     * Where {@code entrypoint.sh} caches the server jar.
-     *
-     * A dot directory, so it is invisible to anybody listing the volume - which is deliberate on its side and
-     * worth knowing on this one.
-     */
+    /** Where {@code entrypoint.sh} caches the server jar. */
     public static final String SERVER_CACHE = ".server";
 
     /** One jar on disk. */
@@ -53,12 +38,7 @@ public record Installation(String service, Path directory, boolean mounted, List
         return new Installation(service, directory, false, List.of(), List.of());
     }
 
-    /**
-     * Reads one service directory.
-     *
-     * Never writes, never creates, never follows a symlink out of the volume - {@link Files#newDirectoryStream}
-     * lists what is there and this only ever asks for regular files.
-     */
+    /** Reads one service directory, only its regular files, and never writes. */
     public static Installation scan(final String service, final Path directory) throws IOException {
         if (!Files.isDirectory(directory)) {
             return absent(service, directory);
@@ -67,14 +47,7 @@ public record Installation(String service, Path directory, boolean mounted, List
                 service, directory, true, jarsIn(directory.resolve(PLUGINS)), jarsIn(directory.resolve(SERVER_CACHE)));
     }
 
-    /**
-     * Reads a directory that is the jar's home, rather than a server volume with a {@code plugins/} folder in it.
-     *
-     * The bot and steward-worker are each one jar in a volume, not a server: there is no {@code plugins/}, no
-     * {@code .server/}, and the container runs whatever jar it finds. The jars land in {@link #plugins()} because
-     * that is the list {@link #matching(String)} searches first, and one honest sentence here beats a second field
-     * that would be empty for every real server.
-     */
+    /** Reads a directory holding one standalone jar, listed as {@link #plugins()} for {@link #matching(String)}. */
     public static Installation scanFlat(final String service, final Path directory) throws IOException {
         if (!Files.isDirectory(directory)) {
             return absent(service, directory);
@@ -111,7 +84,7 @@ public record Installation(String service, Path directory, boolean mounted, List
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory)) {
             for (final Path entry : entries) {
                 final String name = entry.getFileName().toString();
-                // .partial files are an interrupted download; they are not jars and must not be read as one.
+                // .partial files are an interrupted download, not jars.
                 if (JarName.isJar(name) && Files.isRegularFile(entry)) {
                     jars.add(new Jar(entry, name));
                 }

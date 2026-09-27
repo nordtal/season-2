@@ -6,22 +6,11 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Which of the project's services are running an image older than the registry's.
- *
- * Three answers, not two: the same rule the artefact plan follows: "up to date" and "nobody has looked" must never
- * be the same value. This is not a theoretical distinction: a management panel that never queried a registry at all,
- * answering from results it had persisted itself, would report a project nothing had ever checked as current while
- * it silently ran releases behind. {@code DockerOps} asks the registry per reference, but the third answer stays,
- * because the question can still fail to be answered - and folding that into "no updates" is the failure this type
- * exists to prevent.
+ * Which services run an image older than the registry's, where "up to date" and "nobody looked" stay apart.
  *
  * @param reached whether the images could be read at all
  * @param services one entry per running compose service, service name to what was found
- * @param unverifiable the subset of {@code services} whose image could not be identified at all - the registry did
- *     not answer, or the daemon no longer has the container's exact image on file. They are {@link State#UNKNOWN}
- *     like any other unchecked image; this only records why, so the report can say something true instead of staying
- *     silent - see {@link #notCheckable()}. A service built here and never published is {@link State#LOCAL}, not a
- *     member of this set: that is a known answer, not an unanswered question
+ * @param unverifiable the {@link State#UNKNOWN} services whose image could not be identified, so the report can say why
  * @param message why not, or {@code null} when they could be read
  */
 public record ImageResult(
@@ -44,26 +33,10 @@ public record ImageResult(
         /** Checked, and what is running is what the registry has. */
         UP_TO_DATE,
 
-        /**
-         * Running from an image built on this host and never published.
-         *
-         * The opposite direction from {@link #OUTDATED}, not a milder version of it.
-         *
-         * A container recreated from a local {@code docker build} must never answer {@code OUTDATED}, which would
-         * be backwards - the registry has nothing newer, this host has something the registry has never seen.
-         * Neutral, not a fault: drawn without warning colour in the interface, but carrying the one warning that is
-         * true of it - the next real update run replaces this image silently, because the updater installs from a
-         * release and this one is not on any.
-         */
+        /** Running from an image built on this host and never published, which the next update run replaces. */
         LOCAL,
 
-        /**
-         * This service's image could not be compared with a registry.
-         *
-         * It carries no registry
-         * digest, was not built here either, or the registry did not answer. Never treated as work
-         * and never reported as current; it is a note.
-         */
+        /** This service's image could not be compared with a registry; a note, never work and never current. */
         UNKNOWN
     }
 
@@ -79,27 +52,22 @@ public record ImageResult(
         return new ImageResult(false, Map.of(), Set.of(), message);
     }
 
-    /** @return what was found for that service, or {@link State#UNKNOWN} if it was not among them */
+    /** Returns what was found for that service, or {@link State#UNKNOWN} if it was not among them. */
     public State state(final String service) {
         return services.getOrDefault(service, State.UNKNOWN);
     }
 
-    /** @return whether that service is running an image the registry has moved past */
+    /** Returns whether that service runs an image the registry has moved past. */
     public boolean isOutdated(final String service) {
         return state(service) == State.OUTDATED;
     }
 
-    /** @return whether that service is running an image built here and published nowhere */
+    /** Returns whether that service runs an image built here and published nowhere. */
     public boolean isLocal(final String service) {
         return state(service) == State.LOCAL;
     }
 
-    /**
-     * @return the sentence to put in the report when nothing could be said, or empty when at least
-     *         one service was actually checked. A run whose every service is {@code UNKNOWN} looks
-     *         exactly like one where every image is current, and this is the only thing that tells
-     *         them apart
-     */
+    /** Returns the report sentence when no service could be checked, since that otherwise reads as all current. */
     public Optional<String> nothingChecked() {
         if (!reached) {
             return Optional.of(
@@ -117,16 +85,7 @@ public record ImageResult(
         return Optional.empty();
     }
 
-    /**
-     * @return the sentence naming the services whose image could not be identified at all, or empty when there are
-     *     none. Separate from {@link #nothingChecked()} and fires on its own: one service that was checked is
-     *     enough to silence that method, and saying nothing about the rest reads exactly like "checked, and
-     *     current". A build performed here and never pushed is told apart from this on its own, as
-     *     {@link State#LOCAL}, so what is left in this set is a registry that did not answer, or a container whose
-     *     exact image the daemon no longer has on file. Folding the local-build case into this one would produce
-     *     the worst of the two remaining behaviours: either every run carries a note blaming a setting, or no note
-     *     at all while the unverifiable images sit there.
-     */
+    /** Returns the sentence naming the services whose image could not be identified, or empty when there are none. */
     public Optional<String> notCheckable() {
         if (!reached || unverifiable.isEmpty()) {
             return Optional.empty();
@@ -141,13 +100,7 @@ public record ImageResult(
                 + " checked and found nothing to do.");
     }
 
-    /**
-     * @return the sentence naming the services running an image built here and never published, or empty when there are
-     *     none. {@link State#LOCAL} is neutral, not a fault - but the one fact about it worth putting in a report is
-     *     that the updater only ever installs from a release, so the next real update run replaces a local build
-     *     silently, and a report that stays quiet about that reads exactly like one where every image is the
-     *     published kind.
-     */
+    /** Returns the sentence naming the services on a local build, which the next update run replaces, or empty. */
     public Optional<String> localImages() {
         if (services.isEmpty()) {
             return Optional.empty();

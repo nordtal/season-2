@@ -17,11 +17,7 @@ import org.slf4j.LoggerFactory;
 /**
  * What {@code steward.yml} refuses, and what it drops.
  *
- * Most of this spec is a value whose default is the real one, so a fresh file is correct and there is nothing to
- * catch. What is worth a test is the two places where a wrong value does its damage somewhere else entirely:
- * {@code backup.volumes} pointing at a live PGDATA, which fails at {@code pg_restore} months later rather than here,
- * and a deployed file still carrying keys that no longer exist - which has to cost a WARN and a {@code .bak}, never
- * a refusal to start.
+ * A live PGDATA in {@code backup.volumes} is refused; a retired key costs a WARN and a {@code .bak}, not a start.
  */
 class ConfigsTest {
 

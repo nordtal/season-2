@@ -11,53 +11,25 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * One row of the unified feed.
+ * One row of the actions feed: a run from {@code update_request} or a line from {@code audit_log}.
  *
- * A run from {@code update_request} or a line from {@code audit_log}, reduced to what the interface's five-item
- * list actually draws - a kind, when it happened, an outcome, and who is credited with it.
- *
- * Why one shape for two tables: The ticket's own words: a page that sorts and merges two lists is the place the
- * third source gets forgotten later. {@link ActionsApi} is the one query that knows about both tables; nothing past
- * this record does.
- *
- * Why the actor fields are empty strings, not {@code null}: This is a record, not the {@code LinkedHashMap} the rest
- * of this package uses for a JSON body - see {@code MessagesApi} 's note on a {@code null} map entry being dropped
- * where a {@code null} record field is instead written as the JSON literal. Rather than depend on that distinction
- * (and on whether the app-wide {@code Gson} ever turns {@code serializeNulls()} on), "no name" is spelled as an
- * empty string here, which every JSON representation writes the same way.
- *
- * @param kind the {@link UpdateKind} name for a run, or the free-text {@code audit_log.action} for a journal line -
- *     the interface's own map from this string to an icon and a label
+ * @param kind the {@link UpdateKind} name for a run, or the free-text {@code audit_log.action} for a journal line
  * @param occurred when this happened, by the database's clock
- * @param extent the outcome or the extent of it - "3/3 successful", "30 days granted by hm.till from the web
- *     interface, until ...", "Everything is already current". Never empty
- * @param actorDiscordId the Discord id to resolve through the roster, or {@code ""} when there is none to resolve
- * @param actorLabel plain text to show when there is an actor but no id to resolve it by - {@code ""} otherwise
- * @param system whether Steward itself is credited - the nightly backup clock, an orphan settle, or a journal line
- *     the bot wrote with no admin behind it
+ * @param extent the outcome or its extent, such as "3/3 successful"; never empty
+ * @param actorDiscordId the Discord id to resolve through the roster, or {@code ""} (never null) when there is none
+ * @param actorLabel plain text to show when there is an actor but no id, {@code ""} (never null) otherwise
+ * @param system whether Steward itself is credited, such as the nightly backup clock or an orphan settle
  */
 public record ActionEntry(
         String kind, Instant occurred, String extent, String actorDiscordId, String actorLabel, boolean system) {
 
-    /**
-     * A trailing snowflake on a free-text requester.
-     *
-     * The shape a human's request is written in wherever it started life as "name and id together" rather than as
-     * a bare snowflake. See {@link #of(UpdateRequest)} for what happens to the rest of the string.
-     */
+    /** A trailing snowflake on a free-text requester, as in {@code "name (id)"}. */
     private static final Pattern TRAILING_SNOWFLAKE = Pattern.compile("^.*\\((\\d{17,20})\\)\\s*$");
 
     /**
-     * This entry in the shape the browser reads, which is not the shape the record has.
+     * This entry in the shape the browser reads, with {@code occurred} as ISO-8601 text.
      *
-     * {@code occurred} has to leave here as text. Serialised straight from the record it goes out as
-     * {@code {"seconds":1789569304,"nanos":879572000}}, because that is what an {@link Instant} 's getters are - and
-     * {@code api.ts} types the field {@code string} and hands it to {@code relative()}, which makes every timestamp
-     * in the feed an invalid date. Nothing on either side is wrong on its own, which is why both sides' tests were
-     * green while the live answer was unusable. The rest of this API already converts at this boundary for the
-     * same reason - see {@code WorkerApi#serviceTable}, which writes {@code checkedAt} with {@code toString()}.
-     *
-     * @return a map, in the order the fields are declared; {@code occurred} as ISO-8601
+     * @return a map, in the order the fields are declared
      */
     public java.util.Map<String, Object> json() {
         final java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
@@ -71,17 +43,7 @@ public record ActionEntry(
     }
 
     /**
-     * A run from {@code update_request}.
-     *
-     * Reading who asked: {@code requested_by} is free text, and not uniformly shaped: this deployment's own rows carry
-     * {@code "hm.till (594510749410525200)"} (a name with the id that goes with it, already formatted for a person to
-     * read), {@code "steward-worker (nightly)"} (the clock, not a person), and bare tool identifiers such as
-     * {@code "token-rotation-check"} that are not an account at all. Only the first of those carries a raw Discord
-     * snowflake - and that snowflake is exactly what {@code identifiers-stay-in-the-popover.test.ts} exists to keep out
-     * of plain text, so it is extracted here into {@link #actorDiscordId} rather than shipped as part of a label the
-     * interface would otherwise have to print unexamined. A row with no parenthesised id is shown as plain text: there
-     * is nothing here that safely resolves "token-rotation-check" to a person, and showing it as a person would be a
-     * guess this record has no business making.
+     * A run from {@code update_request}; a trailing {@code (snowflake)} in the requester becomes the actor id.
      *
      * @param run the row, however it finished
      * @return the entry that describes it
@@ -104,10 +66,7 @@ public record ActionEntry(
     }
 
     /**
-     * A line from {@code audit_log}.
-     *
-     * {@code actor} is already a clean Discord id or {@code null} - unlike a run's free-text requester, nothing
-     * here needs to be picked apart.
+     * A line from {@code audit_log}, whose {@code actor} is already a clean Discord id or {@code null}.
      *
      * @param entry the journal line
      * @return the entry that describes it
@@ -123,18 +82,8 @@ public record ActionEntry(
     /**
      * What to say a run amounted to.
      *
-     * The count is not the row's status: "Did any step report a failure" and "how much of what was touched came back"
-     * are different questions - see {@link UpdateReport#savedSomething()} for the same distinction made about backups
-     * specifically. This counts every service line the run actually touched (excluding
-     * {@link UpdateReport.State#UNCHANGED} and {@link UpdateReport.State#PLANNED}, which are "the run never got here"
-     * and "the run has not got here yet") against how many of those reached {@link UpdateReport.State#HEALTHY} or
-     * {@link UpdateReport.State#SAVED} - a service back up, or a volume written.
-     *
      * @param run a finished, running or pending request
-     * @return "n/m successful" when something was touched, the report's own stage headline when nothing was (a
-     *     {@code REPORT} or a {@code NOTHING_TO_DO} run), or the row's own status word when the report cannot be
-     *     read at all - an old enough worker wrote plain text into this column, and a row that has not finished
-     *     yet has no report to read
+     * @return "n/m successful" over the touched services, else the report's headline, else the row's status word
      */
     private static String extentOf(final UpdateRequest run) {
         if (run.status() == UpdateStatus.PENDING) {
@@ -161,7 +110,6 @@ public record ActionEntry(
         return successful + "/" + total + " successful";
     }
 
-    /** Whether the run actually did something to this service, rather than skipping past it. */
     private static boolean touched(final UpdateReport.ServiceLine line) {
         return line.state() != UpdateReport.State.UNCHANGED && line.state() != UpdateReport.State.PLANNED;
     }

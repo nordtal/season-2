@@ -12,20 +12,9 @@ import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 
 /**
- * The pgjdbc half of {@link Notifications}.
+ * The pgjdbc half of {@link Notifications}: one dedicated, unpooled connection polled with {@code getNotifications}.
  *
- * One plain JDBC connection with {@code LISTEN nordtal_update} on it, polled with
- * {@code PGConnection#getNotifications(int)}.
- *
- * Why it is not a pooled connection: the same two reasons {@code proxy} gives for the phase listener. {@code LISTEN}
- * is session state, and a pool hands sessions back out; and this connection is parked inside a blocking call for as
- * long as the process runs, which is not a connection a pool can ever reclaim. pgjdbc has no callback API, so a
- * thread has to sit on it.
- *
- * The socket timeout is not optional: A peer that goes away without closing leaves {@code getNotifications} sitting
- * on a dead socket indefinitely - the exact failure the reconnect loop exists to recover from, and the one it would
- * never be told about. So the socket has a timeout, and every quiet wait is followed by a liveness check that turns
- * a dead connection into the exception the loop is waiting for.
+ * The socket has a timeout and each quiet wait a liveness check, so a dead peer becomes an exception.
  */
 public final class PostgresNotifications implements Notifications {
 
@@ -40,8 +29,9 @@ public final class PostgresNotifications implements Notifications {
     }
 
     /**
-     * @param config the same credentials the pool uses - the listener reads the same database, just
-     *               not through the pool
+     * Builds the connector.
+     *
+     * @param config the same credentials the pool uses
      * @return a connector that opens one dedicated {@code LISTEN} connection per call
      */
     public static Connector connector(final DatabaseSpec config) {

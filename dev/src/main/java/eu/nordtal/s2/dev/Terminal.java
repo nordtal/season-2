@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.Charset;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -27,13 +28,15 @@ class Terminal {
     }
 
     /** @return the process's own standard input and output */
+    // JDK 25 answers null when stdin is a pipe, as it is in IntelliJ's Run window.
+    @SuppressWarnings("SystemConsoleNull")
     static Terminal system() {
-        // Never null since JDK 22; isTerminal() is what tells a terminal from a pipe.
-        final Console console = java.util.Objects.requireNonNull(System.console(), "System.console()");
+        final Console console = System.console();
+        final Charset charset = console == null ? Charset.defaultCharset() : console.charset();
         return new Terminal(
-                new BufferedReader(new InputStreamReader(System.in, console.charset())),
+                new BufferedReader(new InputStreamReader(System.in, charset)),
                 System.out,
-                console.isTerminal() ? console : null);
+                console != null && console.isTerminal() ? console : null);
     }
 
     /** @return whether there is a real terminal, which is what {@code docker compose exec} needs for a TTY */

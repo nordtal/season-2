@@ -70,6 +70,16 @@ public final class MilestoneTrack {
         return milestones.isEmpty() ? Optional.empty() : Optional.of(milestones.get(0));
     }
 
+    /**
+     * Returns the milestone that should be active: the first one in file order that is not completed.
+     *
+     * @param completed the keys of every completed milestone
+     * @return empty once every milestone is completed
+     */
+    public Optional<Milestone> next(final java.util.Collection<String> completed) {
+        return milestones.stream().filter(m -> !completed.contains(m.key())).findFirst();
+    }
+
     /** Returns every milestone key, in file order. */
     public List<String> keys() {
         return milestones.stream().map(Milestone::key).toList();

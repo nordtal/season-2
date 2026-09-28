@@ -124,10 +124,11 @@ class MilestoneStateIntegrationTest {
     }
 
     private static List<String> activeKeys() {
-        return Jdbi.create(dataSource).withHandle(handle -> handle.createQuery(
-                        "SELECT key FROM smp_milestone WHERE state = 'ACTIVE' ORDER BY key")
-                .mapTo(String.class)
-                .list());
+        return Jdbi.create(dataSource)
+                .withHandle(handle -> handle.createQuery(
+                                "SELECT key FROM smp_milestone WHERE state = 'ACTIVE' ORDER BY key")
+                        .mapTo(String.class)
+                        .list());
     }
 
     private static void execute(final String sql) {

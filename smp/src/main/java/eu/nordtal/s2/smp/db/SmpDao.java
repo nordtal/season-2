@@ -176,8 +176,7 @@ public interface SmpDao {
     /**
      * Finishes a milestone and sends {@code pg_notify} in the same statement.
      *
-     * Returns empty unless the milestone was the active one: two callers at once are safe, and an
-     * unlock out of order cannot leave a second milestone active.
+     * Returns empty unless the milestone was the active one, so two callers at once are safe and no unlock skips ahead.
      */
     @SqlQuery("""
             UPDATE smp_milestone

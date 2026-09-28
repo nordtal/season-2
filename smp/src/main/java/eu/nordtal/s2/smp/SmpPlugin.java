@@ -400,7 +400,14 @@ public final class SmpPlugin extends JavaPlugin {
     /** Reads the data every surface draws, async on a timer, so no render waits on the database. */
     void refreshSurfaceData() {
         try {
-            final java.util.Optional<String> active = dao.activeMilestoneKey();
+            java.util.Optional<String> active = dao.activeMilestoneKey();
+            final List<String> completed = dao.completedMilestoneKeys();
+            if (!completed.equals(season.completedKeys())
+                    || (active.isEmpty() && track.next(completed).isPresent())) {
+                // A phase switch started the track over, or nothing has started it yet.
+                loadSeasonState();
+                active = dao.activeMilestoneKey();
+            }
             active.ifPresentOrElse(
                     key -> season.refreshActive(key, dao.objectivesOf(key)),
                     () -> season.refreshActive(null, java.util.List.of()));
@@ -588,9 +595,18 @@ public final class SmpPlugin extends JavaPlugin {
      * Reads the track's progress and puts Nordtal's border where the completed milestones say, without animating it.
      */
     void loadSeasonState() {
-        ensureRows(track);
+        final MilestoneTrack now = track;
+        ensureRows(now);
         final List<String> completed = dao.completedMilestoneKeys();
-        season.refresh(completed, track);
+        // A fresh track, or one a phase switch started over, has nothing active until this activates the next.
+        if (dao.activeMilestoneKey().isEmpty()) {
+            now.next(completed).ifPresent(next -> {
+                if (dao.activateMilestone(next.key()) > 0) {
+                    getLogger().info("milestone " + next.key() + " is now active");
+                }
+            });
+        }
+        season.refresh(completed, now);
 
         Bukkit.getScheduler().runTask(this, () -> {
             final int diameter = season.borderDiameter();

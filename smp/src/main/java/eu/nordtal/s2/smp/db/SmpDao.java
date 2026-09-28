@@ -176,12 +176,13 @@ public interface SmpDao {
     /**
      * Finishes a milestone and sends {@code pg_notify} in the same statement.
      *
-     * Returns empty when the milestone was already complete, so two callers at once are safe.
+     * Returns empty unless the milestone was the active one: two callers at once are safe, and an
+     * unlock out of order cannot leave a second milestone active.
      */
     @SqlQuery("""
             UPDATE smp_milestone
             SET state = 'UNLOCKED', unlocked = now()
-            WHERE key = :key AND state <> 'UNLOCKED'
+            WHERE key = :key AND state = 'ACTIVE'
             RETURNING key, pg_notify('nordtal_smp', 'milestone:' || key) AS notified
             """)
     Optional<String> completeMilestone(@Bind("key") String key);

@@ -118,13 +118,35 @@ class SmpCommandsTest {
     }
 
     @Test
-    void unlockingAMilestoneDoesNotCheckTheKeyFirstAndSaysWhichOneItWas() {
-        // The engine is the only thing that knows the whole track, active milestones included.
+    void unlockingTheActiveMilestoneSaysWhichOneItWas() {
+        smp.activeMilestone = "the-end";
+
         final FakeUser user = run(new UnlockMilestone(), Map.of("key", "the-end"));
 
         assertEquals("smp.admin.milestone-unlocked", user.only().key());
         assertEquals("the-end", user.only().of("key"));
         assertEquals(List.of("unlock the-end"), smp.did);
+    }
+
+    @Test
+    void anOutOfOrderUnlockIsRefusedAndNamesTheActiveMilestone() {
+        // Unlocking a later milestone would activate the one after it and leave the current one active too.
+        smp.activeMilestone = "frontier";
+
+        final FakeUser user = run(new UnlockMilestone(), Map.of("key", "nether"));
+
+        assertEquals("smp.admin.milestone-not-active", user.only().key());
+        assertEquals("nether", user.only().of("key"));
+        assertEquals(new MilestoneContext("frontier"), user.only().of("milestone"));
+        assertEquals(List.of(), smp.did, "an out-of-order unlock reached the engine");
+    }
+
+    @Test
+    void anUnlockWithNoActiveMilestoneIsRefused() {
+        assertEquals(
+                List.of("smp.admin.nothing-to-unlock"),
+                run(new UnlockMilestone(), Map.of("key", "nether")).keys());
+        assertEquals(List.of(), smp.did);
     }
 
     @Test

@@ -102,10 +102,12 @@ class MilestoneStateIntegrationTest {
     }
 
     @Test
-    void escapeHatchTwoSkipsActive() {
-        // /smp milestone unlock on a milestone the season has not reached: the blunt escape hatch.
-        assertEquals(Optional.of("departure"), dao.completeMilestone("departure"));
-        assertEquals(List.of("departure"), dao.completedMilestoneKeys());
+    void anOutOfOrderUnlockLeavesExactlyOneActiveMilestone() {
+        dao.activateMilestone("waiting");
+
+        assertEquals(Optional.empty(), dao.completeMilestone("departure"), "a locked milestone was unlocked");
+        assertEquals(List.of(), dao.completedMilestoneKeys());
+        assertEquals(List.of("waiting"), activeKeys());
     }
 
     @Test
@@ -119,6 +121,13 @@ class MilestoneStateIntegrationTest {
         dao.ensureObjective("departure", "logs", "HAND_IN", 32);
         assertEquals(32, dao.objectivesOf("departure").getFirst().target(), "a lowered target reaches the row");
         assertEquals(0, dao.objectivesOf("departure").getFirst().amount(), "and the progress is untouched");
+    }
+
+    private static List<String> activeKeys() {
+        return Jdbi.create(dataSource).withHandle(handle -> handle.createQuery(
+                        "SELECT key FROM smp_milestone WHERE state = 'ACTIVE' ORDER BY key")
+                .mapTo(String.class)
+                .list());
     }
 
     private static void execute(final String sql) {

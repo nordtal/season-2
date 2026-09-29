@@ -763,31 +763,6 @@ export type ConfigChangeValue = string | string[] | { [key: string]: ConfigChang
 export type ConfigChanges = Record<string, ConfigChangeValue>
 
 /**
- * One admin command the interface may ask for, as the backend lists it.
- *
- * The list is the declarations carrying `Surface.WEB`, so no copy is kept here.
- */
-export type AdminCommand = {
-  name: string
-  path: string[]
-  target: string
-  adminOnly: boolean
-  /** The adapters owe a confirmation on these; here that means an AlertDialog. */
-  irreversible: boolean
-  arguments: CommandArgument[]
-}
-
-export type CommandArgument = {
-  name: string
-  /** ACCOUNT and REFERENCE are filled from `/api/people` and `/api/payments/open` rather than a field. */
-  kind: "WORD" | "GREEDY_STRING" | "INTEGER" | "PLAYER" | "CHOICE" | "ACCOUNT" | "REFERENCE"
-  required: boolean
-  min?: number
-  max?: number
-  choices?: string[]
-}
-
-/**
  * One `access_request` row, as `GET /api/access/requests/{id}` answers it.
  *
  * `result` is a flat object of strings the bot writes, with `error` when it failed.

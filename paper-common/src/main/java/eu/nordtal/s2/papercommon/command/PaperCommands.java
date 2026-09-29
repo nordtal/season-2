@@ -344,18 +344,6 @@ public final class PaperCommands {
 
     /** Answers with what can be typed here and what each one is for, sorted, instead of Brigadier's parser error. */
     private int help(final CommandContext<CommandSourceStack> context, final Node node) {
-        // A root with a declared default runs it, admin flag included: this path bypasses the child's requires.
-        final java.util.Optional<Declaration> preset =
-                eu.nordtal.s2.commands.Catalogue.rootDefault(node.literal, mayUse(context.getSource()));
-        if (preset.isPresent()) {
-            final Node child = node.children.get(preset.get().path().get(1));
-            if (child != null
-                    && child.command != null
-                    && child.command.declaration().equals(preset.get())) {
-                return dispatch(context, child.command, new Parsed(Map.of(), Map.of()));
-            }
-        }
-
         final NordtalUser user = user(context.getSource().getSender());
         final List<Declaration> below = new ArrayList<>();
         collect(node, below);

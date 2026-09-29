@@ -1,7 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import eu.nordtal.s2.commands.access.AccessEffects;
 import java.time.Instant;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The five access changes as the bot carries them out, for a caller with only an {@link Actor}.
@@ -20,7 +20,7 @@ public interface AccessChanges {
     boolean unlink(String discordId, Actor by);
 
     /** Books a payment by hand. */
-    AccessEffects.Settled settle(String reference, Actor by);
+    Settled settle(String reference, Actor by);
 
     /** Writes somebody's total play time, in seconds. */
     void setPlaytime(String discordId, long seconds, Actor by);
@@ -34,4 +34,31 @@ public interface AccessChanges {
 
     /** Returns the override keys the bundles do not declare, after a reload. */
     java.util.List<String> unknownOverrideKeys();
+
+    /**
+     * The outcome of {@link #settle}.
+     *
+     * @param outcome which of the three happened
+     * @param until   when the access it bought runs until, for {@link Settlement#BOOKED} only
+     * @param days    how many days it bought
+     * @param status  the status a {@link Settlement#NOT_OPEN} request was actually in, so the refusal can name it
+     */
+    record Settled(
+            Settlement outcome,
+            @Nullable Instant until,
+            int days,
+            @Nullable String status) {}
+
+    /** The three ways {@link #settle} can end. */
+    enum Settlement {
+
+        /** No request carries that reference. */
+        UNKNOWN,
+
+        /** It exists and is not open, so there is nothing to book. */
+        NOT_OPEN,
+
+        /** Booked. */
+        BOOKED
+    }
 }

@@ -5,13 +5,10 @@ import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.OpenPayment;
 import eu.nordtal.s2.smp.aura.AuraReason;
-import eu.nordtal.s2.smp.db.AuraPlace;
-import eu.nordtal.s2.smp.db.AuraRow;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -26,7 +23,7 @@ import org.bukkit.plugin.Plugin;
  *
  * The chat instance uses the async scheduler; the inbox's runs inline, since it settles its row on return.
  */
-public final class BukkitSmpEffects implements SmpEffects, Standing {
+public final class BukkitSmpEffects implements SmpEffects {
 
     private final Plugin plugin;
     private final Executor executor;
@@ -36,25 +33,16 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
     private final AccessDirectory access;
     private final java.util.function.Supplier<java.util.List<String>> reload;
 
-    private final java.util.function.Function<java.util.Locale, Status> status;
-
-    /** One handle in a {@code REPEATABLE READ} transaction, so the three aura reads describe one moment. */
-    private final org.jdbi.v3.core.Jdbi jdbi;
-
     public BukkitSmpEffects(
             final Plugin plugin,
             final Executor executor,
-            final org.jdbi.v3.core.Jdbi jdbi,
             final SmpDao dao,
             final ObjectiveEngine engine,
             final Identities identities,
             final AccessDirectory access,
-            final java.util.function.Supplier<java.util.List<String>> reload,
-            final java.util.function.Function<java.util.Locale, Status> status) {
-        this.status = java.util.Objects.requireNonNull(status, "status");
+            final java.util.function.Supplier<java.util.List<String>> reload) {
         this.plugin = plugin;
         this.executor = executor;
-        this.jdbi = java.util.Objects.requireNonNull(jdbi, "jdbi");
         this.dao = dao;
         this.engine = engine;
         this.identities = identities;
@@ -141,55 +129,8 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
     }
 
     @Override
-    public Status status(final java.util.Locale locale) {
-        return status.apply(locale);
-    }
-
-    @Override
     public Optional<OpenPayment> openPayment(final String discordId) {
         return access.openPayment(discordId);
-    }
-
-    /**
-     * {@code /aura}: three reads here, then one hop to the server thread for all the names rather than one per name.
-     */
-    @Override
-    public Optional<AuraStanding> auraStanding(final UUID player) {
-        final Optional<String> discordId = discordIdOf(player);
-        if (discordId.isEmpty()) {
-            return Optional.empty();
-        }
-        final AuraSnapshot snapshot =
-                jdbi.inTransaction(org.jdbi.v3.core.transaction.TransactionIsolationLevel.REPEATABLE_READ, handle -> {
-                    final SmpDao attached = handle.attach(SmpDao.class);
-                    // A player never given aura has no {@code smp_player} row yet.
-                    final int own = attached.auraOf(discordId.get()).orElse(0);
-                    return new AuraSnapshot(own, attached.auraPlace(own, discordId.get()), attached.topAura(10));
-                });
-        final int aura = snapshot.aura();
-        final AuraPlace place = snapshot.place();
-        final List<AuraRow> top = snapshot.top();
-
-        final List<String> names = onMainThread(() -> top.stream()
-                .map(row -> {
-                    final Player online = Bukkit.getPlayer(row.mcUuid());
-                    final String name = online != null
-                            ? online.getName()
-                            : Bukkit.getOfflinePlayer(row.mcUuid()).getName();
-                    // The board falls back to the UUID's first eight characters.
-                    return name == null ? row.mcUuid().toString().substring(0, 8) : name;
-                })
-                .toList());
-
-        final List<AuraLine> lines = new java.util.ArrayList<>(top.size());
-        for (int at = 0; at < top.size(); at++) {
-            lines.add(new AuraLine(
-                    at + 1,
-                    names.get(at),
-                    top.get(at).aura(),
-                    top.get(at).mcUuid().equals(player)));
-        }
-        return Optional.of(new AuraStanding(aura, place.place(), place.total(), List.copyOf(lines)));
     }
 
     private <T> T onMainThread(final Callable<T> work) {
@@ -214,6 +155,4 @@ public final class BukkitSmpEffects implements SmpEffects, Standing {
     private static RuntimeException asUnchecked(final Throwable failure) {
         return failure instanceof RuntimeException unchecked ? unchecked : new IllegalStateException(failure);
     }
-
-    private record AuraSnapshot(int aura, AuraPlace place, List<AuraRow> top) {}
 }

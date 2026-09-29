@@ -90,8 +90,8 @@ class DeployerApiTest extends StewardUiTestSupport {
         // 1. A command: the row and its journal line are one statement, so an overflow loses the command.
         final HttpResponse<String> asked = post(
                 browser,
-                "/api/commands",
-                "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": \"aufbruch\"}}");
+                "/api/announcements",
+                "{\"texts\": {\"en\": \"The end opens tonight.\", \"de\": \"Heute Abend.\"}}");
         assertEquals(202, asked.statusCode(), asked.body());
         journalledBy(snowflake, "COMMAND", longName);
 

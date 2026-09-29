@@ -46,7 +46,6 @@ public final class SeasonStart {
                 grant.validFrom());
         admin.note("Access was granted to <@" + discordId + "> while the season has no start date."
                 + " The period runs from **" + grant.validFrom() + "**, not from the SMP opening."
-                + " Expected while testing; before the season opens, set the date with"
-                + " `/phase smp-start <yyyy-MM-dd HH:mm>`.");
+                + " Expected while testing; before the season opens, set the date on Steward's season page.");
     }
 }

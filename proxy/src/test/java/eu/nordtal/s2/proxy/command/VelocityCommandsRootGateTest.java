@@ -13,10 +13,10 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.commands.network.NetworkCommands;
+import eu.nordtal.s2.commands.network.NetworkEffects;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
-import eu.nordtal.s2.commands.update.UpdateCommands;
-import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.ToneColours;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
@@ -41,14 +41,14 @@ class VelocityCommandsRootGateTest {
     @Test
     void anAdminOnlyRootIsGated() {
         final VelocityCommands commands = adapter();
-        for (final NordtalCommand<UpdateEffects> command : UpdateCommands.all()) {
-            commands.local(command, silent(UpdateEffects.class));
+        for (final NordtalCommand<NetworkEffects> command : NetworkCommands.all()) {
+            commands.local(command, silent(NetworkEffects.class));
         }
-        final BrigadierCommand update = root(commands.build(), "update");
+        final BrigadierCommand network = root(commands.build(), "network");
 
-        assertFalse(update.getNode().getRequirement().test(player()));
+        assertFalse(network.getNode().getRequirement().test(player()));
         assertTrue(
-                update.getNode().getRequirement().test(silent(CommandSource.class)),
+                network.getNode().getRequirement().test(silent(CommandSource.class)),
                 "the console is not a Player, and on the proxy that is the operator");
     }
 

@@ -2,12 +2,11 @@ package eu.nordtal.s2.proxy.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.s2.commands.Command;
 import eu.nordtal.s2.commands.CommandMessages;
-import eu.nordtal.s2.commands.Update;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
-import eu.nordtal.s2.common.message.context.ServiceContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -36,37 +35,37 @@ class ConsoleUserTest {
         }
     }
 
-    private static final Update UPDATE = CommandMessages.MESSAGES.update();
+    private static final Command COMMAND = CommandMessages.MESSAGES.command();
 
     @Test
     void theEmptyMapIsNotAnArgument() {
         final Spy spy = new Spy();
-        new ConsoleUser(MESSAGES, spy).reply(UPDATE.asked());
-        assertEquals(List.of("Asking Steward what is new."), spy.lines);
+        new ConsoleUser(MESSAGES, spy).reply(COMMAND.cancelled());
+        assertEquals(List.of("Cancelled. Nothing was changed."), spy.lines);
     }
 
     @Test
     void placeholdersAreSubstituted() {
         final Spy spy = new Spy();
-        new ConsoleUser(MESSAGES, spy).reply(UPDATE.line().unchanged(new ServiceContext("limbo")));
-        assertEquals(List.of("limbo: unchanged"), spy.lines);
+        new ConsoleUser(MESSAGES, spy).reply(COMMAND.help().usage("/network reload"));
+        assertEquals(List.of("Usage: /network reload"), spy.lines);
     }
 
     @Test
     void severalPlaceholdersAllArrive() {
         // A flattening that loses the name and value pairing cannot produce this line by accident.
         final Spy spy = new Spy();
-        new ConsoleUser(MESSAGES, spy).reply(UPDATE.change("velocity", "4.1.1", "4.2.0"));
-        assertEquals(List.of("velocity 4.1.1 -> 4.2.0"), spy.lines);
+        new ConsoleUser(MESSAGES, spy).reply(COMMAND.help().line("/network reload", "reloads the messages"));
+        assertEquals(List.of("  /network reload - reloads the messages"), spy.lines);
     }
 
     @Test
     void theOverloadsWork() {
-        // Default methods funnel Feedback and Tone down to reply(message); ReportUpdate calls the four-argument one.
+        // Default methods funnel Feedback and Tone down to reply(message).
         final Spy spy = new Spy();
         final ConsoleUser console = new ConsoleUser(MESSAGES, spy);
-        console.reply(UPDATE.asked(), Feedback.SMALL_SUCCESS, Tone.GOOD);
-        console.reply(UPDATE.line().unchanged(new ServiceContext("smp")), Tone.GOOD);
-        assertEquals(List.of("Asking Steward what is new.", "smp: unchanged"), spy.lines);
+        console.reply(COMMAND.cancelled(), Feedback.SMALL_SUCCESS, Tone.GOOD);
+        console.reply(COMMAND.help().usage("/smp reload"), Tone.GOOD);
+        assertEquals(List.of("Cancelled. Nothing was changed.", "Usage: /smp reload"), spy.lines);
     }
 }

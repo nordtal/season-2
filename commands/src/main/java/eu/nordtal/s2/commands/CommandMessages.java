@@ -14,19 +14,13 @@ public interface CommandMessages {
 
     Smp smp();
 
-    Phase phase();
-
     Hg hg();
 
     Limbo limbo();
 
     Network network();
 
-    Access access();
-
     Announce announce();
 
     Update update();
-
-    Backup backup();
 }

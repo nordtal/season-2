@@ -6,11 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.hungergames.StartGame;
-import eu.nordtal.s2.commands.phase.PhaseCommands;
-import eu.nordtal.s2.commands.phase.PhaseEffects;
-import eu.nordtal.s2.commands.phase.SetPhase;
 import eu.nordtal.s2.common.message.MessageRef;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -23,7 +19,6 @@ import org.junit.jupiter.api.Test;
 class ChoiceCheckTest {
 
     private static final NordtalCommand<HungerGamesEffects> START = new StartGame();
-    private static final NordtalCommand<PhaseEffects> SET = new SetPhase();
 
     @Test
     void aValueThatIsNotOneOfTheDeclaredChoicesNamesItselfAndTheList() {
@@ -45,39 +40,24 @@ class ChoiceCheckTest {
     }
 
     @Test
-    void aCommandsOwnProblemIsStillAskedAfterTheGenericChecks() {
-        // /phase set takes a CHOICE over the phase names.
-        final Optional<MessageRef> problem = SET.check(new Values(PhaseCommands.SET, Map.of("phase", "NOT_A_PHASE")));
-
-        assertTrue(problem.isPresent());
-        assertEquals("command.not-a-choice", problem.get().key());
-
-        for (final String phase : List.of("SMP", "MAINTENANCE")) {
-            assertTrue(
-                    SET.check(new Values(PhaseCommands.SET, Map.of("phase", phase)))
-                            .isEmpty(),
-                    phase + " is a declared choice and was refused");
-        }
-    }
-
-    @Test
     void aChoiceTypedInTheWrongCaseIsAcceptedAndNormalisedNotRefused() {
         // A choice matches regardless of case.
         assertTrue(
-                SET.check(new Values(PhaseCommands.SET, Map.of("phase", "maintenance")))
+                START.check(new Values(HungerGamesCommands.START, Map.of("confirm", "CONFIRM")))
                         .isEmpty(),
-                "a lowercase phase name was refused");
+                "an uppercase confirmation was refused");
 
         // What the command reads is the declared spelling.
-        assertEquals("MAINTENANCE", new Values(PhaseCommands.SET, Map.of("phase", "MaInTeNaNcE")).string("phase"));
+        assertEquals("confirm", new Values(HungerGamesCommands.START, Map.of("confirm", "CoNfIrM")).string("confirm"));
     }
 
     @Test
     void aValueThatIsNoChoiceAtAllIsQuotedBackExactlyAsItWasTyped() {
         // The refusal names the typed value, so it has to survive unchanged.
-        final Optional<MessageRef> problem = SET.check(new Values(PhaseCommands.SET, Map.of("phase", "MaIntenanz")));
+        final Optional<MessageRef> problem =
+                START.check(new Values(HungerGamesCommands.START, Map.of("confirm", "BeStätigen")));
         assertTrue(problem.isPresent());
-        assertEquals("MaIntenanz", problem.get().args().get("typed"));
+        assertEquals("BeStätigen", problem.get().args().get("typed"));
     }
 
     @Test

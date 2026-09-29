@@ -31,14 +31,5 @@ public final class Ids {
     /** The text input inside {@link #LINK_MODAL} carrying the code itself. */
     public static final String LINK_CODE_INPUT = "access:link-code";
 
-    /** Asks steward-worker to install whatever is newest when pressed; it carries no value. */
-    public static final String UPDATE_INSTALL = "access:update-install";
-
-    /** Asks for the restart, which starts the countdown rather than restarting anything. */
-    public static final String UPDATE_RESTART = "access:update-restart";
-
-    /** Stops a countdown that is still running. */
-    public static final String UPDATE_CANCEL = "access:update-cancel";
-
     private Ids() {}
 }

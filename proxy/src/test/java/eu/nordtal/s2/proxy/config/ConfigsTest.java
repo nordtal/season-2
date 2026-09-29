@@ -344,7 +344,7 @@ class ConfigsTest {
         final NetworkSpec config = Configs.network(directory, LOGGER).get();
 
         assertEquals(
-                List.of("smp status", "navigate", "poi", "hg ready", "aura", "msg", "whisper", "r", "discord", "rules"),
+                List.of("navigate", "poi", "hg ready", "msg", "whisper", "r", "discord", "rules"),
                 config.commandAllowlist());
     }
 

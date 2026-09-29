@@ -37,7 +37,7 @@ public final class SeasonState {
         /**
          * Not read yet: what the state holds between enable and the first refresh.
          *
-         * Distinct from {@link #NONE}, so {@code /smp status} after a restart never claims the track is finished.
+         * Distinct from {@link #NONE}, so a surface read after a restart never claims the track is finished.
          */
         public static final Active UNREAD = new Active(null, List.of(), true);
 

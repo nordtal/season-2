@@ -130,8 +130,6 @@ services:
       NORDTAL_DATABASE_JDBC_URL: *db-url
       NORDTAL_DATABASE_USERNAME: *db-username
       NORDTAL_DATABASE_PASSWORD: *db-password
-      NORDTAL_DATABASE_MAXIMUM_POOL_SIZE: ${NORDTAL_DATABASE_MAXIMUM_POOL_SIZE:-}
-      NORDTAL_DATABASE_LOG_SQL: ${NORDTAL_DATABASE_LOG_SQL:-}
 
       # bot.yml
       NORDTAL_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:?set NORDTAL_BOT_TOKEN in .env}
@@ -140,20 +138,6 @@ services:
       # access.yml: the guild and the admin role are required; deploy/nordtal.sh asks for both.
       NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
       NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/nordtal.sh asks for it}
-      # Optional: a blank is unset to jcore, so access.yml (edited in the web interface) decides.
-      NORDTAL_ACCESS_ROLES_ACCESS: ${NORDTAL_ACCESS_ROLES_ACCESS:-}
-      NORDTAL_ACCESS_ROLES_DONOR: ${NORDTAL_ACCESS_ROLES_DONOR:-}
-      NORDTAL_ACCESS_ROLES_ADMIN_PING: ${NORDTAL_ACCESS_ROLES_ADMIN_PING:-}
-      NORDTAL_ACCESS_CHANNELS_ADMIN: ${NORDTAL_ACCESS_CHANNELS_ADMIN:-}
-      NORDTAL_ACCESS_LANGUAGES: ${NORDTAL_ACCESS_LANGUAGES:-}
-      NORDTAL_ACCESS_TIERS: ${NORDTAL_ACCESS_TIERS:-}
-      NORDTAL_ACCESS_DONATION_CENTS: ${NORDTAL_ACCESS_DONATION_CENTS:-}
-      # Reads the database, not the bank.
-      NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS: ${NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS:-}
-      # Becomes the payment link's `expires`.
-      NORDTAL_ACCESS_PAYMENT_REQUEST_TTL_HOURS: ${NORDTAL_ACCESS_PAYMENT_REQUEST_TTL_HOURS:-}
-      NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS: ${NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS:-}
-      NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES: ${NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES:-}
     volumes:
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/app/config
       # The jar; steward-worker fills it as /volumes/discord-bot.
@@ -183,13 +167,8 @@ services:
       SERVER_KIND: velocity
       # Jar name prefixes that must be installed before the proxy starts; a minimum, not an exact set.
       EXPECTED_PLUGINS: ${PROXY_EXPECTED_PLUGINS:-proxy}
-      # jcore overrides of network.yml. NETWORK_MAX_PLAYERS also caps the three Paper backends.
+      # jcore override of network.yml. NETWORK_MAX_PLAYERS also caps the three Paper backends.
       NORDTAL_PROXY_NETWORK_MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
-      NORDTAL_PROXY_NETWORK_MOTD_PRE_LAUNCH: ${NETWORK_MOTD_PRE_LAUNCH:-}
-      NORDTAL_PROXY_NETWORK_MOTD_PRE_EVENT: ${NETWORK_MOTD_PRE_EVENT:-}
-      NORDTAL_PROXY_NETWORK_MOTD_START_EVENT: ${NETWORK_MOTD_START_EVENT:-}
-      NORDTAL_PROXY_NETWORK_MOTD_SMP: ${NETWORK_MOTD_SMP:-}
-      NORDTAL_PROXY_NETWORK_MOTD_MAINTENANCE: ${NETWORK_MOTD_MAINTENANCE:-}
       # Fill's family name; TopologyTest holds it against Platform.VELOCITY_FAMILY.
       SERVER_VERSION: "4.0.0"
       HEAP: ${PROXY_HEAP:-1G}
@@ -361,8 +340,6 @@ services:
 
       # steward.yml; steward-worker always follows each repository's latest GitHub release.
       NORDTAL_STEWARD_SEASON_REPO: ${SEASON_REPO:-}
-      # Blank keeps StewardSpec#bootstrap (true): `serve` fills empty volumes before it reports ready.
-      NORDTAL_STEWARD_BOOTSTRAP: ${STEWARD_WORKER_BOOTSTRAP:-}
       # Optional; raises GitHub's rate limit.
       NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_WORKER_GITHUB_TOKEN:-}
       # Shared with steward-ui for its internal API; required.
@@ -374,11 +351,6 @@ services:
       # steward.yml#bunq: optional; without it payments are off, and the startup log says so.
       NORDTAL_STEWARD_BUNQ_API_KEY: ${NORDTAL_STEWARD_BUNQ_API_KEY:-}
       NORDTAL_STEWARD_BUNQ_ACCOUNT_ID: ${NORDTAL_STEWARD_BUNQ_ACCOUNT_ID:-}
-      # Each of these costs a call to the bank.
-      NORDTAL_STEWARD_BUNQ_POLL_INTERVAL_SECONDS: ${NORDTAL_STEWARD_BUNQ_POLL_INTERVAL_SECONDS:-}
-      NORDTAL_STEWARD_BUNQ_RECENT_PAYMENT_COUNT: ${NORDTAL_STEWARD_BUNQ_RECENT_PAYMENT_COUNT:-}
-      # Leave empty on a fresh database, or the first poll books up to 50 old payments.
-      NORDTAL_STEWARD_BUNQ_WATERMARK: ${NORDTAL_STEWARD_BUNQ_WATERMARK:-}
     volumes:
       - ${STEWARD_WORKER_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-worker-config}:/app/config
       # bunq binds its context to the registering device and IP, so it is never copied.

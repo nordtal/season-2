@@ -75,7 +75,7 @@ docker compose --env-file /etc/nordtal/season-2.env ps
 
 On its first start steward-worker applies the schema, fills every empty volume and only then writes
 the readiness marker the other services wait for. It never upgrades anything that is installed.
-With `STEWARD_WORKER_BOOTSTRAP=false` the servers refuse to start until
+With `bootstrap: false` in `steward.yml` the servers refuse to start until
 `docker compose run --rm steward-worker bootstrap` has run.
 
 There is no pin and no rollback: every image is `latest`, and a bad release is fixed by a better one.
@@ -102,7 +102,8 @@ unless somebody has played in it.
 backend's `max-players`. Admins (`discord_user.admin`) pass a full network. A change needs
 `docker compose restart proxy limbo hunger-games smp`, since each backend writes the value at start.
 
-The MOTD is `NETWORK_MOTD_*`, one per phase, in MiniMessage; `network.yml` lists the placeholders.
+The MOTD is `network.yml`'s `motd`, one per phase, in MiniMessage, edited in Steward; the file lists
+the placeholders.
 It is read at proxy start, so an edit needs `docker compose restart proxy`.
 
 ## The forwarding secret

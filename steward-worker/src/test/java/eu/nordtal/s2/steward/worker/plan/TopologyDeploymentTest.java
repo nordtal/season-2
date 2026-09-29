@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.steward.worker.config.BackupSpec;
@@ -417,19 +418,17 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void composeYmlDoesNotPinBootstrapSoStewardYmlStillDecides() {
-        // jcore's EnvOverlay skips a blank variable, so `${VAR:-}` leaves StewardSpec#bootstrap's own default in force.
+    void composeYmlLeavesBootstrapToStewardYml() {
         @SuppressWarnings("unchecked")
         final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
         @SuppressWarnings("unchecked")
         final Map<String, Object> environment = (Map<String, Object>) worker.get("environment");
 
         assertAll(
-                () -> assertEquals(
-                        "${STEWARD_WORKER_BOOTSTRAP:-}",
-                        String.valueOf(environment.get("NORDTAL_STEWARD_BOOTSTRAP")),
-                        "compose.yml carries a fallback for STEWARD_WORKER_BOOTSTRAP. A value here"
-                                + " wins over steward.yml for ever, so the setting cannot be"
+                () -> assertNull(
+                        environment.get("NORDTAL_STEWARD_BOOTSTRAP"),
+                        "compose.yml passes NORDTAL_STEWARD_BOOTSTRAP again. A value in the host's"
+                                + " environment wins over steward.yml, so the setting cannot be"
                                 + " changed from the interface."),
                 () -> assertTrue(
                         defaults().bootstrap(),

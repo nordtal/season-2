@@ -273,22 +273,20 @@ grep -q 'ENVIRON\["SET_ASSIGNMENT_VALUE"\]' "$SETUP" || bad "the value does not 
 ok "set_assignment hands the value to awk through the environment"
 
 case_begin "what a deployment demands of a person is the short list"
-# Roles and channels stay optional; an unset one means that feature is not served.
+# bunq stays optional; without it no payments are taken.
 for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA NORDTAL_BOT_TOKEN \
             NORDTAL_ACCESS_GUILD_ID NORDTAL_ACCESS_ROLES_ADMIN STEWARD_HOST STEWARD_ACME_EMAIL \
             STEWARD_ENV_FILE STEWARD_ENV_DIR STEWARD_ENV_FILE_NAME STEWARD_UI_DISCORD_CLIENT_ID \
             STEWARD_UI_DISCORD_CLIENT_SECRET; do
     contains "$name" "${REQUIRED[@]}" || bad "$name is not required and should be"
 done
-for name in NORDTAL_ACCESS_ROLES_ACCESS NORDTAL_ACCESS_ROLES_DONOR NORDTAL_ACCESS_ROLES_ADMIN_PING \
-            NORDTAL_ACCESS_CHANNELS_ADMIN NORDTAL_ACCESS_LANGUAGES NORDTAL_ACCESS_TIERS \
-            NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID; do
+for name in NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID; do
     if contains "$name" "${REQUIRED[@]}"; then
         bad "$name is required, and a deployment must not stop for it"
     fi
 done
 contains NORDTAL_DIR "${REQUIRED[@]}" || bad "NORDTAL_DIR is not required and should be"
-ok "fifteen required; the roles, the channels, the languages, the tiers and bunq are not"
+ok "fifteen required; bunq is not"
 
 case_begin "a value full of shell metacharacters survives the round trip"
 # A value is written literally, never as shell.

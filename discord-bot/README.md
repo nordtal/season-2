@@ -22,17 +22,9 @@ docker compose run --rm steward-worker migrate
 
 ## Configuration
 
-Every setting in `bot.yml`, `database.yml` and `access.yml` can come from the environment: the
-setting's path with `.` and `-` turned into `_`, prefixed with `NORDTAL_BOT_`, `NORDTAL_DATABASE_`
-or `NORDTAL_ACCESS_`. An empty value counts as unset. The two list settings take JSON:
-
-```
-NORDTAL_ACCESS_LANGUAGES=[{"tag":"en","role":"…","contribution-channel":"…","link-channel":"…","hunger-games-channel":"…"}]
-NORDTAL_ACCESS_TIERS=[{"days":30,"price-cents":300}]
-```
-
-Unknown keys inside JSON are ignored without a warning, so check the startup log, which lists every
-setting the environment overrode.
+`access.yml` is edited in Steward. `compose.yml` passes the bot only its token, the database and
+the two ids `deploy/nordtal.sh` asks for, `NORDTAL_ACCESS_GUILD_ID` and `NORDTAL_ACCESS_ROLES_ADMIN`;
+those win over the file. The startup log lists every setting the environment overrode.
 
 ## Run it
 

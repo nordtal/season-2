@@ -217,4 +217,18 @@ describe("RawConfigEditor", () => {
     screen.getByText("Shown as text, it did not parse.")
     expect(container.querySelector("details")?.textContent).toContain("line 3: bad indent")
   })
+
+  /** A `<pre>` draws no line after a final newline, and a textarea does: the colouring then ends one line early. */
+  it.each([
+    ["config.yml", "one: 1\ntwo: 2\n"],
+    ["notes.txt", "plain\n"],
+  ])("gives %s's colouring the empty last line the textarea scrolls to", (name, content) => {
+    const { container } = draw(<RawConfigEditor file={name} document={document({ name, content })} />)
+
+    const colouring = container.querySelector("pre")?.textContent ?? ""
+    const lines = colouring.split("\n")
+    expect(lines).toHaveLength(content.split("\n").length)
+    expect(lines.at(-1)).not.toBe("")
+    expect(colouring.startsWith(content)).toBe(true)
+  })
 })

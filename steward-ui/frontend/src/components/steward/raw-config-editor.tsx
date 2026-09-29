@@ -147,6 +147,8 @@ function HighlightedTextarea({
             {token.text}
           </span>
         ))}
+        {/* A `<pre>` draws no line after a final newline and the textarea does; without it the colouring sits a line above the caret at the bottom. */}
+        {value.endsWith("\n") ? " " : null}
       </pre>
       <textarea
         aria-label={ariaLabel}

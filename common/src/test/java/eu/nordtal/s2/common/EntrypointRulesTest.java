@@ -92,8 +92,7 @@ class EntrypointRulesTest {
                         + " ProxyPingEvent and must have exactly one source");
         assertFalse(
                 script.contains("VELOCITY_MOTD"),
-                "VELOCITY_MOTD names nothing Velocity reads - the MOTD is"
-                        + " NETWORK_MOTD_<PHASE>, mapped onto network.yml in compose.yml.");
+                "VELOCITY_MOTD names nothing Velocity reads - the MOTD is network.yml's motd, edited in" + " Steward.");
     }
 
     @Test

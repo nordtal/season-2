@@ -435,6 +435,46 @@ class TopologyTest {
     }
 
     @Test
+    void noServiceIsGivenAnOptionalOverrideOfASettingStewardEdits() {
+        // What a service needs before Steward can reach it: secrets, sign-in and where to fetch releases from.
+        final Set<String> bootstrap = Set.of(
+                "NORDTAL_STEWARD_SEASON_REPO",
+                "NORDTAL_STEWARD_GITHUB_TOKEN",
+                "NORDTAL_STEWARD_BUNQ_API_KEY",
+                "NORDTAL_STEWARD_BUNQ_ACCOUNT_ID",
+                "NORDTAL_PROXY_NETWORK_PUBLIC_ADDRESS",
+                "NORDTAL_STEWARD_UI_WEBAUTHN_RELYING_PARTY_ID",
+                "NORDTAL_STEWARD_UI_DISCORD_CLIENT_ID",
+                "NORDTAL_STEWARD_UI_DISCORD_CLIENT_SECRET",
+                "NORDTAL_STEWARD_UI_DISCORD_BOT_TOKEN",
+                "NORDTAL_STEWARD_UI_WEB_PUSH_PUBLIC_KEY",
+                "NORDTAL_STEWARD_UI_WEB_PUSH_PRIVATE_KEY");
+        final Pattern optional = Pattern.compile("\\$\\{[A-Z0-9_]+:-}");
+        final List<String> overrides = new java.util.ArrayList<>();
+        services.forEach((name, definition) -> {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> environment =
+                    (Map<String, Object>) ((Map<String, Object>) definition).get("environment");
+            if (environment == null) {
+                return;
+            }
+            environment.forEach((variable, value) -> {
+                if (variable.startsWith("NORDTAL_")
+                        && !bootstrap.contains(variable)
+                        && optional.matcher(String.valueOf(value)).matches()) {
+                    overrides.add(name + ": " + variable);
+                }
+            });
+        });
+        assertEquals(
+                List.of(),
+                overrides,
+                "compose.yml passes optional overrides of config keys. A value set in the host's environment"
+                        + " file replaces what Steward shows and saves, a list as a whole, and nothing on the page"
+                        + " says the edit went nowhere. Settings are made in Steward.");
+    }
+
+    @Test
     void everyServiceTheTopologyKnowsHasItsVolumeMountedIntoStewardWorker() {
         @SuppressWarnings("unchecked")
         final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");

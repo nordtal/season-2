@@ -21,6 +21,7 @@ public final class RosterEntryMapper implements RowMapper<RosterEntry> {
                 rs.getString("discord_id"),
                 MemberState.valueOf(rs.getString("state")),
                 rs.getBoolean("ready"),
-                rs.getObject("mc_uuid", UUID.class));
+                rs.getObject("mc_uuid", UUID.class),
+                rs.getString("mc_name"));
     }
 }

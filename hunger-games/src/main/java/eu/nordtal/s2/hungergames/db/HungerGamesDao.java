@@ -57,7 +57,7 @@ public interface HungerGamesDao {
     /** Every active ({@code OWNER} or {@code ACCEPTED}) membership of one game, joined to its Minecraft account. */
     @SqlQuery("""
             SELECT m.id AS member_id, m.team_id, t.name AS team_name, t.colour_rgb, t.colour_named,
-                   m.discord_id, m.state, m.ready, link.mc_uuid
+                   m.discord_id, m.state, m.ready, link.mc_uuid, link.mc_name
             FROM hg_member m
                      JOIN hg_team t ON t.id = m.team_id
                      LEFT JOIN account_link link ON link.discord_id = m.discord_id
@@ -69,7 +69,7 @@ public interface HungerGamesDao {
     /** One member's row by their Minecraft account, for the current game. */
     @SqlQuery("""
             SELECT m.id AS member_id, m.team_id, t.name AS team_name, t.colour_rgb, t.colour_named,
-                   m.discord_id, m.state, m.ready, link.mc_uuid
+                   m.discord_id, m.state, m.ready, link.mc_uuid, link.mc_name
             FROM hg_member m
                      JOIN hg_team t ON t.id = m.team_id
                      JOIN account_link link ON link.discord_id = m.discord_id

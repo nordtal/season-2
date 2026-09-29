@@ -15,14 +15,8 @@ class WebSurfaceTest {
 
     /** The commands the web interface may ask for, one by one. */
     private static final List<String> ON_THE_WEB = List.of(
-            "/access settle",
-            "/access unlink",
             "/announce",
             "/hg start",
-            "/phase launch",
-            "/phase set",
-            "/phase show",
-            "/phase smp-start",
             "/smp milestone unlock",
             "/smp objective complete");
 

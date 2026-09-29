@@ -92,7 +92,7 @@ class MessageBundlesTest {
                 List.of(),
                 missing,
                 "a command named a message key no bundle declares. Messages answers the key itself,"
-                        + " so this reaches somebody as a literal string like phase.date.failed.");
+                        + " so this reaches somebody as a literal string like command.player-offline.");
         for (final String key : declared) {
             assertTrue(messages.hasTranslation(Locale.GERMAN, key), key + " does not resolve in de");
         }
@@ -128,44 +128,13 @@ class MessageBundlesTest {
             check(english, german, "update.stage." + stage, missing);
         }
         for (final UpdateReport.State state : UpdateReport.State.values()) {
-            check(english, german, "update.line." + state, missing);
             check(english, german, "update.state." + state, missing);
-        }
-        for (final UpdateReport.Change.State state : UpdateReport.Change.State.values()) {
-            // MOVING is two keys, since a first install has no version to move from.
-            switch (state) {
-                case MOVING -> {
-                    check(english, german, "update.change", missing);
-                    check(english, german, "update.change.new", missing);
-                }
-                case UNSUPPORTED -> check(english, german, "update.change.unsupported", missing);
-            }
         }
         for (final UpdateKind kind : UpdateKind.values()) {
             // The heading for an unstructured report row.
             check(english, german, "update.title." + kind, missing);
         }
         assertEquals(List.of(), missing);
-    }
-
-    @Test
-    void aServicesChatLineEndsWithTheSameWordItsDiscordFieldUses() throws IOException {
-        // update.line.* is "{service.name}: stopped" for chat; update.state.* is "stopped" alone.
-        for (final String language : List.of("en", "de")) {
-            final Properties bundle = load(language);
-            for (final UpdateReport.State state : UpdateReport.State.values()) {
-                final String line = bundle.getProperty("update.line." + state);
-                final String label = bundle.getProperty("update.state." + state);
-                assertTrue(
-                        line.endsWith(label),
-                        language + ": update.line." + state + " (\"" + line + "\") does not end" + " with update.state."
-                                + state + " (\"" + label + "\")");
-                assertEquals(
-                        "{service.name}: " + label,
-                        line,
-                        language + ": a chat line is the service, a colon and the same label");
-            }
-        }
     }
 
     private static void check(
@@ -175,35 +144,6 @@ class MessageBundlesTest {
         }
         if (german.getProperty(key) == null) {
             missing.add("de/" + key);
-        }
-    }
-
-    @Test
-    void theConsequenceSentencesSayTheThingTheConfirmationExistsFor() throws IOException {
-        // Content assertions, worth their brittleness: a switch to SMP disconnects a player with no active access.
-        final Properties english = load("en");
-        final Properties german = load("de");
-
-        assertTrue(
-                english.getProperty("phase.consequence.SMP").contains("disconnected"),
-                english.getProperty("phase.consequence.SMP"));
-        assertTrue(
-                german.getProperty("phase.consequence.SMP").contains("getrennt"),
-                german.getProperty("phase.consequence.SMP"));
-
-        assertTrue(
-                english.getProperty("phase.consequence.MAINTENANCE").contains("admins"),
-                english.getProperty("phase.consequence.MAINTENANCE"));
-        assertTrue(
-                german.getProperty("phase.consequence.MAINTENANCE").contains("Admins"),
-                german.getProperty("phase.consequence.MAINTENANCE"));
-
-        // Access is only required from SMP onwards, and the confirmation must not claim otherwise.
-        for (final String free : List.of("phase.consequence.PRE_EVENT", "phase.consequence.START_EVENT")) {
-            assertTrue(english.getProperty(free).contains("hunger-games"), free + ": " + english.getProperty(free));
-            assertTrue(
-                    !english.getProperty(free).contains("disconnected"),
-                    free + " claims somebody is disconnected: " + english.getProperty(free));
         }
     }
 

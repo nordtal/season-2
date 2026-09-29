@@ -3,7 +3,6 @@ package eu.nordtal.s2.commands;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.common.message.Messages;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,58 +32,6 @@ class CatalogueTest {
                 missing,
                 "a command has no sentence saying what it is for, so the help output would print"
                         + " its message key at somebody who has just mistyped it");
-    }
-
-    @Test
-    void aRootDefaultIsRunnableBare() {
-        // A default has to be dispatchable from the bare root, so it sits two segments deep.
-        final java.util.Set<String> roots = Catalogue.all().stream()
-                .map(declaration -> declaration.path().getFirst())
-                .collect(java.util.stream.Collectors.toSet());
-        int found = 0;
-        for (final String root : roots) {
-            final java.util.Optional<Declaration> preset = Catalogue.rootDefault(root, true);
-            if (preset.isEmpty()) {
-                continue;
-            }
-            found++;
-            final Declaration declaration = preset.get();
-            assertTrue(Catalogue.all().contains(declaration), root + ": the default is not in the catalogue");
-            assertEquals(2, declaration.path().size(), root + ": " + declaration.name());
-            assertEquals(root, declaration.path().getFirst(), declaration.name() + " is under another root");
-            assertTrue(
-                    declaration.arguments().stream().noneMatch(Argument::required),
-                    declaration.name() + " needs an argument, so a bare root could not run it");
-        }
-        assertEquals(2, found, "exactly /phase and /update have a default today; changing that is a" + " decision");
-        assertEquals(java.util.Optional.of(PhaseCommands.SHOW), Catalogue.rootDefault("phase", true));
-        // /update alone runs the report.
-        assertEquals(
-                java.util.Optional.of(eu.nordtal.s2.commands.update.UpdateCommands.REPORT),
-                Catalogue.rootDefault("update", true));
-    }
-
-    @Test
-    void theRootDefaultIsGated() {
-        // Both adapters reach the default by calling run/dispatch on the child directly.
-        for (final String root : Catalogue.all().stream()
-                .map(declaration -> declaration.path().getFirst())
-                .collect(java.util.stream.Collectors.toSet())) {
-            Catalogue.rootDefault(root, true)
-                    .filter(Declaration::adminOnly)
-                    .ifPresent(declaration -> assertEquals(
-                            java.util.Optional.empty(),
-                            Catalogue.rootDefault(root, false),
-                            "/" + root + " hands " + declaration.name() + " to a non-admin"));
-        }
-        assertEquals(
-                java.util.Optional.empty(),
-                Catalogue.rootDefault("phase", false),
-                "/phase show is admin-only, so a bare /phase from a player must fall through to help");
-        assertEquals(
-                java.util.Optional.empty(),
-                Catalogue.rootDefault("update", false),
-                "/update check is admin-only; a player.s bare /update runs nothing");
     }
 
     @Test

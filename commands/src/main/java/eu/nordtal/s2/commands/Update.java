@@ -1,22 +1,15 @@
 package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.context.ServiceContext;
 import eu.nordtal.s2.common.message.spec.Arg;
 import eu.nordtal.s2.common.message.spec.Key;
 import eu.nordtal.s2.common.message.spec.Name;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
 
-/** Every sentence {@code /update} can print, and the tables that turn a report's enums into one. */
+/** Every sentence the Discord update confirmation can print, and the tables that turn a report's enums into one. */
 @Name("Update")
 public interface Update {
-
-    @Name("Asked")
-    MessageRef asked();
-
-    @Name("Started")
-    MessageRef started(@Arg("seconds") Object seconds);
 
     @Name("Cancelled")
     MessageRef cancelled();
@@ -24,20 +17,11 @@ public interface Update {
     @Name("Too late")
     MessageRef tooLate();
 
-    @Name("Write failed")
-    MessageRef writeFailed();
-
     @Name("Busy")
     MessageRef busy();
 
     @Name("Already down")
     MessageRef alreadyDown(@Arg("services") Object services);
-
-    @Name("Truncated")
-    MessageRef truncated(@Arg("lines") Object lines);
-
-    @Name("Failed")
-    MessageRef failed();
 
     @Name("Gone")
     MessageRef gone();
@@ -45,38 +29,8 @@ public interface Update {
     @Name("Timeout")
     MessageRef timeout(@Arg("status") Object status);
 
-    @Name("Stopped by")
-    MessageRef stoppedBy(@Arg("reason") Object reason);
-
-    @Name("Change")
-    MessageRef change(@Arg("artefact") Object artefact, @Arg("from") Object from, @Arg("to") Object to);
-
-    @Name("Detail")
-    MessageRef detail(@Arg("detail") Object detail);
-
-    @Name("Note")
-    MessageRef note(@Arg("note") Object note);
-
     @Name("Interaction failed")
     MessageRef interactionFailed();
-
-    Down down();
-
-    @Name("Down")
-    interface Down {
-
-        @Name("Asked")
-        MessageRef asked(@Arg("service") ServiceContext service, @Arg("seconds") Object seconds);
-    }
-
-    Start start();
-
-    @Name("Start")
-    interface Start {
-
-        @Name("Asked")
-        MessageRef asked();
-    }
 
     Embed embed();
 
@@ -138,20 +92,6 @@ public interface Update {
             case STARTING -> state().starting();
             case HEALTHY -> state().healthy();
             case FAILED -> state().failed();
-        };
-    }
-
-    /** A service's state with its name, for chat. */
-    default MessageRef line(final UpdateReport.State state, final ServiceContext service) {
-        return switch (state) {
-            case UNCHANGED -> line().unchanged(service);
-            case PLANNED -> line().planned(service);
-            case STOPPED -> line().stopped(service);
-            case INSTALLED -> line().installed(service);
-            case SAVED -> line().saved(service);
-            case STARTING -> line().starting(service);
-            case HEALTHY -> line().healthy(service);
-            case FAILED -> line().failed(service);
         };
     }
 
@@ -260,58 +200,6 @@ public interface Update {
         MessageRef failed();
     }
 
-    Line line();
-
-    @Name("Line")
-    interface Line {
-
-        @Name("Unchanged")
-        @Key("UNCHANGED")
-        MessageRef unchanged(@Arg("service") ServiceContext service);
-
-        @Name("Planned")
-        @Key("PLANNED")
-        MessageRef planned(@Arg("service") ServiceContext service);
-
-        @Name("Stopped")
-        @Key("STOPPED")
-        MessageRef stopped(@Arg("service") ServiceContext service);
-
-        @Name("Installed")
-        @Key("INSTALLED")
-        MessageRef installed(@Arg("service") ServiceContext service);
-
-        @Name("Saved")
-        @Key("SAVED")
-        MessageRef saved(@Arg("service") ServiceContext service);
-
-        @Name("Starting")
-        @Key("STARTING")
-        MessageRef starting(@Arg("service") ServiceContext service);
-
-        @Name("Healthy")
-        @Key("HEALTHY")
-        MessageRef healthy(@Arg("service") ServiceContext service);
-
-        @Name("Failed")
-        @Key("FAILED")
-        MessageRef failed(@Arg("service") ServiceContext service);
-    }
-
-    @Key("change")
-    Change changeSection();
-
-    @Name("Change")
-    interface Change {
-
-        @Name("New")
-        @Key("new")
-        MessageRef newMessage(@Arg("artefact") Object artefact, @Arg("to") Object to);
-
-        @Name("Unsupported")
-        MessageRef unsupported(@Arg("artefact") Object artefact);
-    }
-
     Waiting waiting();
 
     @Name("Waiting")
@@ -319,9 +207,6 @@ public interface Update {
 
         @Name("Check")
         MessageRef check();
-
-        @Name("Now")
-        MessageRef now();
     }
 
     Countdown countdown();

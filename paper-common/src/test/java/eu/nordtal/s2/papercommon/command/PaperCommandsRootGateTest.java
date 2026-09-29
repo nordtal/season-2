@@ -10,10 +10,10 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
+import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
-import eu.nordtal.s2.commands.update.UpdateCommands;
-import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.ToneColours;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -29,7 +29,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.Test;
 
-/** A root whose bare form is itself a command, such as {@code /update}, needs its own gate. */
+/**
+ * A root whose bare form is itself a command needs its own gate.
+ *
+ * {@code /smp} is one: a player may run nothing under it.
+ */
 class PaperCommandsRootGateTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000002");
@@ -38,36 +42,36 @@ class PaperCommandsRootGateTest {
 
     @Test
     void anAdminOnlyRootIsGated() {
-        final PaperCommands commands = adapter();
-        for (final NordtalCommand<UpdateEffects> command : UpdateCommands.all()) {
-            commands.local(command, silent(UpdateEffects.class));
+        final PaperCommands commands = adapter(Target.SMP);
+        for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
+            commands.local(command, silent(SmpEffects.class));
         }
-        final LiteralCommandNode<CommandSourceStack> update = root(commands.build(), "update");
+        final LiteralCommandNode<CommandSourceStack> smp = root(commands.build(), "smp");
 
         assertFalse(
-                update.getRequirement().test(source(player())),
-                "a player who is not an admin must not see or run the bare /update");
-        assertTrue(update.getRequirement().test(source(sender(ConsoleCommandSender.class))));
+                smp.getRequirement().test(source(player())),
+                "a player who is not an admin must not see or run the bare /smp");
+        assertTrue(smp.getRequirement().test(source(sender(ConsoleCommandSender.class))));
     }
 
     @Test
     void aRootWithSomethingOpenStaysOpen() {
-        // /smp status is native Brigadier, hung under the declared root with extraOpen.
-        final PaperCommands commands = adapter();
-        for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
-            commands.local(command, silent(SmpEffects.class));
+        // /hg ready is native Brigadier, hung under the declared root with extraOpen.
+        final PaperCommands commands = adapter(Target.HUNGER_GAMES);
+        for (final NordtalCommand<HungerGamesEffects> command : HungerGamesCommands.all()) {
+            commands.local(command, silent(HungerGamesEffects.class));
         }
-        commands.extraOpen("smp", Commands.literal("status"));
-        final LiteralCommandNode<CommandSourceStack> smp = root(commands.build(), "smp");
+        commands.extraOpen("hg", Commands.literal("ready"));
+        final LiteralCommandNode<CommandSourceStack> hg = root(commands.build(), "hg");
 
         assertTrue(
-                smp.getRequirement().test(source(player())),
-                "gating this root would hide /smp status from the players it is for");
+                hg.getRequirement().test(source(player())),
+                "gating this root would hide /hg ready from the players it is for");
     }
 
     @Test
     void anOpenDeclarationKeepsTheRootAndItselfOpen() {
-        final PaperCommands commands = adapter();
+        final PaperCommands commands = adapter(Target.SMP);
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
         }
@@ -100,7 +104,7 @@ class PaperCommandsRootGateTest {
 
     @Test
     void aRootWithNothingOpenIsClosed() {
-        final PaperCommands commands = adapter();
+        final PaperCommands commands = adapter(Target.SMP);
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
         }
@@ -111,11 +115,11 @@ class PaperCommandsRootGateTest {
                 "every /smp declaration is the console's, so a player must not have the root");
     }
 
-    private PaperCommands adapter() {
+    private PaperCommands adapter(final Target here) {
         return new PaperCommands(
                 silent(Plugin.class),
                 messages,
-                Target.SMP,
+                here,
                 null,
                 uuid -> Locale.ENGLISH,
                 uuid -> false,

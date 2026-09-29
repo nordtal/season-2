@@ -9,10 +9,10 @@ import com.velocitypowered.api.proxy.ConsoleCommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.s2.commands.NordtalCommand;
-import eu.nordtal.s2.commands.phase.PhaseCommands;
-import eu.nordtal.s2.commands.phase.PhaseEffects;
-import eu.nordtal.s2.commands.update.UpdateCommands;
-import eu.nordtal.s2.commands.update.UpdateEffects;
+import eu.nordtal.s2.commands.network.NetworkCommands;
+import eu.nordtal.s2.commands.network.NetworkEffects;
+import eu.nordtal.s2.commands.smp.SmpCommands;
+import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.MemberState;
@@ -40,32 +40,31 @@ class VelocityCommandsGameSurfaceTest {
     @Test
     void aConsoleOnlyCommandIsGoneFromTheGame() {
         final VelocityCommands commands = adapter();
-        for (final NordtalCommand<UpdateEffects> command : UpdateCommands.all()) {
-            commands.local(command, refuse(UpdateEffects.class));
+        for (final NordtalCommand<NetworkEffects> command : NetworkCommands.all()) {
+            commands.local(command, refuse(NetworkEffects.class));
         }
-        final var update = root(commands, "update");
+        final var network = root(commands, "network");
 
         assertFalse(
-                update.getRequirement().test(admin()),
-                "/update is Surface.CONSOLE alone, so it must not be in the tree an admin standing"
+                network.getRequirement().test(admin()),
+                "/network is Surface.CONSOLE alone, so it must not be in the tree an admin standing"
                         + " in the lobby receives");
-        assertTrue(update.getRequirement().test(console()), "the console keeps it - that surface is never taken away");
+        assertTrue(network.getRequirement().test(console()), "the console keeps it - that surface is never taken away");
     }
 
     @Test
     void aWebCommandIsGoneFromTheGameToo() {
         final VelocityCommands commands = adapter();
-        for (final NordtalCommand<PhaseEffects> command : PhaseCommands.all()) {
-            commands.local(command, refuse(PhaseEffects.class));
+        for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
+            commands.local(command, refuse(SmpEffects.class));
         }
-        final var phase = root(commands, "phase");
+        final var smp = root(commands, "smp");
 
-        // The bare root too: Catalogue#rootDefault makes /phase run /phase show, a second way past an ungated root.
         assertFalse(
-                phase.getRequirement().test(admin()),
-                "/phase is CONSOLE and WEB - the web is not a place a player types a command, so"
-                        + " the tree loses it too");
-        assertTrue(phase.getRequirement().test(console()), "the console keeps it");
+                smp.getRequirement().test(admin()),
+                "/smp milestone unlock is CONSOLE and WEB - the web is not a place a player types a"
+                        + " command, so the tree loses it too");
+        assertTrue(smp.getRequirement().test(console()), "the console keeps it");
     }
 
     private VelocityCommands adapter() {

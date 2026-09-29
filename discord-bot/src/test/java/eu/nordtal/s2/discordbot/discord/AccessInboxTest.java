@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.commands.access.AccessEffects;
 import eu.nordtal.s2.common.access.AccessRequest;
 import eu.nordtal.s2.common.access.AccessRequestKind;
 import eu.nordtal.s2.common.access.AccessRequestSource;
@@ -47,10 +46,10 @@ class AccessInboxTest {
         }
 
         @Override
-        public AccessEffects.Settled settle(final String reference, final Actor by) {
+        public AccessChanges.Settled settle(final String reference, final Actor by) {
             carriedOut.add("settle " + reference + " by " + by.filed());
-            return new AccessEffects.Settled(
-                    AccessEffects.Settlement.BOOKED, Instant.parse("2026-11-01T00:00:00Z"), 30, "OPEN");
+            return new AccessChanges.Settled(
+                    AccessChanges.Settlement.BOOKED, Instant.parse("2026-11-01T00:00:00Z"), 30, "OPEN");
         }
 
         @Override
@@ -226,7 +225,7 @@ class AccessInboxTest {
         }
 
         @Override
-        public AccessEffects.Settled settle(final String reference, final Actor by) {
+        public AccessChanges.Settled settle(final String reference, final Actor by) {
             throw new UnsupportedOperationException();
         }
 

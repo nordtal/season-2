@@ -45,11 +45,8 @@ import eu.nordtal.s2.proxy.pack.WaitingBook;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.network.NetworkCommands;
 import eu.nordtal.s2.commands.network.NetworkEffects;
-import eu.nordtal.s2.commands.phase.PhaseCommands;
-import eu.nordtal.s2.commands.phase.PhaseEffects;
 import eu.nordtal.s2.commands.remote.CommandInbox;
 import eu.nordtal.s2.common.command.CommandRequests;
-import eu.nordtal.s2.common.phase.SeasonDates;
 import eu.nordtal.s2.common.command.AllowlistDirectory;
 import eu.nordtal.s2.common.command.CommandAllowlist;
 import eu.nordtal.s2.proxy.command.CommandGate;
@@ -57,7 +54,6 @@ import eu.nordtal.s2.proxy.command.InfoTexts;
 import eu.nordtal.s2.proxy.command.PrivateMessages;
 import eu.nordtal.s2.proxy.command.ProxyNetworkEffects;
 import eu.nordtal.s2.proxy.command.VelocityCommands;
-import eu.nordtal.s2.proxy.phase.ProxyPhaseEffects;
 import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
 import eu.nordtal.s2.common.notify.PostgresNotifications;
@@ -462,29 +458,13 @@ public final class ProxyPlugin {
                     + "whatever list they last read. This proxy still enforces it.", failure);
         }
 
-        // Every decision lives in :commands, shared with the bot; the proxy registers only its own commands here.
-        final PhaseEffects phaseEffects =
-                new ProxyPhaseEffects(this, proxy, logger, phases, phaseWatch);
+        // Every decision lives in :commands; the proxy registers only its own commands here.
         final NetworkEffects networkEffects = new ProxyNetworkEffects(
                 ProxyNetworkEffects.async(this, proxy), messages, sharedMessages, logger);
 
         final VelocityCommands tree = new VelocityCommands(proxy, roster, messages, () -> colours);
-        PhaseCommands.all().forEach(command -> tree.local(command, phaseEffects));
         NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
 
-        // /update is Target.LOCAL: the proxy writes the row, and the watcher prints the answer.
-        final eu.nordtal.s2.proxy.update.UpdateWatch updateWatch =
-                new eu.nordtal.s2.proxy.update.UpdateWatch(this, proxy, logger,
-                        UpdateDirectory.using(pool), Clock.systemUTC());
-        final eu.nordtal.s2.commands.update.UpdateEffects updateEffects =
-                new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                        UpdateDirectory.using(pool),
-                        ProxyNetworkEffects.async(this, proxy)::execute,
-                        (what, failure) -> logger.warn("An update command failed while "
-                                + what, failure),
-                        updateWatch::watch);
-        eu.nordtal.s2.commands.update.UpdateCommands.all()
-                .forEach(command -> tree.local(command, updateEffects));
         // The five a player types, as plain Velocity Brigadier outside `tree`, not admin-only.
         final PrivateMessages privateMessages =
                 new PrivateMessages(proxy, roster, messages, () -> colours, logger);
@@ -495,10 +475,6 @@ public final class ProxyPlugin {
         final InfoTexts infoTexts =
                 new InfoTexts(messages, gateConfig.discordInviteUrl(), roster);
 
-        // "clear" is not guessable and is the only value of this argument that is not a date.
-        tree.suggest(PhaseCommands.LAUNCH, "when", () -> List.of(SeasonDates.CLEAR));
-        tree.suggest(PhaseCommands.SMP_START, "when", () -> List.of(SeasonDates.CLEAR));
-
         final CommandManager commands = proxy.getCommandManager();
         final List<com.velocitypowered.api.command.BrigadierCommand> registered =
                 new java.util.ArrayList<>(tree.build());
@@ -507,7 +483,7 @@ public final class ProxyPlugin {
         registered.forEach(command -> commands.register(
                 commands.metaBuilder(command).plugin(this).build(), command));
 
-        // The proxy's own inbox: /network reload arrives as a request row; /phase does not travel.
+        // The proxy's own inbox: /network reload arrives as a request row.
         commandInbox = new CommandInbox(Target.PROXY,
                 CommandRequests.borrowing(pool),
                 // :commands' bundle alone; the layered one allows MiniMessage an admin would read literally.

@@ -1,8 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import eu.nordtal.s2.commands.NordtalUser;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -18,16 +16,6 @@ public record Actor(String filed, String mention, @Nullable UUID minecraftUuid) 
     public Actor {
         Objects.requireNonNull(filed, "filed");
         Objects.requireNonNull(mention, "mention");
-    }
-
-    /** Returns whoever typed a command. */
-    public static Actor of(final NordtalUser by) {
-        Objects.requireNonNull(by, "by");
-        final Optional<String> discordId = by.discordId();
-        return new Actor(
-                discordId.orElseGet(by::name),
-                discordId.map(id -> "<@" + id + ">").orElseGet(() -> "`" + by.name() + "`"),
-                by.minecraftUuid().orElse(null));
     }
 
     /**

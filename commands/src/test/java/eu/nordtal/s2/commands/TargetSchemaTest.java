@@ -45,10 +45,8 @@ class TargetSchemaTest {
                 .filter(value -> !value.isEmpty())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        final Set<String> declared = Arrays.stream(Target.values())
-                .map(Enum::name)
-                .filter(name -> !Target.LOCAL.name().equals(name))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        final Set<String> declared =
+                Arrays.stream(Target.values()).map(Enum::name).collect(Collectors.toCollection(LinkedHashSet::new));
 
         assertEquals(
                 declared,
@@ -57,16 +55,6 @@ class TargetSchemaTest {
                         + " constraint violation inside an adapter at the moment somebody types a"
                         + " command; one the database permits and the enum does not is a row"
                         + " nothing will ever claim.");
-    }
-
-    @Test
-    void localIsDeliberatelyNotPermittedByTheCheck() throws IOException {
-        // The one target that is not an address, and the database constraint enforces that.
-        assertTrue(
-                !sql().contains("'LOCAL'"),
-                "command_request's CHECK permits LOCAL. It must not: a LOCAL command never"
-                        + " travels, so such a row can only be a mistake, and the database is the"
-                        + " last place that can still say so.");
     }
 
     @Test

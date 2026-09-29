@@ -70,7 +70,7 @@ describe("the step-up retry", () => {
     const held = vi.fn<() => Promise<void>>(async () => undefined)
     onSecondFactorRequired(held)
 
-    const answer = await api<{ ok: boolean }>("/api/commands", {
+    const answer = await api<{ ok: boolean }>("/api/announcements", {
       method: "POST",
       body: { command: "season phase" },
     })
@@ -80,7 +80,7 @@ describe("the step-up retry", () => {
     expect(calls).toHaveLength(2)
 
     /** The same request, method, body and CSRF token, not a fresh GET of the same path. */
-    expect(calls[1].path).toBe("/api/commands")
+    expect(calls[1].path).toBe("/api/announcements")
     expect(calls[1].init.method).toBe("POST")
     expect(calls[1].init.body).toBe(JSON.stringify({ command: "season phase" }))
     expect(headerRecord(calls[1].init.headers)["X-Steward-CSRF"]).toBe("csrf-token")
@@ -91,7 +91,7 @@ describe("the step-up retry", () => {
     const held = vi.fn<() => Promise<void>>(async () => undefined)
     onSecondFactorRequired(held)
 
-    await expect(api("/api/commands", { method: "POST", body: {} })).rejects.toBeInstanceOf(ApiError)
+    await expect(api("/api/announcements", { method: "POST", body: {} })).rejects.toBeInstanceOf(ApiError)
 
     /** A refusal surviving a successful ceremony is something else, and a third attempt would hide it. */
     expect(held).toHaveBeenCalledTimes(1)
@@ -104,7 +104,9 @@ describe("the step-up retry", () => {
       throw new Error("the person closed the key dialog")
     })
 
-    await expect(api("/api/commands", { method: "POST", body: {} })).rejects.toThrow("the person closed the key dialog")
+    await expect(api("/api/announcements", { method: "POST", body: {} })).rejects.toThrow(
+      "the person closed the key dialog",
+    )
     expect(calls).toHaveLength(1)
   })
 
@@ -122,7 +124,7 @@ describe("the step-up retry", () => {
     const calls = fetchAnswering(REFUSED)
 
     /** Without a way to hold a key, a 403 stays a 403, which is what every other test runs under. */
-    const refusal = await rejectionOf(api("/api/commands", { method: "POST", body: {} }))
+    const refusal = await rejectionOf(api("/api/announcements", { method: "POST", body: {} }))
     expect(refusal.needsTheKeyAgain).toBe(true)
     expect(calls).toHaveLength(1)
   })
@@ -132,12 +134,12 @@ describe("the step-up retry", () => {
     onSecondFactorRequired(held)
 
     const noKey = fetchAnswering(NO_KEY_AT_ALL)
-    const first = await rejectionOf(api("/api/commands", { method: "POST", body: {} }))
+    const first = await rejectionOf(api("/api/announcements", { method: "POST", body: {} }))
     expect(first.needsASecurityKey).toBe(true)
     expect(noKey).toHaveLength(1)
 
     const signedOut = fetchAnswering(SIGNED_OUT)
-    const second = await rejectionOf(api("/api/commands", { method: "POST", body: {} }))
+    const second = await rejectionOf(api("/api/announcements", { method: "POST", body: {} }))
     expect(second.isSignedOut).toBe(true)
     expect(signedOut).toHaveLength(1)
 

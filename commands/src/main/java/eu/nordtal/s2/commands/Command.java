@@ -87,24 +87,6 @@ public interface Command {
         @Name("Announce")
         MessageRef announce();
 
-        Phase phase();
-
-        @Name("Phase")
-        interface Phase {
-
-            @Name("Show")
-            MessageRef show();
-
-            @Name("Set")
-            MessageRef set();
-
-            @Name("Launch")
-            MessageRef launch();
-
-            @Name("SMP start")
-            MessageRef smpStart();
-        }
-
         Smp smp();
 
         @Name("SMP")
@@ -164,63 +146,6 @@ public interface Command {
 
         @Name("Network")
         Reload network();
-
-        Access access();
-
-        @Name("Access")
-        interface Access {
-
-            @Name("Status")
-            MessageRef status();
-
-            @Name("Grant")
-            MessageRef grant();
-
-            @Name("Revoke")
-            MessageRef revoke();
-
-            @Name("Unlink")
-            MessageRef unlink();
-
-            @Name("Settle")
-            MessageRef settle();
-
-            @Name("Reload")
-            MessageRef reload();
-        }
-
-        Backup backup();
-
-        @Name("Backup")
-        interface Backup {
-
-            @Name("Now")
-            MessageRef now();
-        }
-
-        Update update();
-
-        @Name("Update")
-        interface Update {
-
-            @Name("Check")
-            MessageRef check();
-
-            @Name("Now")
-            MessageRef now();
-
-            @Name("Restart")
-            MessageRef restart();
-
-            @Name("Cancel")
-            MessageRef cancel();
-
-            @Name("Down")
-            MessageRef down();
-
-            @Name("Start")
-            MessageRef start();
-        }
     }
 
     Remote remote();
@@ -274,9 +199,5 @@ public interface Command {
         @Name("Bot")
         @Key("BOT")
         MessageRef bot();
-
-        @Name("Local")
-        @Key("LOCAL")
-        MessageRef local();
     }
 }

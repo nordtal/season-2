@@ -168,7 +168,7 @@ class ConfigsTest {
 
     @Test
     void theBotRefusesToStartWhileTheAdminRoleIdIsEmpty() throws Exception {
-        // This role's flag authorises /phase set and admission during MAINTENANCE.
+        // This role's flag authorises the admin actions and admission during MAINTENANCE.
         Files.writeString(directory.resolve("access.yml"), access().replace("admin: '14'", "admin: ''"));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);

@@ -18,14 +18,7 @@ public enum Target {
     PROXY,
 
     /** The Discord bot: access, payments, roles. */
-    BOT,
-
-    /**
-     * Wherever it was asked for, for a command whose effect touches only the database.
-     *
-     * {@code CatalogueTest} pins the members, since an update must not depend on a second process being alive.
-     */
-    LOCAL;
+    BOT;
 
     /** Returns how this process is named to somebody waiting for it, spelled out so every key is checked. */
     public MessageRef message() {
@@ -36,8 +29,6 @@ public enum Target {
             case LIMBO -> target.limbo();
             case PROXY -> target.proxy();
             case BOT -> target.bot();
-            // Never rendered: a LOCAL command never becomes a row.
-            case LOCAL -> target.local();
         };
     }
 }

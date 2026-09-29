@@ -92,7 +92,7 @@ class AdminFlagIntegrationTest {
 
     @Test
     void theRootsRowIsCreatedByTheClaimWhenNothingElseWroteIt() {
-        // An admin who never bought or linked anything still has to be able to use /phase set.
+        // An admin who never bought or linked anything still has to be able to act as an admin.
         tree.claimRootIfNobody(USER);
 
         assertEquals(Optional.of(true), dao.isAdmin(USER));

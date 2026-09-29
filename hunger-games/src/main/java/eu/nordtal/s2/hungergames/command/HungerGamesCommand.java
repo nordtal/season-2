@@ -69,10 +69,7 @@ public final class HungerGamesCommand {
 
     /** Every tree this server registers. */
     public List<LiteralCommandNode<CommandSourceStack>> build(
-            final Outbox outbox,
-            final HungerGamesEffects effects,
-            final java.util.function.Predicate<UUID> isAdmin,
-            final javax.sql.DataSource pool) {
+            final Outbox outbox, final HungerGamesEffects effects, final java.util.function.Predicate<UUID> isAdmin) {
         final PaperCommands commands = new PaperCommands(
                 plugin,
                 messages,
@@ -87,19 +84,6 @@ public final class HungerGamesCommand {
         for (final NordtalCommand<HungerGamesEffects> command : HungerGamesCommands.all()) {
             commands.local(command, effects);
         }
-        // /update is Surface.GAME, so every game server serves it, and its watcher delivers the report.
-        final eu.nordtal.s2.papercommon.command.UpdateWatcher updates =
-                new eu.nordtal.s2.papercommon.command.UpdateWatcher(
-                        plugin, eu.nordtal.s2.common.update.UpdateDirectory.using(pool));
-        eu.nordtal.s2.commands.update.UpdateCommands.all()
-                .forEach(command -> commands.local(
-                        command,
-                        new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                                updates.directory(),
-                                work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
-                                (what, failure) -> plugin.getLogger()
-                                        .warning("An update command failed while " + what + ": " + failure),
-                                updates::watch)));
 
         commands.extraOpen("hg", ready());
         commands.remoteAll(Catalogue.all());

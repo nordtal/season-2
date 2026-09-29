@@ -270,8 +270,7 @@ class UpdateFeedTest {
         assertEquals(1, board.posted.size());
         final java.util.Map<String, String> context = new java.util.HashMap<>();
         board.posted.getFirst().embed().getFields().forEach(f -> context.put(f.getName(), f.getValue()));
-        assertEquals(
-                "Till", context.get("By"), "who asked is the half the asker's own embed omits, and here it is a field");
+        assertEquals("Till", context.get("By"), "who asked is a field of its own");
         assertEquals("game", context.get("From"));
 
         rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
@@ -301,22 +300,6 @@ class UpdateFeedTest {
                 board.edited,
                 "this polls every two seconds and a run writes a stage at a time; twenty identical"
                         + " edits between two stages would spend the edit budget on nothing");
-    }
-
-    @Test
-    void aRunStartedInDiscordIsLeftAloneItAlreadyHasAnEmbed() {
-        rows.put(row(1L, UpdateSource.DISCORD, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
-        feed.tick();
-
-        assertEquals(
-                List.of(),
-                board.posted,
-                "two drawings of one run in the same guild disagree the moment the interaction"
-                        + " token expires, and the asker's own is the one that stops first");
-
-        rows.put(row(1L, UpdateSource.DISCORD, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
-        feed.tick();
-        assertEquals(List.of(), board.edited);
     }
 
     @Test

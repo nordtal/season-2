@@ -9,9 +9,7 @@ import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.ToneColours;
-import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
-import eu.nordtal.s2.papercommon.command.UpdateWatcher;
 import eu.nordtal.s2.papercommon.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.BukkitSmpEffects;
@@ -31,7 +29,6 @@ import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.grave.Graves;
 import eu.nordtal.s2.smp.hud.SmpHud;
 import eu.nordtal.s2.smp.milestone.Milestone;
-import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.milestone.MilestoneState;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.StoredProgress;
@@ -388,7 +385,6 @@ public final class SmpPlugin extends JavaPlugin {
                             sounds,
                             outbox,
                             chatEffects,
-                            new UpdateWatcher(this, UpdateDirectory.using(pool)),
                             // A supplier, since {@code /smp reload} replaces the track.
                             () -> track,
                             season,
@@ -552,26 +548,6 @@ public final class SmpPlugin extends JavaPlugin {
                         .warning("the message override names " + key + ", which no bundle declares - it is stored"
                                 + " and never used; check the spelling"));
     }
-
-    /**
-     * What {@code /smp status} says, in the asker's language.
-     *
-     * Off the main thread: it reads {@code season_phase}.
-     */
-    eu.nordtal.s2.smp.command.Standing.Status status(final java.util.Locale locale) {
-        final String phase = eu.nordtal.s2.common.phase.PhaseDirectory.using(pool)
-                .currentPhase()
-                .name();
-        final SeasonState.Active active = season.active();
-        final java.util.Optional<String> milestone = active.key() == null
-                ? java.util.Optional.empty()
-                : java.util.Optional.of(MilestoneNames.of(messages, locale, active.key()));
-        return new eu.nordtal.s2.smp.command.Standing.Status(
-                phase, !active.unread(), milestone, (int) Math.round(active.progress() * 100), online);
-    }
-
-    /** The player count, sampled once a second on the main thread for {@code status()}, which runs elsewhere. */
-    volatile int online;
 
     /**
      * Writes one row per milestone and one per objective, in one transaction.

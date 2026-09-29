@@ -46,10 +46,9 @@ class CommandGateTest {
 
     @Test
     void adminCommandsAreNotOnIt() {
-        // Admins bypass the filter; /smp looks like an exception, but only lets a bare /smp reach its own help.
-        assertFalse(SHIPPED.allows("/phase set SMP"));
+        // Admins bypass the filter.
+        assertFalse(SHIPPED.allows("/smp"));
         assertFalse(SHIPPED.allows("/smp reload"));
-        assertFalse(SHIPPED.allows("/update now"));
         assertFalse(SHIPPED.allows("/hg start"));
         assertFalse(SHIPPED.allows("/network reload"));
     }
@@ -71,12 +70,9 @@ class CommandGateTest {
 
     @Test
     void thePlayerSurfaceIsIntact() {
-        assertTrue(SHIPPED.allows("/smp"));
-        assertTrue(SHIPPED.allows("/smp status"));
         assertTrue(SHIPPED.allows("/navigate"));
         assertTrue(SHIPPED.allows("/poi add home"));
         assertTrue(SHIPPED.allows("/hg ready"));
-        assertTrue(SHIPPED.allows("/aura"));
         assertTrue(SHIPPED.allows("/msg Someone hello"));
         assertTrue(SHIPPED.allows("/whisper Someone hello"));
         assertTrue(SHIPPED.allows("/r hello"));

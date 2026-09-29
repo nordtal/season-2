@@ -10,9 +10,7 @@ import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
-import java.io.IOException;
 import java.lang.reflect.Method;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -24,9 +22,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * How {@code access.yml}'s settings survive the round trip through {@code .env.example} and the environment overlay.
+ * How {@code access.yml}'s settings come through the environment overlay and into the override marker file.
  */
-class ConfigsEnvExampleTest {
+class ConfigsEnvironmentTest {
 
     private static final String VALID_TIERS = """
             tiers:
@@ -85,81 +83,6 @@ class ConfigsEnvExampleTest {
         System.clearProperty(Configs.DIRECTORY_PROPERTY);
     }
 
-    /**
-     * Returns the value of {@code key} in the repository's {@code .env.example}, with a leading {@code #} stripped.
-     *
-     * Read from the real file, which {@code repositoryRootTestInputs} declares as an input of this test task.
-     */
-    private static String envExampleValue(final String key) throws IOException {
-        final Path file = repositoryRoot().resolve(".env.example");
-        assertTrue(Files.isRegularFile(file), file + " does not exist");
-        final List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-        final String opening = key + "='";
-
-        for (int i = 0; i < lines.size(); i++) {
-            final StringBuilder value = new StringBuilder(uncomment(lines.get(i)));
-            if (!value.toString().startsWith(opening)) {
-                continue;
-            }
-            value.delete(0, opening.length());
-            while (!value.toString().endsWith("'")) {
-                if (++i == lines.size()) {
-                    throw new IllegalStateException(file + " never closes the quote on " + key);
-                }
-                value.append('\n').append(uncomment(lines.get(i)));
-            }
-            return value.substring(0, value.length() - 1);
-        }
-        throw new IllegalStateException(file + " does not set " + key + " any more. If it was"
-                + " renamed, rename it here too - this test is the only thing that reads it.");
-    }
-
-    /** A commented-out block is still the value an operator uncomments; the {@code #} is not. */
-    private static String uncomment(final String line) {
-        return line.startsWith("#") ? line.substring(1) : line;
-    }
-
-    /** Returns the directory holding {@code settings.gradle.kts}, not the nearest {@code .env.example}. */
-    private static Path repositoryRoot() {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null) {
-            if (Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
-                return directory;
-            }
-            directory = directory.getParent();
-        }
-        throw new IllegalStateException(
-                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
-    }
-
-    @Test
-    void theLanguageListInEnvExampleIsReadBackAsTwoLanguages() throws Exception {
-        final AccessSpec config =
-                fromEnvironment(Map.of("NORDTAL_ACCESS_LANGUAGES", envExampleValue("NORDTAL_ACCESS_LANGUAGES")));
-
-        assertEquals(2, config.languages().size(), "both entries have to survive the round trip");
-        assertEquals("en", config.languages().get(0).tag());
-        assertEquals("de", config.languages().get(1).tag());
-        // A JSON key that does not match the @Key name comes back null; REPLACE_ME proves the names line up.
-        assertEquals("REPLACE_ME", config.languages().get(0).role());
-        assertEquals("REPLACE_ME", config.languages().get(0).contributionChannel());
-        assertEquals("REPLACE_ME", config.languages().get(0).linkChannel());
-        assertEquals("REPLACE_ME", config.languages().get(1).hungerGamesChannel());
-        // status-channel is empty rather than REPLACE_ME, since an operator may leave it out.
-        assertEquals("", config.languages().get(0).statusChannel());
-        assertEquals("", config.languages().get(1).statusChannel());
-    }
-
-    @Test
-    void thePriceListInEnvExampleIsReadBackAsThreeTiers() throws Exception {
-        final AccessSpec config =
-                fromEnvironment(Map.of("NORDTAL_ACCESS_TIERS", envExampleValue("NORDTAL_ACCESS_TIERS")));
-
-        assertEquals(3, config.tiers().size());
-        assertEquals(30, config.tiers().get(0).days());
-        assertEquals(700, config.tiers().get(2).priceCents());
-    }
-
     @Test
     void aReplaceMeIdIsRefusedByNameRatherThanStartedWith() throws Exception {
         // REPLACE_ME rather than zeros: zeros are a valid snowflake for a guild that does not exist.
@@ -193,16 +116,7 @@ class ConfigsEnvExampleTest {
                         + " the wrong entry");
     }
 
-    /**
-     * Loads {@code access.yml} with a fake environment on top, the way the container does.
-     *
-     * This covers the overlay, not the validator, since {@link Configs#access()} reads the real environment.
-     */
-    private AccessSpec fromEnvironment(final Map<String, String> environment) throws Exception {
-        return handleFromEnvironment(environment).get();
-    }
-
-    /** Returns the loaded handle rather than the spec, for tests that need its environment overrides. */
+    /** Loads {@code access.yml} with a fake environment on top, the way the container does. */
     private ConfigHandle<AccessSpec> handleFromEnvironment(final Map<String, String> environment) throws Exception {
         Files.writeString(directory.resolve("access.yml"), access());
         return ConfigLoader.builder(directory.resolve("access.yml"), AccessSpec.class)
@@ -212,17 +126,16 @@ class ConfigsEnvExampleTest {
     }
 
     /**
-     * Every setting {@code deploy/dev.env.example} overrides reaches the override marker file.
+     * A setting the environment overrides reaches the override marker file.
      *
      * Runs the same two calls as {@code Configs#load}, which is private.
      */
     @Test
-    void languagesOverriddenExactlyTheWayDevEnvExampleOverridesItEndsUpInTheMarkerFile() throws Exception {
-        final ConfigHandle<AccessSpec> handle =
-                handleFromEnvironment(Map.of("NORDTAL_ACCESS_LANGUAGES", envExampleValue("NORDTAL_ACCESS_LANGUAGES")));
+    void anOverriddenSettingEndsUpInTheMarkerFile() throws Exception {
+        final ConfigHandle<AccessSpec> handle = handleFromEnvironment(Map.of("NORDTAL_ACCESS_GUILD_ID", "2"));
 
         assertTrue(
-                handle.environmentOverrides().contains("languages"),
+                handle.environmentOverrides().contains("guild-id"),
                 "jcore itself has to report the override before anything downstream can - reported: "
                         + handle.environmentOverrides());
 

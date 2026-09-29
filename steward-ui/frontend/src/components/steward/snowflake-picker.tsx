@@ -44,7 +44,7 @@ export function SnowflakePicker({
           disabled={disabled}
           value={value}
           spellCheck={false}
-          className="font-mono text-sm"
+          className="font-mono text-sm max-md:text-base"
           onChange={(event) => onChange(event.target.value)}
         />
         {directory?.reason ? (
@@ -77,7 +77,7 @@ export function SnowflakePicker({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => event.stopPropagation()}
-            className="h-8 text-sm"
+            className="h-8 text-sm max-md:text-base"
           />
         </div>
         <SelectItem value={NOTHING}>

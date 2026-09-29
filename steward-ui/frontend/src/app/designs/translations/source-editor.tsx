@@ -20,7 +20,7 @@ export type SourceEditorProps = {
   disabled?: boolean
 }
 
-const MONO = "font-mono text-[13px] leading-6"
+const MONO = "font-mono text-[13px] leading-6 max-md:text-base"
 
 /**
  * B: the stored text with its syntax coloured, a textarea over a highlighted copy of itself.

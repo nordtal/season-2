@@ -102,7 +102,7 @@ public final class RegisterMessages {
     }
 
     private MessageEmbed registerEmbed(final Locale locale) {
-        return Card.of(messages.format(locale, MESSAGES.register().title()), Card.Accent.NORDTAL)
+        return Card.of(messages.format(locale, MESSAGES.register().title()))
                 .field(
                         messages.format(locale, MESSAGES.register().teamHeading()),
                         messages.format(locale, MESSAGES.register().team()))

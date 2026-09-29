@@ -102,7 +102,7 @@ public final class LinkFlow extends ListenerAdapter {
                 redeem(event, locale, code);
             } catch (final RuntimeException exception) {
                 log.error("Redeeming a link code failed", exception);
-                admin.alert("Redeeming a link code failed: `" + exception + "`");
+                admin.alert("🛑 Link failed", event.getUser().getAsMention() + " `" + exception + "`");
                 event.getHook()
                         .editOriginal(messages.format(locale, MESSAGES.link().failed()))
                         .queue();
@@ -133,7 +133,7 @@ public final class LinkFlow extends ListenerAdapter {
                     final UUID linked = Objects.requireNonNull(result.mcUuid());
                     limit.clear(discordId);
                     admin.record("LINK", null, discordId, linked, "redeemed a link code");
-                    admin.note(event.getUser().getAsMention() + " linked Minecraft account `" + linked + "`.");
+                    admin.note("🔗 Linked", event.getUser().getAsMention() + " → `" + linked + "`");
                     event.getHook()
                             .editOriginal(
                                     messages.format(locale, MESSAGES.link().success()))
@@ -143,9 +143,10 @@ public final class LinkFlow extends ListenerAdapter {
                     wrongGuess = true;
                     if (remaining == 0) {
                         log.warn("{} has used up its link-code attempts for this hour", discordId);
-                        admin.note(event.getUser().getAsMention() + " has submitted "
-                                + "the maximum number of wrong link codes for this hour and is now"
-                                + " being refused. One person mistyping a code looks like this too.");
+                        // One person mistyping a code looks like this too.
+                        admin.note(
+                                "🔒 Too many wrong codes",
+                                event.getUser().getAsMention() + " is refused for the rest of the hour.");
                     }
                     event.getHook()
                             .editOriginal(
@@ -185,8 +186,10 @@ public final class LinkFlow extends ListenerAdapter {
             }
 
             admin.record("UNLINK", discordId, discordId, mcUuid.orElse(null), "self-service, no waiting period");
-            admin.note(event.getUser().getAsMention() + " unlinked Minecraft account `"
-                    + mcUuid.map(UUID::toString).orElse("?") + "`.");
+            admin.note(
+                    "✂️ Unlinked",
+                    event.getUser().getAsMention() + " `"
+                            + mcUuid.map(UUID::toString).orElse("?") + "`");
             event.getHook()
                     .editOriginal(messages.format(locale, MESSAGES.unlink().success()))
                     .queue();

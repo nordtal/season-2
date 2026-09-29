@@ -267,7 +267,7 @@ public class AccessBot implements AutoCloseable {
 
         // Held because the payment seam finishes messages waiting for a link.
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
-                accessConfig, core.tiers(), core.purchases(), core.requests(), core.messages(), roles, admin, worker);
+                core.tiers(), core.purchases(), core.requests(), core.messages(), roles, admin, worker);
 
         return finishWiring(
                 jda,

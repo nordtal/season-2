@@ -508,7 +508,7 @@ export function AccessPage() {
       </Card>
 
       <ResponsiveDialog open={selected !== null} onOpenChange={(open) => (open ? null : setSelected(null))}>
-        <ResponsiveDialogContent className="max-w-2xl">
+        <ResponsiveDialogContent className="sm:max-w-2xl">
           {selected ? (
             <PersonGrants
               person={selected}

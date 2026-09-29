@@ -71,7 +71,8 @@ class AdminCommandsAreGoneFromTheGameTest {
         assertFalse(reload.test(source(player())), "/hg reload is CONSOLE only, so it is not in a player's tree");
         assertTrue(reload.test(source(sender(ConsoleCommandSender.class))), "the console keeps it");
         assertTrue(ready.test(source(player())), "/hg ready is for players");
-        assertTrue(hg.getRequirement().test(source(player())), "and the root stays open, because /hg ready hangs off it");
+        assertTrue(
+                hg.getRequirement().test(source(player())), "and the root stays open, because /hg ready hangs off it");
     }
 
     private PaperCommands adapter(final Target here) {

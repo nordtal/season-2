@@ -389,7 +389,6 @@ export function useActions(limit = 5, enabled = true) {
   })
 }
 
-
 /** The SMP's active milestones and their objectives, for the actions on its service page. */
 export function useSmpTrack() {
   return useQuery({

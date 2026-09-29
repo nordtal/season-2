@@ -48,9 +48,7 @@ class ChoiceCheckTest {
                 "an uppercase confirmation was refused");
 
         // What the command reads is the declared spelling.
-        assertEquals(
-                "confirm",
-                new Values(HungerGamesCommands.START, Map.of("confirm", "CoNfIrM")).string("confirm"));
+        assertEquals("confirm", new Values(HungerGamesCommands.START, Map.of("confirm", "CoNfIrM")).string("confirm"));
     }
 
     @Test

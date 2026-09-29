@@ -104,7 +104,9 @@ describe("the step-up retry", () => {
       throw new Error("the person closed the key dialog")
     })
 
-    await expect(api("/api/announcements", { method: "POST", body: {} })).rejects.toThrow("the person closed the key dialog")
+    await expect(api("/api/announcements", { method: "POST", body: {} })).rejects.toThrow(
+      "the person closed the key dialog",
+    )
     expect(calls).toHaveLength(1)
   })
 

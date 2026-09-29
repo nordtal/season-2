@@ -226,7 +226,10 @@ public final class UpdateFeed {
     }
 
     static MessageEmbed fields(
-            final UpdateReport report, final UpdateRequest request, final Messages messages, final java.util.Locale locale) {
+            final UpdateReport report,
+            final UpdateRequest request,
+            final Messages messages,
+            final java.util.Locale locale) {
         return fields(report, request, messages, locale, false);
     }
 
@@ -285,7 +288,8 @@ public final class UpdateFeed {
     }
 
     /** Renders a service line such as {@code ✔ smp running  smp 0.9.3 → 0.9.4}. */
-    private static String line(final UpdateReport.ServiceLine line, final Messages messages, final java.util.Locale locale) {
+    private static String line(
+            final UpdateReport.ServiceLine line, final Messages messages, final java.util.Locale locale) {
         final StringBuilder text = new StringBuilder(marker(line.state()))
                 .append(' ')
                 .append(Card.bold(line.service()))
@@ -331,4 +335,3 @@ public final class UpdateFeed {
         };
     }
 }
-

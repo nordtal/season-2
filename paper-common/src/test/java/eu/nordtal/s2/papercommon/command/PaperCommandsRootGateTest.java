@@ -29,7 +29,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.Test;
 
-/** A root whose bare form is itself a command, such as {@code /smp} with nothing a player may run, needs its own gate. */
+/**
+ * A root whose bare form is itself a command needs its own gate.
+ *
+ * {@code /smp} is one: a player may run nothing under it.
+ */
 class PaperCommandsRootGateTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000002");

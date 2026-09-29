@@ -69,9 +69,7 @@ public final class HungerGamesCommand {
 
     /** Every tree this server registers. */
     public List<LiteralCommandNode<CommandSourceStack>> build(
-            final Outbox outbox,
-            final HungerGamesEffects effects,
-            final java.util.function.Predicate<UUID> isAdmin) {
+            final Outbox outbox, final HungerGamesEffects effects, final java.util.function.Predicate<UUID> isAdmin) {
         final PaperCommands commands = new PaperCommands(
                 plugin,
                 messages,

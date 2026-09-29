@@ -43,7 +43,11 @@ public interface AccessChanges {
      * @param days    how many days it bought
      * @param status  the status a {@link Settlement#NOT_OPEN} request was actually in, so the refusal can name it
      */
-    record Settled(Settlement outcome, @Nullable Instant until, int days, @Nullable String status) {}
+    record Settled(
+            Settlement outcome,
+            @Nullable Instant until,
+            int days,
+            @Nullable String status) {}
 
     /** The three ways {@link #settle} can end. */
     enum Settlement {

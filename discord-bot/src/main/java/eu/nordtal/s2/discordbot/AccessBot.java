@@ -243,10 +243,7 @@ public class AccessBot implements AutoCloseable {
     }
 
     private DiscordWiring wireDiscord(
-            final JDA jda,
-            final AccessSpec accessConfig,
-            final CoreServices core,
-            final PhaseDirectory phases) {
+            final JDA jda, final AccessSpec accessConfig, final CoreServices core, final PhaseDirectory phases) {
         final AdminLog admin = new AdminLog(jda, accessConfig, database.jdbi());
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
@@ -311,14 +308,7 @@ public class AccessBot implements AutoCloseable {
                 new RegisterFlow(jda, teams, core.messages(), worker));
 
         final BotAccessEffects inboxEffects = new BotAccessEffects(
-                access,
-                roles,
-                core.requests(),
-                admin,
-                seasonStart,
-                core.messages(),
-                core.sharedMessages(),
-                log);
+                access, roles, core.requests(), admin, seasonStart, core.messages(), core.sharedMessages(), log);
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =
                 wireCommandInbox(jda, core.sharedMessages(), core.languages());
 
@@ -332,9 +322,7 @@ public class AccessBot implements AutoCloseable {
     }
 
     private eu.nordtal.s2.discordbot.announce.Announcements wireCommandInbox(
-            final JDA jda,
-            final Messages sharedMessages,
-            final Languages languages) {
+            final JDA jda, final Messages sharedMessages, final Languages languages) {
         // `announce <language> <text>` rows from the servers, posted verbatim.
         final eu.nordtal.s2.common.command.CommandRequests commandRequests =
                 eu.nordtal.s2.common.command.CommandRequests.borrowing(database.dataSource());

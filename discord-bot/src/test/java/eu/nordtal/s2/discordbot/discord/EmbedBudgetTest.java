@@ -106,8 +106,7 @@ class EmbedBudgetTest {
     void theAdminChannelsContextFieldsAreInsideTheLimitTooInBothLanguages() {
         // Only UpdateFeed draws with context, so this is the only case measuring those fields.
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final MessageEmbed embed =
-                    UpdateFeed.fields(report(40, 600, 30, 400), longAsker(), messages, locale, true);
+            final MessageEmbed embed = UpdateFeed.fields(report(40, 600, 30, 400), longAsker(), messages, locale, true);
 
             assertTrue(
                     embed.getLength() <= LIMIT,

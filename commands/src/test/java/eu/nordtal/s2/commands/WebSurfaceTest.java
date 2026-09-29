@@ -13,11 +13,8 @@ import org.junit.jupiter.api.Test;
 class WebSurfaceTest {
 
     /** The commands the web interface may ask for, one by one. */
-    private static final List<String> ON_THE_WEB = List.of(
-            "/announce",
-            "/hg start",
-            "/smp milestone unlock",
-            "/smp objective complete");
+    private static final List<String> ON_THE_WEB =
+            List.of("/announce", "/hg start", "/smp milestone unlock", "/smp objective complete");
 
     @Test
     void nothingElseGrewAButton() {

@@ -270,8 +270,7 @@ class UpdateFeedTest {
         assertEquals(1, board.posted.size());
         final java.util.Map<String, String> context = new java.util.HashMap<>();
         board.posted.getFirst().embed().getFields().forEach(f -> context.put(f.getName(), f.getValue()));
-        assertEquals(
-                "Till", context.get("By"), "who asked is a field of its own");
+        assertEquals("Till", context.get("By"), "who asked is a field of its own");
         assertEquals("game", context.get("From"));
 
         rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));

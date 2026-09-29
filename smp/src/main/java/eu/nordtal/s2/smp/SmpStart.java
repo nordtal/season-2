@@ -417,13 +417,7 @@ final class SmpStart {
         final PaperCommandInbox inbox =
                 new PaperCommandInbox(plugin, Target.SMP, plugin.requests, access, sharedMessages);
         final SmpEffects inboxEffects = new BukkitSmpEffects(
-                plugin,
-                Runnable::run,
-                plugin.dao,
-                plugin.engine,
-                plugin.identities,
-                access,
-                plugin::reloadTrack);
+                plugin, Runnable::run, plugin.dao, plugin.engine, plugin.identities, access, plugin::reloadTrack);
         SmpCommands.all().forEach(command -> inbox.register(command, inboxEffects));
         inbox.start(plugin);
         return new CommandLayer(chatEffects, commandWaiter, outbox, sharedMessages, inbox);

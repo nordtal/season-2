@@ -9,7 +9,6 @@ import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -156,5 +155,4 @@ public final class BukkitSmpEffects implements SmpEffects {
     private static RuntimeException asUnchecked(final Throwable failure) {
         return failure instanceof RuntimeException unchecked ? unchecked : new IllegalStateException(failure);
     }
-
 }

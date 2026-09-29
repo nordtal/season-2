@@ -45,9 +45,8 @@ class TargetSchemaTest {
                 .filter(value -> !value.isEmpty())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        final Set<String> declared = Arrays.stream(Target.values())
-                .map(Enum::name)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        final Set<String> declared =
+                Arrays.stream(Target.values()).map(Enum::name).collect(Collectors.toCollection(LinkedHashSet::new));
 
         assertEquals(
                 declared,

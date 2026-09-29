@@ -195,6 +195,104 @@ class ConfigFilesSectionsTest {
         assertEquals(before, Files.readString(file));
     }
 
+    // Writing: secrets inside a card
+
+    /** Two webhooks, each with a token the browser never sees and so sends back empty. */
+    private static final String HOOKS_FIXTURE = """
+            hooks:
+            - name: admin
+              token: first-secret
+            - name: log
+              token: second-secret
+            """;
+
+    @Test
+    void aSecretFieldInACardIsTakenAsASecret() throws IOException {
+        assertTrue(fieldOf(entry(read(HOOKS_FIXTURE), "hooks"), 0, "token").secret());
+    }
+
+    @Test
+    void anEmptySecretInACardLeavesTheStoredOneAlone() throws IOException {
+        final Path file = directory.resolve("hooks.yml");
+        Files.writeString(file, HOOKS_FIXTURE);
+
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "hooks",
+                        ConfigChange.sections(
+                                List.of(Map.of("name", "admins", "token", ""), Map.of("name", "log", "token", "")))));
+
+        assertEquals(HOOKS_FIXTURE.replace("name: admin\n", "name: admins\n"), Files.readString(file));
+    }
+
+    @Test
+    void aSecretInACardCanStillBeReplaced() throws IOException {
+        final Path file = directory.resolve("hooks.yml");
+        Files.writeString(file, HOOKS_FIXTURE);
+
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "hooks",
+                        ConfigChange.sections(List.of(
+                                Map.of("name", "admin", "token", ""),
+                                Map.of("name", "log", "token", "third-secret")))));
+
+        assertEquals(HOOKS_FIXTURE.replace("second-secret", "third-secret"), Files.readString(file));
+    }
+
+    /** An empty secret matches any card, so it cannot tell two cards apart that differ only in their secret. */
+    @Test
+    void removingOneOfTwoCardsThatDifferOnlyInTheirSecretIsRefused() throws IOException {
+        final Path file = directory.resolve("hooks.yml");
+        final String twins = HOOKS_FIXTURE.replace("name: admin", "name: log");
+        Files.writeString(file, twins);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ConfigFiles.write(
+                        file, Map.of("hooks", ConfigChange.sections(List.of(Map.of("name", "log", "token", ""))))));
+        assertEquals(twins, Files.readString(file), "nothing is removed on a guess");
+    }
+
+    @Test
+    void oneOfTwoIdenticalCardsCanBeRemoved() throws IOException {
+        final Path file = directory.resolve("hooks.yml");
+        final String twins = "hooks:\n- name: log\n  token: same\n- name: log\n  token: same\n";
+        Files.writeString(file, twins);
+
+        ConfigFiles.write(file, Map.of("hooks", ConfigChange.sections(List.of(Map.of("name", "log", "token", "")))));
+
+        assertEquals("hooks:\n- name: log\n  token: same\n", Files.readString(file));
+    }
+
+    @Test
+    void cardsWithEmptySecretsCanBeAddedToAndRemovedFrom() throws IOException {
+        final Path file = directory.resolve("hooks.yml");
+        Files.writeString(file, HOOKS_FIXTURE);
+
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "hooks",
+                        ConfigChange.sections(List.of(
+                                Map.of("name", "admin", "token", ""),
+                                Map.of("name", "log", "token", ""),
+                                Map.of("name", "alerts", "token", "new-secret")))));
+        assertTrue(Files.readString(file).endsWith("- name: alerts\n  token: new-secret\n"));
+
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "hooks",
+                        ConfigChange.sections(
+                                List.of(Map.of("name", "admin", "token", ""), Map.of("name", "alerts", "token", "")))));
+        final String left = Files.readString(file);
+        assertTrue(left.contains("first-secret") && left.contains("new-secret"), left);
+        assertFalse(left.contains("second-secret"), left);
+    }
+
     // Writing: appending and removing
 
     /**

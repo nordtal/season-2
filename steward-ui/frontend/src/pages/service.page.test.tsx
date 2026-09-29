@@ -170,19 +170,40 @@ const openRun = (over: Partial<Run> = {}): Run => ({
 })
 
 describe("ServicePage - a run that is open", () => {
-  it("names it, offers Cancel in its countdown, and locks every action", async () => {
+  it("names it on a page in its scope, offers Cancel in its countdown, and locks every action", async () => {
     vi.stubGlobal("EventSource", SilentEventSource)
-    vi.stubGlobal("fetch", backend(row("limbo"), { run: openRun() }))
+    vi.stubGlobal("fetch", backend(row("limbo"), { run: openRun({ scope: ["smp", "limbo"] }) }))
     draw("/services/limbo")
 
     expect(await screen.findByRole("link", { name: "Take down #41" })).toBeTruthy()
-    expect(screen.getByText("smp")).toBeTruthy()
+    expect(screen.getByText("smp, limbo")).toBeTruthy()
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy()
     await waitFor(() => {
       for (const name of ["Update", "Take down", "Recreate"]) {
         expect(asButton(screen.getByRole("button", { name })).disabled).toBe(true)
       }
     })
+  })
+
+  it("is not shown on a page outside its scope, which may still recreate but not start a run", async () => {
+    vi.stubGlobal("EventSource", SilentEventSource)
+    vi.stubGlobal("fetch", backend(row("limbo"), { run: openRun() }))
+    draw("/services/limbo")
+
+    await waitFor(() => expect(asButton(screen.getByRole("button", { name: "Update" })).disabled).toBe(true))
+    expect(asButton(screen.getByRole("button", { name: "Take down" })).disabled).toBe(true)
+    expect(asButton(screen.getByRole("button", { name: "Recreate" })).disabled).toBe(false)
+    expect(screen.queryByRole("link", { name: /#41/ })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull()
+  })
+
+  it("is shown on every page when it covers the whole network", async () => {
+    vi.stubGlobal("EventSource", SilentEventSource)
+    vi.stubGlobal("fetch", backend(row("limbo"), { run: openRun({ kind: "UPDATE", scope: [] }) }))
+    draw("/services/limbo")
+
+    expect(await screen.findByRole("link", { name: "Update #41" })).toBeTruthy()
+    await waitFor(() => expect(asButton(screen.getByRole("button", { name: "Recreate" })).disabled).toBe(true))
   })
 
   it("shows the stage once the countdown is over, and no Cancel", async () => {

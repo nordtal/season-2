@@ -15,7 +15,8 @@ import { useConfigs, useMessageBundles, useMetrics, useService } from "@/lib/que
 import { ServiceConsole } from "@/components/steward/console"
 import { ServiceSettings } from "@/components/steward/settings"
 import { ServicePlugins } from "@/components/steward/plugins"
-import { HungerGamesActions, SmpActions } from "@/components/steward/game-actions"
+import { HungerGamesActions } from "@/components/steward/game-actions"
+import { SmpActions } from "@/components/steward/milestone-track"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
@@ -258,9 +259,9 @@ function ServiceActions({
   )
 }
 
-/** The open run, which locks the buttons beside it: its stage, and Cancel while the countdown runs. */
+/** The open run on a page in its scope: its stage, and Cancel while the countdown runs. */
 export function ActiveRunLine({ run, name }: { run: Run | null; name: string }) {
-  if (!run) return null
+  if (!run || !touches(run, name)) return null
   const stage = run.report && !ENDINGS.has(run.report.stage) ? run.report.stage : null
   const elsewhere = run.scope.length > 0 && !(run.scope.length === 1 && run.scope[0] === name)
   return (

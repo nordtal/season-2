@@ -102,10 +102,26 @@ class MilestoneStateIntegrationTest {
     }
 
     @Test
-    void escapeHatchTwoSkipsActive() {
-        // /smp milestone unlock on a milestone the season has not reached: the blunt escape hatch.
-        assertEquals(Optional.of("departure"), dao.completeMilestone("departure"));
-        assertEquals(List.of("departure"), dao.completedMilestoneKeys());
+    void anOutOfOrderUnlockLeavesExactlyOneActiveMilestone() {
+        dao.activateMilestone("waiting");
+
+        assertEquals(Optional.empty(), dao.completeMilestone("departure"), "a locked milestone was unlocked");
+        assertEquals(List.of(), dao.completedMilestoneKeys());
+        assertEquals(List.of("waiting"), activeKeys());
+    }
+
+    /** The track was read with one milestone done; a reset in between must not let a later one become active. */
+    @Test
+    void anActivationReadBeforeAResetDoesNothing() {
+        dao.activateMilestone("waiting");
+        dao.completeMilestone("waiting");
+        execute("UPDATE smp_milestone SET state = 'LOCKED', unlocked = NULL");
+
+        assertEquals(0, dao.activateAfter("departure", 1), "the count read before the reset no longer holds");
+        assertEquals(List.of(), activeKeys());
+        assertEquals(1, dao.activateAfter("waiting", 0));
+        assertEquals(0, dao.activateAfter("departure", 0), "one active milestone at a time");
+        assertEquals(List.of("waiting"), activeKeys());
     }
 
     @Test
@@ -119,6 +135,14 @@ class MilestoneStateIntegrationTest {
         dao.ensureObjective("departure", "logs", "HAND_IN", 32);
         assertEquals(32, dao.objectivesOf("departure").getFirst().target(), "a lowered target reaches the row");
         assertEquals(0, dao.objectivesOf("departure").getFirst().amount(), "and the progress is untouched");
+    }
+
+    private static List<String> activeKeys() {
+        return Jdbi.create(dataSource)
+                .withHandle(handle -> handle.createQuery(
+                                "SELECT key FROM smp_milestone WHERE state = 'ACTIVE' ORDER BY key")
+                        .mapTo(String.class)
+                        .list());
     }
 
     private static void execute(final String sql) {

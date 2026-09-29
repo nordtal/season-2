@@ -69,6 +69,12 @@ public interface Smp {
         @Name("No active milestone")
         MessageRef noActiveMilestone();
 
+        @Name("Nothing to unlock")
+        MessageRef nothingToUnlock();
+
+        @Name("Milestone not active")
+        MessageRef milestoneNotActive(@Arg("key") Object key, @Arg("milestone") MilestoneContext milestone);
+
         @Name("No such objective")
         MessageRef noSuchObjective();
 

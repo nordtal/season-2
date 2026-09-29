@@ -583,10 +583,18 @@ public final class StewardUi {
     }
 
     public void stop() {
+        // Follows first: one closed after Jetty recycled its request sends Javalin's error handling round in a loop.
+        heartbeats.shutdownNow();
+        streams.shutdownNow();
+        try {
+            if (!streams.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                log.warn("a log follow did not end within five seconds of the stop");
+            }
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
         if (app != null) {
             app.stop();
         }
-        streams.shutdownNow();
-        heartbeats.shutdownNow();
     }
 }

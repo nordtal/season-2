@@ -36,42 +36,55 @@ final class GameActions {
         return Objects.requireNonNull(dataSource, "no database - this route is not available without one");
     }
 
-    /** {@code GET /api/smp/track}: the active milestones and their objectives. */
+    /** {@code GET /api/smp/track}: every milestone with its state and objectives; the page orders them by the file. */
     void track(final Context ctx) {
-        final Map<String, List<Map<String, Object>>> objectives = new LinkedHashMap<>();
+        final Map<String, Map<String, Object>> milestones = new LinkedHashMap<>();
         try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
-                     SELECT milestone.key AS milestone, objective.key, objective.type,
-                            objective.amount, objective.target, objective.completed IS NOT NULL AS done
+                     SELECT milestone.key AS milestone, milestone.state, milestone.unlocked,
+                            objective.key, objective.type, objective.amount, objective.target,
+                            objective.completed
                      FROM smp_milestone milestone
                               LEFT JOIN smp_objective objective ON objective.milestone_key = milestone.key
-                     WHERE milestone.state = 'ACTIVE'
-                     ORDER BY milestone.key, objective.key
+                     ORDER BY CASE milestone.state WHEN 'UNLOCKED' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END,
+                              milestone.unlocked, milestone.key, objective.key
                      """);
                 ResultSet rows = statement.executeQuery()) {
+            final Map<String, List<Map<String, Object>>> objectives = new LinkedHashMap<>();
             while (rows.next()) {
-                final List<Map<String, Object>> list =
-                        objectives.computeIfAbsent(rows.getString("milestone"), key -> new ArrayList<>());
+                final String key = rows.getString("milestone");
+                final String state = rows.getString("state");
+                final java.sql.@Nullable Timestamp unlocked = rows.getTimestamp("unlocked");
+                final List<Map<String, Object>> list = objectives.computeIfAbsent(key, fresh -> {
+                    final Map<String, Object> milestone = new LinkedHashMap<>();
+                    milestone.put("key", fresh);
+                    milestone.put("state", state);
+                    putInstant(milestone, "unlocked", unlocked);
+                    final List<Map<String, Object>> created = new ArrayList<>();
+                    milestone.put("objectives", created);
+                    milestones.put(fresh, milestone);
+                    return created;
+                });
                 if (rows.getString("key") == null) continue;
                 final Map<String, Object> objective = new LinkedHashMap<>();
                 objective.put("key", rows.getString("key"));
                 objective.put("type", rows.getString("type"));
                 objective.put("amount", rows.getLong("amount"));
                 objective.put("target", rows.getLong("target"));
-                objective.put("completed", rows.getBoolean("done"));
+                final java.sql.@Nullable Timestamp completed = rows.getTimestamp("completed");
+                objective.put("completed", completed != null);
+                putInstant(objective, "completedAt", completed);
                 list.add(objective);
             }
         } catch (final SQLException failure) {
             throw new IllegalStateException("could not read the SMP's track", failure);
         }
-        final List<Map<String, Object>> active = new ArrayList<>();
-        objectives.forEach((key, list) -> {
-            final Map<String, Object> milestone = new LinkedHashMap<>();
-            milestone.put("key", key);
-            milestone.put("objectives", list);
-            active.add(milestone);
-        });
-        ctx.json(Map.of("active", active));
+        ctx.json(Map.of("milestones", new ArrayList<>(milestones.values())));
+    }
+
+    private static void putInstant(
+            final Map<String, Object> into, final String key, final java.sql.@Nullable Timestamp at) {
+        if (at != null) into.put(key, at.toInstant().toString());
     }
 
     /** {@code POST /api/smp/objective} with {@code {key}}, an open objective of the active milestone. */

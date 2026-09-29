@@ -176,12 +176,12 @@ public interface SmpDao {
     /**
      * Finishes a milestone and sends {@code pg_notify} in the same statement.
      *
-     * Returns empty when the milestone was already complete, so two callers at once are safe.
+     * Returns empty unless the milestone was the active one, so two callers at once are safe and no unlock skips ahead.
      */
     @SqlQuery("""
             UPDATE smp_milestone
             SET state = 'UNLOCKED', unlocked = now()
-            WHERE key = :key AND state <> 'UNLOCKED'
+            WHERE key = :key AND state = 'ACTIVE'
             RETURNING key, pg_notify('nordtal_smp', 'milestone:' || key) AS notified
             """)
     Optional<String> completeMilestone(@Bind("key") String key);
@@ -204,6 +204,15 @@ public interface SmpDao {
 
     @SqlUpdate("UPDATE smp_milestone SET state = 'ACTIVE' WHERE key = :key AND state = 'LOCKED'")
     int activateMilestone(@Bind("key") String key);
+
+    /** Activates {@code key} only while nothing is active and {@code completed} milestones are still unlocked. */
+    @SqlUpdate("""
+            UPDATE smp_milestone SET state = 'ACTIVE'
+            WHERE key = :key AND state = 'LOCKED'
+              AND NOT EXISTS (SELECT 1 FROM smp_milestone WHERE state = 'ACTIVE')
+              AND (SELECT count(*) FROM smp_milestone WHERE state = 'UNLOCKED') = :completed
+            """)
+    int activateAfter(@Bind("key") String key, @Bind("completed") int completed);
 
     /** Books an aura change and its audit row together, the balance and the reason for it. */
     @Transaction

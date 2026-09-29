@@ -83,6 +83,7 @@ class PhaseDirectoryIntegrationTest {
         execute("TRUNCATE TABLE discord_user CASCADE");
         execute("DELETE FROM season_phase");
         execute("INSERT INTO season_phase (phase) VALUES ('PRE_EVENT')");
+        execute("TRUNCATE TABLE smp_milestone CASCADE");
         phases = PhaseDirectory.using(dataSource);
     }
 
@@ -217,6 +218,48 @@ class PhaseDirectoryIntegrationTest {
                 List.of("PRE_EVENT -> PRE_EVENT"),
                 query("SELECT detail FROM audit_log"),
                 "a switch that changed nothing is still something a human may need to see afterwards");
+    }
+
+    @Test
+    void enteringTheSeasonFromTheEventStartsTheTrackOver() {
+        playedTrack();
+        phases.switchPhase(SeasonPhase.START_EVENT, ADMIN_ID, null);
+
+        phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null);
+
+        assertEquals(
+                List.of("departure|LOCKED|-", "waiting|LOCKED|-"),
+                query("SELECT key || '|' || state || '|' || coalesce(cast(unlocked AS text), '-')"
+                        + " FROM smp_milestone ORDER BY key"));
+        assertEquals(
+                List.of("logs|0|-"),
+                query("SELECT key || '|' || amount || '|'"
+                        + " || coalesce(cast(completed AS text), '-') FROM smp_objective"));
+        assertEquals(0, count("SELECT count(*) FROM smp_contribution"));
+    }
+
+    @Test
+    void comingBackFromMaintenanceKeepsTheTrack() {
+        playedTrack();
+        phases.switchPhase(SeasonPhase.MAINTENANCE, ADMIN_ID, null);
+
+        phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null);
+
+        assertEquals(
+                List.of("departure|ACTIVE", "waiting|UNLOCKED"),
+                query("SELECT key || '|' || state FROM smp_milestone ORDER BY key"));
+        assertEquals(1, count("SELECT count(*) FROM smp_contribution"));
+    }
+
+    /** A track somebody has played: waiting done, departure active with progress and a contribution. */
+    private static void playedTrack() {
+        user(ADMIN_ID);
+        execute("INSERT INTO smp_milestone (key, state, unlocked) VALUES ('waiting', 'UNLOCKED', now()),"
+                + " ('departure', 'ACTIVE', NULL)");
+        execute("INSERT INTO smp_objective (milestone_key, key, type, amount, target, completed)"
+                + " VALUES ('departure', 'logs', 'HAND_IN', 64, 64, now())");
+        execute("INSERT INTO smp_contribution (objective_id, discord_id, amount)" + " SELECT id, '" + ADMIN_ID
+                + "', 64 FROM smp_objective");
     }
 
     @Test

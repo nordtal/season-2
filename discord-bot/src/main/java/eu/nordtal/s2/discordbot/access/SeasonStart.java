@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.discordbot.AdminLog;
 import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.utils.TimeFormat;
 
 /**
  * Warns when a grant starts now because {@code season_phase.smp_start} is not set yet.
@@ -44,8 +45,10 @@ public final class SeasonStart {
                         + " {} instead of from the SMP opening",
                 discordId,
                 grant.validFrom());
-        admin.note("Access was granted to <@" + discordId + "> while the season has no start date."
-                + " The period runs from **" + grant.validFrom() + "**, not from the SMP opening."
-                + " Expected while testing; before the season opens, set the date on Steward's season page.");
+        // Expected while testing; before the season opens, somebody sets the date in Steward.
+        admin.note(
+                "⚠️ No season start",
+                "<@" + discordId + ">'s access runs from " + TimeFormat.DATE_TIME_SHORT.format(grant.validFrom())
+                        + " instead of the SMP opening. Set the date in Steward under Season.");
     }
 }

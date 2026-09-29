@@ -208,7 +208,7 @@ public interface AccessMessages {
             MessageRef reference(@Arg("reference") Object reference);
 
             @Name("Expiry")
-            MessageRef ttl(@Arg("hours") Object hours);
+            MessageRef ttl(@Arg("until") Object until);
 
             @Name("Pending")
             MessageRef pending();
@@ -233,10 +233,13 @@ public interface AccessMessages {
         MessageRef donor();
 
         @Name("Expiring")
-        MessageRef expiring(@Arg("until") Object until, @Arg("days") Object days);
+        MessageRef expiring(@Arg("in") Object in, @Arg("until") Object until, @Arg("channel") Object channel);
 
         @Name("Expired")
-        MessageRef expired();
+        MessageRef expired(@Arg("channel") Object channel);
+
+        @Name("Contribution channel")
+        MessageRef channel();
 
         @Name("Revoked")
         MessageRef revoked();

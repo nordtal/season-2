@@ -14,7 +14,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Writes every admin action to {@code audit_log} and, when a human is needed, to the admin channel.
  *
- * {@link #alert(String)} mentions the admin role for anything somebody must act on; {@link #note(String)} does not.
+ * Every line is a {@link Card}; {@link #alert} mentions the admin role for anything to act on, {@link #note} does not.
  */
 @Slf4j
 public final class AdminLog {
@@ -29,17 +29,23 @@ public final class AdminLog {
         this.dao = jdbi.onDemand(AuditDao.class);
     }
 
-    /** Posts a line somebody must act on, mentioning the admin role when one is configured. */
-    public void alert(final String text) {
-        post(
+    /** Posts a card somebody must act on, mentioning the admin role when one is configured. */
+    public void alert(final String title, final String text) {
+        send(
                 Configured.isSet(config.roles().adminPing())
-                        ? "<@&" + config.roles().adminPing() + "> " + text
-                        : text);
+                        ? "<@&" + config.roles().adminPing() + ">"
+                        : null,
+                card(title, text));
     }
 
-    /** Posts a line to be read later, without a mention. */
-    public void note(final String text) {
-        post(text);
+    /** Posts a card to be read later, without a mention. */
+    public void note(final String title, final String text) {
+        send(null, card(title, text));
+    }
+
+    /** Draws one admin-log line; the role mention stays outside, since a mention inside an embed pings nobody. */
+    static MessageEmbed card(final String title, final String text) {
+        return Card.of(title).lead(text).build();
     }
 
     /**
@@ -109,14 +115,25 @@ public final class AdminLog {
         return channel;
     }
 
-    private void post(final String text) {
+    private void send(final @Nullable String mention, final MessageEmbed embed) {
         final MessageChannel channel = channel();
         if (channel == null) {
             // At warn: with no admin channel this is the only place the message exists.
-            log.warn("No admin channel, so this was not posted to Discord: {}", text);
+            log.warn(
+                    "No admin channel, so this was not posted to Discord: {} {}",
+                    embed.getTitle(),
+                    embed.getDescription());
             return;
         }
-        channel.sendMessage(text)
-                .queue(success -> {}, failure -> log.error("Could not write to the admin channel: {}", text, failure));
+        (mention == null
+                        ? channel.sendMessageEmbeds(embed)
+                        : channel.sendMessage(mention).setEmbeds(embed))
+                .queue(
+                        success -> {},
+                        failure -> log.error(
+                                "Could not write to the admin channel: {} {}",
+                                embed.getTitle(),
+                                embed.getDescription(),
+                                failure));
     }
 }

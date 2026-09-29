@@ -98,9 +98,8 @@ public final class PaymentProcessor {
             raise(
                     paymentId,
                     "BELOW_MINIMUM",
-                    "Payment " + paymentId + " on `" + request.reference() + "` from <@" + request.discordId()
-                            + "> is " + Money.format(cents) + ", which is below the cheapest tier. "
-                            + "Nothing was granted.");
+                    "<@" + request.discordId() + "> paid " + Money.format(cents) + " on `" + request.reference()
+                            + "`, below the cheapest tier. Nothing was granted.");
             return;
         }
 
@@ -197,7 +196,7 @@ public final class PaymentProcessor {
         for (final PaymentNotice notice : requests.unpostedNotices()) {
             if (requests.claimNotice(notice.bunqPaymentId())) {
                 // Falls back to the reason label on a notice built with no detail sentence.
-                admin.alert(Objects.requireNonNullElse(notice.detail(), notice.reason()));
+                admin.alert("💶 Payment needs a look", Objects.requireNonNullElse(notice.detail(), notice.reason()));
             }
         }
     }
@@ -205,7 +204,7 @@ public final class PaymentProcessor {
     /** Raises a payment to the admin channel once ever, writing and claiming the notice together. */
     private void raise(final long paymentId, final String reason, final String text) {
         if (requests.noticeOnce(paymentId, reason, text) && requests.claimNotice(paymentId)) {
-            admin.alert(text);
+            admin.alert("💶 Payment needs a look", text);
         }
     }
 }

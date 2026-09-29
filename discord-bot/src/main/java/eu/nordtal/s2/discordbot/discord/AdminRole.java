@@ -42,8 +42,9 @@ public final class AdminRole {
         final Role role = guild.getRoleById(config.roles().admin());
         if (role == null) {
             if (alerted.add("role")) {
-                adminLog.alert("The admin role " + config.roles().admin() + " does not exist, so it"
-                        + " is not being kept in step with the admins decided in Steward.");
+                adminLog.alert(
+                        "⚠️ Admin role missing",
+                        "`" + config.roles().admin() + "` does not exist, so it is not kept in step with Steward.");
             }
             return;
         }
@@ -81,7 +82,7 @@ public final class AdminRole {
 
     private void failed(final String discordId, final String what, final Throwable failure) {
         if (alerted.add(discordId)) {
-            adminLog.alert("Could not " + what + " <@" + discordId + ">: " + failure.getMessage());
+            adminLog.alert("⚠️ Admin role not changed", "<@" + discordId + "> " + what + ": " + failure.getMessage());
         } else {
             log.debug("Could still not {} {}: {}", what, discordId, failure.getMessage());
         }

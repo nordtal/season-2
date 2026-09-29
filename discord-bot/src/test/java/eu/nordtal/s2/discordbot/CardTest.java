@@ -17,7 +17,7 @@ class CardTest {
     @Test
     void aLongBlockContinues() {
         final List<String> lines = lines(10, 200);
-        final MessageEmbed embed = Card.of("Update", Card.Accent.NEUTRAL)
+        final MessageEmbed embed = Card.of("Update")
                 .block("Services", lines, count -> "+" + count + " more")
                 .build();
 
@@ -35,7 +35,7 @@ class CardTest {
     @Test
     void anOversizedBlockIsSummarised() {
         final List<String> lines = lines(100, 500);
-        final MessageEmbed embed = Card.of("Update", Card.Accent.BAD)
+        final MessageEmbed embed = Card.of("Update")
                 .field("Run", "update")
                 .block("Services", lines, count -> "+" + count + " more")
                 .build();
@@ -55,7 +55,7 @@ class CardTest {
 
     @Test
     void twentyFiveFields() {
-        final Card card = Card.of("Many", Card.Accent.NORDTAL);
+        final Card card = Card.of("Many");
         for (int i = 0; i < 40; i++) {
             card.field("f" + i, "v");
         }

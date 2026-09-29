@@ -146,7 +146,7 @@ public final class ManagedMessages {
             prices.add(messages.format(
                     locale, MESSAGES.contribution().tierLine(tier.days(), Money.format(tier.priceCents()))));
         }
-        return Card.of(messages.format(locale, MESSAGES.contribution().title()), Card.Accent.NORDTAL)
+        return Card.of(messages.format(locale, MESSAGES.contribution().title()))
                 .block(messages.format(locale, MESSAGES.contribution().prices()), prices, count -> "+" + count)
                 .field(
                         messages.format(locale, MESSAGES.contribution().donationHeading()),
@@ -159,7 +159,7 @@ public final class ManagedMessages {
     }
 
     private MessageEmbed linkEmbed(final Locale locale) {
-        return Card.of(messages.format(locale, MESSAGES.link().title()), Card.Accent.NORDTAL)
+        return Card.of(messages.format(locale, MESSAGES.link().title()))
                 .wide(
                         messages.format(locale, MESSAGES.link().stepsHeading()),
                         messages.format(

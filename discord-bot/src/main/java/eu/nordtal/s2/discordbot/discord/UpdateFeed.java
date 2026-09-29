@@ -43,7 +43,7 @@ public final class UpdateFeed {
         void edit(String messageId, MessageEmbed embed);
 
         /** Posts a line mentioning the admin role, used only for a failed run since an edit notifies nobody. */
-        void alert(String text);
+        void alert(String title, String text);
 
         static Board of(final AdminLog admin) {
             return new Board() {
@@ -58,12 +58,16 @@ public final class UpdateFeed {
                 }
 
                 @Override
-                public void alert(final String text) {
-                    admin.alert(text);
+                public void alert(final String title, final String text) {
+                    admin.alert(title, text);
                 }
             };
         }
     }
+
+    /** A bare Discord id, or one in parentheses at the end of a name. */
+    private static final java.util.regex.Pattern DISCORD_ID =
+            java.util.regex.Pattern.compile("^(?:.*\\()?(\\d{17,20})\\)?\\s*$");
 
     private record Drawn(String messageId, @Nullable String showing) {}
 
@@ -209,9 +213,9 @@ public final class UpdateFeed {
             return;
         }
         try {
-            board.alert("**" + request.kind().name().toLowerCase(java.util.Locale.ROOT) + " failed** ↑ "
-                    + (request.requestedBy() == null ? "console" : Card.escape(request.requestedBy()))
-                    + ", " + request.source().name().toLowerCase(java.util.Locale.ROOT));
+            board.alert(
+                    "🛑 " + request.kind().name().toLowerCase(java.util.Locale.ROOT) + " failed",
+                    asker(request) + ", " + request.source().name().toLowerCase(java.util.Locale.ROOT));
         } catch (final RuntimeException failure) {
             // The embed is already posted; losing the mention must not lose the pass.
             log.warn("Could not alert admins about failed update request {}", request.id(), failure);
@@ -234,7 +238,7 @@ public final class UpdateFeed {
     }
 
     /**
-     * Draws one run as data: the stage as title, the outcome as colour, one line per service.
+     * Draws one run as data: the stage as title, the outcome as its emoji, one line per service.
      *
      * @param context whether to say who asked, and from where; only the admin channel's feed does
      */
@@ -244,8 +248,8 @@ public final class UpdateFeed {
             final Messages messages,
             final java.util.Locale locale,
             final boolean context) {
-        final Card card = Card.of(
-                        messages.format(locale, MESSAGES.update().stage(report.stage())), accent(report.stage()))
+        final Card card = Card.of(glance(report.stage()) + " "
+                        + messages.format(locale, MESSAGES.update().stage(report.stage())))
                 .timestamp(request.finished() == null ? Instant.now() : request.finished());
         final java.util.function.IntFunction<String> more = count ->
                 Card.italic(messages.format(locale, MESSAGES.update().embed().more(count)));
@@ -254,9 +258,7 @@ public final class UpdateFeed {
             card.field(
                             messages.format(locale, MESSAGES.update().embed().run()),
                             request.kind().name().toLowerCase(java.util.Locale.ROOT))
-                    .field(
-                            messages.format(locale, MESSAGES.update().embed().by()),
-                            request.requestedBy() == null ? "console" : Card.escape(request.requestedBy()))
+                    .field(messages.format(locale, MESSAGES.update().embed().by()), asker(request))
                     .field(
                             messages.format(locale, MESSAGES.update().embed().from()),
                             request.source().name().toLowerCase(java.util.Locale.ROOT));
@@ -287,7 +289,7 @@ public final class UpdateFeed {
         return card.build();
     }
 
-    /** Renders a service line such as {@code ✔ smp running  smp 0.9.3 → 0.9.4}. */
+    /** Renders a service line such as {@code ✅ smp running  smp 0.9.3 → 0.9.4}. */
     private static String line(
             final UpdateReport.ServiceLine line, final Messages messages, final java.util.Locale locale) {
         final StringBuilder text = new StringBuilder(marker(line.state()))
@@ -314,24 +316,39 @@ public final class UpdateFeed {
         return text.toString();
     }
 
-    /** Returns the marker of one service's state. */
+    /** Returns the emoji of one service's state, from the same set as {@link #glance}. */
     private static String marker(final UpdateReport.State state) {
         return switch (state) {
-            case UNCHANGED -> "\u2013";
-            case PLANNED -> "○";
-            case STOPPED, INSTALLED, STARTING -> "◑";
+            case UNCHANGED -> "➖";
+            case PLANNED -> "⏳";
+            case STOPPED, INSTALLED, STARTING -> "🔄";
             // A finished snapshot and a service that came back are the same news.
-            case HEALTHY, SAVED -> "✔";
-            case FAILED -> "✖";
+            case HEALTHY, SAVED -> "✅";
+            case FAILED -> "🛑";
         };
     }
 
-    /** Returns red for a failure, green for success, and grey for everything else. */
-    private static Card.Accent accent(final UpdateReport.Stage stage) {
+    /** Returns the emoji in front of a stage: the only place an outcome shows, since every card has one colour. */
+    private static String glance(final UpdateReport.Stage stage) {
         return switch (stage) {
-            case FAILED -> Card.Accent.BAD;
-            case DONE -> Card.Accent.GOOD;
-            default -> Card.Accent.NEUTRAL;
+            case RESOLVING -> "🔍";
+            case PLANNED -> "📋";
+            case COUNTDOWN -> "⏳";
+            case STOPPING, BACKING_UP, INSTALLING, STARTING, VERIFYING -> "🔄";
+            case DONE, NOTHING_TO_DO -> "✅";
+            case FAILED -> "🛑";
+            case CANCELLED -> "⏹️";
         };
+    }
+
+    /** Who asked for a run, as a mention whenever the row carries a Discord id. */
+    static String asker(final UpdateRequest request) {
+        final String by = request.requestedBy();
+        if (by == null) {
+            return "console";
+        }
+        // Discord writes the bare id, Steward writes "name (id)".
+        final java.util.regex.Matcher id = DISCORD_ID.matcher(by);
+        return id.matches() ? "<@" + id.group(1) + ">" : Card.escape(by);
     }
 }

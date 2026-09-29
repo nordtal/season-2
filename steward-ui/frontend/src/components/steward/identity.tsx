@@ -181,7 +181,7 @@ function CopyableId({ label, value }: { label: string; value: string }) {
           value={value}
           aria-label={label}
           onFocus={(event) => event.currentTarget.select()}
-          className="min-w-0 flex-1 truncate rounded-sm border border-border bg-muted px-2 py-1 font-mono text-xs select-all"
+          className="min-w-0 flex-1 truncate rounded-sm border border-border bg-muted px-2 py-1 font-mono text-xs select-all max-md:text-base"
         />
         <Button
           type="button"

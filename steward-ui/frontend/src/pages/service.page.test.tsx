@@ -98,6 +98,16 @@ describe("ServicePage - the head and the tabs", () => {
     expect(screen.getByText("players online")).toBeTruthy()
   })
 
+  it("puts the milestone track under the console, which a phone then reaches first", async () => {
+    vi.stubGlobal("EventSource", SilentEventSource)
+    vi.stubGlobal("fetch", backend(row("smp", { hasPlugins: true })))
+    draw("/services/smp")
+
+    const track = await screen.findByText("Milestone track")
+    const console = screen.getByRole("region", { name: "Console" })
+    expect(console.compareDocumentPosition(track) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it("gives postgres Console alone and no online line", async () => {
     vi.stubGlobal("EventSource", SilentEventSource)
     vi.stubGlobal("fetch", backend(row("postgres", { hasPlugins: false })))

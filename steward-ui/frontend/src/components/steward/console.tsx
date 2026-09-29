@@ -73,7 +73,7 @@ export function ServiceConsole({
               }}
               placeholder="Find"
               aria-label="Find in the console"
-              className="min-w-0 flex-1 bg-transparent font-sans text-xs text-white outline-none placeholder:text-white/35"
+              className="min-w-0 flex-1 bg-transparent font-sans text-xs text-white outline-none placeholder:text-white/35 max-md:text-base"
               spellCheck={false}
             />
             {query.trim() ? (
@@ -390,7 +390,7 @@ function ConsoleLine({ name }: { name: string }) {
         }}
         placeholder="list"
         aria-label="Send a line to the server console"
-        className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/25"
+        className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/25 max-md:text-base"
         autoComplete="off"
         autoCapitalize="off"
         autoCorrect="off"

@@ -288,7 +288,7 @@ function ArgumentField({
       {label}
       <Input
         id={id}
-        className="font-mono text-sm"
+        className="font-mono text-sm max-md:text-base"
         spellCheck={false}
         inputMode={argument.kind === "INTEGER" ? "numeric" : undefined}
         value={value}

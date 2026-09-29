@@ -94,7 +94,7 @@ public final class Resolver {
         for (final String artifact : Topology.STANDALONE_JARS) {
             changes.add(resolveStandalone(root, artifact, newest, failures, unreleased));
         }
-        changes.add(resolvePack(root, newest, failures));
+        changes.add(resolvePack(root, newest, failures, unreleased));
 
         return new UpdatePlan(
                 clock.instant(),
@@ -227,7 +227,7 @@ public final class Resolver {
             }
         }
 
-        resolvePackAsset(release, newest, failures);
+        resolvePackAsset(release, newest, failures, unreleased);
         return release;
     }
 
@@ -235,7 +235,8 @@ public final class Resolver {
     private void resolvePackAsset(
             final GitHubReleases.Release release,
             final Map<String, RemoteFile> newest,
-            final Map<String, String> failures) {
+            final Map<String, String> failures,
+            final Set<String> unreleased) {
         GitHubReleases.Asset zip = null;
         GitHubReleases.Asset sha1 = null;
         for (final GitHubReleases.Asset asset : release.assets()) {
@@ -248,6 +249,7 @@ public final class Resolver {
 
         if (zip == null) {
             failures.put(Topology.RESOURCE_PACK, "release " + release.tag() + " carries no pack zip");
+            unreleased.add(Topology.RESOURCE_PACK);
             return;
         }
         if (sha1 == null) {
@@ -439,13 +441,14 @@ public final class Resolver {
     }
 
     private Change resolvePack(
-            final Path root, final Map<String, RemoteFile> newest, final Map<String, String> failures) {
+            final Path root,
+            final Map<String, RemoteFile> newest,
+            final Map<String, String> failures,
+            final Set<String> unreleased) {
         final RemoteFile wanted = newest.get(Topology.RESOURCE_PACK);
-        if (wanted == null) {
-            return Change.unresolved(
-                    Topology.PROXY,
-                    Topology.RESOURCE_PACK,
-                    failures.getOrDefault(Topology.RESOURCE_PACK, "no source answered for the pack"));
+        final String why = failures.getOrDefault(Topology.RESOURCE_PACK, "no source answered for the pack");
+        if (wanted == null && !unreleased.contains(Topology.RESOURCE_PACK)) {
+            return Change.unresolved(Topology.PROXY, Topology.RESOURCE_PACK, why);
         }
 
         final PackState state;
@@ -454,6 +457,19 @@ public final class Resolver {
         } catch (final IOException failed) {
             return Change.unresolved(
                     Topology.PROXY, Topology.RESOURCE_PACK, "could not read pack.yml: " + failed.getMessage());
+        }
+
+        if (wanted == null) {
+            // A release without a pack keeps the installed one, like a season jar; only an empty proxy fails.
+            return state.present() && state.sha1() != null
+                    ? new Change(
+                            Topology.PROXY,
+                            Topology.RESOURCE_PACK,
+                            Change.Status.NOT_IN_RELEASE,
+                            state.sha1(),
+                            null,
+                            why)
+                    : Change.unresolved(Topology.PROXY, Topology.RESOURCE_PACK, why);
         }
 
         if (!state.present() || state.sha1() == null) {

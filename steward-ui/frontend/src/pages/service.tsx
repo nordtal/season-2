@@ -146,7 +146,7 @@ export function ServicePage() {
             capacity={service.data?.logCapacity}
             offline={offline(run, name, service.data?.state)}
           />
-          {/* Below the console, which stays on top; the header's actions are about the container. */}
+          {/* Their own area under the console, not the header: the header's actions are about the container. */}
           {name === "smp" ? <SmpActions /> : null}
           {name === "hunger-games" ? <HungerGamesActions /> : null}
         </TabsContent>
@@ -297,9 +297,10 @@ export function ServiceHead({
   const cpu = useMetrics(name, "cpu_percent", 6)
   const memory = useMetrics(name, "memory_bytes", 6)
   return (
-    <section className="grid grid-cols-2 gap-x-4 gap-y-5 lg:flex lg:items-start lg:gap-x-10">
-      <div className="col-span-2 flex flex-col gap-2">
-        <span className="text-xs font-medium font-heading text-muted-foreground">State</span>
+    /* On a phone one compact row, so the console starts right under it; from `sm` the labelled grid. */
+    <section className="grid grid-cols-2 gap-x-4 gap-y-5 max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-y-1 lg:flex lg:items-start lg:gap-x-10">
+      <div className="col-span-2 flex flex-col gap-2 max-sm:flex-row max-sm:items-center">
+        <span className="text-xs font-medium font-heading text-muted-foreground max-sm:sr-only">State</span>
         <div className="flex flex-wrap items-center gap-2">
           {/* The hold is part of the state badge, the same reading the sidebar and network view draw. */}
           {service ? (
@@ -309,7 +310,7 @@ export function ServiceHead({
           )}
           {service ? <DriftBadge drift={service.drift} image={service.image} /> : null}
         </div>
-        <span className="text-2xl font-semibold tabular-nums">
+        <span className="text-2xl font-semibold tabular-nums max-sm:text-sm">
           {service ? (
             service.startedAt ? (
               since(service.startedAt)
@@ -322,19 +323,29 @@ export function ServiceHead({
         </span>
       </div>
       <div className="flex min-w-0 flex-col gap-1.5 lg:w-40">
-        <Stat label="CPU" value={service ? percent(service.cpuPercent) : undefined} />
-        <Sparkline points={cpu.data?.points} />
+        <Stat label="CPU" value={service ? percent(service.cpuPercent) : undefined} {...PHONE_INLINE} />
+        <div className="max-sm:hidden">
+          <Sparkline points={cpu.data?.points} />
+        </div>
       </div>
       <div className="flex min-w-0 flex-col gap-1.5 lg:w-40">
-        <Stat label="RAM" value={service ? bytes(service.memoryBytes) : undefined} />
-        <Sparkline points={memory.data?.points} />
+        <Stat label="RAM" value={service ? bytes(service.memoryBytes) : undefined} {...PHONE_INLINE} />
+        <div className="max-sm:hidden">
+          <Sparkline points={memory.data?.points} />
+        </div>
       </div>
       {/* Only services with a volume have a number, since 0 bytes would be a claim; an old one says its age. */}
       {service?.diskBytes === undefined ? null : (
-        <Stat label="Disk" value={bytes(service.diskBytes)} hint={diskAge(service.diskMeasuredAt)} />
+        <Stat label="Disk" value={bytes(service.diskBytes)} hint={diskAge(service.diskMeasuredAt)} {...PHONE_INLINE} />
       )}
     </section>
   )
+}
+
+/** A `Stat` in the phone row: label, value and hint on one line, the value no larger than the text. */
+const PHONE_INLINE = {
+  className: "max-sm:flex-row max-sm:items-baseline max-sm:gap-1.5",
+  valueClassName: "max-sm:text-sm",
 }
 
 function diskAge(measuredAt: string | undefined, now = Date.now()): string | undefined {

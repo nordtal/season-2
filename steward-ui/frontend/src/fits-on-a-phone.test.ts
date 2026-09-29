@@ -37,7 +37,57 @@ function everyClassAttribute(directory: string): Array<{ file: string; classes: 
   return found
 }
 
+/** The static class lists of every text field, the primitives' own included; `type` attributes that are not text are skipped. */
+function everyTextField(directory: string): Array<{ file: string; tag: string; classes: string }> {
+  const found: Array<{ file: string; tag: string; classes: string }> = []
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const full = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      found.push(...everyTextField(full))
+      continue
+    }
+    if (!entry.name.endsWith(".tsx") || entry.name.includes(".test.")) continue
+    const text = fs.readFileSync(full, "utf8")
+    const tags =
+      /<(input|textarea|Input|Textarea|CommandInput|CommandPrimitive\.Input)\b((?:[^>"{]|"[^"]*"|\{(?:[^{}]|\{[^{}]*\})*\})*)>/g
+    for (const match of text.matchAll(tags)) {
+      const [, tag, attributes] = match
+      if (/\btype="(checkbox|radio|range|color|file|hidden)"/.test(attributes)) continue
+      const classes = [...attributes.matchAll(/"([^"\n]*)"/g)].map((m) => m[1]).join(" ")
+      found.push({ file: path.relative(source, full), tag, classes })
+    }
+  }
+  return found
+}
+
 describe("the rules that make it fit on a phone", () => {
+  it("keeps every text field at 16px below md, since iOS zooms into anything smaller", () => {
+    /** The palette on an iPhone zoomed in on focus and stayed zoomed, its list cut off at the right edge. */
+    const small = /(^|\s)text-(xs|sm|\[\d+px\])(\s|$)/
+    const offending: string[] = []
+    for (const { file, tag, classes } of everyTextField(source)) {
+      if (small.test(classes) && !/(^|\s)max-md:text-base(\s|$)/.test(classes))
+        offending.push(`${file}: <${tag} "${classes}"`)
+    }
+    assert.deepEqual(
+      offending,
+      [],
+      "A text field below 16px makes iOS zoom the page on focus. Give it `max-md:text-base` beside the" +
+        " smaller size; `cn` drops a base `text-base` as soon as a caller passes `text-sm`.",
+    )
+  })
+
+  it("gives a button, a tab, a select and a menu item 44px on a touch screen", () => {
+    const controls = ["button", "tabs", "select", "dropdown-menu", "command"]
+    for (const file of controls.map((name) => `components/ui/${name}.tsx`)) {
+      assert.match(
+        fs.readFileSync(path.join(source, file), "utf8"),
+        /pointer-coarse:min-h-control/,
+        `${file} must carry \`pointer-coarse:min-h-control\`, the 44px a finger needs.`,
+      )
+    }
+  })
+
   it("gives every grid an explicit column count, so one long word cannot widen the page", () => {
     /** Below `lg` a grid without `grid-cols-1` has an implicit `auto` track, which one snowflake widened past 390px. */
     const offenders = everyClassAttribute(source)

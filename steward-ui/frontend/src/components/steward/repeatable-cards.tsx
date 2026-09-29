@@ -119,7 +119,7 @@ export function RepeatableCards({
             value={Object.entries(section)
               .map(([key, val]) => `${key}: ${typeof val === "string" ? val : JSON.stringify(val)}`)
               .join("\n")}
-            className="font-mono text-sm"
+            className="font-mono text-sm max-md:text-base"
           />
         ))}
       </div>

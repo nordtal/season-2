@@ -11,7 +11,8 @@ export function PageHeader({ title, actions }: { title: ReactNode; actions?: Rea
       <div className="flex min-w-0 flex-col gap-1.5">
         <h1 className="text-3xl font-semibold font-heading tracking-tight text-balance">{title}</h1>
       </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      {/* `max-w-full`, since at `shrink-0` alone a row of actions wider than the phone runs off it instead of wrapping. */}
+      {actions ? <div className="flex max-w-full shrink-0 items-center gap-2">{actions}</div> : null}
     </header>
   )
 }

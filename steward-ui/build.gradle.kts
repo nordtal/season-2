@@ -232,6 +232,8 @@ dependencies {
     testImplementation(project(":steward-worker"))
 
     testImplementation(libs.cbor)
+    // Read by the shutdown test, which counts what steward-ui logs once a follow has lost its server.
+    testImplementation(libs.logback.classic)
 
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.flyway.core)

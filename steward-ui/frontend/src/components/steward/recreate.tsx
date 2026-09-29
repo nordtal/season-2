@@ -4,7 +4,7 @@ import { toast } from "sonner"
 
 import { ApiError } from "@/lib/api"
 import { useDeployer, useDeployerJob, useRecreate } from "@/lib/queries"
-import { useRunLock } from "@/lib/run-lock"
+import { lockTitle, touches, useRunLock } from "@/lib/run-lock"
 import { Button } from "@/components/ui/button"
 import {
   ResponsiveDialog,
@@ -171,8 +171,10 @@ export function RecreateButton({
  */
 export function useRecreateGate(service: string): { unavailable: boolean; title: string | undefined } {
   const deployer = useDeployer()
-  /** A run under way owns the containers, and recreating one it is about to stop would race it. */
-  const lock = useRunLock()
+  /** A run owns the containers in its scope, and recreating one it is about to stop would race it. */
+  const run = useRunLock().run
+  const lock =
+    run && touches(run, service) ? { locked: true, title: lockTitle(run) } : { locked: false, title: undefined }
   /** An answer that the deployer is unavailable or unreachable locks the button; a first load leaves it open. */
   const unreachable = deployer.data?.available === true && deployer.data.reachable === false
   const unavailable = deployer.data?.available === false || unreachable || deployer.isError || lock.locked

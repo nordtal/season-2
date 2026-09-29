@@ -56,6 +56,17 @@ function peak(series: Series) {
   return series.reduce((top, point) => (point.value > top.value ? point : top), series[0])
 }
 
+/**
+ * Room above and below the data, never below zero.
+ *
+ * From zero, a steady RAM curve drew along the top edge and a quiet CPU curve along the bottom one, which read as no
+ * chart at all.
+ */
+function fit([min, max]: readonly [number, number]): [number, number] {
+  const pad = Math.max((max - min) * 0.2, Math.abs(max) * 0.05, Number.EPSILON)
+  return [Math.max(0, min - pad), max + pad]
+}
+
 /** The strip a curve will fill, shimmering, as `Sparkline` draws it. */
 function Waiting({ height }: { height: number }) {
   return <Skeleton style={{ height }} className="w-full" />
@@ -63,7 +74,7 @@ function Waiting({ height }: { height: number }) {
 
 // A: a taller line, its peak marked
 
-export function TallLine({ label, value, points, format }: MetricProps) {
+export function TallLine({ label, value, points, format, colour }: MetricProps) {
   const series = useMemo(() => seriesOf(points), [points])
   const top = series && series.length > 0 ? peak(series) : undefined
   const last = series?.[series.length - 1]
@@ -80,12 +91,12 @@ export function TallLine({ label, value, points, format }: MetricProps) {
           <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 200, height: 56 }}>
             <LineChart data={series} margin={{ top: 4, right: 4, bottom: 4, left: 0 }}>
               <XAxis dataKey="at" type="number" domain={["dataMin", "dataMax"]} hide />
-              <YAxis domain={[0, "dataMax"]} hide />
+              <YAxis domain={fit} hide />
               <Line
                 dataKey="value"
                 type="monotone"
-                stroke="var(--chart-4)"
-                strokeWidth={1.5}
+                stroke={colour}
+                strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
               />
@@ -105,7 +116,7 @@ export function TallLine({ label, value, points, format }: MetricProps) {
 
 // B: the range of each stretch as a band, its mean as the line
 
-export function Band({ label, value, points }: MetricProps) {
+export function Band({ label, value, points, colour }: MetricProps) {
   const data = useMemo(() => {
     const series = seriesOf(points)
     return series === undefined ? undefined : buckets(series, 48)
@@ -120,21 +131,20 @@ export function Band({ label, value, points }: MetricProps) {
           <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 200, height: 48 }}>
             <ComposedChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
               <XAxis dataKey="at" type="number" domain={["dataMin", "dataMax"]} hide />
-              <YAxis domain={[0, "dataMax"]} hide />
+              <YAxis domain={fit} hide />
               <Area
                 dataKey="band"
                 type="monotone"
                 stroke="none"
-                fill="var(--chart-4)"
+                fill={colour}
                 fillOpacity={0.3}
                 isAnimationActive={false}
               />
               <Line
                 dataKey="mean"
                 type="monotone"
-                stroke="var(--foreground)"
-                strokeOpacity={0.7}
-                strokeWidth={1.25}
+                stroke={colour}
+                strokeWidth={1.5}
                 dot={false}
                 isAnimationActive={false}
               />
@@ -192,8 +202,8 @@ export function Together({
                 axisLine={{ stroke: "var(--border)" }}
                 height={18}
               />
-              <YAxis yAxisId="cpu" domain={[0, "dataMax"]} hide />
-              <YAxis yAxisId="ram" domain={[0, "dataMax"]} hide />
+              <YAxis yAxisId="cpu" domain={fit} hide />
+              <YAxis yAxisId="ram" domain={fit} hide />
               <Line
                 yAxisId="cpu"
                 dataKey="cpu"
@@ -257,7 +267,7 @@ export function RangeSwitch({ hours, onChange }: { hours: Range; onChange: (hour
   )
 }
 
-export function Scrub({ label, value, points, format, colour }: MetricProps & { colour: string }) {
+export function Scrub({ label, value, points, format, colour }: MetricProps) {
   const series = useMemo(() => seriesOf(points), [points])
   const [reading, setReading] = useState<{ at: number; value: number } | null>(null)
   return (
@@ -281,7 +291,7 @@ export function Scrub({ label, value, points, format, colour }: MetricProps & { 
               onMouseLeave={() => setReading(null)}
             >
               <XAxis dataKey="at" type="number" domain={["dataMin", "dataMax"]} hide />
-              <YAxis domain={[0, "dataMax"]} hide />
+              <YAxis domain={fit} hide />
               {/* The reading moves up into the number, so the tooltip draws only its cursor. */}
               <Tooltip
                 content={() => null}
@@ -318,6 +328,7 @@ type MetricProps = {
   value?: string
   points?: MetricPoint[]
   format: Format
+  colour: string
 }
 
 export const formatCpu: Format = (value) => percent(value)

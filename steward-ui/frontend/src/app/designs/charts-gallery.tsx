@@ -43,15 +43,15 @@ export function ChartsGalleryPage() {
 
       <Proposal mark="A" name="Taller line, peak marked">
         <Head service={service}>
-          <TallLine label="CPU" value={cpu} points={six.cpu} format={formatCpu} />
-          <TallLine label="RAM" value={ram} points={six.memory} format={formatRam} />
+          <TallLine label="CPU" value={cpu} points={six.cpu} format={formatCpu} colour="var(--chart-1)" />
+          <TallLine label="RAM" value={ram} points={six.memory} format={formatRam} colour="var(--chart-2)" />
         </Head>
       </Proposal>
 
       <Proposal mark="B" name="Range band, mean line">
         <Head service={service}>
-          <Band label="CPU" value={cpu} points={six.cpu} format={formatCpu} />
-          <Band label="RAM" value={ram} points={six.memory} format={formatRam} />
+          <Band label="CPU" value={cpu} points={six.cpu} format={formatCpu} colour="var(--chart-1)" />
+          <Band label="RAM" value={ram} points={six.memory} format={formatRam} colour="var(--chart-2)" />
         </Head>
       </Proposal>
 

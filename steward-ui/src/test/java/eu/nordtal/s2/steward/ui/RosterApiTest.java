@@ -133,15 +133,15 @@ class RosterApiTest extends StewardUiTestSupport {
     /**
      * The service pages ask for what they act on, never by command name.
      *
-     * Only the active milestone and its open objectives are offered, since unlocking a later one skips the ones before.
+     * The whole track is read; only the active milestone and its open objectives can be acted on.
      */
     @Test
     void gameActionsAreRowsWithoutACommandName() throws Exception {
         try (var connection = data.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("""
-                    INSERT INTO smp_milestone (key, state) VALUES
-                        ('t-open', 'ACTIVE'), ('t-later', 'LOCKED'), ('t-done', 'UNLOCKED');
+                    INSERT INTO smp_milestone (key, state, unlocked) VALUES
+                        ('t-open', 'ACTIVE', NULL), ('t-later', 'LOCKED', NULL), ('t-done', 'UNLOCKED', now());
                     INSERT INTO smp_objective (milestone_key, key, type, amount, target, completed) VALUES
                         ('t-open', 't-iron', 'HAND_IN', 64, 128, NULL),
                         ('t-open', 't-coal', 'STATISTIC', 10, 10, now()),
@@ -150,11 +150,16 @@ class RosterApiTest extends StewardUiTestSupport {
         }
         try {
             final JsonObject track = GSON.fromJson(get("/api/smp/track").body(), JsonObject.class);
-            final JsonArray active = track.getAsJsonArray("active");
-            assertEquals(1, active.size(), track.toString());
-            final JsonObject open = active.get(0).getAsJsonObject();
-            assertEquals("t-open", open.get("key").getAsString());
-            assertEquals(2, open.getAsJsonArray("objectives").size(), track.toString());
+            final JsonArray milestones = track.getAsJsonArray("milestones");
+            final java.util.Map<String, JsonObject> byKey = new java.util.HashMap<>();
+            milestones.forEach(
+                    each -> byKey.put(each.getAsJsonObject().get("key").getAsString(), each.getAsJsonObject()));
+            assertEquals("ACTIVE", byKey.get("t-open").get("state").getAsString(), track.toString());
+            assertEquals("LOCKED", byKey.get("t-later").get("state").getAsString(), track.toString());
+            assertEquals("UNLOCKED", byKey.get("t-done").get("state").getAsString(), track.toString());
+            assertEquals(2, byKey.get("t-open").getAsJsonArray("objectives").size(), track.toString());
+            assertEquals(1, byKey.get("t-later").getAsJsonArray("objectives").size(), track.toString());
+            assertEquals(0, byKey.get("t-done").getAsJsonArray("objectives").size(), track.toString());
 
             assertEquals(400, post("/api/smp/objective", "{\"key\":\"t-coal\"}").statusCode());
             assertEquals(400, post("/api/smp/objective", "{\"key\":\"t-gold\"}").statusCode());

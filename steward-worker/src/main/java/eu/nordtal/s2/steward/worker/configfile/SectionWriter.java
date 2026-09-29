@@ -64,6 +64,9 @@ final class SectionWriter {
                     throw new IllegalArgumentException(field.path() + " (line " + field.line()
                             + ") is not a value or a list and cannot be changed through " + entry.path());
                 }
+                if (keepsSecret(field, wantedValue)) {
+                    continue;
+                }
                 final Object normalised = shapedFor(field, wantedValue);
                 if (!normalised.equals(valueOf(field))) {
                     edits.add(new PendingEdit(field, normalised));
@@ -112,6 +115,11 @@ final class SectionWriter {
     private static Span spanOf(final Parsed parsed, final ConfigEntry field) {
         return Objects.requireNonNull(
                 parsed.spans().get(field.path()), "collect() puts a span for every entry it adds");
+    }
+
+    /** Whether {@code value} is a secret sent back empty, which means unchanged: the browser never had its value. */
+    private static boolean keepsSecret(final ConfigEntry field, final Object value) {
+        return field.secret() && ("".equals(value) || (value instanceof List<?> list && list.isEmpty()));
     }
 
     /** A sent value in the shape {@code field} holds (string, list of strings or list of records), or a refusal. */
@@ -220,7 +228,8 @@ final class SectionWriter {
                     throw new IllegalArgumentException(field.path() + " is missing from entry " + index + " of "
                             + entry.path() + " that was sent to be saved");
                 }
-                if (!shapedFor(field, wantedValue).equals(valueOf(field))) {
+                if (!keepsSecret(field, wantedValue)
+                        && !shapedFor(field, wantedValue).equals(valueOf(field))) {
                     throw new IllegalArgumentException(entry.path() + ": adding an entry cannot also"
                             + " change " + field.path() + " in the same save - save that change"
                             + " first, then add the entry");
@@ -388,30 +397,25 @@ final class SectionWriter {
             final List<Map<String, Object>> incoming) {
         final List<List<ConfigEntry>> existing = entry.sections();
 
-        int removedIndex = -1;
+        final List<Integer> fits = new ArrayList<>();
         for (int index = 0; index < existing.size(); index++) {
-            final Map<String, Object> candidate = index < incoming.size() ? incoming.get(index) : null;
-            if (!matchesSection(existing.get(index), candidate)) {
-                removedIndex = index;
-                break;
+            if (fitsWithout(existing, incoming, index)) {
+                fits.add(index);
             }
         }
-        if (removedIndex < 0) {
-            // Every named entry matched; the missing one is the extra at the end of `existing`.
-            removedIndex = existing.size() - 1;
-        }
-        boolean ok = true;
-        for (int index = removedIndex; index < incoming.size(); index++) {
-            if (!matchesSection(existing.get(index + 1), incoming.get(index))) {
-                ok = false;
-                break;
-            }
-        }
-        if (!ok) {
+        if (fits.isEmpty()) {
             throw new IllegalArgumentException(entry.path() + " has " + existing.size() + " entries"
                     + " in the file right now, but what was sent does not read as exactly one of"
                     + " them removed and nothing else changed - remove an entry and edit a field in"
                     + " separate saves");
+        }
+        final int removedIndex = fits.getFirst();
+        // An empty secret matches every card, so two cards differing only in a secret cannot be told apart.
+        for (final int other : fits) {
+            if (!sameValues(existing.get(other), existing.get(removedIndex))) {
+                throw new IllegalArgumentException(entry.path() + ": two entries differ only in a secret,"
+                        + " so which one was removed cannot be told - remove it in the file itself");
+            }
         }
 
         final List<ConfigEntry> removed = existing.get(removedIndex);
@@ -466,6 +470,34 @@ final class SectionWriter {
         }
     }
 
+    /** Whether {@code incoming} is {@code existing} with the entry at {@code removed} left out. */
+    private static boolean fitsWithout(
+            final List<List<ConfigEntry>> existing, final List<Map<String, Object>> incoming, final int removed) {
+        if (incoming.size() != existing.size() - 1) {
+            return false;
+        }
+        for (int index = 0; index < incoming.size(); index++) {
+            if (!matchesSection(existing.get(index < removed ? index : index + 1), incoming.get(index))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether two entries hold the same values, secrets included. */
+    private static boolean sameValues(final List<ConfigEntry> left, final List<ConfigEntry> right) {
+        if (left.size() != right.size()) {
+            return false;
+        }
+        for (int index = 0; index < left.size(); index++) {
+            if (!left.get(index).key().equals(right.get(index).key())
+                    || !valueOf(left.get(index)).equals(valueOf(right.get(index)))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** Whether every field of {@code fields} already reads exactly as {@code candidate} says. */
     private static boolean matchesSection(
             final List<ConfigEntry> fields, final @Nullable Map<String, Object> candidate) {
@@ -474,7 +506,7 @@ final class SectionWriter {
         }
         for (final ConfigEntry field : fields) {
             final Object value = candidate.get(field.key());
-            if (value == null || !value.equals(valueOf(field))) {
+            if (value == null || (!keepsSecret(field, value) && !value.equals(valueOf(field)))) {
                 return false;
             }
         }

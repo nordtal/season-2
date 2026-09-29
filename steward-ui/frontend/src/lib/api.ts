@@ -811,18 +811,26 @@ export type CommandRun = {
   result?: string
 }
 
-/** `GET /api/smp/track`: the active milestones and their objectives. */
+/** `GET /api/smp/track`: the whole track as the database holds it. */
 export type SmpTrack = {
-  active: {
-    key: string
-    objectives: {
-      key: string
-      type: "HAND_IN" | "STATISTIC" | "ADVANCEMENT"
-      amount: number
-      target: number
-      completed: boolean
-    }[]
-  }[]
+  /** Every milestone the SMP wrote a row for; the order is the file's, which the page applies. */
+  milestones: SmpMilestone[]
+}
+
+export type SmpMilestone = {
+  key: string
+  state: "LOCKED" | "ACTIVE" | "UNLOCKED"
+  unlocked?: string
+  objectives: SmpObjective[]
+}
+
+export type SmpObjective = {
+  key: string
+  type: "HAND_IN" | "STATISTIC" | "ADVANCEMENT"
+  amount: number
+  target: number
+  completed: boolean
+  completedAt?: string
 }
 
 /** `GET /api/hunger-games/round`: the open round, or nothing. */

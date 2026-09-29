@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { HungerGamesActions, SmpActions, keyName } from "@/components/steward/game-actions"
+import { HungerGamesActions, keyName } from "@/components/steward/game-actions"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton } from "@/lib/test-elements"
 
@@ -14,18 +14,6 @@ function json(status: number, body: unknown): Response {
     status,
     headers: { "Content-Type": "application/json" },
   })
-}
-
-const TRACK = {
-  active: [
-    {
-      key: "frontier",
-      objectives: [
-        { key: "netherite-scrap", type: "HAND_IN", amount: 64, target: 128, completed: false },
-        { key: "shulker-shells", type: "HAND_IN", amount: 16, target: 16, completed: true },
-      ],
-    },
-  ],
 }
 
 type Row = { status: string; result?: string }
@@ -43,7 +31,6 @@ function backend({
         sent.push({ url, body: JSON.parse(init.body ?? "") })
         return json(202, { id: String(sent.length), status: "PENDING" })
       }
-      if (url === "/api/smp/track") return json(200, TRACK)
       if (url === "/api/hunger-games/round") return json(200, answered && roundAfter ? roundAfter : round)
       if (url.startsWith("/api/commands/")) {
         answered = true
@@ -76,54 +63,6 @@ describe("keyName", () => {
   it("reads a track key as a name", () => {
     expect(keyName("ancient-debris")).toBe("Ancient debris")
     expect(keyName("frontier")).toBe("Frontier")
-  })
-})
-
-describe("SmpActions", () => {
-  it("lists the active milestone's objectives by name, and names no command", async () => {
-    backend()
-    draw(<SmpActions />)
-
-    expect(await screen.findByText("Netherite scrap")).toBeTruthy()
-    expect(screen.getByText("64 / 128")).toBeTruthy()
-    expect(screen.queryByRole("button", { name: "Complete Shulker shells" })).toBeNull()
-    expect(screen.queryByRole("textbox")).toBeNull()
-    expect(document.body.textContent).not.toMatch(/smp objective|smp milestone|\/smp/)
-  })
-
-  it("asks first, sends the objective it names, and shows the server's answer", async () => {
-    const sent = backend()
-    draw(<SmpActions />)
-
-    fireEvent.click(await screen.findByRole("button", { name: "Complete Netherite scrap" }))
-    const dialog = await screen.findByRole("alertdialog")
-    expect(sent).toHaveLength(0)
-    fireEvent.click(within(dialog).getByRole("button", { name: "Complete" }))
-
-    await waitFor(() => expect(sent).toEqual([{ url: "/api/smp/objective", body: { key: "netherite-scrap" } }]))
-    expect(await within(dialog).findByText("Objective closed.")).toBeTruthy()
-  })
-
-  it("unlocks the milestone it is drawn under", async () => {
-    const sent = backend()
-    draw(<SmpActions />)
-
-    fireEvent.click(await screen.findByRole("button", { name: "Unlock" }))
-    const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Unlock" }))
-
-    await waitFor(() => expect(sent).toEqual([{ url: "/api/smp/milestone", body: { key: "frontier" } }]))
-  })
-
-  it("says so when nobody picked the row up, rather than that it failed", async () => {
-    backend({ row: { status: "EXPIRED" } })
-    draw(<SmpActions />)
-
-    fireEvent.click(await screen.findByRole("button", { name: "Unlock" }))
-    const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Unlock" }))
-
-    expect(await within(dialog).findByText(/Nobody picked this up within two minutes/)).toBeTruthy()
   })
 })
 

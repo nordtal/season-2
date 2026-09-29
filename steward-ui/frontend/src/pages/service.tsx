@@ -15,7 +15,8 @@ import { useConfigs, useMessageBundles, useMetrics, useService } from "@/lib/que
 import { ServiceConsole } from "@/components/steward/console"
 import { ServiceSettings } from "@/components/steward/settings"
 import { ServicePlugins } from "@/components/steward/plugins"
-import { HungerGamesActions, SmpActions } from "@/components/steward/game-actions"
+import { HungerGamesActions } from "@/components/steward/game-actions"
+import { SmpActions } from "@/components/steward/milestone-track"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
@@ -139,15 +140,15 @@ export function ServicePage() {
         <TabsContent value="console" className="flex flex-col gap-6">
           {/* An unknown service is a 404 from the worker, which names the service. */}
           <QueryState query={service}>{(data) => <ServiceHead service={data} name={name} />}</QueryState>
-          {/* Their own area, not the header: the header's actions are about the container. */}
-          {name === "smp" ? <SmpActions /> : null}
-          {name === "hunger-games" ? <HungerGamesActions /> : null}
           <ServiceConsole
             name={name}
             hasConsole={service.data?.hasConsole ?? false}
             capacity={service.data?.logCapacity}
             offline={offline(run, name, service.data?.state)}
           />
+          {/* Below the console, which stays on top; the header's actions are about the container. */}
+          {name === "smp" ? <SmpActions /> : null}
+          {name === "hunger-games" ? <HungerGamesActions /> : null}
         </TabsContent>
 
         <TabsContent value="settings">

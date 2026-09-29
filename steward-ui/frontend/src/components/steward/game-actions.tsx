@@ -1,9 +1,9 @@
-import { CheckIcon, FlagBannerIcon, SwordIcon } from "@phosphor-icons/react"
+import { SwordIcon } from "@phosphor-icons/react"
 import { useEffect, useState, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
-import type { CommandRun, SmpTrack } from "@/lib/api"
-import { useCommandRun, useGameAction, useHungerGamesRound, useSmpTrack } from "@/lib/queries"
+import type { CommandRun } from "@/lib/api"
+import { useCommandRun, useGameAction, useHungerGamesRound } from "@/lib/queries"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import {
   ResponsiveAlertDialog,
@@ -15,11 +15,10 @@ import {
   ResponsiveAlertDialogHeader,
   ResponsiveAlertDialogTitle,
 } from "@/components/ui/responsive-dialog"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-type Ask = {
+export type Ask = {
   path: string
   body: unknown
   title: string
@@ -31,105 +30,6 @@ type Ask = {
 export function keyName(key: string): string {
   const spaced = key.replace(/[-_]+/g, " ").trim()
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
-}
-
-/** The SMP's admin actions, picked from its own track and never shaped like a command. */
-export function SmpActions() {
-  const track = useSmpTrack()
-  const [ask, setAsk] = useState<Ask | null>(null)
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FlagBannerIcon className="size-4 text-muted-foreground" aria-hidden />
-          Milestone track
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <QueryState
-          query={track}
-          isEmpty={(data: SmpTrack) => data.active.length === 0}
-          empty={{ title: "No milestone is active." }}
-        >
-          {(data) =>
-            data ? (
-              data.active.map((milestone) => <Milestone key={milestone.key} milestone={milestone} onAsk={setAsk} />)
-            ) : (
-              <SkeletonText width="long" />
-            )
-          }
-        </QueryState>
-      </CardContent>
-      <ActionDialog ask={ask} onClose={() => setAsk(null)} refresh="smp-track" />
-    </Card>
-  )
-}
-
-function Milestone({ milestone, onAsk }: { milestone: SmpTrack["active"][number]; onAsk: (ask: Ask) => void }) {
-  const name = keyName(milestone.key)
-  return (
-    <section className="flex flex-col gap-2" aria-label={name}>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="min-w-0 truncate font-medium">{name}</h3>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            onAsk({
-              path: "/api/smp/milestone",
-              body: { key: milestone.key },
-              title: `Unlock ${name}?`,
-              description: "The track moves on and aura is paid out to everybody who qualified. There is no way back.",
-              confirm: "Unlock",
-            })
-          }
-        >
-          Unlock
-        </Button>
-      </div>
-      <ul className="flex flex-col divide-y divide-border rounded-md border">
-        {milestone.objectives.map((objective) => {
-          const objectiveName = keyName(objective.key)
-          return (
-            <li key={objective.key} className="flex min-h-11 items-center justify-between gap-3 px-3 py-1.5">
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-sm">{objectiveName}</span>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {objective.amount.toLocaleString("en")} / {objective.target.toLocaleString("en")}
-                </span>
-              </div>
-              {objective.completed ? (
-                <Badge variant="secondary" className="gap-1">
-                  <CheckIcon aria-hidden />
-                  done
-                </Badge>
-              ) : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Complete ${objectiveName}`}
-                  onClick={() =>
-                    onAsk({
-                      path: "/api/smp/objective",
-                      body: { key: objective.key },
-                      title: `Complete ${objectiveName}?`,
-                      description: `It closes at ${objective.amount.toLocaleString("en")} of ${objective.target.toLocaleString("en")} and pays out that share of its aura. There is no way back.`,
-                      confirm: "Complete",
-                    })
-                  }
-                >
-                  Complete
-                </Button>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-    </section>
-  )
 }
 
 /** The hunger games' round, started with one button. */
@@ -197,7 +97,7 @@ function StartAnyway({ onStart }: { onStart: () => void }) {
 }
 
 /** Asks, sends, and then stays open with what became of it. */
-function ActionDialog({
+export function ActionDialog({
   ask,
   onClose,
   refresh,

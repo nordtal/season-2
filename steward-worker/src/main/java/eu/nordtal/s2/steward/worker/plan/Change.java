@@ -38,7 +38,7 @@ public record Change(
          * The row stays in the report so the next run installs a build once one ships.
          */
         UNSUPPORTED,
-        /** Our own release carries no file for this jar and one is installed, which stays; not a failure. */
+        /** Our own release carries no file for this jar or the pack but one is installed, which stays: no failure. */
         NOT_IN_RELEASE;
 
         /** Whether a run would move a file for this row. */

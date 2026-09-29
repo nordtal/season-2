@@ -372,6 +372,43 @@ class ResolverTest {
     }
 
     @Test
+    void aReleaseWithoutAPackZipKeepsTheInstalledPackLikeASeasonJar() throws IOException {
+        installCurrentEverything();
+        // Renamed so that neither asset ends in .zip or .zip.sha1 any more: the release carries no pack.
+        http.answering(
+                "/repos/nordtal/season-2/releases",
+                FakeHttp.read("github-season-v0.1.0.json")
+                        .replace("nordtal-resource-pack-0.1.0.zip", "nordtal-resource-pack-0.1.0.txt"));
+
+        final UpdatePlan plan = resolve();
+        final Change pack = changeFor(plan, "proxy", "resource-pack");
+
+        assertEquals(Change.Status.NOT_IN_RELEASE, pack.status(), Report.render(plan));
+        assertEquals(PACK_SHA1, pack.installed());
+        assertFalse(pack.status().isFailure(), Report.render(plan));
+        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(plan);
+        assertTrue(
+                report.notes().stream().anyMatch(note -> note.contains(PACK_SHA1 + " stays")),
+                "the missing pack is a note in the report: " + report.render());
+    }
+
+    @Test
+    void aReleaseWithoutAPackZipAndNoPackInstalledIsStillUnresolved() throws IOException {
+        installCurrentEverything();
+        Files.delete(PackState.fileIn(volumes.resolve("proxy")));
+        http.answering(
+                "/repos/nordtal/season-2/releases",
+                FakeHttp.read("github-season-v0.1.0.json")
+                        .replace("nordtal-resource-pack-0.1.0.zip", "nordtal-resource-pack-0.1.0.txt"));
+
+        final Change pack = changeFor(resolve(), "proxy", "resource-pack");
+
+        assertEquals(Change.Status.UNRESOLVED, pack.status());
+        assertNotNull(pack.note());
+        assertTrue(pack.note().contains("carries no pack zip"), pack.note());
+    }
+
+    @Test
     void theBotIsAJarInAVolumeLikeEverythingElseAndReadsAsUpToDate() throws IOException {
         installCurrentEverything();
 

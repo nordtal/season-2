@@ -157,7 +157,7 @@ class RunShapeTest {
             assertTrue(
                     countdown.contains("{seconds}"),
                     "a countdown that does not name the number is a line that never changes: " + countdown);
-            // {what} is optional: MAINTENANCE says "nordtal", since a network-wide run is about no one service.
+            // <what> is optional: MAINTENANCE says "nordtal", since a network-wide run is about no one service.
             final String now = english.getProperty("restart.now." + key(occasion));
             assertFalse(now.contains("{seconds}"), "zero is not a number worth printing: " + now);
         }

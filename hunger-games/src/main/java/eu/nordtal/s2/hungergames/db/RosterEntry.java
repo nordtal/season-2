@@ -17,4 +17,5 @@ public record RosterEntry(
         String discordId,
         MemberState memberState,
         boolean ready,
-        @Nullable UUID mcUuid) {}
+        @Nullable UUID mcUuid,
+        @Nullable String mcName) {}

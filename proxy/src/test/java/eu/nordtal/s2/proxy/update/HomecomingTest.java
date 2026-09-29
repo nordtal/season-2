@@ -131,7 +131,7 @@ class HomecomingTest {
                 english.getProperty("return.countdown").contains("{seconds}"),
                 "a countdown that does not name the number is a line that never changes");
         assertTrue(
-                english.getProperty("return.waiting-room").contains("{what}"),
+                english.getProperty("return.waiting-room").contains("<what>"),
                 "the line out of the waiting room names the server it is about");
     }
 

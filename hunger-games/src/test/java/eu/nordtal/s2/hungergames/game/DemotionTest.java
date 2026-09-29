@@ -19,7 +19,7 @@ class DemotionTest {
     private static RosterEntry entry(
             final UUID teamId, final String teamName, final String discordId, final UUID mcUuid) {
         return new RosterEntry(
-                UUID.randomUUID(), teamId, teamName, null, null, discordId, MemberState.ACCEPTED, false, mcUuid);
+                UUID.randomUUID(), teamId, teamName, null, null, discordId, MemberState.ACCEPTED, false, mcUuid, null);
     }
 
     @Test

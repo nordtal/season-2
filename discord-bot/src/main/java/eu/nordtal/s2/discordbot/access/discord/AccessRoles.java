@@ -9,7 +9,7 @@ import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
-import java.time.Duration;
+import eu.nordtal.s2.discordbot.config.Languages;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -86,8 +86,9 @@ public final class AccessRoles {
         final Role role =
                 guild == null ? null : guild.getRoleById(config.roles().access());
         if (guild == null || role == null) {
-            admin.alert("The access role " + config.roles().access() + " does not exist. "
-                    + "Nobody's access role is being maintained.");
+            admin.alert(
+                    "⚠️ Access role missing",
+                    "`" + config.roles().access() + "` does not exist. Nobody's role is kept.");
             return;
         }
 
@@ -99,14 +100,16 @@ public final class AccessRoles {
                                 guild.addRoleToMember(member, role)
                                         .queue(
                                                 ok -> log.info("Gave the access role to {}", discordId),
-                                                failure -> admin.alert("Could not give the access role to <@"
-                                                        + discordId + ">: " + failure.getMessage()));
+                                                failure -> admin.alert(
+                                                        "⚠️ Access role not given",
+                                                        "<@" + discordId + "> " + failure.getMessage()));
                             } else if (!active && has) {
                                 guild.removeRoleFromMember(member, role)
                                         .queue(
                                                 ok -> log.info("Took the access role from {}", discordId),
-                                                failure -> admin.alert("Could not take the access role from <@"
-                                                        + discordId + ">: " + failure.getMessage()));
+                                                failure -> admin.alert(
+                                                        "⚠️ Access role not taken",
+                                                        "<@" + discordId + "> " + failure.getMessage()));
                             }
                         },
                         failure -> log.debug("{} is not a member of the guild, so no access role to set", discordId));
@@ -122,15 +125,17 @@ public final class AccessRoles {
         final Role role =
                 guild == null ? null : guild.getRoleById(config.roles().donor());
         if (guild == null || role == null) {
-            admin.alert("The donor role " + config.roles().donor() + " does not exist, so <@" + discordId
-                    + "> did not get it. The donor flag in the database is set either way.");
+            admin.alert(
+                    "⚠️ Donor role missing",
+                    "`" + config.roles().donor() + "` does not exist, so <@" + discordId
+                            + "> did not get it. The donor flag is set either way.");
             return;
         }
         guild.addRoleToMember(net.dv8tion.jda.api.entities.UserSnowflake.fromId(discordId), role)
                 .queue(
                         ok -> log.info("Gave the donor role to {}", discordId),
-                        failure -> admin.alert(
-                                "Could not give the donor role to <@" + discordId + ">: " + failure.getMessage()));
+                        failure ->
+                                admin.alert("⚠️ Donor role not given", "<@" + discordId + "> " + failure.getMessage()));
     }
 
     /** Adds the access role to everyone a grant covers and removes it from everyone else. */
@@ -144,8 +149,9 @@ public final class AccessRoles {
         }
         final Role role = guild.getRoleById(config.roles().access());
         if (role == null) {
-            admin.alert("The access role " + config.roles().access() + " does not exist. "
-                    + "The reconcile is doing nothing.");
+            admin.alert(
+                    "⚠️ Access role missing",
+                    "`" + config.roles().access() + "` does not exist. The reconcile does nothing.");
             return;
         }
 
@@ -157,8 +163,9 @@ public final class AccessRoles {
                 guild.removeRoleFromMember(member, role)
                         .queue(
                                 ok -> log.info("Reconcile: took the access role from {}", member.getId()),
-                                failure -> admin.alert("Reconcile could not take the access role from "
-                                        + member.getAsMention() + ": " + failure.getMessage()));
+                                failure -> admin.alert(
+                                        "⚠️ Access role not taken",
+                                        member.getAsMention() + " " + failure.getMessage()));
             }
         }
 
@@ -172,8 +179,8 @@ public final class AccessRoles {
             guild.addRoleToMember(member, role)
                     .queue(
                             ok -> log.info("Reconcile: gave the access role to {}", discordId),
-                            failure -> admin.alert("Reconcile could not give the access role to <@" + discordId + ">: "
-                                    + failure.getMessage()));
+                            failure -> admin.alert(
+                                    "⚠️ Access role not given", "<@" + discordId + "> " + failure.getMessage()));
         }
     }
 
@@ -190,11 +197,15 @@ public final class AccessRoles {
                 continue;
             }
             final Locale locale = localeOf(deadline.discordId());
-            final long days = Math.max(
-                    1, Duration.between(Instant.now(), deadline.validUntil()).toDays());
             dm(
                     deadline.discordId(),
-                    messages.format(locale, MESSAGES.dm().expiring(timestamp(deadline.validUntil()), days)));
+                    messages.format(
+                            locale,
+                            MESSAGES.dm()
+                                    .expiring(
+                                            TimeFormat.RELATIVE.format(deadline.validUntil()),
+                                            timestamp(deadline.validUntil()),
+                                            contributionChannel(locale))));
         }
 
         for (final AccessDeadline deadline : dao.endedWithin(EXPIRED_LOOKBACK_HOURS)) {
@@ -204,7 +215,8 @@ public final class AccessRoles {
             dm(
                     deadline.discordId(),
                     messages.format(
-                            localeOf(deadline.discordId()), MESSAGES.dm().expired()));
+                            localeOf(deadline.discordId()),
+                            MESSAGES.dm().expired(contributionChannel(localeOf(deadline.discordId())))));
         }
     }
 
@@ -232,10 +244,17 @@ public final class AccessRoles {
                         channel -> channel.sendMessage(text)
                                 .queue(
                                         ok -> log.debug("DMed {}", discordId),
-                                        failure -> admin.alert("Could not DM <@" + discordId + "> - they probably have "
-                                                + "direct messages closed. The message was: " + text)),
-                        failure -> admin.alert(
-                                "Could not open a DM channel with <@" + discordId + ">: " + failure.getMessage()));
+                                        // Usually closed direct messages.
+                                        failure -> admin.alert("✉️ DM not delivered", "<@" + discordId + ">\n" + text)),
+                        failure -> admin.alert("✉️ DM not delivered", "<@" + discordId + "> " + failure.getMessage()));
+    }
+
+    /** Returns the contribution channel of a language as a mention, or its name when none is configured. */
+    private String contributionChannel(final Locale locale) {
+        final String id = Languages.of(config).forLocale(locale).contributionChannelId();
+        return Configured.isSet(id)
+                ? "<#" + id + ">"
+                : messages.format(locale, MESSAGES.dm().channel());
     }
 
     /** Returns a Discord timestamp, shown in each reader's own time zone. */

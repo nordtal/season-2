@@ -26,34 +26,21 @@ public final class Card {
     /** The name of a block's continuation field, since Discord drops a field with an empty name. */
     private static final String CONTINUED = "​";
 
-    /** The colour of an embed is its outcome. */
-    public enum Accent {
-        /** nordtal blue: the bot's own standing messages. */
-        NORDTAL(0x34_59_74),
-        /** Grey: news that is neither good nor bad, such as "an update is available". */
-        NEUTRAL(0x99_AA_B5),
-        GOOD(0x2E_9E_5B),
-        BAD(0xC0_39_2B);
-
-        private final int rgb;
-
-        Accent(final int rgb) {
-            this.rgb = rgb;
-        }
-    }
+    /** The one colour of every embed; an outcome is an emoji in the content, never a colour. */
+    static final int COLOUR = 0x34_59_74;
 
     private final EmbedBuilder embed = new EmbedBuilder();
     private int used;
     private int fields;
 
-    private Card(final String title, final Accent accent) {
+    private Card(final String title) {
         final String shown = cut(Objects.requireNonNull(title, "title"), TITLE);
-        embed.setTitle(shown).setColor(accent.rgb);
+        embed.setTitle(shown).setColor(COLOUR);
         used = shown.length();
     }
 
-    public static Card of(final String title, final Accent accent) {
-        return new Card(title, accent);
+    public static Card of(final String title) {
+        return new Card(title);
     }
 
     /** One short line under the title, for the rare value that belongs to no heading. */

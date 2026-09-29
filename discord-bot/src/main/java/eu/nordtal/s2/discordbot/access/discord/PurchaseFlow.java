@@ -12,7 +12,6 @@ import eu.nordtal.s2.discordbot.Ids;
 import eu.nordtal.s2.discordbot.access.payment.Purchases;
 import eu.nordtal.s2.discordbot.access.payment.Tier;
 import eu.nordtal.s2.discordbot.access.payment.Tiers;
-import eu.nordtal.s2.discordbot.config.AccessSpec;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,6 +34,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.callbacks.IDeferrableCallback;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
+import net.dv8tion.jda.api.utils.TimeFormat;
 
 /**
  * The buy-access flow: a button, a day selection, a summary, and a payment link.
@@ -44,7 +44,6 @@ import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 @Slf4j
 public final class PurchaseFlow extends ListenerAdapter {
 
-    private final AccessSpec config;
     private final Tiers tiers;
     private final Purchases purchases;
     private final PaymentRequests requests;
@@ -66,7 +65,6 @@ public final class PurchaseFlow extends ListenerAdapter {
     private record Waiting(InteractionHook hook, Locale locale, Instant since) {}
 
     public PurchaseFlow(
-            final AccessSpec config,
             final Tiers tiers,
             final Purchases purchases,
             final PaymentRequests requests,
@@ -74,7 +72,6 @@ public final class PurchaseFlow extends ListenerAdapter {
             final AccessRoles roles,
             final AdminLog admin,
             final ExecutorService executor) {
-        this.config = config;
         this.tiers = tiers;
         this.purchases = purchases;
         this.requests = requests;
@@ -282,12 +279,12 @@ public final class PurchaseFlow extends ListenerAdapter {
                                     locale,
                                     MESSAGES.purchase()
                                             .linkSection()
-                                            .ttl(config.payment().requestTtlHours())));
+                                            .ttl(TimeFormat.RELATIVE.format(request.expires()))));
             return true;
         }
         if (request.tabFailed() != null) {
             // bunq's error text goes to the admin channel, not the buyer.
-            admin.alert("bunq refused a payment link for `" + request.reference() + "`: `" + request.tabFailed() + "`");
+            admin.alert("🛑 bunq refused a link", "`" + request.reference() + "` `" + request.tabFailed() + "`");
             edit(hook, messages.format(locale, MESSAGES.purchase().linkSection().refused()));
             return true;
         }
@@ -352,7 +349,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     private void fail(
             final IDeferrableCallback event, final Locale locale, final String what, final RuntimeException exception) {
         log.error("Purchase failed while {}", what, exception);
-        admin.alert("A purchase failed while " + what + ": `" + exception + "`");
+        admin.alert("🛑 Purchase failed", event.getUser().getAsMention() + " " + what + " `" + exception + "`");
         event.getHook()
                 .editOriginal(messages.format(locale, MESSAGES.purchase().failed()))
                 .setComponents(List.of())

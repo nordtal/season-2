@@ -70,8 +70,10 @@ public final class BotAccessEffects implements AccessChanges {
                                 .admin(String.valueOf(days), AccessRoles.timestamp(granted.validUntil()))));
 
         admin.record("GRANT_ACCESS", by.filed(), discordId, by.minecraftUuid(), days + " days");
-        admin.note(by.mention() + " granted <@" + discordId + "> " + days + " days of access, until "
-                + AccessRoles.timestamp(granted.validUntil()) + ".");
+        admin.note(
+                "🎟️ Access granted",
+                by.mention() + " → <@" + discordId + "> " + days + " days, until "
+                        + AccessRoles.timestamp(granted.validUntil()));
         return granted.validUntil();
     }
 
@@ -87,7 +89,7 @@ public final class BotAccessEffects implements AccessChanges {
         }
 
         admin.record("REVOKE_ACCESS", by.filed(), discordId, by.minecraftUuid(), revoked + " grant(s)");
-        admin.note(by.mention() + " revoked <@" + discordId + ">'s access (" + revoked + " grant(s)).");
+        admin.note("🚫 Access revoked", by.mention() + " → <@" + discordId + ">, " + revoked + " grants");
         return revoked;
     }
 
@@ -100,8 +102,10 @@ public final class BotAccessEffects implements AccessChanges {
             return false;
         }
         admin.record("UNLINK", by.filed(), discordId, linked.orElse(null), "by an admin, not self-service");
-        admin.note(by.mention() + " unlinked <@" + discordId + ">'s Minecraft account `"
-                + linked.map(UUID::toString).orElse("?") + "`.");
+        admin.note(
+                "✂️ Unlinked",
+                by.mention() + " → <@" + discordId + "> `"
+                        + linked.map(UUID::toString).orElse("?") + "`");
         return true;
     }
 
@@ -139,8 +143,9 @@ public final class BotAccessEffects implements AccessChanges {
                 found.discordId(),
                 by.minecraftUuid(),
                 "manual, reference=" + reference + " days=" + found.days());
-        admin.note(by.mention() + " settled `" + reference + "` by hand: " + found.days() + " days for <@"
-                + found.discordId() + ">.");
+        admin.note(
+                "💶 Settled by hand",
+                by.mention() + " `" + reference + "` → <@" + found.discordId() + "> " + found.days() + " days");
         return new Settled(
                 Settlement.BOOKED,
                 granted.validUntil(),
@@ -158,7 +163,7 @@ public final class BotAccessEffects implements AccessChanges {
         access.setPlaytimeSeconds(discordId, seconds);
         // Days, hours and minutes, the unit Steward uses.
         admin.record("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(), PlaytimeWording.of(seconds));
-        admin.note(by.mention() + " set <@" + discordId + ">'s play time to " + PlaytimeWording.of(seconds) + ".");
+        admin.note("⏱️ Play time set", by.mention() + " → <@" + discordId + "> " + PlaytimeWording.of(seconds));
     }
 
     @Override

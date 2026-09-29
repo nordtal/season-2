@@ -56,8 +56,8 @@ class UpdateFeedTest {
         }
 
         @Override
-        public void alert(final String text) {
-            alerted.add(text);
+        public void alert(final String title, final String text) {
+            alerted.add(title + "\n" + text);
         }
     }
 
@@ -364,5 +364,59 @@ class UpdateFeedTest {
 
         assertEquals(1, board.posted.size());
         assertEquals(List.of(), board.edited);
+    }
+
+    @Test
+    void aStewardAskerIsAMentionAndNotANameWithAnId() {
+        rows.put(new UpdateRequest(
+                1L,
+                UpdateKind.UPDATE,
+                UpdateStatus.FAILED,
+                UpdateSource.CONSOLE,
+                "hm.till (594510749410525200)",
+                NOW,
+                NOW,
+                NOW,
+                NOW,
+                reportAt(UpdateReport.Stage.FAILED)));
+        feed.tick();
+
+        final java.util.Map<String, String> context = new java.util.HashMap<>();
+        board.posted.getFirst().embed().getFields().forEach(f -> context.put(f.getName(), f.getValue()));
+        assertEquals(
+                "<@594510749410525200>", context.get("By"), "Discord renders a mention; a name with an id is noise");
+        assertTrue(board.alerted.getFirst().contains("<@594510749410525200>"), board.alerted.getFirst());
+        assertTrue(!board.alerted.getFirst().contains("594510749410525200)"), board.alerted.getFirst());
+    }
+
+    @Test
+    void everyStageCarriesTheSameColourAndItsOutcomeAsAnEmoji() {
+        final UpdateReport done = new UpdateReport(
+                UpdateReport.Stage.DONE,
+                List.of(
+                        new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null),
+                        new UpdateReport.ServiceLine("limbo", UpdateReport.State.UNCHANGED, List.of(), null)),
+                List.of());
+        final UpdateReport failed = new UpdateReport(
+                UpdateReport.Stage.FAILED,
+                List.of(new UpdateReport.ServiceLine("smp", UpdateReport.State.FAILED, List.of(), null)),
+                List.of());
+        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.DONE, UpdateReports.toJson(done), NOW));
+        rows.put(row(2L, UpdateSource.GAME, UpdateStatus.FAILED, UpdateReports.toJson(failed), NOW));
+        feed.tick();
+
+        final MessageEmbed good = board.posted.get(0).embed();
+        final MessageEmbed bad = board.posted.get(1).embed();
+        assertEquals(good.getColorRaw(), bad.getColorRaw(), "a finished and a failed run carry the same line");
+        assertTrue(good.getTitle().startsWith("✅"), good.getTitle());
+        assertTrue(bad.getTitle().startsWith("🛑"), bad.getTitle());
+        final String goodLines = good.getFields().stream()
+                .map(MessageEmbed.Field::getValue)
+                .collect(java.util.stream.Collectors.joining("\n"));
+        assertTrue(goodLines.contains("✅ **smp**"), goodLines);
+        assertTrue(goodLines.contains("➖ **limbo**"), goodLines);
+        for (final String symbol : List.of("✔", "✖", "○", "◑", "\u2013")) {
+            assertTrue(!goodLines.contains(symbol), "a text symbol beside emojis: " + symbol);
+        }
     }
 }

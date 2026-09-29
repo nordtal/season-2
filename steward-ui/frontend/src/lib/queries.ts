@@ -10,7 +10,6 @@ import {
   type Action,
   type Backup,
   type AccessRequestRun,
-  type AdminCommand,
   type CommandRun,
   type SmpTrack,
   type Announcements,
@@ -86,7 +85,6 @@ export const keys = {
   journal: (action: string, subject: string) => ["journal", action, subject] as const,
   actions: (limit: number) => ["actions", limit] as const,
   settings: ["settings"] as const,
-  commands: ["commands"] as const,
   commandRun: (id: string) => ["command-run", id] as const,
   smpTrack: ["smp-track"] as const,
   announcements: ["announcements"] as const,
@@ -391,15 +389,6 @@ export function useActions(limit = 5, enabled = true) {
   })
 }
 
-/** The admin commands this interface may ask for: the declarations carrying Surface.WEB. */
-export function useCommands(enabled = true) {
-  return useQuery({
-    queryKey: keys.commands,
-    queryFn: () => api<AdminCommand[]>("/api/commands"),
-    staleTime: 60 * 60 * SECOND,
-    enabled,
-  })
-}
 
 /** The SMP's active milestones and their objectives, for the actions on its service page. */
 export function useSmpTrack() {
@@ -1022,19 +1011,6 @@ export function useSetSeasonDate() {
       api<Season>("/api/season/date", { method: "POST", body: change }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: keys.season })
-      void client.invalidateQueries({ queryKey: ["journal"] })
-    },
-  })
-}
-
-/** The admin commands, each written as a `command_request` row. */
-export function useAdminCommand() {
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: (command: { name: string; arguments?: Record<string, string> }) =>
-      api<CommandRun>("/api/commands", { method: "POST", body: command }),
-    onSuccess: () => {
-      // The row names who asked, so it is a journal entry whether or not the command succeeds.
       void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })

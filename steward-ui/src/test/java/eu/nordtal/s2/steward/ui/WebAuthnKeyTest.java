@@ -299,7 +299,7 @@ class WebAuthnKeyTest extends StewardUiTestSupport {
             {"/api/updates", "{\"kind\":\"UPDATE\"}"},
             {"/api/access/grant", "{\"discordId\":\"1\",\"days\":1}"},
             {"/api/season/phase", "{\"phase\":\"LIVE\"}"},
-            {"/api/commands", "{\"command\":\"phase\"}"},
+            {"/api/smp/milestone", "{\"key\":\"aufbruch\"}"},
         };
         for (final String[] write : writes) {
             final HttpResponse<String> refused = post(browser, write[0], write[1]);

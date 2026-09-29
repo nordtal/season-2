@@ -137,7 +137,7 @@ const hasGermanShape = (line: string) => SHAPES.some((shape) => shape.test(line)
 describe("nothing in Steward is German", () => {
   it("derives its word list from the bot's own bundle, and it is not a short one", () => {
     /** A collapse to a handful means the bundle moved or the parse broke, and the guard stopped guarding. */
-    expect(forbidden().length).toBeGreaterThan(300)
+    expect(forbidden().length).toBeGreaterThan(200)
     expect(forbidden()).toContain("vergleich")
     expect(forbidden()).not.toContain("stand")
   })

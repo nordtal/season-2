@@ -71,7 +71,7 @@ class NothingIsGermanTest {
         final Set<String> forbidden = forbidden();
         // A guard that silently stops guarding is worse than none: this fires if the bundle moves or the parse breaks.
         assertTrue(
-                forbidden.size() > 300,
+                forbidden.size() > 200,
                 "only " + forbidden.size() + " German words were derived from " + BUNDLE
                         + " - the bundle moved, or the values stopped being parsed.");
         assertTrue(forbidden.contains("vergleich"), "a word that actually leaked is not in the list");

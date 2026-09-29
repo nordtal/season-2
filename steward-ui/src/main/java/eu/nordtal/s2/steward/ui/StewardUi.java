@@ -448,8 +448,6 @@ public final class StewardUi {
 
     private void registerCommandAndGameRoutes(final JavalinConfig cfg) {
         // A row in command_request, not a connection to a server: the interface holds none.
-        cfg.routes.get("/api/commands", commands::list, Gate.KEY_HELD);
-        cfg.routes.post("/api/commands", commands::ask, Gate.KEY_FRESH);
         cfg.routes.get("/api/commands/{id}", commands::outcome, Gate.KEY_HELD);
 
         // The same rows as above, asked for by what they act on rather than by command name.

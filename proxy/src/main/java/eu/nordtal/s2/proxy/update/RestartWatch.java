@@ -321,7 +321,7 @@ public final class RestartWatch {
         };
     }
 
-    private static MessageRef countdown(final RunShape.Occasion occasion, final Component what, final long seconds) {
+    static MessageRef countdown(final RunShape.Occasion occasion, final Component what, final long seconds) {
         final ProxyMessages.Restart.RestartCountdown lines = MESSAGES.restart().countdown();
         return switch (occasion) {
             case UPDATE -> lines.update(what, seconds);
@@ -332,7 +332,7 @@ public final class RestartWatch {
         };
     }
 
-    private static MessageRef now(final RunShape.Occasion occasion, final Component what) {
+    static MessageRef now(final RunShape.Occasion occasion, final Component what) {
         final ProxyMessages.Restart.Now lines = MESSAGES.restart().now();
         return switch (occasion) {
             case UPDATE -> lines.update(what);

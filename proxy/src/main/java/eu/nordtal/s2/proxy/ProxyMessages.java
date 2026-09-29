@@ -155,10 +155,10 @@ public interface ProxyMessages {
         MessageRef tick(@Arg("seconds") Object seconds);
 
         @Name("Cancelled")
-        MessageRef cancelled(@Arg("occasion") Object occasion);
+        MessageRef cancelled(@Arg("occasion") Component occasion);
 
         @Name("Failed")
-        MessageRef failed(@Arg("occasion") Object occasion);
+        MessageRef failed(@Arg("occasion") Component occasion);
 
         @Name("Voice")
         MessageRef voice();
@@ -169,16 +169,16 @@ public interface ProxyMessages {
         interface RestartCountdown {
 
             @Name("Update")
-            MessageRef update(@Arg("what") Object what, @Arg("seconds") Object seconds);
+            MessageRef update(@Arg("what") Component what, @Arg("seconds") Object seconds);
 
             @Name("Recreate")
-            MessageRef recreate(@Arg("what") Object what, @Arg("seconds") Object seconds);
+            MessageRef recreate(@Arg("what") Component what, @Arg("seconds") Object seconds);
 
             @Name("Backup")
-            MessageRef backup(@Arg("what") Object what, @Arg("seconds") Object seconds);
+            MessageRef backup(@Arg("what") Component what, @Arg("seconds") Object seconds);
 
             @Name("Down")
-            MessageRef down(@Arg("what") Object what, @Arg("seconds") Object seconds);
+            MessageRef down(@Arg("what") Component what, @Arg("seconds") Object seconds);
 
             @Name("Maintenance")
             MessageRef maintenance(@Arg("seconds") Object seconds);
@@ -247,16 +247,16 @@ public interface ProxyMessages {
         interface Now {
 
             @Name("Update")
-            MessageRef update(@Arg("what") Object what);
+            MessageRef update(@Arg("what") Component what);
 
             @Name("Recreate")
-            MessageRef recreate(@Arg("what") Object what);
+            MessageRef recreate(@Arg("what") Component what);
 
             @Name("Backup")
-            MessageRef backup(@Arg("what") Object what);
+            MessageRef backup(@Arg("what") Component what);
 
             @Name("Down")
-            MessageRef down(@Arg("what") Object what);
+            MessageRef down(@Arg("what") Component what);
 
             @Name("Maintenance")
             MessageRef maintenance();
@@ -270,7 +270,7 @@ public interface ProxyMessages {
     interface Return {
 
         @Name("Waiting room")
-        MessageRef waitingRoom(@Arg("what") Object what);
+        MessageRef waitingRoom(@Arg("what") Component what);
 
         @Name("Countdown")
         MessageRef countdown(@Arg("seconds") Object seconds);

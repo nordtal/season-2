@@ -59,7 +59,8 @@ function CommandDialog({
         className={cn("overflow-hidden rounded-xl! p-0 sm:top-1/3 sm:translate-y-0", className)}
         showCloseButton={showCloseButton}
       >
-        <Command label={label ?? title} filter={filter}>
+        {/* `min-h-0 flex-1` so the list, not the input, gives way when vaul shrinks the sheet above the keyboard. */}
+        <Command label={label ?? title} filter={filter} className="min-h-0 flex-1">
           {children}
         </Command>
       </ResponsiveDialogContent>
@@ -73,7 +74,10 @@ function CommandInput({ className, ...props }: React.ComponentProps<typeof Comma
       <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
         <CommandPrimitive.Input
           data-slot="command-input"
-          className={cn("w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50", className)}
+          className={cn(
+            "w-full text-sm outline-hidden max-md:text-base disabled:cursor-not-allowed disabled:opacity-50",
+            className,
+          )}
           {...props}
         />
         <InputGroupAddon>
@@ -88,7 +92,7 @@ function CommandList({ className, ...props }: React.ComponentProps<typeof Comman
   return (
     <CommandPrimitive.List
       data-slot="command-list"
-      className={cn("max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none", className)}
+      className={cn("max-h-72 min-h-0 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none", className)}
       {...props}
     />
   )
@@ -132,7 +136,7 @@ function CommandItem({ className, children, ...props }: React.ComponentProps<typ
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! in-data-[slot=drawer-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-foreground",
+        "group/command-item relative flex cursor-default items-center pointer-coarse:min-h-control gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! in-data-[slot=drawer-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-foreground",
         className,
       )}
       {...props}

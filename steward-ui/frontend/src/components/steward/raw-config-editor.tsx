@@ -137,7 +137,7 @@ function HighlightedTextarea({
   }
 
   const shared =
-    "col-start-1 row-start-1 m-0 min-h-40 max-h-[32rem] overflow-auto whitespace-pre-wrap break-words rounded-md border border-input px-3 py-2 font-mono text-sm"
+    "col-start-1 row-start-1 m-0 min-h-40 max-h-[32rem] overflow-auto whitespace-pre-wrap break-words rounded-md border border-input px-3 py-2 font-mono text-sm max-md:text-base"
 
   return (
     <div className="grid">

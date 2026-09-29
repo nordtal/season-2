@@ -4,18 +4,17 @@ import { ArrowRightIcon, ArrowsClockwiseIcon, ClockIcon, ProhibitInsetIcon, Warn
 import { cn } from "cn"
 import { toast } from "sonner"
 
-import type { AvailableChange, ConfigChanges, Run, ServiceTable } from "@/lib/api"
+import type { AvailableChange, ConfigChanges, Run } from "@/lib/api"
 import { ApiError } from "@/lib/api"
 import { LOCALE, count, dateTime, relative } from "@/lib/format"
 import { versionJump } from "@/lib/version-jump"
-import { useAvailable, useRefreshAvailable, useRuns, useSaveConfig, useSchedule, useServices } from "@/lib/queries"
+import { useAvailable, useRefreshAvailable, useRuns, useSaveConfig, useSchedule } from "@/lib/queries"
 import { ScalarControl } from "@/components/steward/config-controls"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
-import { AvailableBadge, DriftBadge, RUN_KIND, RunStatus } from "@/components/steward/status"
-import { RecreateButton } from "@/components/steward/recreate"
+import { AvailableBadge, RUN_KIND, RunStatus } from "@/components/steward/status"
 import { Empty, Failure, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -71,8 +70,6 @@ export function UpdatesPage() {
       <Summary />
 
       <Available />
-
-      <Images />
 
       <Runs />
     </div>
@@ -251,99 +248,6 @@ function Available() {
                 </p>
               ) : null}
               {plan ? <Notes notes={plan.notes} /> : null}
-            </>
-          )
-        }}
-      </QueryState>
-    </Panel>
-  )
-}
-
-/** OUTDATED first, then unanswered, LOCAL, UP_TO_DATE, then by name. */
-const DRIFT_RANK: Record<string, number> = { OUTDATED: 0, LOCAL: 2, UP_TO_DATE: 3 }
-
-/** Ten absent services, because this stack has ten. */
-const WAITING_SERVICES = Array.from({ length: 10 }, () => undefined)
-
-/** Each container's image against the registry, with a Recreate per row. */
-function Images() {
-  const services = useServices()
-
-  return (
-    <Panel title="Images">
-      <QueryState
-        query={services}
-        empty={{ title: "No container in the project" }}
-        isEmpty={(table: ServiceTable) => table.services.length === 0}
-      >
-        {(table) => {
-          const rows = table
-            ? [...table.services].toSorted(
-                (left, right) =>
-                  (DRIFT_RANK[left.drift] ?? 1) - (DRIFT_RANK[right.drift] ?? 1) ||
-                  left.service.localeCompare(right.service, LOCALE),
-              )
-            : WAITING_SERVICES
-          return (
-            <>
-              <Table className="steward-table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Service</TableHead>
-                    <TableHead className="w-[9rem]">Image</TableHead>
-                    <TableHead className="w-[10rem] text-right">Container</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((service, index) => (
-                    <TableRow key={service?.service ?? index}>
-                      <TableCell data-label="Service">
-                        {service ? (
-                          <div className="flex min-w-0 flex-col gap-0.5">
-                            <Link
-                              to="/services/$name"
-                              params={{ name: service.service }}
-                              className="font-medium underline-offset-4 hover:text-primary hover:underline"
-                            >
-                              {service.service}
-                            </Link>
-                            <code className="truncate text-xs text-muted-foreground">{service.image}</code>
-                          </div>
-                        ) : (
-                          <SkeletonText width="medium" />
-                        )}
-                      </TableCell>
-                      <TableCell data-label="Image">
-                        {service ? (
-                          <DriftBadge drift={service.drift} image={service.image} />
-                        ) : (
-                          <Skeleton className="h-5 w-16 rounded-full" />
-                        )}
-                      </TableCell>
-                      <TableCell data-label="Container" className="text-right">
-                        {service ? <RecreateButton service={service.service} /> : null}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              {table ? (
-                <p className="text-xs text-muted-foreground">
-                  {table.drift.checkedAt
-                    ? `Registry asked ${relative(table.drift.checkedAt)}`
-                    : "Registry not asked yet"}
-                  {!table.drift.reached ? (
-                    <span className="text-warning">
-                      {" "}
-                      - not reached{table.drift.reason ? ` (${table.drift.reason})` : ""}
-                    </span>
-                  ) : null}
-                  {table.drift.unverifiable.length > 0 ? `. Unchecked: ${table.drift.unverifiable.join(", ")}` : null}
-                </p>
-              ) : (
-                <SkeletonText className="text-xs" width="long" />
-              )}
             </>
           )
         }}

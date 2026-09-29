@@ -109,7 +109,7 @@ export function RecreateButton({
         </ResponsiveDialogTrigger>
       )}
 
-      <ResponsiveDialogContent className="max-w-[calc(100%-2rem)] sm:max-w-xl">
+      <ResponsiveDialogContent className="sm:max-w-xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Recreate {service}?</ResponsiveDialogTitle>
           <ResponsiveDialogDescription asChild>

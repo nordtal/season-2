@@ -298,7 +298,8 @@ export function VisualEditor({
         className={cn(
           "min-h-12 w-full min-w-0 rounded-md px-2.5 py-2 break-words whitespace-pre-wrap outline-none focus-visible:ring-2 focus-visible:ring-ring",
           "data-[empty]:before:text-muted-foreground data-[empty]:before:content-['Empty']",
-          format === "PLAIN" && "border border-input bg-input/30 text-sm",
+          format === "PLAIN" && "border border-input bg-input/30 text-sm max-md:text-base",
+          format === "DISCORD_MARKDOWN" && "text-[15px] leading-[1.375] max-md:text-base",
         )}
         style={surfaceStyle(format)}
       >
@@ -330,7 +331,7 @@ function surfaceStyle(format: Format): CSSProperties {
       caretColor: "#FFFFFF",
     }
   }
-  if (format === "DISCORD_MARKDOWN") return { background: "#313338", color: "#dbdee1", fontSize: 15, lineHeight: 1.375 }
+  if (format === "DISCORD_MARKDOWN") return { background: "#313338", color: "#dbdee1" }
   return {}
 }
 

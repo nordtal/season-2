@@ -14,6 +14,7 @@ export function Stat({
   hint,
   tone,
   className,
+  valueClassName,
 }: {
   label: string
   /** Absent while the figure is on its way. */
@@ -21,6 +22,7 @@ export function Stat({
   hint?: ReactNode
   tone?: "ok" | "warn" | "down"
   className?: string
+  valueClassName?: string
 }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-0.5", className)}>
@@ -31,6 +33,7 @@ export function Stat({
           tone === "ok" && "text-success",
           tone === "warn" && "text-warning",
           tone === "down" && "text-destructive",
+          valueClassName,
         )}
       >
         {value === undefined ? <SkeletonText width="short" className="h-[1lh]" /> : value}

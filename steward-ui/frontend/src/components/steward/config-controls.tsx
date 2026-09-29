@@ -103,7 +103,7 @@ function ChoicesControl({
           disabled={disabled}
           value={value}
           spellCheck={false}
-          className="min-w-40 flex-1 font-mono text-sm"
+          className="min-w-40 flex-1 font-mono text-sm max-md:text-base"
           onChange={(event) => onChange(event.target.value)}
         />
       )}
@@ -203,7 +203,7 @@ export function ScalarControl({
         disabled={disabled}
         value={value}
         spellCheck={false}
-        className="font-mono text-sm"
+        className="font-mono text-sm max-md:text-base"
         onChange={(event) => onChange(event.target.value)}
       />
     )
@@ -216,7 +216,7 @@ export function ScalarControl({
       value={value}
       inputMode={entry.type === "INTEGER" || entry.type === "DECIMAL" ? "decimal" : undefined}
       spellCheck={false}
-      className="font-mono text-sm"
+      className="font-mono text-sm max-md:text-base"
       onChange={(event) => onChange(event.target.value)}
     />
   )
@@ -250,7 +250,7 @@ export function ListControl({
               disabled={disabled}
               value={item}
               spellCheck={false}
-              className="font-mono text-sm"
+              className="font-mono text-sm max-md:text-base"
               aria-label={`Entry ${index + 1}`}
               onChange={(event) => onChange(items.map((old, at) => (at === index ? event.target.value : old)))}
             />

@@ -58,6 +58,22 @@ function offenders(): string[] {
 }
 
 describe("every dialog goes through the responsive one", () => {
+  it("leaves the sheet the full width of a phone, so nothing narrows it without an `sm:`", () => {
+    /** The drawer is `inset-x-0`; an unprefixed `max-w-*` on it leaves a gap on the right, as the palette once had. */
+    const tags =
+      /<(ResponsiveDialogContent|ResponsiveAlertDialogContent|CommandDialog)\b((?:[^>"{]|"[^"]*"|\{(?:[^{}]|\{[^{}]*\})*\})*)>/g
+    const narrowing = /(^|\s)(max-w-|w-(?!full)|mx-|inset-|left-|right-|-?translate-x-)\S*/
+    const found: string[] = []
+    for (const file of sourceFiles(source)) {
+      for (const [, name, attributes] of readFileSync(file, "utf8").matchAll(tags)) {
+        const classes = [...attributes.matchAll(/"([^"\n]*)"/g)].map((m) => m[1]).join(" ")
+        const hit = classes.match(narrowing)
+        if (hit) found.push(`${path.relative(source, file)}: <${name}> ${hit[0].trim()}`)
+      }
+    }
+    expect(found).toEqual([])
+  })
+
   it("no file outside the component imports a raw dialog, alert dialog, sheet or drawer", () => {
     expect(offenders()).toEqual([])
   })

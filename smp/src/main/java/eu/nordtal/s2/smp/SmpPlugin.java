@@ -598,10 +598,10 @@ public final class SmpPlugin extends JavaPlugin {
         final MilestoneTrack now = track;
         ensureRows(now);
         final List<String> completed = dao.completedMilestoneKeys();
-        // A fresh track, or one a phase switch started over, has nothing active until this activates the next.
+        // A reset after the read changes the count, so the activation does nothing and the next tick decides.
         if (dao.activeMilestoneKey().isEmpty()) {
             now.next(completed).ifPresent(next -> {
-                if (dao.activateMilestone(next.key()) > 0) {
+                if (dao.activateAfter(next.key(), completed.size()) > 0) {
                     getLogger().info("milestone " + next.key() + " is now active");
                 }
             });

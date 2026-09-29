@@ -205,6 +205,15 @@ public interface SmpDao {
     @SqlUpdate("UPDATE smp_milestone SET state = 'ACTIVE' WHERE key = :key AND state = 'LOCKED'")
     int activateMilestone(@Bind("key") String key);
 
+    /** Activates {@code key} only while nothing is active and {@code completed} milestones are still unlocked. */
+    @SqlUpdate("""
+            UPDATE smp_milestone SET state = 'ACTIVE'
+            WHERE key = :key AND state = 'LOCKED'
+              AND NOT EXISTS (SELECT 1 FROM smp_milestone WHERE state = 'ACTIVE')
+              AND (SELECT count(*) FROM smp_milestone WHERE state = 'UNLOCKED') = :completed
+            """)
+    int activateAfter(@Bind("key") String key, @Bind("completed") int completed);
+
     /** Books an aura change and its audit row together, the balance and the reason for it. */
     @Transaction
     default void addAura(final String discordId, final int delta, final String reason, final @Nullable String ref) {

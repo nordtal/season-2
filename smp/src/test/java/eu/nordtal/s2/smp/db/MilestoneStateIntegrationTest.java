@@ -110,6 +110,20 @@ class MilestoneStateIntegrationTest {
         assertEquals(List.of("waiting"), activeKeys());
     }
 
+    /** The track was read with one milestone done; a reset in between must not let a later one become active. */
+    @Test
+    void anActivationReadBeforeAResetDoesNothing() {
+        dao.activateMilestone("waiting");
+        dao.completeMilestone("waiting");
+        execute("UPDATE smp_milestone SET state = 'LOCKED', unlocked = NULL");
+
+        assertEquals(0, dao.activateAfter("departure", 1), "the count read before the reset no longer holds");
+        assertEquals(List.of(), activeKeys());
+        assertEquals(1, dao.activateAfter("waiting", 0));
+        assertEquals(0, dao.activateAfter("departure", 0), "one active milestone at a time");
+        assertEquals(List.of("waiting"), activeKeys());
+    }
+
     @Test
     void objectiveRowsAreEnsured() {
         // Progress needs the smp_objective row; this is the insert that creates it.

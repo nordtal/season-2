@@ -30,12 +30,14 @@ class LogFollowShutdownTest extends StewardUiTestSupport {
         final ListAppender<ILoggingEvent> warnings = new ListAppender<>();
         warnings.start();
         try (Socket tab = openTheLog(browser)) {
+            tab.setSoTimeout(20_000);
             final BufferedReader lines =
                     new BufferedReader(new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
             String line;
             while ((line = lines.readLine()) != null && !line.contains("still running")) {
                 // Until the follow is really running.
             }
+            assertTrue(line != null, "the follow ended before it was running");
             root.addAppender(warnings);
             ui.stop();
             Thread.sleep(3000);

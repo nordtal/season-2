@@ -242,6 +242,31 @@ class ConfigFilesSectionsTest {
         assertEquals(HOOKS_FIXTURE.replace("second-secret", "third-secret"), Files.readString(file));
     }
 
+    /** An empty secret matches any card, so it cannot tell two cards apart that differ only in their secret. */
+    @Test
+    void removingOneOfTwoCardsThatDifferOnlyInTheirSecretIsRefused() throws IOException {
+        final Path file = directory.resolve("hooks.yml");
+        final String twins = HOOKS_FIXTURE.replace("name: admin", "name: log");
+        Files.writeString(file, twins);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ConfigFiles.write(
+                        file, Map.of("hooks", ConfigChange.sections(List.of(Map.of("name", "log", "token", ""))))));
+        assertEquals(twins, Files.readString(file), "nothing is removed on a guess");
+    }
+
+    @Test
+    void oneOfTwoIdenticalCardsCanBeRemoved() throws IOException {
+        final Path file = directory.resolve("hooks.yml");
+        final String twins = "hooks:\n- name: log\n  token: same\n- name: log\n  token: same\n";
+        Files.writeString(file, twins);
+
+        ConfigFiles.write(file, Map.of("hooks", ConfigChange.sections(List.of(Map.of("name", "log", "token", "")))));
+
+        assertEquals("hooks:\n- name: log\n  token: same\n", Files.readString(file));
+    }
+
     @Test
     void cardsWithEmptySecretsCanBeAddedToAndRemovedFrom() throws IOException {
         final Path file = directory.resolve("hooks.yml");

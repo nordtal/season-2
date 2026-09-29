@@ -329,21 +329,6 @@ public interface SmpDao {
     Optional<Integer> auraOf(@Bind("discordId") String discordId);
 
     /**
-     * Where an amount of aura places somebody, and out of how many, in one statement.
-     *
-     * The same population as {@link #topAura}, and the asker always counts, so a fresh season never prints "1 of 0".
-     */
-    @SqlQuery("""
-            SELECT count(*) FILTER (WHERE player.aura > :aura) + 1 AS place,
-                   count(*) + CASE WHEN coalesce(bool_or(player.discord_id = :discordId), false)
-                                   THEN 0 ELSE 1 END                AS total
-            FROM smp_player player
-                     JOIN account_link link ON link.discord_id = player.discord_id
-            """)
-    @RegisterConstructorMapper(AuraPlace.class)
-    AuraPlace auraPlace(@Bind("aura") int aura, @Bind("discordId") String discordId);
-
-    /**
      * The Discord id of the player who won the start event, if one has been decided.
      *
      * The earliest decided game, so a later practice game cannot move a reward already paid.

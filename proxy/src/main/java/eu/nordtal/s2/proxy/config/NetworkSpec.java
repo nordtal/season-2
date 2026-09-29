@@ -68,7 +68,7 @@ public interface NetworkSpec {
         "Every command a player who is not an admin may type or see, anywhere on the network.",
         "Anything not listed is refused like a mistyped command. Admins are exempt.",
         "",
-        "An entry is a path without the slash: 'smp status', 'hg ready', 'msg'. Everything",
+        "An entry is a path without the slash: 'hg ready', 'poi', 'msg'. Everything",
         "under an allowed path is allowed, and so is every path above one. This proxy",
         "publishes the list to the database on start, which is where the backends read it."
     })
@@ -76,7 +76,7 @@ public interface NetworkSpec {
     default java.util.List<String> commandAllowlist() {
         return java.util.List.of(
                 // Ours, and only ours: every vanilla command, including /help, is deliberately absent.
-                "smp status", "navigate", "poi", "hg ready", "aura", "msg", "whisper", "r", "discord", "rules");
+                "navigate", "poi", "hg ready", "msg", "whisper", "r", "discord", "rules");
     }
 
     @Order(4)

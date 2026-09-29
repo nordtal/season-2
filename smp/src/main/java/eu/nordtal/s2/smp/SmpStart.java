@@ -136,10 +136,6 @@ final class SmpStart {
     static AdminOperators startSurfaceRefreshAndOperatorSweep(final SmpPlugin plugin) {
         // Surfaces are drawn far more often than their data changes.
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, plugin::refreshSurfaceData, 100L, 100L);
-        // The one main-thread read of the player collection, for {@code /smp status}.
-        Bukkit.getScheduler()
-                .runTaskTimer(
-                        plugin, () -> plugin.online = Bukkit.getOnlinePlayers().size(), 20L, 20L);
 
         // Sweeps before any join, since {@code ops.json} survives a crash.
         final AdminOperators operators = BukkitOps.create();
@@ -399,13 +395,11 @@ final class SmpStart {
         final BukkitSmpEffects chatEffects = new BukkitSmpEffects(
                 plugin,
                 BukkitSmpEffects.async(plugin),
-                plugin.jdbi,
                 plugin.dao,
                 plugin.engine,
                 plugin.identities,
                 access,
-                plugin::reloadTrack,
-                plugin::status);
+                plugin::reloadTrack);
 
         final ScheduledExecutorService commandWaiter =
                 java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
@@ -425,13 +419,11 @@ final class SmpStart {
         final SmpEffects inboxEffects = new BukkitSmpEffects(
                 plugin,
                 Runnable::run,
-                plugin.jdbi,
                 plugin.dao,
                 plugin.engine,
                 plugin.identities,
                 access,
-                plugin::reloadTrack,
-                plugin::status);
+                plugin::reloadTrack);
         SmpCommands.all().forEach(command -> inbox.register(command, inboxEffects));
         inbox.start(plugin);
         return new CommandLayer(chatEffects, commandWaiter, outbox, sharedMessages, inbox);

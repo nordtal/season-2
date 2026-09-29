@@ -83,7 +83,7 @@ public final class Configs {
                     throw new IllegalArgumentException("command-allowlist entry '" + entry + "' is"
                             + " nothing once the leading slash and namespace are taken off, so it"
                             + " allows no command at all. Write the command's path, like"
-                            + " 'smp status'");
+                            + " 'hg ready'");
                 }
             }
             final NetworkSpec.MotdSpec motd = config.motd();

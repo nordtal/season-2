@@ -1,16 +1,18 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.Card;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,9 +24,7 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Draws every update run in the admin channel that was not started from Discord, in English.
- *
- * Runs started here are skipped, since the asker's own embed already draws them.
+ * Draws every update run in the admin channel, in English.
  */
 @Slf4j
 public final class UpdateFeed {
@@ -92,7 +92,7 @@ public final class UpdateFeed {
             final long mark = updates.latestId();
             for (final UpdateRequest request : updates.finishedWithin(CATCH_UP)) {
                 // A row with id > mark finished between the two reads above; tick() finds it.
-                if (request.source() == UpdateSource.DISCORD || request.id() > mark) {
+                if (request.id() > mark) {
                     continue;
                 }
                 // Posted and forgotten: it is over.
@@ -100,7 +100,7 @@ public final class UpdateFeed {
             }
             // A run still going falls through both loops above; registering it here makes tick() follow it.
             for (final UpdateRequest request : updates.since(0L)) {
-                if (request.source() == UpdateSource.DISCORD || request.status().isFinished() || request.id() > mark) {
+                if (request.status().isFinished() || request.id() > mark) {
                     continue;
                 }
                 board.post(
@@ -158,9 +158,6 @@ public final class UpdateFeed {
 
         for (final UpdateRequest request : fresh) {
             lastSeen = Math.max(lastSeen, request.id());
-            if (request.source() == UpdateSource.DISCORD) {
-                continue;
-            }
             final boolean over = request.status().isFinished();
             if (over) {
                 alertIfFailed(request);
@@ -225,7 +222,113 @@ public final class UpdateFeed {
     private MessageEmbed embed(final UpdateRequest request) {
         final UpdateReport report =
                 UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
-        // With the context the asker's own embed omits: which run, who asked, and from where.
-        return UpdateCommand.fields(report, request, messages, Locales.DEFAULT, true);
+        return fields(report, request, messages, Locales.DEFAULT, true);
+    }
+
+    static MessageEmbed fields(
+            final UpdateReport report, final UpdateRequest request, final Messages messages, final java.util.Locale locale) {
+        return fields(report, request, messages, locale, false);
+    }
+
+    /**
+     * Draws one run as data: the stage as title, the outcome as colour, one line per service.
+     *
+     * @param context whether to say who asked, and from where; only the admin channel's feed does
+     */
+    static MessageEmbed fields(
+            final UpdateReport report,
+            final UpdateRequest request,
+            final Messages messages,
+            final java.util.Locale locale,
+            final boolean context) {
+        final Card card = Card.of(
+                        messages.format(locale, MESSAGES.update().stage(report.stage())), accent(report.stage()))
+                .timestamp(request.finished() == null ? Instant.now() : request.finished());
+        final java.util.function.IntFunction<String> more = count ->
+                Card.italic(messages.format(locale, MESSAGES.update().embed().more(count)));
+
+        if (context) {
+            card.field(
+                            messages.format(locale, MESSAGES.update().embed().run()),
+                            request.kind().name().toLowerCase(java.util.Locale.ROOT))
+                    .field(
+                            messages.format(locale, MESSAGES.update().embed().by()),
+                            request.requestedBy() == null ? "console" : Card.escape(request.requestedBy()))
+                    .field(
+                            messages.format(locale, MESSAGES.update().embed().from()),
+                            request.source().name().toLowerCase(java.util.Locale.ROOT));
+        }
+        if (request.finished() != null && request.requested() != null) {
+            card.field(
+                    messages.format(locale, MESSAGES.update().embed().duration()),
+                    Card.duration(Duration.between(request.requested(), request.finished())));
+        }
+
+        // The services get the budget first: which server failed matters more than why.
+        final java.util.List<String> lines = new java.util.ArrayList<>();
+        final java.util.List<String> notes = new java.util.ArrayList<>();
+        for (final UpdateReport.ServiceLine line : report.services()) {
+            lines.add(line(line, messages, locale));
+            if (line.detail() != null && !line.detail().isBlank()) {
+                notes.add(Card.bold(line.service()) + " " + Card.escape(line.detail()));
+            }
+        }
+        for (final String note : report.notes()) {
+            // A multi-line note only reads in monospace and repeats the service lines.
+            if (!note.isBlank() && note.strip().indexOf('\n') < 0) {
+                notes.add(Card.escape(note.strip()));
+            }
+        }
+        card.block(messages.format(locale, MESSAGES.update().embed().services()), lines, more);
+        card.block(messages.format(locale, MESSAGES.update().embed().notes()), notes, more);
+        return card.build();
+    }
+
+    /** Renders a service line such as {@code ✔ smp running  smp 0.9.3 → 0.9.4}. */
+    private static String line(final UpdateReport.ServiceLine line, final Messages messages, final java.util.Locale locale) {
+        final StringBuilder text = new StringBuilder(marker(line.state()))
+                .append(' ')
+                .append(Card.bold(line.service()))
+                .append(' ')
+                .append(Card.italic(messages.format(locale, MESSAGES.update().state(line.state()))));
+        for (final UpdateReport.Change change : line.changes()) {
+            text.append("  ")
+                    .append(Card.escape(change.artefact()))
+                    .append(' ')
+                    .append(
+                            switch (change.state()) {
+                                // No build for this Minecraft version, which stops no server.
+                                case UNSUPPORTED ->
+                                    Card.italic(messages.format(
+                                            locale, MESSAGES.update().embed().noBuild()));
+                                case MOVING ->
+                                    change.from() == null
+                                            ? Card.bold(change.to())
+                                            : Card.arrow(change.from(), change.to());
+                            });
+        }
+        return text.toString();
+    }
+
+    /** Returns the marker of one service's state. */
+    private static String marker(final UpdateReport.State state) {
+        return switch (state) {
+            case UNCHANGED -> "\u2013";
+            case PLANNED -> "○";
+            case STOPPED, INSTALLED, STARTING -> "◑";
+            // A finished snapshot and a service that came back are the same news.
+            case HEALTHY, SAVED -> "✔";
+            case FAILED -> "✖";
+        };
+    }
+
+    /** Returns red for a failure, green for success, and grey for everything else. */
+    private static Card.Accent accent(final UpdateReport.Stage stage) {
+        return switch (stage) {
+            case FAILED -> Card.Accent.BAD;
+            case DONE -> Card.Accent.GOOD;
+            default -> Card.Accent.NEUTRAL;
+        };
     }
 }
+

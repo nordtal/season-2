@@ -36,7 +36,6 @@ public final class LimboCommand {
             final java.util.function.Function<UUID, Optional<String>> discordIdOf,
             final Outbox outbox,
             final LimboEffects effects,
-            final javax.sql.DataSource pool,
             final java.util.function.Supplier<ToneColours> colours) {
 
         final PaperCommands commands = new PaperCommands(
@@ -54,20 +53,6 @@ public final class LimboCommand {
         for (final NordtalCommand<LimboEffects> command : LimboCommands.all()) {
             commands.local(command, effects);
         }
-        // An admin held in limbo during MAINTENANCE is exactly somebody who may want to update the network.
-        final eu.nordtal.s2.papercommon.command.UpdateWatcher updates =
-                new eu.nordtal.s2.papercommon.command.UpdateWatcher(
-                        plugin, eu.nordtal.s2.common.update.UpdateDirectory.using(pool));
-        eu.nordtal.s2.commands.update.UpdateCommands.all()
-                .forEach(command -> commands.local(
-                        command,
-                        new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                                updates.directory(),
-                                work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
-                                (what, failure) -> plugin.getLogger()
-                                        .warning("An update command failed while " + what + ": " + failure),
-                                updates::watch)));
-
         commands.remoteAll(Catalogue.all());
         return commands.build();
     }

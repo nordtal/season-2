@@ -92,7 +92,6 @@ public record Declaration(
     /** Returns whether this command travels through {@code command_request} when asked from that process. */
     public boolean isRemoteOn(final Target host) {
         Objects.requireNonNull(host, "host");
-        // Target.LOCAL is never remote: its effect is a row every process can write.
-        return target != Target.LOCAL && target != host;
+        return target != host;
     }
 }

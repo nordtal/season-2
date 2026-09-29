@@ -2,14 +2,11 @@ package eu.nordtal.s2.discordbot.discord;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.s2.commands.NordtalUser;
-import eu.nordtal.s2.commands.access.AccessEffects;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.access.AccessSource;
 import eu.nordtal.s2.common.access.PlaytimeWording;
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.payment.Money;
 import eu.nordtal.s2.common.payment.PaymentRequest;
 import eu.nordtal.s2.common.payment.PaymentRequestStatus;
 import eu.nordtal.s2.common.payment.PaymentRequests;
@@ -20,16 +17,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Executor;
 
-/**
- * {@link AccessEffects} against this bot: the row, the Discord role, the direct message and the audit entry.
- *
- * The slash command instance runs on the worker pool; the command inbox instance runs inline.
- */
-public final class BotAccessEffects implements AccessEffects, AccessChanges {
+/** {@link AccessChanges} against this bot: the row, the Discord role, the direct message and the audit entry. */
+public final class BotAccessEffects implements AccessChanges {
 
-    private final Executor executor;
     private final AccessDirectory access;
     private final AccessRoles roles;
     private final PaymentRequests requests;
@@ -46,7 +37,6 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
      * @param shared {@code :commands}' bundle as the command inbox renders it, reloaded together with {@code messages}
      */
     public BotAccessEffects(
-            final Executor executor,
             final AccessDirectory access,
             final AccessRoles roles,
             final PaymentRequests requests,
@@ -55,7 +45,6 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
             final Messages messages,
             final Messages shared,
             final org.slf4j.Logger log) {
-        this.executor = executor;
         this.access = access;
         this.roles = roles;
         this.requests = requests;
@@ -64,55 +53,6 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         this.messages = messages;
         this.shared = shared;
         this.log = log;
-    }
-
-    @Override
-    public void async(final Runnable work) {
-        executor.execute(work);
-    }
-
-    @Override
-    public void warn(final String what, final Throwable failure) {
-        log.warn(what, failure);
-    }
-
-    @Override
-    public Optional<Status> status(final String discordId) {
-        // Through the guild, so a departed member reads as empty rather than throwing.
-        final Optional<net.dv8tion.jda.api.entities.Member> member = roles.member(discordId);
-        if (member.isEmpty()) {
-            return Optional.empty();
-        }
-
-        final List<Grant> grants = access.grantsOf(discordId).stream()
-                .map(grant -> new Grant(
-                        grant.validFrom(), grant.validUntil(), grant.source().name(), grant.revoked() != null))
-                .toList();
-        final List<Purchase> purchases = requests.recentOf(discordId, 5).stream()
-                .map(request -> new Purchase(
-                        request.reference(),
-                        request.days(),
-                        Money.format(request.amountCents()),
-                        request.status().name()))
-                .toList();
-
-        return Optional.of(new Status(
-                member.get().getUser().getName(),
-                grants.stream()
-                        .filter(grant -> !grant.revoked())
-                        .map(Grant::validUntil)
-                        .filter(until -> until.isAfter(Instant.now()))
-                        .max(Instant::compareTo),
-                access.isDonor(discordId),
-                roles.localeOf(discordId),
-                access.linkedMinecraftAccount(discordId),
-                grants,
-                purchases));
-    }
-
-    @Override
-    public Instant grant(final String discordId, final int days, final NordtalUser by) {
-        return grant(discordId, days, Actor.of(by));
     }
 
     /** Grants access: the row, the role, the direct message and the admin channel line. */
@@ -135,11 +75,6 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         return granted.validUntil();
     }
 
-    @Override
-    public int revoke(final String discordId, final NordtalUser by) {
-        return revoke(discordId, Actor.of(by));
-    }
-
     /** Returns how many grants were revoked, zero included. */
     @Override
     public int revoke(final String discordId, final Actor by) {
@@ -156,11 +91,6 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         return revoked;
     }
 
-    @Override
-    public boolean unlink(final String discordId, final NordtalUser by) {
-        return unlink(discordId, Actor.of(by));
-    }
-
     /** Returns whether there was a link to break. */
     @Override
     public boolean unlink(final String discordId, final Actor by) {
@@ -173,16 +103,6 @@ public final class BotAccessEffects implements AccessEffects, AccessChanges {
         admin.note(by.mention() + " unlinked <@" + discordId + ">'s Minecraft account `"
                 + linked.map(UUID::toString).orElse("?") + "`.");
         return true;
-    }
-
-    @Override
-    public List<String> openReferences() {
-        return requests.allOpen().stream().map(PaymentRequest::reference).toList();
-    }
-
-    @Override
-    public Settled settle(final String reference, final NordtalUser by) {
-        return settle(reference, Actor.of(by));
     }
 
     /** Books a payment by hand, for whoever asked. */

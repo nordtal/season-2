@@ -7,8 +7,8 @@ import com.mojang.brigadier.tree.CommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Target;
-import eu.nordtal.s2.commands.access.AccessCommands;
-import eu.nordtal.s2.commands.access.AccessEffects;
+import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
+import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.common.message.Messages;
@@ -40,43 +40,38 @@ class AdminCommandsAreGoneFromTheGameTest {
     private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locale.ENGLISH);
 
     @Test
-    void accessIsGoneForPlayers() {
-        final PaperCommands commands = adapter(Target.BOT);
-        for (final NordtalCommand<AccessEffects> command : AccessCommands.all()) {
-            commands.local(command, silent(AccessEffects.class));
-        }
-        final LiteralCommandNode<CommandSourceStack> access = root(commands.build(), "access");
-
-        assertFalse(
-                access.getRequirement().test(source(player())),
-                "/access carries no Surface.GAME on any of its five commands, so an admin standing"
-                        + " in the world must not have the root in their tree");
-        assertTrue(
-                access.getRequirement().test(source(sender(ConsoleCommandSender.class))),
-                "the console keeps every one of them - that surface is never taken away");
-    }
-
-    @Test
-    void smpReloadIsGoneWhileSmpStatusStays() {
+    void smpIsGoneForPlayers() {
         final PaperCommands commands = adapter(Target.SMP);
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, silent(SmpEffects.class));
         }
-        // /smp status is native Brigadier, hung on the root by the smp plugin itself.
-        commands.extraOpen("smp", Commands.literal("status"));
         final LiteralCommandNode<CommandSourceStack> smp = root(commands.build(), "smp");
-        final Predicate<CommandSourceStack> reload = child(smp, "reload").getRequirement();
-        final Predicate<CommandSourceStack> status = child(smp, "status").getRequirement();
 
-        assertFalse(reload.test(source(player())), "/smp reload is CONSOLE only, so it is not in a player's tree");
-        assertTrue(reload.test(source(sender(ConsoleCommandSender.class))), "the console keeps it");
-        assertTrue(
-                status.test(source(player())),
-                "/smp status is the one /smp command a player may type - cutting it would be"
-                        + " this change reaching past what it was asked to do");
-        assertTrue(
+        assertFalse(
                 smp.getRequirement().test(source(player())),
-                "and the root stays open, because /smp status hangs off it");
+                "/smp carries no Surface.GAME on any of its commands, so an admin standing"
+                        + " in the world must not have the root in their tree");
+        assertTrue(
+                smp.getRequirement().test(source(sender(ConsoleCommandSender.class))),
+                "the console keeps every one of them - that surface is never taken away");
+    }
+
+    @Test
+    void hgReloadIsGoneWhileHgReadyStays() {
+        final PaperCommands commands = adapter(Target.HUNGER_GAMES);
+        for (final NordtalCommand<HungerGamesEffects> command : HungerGamesCommands.all()) {
+            commands.local(command, silent(HungerGamesEffects.class));
+        }
+        // /hg ready is native Brigadier, hung on the root by the hunger-games plugin itself.
+        commands.extraOpen("hg", Commands.literal("ready"));
+        final LiteralCommandNode<CommandSourceStack> hg = root(commands.build(), "hg");
+        final Predicate<CommandSourceStack> reload = child(hg, "reload").getRequirement();
+        final Predicate<CommandSourceStack> ready = child(hg, "ready").getRequirement();
+
+        assertFalse(reload.test(source(player())), "/hg reload is CONSOLE only, so it is not in a player's tree");
+        assertTrue(reload.test(source(sender(ConsoleCommandSender.class))), "the console keeps it");
+        assertTrue(ready.test(source(player())), "/hg ready is for players");
+        assertTrue(hg.getRequirement().test(source(player())), "and the root stays open, because /hg ready hangs off it");
     }
 
     private PaperCommands adapter(final Target here) {

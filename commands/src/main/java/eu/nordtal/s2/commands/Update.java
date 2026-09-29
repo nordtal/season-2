@@ -4,33 +4,11 @@ import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.spec.Arg;
 import eu.nordtal.s2.common.message.spec.Key;
 import eu.nordtal.s2.common.message.spec.Name;
-import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
 
-/** Every sentence the Discord update confirmation can print, and the tables that turn a report's enums into one. */
+/** The words of an update run drawn in the admin channel, and the tables that turn a report's enums into them. */
 @Name("Update")
 public interface Update {
-
-    @Name("Cancelled")
-    MessageRef cancelled();
-
-    @Name("Too late")
-    MessageRef tooLate();
-
-    @Name("Busy")
-    MessageRef busy();
-
-    @Name("Already down")
-    MessageRef alreadyDown(@Arg("services") Object services);
-
-    @Name("Gone")
-    MessageRef gone();
-
-    @Name("Timeout")
-    MessageRef timeout(@Arg("status") Object status);
-
-    @Name("Interaction failed")
-    MessageRef interactionFailed();
 
     Embed embed();
 
@@ -92,19 +70,6 @@ public interface Update {
             case STARTING -> state().starting();
             case HEALTHY -> state().healthy();
             case FAILED -> state().failed();
-        };
-    }
-
-    /** The heading of a run, by what was asked for. */
-    default MessageRef title(final UpdateKind kind) {
-        return switch (kind) {
-            case REPORT -> title().report();
-            case APPLY -> title().apply();
-            case UPDATE -> title().update();
-            case RESTART -> title().restart();
-            case BACKUP -> title().backup();
-            case DOWN -> title().down();
-            case START -> title().start();
         };
     }
 
@@ -198,72 +163,5 @@ public interface Update {
         @Name("Failed")
         @Key("FAILED")
         MessageRef failed();
-    }
-
-    Waiting waiting();
-
-    @Name("Waiting")
-    interface Waiting {
-
-        @Name("Check")
-        MessageRef check();
-    }
-
-    Countdown countdown();
-
-    @Name("Countdown")
-    interface Countdown {
-
-        @Name("Started")
-        MessageRef started(@Arg("seconds") Object seconds);
-    }
-
-    Button button();
-
-    @Name("Button")
-    interface Button {
-
-        @Name("Install")
-        MessageRef install();
-
-        @Name("Restart")
-        MessageRef restart();
-
-        @Name("Cancel")
-        MessageRef cancel();
-    }
-
-    Title title();
-
-    @Name("Title")
-    interface Title {
-
-        @Name("Report")
-        @Key("REPORT")
-        MessageRef report();
-
-        @Name("Update")
-        @Key("UPDATE")
-        MessageRef update();
-
-        @Name("Restart")
-        @Key("RESTART")
-        MessageRef restart();
-
-        @Name("Backup")
-        @Key("BACKUP")
-        MessageRef backup();
-
-        @Name("Apply")
-        @Key("APPLY")
-        MessageRef apply();
-
-        @Name("Down")
-        @Key("DOWN")
-        MessageRef down();
-
-        @Name("Start")
-        @Key("START")
-        MessageRef start();
     }
 }

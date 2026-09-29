@@ -211,7 +211,6 @@ public final class LimboPlugin extends JavaPlugin {
                                         access::linkedDiscordAccount,
                                         wiring.outbox(),
                                         chatEffects,
-                                        pool,
                                         () -> colours)
                                 .forEach(node -> event.registrar().register(node)));
     }

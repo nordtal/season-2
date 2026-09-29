@@ -345,18 +345,6 @@ public final class VelocityCommands {
     }
 
     private int help(final CommandContext<CommandSource> context, final Node node) {
-        // A root with a declared default runs it instead of listing itself: /phase is /phase show.
-        final java.util.Optional<Declaration> preset =
-                eu.nordtal.s2.commands.Catalogue.rootDefault(node.literal, mayUse(context.getSource()));
-        if (preset.isPresent()) {
-            final Node child = node.children.get(preset.get().path().get(1));
-            if (child != null
-                    && child.command != null
-                    && child.command.declaration().equals(preset.get())) {
-                return run(context, child.command, Map.of());
-            }
-        }
-
         final NordtalUser user = user(context.getSource());
         final List<Declaration> below = new ArrayList<>();
         collect(node, below);

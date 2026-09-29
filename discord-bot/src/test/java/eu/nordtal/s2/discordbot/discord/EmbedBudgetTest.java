@@ -32,7 +32,7 @@ class EmbedBudgetTest {
     @Test
     void longNotesAndMoreServicesThanFitStillBuildInsideTheLimit() {
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request(), messages, locale);
+            final MessageEmbed embed = UpdateFeed.fields(report(40, 600, 30, 400), request(), messages, locale);
 
             assertTrue(
                     embed.getLength() <= LIMIT,
@@ -46,7 +46,7 @@ class EmbedBudgetTest {
     void aDescriptionThatEatsTheWholeBudgetLeavesNoRoomClaimedByTheOverflowField() {
         // Notes long enough to consume the rest, plus more services than are drawn.
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final MessageEmbed embed = UpdateCommand.fields(report(30, 900, 1, 5000), request(), messages, locale);
+            final MessageEmbed embed = UpdateFeed.fields(report(30, 900, 1, 5000), request(), messages, locale);
 
             assertTrue(embed.getLength() <= LIMIT, locale + ": the embed is " + embed.getLength() + " characters");
         }
@@ -54,7 +54,7 @@ class EmbedBudgetTest {
 
     @Test
     void anOrdinaryRunIsDrawnInFullOneLinePerServiceUnderOneHeading() {
-        final MessageEmbed embed = UpdateCommand.fields(report(4, 60, 2, 80), request(), messages, Locale.GERMAN);
+        final MessageEmbed embed = UpdateFeed.fields(report(4, 60, 2, 80), request(), messages, Locale.GERMAN);
 
         assertTrue(embed.getLength() <= LIMIT);
         final MessageEmbed.Field services = embed.getFields().stream()
@@ -76,7 +76,7 @@ class EmbedBudgetTest {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
                 .withNote("proxy: release v0.9.5 carries no proxy-<version>.jar")
                 .withNote("what was done\n\nproxy\n  proxy   unchanged   proxy-0.9.5.jar\n");
-        final MessageEmbed embed = UpdateCommand.fields(report, request(), messages, Locale.ENGLISH);
+        final MessageEmbed embed = UpdateFeed.fields(report, request(), messages, Locale.ENGLISH);
 
         final String notes = embed.getFields().stream()
                 .filter(field -> "Notes".equals(field.getName()))
@@ -92,7 +92,7 @@ class EmbedBudgetTest {
     @Test
     void aRunTooBigForOneEmbedCountsWhatItLeavesOutAndNeverDrawsACodeBlock() {
         final MessageEmbed embed =
-                UpdateCommand.fields(report(40, 600, 30, 400), request(), messages, Locale.ENGLISH, true);
+                UpdateFeed.fields(report(40, 600, 30, 400), request(), messages, Locale.ENGLISH, true);
 
         assertTrue(embed.getFields().size() <= 25);
         final String all =
@@ -107,7 +107,7 @@ class EmbedBudgetTest {
         // Only UpdateFeed draws with context, so this is the only case measuring those fields.
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
             final MessageEmbed embed =
-                    UpdateCommand.fields(report(40, 600, 30, 400), longAsker(), messages, locale, true);
+                    UpdateFeed.fields(report(40, 600, 30, 400), longAsker(), messages, locale, true);
 
             assertTrue(
                     embed.getLength() <= LIMIT,

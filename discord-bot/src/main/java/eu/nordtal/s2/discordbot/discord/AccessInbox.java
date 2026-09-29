@@ -1,6 +1,5 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import eu.nordtal.s2.commands.access.AccessEffects;
 import eu.nordtal.s2.common.access.AccessRequest;
 import eu.nordtal.s2.common.access.AccessRequests;
 import java.time.Instant;
@@ -67,7 +66,7 @@ public final class AccessInbox {
             case REVOKE -> json("revoked", String.valueOf(effects.revoke(request.subject(), by)));
             case UNLINK -> json("unlinked", String.valueOf(effects.unlink(request.subject(), by)));
             case SETTLE -> {
-                final AccessEffects.Settled settled = effects.settle(request.subject(), by);
+                final AccessChanges.Settled settled = effects.settle(request.subject(), by);
                 // `until` is null for both refusals; a surface must tell "booked" from "nothing to book".
                 yield json(
                         "outcome",

@@ -3,7 +3,6 @@ package eu.nordtal.s2.discordbot;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
-import eu.nordtal.s2.commands.access.AccessCommands;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AdminTree;
 import eu.nordtal.s2.common.health.Readiness;
@@ -35,7 +34,6 @@ import eu.nordtal.s2.discordbot.discord.AccessInbox;
 import eu.nordtal.s2.discordbot.discord.AdminRole;
 import eu.nordtal.s2.discordbot.discord.BotAccessEffects;
 import eu.nordtal.s2.discordbot.discord.GuildState;
-import eu.nordtal.s2.discordbot.discord.UpdateCommand;
 import eu.nordtal.s2.discordbot.discord.UpdateFeed;
 import eu.nordtal.s2.discordbot.hungergames.RegisterFlow;
 import eu.nordtal.s2.discordbot.hungergames.RegisterMessages;
@@ -140,7 +138,7 @@ public class AccessBot implements AutoCloseable {
             final CoreServices core = loadCoreServices(accessConfig);
             this.jda = connectJda(botConfig);
 
-            final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases, updates);
+            final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
             publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), wiring);
 
             final Listeners listeners = finishStartup(databaseConfig, accessConfig, core, wiring, phases, updates);
@@ -248,8 +246,7 @@ public class AccessBot implements AutoCloseable {
             final JDA jda,
             final AccessSpec accessConfig,
             final CoreServices core,
-            final PhaseDirectory phases,
-            final UpdateDirectory updates) {
+            final PhaseDirectory phases) {
         final AdminLog admin = new AdminLog(jda, accessConfig, database.jdbi());
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
@@ -271,9 +268,6 @@ public class AccessBot implements AutoCloseable {
         final AdminRole adminRole = new AdminRole(jda, accessConfig, adminTree, admin);
         final Teams teams = new Teams(database.jdbi());
 
-        final UpdateCommand updateCommand =
-                new UpdateCommand(updates, admin, database.jdbi(), core.messages(), worker, timers);
-
         // Held because the payment seam finishes messages waiting for a link.
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
                 accessConfig, core.tiers(), core.purchases(), core.requests(), core.messages(), roles, admin, worker);
@@ -289,7 +283,6 @@ public class AccessBot implements AutoCloseable {
                 guildState,
                 adminRole,
                 teams,
-                updateCommand,
                 purchaseFlow);
     }
 
@@ -304,7 +297,6 @@ public class AccessBot implements AutoCloseable {
             final GuildState guildState,
             final AdminRole adminRole,
             final Teams teams,
-            final UpdateCommand updateCommand,
             final PurchaseFlow purchaseFlow) {
         jda.addEventListener(
                 guildState,
@@ -316,11 +308,9 @@ public class AccessBot implements AutoCloseable {
                         admin,
                         new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), Clock.systemUTC()),
                         worker),
-                updateCommand,
                 new RegisterFlow(jda, teams, core.messages(), worker));
 
         final BotAccessEffects inboxEffects = new BotAccessEffects(
-                Runnable::run,
                 access,
                 roles,
                 core.requests(),
@@ -330,7 +320,7 @@ public class AccessBot implements AutoCloseable {
                 core.sharedMessages(),
                 log);
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =
-                wireCommandInbox(jda, core.sharedMessages(), core.languages(), inboxEffects);
+                wireCommandInbox(jda, core.sharedMessages(), core.languages());
 
         final List<CommandData> commands = new ArrayList<>();
         // Only a player's own self-service is registered natively.
@@ -344,9 +334,8 @@ public class AccessBot implements AutoCloseable {
     private eu.nordtal.s2.discordbot.announce.Announcements wireCommandInbox(
             final JDA jda,
             final Messages sharedMessages,
-            final Languages languages,
-            final BotAccessEffects inboxEffects) {
-        // Not a slash command: a console /access grant arrives as a command_request row.
+            final Languages languages) {
+        // `announce <language> <text>` rows from the servers, posted verbatim.
         final eu.nordtal.s2.common.command.CommandRequests commandRequests =
                 eu.nordtal.s2.common.command.CommandRequests.borrowing(database.dataSource());
 
@@ -358,8 +347,6 @@ public class AccessBot implements AutoCloseable {
                 eu.nordtal.s2.commands.remote.CommandInbox.AdminCheck.of(
                         access::admins, access::adminMinecraftAccounts),
                 (message, failure) -> log.warn(message, failure));
-        AccessCommands.all().forEach(command -> inbox.register(command, inboxEffects));
-        // `announce <language> <text>` rows from the servers, posted verbatim.
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =
                 new eu.nordtal.s2.discordbot.announce.Announcements(jda, languages, Runnable::run, log);
         eu.nordtal.s2.commands.announce.AnnounceCommands.all()

@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
 import java.io.IOException;
 import java.io.InputStream;
@@ -129,10 +128,6 @@ class MessageBundlesTest {
         }
         for (final UpdateReport.State state : UpdateReport.State.values()) {
             check(english, german, "update.state." + state, missing);
-        }
-        for (final UpdateKind kind : UpdateKind.values()) {
-            // The heading for an unstructured report row.
-            check(english, german, "update.title." + kind, missing);
         }
         assertEquals(List.of(), missing);
     }

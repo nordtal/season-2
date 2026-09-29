@@ -5,11 +5,7 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
-/**
- * This module's writer of the append-only {@code audit_log}.
- *
- * {@code :common}'s phase DAO logs a phase switch itself, so {@code /phase set} must not call {@link AdminLog#record}.
- */
+/** This module's writer of the append-only {@code audit_log}. */
 interface AuditDao {
 
     @SqlUpdate("""

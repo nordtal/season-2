@@ -199,9 +199,5 @@ public interface Command {
         @Name("Bot")
         @Key("BOT")
         MessageRef bot();
-
-        @Name("Local")
-        @Key("LOCAL")
-        MessageRef local();
     }
 }

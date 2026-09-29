@@ -19,13 +19,17 @@ import org.slf4j.Logger;
  */
 public final class Announcements implements AnnounceEffects {
 
-    private final JDA jda;
+    private final Channels channels;
     private final Languages languages;
     private final Executor executor;
     private final Logger log;
 
     public Announcements(final JDA jda, final Languages languages, final Executor executor, final Logger log) {
-        this.jda = Objects.requireNonNull(jda, "jda");
+        this(Channels.of(jda), languages, executor, log);
+    }
+
+    Announcements(final Channels channels, final Languages languages, final Executor executor, final Logger log) {
+        this.channels = Objects.requireNonNull(channels, "channels");
         this.languages = Objects.requireNonNull(languages, "languages");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.log = Objects.requireNonNull(log, "log");
@@ -49,8 +53,8 @@ public final class Announcements implements AnnounceEffects {
             return false;
         }
         final String channelId = language.get().announcementChannelId();
-        final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
-        if (channel == null) {
+        final Optional<String> channel = channels.name(channelId);
+        if (channel.isEmpty()) {
             log.error(
                     "Announcement channel {} for '{}' does not exist or the bot cannot see it;"
                             + " it would have carried \"{}\"",
@@ -61,8 +65,8 @@ public final class Announcements implements AnnounceEffects {
         }
         // Waited for, so "posted" means Discord took it; every caller is a worker thread.
         try {
-            channel.sendMessage(text).submit().get(POST_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
-            log.debug("Announced in '{}': {}", languageTag, text);
+            channels.send(channelId, text);
+            log.info("Announced in '{}' in #{} ({}): {}", languageTag, channel.get(), channelId, text);
             return true;
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
@@ -80,6 +84,37 @@ public final class Announcements implements AnnounceEffects {
     }
 
     private static final java.time.Duration POST_TIMEOUT = java.time.Duration.ofSeconds(15);
+
+    /** Discord as far as posting a line goes, so a test can stand in for the guild. */
+    interface Channels {
+
+        /** Returns the channel's name, or empty when it does not exist or the bot cannot see it. */
+        Optional<String> name(String channelId);
+
+        /** Posts the text and waits until Discord took it. */
+        void send(String channelId, String text) throws InterruptedException, ExecutionException, TimeoutException;
+
+        /** The guild the bot is logged in to. */
+        static Channels of(final JDA jda) {
+            return new Channels() {
+                @Override
+                public Optional<String> name(final String channelId) {
+                    return Optional.ofNullable(jda.getChannelById(MessageChannel.class, channelId))
+                            .map(MessageChannel::getName);
+                }
+
+                @Override
+                public void send(final String channelId, final String text)
+                        throws InterruptedException, ExecutionException, TimeoutException {
+                    final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
+                    if (channel == null) {
+                        throw new ExecutionException(new IllegalStateException("channel " + channelId + " is gone"));
+                    }
+                    channel.sendMessage(text).submit().get(POST_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+                }
+            };
+        }
+    }
 
     /**
      * Posts one line per language that has a channel.

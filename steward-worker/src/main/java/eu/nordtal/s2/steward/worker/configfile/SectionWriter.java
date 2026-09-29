@@ -64,6 +64,9 @@ final class SectionWriter {
                     throw new IllegalArgumentException(field.path() + " (line " + field.line()
                             + ") is not a value or a list and cannot be changed through " + entry.path());
                 }
+                if (keepsSecret(field, wantedValue)) {
+                    continue;
+                }
                 final Object normalised = shapedFor(field, wantedValue);
                 if (!normalised.equals(valueOf(field))) {
                     edits.add(new PendingEdit(field, normalised));
@@ -112,6 +115,11 @@ final class SectionWriter {
     private static Span spanOf(final Parsed parsed, final ConfigEntry field) {
         return Objects.requireNonNull(
                 parsed.spans().get(field.path()), "collect() puts a span for every entry it adds");
+    }
+
+    /** Whether {@code value} is a secret sent back empty, which means unchanged: the browser never had its value. */
+    private static boolean keepsSecret(final ConfigEntry field, final Object value) {
+        return field.secret() && ("".equals(value) || (value instanceof List<?> list && list.isEmpty()));
     }
 
     /** A sent value in the shape {@code field} holds (string, list of strings or list of records), or a refusal. */
@@ -220,7 +228,8 @@ final class SectionWriter {
                     throw new IllegalArgumentException(field.path() + " is missing from entry " + index + " of "
                             + entry.path() + " that was sent to be saved");
                 }
-                if (!shapedFor(field, wantedValue).equals(valueOf(field))) {
+                if (!keepsSecret(field, wantedValue)
+                        && !shapedFor(field, wantedValue).equals(valueOf(field))) {
                     throw new IllegalArgumentException(entry.path() + ": adding an entry cannot also"
                             + " change " + field.path() + " in the same save - save that change"
                             + " first, then add the entry");
@@ -474,7 +483,7 @@ final class SectionWriter {
         }
         for (final ConfigEntry field : fields) {
             final Object value = candidate.get(field.key());
-            if (value == null || !value.equals(valueOf(field))) {
+            if (value == null || (!keepsSecret(field, value) && !value.equals(valueOf(field)))) {
                 return false;
             }
         }

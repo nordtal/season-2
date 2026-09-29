@@ -195,6 +195,79 @@ class ConfigFilesSectionsTest {
         assertEquals(before, Files.readString(file));
     }
 
+    // Writing: secrets inside a card
+
+    /** Two webhooks, each with a token the browser never sees and so sends back empty. */
+    private static final String HOOKS_FIXTURE = """
+            hooks:
+            - name: admin
+              token: first-secret
+            - name: log
+              token: second-secret
+            """;
+
+    @Test
+    void aSecretFieldInACardIsTakenAsASecret() throws IOException {
+        assertTrue(fieldOf(entry(read(HOOKS_FIXTURE), "hooks"), 0, "token").secret());
+    }
+
+    @Test
+    void anEmptySecretInACardLeavesTheStoredOneAlone() throws IOException {
+        final Path file = directory.resolve("hooks.yml");
+        Files.writeString(file, HOOKS_FIXTURE);
+
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "hooks",
+                        ConfigChange.sections(
+                                List.of(Map.of("name", "admins", "token", ""), Map.of("name", "log", "token", "")))));
+
+        assertEquals(HOOKS_FIXTURE.replace("name: admin\n", "name: admins\n"), Files.readString(file));
+    }
+
+    @Test
+    void aSecretInACardCanStillBeReplaced() throws IOException {
+        final Path file = directory.resolve("hooks.yml");
+        Files.writeString(file, HOOKS_FIXTURE);
+
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "hooks",
+                        ConfigChange.sections(List.of(
+                                Map.of("name", "admin", "token", ""),
+                                Map.of("name", "log", "token", "third-secret")))));
+
+        assertEquals(HOOKS_FIXTURE.replace("second-secret", "third-secret"), Files.readString(file));
+    }
+
+    @Test
+    void cardsWithEmptySecretsCanBeAddedToAndRemovedFrom() throws IOException {
+        final Path file = directory.resolve("hooks.yml");
+        Files.writeString(file, HOOKS_FIXTURE);
+
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "hooks",
+                        ConfigChange.sections(List.of(
+                                Map.of("name", "admin", "token", ""),
+                                Map.of("name", "log", "token", ""),
+                                Map.of("name", "alerts", "token", "new-secret")))));
+        assertTrue(Files.readString(file).endsWith("- name: alerts\n  token: new-secret\n"));
+
+        ConfigFiles.write(
+                file,
+                Map.of(
+                        "hooks",
+                        ConfigChange.sections(
+                                List.of(Map.of("name", "admin", "token", ""), Map.of("name", "alerts", "token", "")))));
+        final String left = Files.readString(file);
+        assertTrue(left.contains("first-secret") && left.contains("new-secret"), left);
+        assertFalse(left.contains("second-secret"), left);
+    }
+
     // Writing: appending and removing
 
     /**

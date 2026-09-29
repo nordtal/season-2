@@ -4,12 +4,14 @@ import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.MessageRef;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,12 +45,14 @@ public final class Ceremony {
      * @param winnerMcUuid the winner's Minecraft account, or {@code null} when there is none
      * @param members every active membership, for the names on the tally
      * @param kills member id to kill count; members with none are absent
+     * @param names member id to Minecraft name, as last seen at login; a member never seen is absent
      */
     public record Decision(
             WinTracker.Outcome outcome,
             @Nullable UUID winnerMcUuid,
             List<HgMember> members,
-            Map<UUID, Integer> kills) {}
+            Map<UUID, Integer> kills,
+            Map<UUID, String> names) {}
 
     /**
      * Teleports everyone in the world back to the lobby and announces the result in each player's language.
@@ -72,59 +76,62 @@ public final class Ceremony {
 
     /** One line for everybody; {@code BIG_SUCCESS} for the winner and {@code NETWORK_EVENT} for everybody else. */
     private void announce(final Player player, final Decision decision) {
-        final WinTracker.Outcome outcome = decision.outcome();
-        final List<HgMember> allMembers = decision.members();
         final Locale locale = locales.of(player.getUniqueId());
-        player.sendMessage(MessageRenderer.of(messages)
-                .format(locale, MESSAGES.hg().ceremony().header()));
-
-        // Four endings, four sentences: a tiebreak printed as a plain win contradicts what players just saw.
-        if (outcome.winnerMemberId() != null && outcome.tie()) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(
-                            locale,
-                            MESSAGES.hg()
-                                    .win()
-                                    .tieBroken(
-                                            winnerLabel(outcome.winnerMemberId(), allMembers),
-                                            outcome.winnerKills(),
-                                            outcome.loserKills())));
-        } else if (outcome.winnerMemberId() != null) {
-            // The one line with an icon; the glyph is a parameter since Glyphs names code points.
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(
-                            locale,
-                            MESSAGES.hg()
-                                    .win()
-                                    .player(Glyphs.ICON_ANNOUNCE, winnerLabel(outcome.winnerMemberId(), allMembers))));
-        } else if (outcome.tie()) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.hg().win().noWinner(outcome.winnerKills())));
-        } else {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.hg().ceremony().noWinner()));
+        for (final MessageRef line : lines(decision)) {
+            player.sendMessage(MessageRenderer.of(messages).format(locale, line));
         }
         sounds.play(
                 player,
                 player.getUniqueId().equals(decision.winnerMcUuid()) ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
+    }
+
+    /** The announcement, line by line, the same for every reader but their language. */
+    static List<MessageRef> lines(final Decision decision) {
+        final WinTracker.Outcome outcome = decision.outcome();
+        final List<HgMember> allMembers = decision.members();
+        final List<MessageRef> lines = new ArrayList<>();
+        lines.add(MESSAGES.hg().ceremony().header());
+
+        // Four endings, four sentences: a tiebreak printed as a plain win contradicts what players just saw.
+        if (outcome.winnerMemberId() != null && outcome.tie()) {
+            lines.add(MESSAGES.hg()
+                    .win()
+                    .tieBroken(
+                            player(decision, outcome.winnerMemberId()), outcome.winnerKills(), outcome.loserKills()));
+        } else if (outcome.winnerMemberId() != null) {
+            // The one line with an icon; the glyph is a parameter since Glyphs names code points.
+            lines.add(MESSAGES.hg().win().player(Glyphs.ICON_ANNOUNCE, player(decision, outcome.winnerMemberId())));
+        } else if (outcome.tie()) {
+            lines.add(MESSAGES.hg().win().noWinner(outcome.winnerKills()));
+        } else {
+            lines.add(MESSAGES.hg().ceremony().noWinner());
+        }
 
         for (final HgMember member : allMembers) {
             final int kills = decision.kills().getOrDefault(member.id(), 0);
             if (kills > 0) {
-                player.sendMessage(MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.hg().ceremony().kills(new PlayerContext(member.discordId()), kills)));
+                lines.add(MESSAGES.hg().ceremony().kills(player(decision, member.id()), kills));
             }
         }
 
-        player.sendMessage(MessageRenderer.of(messages)
-                .format(locale, MESSAGES.hg().ceremony().footer()));
+        lines.add(MESSAGES.hg().ceremony().footer());
+        return lines;
     }
 
-    private PlayerContext winnerLabel(final UUID winnerMemberId, final List<HgMember> allMembers) {
-        return new PlayerContext(allMembers.stream()
-                .filter(member -> member.id().equals(winnerMemberId))
+    /**
+     * A member as the tab list names them.
+     *
+     * Only a member who never logged in has no name on record, and such a member cannot have played.
+     */
+    private static PlayerContext player(final Decision decision, final UUID memberId) {
+        final String name = decision.names().get(memberId);
+        if (name != null) {
+            return new PlayerContext(name);
+        }
+        return new PlayerContext(decision.members().stream()
+                .filter(member -> member.id().equals(memberId))
                 .map(HgMember::discordId)
                 .findFirst()
-                .orElse(winnerMemberId.toString()));
+                .orElse(memberId.toString()));
     }
 }

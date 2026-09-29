@@ -16,7 +16,9 @@ import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.hungergames.player.ArenaComposition;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -186,9 +188,10 @@ public final class CombatListener implements Listener {
     }
 
     private Ceremony.Decision decisionFor(final UUID gameId, final WinTracker.Outcome decided) {
+        final List<RosterEntry> roster = dao.roster(gameId);
         final UUID winnerMcUuid = decided.winnerMemberId() == null
                 ? null
-                : dao.roster(gameId).stream()
+                : roster.stream()
                         .filter(entry -> decided.winnerMemberId().equals(entry.memberId()))
                         .map(RosterEntry::mcUuid)
                         // findFirst throws on a null element, so a never-linked member is filtered out first.
@@ -199,7 +202,13 @@ public final class CombatListener implements Listener {
         // Written ahead of the ceremony: a game left un-DECIDED is what the partial unique index refuses beside it.
         dao.decideGame(gameId, decided.winnerMemberId());
 
-        return new Ceremony.Decision(decided, winnerMcUuid, dao.activeMembersOf(gameId), dao.killCounts(gameId));
+        final Map<UUID, String> names = new HashMap<>();
+        for (final RosterEntry entry : roster) {
+            if (entry.mcName() != null) {
+                names.put(entry.memberId(), entry.mcName());
+            }
+        }
+        return new Ceremony.Decision(decided, winnerMcUuid, dao.activeMembersOf(gameId), dao.killCounts(gameId), names);
     }
 
     private Entity resolveAttacker(final Entity damager) {

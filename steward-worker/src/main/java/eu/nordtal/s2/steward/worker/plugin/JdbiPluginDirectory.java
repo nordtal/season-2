@@ -1,11 +1,9 @@
 package eu.nordtal.s2.steward.worker.plugin;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.util.List;
 import java.util.Objects;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /** The only implementation of {@link PluginDirectory}; it borrows the pool and owns nothing. */
 final class JdbiPluginDirectory implements PluginDirectory {
@@ -14,10 +12,7 @@ final class JdbiPluginDirectory implements PluginDirectory {
 
     JdbiPluginDirectory(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(PluginDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(PluginDao.class);
     }
 
     @Override

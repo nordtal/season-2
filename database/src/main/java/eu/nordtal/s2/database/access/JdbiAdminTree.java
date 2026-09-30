@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -9,7 +10,6 @@ import java.util.Set;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
 
 /**
  * The only implementation of {@link AdminTree}.
@@ -61,8 +61,7 @@ final class JdbiAdminTree implements AdminTree {
     private final Jdbi jdbi;
 
     JdbiAdminTree(final DataSource dataSource) {
-        this.jdbi =
-                Jdbi.create(Objects.requireNonNull(dataSource, "dataSource")).installPlugin(new PostgresPlugin());
+        this.jdbi = Jdbis.over(Objects.requireNonNull(dataSource, "dataSource"));
     }
 
     @Override

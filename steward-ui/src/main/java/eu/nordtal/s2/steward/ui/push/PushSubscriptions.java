@@ -1,13 +1,11 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,10 +19,7 @@ public final class PushSubscriptions {
 
     public PushSubscriptions(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(PushSubscriptionDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(PushSubscriptionDao.class);
     }
 
     /** Records a browser's subscription, or refreshes it if this endpoint has already subscribed. */

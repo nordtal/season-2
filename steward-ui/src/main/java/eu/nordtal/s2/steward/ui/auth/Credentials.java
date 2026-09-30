@@ -5,6 +5,7 @@ import com.yubico.webauthn.CredentialRepositoryV2;
 import com.yubico.webauthn.ToPublicKeyCredentialDescriptor;
 import com.yubico.webauthn.data.AuthenticatorTransport;
 import com.yubico.webauthn.data.ByteArray;
+import eu.nordtal.s2.database.Jdbis;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
@@ -15,10 +16,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,10 +34,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
 
     public Credentials(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(CredentialDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(CredentialDao.class);
     }
 
     /** The user handle of an account: its Discord id as UTF-8 bytes. */

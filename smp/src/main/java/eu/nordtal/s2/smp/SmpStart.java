@@ -7,6 +7,7 @@ import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
@@ -62,8 +63,6 @@ import eu.nordtal.s2.smp.wheel.WheelListener;
 import java.util.concurrent.ScheduledExecutorService;
 import org.bukkit.Bukkit;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
  * Everything {@link SmpPlugin#start()} wires up once its refusals have passed.
@@ -84,7 +83,7 @@ final class SmpStart {
 
     static Database openDatabaseAndMessages(final SmpPlugin plugin, final DatabaseSpec database) {
         final HikariDataSource pool = SmpPool.open(database);
-        final Jdbi jdbi = Jdbi.create(pool).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
+        final Jdbi jdbi = Jdbis.over(pool);
         final SmpDao dao = jdbi.onDemand(SmpDao.class);
         final Identities identities = new Identities(dao);
 

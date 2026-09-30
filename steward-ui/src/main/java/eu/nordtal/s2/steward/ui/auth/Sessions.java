@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui.auth;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -8,10 +9,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,10 +42,7 @@ public final class Sessions {
             throw new IllegalArgumentException("a session lifetime of " + lifetime
                     + " would sign everybody out on the redirect that signed them in");
         }
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(SessionDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(SessionDao.class);
     }
 
     /** Starts a sign-in with a row carrying only Discord's one-time state, and answers the cookie's id. */

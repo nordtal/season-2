@@ -1,10 +1,8 @@
 package eu.nordtal.s2.database.command;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.util.Objects;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /**
  * The one command allowlist, published by the proxy and read by the backends.
@@ -15,10 +13,7 @@ public final class AllowlistDirectory {
     private final AllowlistDao dao;
 
     private AllowlistDirectory(final DataSource dataSource) {
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(AllowlistDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(AllowlistDao.class);
     }
 
     /** Returns a directory over a pool it borrows and never closes. */

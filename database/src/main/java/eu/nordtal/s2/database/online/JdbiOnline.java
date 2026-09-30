@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.online;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.time.InstantSource;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -8,9 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /** The only implementation of {@link OnlineDirectory}; it borrows the pool it is given and owns nothing. */
 final class JdbiOnline implements OnlineDirectory {
@@ -21,10 +19,7 @@ final class JdbiOnline implements OnlineDirectory {
     JdbiOnline(final DataSource dataSource, final InstantSource clock) {
         Objects.requireNonNull(dataSource, "dataSource");
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(OnlineDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(OnlineDao.class);
     }
 
     @Override

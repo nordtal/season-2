@@ -2,6 +2,7 @@ package eu.nordtal.s2.database.update;
 
 import static eu.nordtal.s2.database.DatabaseMessages.MESSAGES;
 
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
@@ -11,8 +12,6 @@ import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 
 /** The only implementation of {@link UpdateDirectory}; it borrows the pool and owns nothing. */
@@ -26,7 +25,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     JdbiUpdateDirectory(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.jdbi = Jdbi.create(dataSource).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
+        this.jdbi = Jdbis.over(dataSource);
         this.dao = jdbi.onDemand(UpdateDao.class);
     }
 

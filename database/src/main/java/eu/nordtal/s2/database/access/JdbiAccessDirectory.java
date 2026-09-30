@@ -1,6 +1,7 @@
 package eu.nordtal.s2.database.access;
 
 import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.Jdbis;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.InstantSource;
@@ -12,8 +13,6 @@ import java.util.UUID;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -30,7 +29,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
 
     private JdbiAccessDirectory(final DataSource dataSource, final InstantSource clock) {
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.jdbi = Jdbi.create(dataSource).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
+        this.jdbi = Jdbis.over(dataSource);
         this.dao = jdbi.onDemand(AccessDao.class);
         this.people = jdbi.onDemand(PersonDao.class);
     }

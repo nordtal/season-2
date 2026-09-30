@@ -6,13 +6,9 @@ plugins {
     id("java-test-fixtures")
 }
 
-// Other modules' sources that the wiring tests here read as text.
+// The test image's tag, and the sources PeopleAreDiscordIdsTest reads as text.
 repositoryRootTestInputs {
     reads("compose.yml")
-    reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
-    reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
-    reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
-    reads("proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java")
     readsTree("smp/src/main/java")
     readsTree("limbo/src/main/java")
     readsTree("hunger-games/src/main/java")

@@ -22,7 +22,6 @@ tasks.withType<JavaCompile>().configureEach {
 // Files outside any source set that tests read; undeclared, editing one leaves :hunger-games:test UP-TO-DATE.
 repositoryRootTestInputs {
     reads("compose.yml")
-    reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/command/HungerGamesCommand.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/listener/CombatListener.java")
     reads("hunger-games/src/main/resources/messages/hunger-games/en.properties")
     reads("hunger-games/src/main/resources/messages/hunger-games/de.properties")

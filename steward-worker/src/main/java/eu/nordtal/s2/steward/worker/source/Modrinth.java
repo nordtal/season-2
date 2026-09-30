@@ -3,8 +3,8 @@ package eu.nordtal.s2.steward.worker.source;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.http.HttpFailure;
 import eu.nordtal.s2.steward.worker.http.Http;
-import eu.nordtal.s2.steward.worker.http.HttpException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -208,7 +208,7 @@ public final class Modrinth {
         final String body;
         try {
             body = http.get(uri);
-        } catch (final HttpException answered) {
+        } catch (final HttpFailure answered) {
             if (answered.status() == 404) {
                 return null;
             }

@@ -9,7 +9,7 @@ public interface Http {
     /**
      * Fetches {@code uri} and returns the body as a string, following redirects.
      *
-     * @throws HttpException on anything that is not a 2xx
+     * @throws eu.nordtal.s2.common.http.HttpFailure on anything that is not a 2xx
      * @throws IOException on a transport failure or a timeout
      */
     String get(URI uri) throws IOException;

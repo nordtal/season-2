@@ -1,18 +1,14 @@
 package eu.nordtal.s2.steward.worker.http;
 
+import eu.nordtal.s2.common.http.WebClient;
 import eu.nordtal.s2.steward.worker.source.Checksum;
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
 import java.util.HexFormat;
 
 /**
@@ -22,46 +18,18 @@ import java.util.HexFormat;
  */
 public final class Downloads implements Fetcher {
 
-    private final HttpClient client;
-    private final Duration timeout;
+    private final WebClient web;
 
-    public Downloads(final Duration timeout) {
-        this.timeout = timeout;
-        this.client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(timeout)
-                .build();
+    public Downloads(final WebClient web) {
+        this.web = web;
     }
 
     /**
      * Downloads {@code file} to {@code destination} in the caller's staging directory, verifying any checksum.
-     *
-     * @throws IOException on a transport failure, a non-2xx status, or a checksum that disagrees
      */
     @Override
     public void fetch(final RemoteFile file, final Path destination) throws IOException {
-        final HttpRequest request = HttpRequest.newBuilder(file.url())
-                .GET()
-                .timeout(timeout)
-                .header("User-Agent", JdkHttp.USER_AGENT)
-                .build();
-
-        final HttpResponse<InputStream> response;
-        try {
-            response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-        } catch (final InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            throw new IOException("interrupted while downloading " + file.fileName(), interrupted);
-        }
-
-        if (response.statusCode() / 100 != 2) {
-            throw new HttpException(file.url(), response.statusCode(), "");
-        }
-
-        Files.createDirectories(destination.getParent());
-        try (InputStream body = response.body()) {
-            Files.copy(body, destination, StandardCopyOption.REPLACE_EXISTING);
-        }
+        web.download(file.url(), destination);
 
         final Checksum expected = file.checksum();
         if (expected == null) {

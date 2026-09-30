@@ -2,6 +2,8 @@ package eu.nordtal.s2.steward.worker.docker;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.http.Reply;
+import eu.nordtal.s2.common.http.WebClient;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
@@ -9,10 +11,8 @@ import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,9 +28,8 @@ public final class DeployerRecreate implements ContainerOps {
     private static final Duration POLL_INTERVAL = Duration.ofSeconds(3);
 
     private final ContainerOps delegate;
-    private final HttpClient http;
+    private final WebClient web;
     private final String baseUrl;
-    private final String token;
     private final Duration requestTimeout;
     private final Duration patience;
     private final Waiting waiting;
@@ -43,12 +42,11 @@ public final class DeployerRecreate implements ContainerOps {
             final Duration patience,
             final Waiting waiting) {
         this.delegate = delegate;
-        this.baseUrl = plaintextOnlyInside(trimmed(baseUrl));
-        this.token = token;
+        this.baseUrl = WebClient.tokenSafe("deployer.url", baseUrl);
         this.requestTimeout = requestTimeout;
         this.patience = patience;
         this.waiting = waiting;
-        this.http = HttpClient.newBuilder().connectTimeout(requestTimeout).build();
+        this.web = WebClient.create(requestTimeout).header("X-Steward-Token", token);
     }
 
     @Override
@@ -81,10 +79,7 @@ public final class DeployerRecreate implements ContainerOps {
         return submit(
                 service,
                 "deploy",
-                () -> request("/api/deploy")
-                        .header("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(deployBody(service)))
-                        .build());
+                () -> web.post(URI.create(baseUrl + "/api/deploy"), "application/json", deployBody(service)));
     }
 
     /**
@@ -94,12 +89,7 @@ public final class DeployerRecreate implements ContainerOps {
      */
     @Override
     public RedeployResult recreate(final String service) {
-        return submit(
-                service,
-                "recreate",
-                () -> request("/api/recreate/" + service)
-                        .POST(HttpRequest.BodyPublishers.noBody())
-                        .build());
+        return submit(service, "recreate", () -> web.postEmpty(URI.create(baseUrl + "/api/recreate/" + service)));
     }
 
     /**
@@ -107,26 +97,24 @@ public final class DeployerRecreate implements ContainerOps {
      *
      * @param what "deploy" or "recreate", named in every message since only a deploy fetches an image
      */
-    private RedeployResult submit(
-            final String service, final String what, final java.util.function.Supplier<HttpRequest> build) {
+    private RedeployResult submit(final String service, final String what, final Submission send) {
         final Instant deadline = waiting.now().plus(patience);
 
-        final HttpResponse<String> accepted;
+        final Reply accepted;
         try {
-            accepted = http.send(build.get(), HttpResponse.BodyHandlers.ofString());
+            accepted = send.send();
         } catch (final HttpTimeoutException slow) {
             return RedeployResult.refused("steward-deployer did not accept the " + what + " of " + service + " within "
                     + requestTimeout.toSeconds() + "s");
+        } catch (final InterruptedIOException interrupted) {
+            return RedeployResult.refused("interrupted while asking steward-deployer to " + what + " " + service);
         } catch (final IOException unreachable) {
             return RedeployResult.refused(
                     "could not reach steward-deployer to " + what + " " + service + ": " + unreachable.getMessage());
-        } catch (final InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            return RedeployResult.refused("interrupted while asking steward-deployer to " + what + " " + service);
         }
-        if (accepted.statusCode() != 202) {
-            return RedeployResult.refused("steward-deployer answered " + accepted.statusCode() + " for the " + what
-                    + " of " + service + ": " + accepted.body());
+        if (accepted.status() != 202) {
+            return RedeployResult.refused("steward-deployer answered " + accepted.status() + " for the " + what + " of "
+                    + service + ": " + accepted.body());
         }
 
         final String jobId;
@@ -143,22 +131,20 @@ public final class DeployerRecreate implements ContainerOps {
         while (true) {
             final JsonObject job;
             try {
-                final HttpResponse<String> response =
-                        http.send(request("/api/jobs/" + jobId).GET().build(), HttpResponse.BodyHandlers.ofString());
-                if (response.statusCode() != 200) {
+                final Reply response = web.get(URI.create(baseUrl + "/api/jobs/" + jobId));
+                if (response.status() != 200) {
                     return RedeployResult.unverified("steward-deployer accepted the " + what + " of "
-                            + service + " (job " + jobId + ") but answered " + response.statusCode()
+                            + service + " (job " + jobId + ") but answered " + response.status()
                             + " when asked how it went");
                 }
                 job = Json.decode(response.body(), JsonObject.class);
+            } catch (final InterruptedIOException interrupted) {
+                return RedeployResult.unverified("interrupted while waiting for steward-deployer's " + what + " of "
+                        + service + " (job " + jobId + ") to finish");
             } catch (final IOException failure) {
                 return RedeployResult.unverified("steward-deployer accepted the " + what + " of "
                         + service + " (job " + jobId + "), and whether it finished could not be"
                         + " read back: " + failure.getMessage());
-            } catch (final InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return RedeployResult.unverified("interrupted while waiting for steward-deployer's " + what + " of "
-                        + service + " (job " + jobId + ") to finish");
             }
 
             final String state = job.has("state") ? job.get("state").getAsString() : "";
@@ -203,35 +189,9 @@ public final class DeployerRecreate implements ContainerOps {
         return Json.encode(body);
     }
 
-    private HttpRequest.Builder request(final String path) {
-        return HttpRequest.newBuilder(URI.create(baseUrl + path))
-                .header("X-Steward-Token", token)
-                .timeout(requestTimeout);
-    }
-
-    private static String trimmed(final String baseUrl) {
-        return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-    }
-
-    /**
-     * Refuses to send the token in clear outside this deployment.
-     *
-     * Plain {@code http} only to a dotless compose name or loopback, as steward-ui's {@code InternalClient} does.
-     */
-    private static String plaintextOnlyInside(final String baseUrl) {
-        final URI uri = URI.create(baseUrl);
-        if ("https".equalsIgnoreCase(uri.getScheme())) {
-            return baseUrl;
-        }
-        final String host = uri.getHost();
-        if ("http".equalsIgnoreCase(uri.getScheme())
-                && host != null
-                && (!host.contains(".") || "127.0.0.1".equals(host))) {
-            return baseUrl;
-        }
-        throw new IllegalArgumentException("deployer.url is " + baseUrl + ", and steward-worker"
-                + " will not send its token there in clear. It is https, or plain http to a"
-                + " compose service name on the internal network - which is what the default"
-                + " http://steward-deployer:8081 is.");
+    /** One of the two requests, sent when {@link #submit} asks for it. */
+    @FunctionalInterface
+    private interface Submission {
+        Reply send() throws IOException;
     }
 }

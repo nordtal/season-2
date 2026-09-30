@@ -27,6 +27,7 @@ import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerOps;
 import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
+import eu.nordtal.s2.steward.worker.http.SourceHttp;
 import eu.nordtal.s2.steward.worker.metric.Sampler;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.plan.Change;
@@ -463,8 +464,10 @@ public final class StewardWorker {
                 // Its own Modrinth client, living as long as the API.
                 new eu.nordtal.s2.steward.worker.api.PluginsApi(
                         addedPlugins,
-                        new eu.nordtal.s2.steward.worker.source.Modrinth(new eu.nordtal.s2.steward.worker.http.JdkHttp(
-                                Duration.ofSeconds(config.httpTimeoutSeconds()), config.githubToken())),
+                        new eu.nordtal.s2.steward.worker.source.Modrinth(SourceHttp.over(SourceHttp.client(
+                                Duration.ofSeconds(config.httpTimeoutSeconds()),
+                                config.githubToken(),
+                                Waiting.on(CLOCK)))),
                         Path.of(config.volumesRoot()),
                         eu.nordtal.s2.common.Platform.MINECRAFT,
                         java.util.Map.of(

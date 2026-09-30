@@ -4,8 +4,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.http.HttpFailure;
 import eu.nordtal.s2.steward.worker.http.FakeHttp;
-import eu.nordtal.s2.steward.worker.http.HttpException;
 import eu.nordtal.s2.steward.worker.plan.Installation;
 import eu.nordtal.s2.steward.worker.source.Modrinth;
 import java.io.IOException;
@@ -40,8 +40,8 @@ class JarIdentityTest {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-512").digest(content.getBytes(UTF_8)));
     }
 
-    private static HttpException notFound() {
-        return new HttpException(URI.create("https://api.modrinth.com/v2/version_file/x"), 404, "");
+    private static HttpFailure notFound() {
+        return new HttpFailure(URI.create("https://api.modrinth.com/v2/version_file/x"), 404, "");
     }
 
     @Test

@@ -3,18 +3,20 @@ package eu.nordtal.s2.steward.ui.auth;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.http.Reply;
+import eu.nordtal.s2.common.http.WebClient;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -39,12 +41,10 @@ public final class DiscordAuth {
     private final UiSpec.DiscordSpec config;
     private final String redirectUri;
     private final String api;
-    private static final Duration CONNECT = Duration.ofSeconds(10);
-
     /** How long an answer may take once connected, since a connect timeout alone never ends a stalled answer. */
     private static final Duration ANSWER = Duration.ofSeconds(15);
 
-    private final HttpClient http;
+    private final WebClient web;
 
     public DiscordAuth(final UiSpec.DiscordSpec config, final String publicUrl) {
         this(config, publicUrl, DISCORD_API);
@@ -55,7 +55,7 @@ public final class DiscordAuth {
         this.config = config;
         this.redirectUri = publicUrl + "/auth/callback";
         this.api = plaintextOnlyToOurselves(api);
-        this.http = HttpClient.newBuilder().connectTimeout(CONNECT).build();
+        this.web = WebClient.create(Duration.ofSeconds(10), ANSWER);
     }
 
     /** Refuses a plaintext API base off this machine, which would send the client secret in cleartext. */
@@ -158,18 +158,17 @@ public final class DiscordAuth {
     }
 
     private String exchange(final String code) {
-        final String form = "client_id=" + encode(config.clientId())
-                + "&client_secret=" + encode(config.clientSecret())
-                + "&grant_type=authorization_code"
-                + "&code=" + encode(code)
-                + "&redirect_uri=" + encode(redirectUri);
-        final HttpResponse<String> response = send(HttpRequest.newBuilder(URI.create(api + "/oauth2/token"))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(form)));
-        if (response.statusCode() != 200) {
+        final Map<String, String> form = new LinkedHashMap<>();
+        form.put("client_id", config.clientId());
+        form.put("client_secret", config.clientSecret());
+        form.put("grant_type", "authorization_code");
+        form.put("code", code);
+        form.put("redirect_uri", redirectUri);
+        final Reply response = send(() -> web.postForm(URI.create(api + "/oauth2/token"), form));
+        if (response.status() != 200) {
             throw new AuthException(
-                    response.statusCode(),
-                    "Discord refused the sign-in (" + response.statusCode() + "). The usual cause "
+                    response.status(),
+                    "Discord refused the sign-in (" + response.status() + "). The usual cause "
                             + "is a redirect URI that is not registered on the application: this one sends "
                             + redirectUri);
         }
@@ -181,26 +180,28 @@ public final class DiscordAuth {
     }
 
     private JsonObject getJson(final String path, final String accessToken) {
-        final HttpResponse<String> response = send(HttpRequest.newBuilder(URI.create(api + path))
-                .header("Authorization", "Bearer " + accessToken)
-                .GET());
-        if (response.statusCode() != 200) {
-            throw new AuthException(
-                    response.statusCode(), "Discord answered " + response.statusCode() + " for " + path);
+        final Reply response = send(() -> web.bearer(accessToken).get(URI.create(api + path)));
+        if (response.status() != 200) {
+            throw new AuthException(response.status(), "Discord answered " + response.status() + " for " + path);
         }
         return Json.decode(response.body(), JsonObject.class);
     }
 
     /** Every call to Discord, each under the {@link #ANSWER} deadline. */
-    private HttpResponse<String> send(final HttpRequest.Builder request) {
+    private Reply send(final Exchange exchange) {
         try {
-            return http.send(request.timeout(ANSWER).build(), HttpResponse.BodyHandlers.ofString());
-        } catch (IOException e) {
-            throw new AuthException(502, "Discord could not be reached: " + e.getMessage());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            return exchange.send();
+        } catch (final InterruptedIOException e) {
             throw new AuthException(503, "interrupted while talking to Discord");
+        } catch (final IOException e) {
+            throw new AuthException(502, "Discord could not be reached: " + e.getMessage());
         }
+    }
+
+    /** One call to Discord, sent when {@link #send} asks for it. */
+    @FunctionalInterface
+    private interface Exchange {
+        Reply send() throws IOException;
     }
 
     private static String encode(final String value) {

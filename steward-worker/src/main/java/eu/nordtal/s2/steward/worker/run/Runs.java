@@ -1,12 +1,13 @@
 package eu.nordtal.s2.steward.worker.run;
 
 import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.steward.worker.apply.Applier;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.http.Downloads;
 import eu.nordtal.s2.steward.worker.http.Http;
-import eu.nordtal.s2.steward.worker.http.JdkHttp;
+import eu.nordtal.s2.steward.worker.http.SourceHttp;
 import eu.nordtal.s2.steward.worker.plan.Resolver;
 import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
 import eu.nordtal.s2.steward.worker.source.GitHubReleases;
@@ -27,7 +28,10 @@ public final class Runs {
     /** The same, with the plugins an admin added merged in, which every caller with a database uses. */
     public static UpdatePlan resolve(
             final StewardSpec config, final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins) {
-        final Http http = new JdkHttp(Duration.ofSeconds(config.httpTimeoutSeconds()), config.githubToken());
+        final Http http = SourceHttp.over(SourceHttp.client(
+                Duration.ofSeconds(config.httpTimeoutSeconds()),
+                config.githubToken(),
+                Waiting.on(NetworkTime.clock())));
         return new Resolver(
                         config,
                         new GitHubReleases(http),
@@ -44,6 +48,12 @@ public final class Runs {
      * Migrate first, so a plugin never meets an older schema and a failed migration stops the run early.
      */
     public static ApplyResult apply(final StewardSpec config, final UpdatePlan plan) {
-        return new Applier(config, new Downloads(Duration.ofSeconds(config.downloadTimeoutSeconds()))).apply(plan);
+        return new Applier(
+                        config,
+                        new Downloads(SourceHttp.client(
+                                Duration.ofSeconds(config.downloadTimeoutSeconds()),
+                                "",
+                                Waiting.on(NetworkTime.clock()))))
+                .apply(plan);
     }
 }

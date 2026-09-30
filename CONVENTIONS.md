@@ -81,8 +81,11 @@ The release notes are generated from these subjects by git-cliff (`cliff.toml`).
 - **Commit scope** is the module directory (`feat(steward-ui): …`, `fix(smp): …`), `deploy` for
   `deploy/` and `compose.yml`, `build-logic` for `build-logic/` and the version catalog.
 - **Architecture** _(checked by ArchUnit)_:
-  - `:common` depends only on the JDK and JSpecify.
-  - `:database` adds JDBI, HikariCP, slf4j-api and the PostgreSQL driver, and nothing else.
+  - `:common` depends only on the JDK, JSpecify and Gson, which every platform ships and nothing
+    shades.
+  - `:database` adds `:messages`, JDBI, HikariCP, slf4j-api and the PostgreSQL driver, and nothing
+    else.
+  - Only `NetworkTime` reads the wall clock; every other class is handed the process's clock.
   - `:messages` has no Adventure; `:message-rendering` and `:pack-rendering` add Adventure, which
     both platforms provide. Neither `discord-bot` nor Steward depends on Adventure or on either
     renderer.

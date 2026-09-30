@@ -63,7 +63,7 @@ public final class SeasonWelcome {
     /** Called once per join, on the main thread, after the player's language has landed. */
     public void onLanguageReady(final Player player) {
         final UUID uuid = player.getUniqueId();
-        // Identities is filled at pre-login by JoinGate, so this is a map read.
+        // Identities is filled at pre-login by the plugin base, so this is a map read.
         final Optional<DiscordId> discordId = identities.discordIdOf(uuid);
         if (discordId.isEmpty()) {
             return;

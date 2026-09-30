@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SchemaWriter;
+import eu.nordtal.s2.settings.DatabaseSpec;
 import org.junit.jupiter.api.Test;
 
 /**

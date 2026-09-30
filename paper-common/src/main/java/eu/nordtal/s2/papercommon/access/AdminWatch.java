@@ -2,7 +2,6 @@ package eu.nordtal.s2.papercommon.access;
 
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
-import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import java.util.HashSet;
@@ -26,7 +25,6 @@ public final class AdminWatch implements AutoCloseable {
     private final Plugin plugin;
     private final AccessReader access;
     private final AdminOperators operators;
-    private final FullServerAdmission admission;
     private final Consumer<Set<UUID>> also;
     private final Logger logger;
 
@@ -39,7 +37,6 @@ public final class AdminWatch implements AutoCloseable {
      * @param plugin    the owning plugin, for the scheduler
      * @param access    where the admin set is read from
      * @param operators what grants and removes operator
-     * @param admission the full-server exemption, kept in step so a revoked admin loses it
      * @param also      anything else this plugin caches about admins, applied on the main thread; {@code set -> { }}
      *     when none
      * @param logger    the plugin logger
@@ -48,13 +45,11 @@ public final class AdminWatch implements AutoCloseable {
             final Plugin plugin,
             final AccessReader access,
             final AdminOperators operators,
-            final FullServerAdmission admission,
             final Consumer<Set<UUID>> also,
             final Logger logger) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.access = Objects.requireNonNull(access, "access");
         this.operators = Objects.requireNonNull(operators, "operators");
-        this.admission = Objects.requireNonNull(admission, "admission");
         this.also = Objects.requireNonNull(also, "also");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
@@ -109,9 +104,6 @@ public final class AdminWatch implements AutoCloseable {
         operators.refresh(snapshot, online);
         final Set<UUID> after = operators.held();
 
-        for (final UUID player : online) {
-            admission.remember(player, snapshot.contains(player));
-        }
         also.accept(snapshot);
 
         if (!before.equals(after)) {

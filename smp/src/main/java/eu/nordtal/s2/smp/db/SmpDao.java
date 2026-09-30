@@ -29,26 +29,6 @@ public interface SmpDao {
     @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
     Optional<String> localeOf(@Bind("discordId") DiscordId discordId);
 
-    /**
-     * Everything the player composition is drawn from, in one round trip.
-     *
-     * LEFT JOINs, so a new player with no {@code smp_player} or {@code player_playtime} row is still found.
-     */
-    @SqlQuery("""
-            SELECT usr.locale       AS locale,
-                   usr.admin        AS admin,
-                   usr.donor        AS donor,
-                   player.aura      AS aura,
-                   playtime.seconds AS playtimeSeconds
-            FROM account_link link
-                     JOIN discord_user usr ON usr.discord_id = link.discord_id
-                     LEFT JOIN smp_player player ON player.discord_id = link.discord_id
-                     LEFT JOIN player_playtime playtime ON playtime.discord_id = link.discord_id
-            WHERE link.mc_uuid = :mcUuid
-            """)
-    @RegisterConstructorMapper(IdentityRow.class)
-    Optional<IdentityRow> identityOf(@Bind("mcUuid") UUID mcUuid);
-
     /** Whether this account holds the Discord admin flag, mirrored into {@code discord_user} by the bot. */
     @SqlQuery("""
             SELECT usr.admin

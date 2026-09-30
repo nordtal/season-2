@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.worker.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import eu.nordtal.s2.common.config.EnvOverrideFile;
+import eu.nordtal.s2.settings.EnvOverrideFile;
 import eu.nordtal.s2.steward.worker.configfile.ConfigFiles;
 import eu.nordtal.s2.steward.worker.configfile.ConfigLocation;
 import java.io.IOException;

@@ -36,7 +36,7 @@ class SeasonWelcomeIsWiredTest {
                         + " mid-staging keeps the blindness - and on a quit that means it is saved"
                         + " to disk with them");
         assertTrue(
-                plugin.contains("cinematics::stop"),
+                plugin.contains("\"cinematics.stop\""),
                 "nothing stops the stagings at disable. Paper disables plugins BEFORE it saves"
                         + " players, so a staging still running at that point writes its potion"
                         + " effect to disk on somebody who comes back unable to see");
@@ -51,7 +51,7 @@ class SeasonWelcomeIsWiredTest {
                         || plugin.contains("new eu.nordtal.s2.smp.welcome.SeasonWelcome("),
                 "nothing builds the season's opening moment");
         assertTrue(
-                plugin.contains("presence.systemLines(), presence.welcome()::onLanguageReady), plugin)"),
+                plugin.contains("presence.systemLines(), presence.welcome()::onLanguageReady)"),
                 "the moment is built but never handed to PresenceListener, which is the only place"
                         + " that knows when a player's language has landed");
     }
@@ -75,12 +75,11 @@ class SeasonWelcomeIsWiredTest {
                         + " is still settling");
 
         // The callback runs once the row is back, after the join handler, so calling it from onJoin is wrong.
-        final int onJoin = presence.indexOf("public void onJoin(");
-        final int loadLanguage = presence.indexOf("private void loadLanguage(");
+        final int languageKnown = presence.indexOf("public void languageKnown(");
         assertTrue(
-                welcome > loadLanguage && loadLanguage > onJoin,
-                "the welcome is called from the join handler rather than from loadLanguage's"
-                        + " callback, so it runs before the language is known");
+                welcome > languageKnown && languageKnown > presence.indexOf("public void onJoin("),
+                "the welcome is called from the join handler rather than from languageKnown, which the"
+                        + " plugin base calls once the language is held, so it runs before the language is known");
     }
 
     @Test

@@ -221,6 +221,8 @@ dependencies {
 
     // It declares JDBI, HikariCP and slf4j compileOnly, so the bundle below puts them on the runtime classpath.
     implementation(project(":database"))
+    // The one loader, database.yml and checks every process shares.
+    implementation(project(":settings"))
     implementation(project(":messages"))
     implementation(libs.bundles.access.persistence)
 

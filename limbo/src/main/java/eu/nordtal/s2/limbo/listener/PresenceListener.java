@@ -1,7 +1,5 @@
 package eu.nordtal.s2.limbo.listener;
 
-import eu.nordtal.s2.database.access.AdminOperators;
-import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.limbo.LimboMessages;
 import eu.nordtal.s2.limbo.net.LimboChannel;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
@@ -10,6 +8,7 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.packrendering.hud.TabList;
+import eu.nordtal.s2.papercommon.player.Identities;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent;
 import java.util.Objects;
@@ -41,10 +40,9 @@ public final class PresenceListener implements Listener {
     private final LimboChannel channel;
     private final PlayerLocales locales;
     private final MessageRenderer messages;
-    private final AdminOperators operators;
 
-    /** The admin flag {@link FullServerGate} cached at pre-login; read here, never queried. */
-    private final FullServerAdmission admission;
+    /** Who everybody here is, held since pre-login; read here, never queried. */
+    private final Identities identities;
 
     public PresenceListener(
             final Plugin plugin,
@@ -53,20 +51,18 @@ public final class PresenceListener implements Listener {
             final LimboChannel channel,
             final PlayerLocales locales,
             final Messages messages,
-            final AdminOperators operators,
-            final FullServerAdmission admission) {
+            final Identities identities) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.world = Objects.requireNonNull(world, "world");
         this.room = Objects.requireNonNull(room, "room");
         this.channel = Objects.requireNonNull(channel, "channel");
         this.locales = Objects.requireNonNull(locales, "locales");
-        this.operators = Objects.requireNonNull(operators, "operators");
-        this.admission = Objects.requireNonNull(admission, "admission");
+        this.identities = Objects.requireNonNull(identities, "identities");
         this.messages = new MessageRenderer(Objects.requireNonNull(messages, "messages"));
     }
 
     /** Draws this player's tab list; the footer shows no count, since the list holds only their own name. */
-    private void sendTabList(final Player player) {
+    public void sendTabList(final Player player) {
         final java.util.Locale locale = locales.of(player.getUniqueId());
         player.sendPlayerListHeaderAndFooter(
                 TabList.header(messages, locale, LimboMessages.MESSAGES.tab()::header),
@@ -87,9 +83,6 @@ public final class PresenceListener implements Listener {
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
 
-        // Read, never queried, on the main thread; FullServerGate filled it at pre-login.
-        operators.onJoin(player.getUniqueId(), admission.admits(player.getUniqueId()));
-
         // Nobody is here to read a join message, and the screen has exactly one line on it.
         event.joinMessage(null);
 
@@ -108,35 +101,12 @@ public final class PresenceListener implements Listener {
                 channel.sendReady(player);
             }
         }.runTaskTimer(plugin, 1L, LimboChannel.READY_REPEAT_TICKS);
-
-        loadLanguage(player);
-    }
-
-    /** Reads the language off the main thread and redraws the title; until then the title is English. */
-    private void loadLanguage(final Player player) {
-        // A failed lookup leaves one English title up rather than being retried, which is not worth chasing.
-        final var _ = locales.joinAsync(player.getUniqueId(), async())
-                .thenRun(() -> plugin.getServer().getScheduler().runTask(plugin, () -> {
-                    if (!player.isOnline()) {
-                        // onQuit already ran; the entry this just wrote would otherwise stay for the process's life.
-                        locales.quit(player.getUniqueId());
-                        return;
-                    }
-                    room.redraw(player);
-                    sendTabList(player);
-                }));
-    }
-
-    private java.util.concurrent.Executor async() {
-        return task -> plugin.getServer().getScheduler().runTaskAsynchronously(plugin, task);
     }
 
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
         event.quitMessage(null);
-        operators.onQuit(event.getPlayer().getUniqueId());
         room.forget(event.getPlayer().getUniqueId());
-        locales.quit(event.getPlayer().getUniqueId());
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -151,7 +121,7 @@ public final class PresenceListener implements Listener {
      */
     @EventHandler(ignoreCancelled = true)
     public void onCommand(final PlayerCommandPreprocessEvent event) {
-        if (!mutes(admission.admits(event.getPlayer().getUniqueId()))) {
+        if (!mutes(identities.of(event.getPlayer()).admin())) {
             return;
         }
         event.setCancelled(true);

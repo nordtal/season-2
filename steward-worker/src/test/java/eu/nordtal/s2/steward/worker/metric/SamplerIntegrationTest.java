@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.metric.MetricDirectory;
-import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
+import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;

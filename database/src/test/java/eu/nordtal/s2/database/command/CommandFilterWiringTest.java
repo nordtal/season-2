@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -17,33 +16,7 @@ import org.junit.jupiter.api.Test;
  */
 class CommandFilterWiringTest {
 
-    private static final List<String> PAPER_PLUGINS = List.of(
-            "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java",
-            "limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java",
-            "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java");
-
     private static final String PROXY = "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
-
-    @Test
-    void everyBackendBuildsTheFilterRegistersItAsAListenerAndPutsItOnTheHub() throws IOException {
-        for (final String relative : PAPER_PLUGINS) {
-            final String text = read(relative);
-
-            assertTrue(
-                    text.contains("new eu.nordtal.s2.papercommon.command.CommandFilter(")
-                            || text.contains("new CommandFilter("),
-                    relative + " does not build a CommandFilter, so every vanilla command on this"
-                            + " server is still offered to every player in tab completion.");
-            assertTrue(
-                    text.contains("registerEvents(commandFilter"),
-                    relative + " builds a CommandFilter and never registers it as a listener, which"
-                            + " is the same as not having one and looks like having one.");
-            assertTrue(
-                    text.contains("commandFilter.listen("),
-                    relative + " never puts the filter on the plugin's signal hub, so the list is read"
-                            + " neither at start nor on an edit.");
-        }
-    }
 
     @Test
     void theProxyPublishesTheListTheBackendsRead() throws IOException {

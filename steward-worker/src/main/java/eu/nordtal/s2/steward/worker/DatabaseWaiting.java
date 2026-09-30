@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.worker;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.Backoff;
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
+import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.schema.Schema;
 import java.time.Duration;
 import java.util.Optional;

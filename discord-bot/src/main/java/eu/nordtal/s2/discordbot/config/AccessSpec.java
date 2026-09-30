@@ -121,7 +121,7 @@ public interface AccessSpec {
         "    link-channel: '000000000000000000'",
         "    hunger-games-channel: '000000000000000000'"
     })
-    // Configs#validateLanguages and steward-worker's schema reader both read this annotation.
+    // BotSettings#validateLanguages and steward-worker's schema reader both read this annotation.
     @Protected(field = "tag", value = Languages.FALLBACK_TAG)
     @Explain(
             "Every language the network speaks. The 'en' entry cannot be removed: a missing translation falls back to it.")

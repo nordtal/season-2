@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.messages.PlayerLocales;
 import java.sql.Connection;
@@ -206,6 +207,27 @@ class AccessProfileIntegrationTest {
         final PlayerLocales locales = new PlayerLocales(directory::locale);
 
         assertEquals(Locale.ENGLISH, locales.join(UUID.randomUUID()));
+    }
+
+    @Test
+    void anIdentityIsTheLinkTheLanguageBothFlagsAndThePlayTimeInOneRead() {
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+        directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
+        directory.setDonor(DiscordId.of(DISCORD_ID), true);
+        execute("UPDATE discord_user SET admin = true, admin_granted_at = now() WHERE discord_id = '" + DISCORD_ID
+                + "'");
+        execute("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 3600)");
+
+        assertEquals(
+                new PlayerIdentity(PlayerId.of(MC_UUID), DiscordId.of(DISCORD_ID), Locale.GERMAN, true, true, 3600L),
+                directory.identity(PlayerId.of(MC_UUID)));
+    }
+
+    @Test
+    void anAccountNobodyLinkedIsAnUnknownIdentityWithNoPlayTime() {
+        final PlayerId nobody = PlayerId.of(UUID.randomUUID());
+
+        assertEquals(PlayerIdentity.unknown(nobody), directory.identity(nobody));
     }
 
     @Test

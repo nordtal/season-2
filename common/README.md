@@ -12,7 +12,6 @@ it without pulling a database, Adventure or the resource pack along. `:architect
 | `json`     | `Json`, the one codec over records                                               |
 | `language` | `Languages`, the network's languages; `Locales`, a stored tag to a `Locale`      |
 | `health`   | the readiness marker a container's health check reads                            |
-| `config`   | the environment overrides of a config file                                       |
 
 A process creates its clock once with `NetworkTime.clock()` and hands it to everything that asks;
 no other class reads the wall clock, which is what makes countdowns and expiries testable without

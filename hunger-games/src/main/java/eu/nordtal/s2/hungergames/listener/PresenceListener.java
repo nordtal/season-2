@@ -2,8 +2,6 @@ package eu.nordtal.s2.hungergames.listener;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
-import eu.nordtal.s2.database.access.AdminOperators;
-import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
@@ -37,10 +35,6 @@ public final class PresenceListener implements Listener {
     private final PlayerBodies bodies;
     private final GameState state;
     private final MessageRenderer messages;
-    private final AdminOperators operators;
-
-    /** The admin flag cached at pre-login by {@link FullServerGate}, read here since this is the main thread. */
-    private final FullServerAdmission admission;
 
     /** The shared system lines, held for the join line once the locale has landed. */
     private final SystemLines lines;
@@ -51,16 +45,12 @@ public final class PresenceListener implements Listener {
             final PlayerBodies bodies,
             final GameState state,
             final Messages messages,
-            final AdminOperators operators,
-            final FullServerAdmission admission,
             final SystemLines lines) {
         this.plugin = plugin;
         this.locales = locales;
         this.bodies = bodies;
         this.state = state;
         this.messages = new MessageRenderer(messages);
-        this.operators = operators;
-        this.admission = admission;
         this.lines = lines;
     }
 
@@ -79,29 +69,6 @@ public final class PresenceListener implements Listener {
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
-        operators.onJoin(player.getUniqueId(), admission.admits(player.getUniqueId()));
-
-        // Async and fire-and-forget: PlayerLocales#of answers English until the lookup lands, or if it fails.
-        final var _ = locales.joinAsync(
-                        player.getUniqueId(),
-                        task -> plugin.getServer().getScheduler().runTaskAsynchronously(plugin, task))
-                .thenRun(() -> {
-                    if (!player.isOnline()) {
-                        locales.quit(player.getUniqueId());
-                        return;
-                    }
-                    // Only now: a tab list drawn earlier would stay English until the player relogs.
-                    Bukkit.getScheduler().runTask(plugin, () -> {
-                        refreshTabList();
-                        // Asked again: a quick join-then-leave must not be announced as arriving after leaving.
-                        if (!player.isOnline()) {
-                            return;
-                        }
-                        // Said once, here rather than in the join handler, so it never renders in English.
-                        lines.announceJoin(player);
-                    });
-                });
-
         if (state.isRunning() && bodies.hasBody(player.getUniqueId())) {
             final var marker = Bukkit.getEntity(bodies.markerOf(player.getUniqueId()));
             if (marker instanceof ArmorStand armorStand) {
@@ -115,11 +82,17 @@ public final class PresenceListener implements Listener {
         }
     }
 
+    /** Draws what a joined player reads once their language is held, and says they arrived. */
+    public void languageKnown(final Player player) {
+        // Only now: a tab list drawn earlier would stay English until the player relogs.
+        refreshTabList();
+        // Said once, here rather than in the join handler, so it never renders in English.
+        lines.announceJoin(player);
+    }
+
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
         final Player player = event.getPlayer();
-        operators.onQuit(player.getUniqueId());
-        locales.quit(player.getUniqueId());
 
         // A tick later: during PlayerQuitEvent the leaver is still counted in getOnlinePlayers().
         Bukkit.getScheduler().runTask(plugin, this::refreshTabList);

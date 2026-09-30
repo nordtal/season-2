@@ -1,35 +1,22 @@
 package eu.nordtal.s2.hungergames;
 
-import com.zaxxer.hikari.HikariDataSource;
-import eu.nordtal.jcore.config.ConfigHandle;
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
+import eu.nordtal.s2.commands.remote.CommandRequests;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.health.Readiness;
-import eu.nordtal.s2.common.language.Languages;
-import eu.nordtal.s2.common.language.Locales;
-import eu.nordtal.s2.common.time.NetworkTime;
-import eu.nordtal.s2.database.Jdbis;
-import eu.nordtal.s2.database.access.AdminOperators;
-import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.database.notify.Channel;
-import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.command.BukkitHungerGamesEffects;
 import eu.nordtal.s2.hungergames.command.HungerGamesCommand;
-import eu.nordtal.s2.hungergames.config.ColoursSpec;
-import eu.nordtal.s2.hungergames.config.Configs;
-import eu.nordtal.s2.hungergames.config.DatabaseSpec;
+import eu.nordtal.s2.hungergames.config.HungerGamesCheck;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.config.SoundsSpec;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
-import eu.nordtal.s2.hungergames.db.HungerGamesPool;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Ceremony;
 import eu.nordtal.s2.hungergames.game.HungerGamesManager;
@@ -37,340 +24,129 @@ import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.hungergames.hud.HudRenderer;
 import eu.nordtal.s2.hungergames.listener.CombatListener;
 import eu.nordtal.s2.hungergames.listener.FreezeListener;
-import eu.nordtal.s2.hungergames.listener.FullServerGate;
 import eu.nordtal.s2.hungergames.listener.PresenceListener;
 import eu.nordtal.s2.hungergames.lobby.Lobby;
 import eu.nordtal.s2.hungergames.lobby.LobbyMaps;
 import eu.nordtal.s2.hungergames.loot.LootRefill;
 import eu.nordtal.s2.hungergames.player.ArenaComposition;
-import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
-import eu.nordtal.s2.messages.context.MessageEnvironment;
-import eu.nordtal.s2.papercommon.access.AdminWatch;
-import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
+import eu.nordtal.s2.papercommon.command.PaperUser;
+import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
+import eu.nordtal.s2.settings.Check;
+import eu.nordtal.s2.settings.Setting;
+import eu.nordtal.s2.settings.SettingsException;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.logging.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.jdbi.v3.core.Jdbi;
+import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
 /** The hunger games start event of season 2. */
-public final class HungerGamesPlugin extends JavaPlugin {
+public final class HungerGamesPlugin extends NordtalPlugin {
 
-    /** The one clock of this process. */
-    private final Clock clock = NetworkTime.clock();
+    private Setting<HungerGamesSpec> config;
 
-    private ConfigHandle<HungerGamesSpec> configHandle;
-    private ConfigHandle<DatabaseSpec> databaseHandle;
+    /** Its own group, so a reload can re-read it mid-game, unlike {@link #config}. */
+    private Setting<SoundsSpec> soundSettings;
 
-    /** Its own handle, so {@code /hg reload} can re-read it mid-game, unlike {@link #configHandle}. */
-    private ConfigHandle<SoundsSpec> soundsHandle;
+    /** Held so a reload can swap what it answers; every listener has this one instance. */
+    private HungerGamesSounds sounds;
 
-    /** Read once at enable; {@code /hg reload} does not touch it. */
-    private ConfigHandle<ColoursSpec> coloursHandle;
-
-    /** The tone palette replies are painted with. */
-    private ToneColours colours;
-
-    private HikariDataSource pool;
-    private AdminWatch adminWatch;
-
-    /** The plugin's one {@code LISTEN} connection. */
-    private @Nullable SignalHub signals;
+    private World world;
 
     /** The season phase as the signal hub last read it; a game only starts during the start event. */
     private volatile SeasonPhase phase = SeasonPhase.PRE_LAUNCH;
-
-    /** What a non-admin may type here, and what their client is told exists. */
-    private eu.nordtal.s2.papercommon.command.CommandFilter commandFilter;
 
     /** The chat effects schedule; the inbox's run inline, since the inbox settles its row when the command returns. */
     private HungerGamesEffects chatEffects;
 
     private Outbox outbox;
-    private ScheduledExecutorService commandWaiter;
+    private @Nullable ScheduledExecutorService commandWaiter;
     private HungerGamesDao dao;
 
-    /** Held so {@code /hg reload} can swap what it answers; every listener has this one instance. */
-    private HungerGamesSounds sounds;
-
-    private Messages messages;
     /** {@code :commands}' bundle as the inbox renders it, a second view of the same files. */
-    private Messages sharedMessages;
-
-    private PlayerLocales locales;
+    private @Nullable Messages sharedMessages;
 
     private final GameState state = new GameState();
     private final PlayerBodies bodies = new PlayerBodies();
 
-    private BorderController border;
-    private LootRefill loot;
-    private HudRenderer hud;
-    private Lobby lobby;
+    private @Nullable BorderController border;
+    private @Nullable LootRefill loot;
+    private @Nullable HudRenderer hud;
+    private @Nullable Lobby lobby;
     private WinTracker winTracker;
     private Ceremony ceremony;
     private HungerGamesManager manager;
-    private org.bukkit.scheduler.BukkitTask heartbeat;
+    private PresenceListener presence;
 
     /** The one game this plugin is currently tracking, refreshed from the database at enable and after decision. */
     private volatile @Nullable UUID currentGameId;
 
-    /** Runs {@link #start()} inside one try, so a failure stops the server instead of leaving it running without it. */
     @Override
-    public void onEnable() {
-        // Must be first: loads the class every disable step below goes through, while the jar still exists.
-        eu.nordtal.s2.common.health.Shutdown.warmUp();
-        // {server.name} in every message: the plugin's name is the service's.
-        try {
-            start();
-        } catch (final Refusal refusal) {
-            // Already logged, and the shutdown is under way; see severe(String).
-        } catch (final RuntimeException failure) {
-            severe("hunger-games is not starting: " + failure.getMessage());
-        }
+    protected String settingsPrefix() {
+        return "NORDTAL_HUNGER_GAMES";
     }
 
-    /** Everything a start consists of. Throws rather than half-starting; see {@link #onEnable()}. */
-    private void start() {
-        final HungerGamesSpec config = loadConfigAndMessages();
-        final World world = resolveGameWorld(config);
-        wireGameSystems(config, world);
-        final AdminHooks hooks = wireListeners();
-        final PaperCommandInbox inbox = wireAdminWatchAndCommands(config, world, hooks);
-        wireCommandFilterAndSignals(inbox);
-        startHeartbeat();
-        getLogger().info("hunger-games enabled");
+    @Override
+    protected List<String> bundles() {
+        return List.of("messages/commands", "messages/hunger-games");
     }
 
-    /** Loads every config file, the database pool and DAO, and the message/locale machinery. */
-    private HungerGamesSpec loadConfigAndMessages() {
-        try {
-            configHandle = Configs.load(getDataFolder().toPath(), getLogger0());
-            databaseHandle = Configs.database(getDataFolder().toPath(), getLogger0());
-            soundsHandle = Configs.sounds(getDataFolder().toPath(), getLogger0());
-            coloursHandle = Configs.colours(getDataFolder().toPath(), getLogger0());
-        } catch (final ConfigException exception) {
-            throw severe("hunger-games is not starting because its configuration could not be read: "
-                    + exception.getMessage());
-        }
-
-        final HungerGamesSpec config = configHandle.get();
+    @Override
+    protected void prepare() {
+        config = setting("config", HungerGamesSpec.class, HungerGamesCheck::check);
+        soundSettings = setting("sounds", SoundsSpec.class, Check.none());
         // Built before anything that plays one: a bad key here is reported and the category silenced.
-        sounds = HungerGamesSounds.of(soundsHandle.get(), getLogger()::warning);
-        colours = ToneColours.parse(Configs.declared(coloursHandle.get()), getLogger()::warning);
-
-        pool = HungerGamesPool.open(databaseHandle.get());
-        final Jdbi jdbi = Jdbis.over(pool);
-        dao = jdbi.onDemand(HungerGamesDao.class);
-
-        // Three roots, most general first; later roots win, so this module's keys beat both others.
-        messages = Messages.load(
-                        getClass().getClassLoader(),
-                        java.util.List.of("messages/paper-common", "messages/commands", "messages/hunger-games"),
-                        getDataFolder().toPath().resolve("messages"),
-                        Languages.NETWORK.locales())
-                .within(MessageEnvironment.of(getName()));
-        messages.unknownOverrideKeys()
-                .forEach(key -> getLogger()
-                        .warning("the message override names " + key + ", which no bundle declares - it is stored"
-                                + " and never used; check the spelling"));
-        locales = new PlayerLocales(mcUuid -> {
-            final var discordId = dao.discordIdOf(mcUuid);
-            return discordId
-                    .map(id -> Locales.parse(dao.localeOf(id).orElse(null)))
-                    .orElse(Locales.DEFAULT);
-        });
-        return config;
-    }
-
-    /** The event world, or a refusal that stops the server rather than running with none loaded. */
-    private World resolveGameWorld(final HungerGamesSpec config) {
-        final World world = resolveWorld(config);
-        if (world == null) {
-            throw severe("hunger-games could not find/load world '" + config.worldName()
-                    + "' - stopping the server rather than running an event server with no event "
-                    + "world on it");
+        sounds = HungerGamesSounds.of(soundSettings.get(), getLogger()::warning);
+        final World found = resolveWorld(config.get());
+        if (found == null) {
+            throw fatal(
+                    "hunger-games could not find/load world '" + config.get().worldName()
+                            + "': stopping the server rather than running an event server with no event world on it");
         }
-        return world;
-    }
-
-    /** Builds the border, loot, HUD, lobby, ceremony and manager, and starts the lobby broadcast. */
-    private void wireGameSystems(final HungerGamesSpec config, final World world) {
-        border = new BorderController(this, world, config, messages, locales, sounds, clock);
-        loot = new LootRefill(this, world, config, border, messages, locales, sounds, clock);
-        // winTracker before hud: the HUD reads the living count off it on every redraw.
-        winTracker = new WinTracker(dao, messages, locales, sounds, clock);
-        hud = new HudRenderer(this, world, config, messages, locales, border, state, winTracker, loot, clock);
-        lobby = new Lobby(this, dao, config, messages, locales);
-        ceremony = new Ceremony(messages, locales, sounds);
-        manager = new HungerGamesManager(this, dao, config, messages, locales, bodies, state, border, sounds, clock);
-
-        refreshCurrentGame();
-
-        // Lobby map slicing, tolerant of missing artwork.
-        new LobbyMaps(this, config).render(world);
-
-        lobby.startBroadcasting(world, () -> currentGameId);
-    }
-
-    /** The two caches {@link #wireAdminWatchAndCommands} needs but does not itself own. */
-    private record AdminHooks(AdminOperators operators, FullServerAdmission admission) {}
-
-    /** Registers the freeze, full-server-gate, presence and combat listeners. */
-    private AdminHooks wireListeners() {
-        getServer().getPluginManager().registerEvents(new FreezeListener(manager), this);
-        // Admins are operators for as long as they are admins; the sweep runs before any join is handled.
-        final AdminOperators operators = BukkitOps.create();
-        operators.sweep();
-
-        // One instance for the gate, the fullness answer and the operator grant; two would leave one empty.
-        final FullServerAdmission admission = new FullServerAdmission();
-
-        getServer().getPluginManager().registerEvents(new FullServerGate(dao, admission, getLogger0()), this);
-        // The five system lines; the death line keeps vanilla's own component for killer and weapon.
-        final ArenaComposition composition = new ArenaComposition(locales);
-        final SystemLines systemLines = new SystemLines(composition::of, messages, locales);
-        getServer().getPluginManager().registerEvents(systemLines, this);
-        getServer()
-                .getPluginManager()
-                .registerEvents(
-                        new PresenceListener(this, locales, bodies, state, messages, operators, admission, systemLines),
-                        this);
-        getServer()
-                .getPluginManager()
-                .registerEvents(
-                        new CombatListener(
-                                this,
-                                dao,
-                                state,
-                                bodies,
-                                border,
-                                winTracker,
-                                sounds,
-                                systemLines,
-                                composition,
-                                this::onGameDecided,
-                                clock),
-                        this);
-        return new AdminHooks(operators, admission);
-    }
-
-    /** Wires the admin watch, the two command-effects instances, the outbox and the command inbox. */
-    private PaperCommandInbox wireAdminWatchAndCommands(
-            final HungerGamesSpec config, final World world, final AdminHooks hooks) {
-        // Without this the admin flag is read once per session and a revoked admin keeps operator until they leave.
-        adminWatch = new AdminWatch(
-                this,
-                eu.nordtal.s2.database.access.AccessReader.using(pool, clock),
-                hooks.operators(),
-                hooks.admission(),
-                admins -> {},
-                getLogger0());
-        final eu.nordtal.s2.database.access.AccessReader access =
-                eu.nordtal.s2.database.access.AccessReader.using(pool, clock);
-        final java.util.function.BooleanSupplier reloadSounds = this::reloadSounds;
-        chatEffects = new BukkitHungerGamesEffects(
-                this,
-                BukkitHungerGamesEffects.async(this),
-                dao,
-                config,
-                lobby,
-                this::currentGameIdNow,
-                gameId -> startGame(gameId, world),
-                reloadSounds,
-                this::reloadMessages,
-                () -> phase);
-
-        commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
-            final Thread thread = new Thread(task, getName() + "-command-waiter");
-            thread.setDaemon(true);
-            return thread;
-        });
-        final eu.nordtal.s2.commands.remote.CommandRequests requests =
-                eu.nordtal.s2.commands.remote.CommandRequests.over(pool, clock);
-        outbox = new Outbox(
-                requests,
-                commandWaiter,
-                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure),
-                clock);
-
-        // Built here rather than inside the inbox so /hg reload can swap it too.
-        sharedMessages = PaperCommandInbox.sharedBundle(this);
-        final PaperCommandInbox inbox =
-                new PaperCommandInbox(this, Target.HUNGER_GAMES, requests, access, sharedMessages);
-        // Inline on purpose; see the chatEffects field.
-        final HungerGamesEffects inboxEffects = new BukkitHungerGamesEffects(
-                this,
-                Runnable::run,
-                dao,
-                config,
-                lobby,
-                this::currentGameIdNow,
-                gameId -> startGame(gameId, world),
-                reloadSounds,
-                this::reloadMessages,
-                () -> phase);
-        HungerGamesCommands.all().forEach(command -> inbox.register(command, inboxEffects));
-
-        registerCommands();
-        return inbox;
-    }
-
-    /** Builds the command allowlist filter and puts it, the admin watch and the inbox on the plugin's signal hub. */
-    private void wireCommandFilterAndSignals(final PaperCommandInbox inbox) {
-        // The proxy enforces the allowlist; this only tells a client what exists. Fails open with no list yet.
-        commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(
-                eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
-                        eu.nordtal.s2.database.command.AllowlistDirectory.using(pool)),
-                adminWatch::isAdmin,
-                locales,
-                messages,
-                getLogger0(),
-                () -> colours,
-                sounds::play);
-        getServer().getPluginManager().registerEvents(commandFilter, this);
-
-        // One LISTEN connection for the whole plugin; every refresh runs on its connect, signals and reconciliation.
-        final SignalHub hub = SignalHub.open(
-                databaseHandle.get().jdbcUrl(),
-                databaseHandle.get().username(),
-                databaseHandle.get().password(),
-                databaseHandle.get().queryTimeoutSeconds(),
-                getName() + "-signals",
-                getLogger0());
-        final PhaseDirectory phases = PhaseDirectory.using(pool, clock);
-        hub.on(Channel.PHASE, "the season phase", () -> phase = phases.currentPhase());
-        adminWatch.listen(hub);
-        commandFilter.listen(hub);
-        inbox.listen(hub, this);
-        hub.start();
-        signals = hub;
-    }
-
-    /** Starts the readiness marker ({@link Readiness}) last, re-queued by the main thread so a freeze goes stale. */
-    private void startHeartbeat() {
-        final Readiness readiness = Readiness.onDefaultPath(clock, getLogger()::warning);
-        final long ticks = Readiness.BEAT.toSeconds() * 20L;
-        heartbeat = getServer().getScheduler().runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
+        world = found;
     }
 
     @Override
-    public void onDisable() {
-        // Stops the beat; the marker is deliberately not deleted, since going stale is the signal.
-        if (heartbeat != null) {
-            quietly("heartbeat.cancel", heartbeat::cancel);
+    protected PaperUser.Chime chime() {
+        return sounds::play;
+    }
+
+    @Override
+    protected void enable() {
+        dao = jdbi().onDemand(HungerGamesDao.class);
+        wireGameSystems(config.get());
+        wireListeners();
+        wireCommands(config.get());
+        final PhaseDirectory phases = PhaseDirectory.using(pool(), clock());
+        hub().on(Channel.PHASE, "the season phase", () -> phase = phases.currentPhase());
+    }
+
+    @Override
+    protected void languageKnown(final Player player) {
+        presence.languageKnown(player);
+    }
+
+    @Override
+    protected List<String> reloadOwn() {
+        if (sharedMessages != null) {
+            sharedMessages.reload();
         }
+        return reloadSounds() ? List.of() : List.of("sounds.yml");
+    }
+
+    @Override
+    protected void disable() {
         if (lobby != null) {
             quietly("lobby.stop", lobby::stop);
         }
@@ -383,34 +159,110 @@ public final class HungerGamesPlugin extends JavaPlugin {
         if (border != null) {
             quietly("border.stop", border::stop);
         }
-        // Before the pool: the listener is on its own connection, but a refresh in flight reads through the pool.
-        if (adminWatch != null) {
-            quietly("adminWatch.close", adminWatch::close);
-        }
-        if (signals != null) {
-            quietly("signals.close", signals::close);
-        }
-        if (commandWaiter != null) {
+        final ScheduledExecutorService waiter = commandWaiter;
+        if (waiter != null) {
             // Before the pool: a wait in flight reads the request row through it.
-            quietly("commandWaiter.shutdownNow", commandWaiter::shutdownNow);
+            quietly("commandWaiter.shutdownNow", waiter::shutdownNow);
         }
-        if (pool != null) {
-            quietly("pool.close", pool::close);
-        }
-        getLogger().info("hunger-games disabled");
     }
 
-    /** One disable step, isolated from the next; see {@link eu.nordtal.s2.common.health.Shutdown}. */
-    private void quietly(final String what, final Runnable step) {
-        eu.nordtal.s2.common.health.Shutdown.quietly(
-                what, step, (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
+    /** Builds the border, loot, HUD, lobby, ceremony and manager, and starts the lobby broadcast. */
+    private void wireGameSystems(final HungerGamesSpec spec) {
+        final BorderController borderController =
+                new BorderController(this, world, spec, messages(), locales(), sounds, clock());
+        border = borderController;
+        final LootRefill refill =
+                new LootRefill(this, world, spec, borderController, messages(), locales(), sounds, clock());
+        loot = refill;
+        // winTracker before hud: the HUD reads the living count off it on every redraw.
+        winTracker = new WinTracker(dao, messages(), locales(), sounds, clock());
+        hud = new HudRenderer(
+                this, world, spec, messages(), locales(), borderController, state, winTracker, refill, clock());
+        final Lobby waiting = new Lobby(this, dao, spec, messages(), locales());
+        lobby = waiting;
+        ceremony = new Ceremony(messages(), locales(), sounds);
+        manager = new HungerGamesManager(
+                this, dao, spec, messages(), locales(), bodies, state, borderController, sounds, clock());
+
+        refreshCurrentGame();
+
+        // Lobby map slicing, tolerant of missing artwork.
+        new LobbyMaps(this, spec).render(world);
+
+        waiting.startBroadcasting(world, () -> currentGameId);
     }
 
-    private void registerCommands() {
-        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+    /** Registers the freeze, presence, system line and combat listeners. */
+    private void wireListeners() {
+        listen(new FreezeListener(manager));
+        // The five system lines; the death line keeps vanilla's own component for killer and weapon.
+        final ArenaComposition composition = new ArenaComposition(locales());
+        final SystemLines systemLines = new SystemLines(composition::of, messages(), locales());
+        listen(systemLines);
+        presence = new PresenceListener(this, locales(), bodies, state, messages(), systemLines);
+        listen(presence);
+        listen(new CombatListener(
+                this,
+                dao,
+                state,
+                bodies,
+                Objects.requireNonNull(border),
+                winTracker,
+                sounds,
+                systemLines,
+                composition,
+                this::onGameDecided,
+                clock()));
+    }
+
+    /** The command layer: two effects instances, the outbox and the command inbox. */
+    private void wireCommands(final HungerGamesSpec spec) {
+        final Lobby waiting = Objects.requireNonNull(lobby);
+        chatEffects = new BukkitHungerGamesEffects(
+                this,
+                BukkitHungerGamesEffects.async(this),
+                dao,
+                spec,
+                waiting,
+                this::currentGameIdNow,
+                gameId -> startGame(gameId, world),
+                this::reloadSounds,
+                this::reloadMessages,
+                () -> phase);
+
+        final ScheduledExecutorService waiter = Executors.newSingleThreadScheduledExecutor(task -> {
+            final Thread thread = new Thread(task, getName() + "-command-waiter");
+            thread.setDaemon(true);
+            return thread;
+        });
+        commandWaiter = waiter;
+        final CommandRequests requests = CommandRequests.over(pool(), clock());
+        outbox = new Outbox(
+                requests, waiter, (message, failure) -> getLogger().log(Level.WARNING, message, failure), clock());
+
+        // Built here rather than inside the inbox so a reload can swap it too.
+        final Messages shared = PaperCommandInbox.sharedBundle(this);
+        sharedMessages = shared;
+        final PaperCommandInbox inbox = new PaperCommandInbox(this, Target.HUNGER_GAMES, requests, access(), shared);
+        // Inline on purpose; see the chatEffects field.
+        final HungerGamesEffects inboxEffects = new BukkitHungerGamesEffects(
+                this,
+                Runnable::run,
+                dao,
+                spec,
+                waiting,
+                this::currentGameIdNow,
+                gameId -> startGame(gameId, world),
+                this::reloadSounds,
+                this::reloadMessages,
+                () -> phase);
+        HungerGamesCommands.all().forEach(command -> inbox.register(command, inboxEffects));
+        inbox.listen(hub(), this);
+
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final HungerGamesCommand command = new HungerGamesCommand(
-                    this, dao, messages, locales, lobby, sounds, () -> currentGameId, () -> colours);
-            command.build(outbox, chatEffects, adminWatch::isAdmin)
+                    this, dao, messages(), locales(), waiting, sounds, () -> currentGameId, this::colours);
+            command.build(outbox, chatEffects, id -> adminWatch().isAdmin(id))
                     .forEach(node -> event.registrar().register(node));
         });
     }
@@ -419,33 +271,28 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private void startGame(final UUID gameId, final World world) {
         final List<HgMember> activeMembers = dao.activeMembersOf(gameId);
         manager.start(gameId, world, () -> {
-            final Instant releasedAt = clock.instant();
-            loot.scheduleAll(releasedAt);
-            hud.start();
+            final Instant releasedAt = clock().instant();
+            Objects.requireNonNull(loot).scheduleAll(releasedAt);
+            Objects.requireNonNull(hud).start();
             winTracker.reset(activeMembers);
         });
     }
 
     /** Re-reads the message bundles and the operator's override; throws so the console gets the reason. */
     private void reloadMessages() {
-        messages.reload();
-        // The inbox's own view of the same files; its unknown keys go unreported since it holds one root.
-        if (sharedMessages != null) {
-            sharedMessages.reload();
+        final List<String> problems = reload();
+        if (!problems.isEmpty()) {
+            throw new IllegalStateException(String.join("; ", problems));
         }
-        messages.unknownOverrideKeys()
-                .forEach(key -> getLogger()
-                        .warning("the message override names " + key + ", which no bundle declares - it is"
-                                + " stored and never used; check the spelling"));
     }
 
     private boolean reloadSounds() {
         try {
-            soundsHandle.reload();
-            sounds.reload(soundsHandle.get());
+            soundSettings.reload();
+            sounds.reload(soundSettings.get());
             getLogger().info("the sounds were reloaded");
             return true;
-        } catch (final ConfigException | RuntimeException exception) {
+        } catch (final SettingsException | RuntimeException exception) {
             getLogger()
                     .severe("the sounds could not be reloaded, the running ones are unchanged: "
                             + exception.getMessage());
@@ -454,20 +301,20 @@ public final class HungerGamesPlugin extends JavaPlugin {
     }
 
     private void onGameDecided(final Ceremony.Decision decision) {
-        final HungerGamesSpec config = configHandle.get();
-        final World world = resolveWorld(config);
-        if (world == null) {
+        final HungerGamesSpec spec = config.get();
+        final World found = resolveWorld(spec);
+        if (found == null) {
             return;
         }
 
-        hud.stop();
-        loot.cancelAll();
-        border.stop();
+        Objects.requireNonNull(hud).stop();
+        Objects.requireNonNull(loot).cancelAll();
+        Objects.requireNonNull(border).stop();
 
         final Location lobbyLocation = new Location(
-                world, config.lobby().x(), config.lobby().y(), config.lobby().z());
+                found, spec.lobby().x(), spec.lobby().y(), spec.lobby().z());
         // No query: the caller read everything off the main thread, and gameId is still set before state.clear().
-        ceremony.run(world, lobbyLocation, Objects.requireNonNull(state.gameId()), decision);
+        ceremony.run(found, lobbyLocation, Objects.requireNonNull(state.gameId()), decision);
         state.clear();
         decidedGameId = currentGameId;
         currentGameId = null;
@@ -501,25 +348,5 @@ public final class HungerGamesPlugin extends JavaPlugin {
                             + "hunger-games cannot run without its event world");
         }
         return world;
-    }
-
-    // getLogger() answers java.util.logging.Logger; jcore's ConfigLoader wants slf4j's.
-    private org.slf4j.Logger getLogger0() {
-        return org.slf4j.LoggerFactory.getLogger(HungerGamesPlugin.class);
-    }
-
-    /** Logs the reason and stops the server: disabling only the plugin leaves a healthy container with no season. */
-    private Refusal severe(final String message) {
-        getLogger().severe(message);
-        getServer().getPluginManager().disablePlugin(this);
-        getServer().shutdown();
-        return new Refusal();
-    }
-
-    /** Thrown only by {@link #severe(String)}, so NullAway sees that nothing after {@code throw severe(...)} runs. */
-    private static final class Refusal extends RuntimeException {
-        private Refusal() {
-            super(null, null, false, false);
-        }
     }
 }

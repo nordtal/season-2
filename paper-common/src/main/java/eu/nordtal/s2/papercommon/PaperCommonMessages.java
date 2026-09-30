@@ -16,6 +16,15 @@ public interface PaperCommonMessages {
 
     SystemMessages system();
 
+    Login login();
+
+    @Name("Login")
+    interface Login {
+
+        @Name("Database unreachable")
+        MessageRef databaseUnreachable();
+    }
+
     @Name("System")
     interface SystemMessages {
 

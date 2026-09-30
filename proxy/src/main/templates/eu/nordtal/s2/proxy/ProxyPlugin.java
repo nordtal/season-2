@@ -17,7 +17,6 @@ import com.velocitypowered.api.proxy.ProxyServer;
 
 import com.zaxxer.hikari.HikariDataSource;
 
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.common.health.Readiness;
@@ -27,13 +26,17 @@ import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.database.update.UpdateDirectory;
-import eu.nordtal.s2.proxy.config.ColoursSpec;
-import eu.nordtal.s2.proxy.config.Configs;
-import eu.nordtal.s2.proxy.config.DatabaseSpec;
+import eu.nordtal.s2.proxy.config.ProxySettings;
+import eu.nordtal.s2.settings.Colours;
+import eu.nordtal.s2.settings.ColoursSpec;
+import eu.nordtal.s2.settings.DatabasePool;
+import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Settings;
+import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.proxy.config.GateSpec;
 import eu.nordtal.s2.proxy.config.NetworkSpec;
 import eu.nordtal.s2.proxy.config.PackSpec;
-import eu.nordtal.s2.proxy.db.AccessPool;
 import eu.nordtal.s2.proxy.gate.ExpiryWatch;
 import eu.nordtal.s2.proxy.gate.FallbackCache;
 import eu.nordtal.s2.proxy.gate.GateMessages;
@@ -145,13 +148,14 @@ public final class ProxyPlugin {
                     "the message override names {}, which no bundle declares - it is stored and"
                             + " never used; check the spelling", key));
 
-            start(Configs.database(dataDirectory, logger).get(),
-                    Configs.gate(dataDirectory, logger).get(),
-                    Configs.pack(dataDirectory, logger).get(),
-                    Configs.network(dataDirectory, logger).get(),
-                    Configs.colours(dataDirectory, logger).get(),
+            final Settings settings = FileSettings.in(dataDirectory, "NORDTAL_PROXY", "proxy", logger);
+            start(settings.load("database", DatabaseSpec.class, DatabasePool::check).get(),
+                    settings.load("gate", GateSpec.class, ProxySettings::checkGate).get(),
+                    settings.load("pack", PackSpec.class, ProxySettings::checkPack).get(),
+                    settings.load("network", NetworkSpec.class, ProxySettings::checkNetwork).get(),
+                    settings.load("colours", ColoursSpec.class).get(),
                     messages);
-        } catch (final ConfigException | RuntimeException failure) {
+        } catch (final SettingsException | RuntimeException failure) {
             failClosed(failure);
         }
     }
@@ -162,11 +166,11 @@ public final class ProxyPlugin {
         // :commands' bundle alone, for the inbox: its own keys allow MiniMessage, unlike the layered root.
         this.sharedMessages = Messages.load(getClass().getClassLoader(), "messages/commands",
                 dataDirectory.resolve("messages"), Languages.NETWORK.locales()).within(ENVIRONMENT);
-        this.pool = AccessPool.open(databaseConfig);
+        this.pool = DatabasePool.open(databaseConfig, "proxy-access");
         this.access = AccessDirectory.using(pool, clock);
 
         // The five reply colours, read once here; see ColoursSpec.
-        final ToneColours colours = ToneColours.parse(Configs.declared(coloursConfig), logger::warn);
+        final ToneColours colours = ToneColours.parse(Colours.declared(coloursConfig), logger::warn);
 
         final PhaseDirectory phases = PhaseDirectory.using(pool, clock);
         final GateMessages gateMessages = new GateMessages(messages, gateConfig);

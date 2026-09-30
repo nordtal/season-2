@@ -1,6 +1,5 @@
 package eu.nordtal.s2.discordbot;
 
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.health.Readiness;
@@ -28,10 +27,9 @@ import eu.nordtal.s2.discordbot.access.payment.PaymentProcessor;
 import eu.nordtal.s2.discordbot.access.payment.Purchases;
 import eu.nordtal.s2.discordbot.access.payment.Tiers;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.discordbot.config.BotSettings;
 import eu.nordtal.s2.discordbot.config.BotSpec;
-import eu.nordtal.s2.discordbot.config.Configs;
 import eu.nordtal.s2.discordbot.config.Configured;
-import eu.nordtal.s2.discordbot.config.DatabaseSpec;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.discord.AdminRole;
 import eu.nordtal.s2.discordbot.discord.BotAccessEffects;
@@ -44,6 +42,8 @@ import eu.nordtal.s2.discordbot.hungergames.Teams;
 import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MessageEnvironment;
+import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.settings.SettingsException;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -118,10 +118,10 @@ public class AccessBot implements AutoCloseable {
             BotAccessEffects inboxEffects,
             eu.nordtal.s2.discordbot.announce.Announcements announcements) {}
 
-    public AccessBot() throws InterruptedException, ConfigException {
-        final DatabaseSpec databaseConfig = Configs.database().get();
-        final BotSpec botConfig = Configs.bot().get();
-        final AccessSpec accessConfig = Configs.access().get();
+    public AccessBot() throws InterruptedException, SettingsException {
+        final DatabaseSpec databaseConfig = BotSettings.database().get();
+        final BotSpec botConfig = BotSettings.bot().get();
+        final AccessSpec accessConfig = BotSettings.access().get();
 
         this.database = Database.create(toDatabaseConfig(databaseConfig));
         this.database.jdbi().installPlugin(Jdbis.ids());
@@ -200,7 +200,7 @@ public class AccessBot implements AutoCloseable {
         final Messages messages = Messages.load(
                         AccessBot.class.getClassLoader(),
                         java.util.List.of("messages/commands", MESSAGE_ROOT),
-                        Configs.messagesDirectory(),
+                        BotSettings.messagesDirectory(),
                         languages.locales())
                 .within(MessageEnvironment.of(SERVICE));
         messages.unknownOverrideKeys()
@@ -212,7 +212,7 @@ public class AccessBot implements AutoCloseable {
         final Messages sharedMessages = Messages.load(
                         AccessBot.class.getClassLoader(),
                         "messages/commands",
-                        Configs.messagesDirectory(),
+                        BotSettings.messagesDirectory(),
                         languages.locales())
                 .within(MessageEnvironment.of(SERVICE));
         final Tiers tiers = Tiers.of(accessConfig);
@@ -439,7 +439,6 @@ public class AccessBot implements AutoCloseable {
                 .password(config.password())
                 .poolName("access-bot")
                 .maximumPoolSize(config.maximumPoolSize())
-                .logSql(config.logSql())
                 .build();
     }
 
@@ -450,7 +449,7 @@ public class AccessBot implements AutoCloseable {
         final AccessBot bot;
         try {
             bot = new AccessBot();
-        } catch (final ConfigException e) {
+        } catch (final SettingsException e) {
             // Not a stack trace: the message names the file, the setting and what is wrong.
             log.error("access-bot is not starting because its configuration could not be read.");
             log.error("{}", e.getMessage());

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.config.EnvOverrideFile;
+import eu.nordtal.s2.settings.EnvOverrideFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

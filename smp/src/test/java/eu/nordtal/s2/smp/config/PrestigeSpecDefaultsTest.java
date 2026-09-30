@@ -75,7 +75,7 @@ class PrestigeSpecDefaultsTest {
     @Test
     void theShippedHoursAreAValidLadder() {
         // The same constructor `Configs.prestige`'s validator runs, so a bad default fails here, not after a restart.
-        assertDoesNotThrow(() -> new Prestige(Configs.declaredPrestigeHours(spec)));
+        assertDoesNotThrow(() -> new Prestige(SmpSettings.declaredPrestigeHours(spec)));
     }
 
     /** The `@Key` values of a tier block, in `@Order`. */
@@ -91,7 +91,7 @@ class PrestigeSpecDefaultsTest {
 
     /** The thirteen tiers plus the admin override, which has to stand apart from all of them. */
     private List<String> all() {
-        final List<String> colours = new ArrayList<>(Configs.declaredPrestigeTiers(spec));
+        final List<String> colours = new ArrayList<>(SmpSettings.declaredPrestigeTiers(spec));
         colours.add(spec.admin());
         return colours;
     }

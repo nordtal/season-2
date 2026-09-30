@@ -15,7 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * What a {@code steward-ui.yml} gains when a whole nested section is added to the spec.
  *
- * {@code Configs.ui} refuses a null relying party, so this decides whether the file needs editing by hand.
+ * {@code UiSettings.ui} refuses a null relying party, so this decides whether the file needs editing by hand.
  */
 class AddedSectionTest {
 

@@ -4,7 +4,7 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.Jdbis;
-import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
+import eu.nordtal.s2.settings.DatabaseSpec;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.EnumMap;

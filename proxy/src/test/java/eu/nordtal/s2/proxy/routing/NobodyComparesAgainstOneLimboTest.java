@@ -63,7 +63,7 @@ class NobodyComparesAgainstOneLimboTest {
     private static final Map<String, String> MAY_READ_THE_CONFIG_KEY = Map.of(
             "proxy/src/main/java/eu/nordtal/s2/proxy/PhaseServers.java",
             "builds the object everybody else is handed",
-            "proxy/src/main/java/eu/nordtal/s2/proxy/config/Configs.java",
+            "proxy/src/main/java/eu/nordtal/s2/proxy/config/ProxySettings.java",
             "refuses a blank name at load, which is a check and not a use",
             "proxy/src/main/java/eu/nordtal/s2/proxy/config/GateSpec.java",
             "declares the key");

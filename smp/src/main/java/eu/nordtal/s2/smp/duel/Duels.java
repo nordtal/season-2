@@ -122,7 +122,7 @@ public final class Duels {
     /**
      * One running duel.
      *
-     * discordIds is captured at the start: JoinGate clears Identities on quit before a disconnect is settled.
+     * discordIds is captured at the start: the base forgets an identity on quit before a disconnect is settled.
      */
     private record ActiveDuel(
             UUID first,

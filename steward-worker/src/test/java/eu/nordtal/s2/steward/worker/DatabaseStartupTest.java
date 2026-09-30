@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
+import eu.nordtal.s2.settings.DatabaseSpec;
 import java.time.Clock;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;

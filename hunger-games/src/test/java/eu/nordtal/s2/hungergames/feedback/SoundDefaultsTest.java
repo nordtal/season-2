@@ -4,10 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.config.ConfigHandle;
-import eu.nordtal.s2.hungergames.config.Configs;
 import eu.nordtal.s2.hungergames.config.SoundsSpec;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Setting;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -33,7 +33,9 @@ class SoundDefaultsTest {
 
     @Test
     void everyCategoryHasADefaultAndEveryDefaultIsARealVanillaSound() throws Exception {
-        final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
+        final SoundsSpec spec = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
+                .load("sounds", SoundsSpec.class)
+                .get();
         final List<String> problems = new ArrayList<>();
 
         for (final Feedback category : Feedback.values()) {
@@ -79,8 +81,12 @@ class SoundDefaultsTest {
     /** Checks that the values survive being written to a file and read back, nesting and floats included. */
     @Test
     void theSoundsRoundTripThroughSoundsYml() throws Exception {
-        final SoundsSpec written = Configs.sounds(directory, LOGGER).get();
-        final SoundsSpec reread = Configs.sounds(directory, LOGGER).get();
+        final SoundsSpec written = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
+                .load("sounds", SoundsSpec.class)
+                .get();
+        final SoundsSpec reread = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
+                .load("sounds", SoundsSpec.class)
+                .get();
 
         for (final Feedback category : Feedback.values()) {
             final SoundsSpec.SoundSpec before = entryOf(category, written);
@@ -95,8 +101,11 @@ class SoundDefaultsTest {
     @Test
     void theParsedVocabularyHasNoSilentCategoryByDefault() throws Exception {
         final List<String> problems = new ArrayList<>();
-        final HungerGamesSounds sounds =
-                HungerGamesSounds.of(Configs.sounds(directory, LOGGER).get(), problems::add);
+        final HungerGamesSounds sounds = HungerGamesSounds.of(
+                FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
+                        .load("sounds", SoundsSpec.class)
+                        .get(),
+                problems::add);
 
         assertEquals(
                 List.of(),
@@ -117,12 +126,14 @@ class SoundDefaultsTest {
     /** Checks that a blanked key survives the real file as an empty string, rather than a refused load or a default. */
     @Test
     void blankingAKeyInTheFileReallyDoesSilenceThatCategory() throws Exception {
-        Configs.sounds(directory, LOGGER);
+        FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER).load("sounds", SoundsSpec.class);
         final Path file = directory.resolve("sounds.yml");
         Files.writeString(file, Files.readString(file).replace("key: minecraft:entity.villager.no", "key: ''"));
 
         final List<String> problems = new ArrayList<>();
-        final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
+        final SoundsSpec spec = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
+                .load("sounds", SoundsSpec.class)
+                .get();
         assertEquals(
                 "", spec.loss().key(), "jcore handed back something other than the empty string the operator wrote");
 
@@ -135,7 +146,8 @@ class SoundDefaultsTest {
     /** Checks that a reload picks the blanking up on the instance every listener already holds. */
     @Test
     void aReloadSilencesACategoryOnTheInstanceTheListenersAlreadyHold() throws Exception {
-        final ConfigHandle<SoundsSpec> handle = Configs.sounds(directory, LOGGER);
+        final Setting<SoundsSpec> handle =
+                FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER).load("sounds", SoundsSpec.class);
         final HungerGamesSounds running = HungerGamesSounds.of(handle.get(), problem -> {});
         assertFalse(running.isSilent(Feedback.LOSS), "it has to start audible for this to prove" + " anything");
 
@@ -155,7 +167,9 @@ class SoundDefaultsTest {
     /** Checks that {@code LOSS} and {@code COUNTDOWN_TICK}, which can play in the same tick, sound different. */
     @Test
     void theTwoCategoriesADeathPlaysAtOnceDoNotShipAsTheSameNoise() throws Exception {
-        final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
+        final SoundsSpec spec = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
+                .load("sounds", SoundsSpec.class)
+                .get();
         assertTrue(
                 !spec.loss().key().equals(spec.countdownTick().key())
                         || spec.loss().pitch() != spec.countdownTick().pitch(),

@@ -1,43 +1,29 @@
 package eu.nordtal.s2.limbo;
 
-import com.zaxxer.hikari.HikariDataSource;
-import eu.nordtal.jcore.config.ConfigHandle;
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.limbo.LimboCommands;
 import eu.nordtal.s2.commands.limbo.LimboEffects;
+import eu.nordtal.s2.commands.remote.CommandRequests;
 import eu.nordtal.s2.commands.remote.Outbox;
-import eu.nordtal.s2.common.health.Readiness;
-import eu.nordtal.s2.common.language.Languages;
-import eu.nordtal.s2.common.time.NetworkTime;
-import eu.nordtal.s2.database.access.AccessReader;
-import eu.nordtal.s2.database.access.AdminOperators;
-import eu.nordtal.s2.database.access.FullServerAdmission;
-import eu.nordtal.s2.database.command.AllowlistDirectory;
-import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.limbo.command.BukkitLimboEffects;
 import eu.nordtal.s2.limbo.command.LimboCommand;
-import eu.nordtal.s2.limbo.config.ColoursSpec;
-import eu.nordtal.s2.limbo.config.Configs;
-import eu.nordtal.s2.limbo.config.DatabaseSpec;
+import eu.nordtal.s2.limbo.config.LimboCheck;
 import eu.nordtal.s2.limbo.config.LimboSpec;
-import eu.nordtal.s2.limbo.db.LimboPool;
-import eu.nordtal.s2.limbo.listener.FullServerGate;
 import eu.nordtal.s2.limbo.listener.PresenceListener;
 import eu.nordtal.s2.limbo.net.LimboChannel;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
 import eu.nordtal.s2.limboprotocol.LimboProtocol;
-import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
-import eu.nordtal.s2.messages.context.MessageEnvironment;
-import eu.nordtal.s2.papercommon.access.AdminWatch;
-import eu.nordtal.s2.papercommon.access.BukkitOps;
-import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
-import java.time.Clock;
-import org.bukkit.plugin.java.JavaPlugin;
+import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
+import eu.nordtal.s2.settings.Setting;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.logging.Level;
+import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -45,272 +31,110 @@ import org.jspecify.annotations.Nullable;
  *
  * The proxy ends every wait on {@code nordtal:limbo} ({@link LimboProtocol}); this only reports arrival.
  */
-public final class LimboPlugin extends JavaPlugin {
+public final class LimboPlugin extends NordtalPlugin {
 
-    /** The one clock of this process. */
-    private final Clock clock = NetworkTime.clock();
-
-    private ConfigHandle<LimboSpec> configHandle;
-    private ConfigHandle<DatabaseSpec> databaseHandle;
-
-    /** Read once at enable; {@code /limbo reload} does not touch it. */
-    private ConfigHandle<ColoursSpec> coloursHandle;
-
-    /** The tone palette replies are painted with. */
-    private ToneColours colours;
-
-    private HikariDataSource pool;
-    private AccessReader access;
-    private AdminWatch adminWatch;
-
-    /** The plugin's one {@code LISTEN} connection. */
-    private @Nullable SignalHub signals;
-
-    /** What a non-admin may type here, and what their client is told exists. */
-    private CommandFilter commandFilter;
+    private Setting<LimboSpec> config;
+    private WaitingWorld world;
+    private WaitingRoom room;
+    private PresenceListener presence;
+    private @Nullable LimboChannel channel;
 
     /** The thread a command sent to another process waits on. Shut down before the pool. */
-    private java.util.concurrent.ScheduledExecutorService commandWaiter;
+    private @Nullable ScheduledExecutorService commandWaiter;
 
-    private WaitingRoom room;
-    private LimboChannel channel;
-    private org.bukkit.scheduler.BukkitTask heartbeat;
-
-    /** Runs {@link #start()} inside one try, so a failure stops the server instead of leaving it running without it. */
     @Override
-    public void onEnable() {
-        // Loads the class every disable step goes through, while the jar it lives in still exists; see Shutdown#warmUp.
-        eu.nordtal.s2.common.health.Shutdown.warmUp();
-        // {server.name} in every message: the plugin's name is the service's.
-        try {
-            start();
-        } catch (final Refusal refusal) {
-            // Already logged, and the shutdown is under way; see severe(String).
-        } catch (final RuntimeException failure) {
-            severe("limbo is not starting: " + failure.getMessage());
+    protected String settingsPrefix() {
+        return "NORDTAL_LIMBO";
+    }
+
+    @Override
+    protected List<String> bundles() {
+        return List.of("messages/commands", "messages/limbo");
+    }
+
+    @Override
+    protected void prepare() {
+        config = setting("config", LimboSpec.class, LimboCheck::check);
+        final WaitingWorld loaded = WaitingWorld.loadOrCreate(this, config.get());
+        if (loaded == null) {
+            throw fatal("limbo could not create or load its waiting world '"
+                    + config.get().worldName()
+                    + "'. Without it every login would be spawned into this server's own level-name world,"
+                    + " which is the one thing a waiting room must not show.");
         }
+        world = loaded;
     }
 
-    /** Everything a start consists of. Throws rather than half-starting; see {@link #onEnable()}. */
-    private void start() {
-        loadConfigHandles();
-        final LimboSpec config = configHandle.get();
-        colours = ToneColours.parse(Configs.declared(coloursHandle.get()), getLogger()::warning);
-        final WaitingWorld world = requireWorld(config);
-
-        pool = LimboPool.open(databaseHandle.get());
-        access = AccessReader.using(pool, clock);
-        final PlayerLocales locales = new PlayerLocales(access::locale);
-        final Messages messages = loadMessages();
-
-        wirePresence(config, world, messages, locales);
-        wireCommands(messages, locales);
-
-        startHeartbeat();
-        getLogger()
-                .info("limbo enabled - waiting world '" + config.worldName() + "', title refreshed " + "every "
-                        + config.titleRefreshSeconds() + "s, speaking " + LimboProtocol.CHANNEL);
-    }
-
-    /** Loads {@code config.yml}, {@code database.yml} and {@code colours.yml}, in that order. */
-    private void loadConfigHandles() {
-        try {
-            configHandle = Configs.load(getDataFolder().toPath(), slf4j());
-            databaseHandle = Configs.database(getDataFolder().toPath(), slf4j());
-            coloursHandle = Configs.colours(getDataFolder().toPath(), slf4j());
-        } catch (final ConfigException exception) {
-            throw severe(
-                    "limbo is not starting because its configuration could not be read: " + exception.getMessage());
-        }
-    }
-
-    /** The waiting world, or a refusal: a waiting room with nowhere to wait must not start. */
-    private WaitingWorld requireWorld(final LimboSpec config) {
-        final WaitingWorld world = WaitingWorld.loadOrCreate(this, config);
-        if (world == null) {
-            throw severe("limbo could not create or load its waiting world '" + config.worldName()
-                    + "'. Without it every login would be spawned into this server's own level-name "
-                    + "world, which is the one thing a waiting room must not show. Stopping the "
-                    + "server rather than accepting logins onto it.");
-        }
-        return world;
-    }
-
-    /** The two message bundles, this module's own winning where both declare a key. */
-    private Messages loadMessages() {
-        final Messages messages = Messages.load(
-                        getClass().getClassLoader(),
-                        java.util.List.of("messages/commands", "messages/limbo"),
-                        getDataFolder().toPath().resolve("messages"),
-                        Languages.NETWORK.locales())
-                .within(MessageEnvironment.of(getName()));
-        messages.unknownOverrideKeys()
-                .forEach(key -> getLogger()
-                        .warning("the message override names " + key + ", which no bundle declares - it is stored"
-                                + " and never used; check the spelling"));
-        return messages;
-    }
-
-    /** The waiting room itself, the listeners around it, and the admin watch they share. */
-    private void wirePresence(
-            final LimboSpec config, final WaitingWorld world, final Messages messages, final PlayerLocales locales) {
-        final AdminOperators operators = BukkitOps.create();
-        // ops.json is persistent, so an admin left in it by a crash would otherwise outlive this sweep.
-        operators.sweep();
-        // Shared: the gate fills the admin flag at pre-login and both the fullness answer and the grant read it back.
-        final FullServerAdmission admission = new FullServerAdmission();
-
-        room = new WaitingRoom(this, config, messages, locales, world);
+    @Override
+    protected void enable() {
+        room = new WaitingRoom(this, config.get(), messages(), locales(), world);
         room.start();
-        channel = new LimboChannel(this, room);
-        channel.register();
-
-        getServer()
-                .getPluginManager()
-                .registerEvents(
-                        new PresenceListener(this, world, room, channel, locales, messages, operators, admission),
-                        this);
-        // The only login this can ever refuse is an admin's: admins are the only players a full network lets past.
-        getServer().getPluginManager().registerEvents(new FullServerGate(access, admission, slf4j()), this);
-        // Read once per session would leave a revoked admin with operator until they disconnect; see AdminWatch.
-        adminWatch = new AdminWatch(this, access, operators, admission, admins -> {}, slf4j());
-    }
-
-    /** The command layer: the outbox to other processes, the inbox from them, and the client-side filter. */
-    private void wireCommands(final Messages messages, final PlayerLocales locales) {
-        // Built here rather than inside the inbox so that /limbo reload can move it.
-        final Messages shared = PaperCommandInbox.sharedBundle(this);
-        final LimboEffects chatEffects = new BukkitLimboEffects(this, BukkitLimboEffects.async(this), messages, shared);
-        final CommandWiring wiring = wireCommandInbox(messages, shared);
-
-        // CommandFilter fails open until a list is published; this only tells the client what exists.
-        commandFilter = new CommandFilter(
-                CommandFilter.Source.of(AllowlistDirectory.using(pool)),
-                adminWatch::isAdmin,
-                locales,
-                messages,
-                slf4j(),
-                () -> colours);
-        getServer().getPluginManager().registerEvents(commandFilter, this);
-
-        // One LISTEN connection for the whole plugin; every refresh runs on its connect, signals and reconciliation.
-        final SignalHub hub = SignalHub.open(
-                databaseHandle.get().jdbcUrl(),
-                databaseHandle.get().username(),
-                databaseHandle.get().password(),
-                databaseHandle.get().queryTimeoutSeconds(),
-                getName() + "-signals",
-                slf4j());
-        adminWatch.listen(hub);
-        commandFilter.listen(hub);
-        wiring.inbox().listen(hub, this);
-        hub.start();
-        signals = hub;
-
-        getLifecycleManager()
-                .registerEventHandler(
-                        io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS,
-                        event -> LimboCommand.build(
-                                        this,
-                                        messages,
-                                        locales,
-                                        // Not FullServerAdmission's set, which fills only near the player cap.
-                                        adminWatch::isAdmin,
-                                        access::linkedDiscordAccount,
-                                        wiring.outbox(),
-                                        chatEffects,
-                                        () -> colours)
-                                .forEach(node -> event.registrar().register(node)));
-    }
-
-    /** The command inbox and its matching outbox, built together since both go through the servers' inboxes. */
-    private record CommandWiring(PaperCommandInbox inbox, Outbox outbox) {}
-
-    private CommandWiring wireCommandInbox(final Messages messages, final Messages shared) {
-        commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
-            final Thread thread = new Thread(task, getName() + "-command-waiter");
-            thread.setDaemon(true);
-            return thread;
-        });
-        final eu.nordtal.s2.commands.remote.CommandRequests requests =
-                eu.nordtal.s2.commands.remote.CommandRequests.over(pool, clock);
-        final Outbox outbox = new Outbox(
-                requests,
-                commandWaiter,
-                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure),
-                clock);
-
-        final PaperCommandInbox inbox = new PaperCommandInbox(this, Target.LIMBO, requests, access, shared);
-        // A scheduled effect would settle the request row before the command produced its answer; register refuses one.
-        LimboCommands.all()
-                .forEach(command ->
-                        inbox.register(command, new BukkitLimboEffects(this, Runnable::run, messages, shared)));
-        return new CommandWiring(inbox, outbox);
-    }
-
-    /**
-     * Starts the container readiness marker ({@link Readiness}), last in {@code start()}, so a marker means it all ran.
-     *
-     * Written from the async scheduler, which the main thread re-queues, so a frozen server goes stale.
-     */
-    private void startHeartbeat() {
-        final Readiness readiness = Readiness.onDefaultPath(clock, getLogger()::warning);
-        final long ticks = Readiness.BEAT.toSeconds() * 20L;
-        heartbeat = getServer().getScheduler().runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
+        final LimboChannel speaking = new LimboChannel(this, room);
+        speaking.register();
+        channel = speaking;
+        presence = new PresenceListener(this, world, room, speaking, locales(), messages(), identities());
+        listen(presence);
+        wireCommands();
+        getLogger()
+                .info("waiting world '" + config.get().worldName() + "', title refreshed every "
+                        + config.get().titleRefreshSeconds() + "s, speaking " + LimboProtocol.CHANNEL);
     }
 
     @Override
-    public void onDisable() {
-        // The marker is deliberately not deleted: going stale is the signal, and it costs nothing here.
-        if (heartbeat != null) {
-            quietly("heartbeat.cancel", heartbeat::cancel);
-        }
-        if (channel != null) {
-            quietly("channel.unregister", channel::unregister);
+    protected void languageKnown(final Player player) {
+        room.redraw(player);
+        presence.sendTabList(player);
+    }
+
+    @Override
+    protected void disable() {
+        final LimboChannel speaking = channel;
+        if (speaking != null) {
+            quietly("channel.unregister", speaking::unregister);
         }
         if (room != null) {
             quietly("room.stop", room::stop);
         }
-        // Before the pool: the listener thread has its own connection, but a refresh in flight reads through the pool.
-        if (adminWatch != null) {
-            quietly("adminWatch.close", adminWatch::close);
-        }
-        if (signals != null) {
-            quietly("signals.close", signals::close);
-        }
-        if (commandWaiter != null) {
+        final ScheduledExecutorService waiter = commandWaiter;
+        if (waiter != null) {
             // Before the pool: a wait in flight reads the request row through it.
-            quietly("commandWaiter.shutdownNow", commandWaiter::shutdownNow);
+            quietly("commandWaiter.shutdownNow", waiter::shutdownNow);
         }
-        if (pool != null) {
-            quietly("pool.close", pool::close);
-        }
-        getLogger().info("limbo disabled");
     }
 
-    /** One disable step, isolated from the next; see {@link eu.nordtal.s2.common.health.Shutdown}. */
-    private void quietly(final String what, final Runnable step) {
-        eu.nordtal.s2.common.health.Shutdown.quietly(
-                what, step, (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
-    }
+    /** The command layer: the outbox to other processes and the inbox from them. */
+    private void wireCommands() {
+        final Messages shared = PaperCommandInbox.sharedBundle(this);
+        final LimboEffects chatEffects =
+                new BukkitLimboEffects(this, BukkitLimboEffects.async(this), messages(), shared);
+        final ScheduledExecutorService waiter = Executors.newSingleThreadScheduledExecutor(task -> {
+            final Thread thread = new Thread(task, getName() + "-command-waiter");
+            thread.setDaemon(true);
+            return thread;
+        });
+        commandWaiter = waiter;
+        final CommandRequests requests = CommandRequests.over(pool(), clock());
+        final Outbox outbox = new Outbox(
+                requests, waiter, (message, failure) -> getLogger().log(Level.WARNING, message, failure), clock());
+        final PaperCommandInbox inbox = new PaperCommandInbox(this, Target.LIMBO, requests, access(), shared);
+        // A scheduled effect would settle the request row before the command produced its answer; register refuses one.
+        LimboCommands.all()
+                .forEach(command ->
+                        inbox.register(command, new BukkitLimboEffects(this, Runnable::run, messages(), shared)));
+        inbox.listen(hub(), this);
 
-    // JavaPlugin#getLogger() returns java.util.logging.Logger; jcore's ConfigLoader wants an slf4j.Logger.
-    private org.slf4j.Logger slf4j() {
-        return org.slf4j.LoggerFactory.getLogger(LimboPlugin.class);
-    }
-
-    /** Logs the reason and stops the server: disabling only the plugin leaves a healthy container with no season. */
-    private Refusal severe(final String message) {
-        getLogger().severe(message);
-        getServer().getPluginManager().disablePlugin(this);
-        getServer().shutdown();
-        return new Refusal();
-    }
-
-    /** Thrown only by {@link #severe(String)}, so NullAway sees that nothing after {@code throw severe(...)} runs. */
-    private static final class Refusal extends RuntimeException {
-        private Refusal() {
-            super(null, null, false, false);
-        }
+        getLifecycleManager()
+                .registerEventHandler(
+                        LifecycleEvents.COMMANDS,
+                        event -> LimboCommand.build(
+                                        this,
+                                        messages(),
+                                        locales(),
+                                        id -> adminWatch().isAdmin(id),
+                                        access()::linkedDiscordAccount,
+                                        outbox,
+                                        chatEffects,
+                                        this::colours)
+                                .forEach(node -> event.registrar().register(node)));
     }
 }

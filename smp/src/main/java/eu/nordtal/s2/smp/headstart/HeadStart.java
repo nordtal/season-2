@@ -69,7 +69,7 @@ public final class HeadStart implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
-        // Identities is filled at pre-login by JoinGate, so this is a map read.
+        // Identities is filled at pre-login by the plugin base, so this is a map read.
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             return;

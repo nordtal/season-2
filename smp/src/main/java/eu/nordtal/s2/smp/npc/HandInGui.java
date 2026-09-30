@@ -8,6 +8,7 @@ import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.menu.BlankItem;
 import eu.nordtal.s2.smp.menu.SlotGeometry;
 import eu.nordtal.s2.smp.milestone.Objective;
+import eu.nordtal.s2.smp.milestone.TrackNames;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -63,12 +64,11 @@ public final class HandInGui implements Surface {
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, confirm));
     }
 
-    /** The first wanted material this server knows, or empty rather than throwing in a menu constructor. */
+    /** The first wanted item, which {@link TrackNames} checked when the track loaded. */
     private java.util.Optional<Material> sample() {
         return wanted.stream()
-                .map(name -> Material.matchMaterial(name))
-                .filter(java.util.Objects::nonNull)
-                .filter(material -> material.isItem())
+                .map(TrackNames::material)
+                .flatMap(java.util.Optional::stream)
                 .findFirst();
     }
 

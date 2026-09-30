@@ -5,6 +5,7 @@ import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
+import eu.nordtal.s2.smp.milestone.TrackNames;
 import eu.nordtal.s2.smp.player.Identities;
 import java.util.HashMap;
 import java.util.List;
@@ -12,9 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.Statistic;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -135,30 +134,23 @@ public final class StatisticPoller {
         return total;
     }
 
+    /** Reads one subject, which {@link TrackNames} made sure this server has before the track was taken. */
     private long readOne(final Player player, final Statistic statistic, final String subject) {
-        try {
-            return switch (statistic.getType()) {
-                case BLOCK, ITEM ->
-                    player.getStatistic(statistic, Material.valueOf(subject.toUpperCase(java.util.Locale.ROOT)));
-                case ENTITY ->
-                    player.getStatistic(statistic, EntityType.valueOf(subject.toUpperCase(java.util.Locale.ROOT)));
-                case UNTYPED -> player.getStatistic(statistic);
-            };
-        } catch (final IllegalArgumentException exception) {
-            // A name the config got wrong; said once here rather than every poll.
-            return 0L;
-        }
+        return switch (statistic.getType()) {
+            case BLOCK, ITEM ->
+                TrackNames.material(subject)
+                        .map(material -> player.getStatistic(statistic, material))
+                        .orElse(0);
+            case ENTITY ->
+                TrackNames.entity(subject)
+                        .map(entity -> player.getStatistic(statistic, entity))
+                        .orElse(0);
+            case UNTYPED -> player.getStatistic(statistic);
+        };
     }
 
     private @Nullable Statistic statisticOf(final Objective objective) {
-        if (objective.statistic() == null || objective.statistic().isBlank()) {
-            return null;
-        }
-        try {
-            return Statistic.valueOf(objective.statistic().trim().toUpperCase(java.util.Locale.ROOT));
-        } catch (final IllegalArgumentException exception) {
-            return null;
-        }
+        return TrackNames.statistic(objective.statistic()).orElse(null);
     }
 
     /** Which milestone is accepting progress, pushed in by the async sweep so {@link #poll} never queries. */

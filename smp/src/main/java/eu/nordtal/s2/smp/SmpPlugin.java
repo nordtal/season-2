@@ -32,6 +32,7 @@ import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneState;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.StoredProgress;
+import eu.nordtal.s2.smp.milestone.TrackNames;
 import eu.nordtal.s2.smp.milestone.TrackValidation;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.npc.SpawnNpc;
@@ -50,6 +51,7 @@ import eu.nordtal.s2.smp.world.Datapacks;
 import eu.nordtal.s2.smp.world.Worlds;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ScheduledExecutorService;
@@ -253,6 +255,12 @@ public final class SmpPlugin extends JavaPlugin {
         if (loadedTrack == null) {
             throw severe("smp is not starting: milestones.yml could not be parsed into a track at all - "
                     + "see the problem just logged.");
+        }
+        final List<TrackValidation.Problem> unknown = TrackNames.validate(loadedTrack, TrackNames.Server.running());
+        if (!unknown.isEmpty()) {
+            unknown.forEach(problem -> getLogger().severe("milestones.yml: " + problem));
+            throw severe("smp is not starting: milestones.yml names what this server does not have, see the"
+                    + " problems just logged.");
         }
         track = loadedTrack;
     }
@@ -500,15 +508,13 @@ public final class SmpPlugin extends JavaPlugin {
                 // The file is structurally broken; there is nothing to compare.
                 problems = reloaded.problems();
             } else {
-                // A renamed key orphans progress and a moved target rewrites the ledger.
-                problems = TrackValidation.validate(
-                        candidate, new StoredProgress(dao.storedMilestones(), dao.storedObjectives()));
+                // A renamed key orphans progress, a moved target rewrites the ledger, an unknown name never counts.
+                problems = new ArrayList<>(TrackValidation.validate(
+                        candidate, new StoredProgress(dao.storedMilestones(), dao.storedObjectives())));
+                problems.addAll(TrackNames.validate(candidate, TrackNames.Server.running()));
             }
             if (!problems.isEmpty() || candidate == null) {
-                getLogger()
-                        .severe("the milestone track was NOT reloaded - the file disagrees with"
-                                + " progress this season has already recorded, and the running track is"
-                                + " unchanged:");
+                getLogger().severe("the milestone track was NOT reloaded, the running track is unchanged:");
                 problems.forEach(problem -> getLogger().severe("  " + problem));
                 trackProblems =
                         problems.stream().map(TrackValidation.Problem::toString).toList();

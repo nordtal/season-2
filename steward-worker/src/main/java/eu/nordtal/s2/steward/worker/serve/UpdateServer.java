@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import java.sql.SQLException;
@@ -184,10 +185,7 @@ public final class UpdateServer implements AutoCloseable {
     }
 
     private void sleep(final Duration duration) {
-        try {
-            Thread.sleep(duration.toMillis());
-        } catch (final InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
+        if (!Waiting.on(clock).sleep(duration)) {
             running = false;
         }
     }

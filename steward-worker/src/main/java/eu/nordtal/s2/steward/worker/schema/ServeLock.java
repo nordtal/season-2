@@ -1,11 +1,14 @@
 package eu.nordtal.s2.steward.worker.schema;
 
+import eu.nordtal.s2.common.time.Backoff;
+import eu.nordtal.s2.common.time.Waiting;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,39 +41,53 @@ public final class ServeLock implements AutoCloseable {
      * @return the held lock, or empty when another {@code serve} still has it, so this process must not start
      * @throws SQLException if the database could not be asked at all
      */
-    public static Optional<ServeLock> acquire(final DataSource dataSource) throws SQLException {
-        return acquire(dataSource, PATIENCE);
+    public static Optional<ServeLock> acquire(final DataSource dataSource, final Waiting waiting) throws SQLException {
+        return acquire(dataSource, PATIENCE, waiting);
     }
 
     /** Package-visible so a test can watch the refusal without waiting half a minute. */
-    static Optional<ServeLock> acquire(final DataSource dataSource, final Duration patience) throws SQLException {
-        final long deadline = System.nanoTime() + patience.toNanos();
-        boolean waited = false;
-        while (true) {
-            final Optional<ServeLock> held = tryOnce(dataSource);
-            if (held.isPresent()) {
-                if (waited) {
-                    log.info("The previous steward-worker has let the serve lock go; carrying on.");
-                }
-                return held;
-            }
-            if (System.nanoTime() >= deadline) {
-                return Optional.empty();
-            }
-            if (!waited) {
-                waited = true;
-                log.info(
-                        "Another steward-worker still holds the serve lock - almost certainly the"
-                                + " one this deployment is replacing, finishing its shutdown. Waiting up to"
-                                + " {}s.",
-                        patience.toSeconds());
-            }
-            try {
-                Thread.sleep(BETWEEN_TRIES.toMillis());
-            } catch (final InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return Optional.empty();
-            }
+    static Optional<ServeLock> acquire(final DataSource dataSource, final Duration patience, final Waiting waiting)
+            throws SQLException {
+        final AtomicBoolean waited = new AtomicBoolean();
+        try {
+            return waiting.until(
+                    () -> {
+                        final Optional<ServeLock> held = tryOnceUnchecked(dataSource);
+                        if (held.isPresent() && waited.get()) {
+                            log.info("The previous steward-worker has let the serve lock go; carrying on.");
+                        } else if (held.isEmpty() && !waited.getAndSet(true)) {
+                            log.info(
+                                    "Another steward-worker still holds the serve lock - almost certainly the"
+                                            + " one this deployment is replacing, finishing its shutdown. Waiting"
+                                            + " up to {}s.",
+                                    patience.toSeconds());
+                        }
+                        return held;
+                    },
+                    patience,
+                    Backoff.fixed(BETWEEN_TRIES));
+        } catch (final UncheckedSqlException failure) {
+            throw failure.getCause();
+        }
+    }
+
+    private static Optional<ServeLock> tryOnceUnchecked(final DataSource dataSource) {
+        try {
+            return tryOnce(dataSource);
+        } catch (final SQLException failure) {
+            throw new UncheckedSqlException(failure);
+        }
+    }
+
+    /** Carries a failed ask through the wait, which takes no checked exception. */
+    private static final class UncheckedSqlException extends RuntimeException {
+        private UncheckedSqlException(final SQLException cause) {
+            super(cause);
+        }
+
+        @Override
+        public synchronized SQLException getCause() {
+            return (SQLException) java.util.Objects.requireNonNull(super.getCause());
         }
     }
 

@@ -1,5 +1,7 @@
 package eu.nordtal.s2.database.notify;
 
+import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.common.time.Waiting;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.List;
@@ -38,6 +40,7 @@ public final class NotificationListener implements AutoCloseable {
     private final Logger logger;
     private final Duration waitTimeout;
     private final Duration reconnectBackoff;
+    private final Waiting waiting;
 
     private final AtomicReference<Notifications> current = new AtomicReference<>();
     private volatile boolean running = true;
@@ -72,6 +75,7 @@ public final class NotificationListener implements AutoCloseable {
         this.logger = Objects.requireNonNull(logger, "logger");
         this.waitTimeout = Objects.requireNonNull(waitTimeout, "waitTimeout");
         this.reconnectBackoff = Objects.requireNonNull(reconnectBackoff, "reconnectBackoff");
+        this.waiting = Waiting.on(NetworkTime.clock());
         if (this.refreshes.isEmpty()) {
             throw new IllegalArgumentException("a listener with nothing to refresh would wake up and do nothing");
         }
@@ -149,13 +153,7 @@ public final class NotificationListener implements AutoCloseable {
 
     /** Returns {@code false} when the wait was interrupted, which means stop. */
     private boolean sleepBeforeRetry() {
-        try {
-            Thread.sleep(reconnectBackoff);
-            return running;
-        } catch (final InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            return false;
-        }
+        return waiting.sleep(reconnectBackoff) && running;
     }
 
     /** Stops the loop and closes the connection under the blocking wait, so shutdown is immediate. */

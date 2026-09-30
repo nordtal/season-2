@@ -31,9 +31,6 @@ import org.jspecify.annotations.Nullable;
 @Slf4j
 public final class UpdateFeed {
 
-    /** How often the table is asked what is new. */
-    public static final Duration INTERVAL = Duration.ofSeconds(2);
-
     /** How far back a start posts runs that ended while this bot was down. */
     public static final Duration CATCH_UP = Duration.ofMinutes(12);
 
@@ -82,6 +79,9 @@ public final class UpdateFeed {
     /** Whether a pass is running; see {@link #submit} for why this is a flag and not a lock. */
     private final java.util.concurrent.atomic.AtomicBoolean ticking = new java.util.concurrent.atomic.AtomicBoolean();
 
+    /** Set by every signal, so one that arrives during a pass is followed by exactly one more. */
+    private final java.util.concurrent.atomic.AtomicBoolean again = new java.util.concurrent.atomic.AtomicBoolean();
+
     private final Clock clock;
 
     public UpdateFeed(final UpdateDirectory updates, final Board board, final Messages messages, final Clock clock) {
@@ -118,7 +118,7 @@ public final class UpdateFeed {
         }
     }
 
-    /** Runs one pass, scheduled every {@link #INTERVAL}. */
+    /** Runs one pass on the calling thread, unless one is running. */
     public void tick() {
         if (!ticking.compareAndSet(false, true)) {
             return;
@@ -130,20 +130,31 @@ public final class UpdateFeed {
         }
     }
 
-    /** Hands one pass to {@code worker} unless one is outstanding, releasing the flag if the submission is rejected. */
+    /**
+     * Hands a pass to {@code worker} on every update signal; one arriving during a pass runs one more after it.
+     *
+     * The flag is released if the submission is rejected.
+     */
     public void submit(final Executor worker) {
         Objects.requireNonNull(worker, "worker");
+        again.set(true);
         if (!ticking.compareAndSet(false, true)) {
             return;
         }
         try {
             worker.execute(() -> {
                 try {
-                    pass();
+                    while (again.getAndSet(false)) {
+                        pass();
+                    }
                 } catch (final RuntimeException failure) {
-                    log.error("The update feed pass failed; it runs again on schedule", failure);
+                    log.error("The update feed pass failed; it runs again on the next signal", failure);
                 } finally {
                     ticking.set(false);
+                }
+                // A signal between the last pass and the release above found the flag taken.
+                if (again.get()) {
+                    submit(worker);
                 }
             });
         } catch (final RuntimeException rejected) {

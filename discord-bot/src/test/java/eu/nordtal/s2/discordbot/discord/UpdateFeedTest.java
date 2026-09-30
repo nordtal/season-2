@@ -42,8 +42,14 @@ class UpdateFeedTest {
         /** Whether Discord acknowledges a post, so "no message id yet" can be driven too. */
         boolean acknowledge = true;
 
+        /** Runs inside the next post, standing in for a signal that arrives in the middle of a pass. */
+        Runnable duringPost = () -> {};
+
         @Override
         public void post(final MessageEmbed embed, final Consumer<String> sentId) {
+            final Runnable during = duringPost;
+            duringPost = () -> {};
+            during.run();
             final String id = "msg-" + (posted.size() + 1);
             posted.add(new Post(embed, id));
             if (acknowledge) {
@@ -186,6 +192,25 @@ class UpdateFeedTest {
 
         feed.submit(busy);
         assertEquals(2, queued.size(), "the flag was not released when the pass finished");
+    }
+
+    @Test
+    void aSignalDuringAPassIsFollowedByOneMorePassSoTheChangeItAnnouncedIsDrawn() {
+        final List<Runnable> queued = new ArrayList<>();
+        final java.util.concurrent.Executor busy = queued::add;
+        rows.put(row(1, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
+        // The run moves on while the first pass is drawing it, and the signal of that write arrives mid-pass.
+        board.duringPost = () -> {
+            rows.put(row(2, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
+            feed.submit(busy);
+        };
+
+        feed.submit(busy);
+        while (!queued.isEmpty()) {
+            queued.removeFirst().run();
+        }
+
+        assertEquals(2, board.posted.size(), "the row written during the pass waited for the next signal");
     }
 
     @Test

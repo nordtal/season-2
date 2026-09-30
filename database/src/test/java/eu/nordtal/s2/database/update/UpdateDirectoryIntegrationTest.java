@@ -154,6 +154,42 @@ class UpdateDirectoryIntegrationTest {
         }
     }
 
+    @Test
+    void everyChangeOfARunAnnouncesItselfSoTheFeedsNeedNoPoll() throws Exception {
+        final UpdateRequest first = updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
+
+        try (Connection listener = dataSource.getConnection()) {
+            try (Statement statement = listener.createStatement()) {
+                statement.execute("LISTEN " + eu.nordtal.s2.database.notify.Channel.UPDATE.sqlName());
+            }
+            final PGConnection pg = listener.unwrap(PGConnection.class);
+
+            assertTrue(updates.claimNext().isPresent());
+            assertTrue(announced(pg), "the claim was not announced");
+            assertTrue(updates.progress(first.id(), "{}"));
+            assertTrue(announced(pg), "a progress write was not announced");
+            assertTrue(updates.handOver(first.id(), "{}"));
+            assertTrue(announced(pg), "the handover was not announced");
+            assertTrue(updates.claimNext().isPresent());
+            assertTrue(announced(pg), "the second claim was not announced");
+            assertTrue(updates.commitCountdown(first.id()));
+            assertTrue(announced(pg), "the committed countdown was not announced");
+            assertTrue(updates.finish(first.id(), UpdateStatus.DONE, "{}").isPresent());
+            assertTrue(announced(pg), "the finish was not announced");
+
+            updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofMinutes(5));
+            assertTrue(announced(pg), "the second request was not announced");
+            assertTrue(updates.cancelCountdown("test").isPresent());
+            assertTrue(announced(pg), "the cancel was not announced");
+
+            updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
+            assertTrue(updates.claimNext().isPresent());
+            assertTrue(announced(pg), "the third request was not announced");
+            assertEquals(1, updates.settleOrphans("gone"));
+            assertTrue(announced(pg), "settling the orphans was not announced");
+        }
+    }
+
     /**
      * Checks that {@code startCountdown()} notifies the channel like {@code submit()} does.
      *
@@ -746,5 +782,11 @@ class UpdateDirectoryIntegrationTest {
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
+    }
+
+    /** Waits up to five seconds for a notification; pgjdbc answers an empty array or null for none. */
+    private static boolean announced(final PGConnection pg) throws java.sql.SQLException {
+        final PGNotification[] received = pg.getNotifications(5000);
+        return received != null && received.length > 0;
     }
 }

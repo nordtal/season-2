@@ -7,6 +7,7 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import java.util.Optional;
@@ -43,6 +44,10 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
             return;
         }
         final HungerGamesEffects.Registration game = registration.get();
+        if (effects.phase() != SeasonPhase.START_EVENT) {
+            user.reply(MESSAGES.hg().start().wrongPhase(effects.phase().name()), Feedback.REFUSED, Tone.WARN);
+            return;
+        }
         if (!"REGISTRATION".equals(game.state())) {
             user.reply(MESSAGES.hg().start().wrongState(game.state()), Feedback.REFUSED, Tone.WARN);
             return;

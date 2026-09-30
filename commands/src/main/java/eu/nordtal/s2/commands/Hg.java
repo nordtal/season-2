@@ -63,6 +63,9 @@ public interface Hg {
         @Name("Wrong state")
         MessageRef wrongState(@Arg("state") Object state);
 
+        @Name("Wrong phase")
+        MessageRef wrongPhase(@Arg("phase") Object phase);
+
         @Name("Read failed")
         MessageRef readFailed();
 

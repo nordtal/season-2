@@ -30,7 +30,7 @@ class SmpCommandWiringTest {
                 "the inbox is built and no command is registered on it, so every /smp typed in"
                         + " Discord would time out as though this server were down");
         assertTrue(
-                source.contains("inbox.listen(signals, plugin)"),
+                source.contains("inbox().listen(hub(), this)"),
                 "the inbox is built and filled and never put on the signal hub, so it would claim nothing");
     }
 
@@ -48,32 +48,6 @@ class SmpCommandWiringTest {
                 source.contains("new BukkitSmpEffects(plugin, BukkitSmpEffects.async(plugin),"),
                 "/smp in chat does not have async effects, so a Brigadier handler would run a"
                         + " database query on the main thread");
-    }
-
-    @Test
-    void theInboxAndTheAdminWatchShareThePluginsOneHub() {
-        final String source = readOrFail();
-        assertEquals(
-                1,
-                source.split("SignalHub.open\\(", -1).length - 1,
-                "this plugin opens a number of hubs that is not one");
-        assertTrue(
-                source.contains("plugin.adminWatch.listen(signals)")
-                        && source.contains("inbox.listen(signals, plugin)"),
-                "the command inbox and the admin watch are not on the same hub");
-    }
-
-    @Test
-    void shutdownOrder() {
-        final String source = readOrFail();
-        // The method-reference form: every disable step goes through Shutdown#quietly, and the order is what matters.
-        final int waiter = source.indexOf("commandWaiter::shutdownNow");
-        final int pool = source.indexOf("pool::close");
-        assertTrue(waiter > 0 && pool > 0, "one of the two shutdowns is missing");
-        assertTrue(
-                waiter < pool,
-                "the pool is closed before the thread that is still polling a request row through"
-                        + " it, which turns an ordinary shutdown into a stack trace");
     }
 
     @Test

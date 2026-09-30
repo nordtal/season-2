@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.worker;
 
-import eu.nordtal.jcore.config.ConfigHandle;
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
@@ -15,6 +13,9 @@ import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.settings.Setting;
+import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.steward.worker.api.WorkerApi;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.backup.Backups;
@@ -22,9 +23,8 @@ import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.backup.Schedules;
 import eu.nordtal.s2.steward.worker.backup.TarSnapshots;
 import eu.nordtal.s2.steward.worker.bunq.PaymentLoop;
-import eu.nordtal.s2.steward.worker.config.Configs;
-import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
+import eu.nordtal.s2.steward.worker.config.WorkerSettings;
 import eu.nordtal.s2.steward.worker.docker.Console;
 import eu.nordtal.s2.steward.worker.docker.DeployerRecreate;
 import eu.nordtal.s2.steward.worker.docker.Docker;
@@ -227,7 +227,7 @@ public final class StewardWorker {
 
     private static int serve(final Path configDirectory) {
         // The handle, so saving this file in Steward re-arms the two clocks.
-        final ConfigHandle<StewardSpec> handle = stewardHandle(configDirectory);
+        final Setting<StewardSpec> handle = stewardHandle(configDirectory);
         final DatabaseSpec databaseConfig = databaseConfig(configDirectory);
         if (handle == null || databaseConfig == null) {
             return 1;
@@ -245,7 +245,7 @@ public final class StewardWorker {
 
     /** Takes the serve lock and, once held, runs the container's whole lifetime. */
     private static int serveWithDatabase(
-            final ConfigHandle<StewardSpec> handle,
+            final Setting<StewardSpec> handle,
             final StewardSpec config,
             final DatabaseSpec databaseConfig,
             final Database database) {
@@ -314,7 +314,7 @@ public final class StewardWorker {
     }
 
     private static int serveNetwork(
-            final ConfigHandle<StewardSpec> handle,
+            final Setting<StewardSpec> handle,
             final StewardSpec config,
             final DatabaseSpec databaseConfig,
             final Database database) {
@@ -371,7 +371,7 @@ public final class StewardWorker {
     }
 
     private static int serveWithSampler(
-            final ConfigHandle<StewardSpec> handle,
+            final Setting<StewardSpec> handle,
             final StewardSpec config,
             final DatabaseSpec databaseConfig,
             final Database database,
@@ -438,7 +438,7 @@ public final class StewardWorker {
             final UpdateDirectory updates,
             final AuditDirectory audit,
             final eu.nordtal.s2.steward.worker.plugin.PluginDirectory addedPlugins,
-            final ConfigHandle<StewardSpec> handle,
+            final Setting<StewardSpec> handle,
             final Schedules schedules) {
         return new WorkerApi(
                 docker,
@@ -487,7 +487,7 @@ public final class StewardWorker {
                 () -> {
                     try {
                         handle.reload();
-                    } catch (final ConfigException broken) {
+                    } catch (final SettingsException broken) {
                         throw new IllegalStateException(broken.getMessage(), broken);
                     }
                     schedules.arm();
@@ -650,14 +650,14 @@ public final class StewardWorker {
     }
 
     private static @Nullable StewardSpec stewardConfig(final Path configDirectory) {
-        final ConfigHandle<StewardSpec> handle = stewardHandle(configDirectory);
+        final Setting<StewardSpec> handle = stewardHandle(configDirectory);
         return handle == null ? null : handle.get();
     }
 
-    private static @Nullable ConfigHandle<StewardSpec> stewardHandle(final Path configDirectory) {
+    private static @Nullable Setting<StewardSpec> stewardHandle(final Path configDirectory) {
         try {
-            return Configs.steward(configDirectory, LoggerFactory.getLogger(Configs.class));
-        } catch (final ConfigException broken) {
+            return WorkerSettings.steward(configDirectory, LoggerFactory.getLogger(WorkerSettings.class));
+        } catch (final SettingsException broken) {
             // No stack trace, so the sentence is not missed.
             log.error("Refusing to run on a config that cannot be read: {}", broken.getMessage());
             return null;
@@ -666,9 +666,9 @@ public final class StewardWorker {
 
     private static @Nullable DatabaseSpec databaseConfig(final Path configDirectory) {
         try {
-            return Configs.database(configDirectory, LoggerFactory.getLogger(Configs.class))
+            return WorkerSettings.database(configDirectory, LoggerFactory.getLogger(WorkerSettings.class))
                     .get();
-        } catch (final ConfigException broken) {
+        } catch (final SettingsException broken) {
             log.error("Refusing to touch the database on a config that cannot be read: {}", broken.getMessage());
             return null;
         }

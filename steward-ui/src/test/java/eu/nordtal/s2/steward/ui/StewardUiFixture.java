@@ -2,9 +2,9 @@ package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.Gson;
 import eu.nordtal.s2.database.TestDatabase;
+import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.TestAuthenticator;
-import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
 import eu.nordtal.s2.steward.ui.data.Data;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;

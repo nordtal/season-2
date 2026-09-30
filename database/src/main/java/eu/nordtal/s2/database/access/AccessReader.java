@@ -1,6 +1,7 @@
 package eu.nordtal.s2.database.access;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
 import java.time.InstantSource;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +48,13 @@ public interface AccessReader {
      * Never throws: a missing translation must not break a disconnect screen.
      */
     Locale locale(UUID mcUuid);
+
+    /**
+     * Returns who an account is, in one round trip; an account nobody linked is {@link PlayerIdentity#unknown}.
+     *
+     * Blocking, so never on a server's main thread; it throws when the database cannot answer.
+     */
+    PlayerIdentity identity(PlayerId player);
 
     /** Returns whether the permanent donor flag is set, {@code false} for an unknown user. */
     boolean isDonor(DiscordId discordId);

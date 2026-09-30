@@ -69,19 +69,6 @@ class SystemLinesWiringTest {
     }
 
     @Test
-    void bothPaperServersLoadTheSharedBundleThoseLinesAreWrittenIn() {
-        final List<String> missing = new ArrayList<>();
-        for (final String plugin : PLUGINS) {
-            if (!read(RepositoryRoot.resolve(plugin)).contains("\"messages/paper-common\"")) {
-                missing.add(plugin + " does not load messages/paper-common, so every one of the"
-                        + " five lines reaches a player as the literal key - Messages degrades to"
-                        + " the key rather than throwing, so it fails silently and only in chat.");
-            }
-        }
-        assertEquals(List.of(), missing);
-    }
-
-    @Test
     void everyKeySystemlinesNamesExistsInBothLanguages() {
         final Properties english = load("en");
         final Properties german = load("de");

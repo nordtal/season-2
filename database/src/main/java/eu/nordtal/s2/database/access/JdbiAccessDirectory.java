@@ -1,6 +1,7 @@
 package eu.nordtal.s2.database.access;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.Jdbis;
 import java.sql.SQLException;
@@ -54,6 +55,11 @@ final class JdbiAccessDirectory implements AccessDirectory {
     public AccessState accessState(final UUID mcUuid) {
         Objects.requireNonNull(mcUuid, "mcUuid");
         return dao.accessState(mcUuid).orElseGet(() -> AccessState.unlinked(mcUuid));
+    }
+
+    @Override
+    public PlayerIdentity identity(final PlayerId player) {
+        return dao.identity(player.value()).orElseGet(() -> PlayerIdentity.unknown(player));
     }
 
     @Override

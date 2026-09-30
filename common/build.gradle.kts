@@ -11,9 +11,7 @@ repositoryRootTestInputs {
     reads("limbo/src/main/resources/paper-plugin.yml")
     reads("hunger-games/src/main/resources/paper-plugin.yml")
 
-    reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
-    reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
-    reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
+    reads("paper-common/src/main/java/eu/nordtal/s2/papercommon/plugin/NordtalPlugin.java")
 
     reads("discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java")
 
@@ -31,6 +29,7 @@ repositoryRootTestInputs {
     readsTree("discord-bot/src/main/java/eu/nordtal/s2/discordbot/config")
     readsTree("steward-ui/src/main/java/eu/nordtal/s2/steward/ui/config")
     readsTree("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/config")
+    readsTree("settings/src/main/java/eu/nordtal/s2/settings")
 }
 
 dependencies {

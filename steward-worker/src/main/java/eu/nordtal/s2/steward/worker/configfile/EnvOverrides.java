@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import eu.nordtal.s2.common.config.EnvOverrideFile;
+import eu.nordtal.s2.settings.EnvOverrideFile;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;

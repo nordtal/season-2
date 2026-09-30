@@ -33,28 +33,19 @@ class ConfigSpecExplanationTest {
     private static final Set<String> KNOWN = Set.of(
             "discord-bot/src/main/java/eu/nordtal/s2/discordbot/config/AccessSpec.java",
             "discord-bot/src/main/java/eu/nordtal/s2/discordbot/config/BotSpec.java",
-            "discord-bot/src/main/java/eu/nordtal/s2/discordbot/config/DatabaseSpec.java",
-            "hunger-games/src/main/java/eu/nordtal/s2/hungergames/config/ColoursSpec.java",
-            "hunger-games/src/main/java/eu/nordtal/s2/hungergames/config/DatabaseSpec.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/config/HungerGamesSpec.java",
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/config/SoundsSpec.java",
-            "limbo/src/main/java/eu/nordtal/s2/limbo/config/ColoursSpec.java",
-            "limbo/src/main/java/eu/nordtal/s2/limbo/config/DatabaseSpec.java",
             "limbo/src/main/java/eu/nordtal/s2/limbo/config/LimboSpec.java",
-            "proxy/src/main/java/eu/nordtal/s2/proxy/config/ColoursSpec.java",
-            "proxy/src/main/java/eu/nordtal/s2/proxy/config/DatabaseSpec.java",
             "proxy/src/main/java/eu/nordtal/s2/proxy/config/GateSpec.java",
             "proxy/src/main/java/eu/nordtal/s2/proxy/config/NetworkSpec.java",
             "proxy/src/main/java/eu/nordtal/s2/proxy/config/PackSpec.java",
-            "smp/src/main/java/eu/nordtal/s2/smp/config/ColoursSpec.java",
-            "smp/src/main/java/eu/nordtal/s2/smp/config/DatabaseSpec.java",
             "smp/src/main/java/eu/nordtal/s2/smp/config/MilestonesSpec.java",
             "smp/src/main/java/eu/nordtal/s2/smp/config/PrestigeSpec.java",
             "smp/src/main/java/eu/nordtal/s2/smp/config/SmpSpec.java",
             "smp/src/main/java/eu/nordtal/s2/smp/config/SoundsSpec.java",
-            "steward-ui/src/main/java/eu/nordtal/s2/steward/ui/config/DatabaseSpec.java",
+            "settings/src/main/java/eu/nordtal/s2/settings/ColoursSpec.java",
+            "settings/src/main/java/eu/nordtal/s2/settings/DatabaseSpec.java",
             "steward-ui/src/main/java/eu/nordtal/s2/steward/ui/config/UiSpec.java",
-            "steward-worker/src/main/java/eu/nordtal/s2/steward/worker/config/DatabaseSpec.java",
             "steward-worker/src/main/java/eu/nordtal/s2/steward/worker/config/StewardSpec.java");
 
     private static final Pattern ORDER = Pattern.compile("@Order\\(");
@@ -161,7 +152,7 @@ class ConfigSpecExplanationTest {
                 : "(no @Key found in: " + block.strip().lines().findFirst().orElse("?") + ")";
     }
 
-    /** Returns every {@code *Spec.java} in a {@code config} directory under any module's {@code src/main/java}. */
+    /** Returns every {@code *Spec.java} in a {@code config} or {@code settings} directory of any module. */
     private static List<Path> specFiles() {
         final List<Path> found = new ArrayList<>();
         for (final Path module : childDirectories(RepositoryRoot.path())) {
@@ -173,7 +164,8 @@ class ConfigSpecExplanationTest {
                 walk.filter(Files::isRegularFile)
                         .filter(p -> p.getFileName().toString().endsWith("Spec.java"))
                         .filter(p -> p.getParent() != null
-                                && "config".equals(p.getParent().getFileName().toString()))
+                                && Set.of("config", "settings")
+                                        .contains(p.getParent().getFileName().toString()))
                         .forEach(found::add);
             } catch (final IOException e) {
                 throw new UncheckedIOException("cannot walk " + javaRoot, e);

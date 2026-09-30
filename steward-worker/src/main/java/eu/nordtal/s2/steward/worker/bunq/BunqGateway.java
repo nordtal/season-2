@@ -54,7 +54,7 @@ public final class BunqGateway {
     /**
      * Creates the gateway from the loaded bunq block.
      *
-     * @param config the {@code steward.yml} bunq block, whose account id {@code Configs.steward()} checked is numeric
+     * @param config the {@code steward.yml} bunq block, whose account id {@code WorkerSettings} checked is numeric
      */
     public BunqGateway(final StewardSpec.BunqSpec config) {
         this.config = Objects.requireNonNull(config, "config");

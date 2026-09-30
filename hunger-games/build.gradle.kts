@@ -5,18 +5,16 @@ plugins {
     id("nordtal.message-spec")
 }
 
-// Names start() and its field-assigning helpers as NullAway's initializers.
+// The base runs prepare() and enable() before anything reads HungerGamesPlugin's fields.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option(
             "NullAway:KnownInitializers",
-            "eu.nordtal.s2.hungergames.HungerGamesPlugin.start," +
-                "eu.nordtal.s2.hungergames.HungerGamesPlugin.loadConfigAndMessages," +
+            "eu.nordtal.s2.hungergames.HungerGamesPlugin.prepare," +
+                "eu.nordtal.s2.hungergames.HungerGamesPlugin.enable," +
                 "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireGameSystems," +
-                "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireAdminWatchAndCommands," +
-                "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireCommandFilterAndAdminWatch," +
-                "eu.nordtal.s2.hungergames.HungerGamesPlugin.refreshCurrentGame," +
-                "eu.nordtal.s2.hungergames.HungerGamesPlugin.startHeartbeat",
+                "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireListeners," +
+                "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireCommands",
         )
     }
 }

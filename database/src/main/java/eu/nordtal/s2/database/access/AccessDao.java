@@ -255,6 +255,17 @@ interface AccessDao {
     Optional<AccessState> accessState(@Bind("mcUuid") UUID mcUuid);
 
     @SqlQuery("""
+            SELECT link.mc_uuid, link.discord_id, usr.locale, usr.admin, usr.donor,
+                   coalesce(playtime.seconds, 0) AS playtime_seconds
+            FROM account_link link
+                     JOIN discord_user usr ON usr.discord_id = link.discord_id
+                     LEFT JOIN player_playtime playtime ON playtime.discord_id = link.discord_id
+            WHERE link.mc_uuid = :mcUuid
+            """)
+    @RegisterRowMapper(PlayerIdentityMapper.class)
+    Optional<PlayerIdentity> identity(@Bind("mcUuid") UUID mcUuid);
+
+    @SqlQuery("""
             SELECT usr.locale
             FROM account_link link
                      JOIN discord_user usr ON usr.discord_id = link.discord_id

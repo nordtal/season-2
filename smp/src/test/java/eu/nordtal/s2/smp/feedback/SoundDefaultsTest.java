@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.s2.messages.feedback.Feedback;
-import eu.nordtal.s2.smp.config.Configs;
+import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.smp.config.SoundsSpec;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,7 +33,9 @@ class SoundDefaultsTest {
 
     @Test
     void everyDefaultKeyResolvesAgainstBukkitsSoundList() throws Exception {
-        final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
+        final SoundsSpec spec = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                .load("sounds", SoundsSpec.class)
+                .get();
         final List<String> problems = new ArrayList<>();
 
         for (final Feedback category : Feedback.values()) {
@@ -78,8 +80,12 @@ class SoundDefaultsTest {
     /** The values survive being written to a file and read back, nesting and floats included. */
     @Test
     void theSoundsBlockSurvivesTheRoundTrip() throws Exception {
-        final SoundsSpec written = Configs.sounds(directory, LOGGER).get();
-        final SoundsSpec reread = Configs.sounds(directory, LOGGER).get();
+        final SoundsSpec written = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                .load("sounds", SoundsSpec.class)
+                .get();
+        final SoundsSpec reread = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                .load("sounds", SoundsSpec.class)
+                .get();
 
         for (final Feedback category : Feedback.values()) {
             final SoundsSpec.SoundSpec before = entryOf(category, written);
@@ -94,7 +100,11 @@ class SoundDefaultsTest {
     @Test
     void nothingIsSilentByDefault() throws Exception {
         final List<String> problems = new ArrayList<>();
-        final SmpSounds sounds = SmpSounds.of(Configs.sounds(directory, LOGGER).get(), problems::add);
+        final SmpSounds sounds = SmpSounds.of(
+                FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                        .load("sounds", SoundsSpec.class)
+                        .get(),
+                problems::add);
 
         assertEquals(
                 List.of(),
@@ -115,12 +125,14 @@ class SoundDefaultsTest {
     /** The escape hatch through the real file: a blanked key comes back as an empty string. */
     @Test
     void blankingAKeyInTheFileSilencesTheCategory() throws Exception {
-        Configs.sounds(directory, LOGGER);
+        FileSettings.in(directory, "NORDTAL_SMP", LOGGER).load("sounds", SoundsSpec.class);
         final Path file = directory.resolve("sounds.yml");
         Files.writeString(file, Files.readString(file).replace("key: minecraft:ui.button.click", "key: ''"));
 
         final List<String> problems = new ArrayList<>();
-        final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
+        final SoundsSpec spec = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                .load("sounds", SoundsSpec.class)
+                .get();
         assertEquals(
                 "", spec.select().key(), "jcore handed back something other than the empty string the operator wrote");
 
@@ -133,7 +145,8 @@ class SoundDefaultsTest {
     /** A reload picks the blanking up, on the one {@code SmpSounds} instance every listener already holds. */
     @Test
     void aReloadIsPickedUpByTheRunningInstance() throws Exception {
-        final ConfigHandle<SoundsSpec> handle = Configs.sounds(directory, LOGGER);
+        final Setting<SoundsSpec> handle =
+                FileSettings.in(directory, "NORDTAL_SMP", LOGGER).load("sounds", SoundsSpec.class);
         final SmpSounds running = SmpSounds.of(handle.get(), problem -> {});
         assertFalse(running.isSilent(Feedback.SELECT), "it has to start audible for this to prove" + " anything");
 
@@ -153,7 +166,9 @@ class SoundDefaultsTest {
     /** The pitches are what makes two categories in one sound family tell apart. */
     @Test
     void theTwoNoteBlockCategoriesDiffer() throws Exception {
-        final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
+        final SoundsSpec spec = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                .load("sounds", SoundsSpec.class)
+                .get();
         assertTrue(
                 spec.refused().pitch() != spec.countdownTick().pitch()
                         || !spec.refused().key().equals(spec.countdownTick().key()),

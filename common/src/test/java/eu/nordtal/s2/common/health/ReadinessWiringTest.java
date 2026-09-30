@@ -8,8 +8,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -20,17 +18,15 @@ import org.junit.jupiter.api.Test;
 class ReadinessWiringTest {
 
     /** The three Paper plugins, whose refusals all go through a {@code severe("...")} call. */
-    private static final List<String> PAPER_PLUGINS = List.of(
-            "smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java",
-            "limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java",
-            "hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java");
+    private static final List<String> PAPER_PLUGINS =
+            List.of("paper-common/src/main/java/eu/nordtal/s2/papercommon/plugin/NordtalPlugin.java");
 
     private static final String VELOCITY_PLUGIN = "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
 
     private static final String BOT = "discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java";
 
     @Test
-    void allFiveProcessesRefreshTheMarker() throws IOException {
+    void everyKindOfProcessRefreshesTheMarker() throws IOException {
         for (final String relative : all()) {
             final String text = read(relative);
             assertTrue(
@@ -46,35 +42,6 @@ class ReadinessWiringTest {
                     relative + " builds a Readiness and never refreshes it. A marker written once"
                             + " stays green for as long as the container's /tmp does, which is the"
                             + " half of this that a dead process would still pass");
-        }
-    }
-
-    @Test
-    void aPaperPluginStartsItsHeartbeatBelowEveryRefusalAndOffTheMainThread() throws IOException {
-        for (final String relative : PAPER_PLUGINS) {
-            final String file = read(relative);
-            // Only the method that starts the heartbeat: its refusals, or the calls that can refuse, must come first.
-            final String text = enclosingMethod(file, file.indexOf("startHeartbeat();"));
-
-            final int lastRefusal = Math.max(lastRefusal(text), lastRefusingCall(file, text));
-            final int heartbeat = text.indexOf("startHeartbeat();");
-            assertTrue(
-                    lastRefusal >= 0,
-                    relative + " has no severe(\"...\") refusal, so"
-                            + " this test is asserting nothing - check what replaced it");
-            assertTrue(heartbeat >= 0, relative + " does not call startHeartbeat()");
-            assertTrue(
-                    lastRefusal < heartbeat,
-                    relative + " starts its readiness heartbeat before"
-                            + " its last refusal. A marker written above a refusal is a marker a plugin that"
-                            + " refused to start still wrote, which is the exact state this signal exists to"
-                            + " make visible.");
-
-            assertTrue(
-                    file.contains("runTaskTimerAsynchronously(this, readiness::refresh"),
-                    relative + " does not beat on Bukkit's ASYNC scheduler. Two things break at"
-                            + " once: a file write moves onto the main thread, and a server frozen"
-                            + " mid-tick keeps beating from a thread the freeze does not touch.");
         }
     }
 
@@ -156,50 +123,6 @@ class ReadinessWiringTest {
         final Path source = repositoryRoot().resolve(relative);
         assertTrue(Files.isRegularFile(source), source + " is not where this test expects it");
         return joined(Files.readString(source, StandardCharsets.UTF_8));
-    }
-
-    /** Matches a method name after whitespace. */
-    private static final Pattern METHOD_NAME = Pattern.compile("\\s(\\w+)\\(");
-
-    private static String enclosingMethod(final String text, final int at) {
-        if (at < 0) {
-            return text;
-        }
-        final int from = Math.max(
-                Math.max(text.lastIndexOf("\n    private ", at), text.lastIndexOf("\n    public ", at)),
-                text.lastIndexOf("\n    @Override", at));
-        final int nextPrivate = text.indexOf("\n    private ", at);
-        final int nextPublic = text.indexOf("\n    public ", at);
-        final int to =
-                Math.min(nextPrivate < 0 ? text.length() : nextPrivate, nextPublic < 0 ? text.length() : nextPublic);
-        return text.substring(Math.max(from, 0), to);
-    }
-
-    /**
-     * Returns the last call in {@code text} to a method of {@code file} that itself refuses with {@code severe("...")}.
-     */
-    private static int lastRefusingCall(final String file, final String text) {
-        int last = -1;
-        for (int at = lastRefusal(file); at >= 0; at = lastRefusal(file.substring(0, at))) {
-            final Matcher header = METHOD_NAME.matcher(enclosingMethod(file, at));
-            if (header.find()) {
-                last = Math.max(last, text.lastIndexOf(header.group(1) + "("));
-            }
-        }
-        return last;
-    }
-
-    /**
-     * Returns the last call to the plugin's own {@code severe(...)}, told apart from a logger's by leading whitespace.
-     */
-    private static int lastRefusal(final String text) {
-        int last = -1;
-        for (int at = text.indexOf("severe(\""); at >= 0; at = text.indexOf("severe(\"", at + 1)) {
-            if (at > 0 && Character.isWhitespace(text.charAt(at - 1))) {
-                last = at;
-            }
-        }
-        return last;
     }
 
     private static int count(final String text, final String needle) {

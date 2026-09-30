@@ -5,7 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.config.exception.ConfigValidationException;
+import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
 import eu.nordtal.s2.smp.milestone.Unlock;
@@ -27,14 +28,18 @@ class MilestonesTest {
 
     @Test
     void aFreshFileIsWrittenAndReadsBackAsTheWholeTrack() throws Exception {
-        final MilestonesSpec written = Configs.milestones(directory, LOGGER).get();
+        final MilestonesSpec written = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
+                .get();
 
         assertTrue(
                 Files.isRegularFile(directory.resolve("milestones.yml")),
                 "a fresh load has to write the defaults out, or there is nothing to edit");
 
         // A SECOND load, from the file the first one just wrote: the first handle still holds in-memory defaults.
-        final MilestonesSpec reread = Configs.milestones(directory, LOGGER).get();
+        final MilestonesSpec reread = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
+                .get();
         final MilestoneTrack track = Milestones.read(reread).track();
 
         assertEquals(
@@ -45,9 +50,12 @@ class MilestonesTest {
 
     @Test
     void theNestedObjectivesSurviveTheRoundTrip() throws Exception {
-        Configs.milestones(directory, LOGGER);
-        final MilestoneTrack track =
-                Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
+        FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones);
+        final MilestoneTrack track = Milestones.read(FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
+                        .get())
+                .track();
 
         final var foothold = track.milestone("foothold").orElseThrow();
         assertEquals(4, foothold.objectives().size());
@@ -71,8 +79,10 @@ class MilestonesTest {
 
     @Test
     void theTrackMatchesTheTableInTheConcept() throws Exception {
-        final MilestoneTrack track =
-                Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
+        final MilestoneTrack track = Milestones.read(FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
+                        .get())
+                .track();
 
         // The track, column by column. The numbers are allowed to change; this is what makes a retune deliberate.
         assertEquals(20, track.milestone("waiting").orElseThrow().borderDiameter());
@@ -98,8 +108,10 @@ class MilestonesTest {
 
     @Test
     void everyMilestoneWithObjectivesCarriesExactlyOneParticipationGate() throws Exception {
-        final MilestoneTrack track =
-                Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
+        final MilestoneTrack track = Milestones.read(FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
+                        .get())
+                .track();
 
         // ADVANCEMENT is the only type counting distinct players, the only one three people cannot finish alone.
         assertEquals(
@@ -116,8 +128,10 @@ class MilestonesTest {
 
     @Test
     void theOpeningTwoMilestonesHaveNothingToFinish() throws Exception {
-        final MilestoneTrack track =
-                Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
+        final MilestoneTrack track = Milestones.read(FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
+                        .get())
+                .track();
 
         assertTrue(track.milestone("waiting").orElseThrow().hasNoObjectives());
         assertTrue(track.milestone("departure").orElseThrow().hasNoObjectives());
@@ -147,8 +161,10 @@ class MilestonesTest {
                         advancement: ''
                 """);
 
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, () -> Configs.milestones(directory, LOGGER));
+        final SettingsException error = assertThrows(
+                SettingsException.class,
+                () -> FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones));
         assertTrue(error.getMessage().contains("HANDIN"), error.getMessage());
     }
 
@@ -173,8 +189,10 @@ class MilestonesTest {
                         advancement: ''
                 """);
 
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, () -> Configs.milestones(directory, LOGGER));
+        final SettingsException error = assertThrows(
+                SettingsException.class,
+                () -> FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones));
         assertTrue(error.getMessage().contains("participation gate"), error.getMessage());
     }
 
@@ -207,8 +225,10 @@ class MilestonesTest {
                         advancement: 'minecraft:story/iron_tools'
                 """);
 
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, () -> Configs.milestones(directory, LOGGER));
+        final SettingsException error = assertThrows(
+                SettingsException.class,
+                () -> FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones));
         assertTrue(error.getMessage().contains("HAND_IN with no items"), error.getMessage());
     }
 
@@ -241,8 +261,10 @@ class MilestonesTest {
                         advancement: 'minecraft:story/iron_tools'
                 """);
 
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, () -> Configs.milestones(directory, LOGGER));
+        final SettingsException error = assertThrows(
+                SettingsException.class,
+                () -> FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones));
         assertTrue(error.getMessage().contains("belongs to"), error.getMessage());
     }
 

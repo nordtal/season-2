@@ -43,7 +43,10 @@ dependencies {
         exclude(group = "org.flywaydb")
     }
 
-    // AccessPool builds a HikariCP pool directly; the catalog pins jcore's own version.
+    // The one database.yml, colours.yml and pool every Minecraft process shares.
+    implementation(project(":settings"))
+
+    // :settings opens the pool and only compiles against HikariCP; the catalog pins jcore's own version.
     implementation(libs.hikaricp)
 
     // PostgresPhaseNotifications needs PGConnection, and PlaytimeStore installs jdbi3-core's PostgresPlugin.

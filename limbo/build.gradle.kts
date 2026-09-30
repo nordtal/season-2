@@ -9,12 +9,12 @@ repositories {
     maven("https://jitpack.io")
 }
 
-// Names start() and its command-wiring helper as NullAway's initializers, since LimboPlugin's fields are set there.
+// The base runs prepare() and enable() before anything reads LimboPlugin's fields.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option(
             "NullAway:KnownInitializers",
-            "eu.nordtal.s2.limbo.LimboPlugin.start,eu.nordtal.s2.limbo.LimboPlugin.wireCommandInbox",
+            "eu.nordtal.s2.limbo.LimboPlugin.prepare,eu.nordtal.s2.limbo.LimboPlugin.enable",
         )
     }
 }
@@ -26,7 +26,7 @@ dependencies {
         exclude(group = "org.flywaydb")
     }
 
-    // LimboPool builds its own HikariCP pool for the name, size and driver class AccessDirectory.open exposes none of.
+    // The plugin base opens its pool through :settings, which only compiles against HikariCP.
     implementation(libs.hikaricp)
 
     // :common's JdbiAccessDirectory installs JDBI's PostgresPlugin; jcore declares jdbi3-postgres at runtime only.

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.settings.FileSettings;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -36,7 +37,10 @@ class ComposeWorldTest {
     @Test
     void composeGeneratesTheWorldTheSpecNames() throws Exception {
         final String composed = defaultOf(environmentOf("hunger-games").get("LEVEL_NAME"), "hunger-games.LEVEL_NAME");
-        final String named = Configs.load(directory, LOGGER).get().worldName();
+        final String named = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
+                .load("config", HungerGamesSpec.class, HungerGamesCheck::check)
+                .get()
+                .worldName();
 
         assertEquals(
                 named,

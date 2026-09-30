@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Logging out of a duel has to cost the same as losing one.
  *
- * The ids are captured at duel start, since {@code JoinGate}'s quit handler clears {@code Identities} first.
+ * The ids are captured at duel start, since the base's quit handler clears {@code Identities} first.
  */
 class DuelStakeSurvivesAQuitTest {
 
@@ -38,7 +38,7 @@ class DuelStakeSurvivesAQuitTest {
         final String body = methodBody(read(DUELS), "private void book(");
         assertFalse(
                 body.contains("identities.discordIdOf"),
-                "book() read the discord ids out of Identities, which JoinGate's quit handler has"
+                "book() read the discord ids out of Identities, which the base's quit handler has"
                         + " already cleared by the time a mid-fight disconnect gets here - so the"
                         + " loser paid nothing and the winner was paid nothing, silently. Take them"
                         + " from the duel (ActiveDuel#discordIds) instead.");

@@ -12,7 +12,7 @@ import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.database.update.UpdateDirectory;
-import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
+import eu.nordtal.s2.settings.DatabaseSpec;
 import java.time.Clock;
 import java.time.Duration;
 

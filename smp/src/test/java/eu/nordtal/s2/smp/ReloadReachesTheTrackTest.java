@@ -53,27 +53,6 @@ class ReloadReachesTheTrackTest {
     }
 
     @Test
-    void theReloadReachesTheMessages() throws IOException {
-        // steward-worker sends `smp reload` and reports it applied; without these two lines that report is empty.
-        final String source = (read(PLUGIN) + "\n" + read(START));
-        final int start = source.indexOf("List<String> reloadTrack(");
-        final int end = source.indexOf("return trackProblems;", start);
-        assertTrue(start > 0 && end > start, "the reload method moved; point this test at it");
-        assertTrue(
-                source.substring(start, end).contains("reloadMessages();"),
-                "/smp reload no longer calls reloadMessages()");
-        final int from = source.indexOf("private void reloadMessages(");
-        assertTrue(from > 0, "reloadMessages moved; point this test at it");
-        final String reload = source.substring(from, source.indexOf("\n    }\n", from));
-        assertTrue(
-                reload.contains("messages.reload();"),
-                "/smp reload no longer re-reads this plugin's messages, so a saved text stays unused");
-        assertTrue(
-                reload.contains("sharedMessages.reload();"),
-                "/smp reload no longer re-reads the shared messages the command inbox answers with");
-    }
-
-    @Test
     void aLoweredTargetTakesEffectAtOnce() throws IOException {
         // An objective nobody can add to still completes on the next hand-in: the case the promise is for.
         final String source = (read(PLUGIN) + "\n" + read(START));

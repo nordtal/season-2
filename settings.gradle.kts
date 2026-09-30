@@ -64,6 +64,8 @@ include("commands")
 // Shared code that needs a Paper type, shaded into the three Paper plugins.
 include("paper-common")
 
+include("settings")
+
 // The architecture rules of CONVENTIONS.md, checked across every module's classes.
 include("architecture")
 

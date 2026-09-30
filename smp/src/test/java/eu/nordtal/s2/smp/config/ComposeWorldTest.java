@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.settings.FileSettings;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -36,7 +37,10 @@ class ComposeWorldTest {
     @Test
     void composeGeneratesTheWorldTheSpecNames() throws Exception {
         final String composed = defaultOf(environmentOf("smp").get("LEVEL_NAME"), "smp.LEVEL_NAME");
-        final String named = Configs.load(directory, LOGGER).get().worldNordtal();
+        final String named = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
+                .load("config", SmpSpec.class, SmpSettings::check)
+                .get()
+                .worldNordtal();
 
         assertEquals(
                 named,

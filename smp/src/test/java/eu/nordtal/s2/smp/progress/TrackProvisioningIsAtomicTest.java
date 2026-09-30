@@ -25,7 +25,7 @@ class TrackProvisioningIsAtomicTest {
         final int method = source.indexOf("private void ensureRows(");
         assertTrue(method > 0, "ensureRows has been renamed - this rule moved with it");
 
-        final int transaction = source.indexOf("jdbi.useTransaction(", method);
+        final int transaction = source.indexOf("jdbi().useTransaction(", method);
         assertTrue(
                 transaction > method && transaction - method < 400,
                 "ensureRows writes one row per milestone and one per objective one statement at a"

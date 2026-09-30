@@ -6,10 +6,10 @@ plugins {
     id("nordtal.message-spec")
 }
 
-// SmpPlugin assigns its fields in start(), called from onEnable, so NullAway checks that instead of the constructor.
+// The base runs prepare() and enable() before anything reads SmpPlugin's fields.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
-        option("NullAway:KnownInitializers", "eu.nordtal.s2.smp.SmpPlugin.start")
+        option("NullAway:KnownInitializers", "eu.nordtal.s2.smp.SmpPlugin.prepare,eu.nordtal.s2.smp.SmpPlugin.enable")
     }
 }
 

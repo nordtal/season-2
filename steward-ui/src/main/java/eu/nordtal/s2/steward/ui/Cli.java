@@ -1,12 +1,12 @@
 package eu.nordtal.s2.steward.ui;
 
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.steward.ui.auth.Credentials;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Sessions;
-import eu.nordtal.s2.steward.ui.config.Configs;
+import eu.nordtal.s2.steward.ui.config.UiSettings;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
 import eu.nordtal.s2.steward.ui.data.Data;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
@@ -49,10 +49,10 @@ final class Cli {
         final UiSpec config;
         final Data data;
         try {
-            config = Configs.ui(directory, log).get();
+            config = UiSettings.ui(directory, log).get();
             // Opened here, so a bad config fails at startup.
-            data = new Data(Configs.database(directory, log).get(), CLOCK);
-        } catch (ConfigException failure) {
+            data = new Data(UiSettings.database(directory, log).get(), CLOCK);
+        } catch (SettingsException failure) {
             log.error(
                     "The configuration in {} could not be read, so nothing is being served.",
                     directory.toAbsolutePath(),
@@ -109,7 +109,7 @@ final class Cli {
                     + " Take it from the journal or from the account list.");
             return 2;
         }
-        try (Data data = new Data(Configs.database(directory, log).get(), CLOCK)) {
+        try (Data data = new Data(UiSettings.database(directory, log).get(), CLOCK)) {
             final Credentials credentials = new Credentials(data.dataSource());
             final Sessions sessions = new Sessions(data.dataSource(), Duration.ofDays(1));
             final int keys = credentials.forget(discordId);
@@ -132,7 +132,7 @@ final class Cli {
                     "Cleared " + keys + " security key(s) and " + signedOut + " session(s) of " + discordId + ".");
             System.out.println("Its next sign-in will ask for Discord and then register a new key.");
             return 0;
-        } catch (ConfigException failure) {
+        } catch (SettingsException failure) {
             log.error(
                     "The database configuration in {} could not be read, so nothing was cleared.",
                     directory.toAbsolutePath(),

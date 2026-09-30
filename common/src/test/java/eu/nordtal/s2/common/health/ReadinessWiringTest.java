@@ -106,7 +106,7 @@ class ReadinessWiringTest {
         final int finishCall = text.indexOf("finishStartup(");
         final int up = text.indexOf("started = true;");
         final String reconcileBody = body(text, "private void publishAndReconcile(");
-        final String finishBody = body(text, "private Listeners finishStartup(");
+        final String finishBody = body(text, "private SignalHub finishStartup(");
 
         assertTrue(
                 reconcileCall >= 0 && finishCall >= 0 && up >= 0,
@@ -124,7 +124,7 @@ class ReadinessWiringTest {
                         + " is the flag that decides whether the constructor cleaned up after itself");
         final int marker = finishBody.indexOf("Readiness.onDefaultPath(");
         assertTrue(
-                marker >= 0 && finishBody.indexOf("listenForAccess(") < marker,
+                marker >= 0 && finishBody.indexOf("listen(") < marker,
                 BOT + "'s finishStartup does not build the readiness marker after everything else it starts");
         assertTrue(
                 text.contains("repeat(guarded(\"readiness marker\""),

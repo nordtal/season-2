@@ -71,7 +71,9 @@ class ArchitectureTest {
                 "org.slf4j..",
                 "org.postgresql..",
                 "org.jspecify..",
+                "com.google.gson..",
                 "eu.nordtal.s2.common..",
+                "eu.nordtal.s2.messages..",
                 "eu.nordtal.s2.database..");
     }
 

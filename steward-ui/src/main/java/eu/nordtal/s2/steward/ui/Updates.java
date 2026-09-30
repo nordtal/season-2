@@ -1,10 +1,11 @@
 package eu.nordtal.s2.steward.ui;
 
-import eu.nordtal.s2.database.update.RunRefused;
+import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateSource;
+import eu.nordtal.s2.messages.Refused;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.data.Data;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
@@ -107,8 +108,8 @@ final class Updates {
         try {
             written = data().updates()
                     .submit(kind, UpdateSource.CONSOLE, who.name() + " (" + who.id() + ")", delay, ask.services);
-        } catch (final RunRefused refused) {
-            throw new ConflictResponse(refusal(refused));
+        } catch (final Refused refused) {
+            throw new ConflictResponse(DatabaseText.english(refused.refusal().message()));
         }
         log.info(
                 "{} asked for {} as request {}{}",
@@ -142,19 +143,6 @@ final class Updates {
                 cancelled.get().kind(),
                 cancelled.get().id());
         ctx.json(describe(cancelled.get()));
-    }
-
-    /** One sentence for a refused run: which run is in the way, or which service is already down. */
-    static String refusal(final RunRefused refused) {
-        return switch (refused.reason()) {
-            case RUN_OPEN -> {
-                final UpdateRequest open = Objects.requireNonNull(refused.open(), "RUN_OPEN always names the run");
-                yield "Run #" + open.id() + " is still " + open.status().name().toLowerCase(java.util.Locale.ROOT);
-            }
-            case ALREADY_HELD ->
-                String.join(", ", refused.services()) + (refused.services().size() == 1 ? " is" : " are")
-                        + " already down";
-        };
     }
 
     /** One request as the interface shows it; a report that cannot be parsed is kept as text. */

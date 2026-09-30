@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.update;
 
+import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -36,7 +37,8 @@ public interface UpdateDirectory {
      * @param requestedBy a Discord id, a Minecraft name, or {@code null} for the console
      * @param delay       how long the worker must wait; {@link Duration#ZERO} in practice, negative means zero
      * @return the row as written
-     * @throws RunRefused when another run is open anywhere, or a take-down names a held service
+     * @throws Refused with an {@link UpdateRefusal} when another run is open anywhere, or a take-down names a
+     *     held service
      */
     UpdateRequest submit(UpdateKind kind, UpdateSource source, @Nullable String requestedBy, @Nullable Duration delay);
 

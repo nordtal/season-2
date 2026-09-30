@@ -1,8 +1,12 @@
 package eu.nordtal.s2.database.update;
 
+import static eu.nordtal.s2.database.DatabaseMessages.MESSAGES;
+
+import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -40,7 +44,13 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
             final UpdateDao locked = handle.attach(UpdateDao.class);
             final Optional<UpdateRequest> open = locked.open();
             if (open.isPresent()) {
-                throw RunRefused.runOpen(open.get());
+                throw new Refused(
+                        UpdateRefusal.RUN_OPEN,
+                        MESSAGES.update()
+                                .runOpen(
+                                        open.get().id(),
+                                        open.get().kind(),
+                                        open.get().status().name().toLowerCase(Locale.ROOT)));
             }
             if (kind == UpdateKind.DOWN && services != null && !services.isEmpty()) {
                 final java.util.List<String> held = locked.holds().stream()
@@ -48,7 +58,8 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
                         .filter(services::contains)
                         .toList();
                 if (!held.isEmpty()) {
-                    throw RunRefused.alreadyHeld(held);
+                    throw new Refused(
+                            UpdateRefusal.ALREADY_HELD, MESSAGES.update().alreadyHeld(String.join(", ", held)));
                 }
             }
             return write.apply(locked);

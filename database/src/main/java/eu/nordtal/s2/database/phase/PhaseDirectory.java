@@ -1,6 +1,7 @@
 package eu.nordtal.s2.database.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.messages.Refused;
 import java.time.Instant;
 import java.time.InstantSource;
 import java.util.Optional;
@@ -49,7 +50,7 @@ public interface PhaseDirectory {
      * @param at    the instant the network opens, or {@code null} for no date announced
      * @param actor the Discord id of the admin who asked for it, or {@code null} for the console
      * @return what the column held before and holds now
-     * @throws SeasonDateRefused     if the date is in the past or after {@link #smpStart()}
+     * @throws Refused with a {@link SeasonDateRefusal} if the date is in the past or after {@link #smpStart()}
      * @throws IllegalStateException if the {@code season_phase} row does not exist
      */
     DateChange setLaunch(@Nullable Instant at, @Nullable String actor);
@@ -61,7 +62,8 @@ public interface PhaseDirectory {
      * @param at    the instant paid access starts running, or {@code null} to clear the date
      * @param actor the Discord id of the admin who asked for it, or {@code null} for the console
      * @return what the column held before and holds now, and how much access moved with it
-     * @throws SeasonDateRefused     if the date is in the past, before {@link #launch()}, or the phase is {@code SMP}
+     * @throws Refused with a {@link SeasonDateRefusal} if the date is in the past, before {@link #launch()}, or in
+     *     {@code SMP}
      * @throws IllegalStateException if the {@code season_phase} row does not exist
      */
     DateChange setSmpStart(@Nullable Instant at, @Nullable String actor);

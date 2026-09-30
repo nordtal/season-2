@@ -16,6 +16,12 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
 - **A run's countdown** is typed columns the proxy reads: `scheduled_for` (when the worker may claim it),
   `countdown_end` (when the servers go down) and `moving` (what they are), never the report JSON.
 
+**Roles**: steward-worker migrates and owns every table; every other service logs in as its own
+`DatabaseRole`, and V1 grants each what it owns and what it reads or writes of someone else's, the
+shared read models through one read role. V1 names the roles by Flyway placeholder and never creates
+one: roles belong to the cluster, so the migrator creates them first (`DatabaseRole.provision`), with
+the passwords its environment carries. `DatabaseRoleIntegrationTest` holds the grants.
+
 The test fixtures publish `TestDatabase`, the one way a test reaches PostgreSQL: one container per
-test JVM, migrated once, and a new database cloned from it for every `fresh()` (or an unmigrated one
-from `empty()`). Its image is compose.yml's default, which `TestDatabaseImageTest` holds.
+test JVM, with the roles created and migrated once, and a new database cloned from it for every
+`fresh()` (or an unmigrated one from `empty()`); `dataSourceAs(role)` logs in as a service would. Its image is compose.yml's default, which `TestDatabaseImageTest` holds.

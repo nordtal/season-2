@@ -72,6 +72,8 @@ dependencies {
 
     // Shaded in, and with it the migration SQL.
     implementation(project(":database"))
+    // Compile-only for Schema, which passes the role placeholders: jcore ships Flyway at runtime.
+    compileOnly(libs.flyway.core)
     // JdbiPluginDirectory installs JDBI's PostgresPlugin, which jcore declares at runtime scope only.
     implementation(libs.jdbi.postgres)
     testImplementation(testFixtures(project(":database")))

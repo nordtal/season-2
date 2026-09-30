@@ -24,6 +24,11 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
             "  NORDTAL_STEWARD_DATABASE_USERNAME",
             "  NORDTAL_STEWARD_DATABASE_PASSWORD",
             "",
+            "Before it migrates, this process creates every other service's",
+            "role, with the password from NORDTAL_STEWARD_DATABASE_<ROLE>_PASSWORD",
+            "(DISCORD_BOT, PROXY, LIMBO, HUNGER_GAMES, SMP, STEWARD_UI); those",
+            "live in the environment only, never in this file.",
+            "",
             "An overridden value is never written back into this file."
         })
 public interface DatabaseSpec {
@@ -40,7 +45,7 @@ public interface DatabaseSpec {
     @Order(2)
     @Name("Username")
     @Key("username")
-    @Comment("Database user. It needs rights to create and alter tables.")
+    @Comment("Database user. It owns every table and needs rights to create roles.")
     @Explain("Needs rights to create and alter tables; every other module's user only reads and writes rows.")
     default String username() {
         return "nordtal";

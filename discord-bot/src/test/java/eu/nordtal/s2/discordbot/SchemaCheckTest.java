@@ -50,8 +50,7 @@ class SchemaCheckTest {
     @Test
     @org.junit.jupiter.api.Order(2)
     void aMigratedDatabasePasses() {
-        database.migrate();
-
-        assertDoesNotThrow(() -> SchemaCheck.validate(database.dataSource()));
+        // The fixture migrates as steward-worker does, placeholders and all.
+        assertDoesNotThrow(() -> SchemaCheck.validate(TestDatabase.fresh().dataSource()));
     }
 }

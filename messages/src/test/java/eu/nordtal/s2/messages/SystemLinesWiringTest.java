@@ -30,7 +30,7 @@ class SystemLinesWiringTest {
 
     // The listener may sit on a holder record, e.g. presence.systemLines().
     private static final Pattern REGISTERS_SYSTEM_LINES =
-            Pattern.compile("registerEvents\\((?:\\w+\\.)?systemLines\\b");
+            Pattern.compile("(?:registerEvents|listen)\\((?:\\w+\\.)?systemLines\\b");
 
     /** The servers a player talks on, and the class each builds; limbo is absent, as nobody there is visible. */
     private static final List<String> PLUGINS = List.of(

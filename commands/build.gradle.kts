@@ -21,6 +21,10 @@ dependencies {
     api(project(":database"))
     api(project(":messages"))
 
+    // messageSchema runs on this compile classpath, and the kernel's JSON codec needs Gson there.
+    compileOnly(libs.gson)
+
+    testImplementation(libs.gson)
     // MessageBundlesTest loads the shared bundle, and :common leaves the slf4j backend to its consumers.
     testRuntimeOnly(libs.logback.classic)
 }

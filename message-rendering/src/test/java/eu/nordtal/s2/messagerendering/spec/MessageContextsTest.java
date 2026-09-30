@@ -102,12 +102,12 @@ class MessageContextsTest {
         assertEquals(TextFormat.PLAIN, entries.get(2).format());
 
         final String json = MessageSchema.json(Fight.class);
-        assertTrue(json.contains("{\"name\": \"attacker\", \"component\": false, \"context\": \"player\"}"), json);
-        assertTrue(json.contains("\"format\": \"MINIMESSAGE\", \"shown\": \"TITLE\""), json);
-        assertTrue(json.contains("\"player\": {\"name\": \"Player\", \"properties\": [\"name\"]}"), json);
+        assertTrue(json.contains("{\"name\":\"attacker\",\"component\":false,\"context\":\"player\"}"), json);
+        assertTrue(json.contains("\"format\":\"MINIMESSAGE\",\"shown\":\"TITLE\""), json);
+        assertTrue(json.contains("\"player\":{\"name\":\"Player\",\"properties\":[\"name\"]}"), json);
         assertTrue(
-                json.contains("\"globals\": [{\"name\": \"server\", \"context\": \"service\"}, "
-                        + "{\"name\": \"season\", \"context\": \"season\"}]"),
+                json.contains("\"globals\":[{\"name\":\"server\",\"context\":\"service\"},"
+                        + "{\"name\":\"season\",\"context\":\"season\"}]"),
                 json);
     }
 

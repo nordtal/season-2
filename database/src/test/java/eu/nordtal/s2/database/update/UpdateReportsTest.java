@@ -195,7 +195,19 @@ class UpdateReportsTest {
     }
 
     @Test
-    void anUnsupportedArtefactSurvivesTheColumnAndAnOrdinaryOneWritesNoState() {
+    void aChangeWrittenWithoutItsStateReadsAsMoving() {
+        final UpdateReport read = UpdateReports.parse(
+                        "{\"stage\":\"PLANNED\",\"services\":[{\"service\":\"smp\",\"state\":\"PLANNED\","
+                                + "\"changes\":[{\"artefact\":\"smp\",\"to\":\"0.7.0\"}]}],\"notes\":[]}")
+                .orElseThrow();
+
+        assertEquals(
+                UpdateReport.Change.State.MOVING,
+                read.services().getFirst().changes().getFirst().state());
+    }
+
+    @Test
+    void anUnsupportedArtefactSurvivesTheColumn() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
                 .with(new UpdateReport.ServiceLine(
                         "smp",
@@ -207,10 +219,7 @@ class UpdateReportsTest {
 
         final String json = UpdateReports.toJson(report);
         assertEquals(report, UpdateReports.parse(json).orElseThrow());
-
-        // Written only for the non-default state, so older readers still parse ordinary reports.
         assertEquals(1, json.split("\"state\":\"UNSUPPORTED\"", -1).length - 1, json);
-        assertFalse(json.contains("\"state\":\"MOVING\""), json);
     }
 
     @Test

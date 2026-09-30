@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
@@ -70,7 +70,7 @@ final class PackExemptionApi {
     private static String discordId(final Context ctx) {
         final JsonElement value;
         try {
-            final JsonElement body = JsonParser.parseString(ctx.body());
+            final JsonElement body = Json.tree(ctx.body());
             value = body.isJsonObject() ? body.getAsJsonObject().get("discordId") : null;
         } catch (final RuntimeException malformed) {
             throw new BadRequestResponse("The body is not the JSON this endpoint takes.");

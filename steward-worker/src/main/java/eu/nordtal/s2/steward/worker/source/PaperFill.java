@@ -44,30 +44,30 @@ public final class PaperFill {
 
         final URI uri = URI.create(API + project + "/versions/" + version + "/builds");
         final String what = "PaperMC Fill " + project + " " + version;
-        final JsonArray builds = Json.array(http.get(uri), what);
+        final JsonArray builds = ApiFields.array(http.get(uri), what);
 
         // The channel filter decides, not the position: the newest build can be EXPERIMENTAL.
         for (final JsonElement element : builds) {
             final JsonObject build = element.getAsJsonObject();
-            if (!STABLE.equals(Json.optionalString(build, "channel"))) {
+            if (!STABLE.equals(ApiFields.optionalString(build, "channel"))) {
                 continue;
             }
 
-            final JsonObject downloads = Json.child(build, "downloads");
-            final JsonObject download = downloads == null ? null : Json.child(downloads, SERVER_DEFAULT);
+            final JsonObject downloads = ApiFields.child(build, "downloads");
+            final JsonObject download = downloads == null ? null : ApiFields.child(downloads, SERVER_DEFAULT);
             if (download == null) {
                 // A STABLE build with no server jar has not been seen; the next stable build behind it is the answer.
                 continue;
             }
 
-            final JsonObject checksums = Json.child(download, "checksums");
-            final String sha256 = checksums == null ? null : Json.optionalString(checksums, "sha256");
+            final JsonObject checksums = ApiFields.child(download, "checksums");
+            final String sha256 = checksums == null ? null : ApiFields.optionalString(checksums, "sha256");
 
             return new RemoteFile(
                     project,
-                    String.valueOf(Json.number(build, "id", -1)),
-                    Json.string(download, "name", what),
-                    URI.create(Json.string(download, "url", what)),
+                    String.valueOf(ApiFields.number(build, "id", -1)),
+                    ApiFields.string(download, "name", what),
+                    URI.create(ApiFields.string(download, "url", what)),
                     sha256 == null ? null : Checksum.sha256(sha256));
         }
 
@@ -86,7 +86,7 @@ public final class PaperFill {
 
         final URI uri = URI.create(API + project);
         final String what = "PaperMC Fill " + project;
-        final JsonObject versions = Json.child(Json.object(http.get(uri), what), "versions");
+        final JsonObject versions = ApiFields.child(ApiFields.object(http.get(uri), what), "versions");
         if (versions == null) {
             throw new IOException(what + ": the project response carries no 'versions' object."
                     + " The API's shape has changed - check " + uri);

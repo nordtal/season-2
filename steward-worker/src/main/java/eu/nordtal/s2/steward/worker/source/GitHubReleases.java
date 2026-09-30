@@ -55,7 +55,7 @@ public final class GitHubReleases {
         final URI uri = URI.create(API + repo + "/releases/latest");
 
         final String what = "GitHub release " + repo + "@" + LATEST;
-        final JsonObject payload = Json.object(http.get(uri), what);
+        final JsonObject payload = ApiFields.object(http.get(uri), what);
 
         final List<Asset> assets = new ArrayList<>();
         final JsonElement raw = payload.get("assets");
@@ -63,14 +63,16 @@ public final class GitHubReleases {
             for (final JsonElement element : raw.getAsJsonArray()) {
                 final JsonObject asset = element.getAsJsonObject();
                 assets.add(new Asset(
-                        Json.string(asset, "name", what),
-                        URI.create(Json.string(asset, "browser_download_url", what)),
-                        Json.number(asset, "size", -1)));
+                        ApiFields.string(asset, "name", what),
+                        URI.create(ApiFields.string(asset, "browser_download_url", what)),
+                        ApiFields.number(asset, "size", -1)));
             }
         }
 
         return new Release(
-                Json.string(payload, "tag_name", what), Json.bool(payload, "prerelease", false), List.copyOf(assets));
+                ApiFields.string(payload, "tag_name", what),
+                ApiFields.bool(payload, "prerelease", false),
+                List.copyOf(assets));
     }
 
     /**

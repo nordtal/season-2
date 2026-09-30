@@ -2,8 +2,8 @@ package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import eu.nordtal.s2.commands.announce.AnnounceCommands;
+import eu.nordtal.s2.common.json.Json;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.sql.Connection;
@@ -85,7 +85,7 @@ final class Announcements {
     void send(final Context ctx) {
         final JsonObject body;
         try {
-            body = JsonParser.parseString(ctx.body()).getAsJsonObject();
+            body = Json.tree(ctx.body()).getAsJsonObject();
         } catch (final RuntimeException malformed) {
             throw new BadRequestResponse("The body is not the JSON this endpoint takes.");
         }

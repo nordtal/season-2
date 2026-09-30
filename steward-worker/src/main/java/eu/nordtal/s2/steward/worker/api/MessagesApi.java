@@ -2,8 +2,8 @@ package eu.nordtal.s2.steward.worker.api;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.common.time.Backoff;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.access.AccessRequest;
@@ -236,7 +236,7 @@ public final class MessagesApi {
             return List.of();
         }
         try {
-            final JsonElement parsed = JsonParser.parseString(result);
+            final JsonElement parsed = Json.tree(result);
             if (!parsed.isJsonObject()) {
                 return List.of();
             }
@@ -389,7 +389,7 @@ public final class MessagesApi {
 
     private static JsonObject bodyOf(final String body) {
         try {
-            return JsonParser.parseString(body == null ? "" : body).getAsJsonObject();
+            return Json.tree(body == null ? "" : body).getAsJsonObject();
         } catch (final JsonSyntaxException | IllegalStateException | IllegalArgumentException e) {
             throw new BadRequestResponse("The body has to be a JSON object with a `changes` field.");
         }

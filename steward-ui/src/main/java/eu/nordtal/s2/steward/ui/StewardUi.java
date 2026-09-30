@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.ui;
 
-import com.google.gson.Gson;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.steward.ui.auth.Credentials;
@@ -320,7 +320,7 @@ public final class StewardUi {
     }
 
     private void configureFrontend(final JavalinConfig cfg) {
-        cfg.jsonMapper(new JavalinGson(new Gson(), true));
+        cfg.jsonMapper(new JavalinGson(Json.gson(), true));
         cfg.startup.showJavalinBanner = false;
 
         // The built frontend, which Gradle packs into the jar under /web.

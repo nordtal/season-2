@@ -160,7 +160,7 @@ final class GameActions {
 
     private static JsonObject body(final Context ctx) {
         try {
-            return com.google.gson.JsonParser.parseString(ctx.body()).getAsJsonObject();
+            return eu.nordtal.s2.common.json.Json.tree(ctx.body()).getAsJsonObject();
         } catch (final RuntimeException malformed) {
             throw new BadRequestResponse("The body is not the JSON this endpoint takes.");
         }

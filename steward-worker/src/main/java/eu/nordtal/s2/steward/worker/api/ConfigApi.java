@@ -3,8 +3,8 @@ package eu.nordtal.s2.steward.worker.api;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.steward.worker.configfile.ConfigChange;
 import eu.nordtal.s2.steward.worker.configfile.ConfigDocument;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry;
@@ -450,7 +450,7 @@ public final class ConfigApi {
 
     private static JsonObject bodyOf(final String body) {
         try {
-            return JsonParser.parseString(body == null ? "" : body).getAsJsonObject();
+            return Json.tree(body == null ? "" : body).getAsJsonObject();
         } catch (final JsonSyntaxException | IllegalStateException | IllegalArgumentException e) {
             throw new BadRequestResponse("The body has to be a JSON object with `revision` and" + " `changes` fields.");
         }

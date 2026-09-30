@@ -21,6 +21,10 @@ repositoryRootTestInputs {
 dependencies {
     api(project(":common"))
 
+    // The kernel's JSON codec runs on Gson, which every consumer has at runtime and none shades.
+    compileOnly(libs.gson)
+    testImplementation(libs.gson)
+
     // NullAway's annotations reference checker-qual at class-file level; this is the version NullAway pulls in.
     compileOnly("org.checkerframework:checker-qual:4.2.3")
     testCompileOnly("org.checkerframework:checker-qual:4.2.3")

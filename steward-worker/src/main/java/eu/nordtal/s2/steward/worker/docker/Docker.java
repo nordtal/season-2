@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.json.Json;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 public final class Docker {
 
     private static final Logger log = LoggerFactory.getLogger(Docker.class);
-    private static final Gson GSON = new Gson();
 
     /** Compose writes these on every container it creates; they are how a container gets a name. */
     private static final String LABEL_PROJECT = "com.docker.compose.project";
@@ -47,7 +46,7 @@ public final class Docker {
 
     /** Every container of one compose project, running or not. */
     public List<Container> containers(final String project) {
-        final JsonArray array = GSON.fromJson(socket.send("GET", "/containers/json?all=1", null), JsonArray.class);
+        final JsonArray array = Json.decode(socket.send("GET", "/containers/json?all=1", null), JsonArray.class);
         final List<Container> containers = new ArrayList<>();
         for (final JsonElement element : array) {
             final JsonObject json = element.getAsJsonObject();
@@ -71,8 +70,7 @@ public final class Docker {
 
     /** One container in full: its health, when it started, and whether it has a TTY, which decides the log framing. */
     public Inspection inspect(final String id) {
-        final JsonObject json =
-                GSON.fromJson(socket.send("GET", "/containers/" + id + "/json", null), JsonObject.class);
+        final JsonObject json = Json.decode(socket.send("GET", "/containers/" + id + "/json", null), JsonObject.class);
         final JsonObject state = json.getAsJsonObject("State");
         final JsonObject config = json.getAsJsonObject("Config");
         final String health =
@@ -100,7 +98,7 @@ public final class Docker {
      */
     public Stats stats(final String id) {
         final JsonObject json =
-                GSON.fromJson(socket.send("GET", "/containers/" + id + "/stats?stream=false", null), JsonObject.class);
+                Json.decode(socket.send("GET", "/containers/" + id + "/stats?stream=false", null), JsonObject.class);
 
         final JsonObject memory = json.getAsJsonObject("memory_stats");
         long usage = 0;
@@ -182,7 +180,7 @@ public final class Docker {
      */
     public Optional<String> registryDigest(final String imageRef) {
         try {
-            final JsonObject json = GSON.fromJson(
+            final JsonObject json = Json.decode(
                     socket.send("GET", "/distribution/" + encodePath(imageRef) + "/json", null), JsonObject.class);
             final JsonObject descriptor = json.getAsJsonObject("Descriptor");
             return Optional.ofNullable(descriptor == null ? null : string(descriptor, "digest"));
@@ -198,8 +196,8 @@ public final class Docker {
             return List.of();
         }
         try {
-            final JsonObject json = GSON.fromJson(
-                    socket.send("GET", "/images/" + encodePath(imageId) + "/json", null), JsonObject.class);
+            final JsonObject json =
+                    Json.decode(socket.send("GET", "/images/" + encodePath(imageId) + "/json", null), JsonObject.class);
             final JsonArray digests = json.getAsJsonArray("RepoDigests");
             if (digests == null) {
                 return List.of();
@@ -223,7 +221,7 @@ public final class Docker {
             return Optional.empty();
         }
         try {
-            final JsonObject json = GSON.fromJson(
+            final JsonObject json = Json.decode(
                     socket.send("GET", "/images/" + encodePath(imageRef) + "/json", null), JsonObject.class);
             final JsonArray digests = json.getAsJsonArray("RepoDigests");
             final List<String> all = new ArrayList<>();
@@ -270,8 +268,8 @@ public final class Docker {
         command.forEach(argv::add);
         request.add("Cmd", argv);
 
-        final JsonObject created = GSON.fromJson(
-                socket.send("POST", "/containers/" + id + "/exec", GSON.toJson(request)), JsonObject.class);
+        final JsonObject created =
+                Json.decode(socket.send("POST", "/containers/" + id + "/exec", Json.encode(request)), JsonObject.class);
         final String execId = string(created, "Id");
         if (execId == null) {
             throw new DockerException("docker created no exec for " + id);
@@ -283,7 +281,7 @@ public final class Docker {
 
         final StringBuilder output = new StringBuilder();
         try (DockerSocket.Stream stream =
-                socket.stream("POST", "/exec/" + execId + "/start", GSON.toJson(start), EXEC_DEADLINE)) {
+                socket.stream("POST", "/exec/" + execId + "/start", Json.encode(start), EXEC_DEADLINE)) {
             // Always multiplexed: Tty was false above.
             LogFrames.read(stream.body(), true, line -> output.append(line).append('\n'));
         } catch (IOException e) {
@@ -292,7 +290,7 @@ public final class Docker {
 
         // The exit code is a second request; without it a failed command looks like a quiet one.
         final JsonObject finished =
-                GSON.fromJson(socket.send("GET", "/exec/" + execId + "/json", null), JsonObject.class);
+                Json.decode(socket.send("GET", "/exec/" + execId + "/json", null), JsonObject.class);
         final int exitCode =
                 finished.has("ExitCode") && !finished.get("ExitCode").isJsonNull()
                         ? finished.get("ExitCode").getAsInt()
@@ -310,7 +308,7 @@ public final class Docker {
 
     /** What images and volumes take up on the disk. */
     public DiskUsage diskUsage() {
-        final JsonObject json = GSON.fromJson(socket.send("GET", "/system/df", null), JsonObject.class);
+        final JsonObject json = Json.decode(socket.send("GET", "/system/df", null), JsonObject.class);
         return new DiskUsage(
                 sum(json, "Images", "Size"),
                 sum(json, "Volumes", "UsageData", "Size"),

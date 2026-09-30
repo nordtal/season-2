@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.deployer;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.json.Json;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 public final class Compose {
 
     private static final Logger log = LoggerFactory.getLogger(Compose.class);
-    private static final Gson GSON = new Gson();
 
     /**
      * This service's compose name, refused everywhere a service name is accepted.
@@ -226,7 +225,7 @@ public final class Compose {
         if (code != 0) {
             throw new IOException("docker compose config exited " + code);
         }
-        final JsonObject root = GSON.fromJson(json.toString(), JsonObject.class);
+        final JsonObject root = Json.decode(json.toString(), JsonObject.class);
         final JsonObject services = root.getAsJsonObject("services");
         final Map<String, String> byName = new LinkedHashMap<>();
         for (final String name : services.keySet()) {

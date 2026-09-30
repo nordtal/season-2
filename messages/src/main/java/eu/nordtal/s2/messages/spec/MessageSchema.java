@@ -1,5 +1,6 @@
 package eu.nordtal.s2.messages.spec;
 
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.messages.context.Contexts;
 import java.io.IOException;
 import java.io.InputStream;
@@ -245,102 +246,26 @@ public final class MessageSchema {
 
     /** Returns the schema as the JSON steward-worker reads. */
     public static String json(final Class<?> spec) {
-        final StringBuilder out = new StringBuilder(4096);
-        out.append("{\n  \"bundle\": ").append(quote(bundle(spec))).append(",\n  \"messages\": [");
-        final List<Entry> entries = entries(spec);
-        for (int i = 0; i < entries.size(); i++) {
-            appendEntry(out, i, entries.get(i));
-        }
-        out.append("\n  ],\n  \"contexts\": {");
-        appendContexts(out, spec);
-        out.append("\n  },\n  \"globals\": [");
-        for (int g = 0; g < Contexts.GLOBAL_ROLES.size(); g++) {
-            final String role = Contexts.GLOBAL_ROLES.get(g);
-            out.append(g == 0 ? "" : ", ")
-                    .append("{\"name\": ")
-                    .append(quote(role))
-                    .append(", \"context\": ")
-                    .append(quote(Contexts.type(Objects.requireNonNull(Contexts.GLOBALS.get(role), role))))
-                    .append('}');
-        }
-        return out.append("]\n}\n").toString();
+        final Map<String, ContextJson> contexts = new LinkedHashMap<>();
+        contextTypes(spec)
+                .forEach((type, context) ->
+                        contexts.put(type, new ContextJson(Contexts.name(context), Contexts.properties(context))));
+        final List<GlobalJson> globals = Contexts.GLOBAL_ROLES.stream()
+                .map(role ->
+                        new GlobalJson(role, Contexts.type(Objects.requireNonNull(Contexts.GLOBALS.get(role), role))))
+                .toList();
+        return Json.encode(new SchemaJson(bundle(spec), entries(spec), contexts, globals)) + "\n";
     }
 
-    private static void appendEntry(final StringBuilder out, final int i, final Entry entry) {
-        out.append(i == 0 ? "\n" : ",\n")
-                .append("    {\"key\": ")
-                .append(quote(entry.key()))
-                .append(", \"name\": ")
-                .append(quote(entry.name()));
-        if (entry.description() != null) {
-            out.append(", \"description\": ").append(quote(entry.description()));
-        }
-        out.append(", \"format\": ")
-                .append(quote(entry.format().name()))
-                .append(", \"shown\": ")
-                .append(quote(entry.shown().name()));
-        out.append(", \"args\": [");
-        for (int a = 0; a < entry.args().size(); a++) {
-            final Arg arg = entry.args().get(a);
-            out.append(a == 0 ? "" : ", ")
-                    .append("{\"name\": ")
-                    .append(quote(arg.name()))
-                    .append(", \"component\": ")
-                    .append(arg.component());
-            if (arg.context() != null) {
-                out.append(", \"context\": ").append(quote(arg.context()));
-            }
-            out.append('}');
-        }
-        out.append("], \"section\": [");
-        for (int s = 0; s < entry.section().size(); s++) {
-            out.append(s == 0 ? "" : ", ").append(quote(entry.section().get(s)));
-        }
-        out.append("]}");
-    }
+    /** The shape of {@code schema.json}. */
+    private record SchemaJson(
+            String bundle, List<Entry> messages, Map<String, ContextJson> contexts, List<GlobalJson> globals) {}
 
-    private static void appendContexts(final StringBuilder out, final Class<?> spec) {
-        boolean first = true;
-        for (final Map.Entry<String, Class<?>> type : contextTypes(spec).entrySet()) {
-            out.append(first ? "\n" : ",\n")
-                    .append("    ")
-                    .append(quote(type.getKey()))
-                    .append(": {\"name\": ")
-                    .append(quote(Contexts.name(type.getValue())))
-                    .append(", \"properties\": [");
-            final List<String> properties = Contexts.properties(type.getValue());
-            for (int p = 0; p < properties.size(); p++) {
-                out.append(p == 0 ? "" : ", ").append(quote(properties.get(p)));
-            }
-            out.append("]}");
-            first = false;
-        }
-    }
+    /** A context type as the schema lists it. */
+    private record ContextJson(String name, List<String> properties) {}
 
-    private static String quote(final @Nullable String value) {
-        if (value == null) {
-            return "null";
-        }
-        final StringBuilder out = new StringBuilder(value.length() + 2).append('"');
-        for (int i = 0; i < value.length(); i++) {
-            final char c = value.charAt(i);
-            switch (c) {
-                case '"' -> out.append("\\\"");
-                case '\\' -> out.append("\\\\");
-                case '\n' -> out.append("\\n");
-                case '\r' -> out.append("\\r");
-                case '\t' -> out.append("\\t");
-                default -> {
-                    if (c < 0x20) {
-                        out.append(String.format("\\u%04x", (int) c));
-                    } else {
-                        out.append(c);
-                    }
-                }
-            }
-        }
-        return out.append('"').toString();
-    }
+    /** A role every message has. */
+    private record GlobalJson(String name, String context) {}
 
     /**
      * Writes {@code <output directory>/messages/<bundle>/schema.json}, refusing a spec {@link MessageSpecCheck} faults.

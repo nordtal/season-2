@@ -34,5 +34,9 @@ repositoryRootTestInputs {
 }
 
 dependencies {
+    // Every platform ships Gson, so it is never shaded; a JVM application brings its own.
+    compileOnly(libs.gson)
+    testImplementation(libs.gson)
+
     testRuntimeOnly(libs.logback.classic)
 }

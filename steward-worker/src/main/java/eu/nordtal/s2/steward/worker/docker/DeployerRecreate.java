@@ -1,8 +1,8 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
@@ -23,8 +23,6 @@ import java.time.Instant;
  * An update run deploys, which pulls first; a standby recreates, which must not. Everything else is the delegate's.
  */
 public final class DeployerRecreate implements ContainerOps {
-
-    private static final Gson GSON = new Gson();
 
     /** How often the job is asked about. */
     private static final Duration POLL_INTERVAL = Duration.ofSeconds(3);
@@ -133,7 +131,7 @@ public final class DeployerRecreate implements ContainerOps {
 
         final String jobId;
         try {
-            jobId = GSON.fromJson(accepted.body(), JsonObject.class).get("id").getAsString();
+            jobId = Json.decode(accepted.body(), JsonObject.class).get("id").getAsString();
         } catch (final RuntimeException malformed) {
             return RedeployResult.unverified("steward-deployer accepted the " + what + " of " + service
                     + " but its answer named no job id to follow: " + accepted.body());
@@ -152,7 +150,7 @@ public final class DeployerRecreate implements ContainerOps {
                             + service + " (job " + jobId + ") but answered " + response.statusCode()
                             + " when asked how it went");
                 }
-                job = GSON.fromJson(response.body(), JsonObject.class);
+                job = Json.decode(response.body(), JsonObject.class);
             } catch (final IOException failure) {
                 return RedeployResult.unverified("steward-deployer accepted the " + what + " of "
                         + service + " (job " + jobId + "), and whether it finished could not be"
@@ -202,7 +200,7 @@ public final class DeployerRecreate implements ContainerOps {
         services.add(service);
         final JsonObject body = new JsonObject();
         body.add("services", services);
-        return GSON.toJson(body);
+        return Json.encode(body);
     }
 
     private HttpRequest.Builder request(final String path) {

@@ -1,13 +1,11 @@
 package eu.nordtal.s2.database.update;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import eu.nordtal.s2.common.json.Json;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * {@link UpdateReport} to and from the JSON in {@code update_request.result}, written by hand.
+ * {@link UpdateReport} to and from the JSON in {@code update_request.result}, through the kernel's codec.
  *
  * {@link #parse} answers empty for an unreadable row, and every caller falls back to the raw text.
  */
@@ -16,80 +14,7 @@ public final class UpdateReports {
     private UpdateReports() {}
 
     public static String toJson(final UpdateReport report) {
-        final StringBuilder out = new StringBuilder(256);
-        out.append("{\"stage\":").append(quote(report.stage().name()));
-
-        out.append(",\"services\":[");
-        for (int i = 0; i < report.services().size(); i++) {
-            final UpdateReport.ServiceLine line = report.services().get(i);
-            if (i > 0) {
-                out.append(',');
-            }
-            out.append("{\"service\":")
-                    .append(quote(line.service()))
-                    .append(",\"state\":")
-                    .append(quote(line.state().name()))
-                    .append(",\"changes\":[");
-            for (int c = 0; c < line.changes().size(); c++) {
-                final UpdateReport.Change change = line.changes().get(c);
-                if (c > 0) {
-                    out.append(',');
-                }
-                out.append("{\"artefact\":")
-                        .append(quote(change.artefact()))
-                        .append(",\"from\":")
-                        .append(quote(change.from()))
-                        .append(",\"to\":")
-                        .append(quote(change.to()));
-                // Written only when not the default, so an older reader still parses ordinary reports.
-                if (change.state() != UpdateReport.Change.State.MOVING) {
-                    out.append(",\"state\":").append(quote(change.state().name()));
-                }
-                out.append('}');
-            }
-            out.append(']');
-            if (line.detail() != null) {
-                out.append(",\"detail\":").append(quote(line.detail()));
-            }
-            out.append('}');
-        }
-        out.append(']');
-
-        out.append(",\"notes\":[");
-        for (int i = 0; i < report.notes().size(); i++) {
-            if (i > 0) {
-                out.append(',');
-            }
-            out.append(quote(report.notes().get(i)));
-        }
-        out.append("]}");
-        return out.toString();
-    }
-
-    /** Quotes a value; {@code null} becomes the JSON literal, which is how nothing installed survives the trip. */
-    private static String quote(final @Nullable String value) {
-        if (value == null) {
-            return "null";
-        }
-        final StringBuilder out = new StringBuilder(value.length() + 2).append('"');
-        for (int i = 0; i < value.length(); i++) {
-            final char c = value.charAt(i);
-            switch (c) {
-                case '"' -> out.append("\\\"");
-                case '\\' -> out.append("\\\\");
-                case '\n' -> out.append("\\n");
-                case '\r' -> out.append("\\r");
-                case '\t' -> out.append("\\t");
-                default -> {
-                    if (c < 0x20) {
-                        out.append(String.format("\\u%04x", (int) c));
-                    } else {
-                        out.append(c);
-                    }
-                }
-            }
-        }
-        return out.append('"').toString();
+        return Json.encode(report);
     }
 
     /**
@@ -103,175 +28,9 @@ public final class UpdateReports {
             return Optional.empty();
         }
         try {
-            return Optional.of(new Reader(json).report());
+            return Optional.of(Json.decode(json, UpdateReport.class));
         } catch (final RuntimeException malformed) {
             return Optional.empty();
-        }
-    }
-
-    /** A cursor that reads only the shape {@link #toJson} writes and throws on anything else. */
-    private static final class Reader {
-
-        private final String text;
-        private int at;
-
-        Reader(final String text) {
-            this.text = text;
-        }
-
-        UpdateReport report() {
-            expect('{');
-            UpdateReport.Stage stage = UpdateReport.Stage.PLANNED;
-            final List<UpdateReport.ServiceLine> services = new ArrayList<>();
-            final List<String> notes = new ArrayList<>();
-
-            while (true) {
-                final String key = string();
-                expect(':');
-                switch (key) {
-                    case "stage" -> stage = UpdateReport.Stage.valueOf(string());
-                    case "services" -> readArray(() -> services.add(serviceLine()));
-                    case "notes" -> readArray(() -> notes.add(string()));
-                    default -> throw new IllegalStateException("unknown key: " + key);
-                }
-                if (!more('}')) {
-                    break;
-                }
-            }
-            return new UpdateReport(stage, services, notes);
-        }
-
-        private UpdateReport.ServiceLine serviceLine() {
-            expect('{');
-            String service = null;
-            UpdateReport.State state = UpdateReport.State.UNCHANGED;
-            final List<UpdateReport.Change> changes = new ArrayList<>();
-            String detail = null;
-
-            while (true) {
-                final String key = string();
-                expect(':');
-                switch (key) {
-                    case "service" -> service = string();
-                    case "state" -> state = UpdateReport.State.valueOf(string());
-                    case "changes" -> readArray(() -> changes.add(change()));
-                    case "detail" -> detail = nullableString();
-                    default -> throw new IllegalStateException("unknown key: " + key);
-                }
-                if (!more('}')) {
-                    break;
-                }
-            }
-            return new UpdateReport.ServiceLine(Objects.requireNonNull(service, "service"), state, changes, detail);
-        }
-
-        private UpdateReport.Change change() {
-            expect('{');
-            String artefact = null;
-            String from = null;
-            String to = null;
-            UpdateReport.Change.State state = UpdateReport.Change.State.MOVING;
-            while (true) {
-                final String key = string();
-                expect(':');
-                switch (key) {
-                    case "artefact" -> artefact = string();
-                    case "from" -> from = nullableString();
-                    case "to" -> to = string();
-                    case "state" -> state = UpdateReport.Change.State.valueOf(string());
-                    default -> throw new IllegalStateException("unknown key: " + key);
-                }
-                if (!more('}')) {
-                    break;
-                }
-            }
-            return new UpdateReport.Change(
-                    Objects.requireNonNull(artefact, "artefact"), from, Objects.requireNonNull(to, "to"), state);
-        }
-
-        /** Runs {@code element} once per array entry, and eats an empty array without calling it. */
-        private void readArray(final Runnable element) {
-            expect('[');
-            skipSpace();
-            if (peek() == ']') {
-                at++;
-                return;
-            }
-            while (true) {
-                element.run();
-                skipSpace();
-                if (peek() == ',') {
-                    at++;
-                    continue;
-                }
-                expect(']');
-                return;
-            }
-        }
-
-        /** Returns whether a comma followed, consuming the closing brace when it did not. */
-        private boolean more(final char close) {
-            skipSpace();
-            if (peek() == ',') {
-                at++;
-                return true;
-            }
-            expect(close);
-            return false;
-        }
-
-        private @Nullable String nullableString() {
-            skipSpace();
-            if (text.startsWith("null", at)) {
-                at += 4;
-                return null;
-            }
-            return string();
-        }
-
-        private String string() {
-            skipSpace();
-            expect('"');
-            final StringBuilder out = new StringBuilder();
-            while (true) {
-                final char c = text.charAt(at++);
-                if (c == '"') {
-                    return out.toString();
-                }
-                if (c != '\\') {
-                    out.append(c);
-                    continue;
-                }
-                final char escaped = text.charAt(at++);
-                switch (escaped) {
-                    case 'n' -> out.append('\n');
-                    case 'r' -> out.append('\r');
-                    case 't' -> out.append('\t');
-                    case 'u' -> {
-                        out.append((char) Integer.parseInt(text.substring(at, at + 4), 16));
-                        at += 4;
-                    }
-                    default -> out.append(escaped);
-                }
-            }
-        }
-
-        private void expect(final char c) {
-            skipSpace();
-            if (text.charAt(at) != c) {
-                throw new IllegalStateException("expected " + c + " at " + at);
-            }
-            at++;
-        }
-
-        private char peek() {
-            return text.charAt(at);
-        }
-
-        private void skipSpace() {
-            while (at < text.length() && Character.isWhitespace(text.charAt(at))) {
-                at++;
-            }
         }
     }
 }

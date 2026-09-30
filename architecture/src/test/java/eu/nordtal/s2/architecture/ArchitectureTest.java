@@ -56,7 +56,7 @@ class ArchitectureTest {
 
     @Test
     void theKernelDependsOnTheJdkAlone() {
-        onlyOn("eu.nordtal.s2.common..", "java..", "org.jspecify..", "eu.nordtal.s2.common..");
+        onlyOn("eu.nordtal.s2.common..", "java..", "org.jspecify..", "com.google.gson..", "eu.nordtal.s2.common..");
         onlyOn("eu.nordtal.s2.limboprotocol..", "java..", "org.jspecify..", "eu.nordtal.s2.limboprotocol..");
     }
 

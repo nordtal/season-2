@@ -139,10 +139,10 @@ class MessageSpecsTest {
                         new MessageSchema.Arg("separator", false),
                         new MessageSchema.Arg("_message", true)),
                 entries.get(8).args());
-        assertTrue(
-                MessageSchema.json(TestMessages.class)
-                        .contains(
-                                "{\"key\": \"greeting\", \"name\": \"Greeting\", \"format\": \"MINIMESSAGE\", \"shown\": \"CHAT\", \"args\": [{\"name\": \"player\", \"component\": false}], \"section\": []}"));
+        assertTrue(MessageSchema.json(TestMessages.class)
+                .contains(
+                        "{\"key\":\"greeting\",\"name\":\"Greeting\",\"args\":[{\"name\":\"player\",\"component\":false}],"
+                                + "\"section\":[],\"format\":\"MINIMESSAGE\",\"shown\":\"CHAT\"}"));
     }
 
     @Test

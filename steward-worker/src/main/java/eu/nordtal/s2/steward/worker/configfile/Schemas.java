@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SchemaWriter;
+import eu.nordtal.s2.common.json.Json;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 final class Schemas {
 
     private static final Logger LOG = LoggerFactory.getLogger(Schemas.class);
-    private static final Gson GSON = new Gson();
 
     private Schemas() {}
 
@@ -34,7 +33,7 @@ final class Schemas {
         }
         try {
             final String json = Files.readString(schemaFile, StandardCharsets.UTF_8);
-            final SchemaNode node = GSON.fromJson(json, SchemaNode.class);
+            final SchemaNode node = Json.decode(json, SchemaNode.class);
             if (node == null) {
                 LOG.warn("{} is empty; reading {} without a schema.", schemaFile, ymlFile);
                 return Optional.empty();

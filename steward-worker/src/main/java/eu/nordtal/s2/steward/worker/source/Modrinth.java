@@ -81,7 +81,7 @@ public final class Modrinth {
                 + "&loaders=" + encode("[\"" + loader + "\"]"));
 
         final String what = "Modrinth " + artifact + " (" + projectId + ") for " + gameVersion + "/" + loader;
-        final JsonArray versions = Json.array(http.get(uri), what);
+        final JsonArray versions = ApiFields.array(http.get(uri), what);
 
         // Decided from the artefact id alone, so no caller or config file can point it elsewhere.
         final boolean preReleasesCount = PRE_RELEASE_EXCEPTIONS.contains(artifact);
@@ -89,7 +89,7 @@ public final class Modrinth {
         final List<JsonObject> releases = new ArrayList<>();
         for (final JsonElement element : versions) {
             final JsonObject version = element.getAsJsonObject();
-            if (preReleasesCount || "release".equals(Json.optionalString(version, "version_type"))) {
+            if (preReleasesCount || "release".equals(ApiFields.optionalString(version, "version_type"))) {
                 releases.add(version);
             }
         }
@@ -109,20 +109,20 @@ public final class Modrinth {
 
         final JsonObject file = primaryFile(newest);
         if (file == null) {
-            throw new IOException(what + ": version " + Json.optionalString(newest, "version_number")
+            throw new IOException(what + ": version " + ApiFields.optionalString(newest, "version_number")
                     + " has no file marked \"primary\": true. Refusing to guess: this project"
                     + " publishes a -sources.jar alongside the real one, and the wrong guess is a"
                     + " plugin folder containing source code.");
         }
 
-        final JsonObject hashes = Json.child(file, "hashes");
-        final String sha512 = hashes == null ? null : Json.optionalString(hashes, "sha512");
+        final JsonObject hashes = ApiFields.child(file, "hashes");
+        final String sha512 = hashes == null ? null : ApiFields.optionalString(hashes, "sha512");
 
         return new RemoteFile(
                 artifact,
-                Json.string(newest, "version_number", what),
-                Json.string(file, "filename", what),
-                URI.create(Json.string(file, "url", what)),
+                ApiFields.string(newest, "version_number", what),
+                ApiFields.string(file, "filename", what),
+                URI.create(ApiFields.string(file, "url", what)),
                 sha512 == null ? null : Checksum.sha512(sha512));
     }
 
@@ -163,7 +163,7 @@ public final class Modrinth {
                 SEARCH + "?query=" + encode(query.strip()) + "&limit=" + SEARCH_LIMIT + "&facets=" + encode(facets));
 
         final String what = "Modrinth search for \"" + query.strip() + "\" on " + loader + "/" + gameVersion;
-        final JsonObject answer = Json.object(http.get(uri), what);
+        final JsonObject answer = ApiFields.object(http.get(uri), what);
         final JsonElement hits = answer.get("hits");
         if (hits == null || !hits.isJsonArray()) {
             throw new IOException(what + ": the answer carries no \"hits\" array.");
@@ -172,8 +172,8 @@ public final class Modrinth {
         final List<Hit> found = new ArrayList<>();
         for (final JsonElement element : hits.getAsJsonArray()) {
             final JsonObject hit = element.getAsJsonObject();
-            final String projectId = Json.optionalString(hit, "project_id");
-            final String slug = Json.optionalString(hit, "slug");
+            final String projectId = ApiFields.optionalString(hit, "project_id");
+            final String slug = ApiFields.optionalString(hit, "slug");
             if (projectId == null || slug == null) {
                 // Skipped rather than refused, so one odd row costs no other result.
                 continue;
@@ -181,11 +181,11 @@ public final class Modrinth {
             found.add(new Hit(
                     projectId,
                     slug,
-                    java.util.Objects.requireNonNullElse(Json.optionalString(hit, "title"), slug),
-                    Json.optionalString(hit, "description"),
-                    Json.optionalString(hit, "icon_url"),
+                    java.util.Objects.requireNonNullElse(ApiFields.optionalString(hit, "title"), slug),
+                    ApiFields.optionalString(hit, "description"),
+                    ApiFields.optionalString(hit, "icon_url"),
                     PAGE + slug,
-                    Json.number(hit, "downloads", 0L)));
+                    ApiFields.number(hit, "downloads", 0L)));
         }
         return List.copyOf(found);
     }
@@ -214,7 +214,7 @@ public final class Modrinth {
             }
             throw answered;
         }
-        return Json.string(Json.object(body, "Modrinth version_file"), "project_id", "Modrinth version_file");
+        return ApiFields.string(ApiFields.object(body, "Modrinth version_file"), "project_id", "Modrinth version_file");
     }
 
     /** Name, slug and icon of each of {@code projectIds}, in one request; unknown ids are left out. */
@@ -226,20 +226,20 @@ public final class Modrinth {
                 .map(id -> "\"" + id + "\"")
                 .collect(java.util.stream.Collectors.joining(",", "[", "]"));
         final JsonArray answer =
-                Json.array(http.get(URI.create(PROJECTS + "?ids=" + encode(ids))), "Modrinth projects");
+                ApiFields.array(http.get(URI.create(PROJECTS + "?ids=" + encode(ids))), "Modrinth projects");
         final List<Project> found = new ArrayList<>();
         for (final JsonElement element : answer) {
             final JsonObject project = element.getAsJsonObject();
-            final String id = Json.optionalString(project, "id");
-            final String slug = Json.optionalString(project, "slug");
+            final String id = ApiFields.optionalString(project, "id");
+            final String slug = ApiFields.optionalString(project, "slug");
             if (id == null || slug == null) {
                 continue;
             }
             found.add(new Project(
                     id,
                     slug,
-                    java.util.Objects.requireNonNullElse(Json.optionalString(project, "title"), slug),
-                    Json.optionalString(project, "icon_url"),
+                    java.util.Objects.requireNonNullElse(ApiFields.optionalString(project, "title"), slug),
+                    ApiFields.optionalString(project, "icon_url"),
                     PAGE + slug));
         }
         return List.copyOf(found);
@@ -252,7 +252,7 @@ public final class Modrinth {
         }
         for (final JsonElement element : files.getAsJsonArray()) {
             final JsonObject file = element.getAsJsonObject();
-            if (Json.bool(file, "primary", false)) {
+            if (ApiFields.bool(file, "primary", false)) {
                 return file;
             }
         }
@@ -260,7 +260,7 @@ public final class Modrinth {
     }
 
     private static Instant published(final JsonObject version) {
-        final String raw = Json.optionalString(version, "date_published");
+        final String raw = ApiFields.optionalString(version, "date_published");
         if (raw == null) {
             return Instant.EPOCH;
         }

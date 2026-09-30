@@ -1,6 +1,6 @@
 package eu.nordtal.s2.limbo.listener;
 
-import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.FullServerAdmission;
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
 import java.util.Objects;
@@ -19,11 +19,11 @@ import org.slf4j.Logger;
  */
 public final class FullServerGate implements Listener {
 
-    private final AccessDirectory access;
+    private final AccessReader access;
     private final FullServerAdmission admission;
     private final Logger logger;
 
-    public FullServerGate(final AccessDirectory access, final FullServerAdmission admission, final Logger logger) {
+    public FullServerGate(final AccessReader access, final FullServerAdmission admission, final Logger logger) {
         this.access = Objects.requireNonNull(access, "access");
         this.admission = Objects.requireNonNull(admission, "admission");
         this.logger = Objects.requireNonNull(logger, "logger");

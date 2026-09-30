@@ -4,7 +4,7 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AccessState;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,7 +23,7 @@ public final class ExpiryWatch {
 
     private final ProxyServer proxy;
     private final Logger logger;
-    private final AccessDirectory access;
+    private final AccessReader access;
     private final FallbackCache fallback;
     private final GateMessages messages;
     private final Duration warningLead;
@@ -34,7 +34,7 @@ public final class ExpiryWatch {
     public ExpiryWatch(
             final ProxyServer proxy,
             final Logger logger,
-            final AccessDirectory access,
+            final AccessReader access,
             final FallbackCache fallback,
             final GateMessages messages,
             final Duration warningLead) {

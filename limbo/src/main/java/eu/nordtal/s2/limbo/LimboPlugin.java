@@ -8,7 +8,7 @@ import eu.nordtal.s2.commands.limbo.LimboCommands;
 import eu.nordtal.s2.commands.limbo.LimboEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.health.Readiness;
-import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.database.command.AllowlistDirectory;
@@ -52,7 +52,7 @@ public final class LimboPlugin extends JavaPlugin {
     private ToneColours colours;
 
     private HikariDataSource pool;
-    private AccessDirectory access;
+    private AccessReader access;
     private AdminWatch adminWatch;
 
     /** What a non-admin may type here, and what their client is told exists. */
@@ -89,7 +89,7 @@ public final class LimboPlugin extends JavaPlugin {
         final WaitingWorld world = requireWorld(config);
 
         pool = LimboPool.open(databaseHandle.get());
-        access = AccessDirectory.using(pool);
+        access = AccessReader.using(pool);
         final PlayerLocales locales = new PlayerLocales(access::locale);
         final Messages messages = loadMessages();
 
@@ -267,7 +267,6 @@ public final class LimboPlugin extends JavaPlugin {
         if (adminWatch != null) {
             quietly("adminWatch.close", adminWatch::close);
         }
-        // access.close() is a no-op, since AccessDirectory.using(...) never owns the pool it is handed.
         if (commandWaiter != null) {
             // Before the pool: a wait in flight reads the request row through it.
             quietly("commandWaiter.shutdownNow", commandWaiter::shutdownNow);

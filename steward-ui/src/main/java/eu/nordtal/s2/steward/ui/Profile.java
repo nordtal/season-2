@@ -102,7 +102,7 @@ final class Profile {
      */
     private Optional<String> avatarOf(final String discordId) {
         try {
-            return data().roster()
+            return data().access()
                     .personOf(discordId)
                     .map(Person::discordAvatarUrl)
                     .filter(url -> url != null && !url.isBlank());

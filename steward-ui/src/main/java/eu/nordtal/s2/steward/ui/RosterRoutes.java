@@ -19,22 +19,20 @@ final class RosterRoutes {
     }
 
     void people(final Context ctx) {
-        ctx.json(data().roster().people(StewardUi.limit(ctx, 500, 2000)));
+        ctx.json(data().access().people(StewardUi.limit(ctx, 500, 2000)));
     }
 
     void grants(final Context ctx) {
-        ctx.json(data().roster().grantsOf(ctx.pathParam("id")));
+        ctx.json(data().access().grantsOf(ctx.pathParam("id")));
     }
 
     void payments(final Context ctx) {
-        ctx.json(data().roster().payments(StewardUi.limit(ctx, 200, 1000)));
+        ctx.json(data().payments().recent(StewardUi.limit(ctx, 200, 1000)));
     }
 
-    /**
-     * What {@code access settle} may be pointed at; a list, not a limit, as {@code RosterDirectory#openPayments} says.
-     */
+    /** What {@code access settle} may be pointed at: every open request, oldest first and without a limit. */
     void openPayments(final Context ctx) {
-        ctx.json(data().roster().openPayments());
+        ctx.json(data().payments().allOpen());
     }
 
     void journal(final Context ctx) {

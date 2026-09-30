@@ -1,7 +1,5 @@
 package eu.nordtal.s2.database.access;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.common.language.Locales;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -24,45 +22,19 @@ import org.jspecify.annotations.Nullable;
  */
 final class JdbiAccessDirectory implements AccessDirectory {
 
-    /** Small on purpose: the proxy's login path is the only hot caller and it is one query. */
-    private static final int DEFAULT_MAXIMUM_POOL_SIZE = 5;
-
     private final Jdbi jdbi;
     private final AccessDao dao;
-    private final @Nullable HikariDataSource ownedPool;
+    private final PersonDao people;
 
-    private JdbiAccessDirectory(final DataSource dataSource, final @Nullable HikariDataSource ownedPool) {
+    private JdbiAccessDirectory(final DataSource dataSource) {
         this.jdbi = Jdbi.create(dataSource).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
         this.dao = jdbi.onDemand(AccessDao.class);
-        this.ownedPool = ownedPool;
+        this.people = jdbi.onDemand(PersonDao.class);
     }
 
     static AccessDirectory borrowing(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        return new JdbiAccessDirectory(dataSource, null);
-    }
-
-    static AccessDirectory owning(final String jdbcUrl, final String username, final String password) {
-        Objects.requireNonNull(jdbcUrl, "jdbcUrl");
-        if (!jdbcUrl.startsWith("jdbc:")) {
-            throw new IllegalArgumentException("jdbcUrl must start with \"jdbc:\", got: " + jdbcUrl);
-        }
-
-        final HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(jdbcUrl);
-        config.setUsername(username);
-        config.setPassword(password);
-        config.setPoolName("nordtal-access");
-        config.setMaximumPoolSize(DEFAULT_MAXIMUM_POOL_SIZE);
-
-        // HikariCP's default initializationFailTimeout makes this fail at startup, not on the first login.
-        final HikariDataSource pool = new HikariDataSource(config);
-        try {
-            return new JdbiAccessDirectory(pool, pool);
-        } catch (final RuntimeException exception) {
-            pool.close();
-            throw exception;
-        }
+        return new JdbiAccessDirectory(dataSource);
     }
 
     @Override
@@ -115,6 +87,17 @@ final class JdbiAccessDirectory implements AccessDirectory {
     @Override
     public List<AccessGrant> grantsOf(final String discordId) {
         return dao.grantsOf(Objects.requireNonNull(discordId, "discordId"));
+    }
+
+    @Override
+    public List<Person> people(final int limit) {
+        // At least one row, since LIMIT 0 would look like an empty database.
+        return people.people(Math.max(1, limit));
+    }
+
+    @Override
+    public java.util.Optional<Person> personOf(final String discordId) {
+        return people.personOf(Objects.requireNonNull(discordId, "discordId"));
     }
 
     @Override
@@ -202,13 +185,6 @@ final class JdbiAccessDirectory implements AccessDirectory {
     @Override
     public int revokeAccess(final String discordId) {
         return dao.revokeAccess(Objects.requireNonNull(discordId, "discordId"));
-    }
-
-    @Override
-    public void close() {
-        if (ownedPool != null) {
-            ownedPool.close();
-        }
     }
 
     /** PostgreSQL's SQLSTATE for a unique-constraint violation. */

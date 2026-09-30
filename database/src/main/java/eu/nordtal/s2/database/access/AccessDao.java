@@ -214,7 +214,7 @@ interface AccessDao {
             SELECT id, discord_id, valid_from, valid_until, source, payment_request_id, revoked, created
             FROM access_grant
             WHERE discord_id = :discordId
-            ORDER BY valid_from ASC, created ASC
+            ORDER BY valid_from DESC, created DESC
             """)
     @RegisterRowMapper(AccessGrantMapper.class)
     java.util.List<AccessGrant> grantsOf(@Bind("discordId") String discordId);

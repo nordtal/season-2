@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.ui.push;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,8 +17,6 @@ import org.jspecify.annotations.Nullable;
  */
 final class WorkerAlertLevelSource implements AlertLevelSource {
 
-    private static final Gson GSON = new Gson();
-
     private final InternalClient worker;
 
     WorkerAlertLevelSource(final InternalClient worker) {
@@ -27,7 +25,7 @@ final class WorkerAlertLevelSource implements AlertLevelSource {
 
     @Override
     public AlertReading current() {
-        final JsonObject body = GSON.fromJson(worker.get("/api/alert-level"), JsonObject.class);
+        final JsonObject body = Json.decode(worker.get("/api/alert-level"), JsonObject.class);
         if (body == null) {
             return new AlertReading(List.of(), null, null, null);
         }

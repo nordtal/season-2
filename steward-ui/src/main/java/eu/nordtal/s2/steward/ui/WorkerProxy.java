@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.ui;
 
-import com.google.gson.Gson;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import io.javalin.http.BadRequestResponse;
@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 final class WorkerProxy {
 
     private static final Logger log = LoggerFactory.getLogger(WorkerProxy.class);
-    private static final Gson GSON = new Gson();
 
     /** The shape a backup name must have before it becomes a URL segment and a header value. */
     private static final Pattern FILENAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
@@ -107,10 +106,10 @@ final class WorkerProxy {
     /** Takes the name on the row from the session, never from the browser. */
     void installPlugin(final Context ctx) {
         final DiscordAuth.Account who = accounts.apply(ctx);
-        final Map<String, Object> body =
-                new java.util.LinkedHashMap<>(GSON.<Map<String, Object>>fromJson(ctx.body(), Map.class));
+        final Map<String, Object> body = new java.util.LinkedHashMap<>(
+                Json.decode(ctx.body(), new com.google.gson.reflect.TypeToken<Map<String, Object>>() {}));
         body.put("by", who.name() + " (" + who.id() + ")");
-        forwardWorker(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins", GSON.toJson(body), 201);
+        forwardWorker(ctx, "/api/services/" + ctx.pathParam("name") + "/plugins", Json.encode(body), 201);
     }
 
     void removePlugin(final Context ctx) {

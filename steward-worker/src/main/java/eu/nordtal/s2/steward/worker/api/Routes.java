@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import com.google.gson.Gson;
+import eu.nordtal.s2.common.json.Json;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.json.JavalinGson;
@@ -13,7 +13,7 @@ final class Routes {
 
     /** Wires every route onto {@code config}. */
     static void register(final WorkerApi api, final JavalinConfig config) {
-        config.jsonMapper(new JavalinGson(new Gson(), true));
+        config.jsonMapper(new JavalinGson(Json.gson(), true));
         config.startup.showJavalinBanner = false;
 
         gate(api, config);

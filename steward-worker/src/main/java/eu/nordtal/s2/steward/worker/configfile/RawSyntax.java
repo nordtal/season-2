@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
-import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import eu.nordtal.s2.common.json.Json;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Locale;
@@ -121,7 +121,7 @@ public final class RawSyntax {
             return Optional.empty();
         }
         try {
-            final var _ = JsonParser.parseString(content);
+            final var _ = Json.tree(content);
             return Optional.empty();
         } catch (final JsonSyntaxException | IllegalStateException e) {
             final String message = e.getMessage() == null ? e.toString() : e.getMessage();

@@ -1,8 +1,8 @@
 package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.AccessRequest;
 import eu.nordtal.s2.database.access.AccessRequestKind;
 import eu.nordtal.s2.database.access.AccessRequestSource;
@@ -129,7 +129,7 @@ final class AccessApi {
     /** The bot's answer as an object; a row that does not parse is shown as text. */
     private static Object parsed(final String result) {
         try {
-            final JsonElement element = JsonParser.parseString(result);
+            final JsonElement element = Json.tree(result);
             return element.isJsonObject() ? element : Map.of("text", result);
         } catch (final JsonSyntaxException notJson) {
             return Map.of("text", result);

@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.deployer;
 
-import com.google.gson.Gson;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.common.time.NetworkTime;
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
@@ -130,7 +130,7 @@ public final class StewardDeployer {
 
     private static void configureRoutes(
             final io.javalin.config.JavalinConfig config, final Compose compose, final Jobs jobs, final String token) {
-        config.jsonMapper(new JavalinGson(new Gson(), true));
+        config.jsonMapper(new JavalinGson(Json.gson(), true));
         config.startup.showJavalinBanner = false;
 
         config.routes.before("/api/*", ctx -> {

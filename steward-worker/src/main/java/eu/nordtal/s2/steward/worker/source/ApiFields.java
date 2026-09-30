@@ -3,15 +3,15 @@ package eu.nordtal.s2.steward.worker.source;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import eu.nordtal.s2.common.json.Json;
 import java.io.IOException;
 import org.jspecify.annotations.Nullable;
 
 /** Reads the three APIs' JSON with raw gson, naming the field in the message when it is missing. */
-final class Json {
+final class ApiFields {
 
-    private Json() {}
+    private ApiFields() {}
 
     static JsonObject object(final String body, final String what) throws IOException {
         return element(body, what).getAsJsonObject();
@@ -28,7 +28,7 @@ final class Json {
 
     private static JsonElement element(final String body, final String what) throws IOException {
         try {
-            return JsonParser.parseString(body);
+            return Json.tree(body);
         } catch (final JsonSyntaxException malformed) {
             throw new IOException(what + ": the response was not JSON", malformed);
         }

@@ -17,6 +17,10 @@ repositoryRootTestInputs {
 dependencies {
     api(project(":common"))
 
+    // The kernel's JSON codec runs on Gson, which every consumer has at runtime and none shades.
+    compileOnly(libs.gson)
+    testImplementation(libs.gson)
+
     // No Adventure here: the bot and Steward load this module, and neither has Adventure at runtime.
     compileOnly(libs.slf4j.api)
 

@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.ui.auth;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
 import java.io.IOException;
 import java.net.URI;
@@ -35,7 +35,6 @@ public final class DiscordAuth {
 
     private static final String AUTHORIZE = "https://discord.com/oauth2/authorize";
     private static final String SCOPES = "identify guilds.members.read";
-    private static final Gson GSON = new Gson();
 
     private final UiSpec.DiscordSpec config;
     private final String redirectUri;
@@ -174,7 +173,7 @@ public final class DiscordAuth {
                             + "is a redirect URI that is not registered on the application: this one sends "
                             + redirectUri);
         }
-        final JsonObject json = GSON.fromJson(response.body(), JsonObject.class);
+        final JsonObject json = Json.decode(response.body(), JsonObject.class);
         if (json == null || !json.has("access_token")) {
             throw new AuthException(502, "Discord's answer carried no access token");
         }
@@ -189,7 +188,7 @@ public final class DiscordAuth {
             throw new AuthException(
                     response.statusCode(), "Discord answered " + response.statusCode() + " for " + path);
         }
-        return GSON.fromJson(response.body(), JsonObject.class);
+        return Json.decode(response.body(), JsonObject.class);
     }
 
     /** Every call to Discord, each under the {@link #ANSWER} deadline. */

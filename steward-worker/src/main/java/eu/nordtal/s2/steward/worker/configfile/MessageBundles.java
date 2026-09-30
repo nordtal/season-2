@@ -4,7 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.steward.worker.plan.JarName;
 import java.io.IOException;
 import java.io.InputStream;
@@ -243,7 +243,7 @@ public final class MessageBundles {
             final MessageBundleLocation location, final String name, final InputStream in) throws IOException {
         final String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         try {
-            final JsonObject root = JsonParser.parseString(text).getAsJsonObject();
+            final JsonObject root = Json.tree(text).getAsJsonObject();
             final Map<String, List<String>> properties = contextProperties(root);
             final List<MessageArg> globals = globalsOf(root, properties);
             final List<SchemaEntry> answer = new ArrayList<>();

@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.ui.discord;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
 import java.io.IOException;
 import java.net.URI;
@@ -29,7 +29,6 @@ public final class DiscordDirectory {
 
     private static final Logger log = LoggerFactory.getLogger(DiscordDirectory.class);
 
-    private static final Gson GSON = new Gson();
     private static final Duration CONNECT = Duration.ofSeconds(5);
     private static final Duration ANSWER = Duration.ofSeconds(10);
 
@@ -146,7 +145,7 @@ public final class DiscordDirectory {
                         default -> "Discord answered " + response.statusCode() + ".";
                     });
         }
-        return GSON.fromJson(response.body(), JsonArray.class);
+        return Json.decode(response.body(), JsonArray.class);
     }
 
     /** One thing that can be picked; {@code type} is Discord's channel type, or {@code null} for a role. */

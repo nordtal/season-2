@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.ui.push;
 
-import com.google.gson.Gson;
+import eu.nordtal.s2.common.json.Json;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 public final class AlertWatch {
 
     private static final Logger log = LoggerFactory.getLogger(AlertWatch.class);
-    private static final Gson GSON = new Gson();
 
     private final AlertLevelSource source;
     private final PushSubscriptions subscriptions;
@@ -173,7 +172,7 @@ public final class AlertWatch {
         body.put("level", alert == null ? "ok" : alert.level());
         body.put("subject", named == null ? "" : named.subject());
         body.put("path", named == null ? "/" : named.path());
-        return GSON.toJson(body);
+        return Json.encode(body);
     }
 
     private static String describe(final Alerts.@Nullable Alert alert) {

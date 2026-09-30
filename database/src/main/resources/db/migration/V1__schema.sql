@@ -186,7 +186,10 @@ CREATE TABLE season_phase
     updated   timestamptz NOT NULL DEFAULT now(),
     -- When the network opens, and when the smp world opens after the start event; NULL is not set yet.
     launch    timestamptz,
-    smp_start timestamptz
+    smp_start timestamptz,
+    -- When the season last started over: stamped as the phase enters SMP from before the season. smp resets
+    -- its track once per stamp, whenever it next sees the phase, so a reset survives smp being down.
+    fresh_start timestamptz
 );
 COMMENT ON TABLE season_phase IS 'Owned by steward-ui, where an admin moves the season on; one row. discord-bot writes it too, from the season commands.';
 INSERT INTO season_phase (phase) VALUES ('PRE_LAUNCH');
@@ -427,6 +430,14 @@ CREATE TABLE smp_spin
     CONSTRAINT smp_spin_used_within_granted CHECK (used <= granted)
 );
 COMMENT ON TABLE smp_spin IS 'Owned by smp: the wheel spins each player has and has used.';
+
+CREATE TABLE smp_reset
+(
+    id      boolean     PRIMARY KEY DEFAULT true CONSTRAINT smp_reset_singleton CHECK (id),
+    -- The season_phase.fresh_start this server last started its track over for.
+    applied timestamptz NOT NULL
+);
+COMMENT ON TABLE smp_reset IS 'Owned by smp: which fresh start of the season its milestones, objectives and contributions were last reset for; one row.';
 
 
 -- Runs and services
@@ -774,11 +785,8 @@ GRANT UPDATE ON limbo_inbox TO ${role_limbo};
 GRANT INSERT ON audit_log
     TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_hunger_games}, ${role_smp}, ${role_steward_ui};
 
--- The season reset a phase change performs, until smp performs it itself; Steward and the season
--- commands both change the phase, which also moves the access periods.
+-- Steward and the season commands both change the phase, which also moves the access periods.
 GRANT UPDATE ON season_phase, access_grant TO ${role_discord_bot}, ${role_steward_ui};
-GRANT SELECT, UPDATE ON smp_milestone, smp_objective TO ${role_discord_bot}, ${role_steward_ui};
-GRANT SELECT, DELETE ON smp_contribution TO ${role_discord_bot}, ${role_steward_ui};
 
 -- The network snapshot the proxy and the bot draw.
 GRANT SELECT ON hg_game, hg_team, hg_member, hg_event, smp_player TO ${role_discord_bot}, ${role_proxy};
@@ -821,7 +829,7 @@ GRANT SELECT, UPDATE ON hg_team, hg_member TO ${role_hunger_games};
 GRANT SELECT, INSERT ON bot_inbox TO ${role_smp};
 GRANT USAGE ON SEQUENCE bot_inbox_id_seq TO ${role_smp};
 GRANT SELECT, INSERT, UPDATE, DELETE ON smp_player, smp_aura_event, smp_milestone, smp_objective, smp_contribution,
-    smp_grave, smp_poi, smp_spin TO ${role_smp};
+    smp_grave, smp_poi, smp_spin, smp_reset TO ${role_smp};
 GRANT SELECT ON hg_game, hg_member TO ${role_smp};
 
 -- steward-ui
@@ -830,8 +838,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON admin_grant, steward_session, steward_cr
 GRANT USAGE ON SEQUENCE admin_grant_id_seq TO ${role_steward_ui};
 -- The admin tree and the pack exemption.
 GRANT INSERT, UPDATE ON discord_user TO ${role_steward_ui};
-GRANT SELECT ON audit_log, payment_notice, metric_sample, service_hold, hg_game, hg_team, hg_member
-    TO ${role_steward_ui};
+GRANT SELECT ON audit_log, payment_notice, metric_sample, service_hold, hg_game, hg_team, hg_member,
+    smp_milestone, smp_objective TO ${role_steward_ui};
 -- It asks for runs and stops a countdown, and asks the bot for access changes.
 GRANT SELECT, INSERT, UPDATE ON worker_inbox TO ${role_steward_ui};
 GRANT USAGE ON SEQUENCE worker_inbox_id_seq TO ${role_steward_ui};

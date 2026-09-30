@@ -33,29 +33,20 @@ interface PhaseDao {
             WITH previous AS (
                 SELECT phase FROM season_phase WHERE id
             ),
+                 -- Entering SMP from before the season starts the milestone track over, which smp does when it
+                 -- sees the stamp. From MAINTENANCE, a mid-season break keeps its progress.
                  switched AS (
                      UPDATE season_phase
-                     SET phase = :phase, updated = now()
+                     SET phase = :phase,
+                         updated = now(),
+                         fresh_start = CASE
+                             WHEN (SELECT phase FROM previous) IN ('PRE_LAUNCH', 'PRE_EVENT', 'START_EVENT')
+                                  AND cast(:phase AS text) = 'SMP'
+                             THEN now()
+                             ELSE fresh_start
+                         END
                      WHERE id
                      RETURNING phase, updated
-                 ),
-                 -- Entering SMP from before the season starts the milestone track over; the SMP server
-                 -- activates the first milestone. From MAINTENANCE, a mid-season break keeps its progress.
-                 fresh_start AS (
-                     SELECT 1 FROM previous
-                     WHERE previous.phase IN ('PRE_LAUNCH', 'PRE_EVENT', 'START_EVENT')
-                       AND cast(:phase AS text) = 'SMP'
-                 ),
-                 cleared_contributions AS (
-                     DELETE FROM smp_contribution WHERE EXISTS (SELECT 1 FROM fresh_start)
-                 ),
-                 cleared_objectives AS (
-                     UPDATE smp_objective SET amount = 0, completed = NULL
-                     WHERE EXISTS (SELECT 1 FROM fresh_start)
-                 ),
-                 locked_milestones AS (
-                     UPDATE smp_milestone SET state = 'LOCKED', unlocked = NULL
-                     WHERE EXISTS (SELECT 1 FROM fresh_start)
                  ),
                  audited AS (
                      INSERT INTO audit_log (action, actor, detail)

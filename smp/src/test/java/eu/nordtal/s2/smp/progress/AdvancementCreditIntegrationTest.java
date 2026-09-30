@@ -18,8 +18,13 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.bukkit.NamespacedKey;
@@ -30,7 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * An earned advancement reaches the objective row of the active milestone's gate that names it.
+ * A gate counts every player who holds its advancement, each once, however long ago they earned it.
  *
  * Below its target a credit touches only the database and the track, so the ceremony's collaborators are absent.
  */
@@ -46,6 +51,11 @@ class AdvancementCreditIntegrationTest {
     private Jdbi jdbi;
     private MilestoneTrack track;
     private ObjectiveEngine engine;
+    private GateHolders gates;
+
+    private final Set<UUID> online = new HashSet<>();
+    private final Set<NamespacedKey> held = new HashSet<>();
+    private final List<Collection<UUID>> reads = new ArrayList<>();
 
     @BeforeAll
     void startDatabase() {
@@ -75,6 +85,17 @@ class AdvancementCreditIntegrationTest {
                 Clock.systemUTC());
         engine = new ObjectiveEngine(
                 null, dao, () -> track, null, null, null, messages, null, null, null, null, announcer);
+
+        online.clear();
+        held.clear();
+        reads.clear();
+        gates = new GateHolders(
+                () -> track,
+                new FakeServer(),
+                player -> MINECRAFT_ID.equals(player) ? Optional.of(PLAYER) : Optional.empty(),
+                Runnable::run,
+                Runnable::run,
+                engine);
     }
 
     @Test
@@ -100,6 +121,105 @@ class AdvancementCreditIntegrationTest {
 
         assertEquals(1L, engine.creditAdvancement(PLAYER, IRON_TOOLS, MINECRAFT_ID));
         assertEquals(1L, amountOf("foothold", "iron-tools"));
+    }
+
+    @Test
+    void aRevokedAndRegrantedAdvancementCountsItsPlayerOnce() {
+        assertEquals(1L, engine.creditAdvancement(PLAYER, IRON_TOOLS, MINECRAFT_ID));
+        assertEquals(
+                0L, engine.creditAdvancement(PLAYER, IRON_TOOLS, MINECRAFT_ID), "earned again, nobody new holds it");
+
+        assertEquals(1L, amountOf("foothold", "iron-tools"), "the gate counts distinct players");
+        assertEquals(1L, contributionOf("iron-tools"), "and the player's share of the pot stays 1");
+    }
+
+    @Test
+    void aPlayerWhoAlreadyHoldsTheGateCountsWhenItsMilestoneBecomesActive() {
+        online.add(MINECRAFT_ID);
+        held.add(MINE_DIAMOND);
+        gates.setActiveMilestone(Optional.of("foothold"));
+
+        settlementBecomesActive();
+        gates.setActiveMilestone(Optional.of("settlement"));
+
+        assertEquals(
+                1L, amountOf("settlement", "mine-diamond"), "earned under foothold, counted once settlement is on");
+        assertEquals(1L, contributionOf("mine-diamond"));
+    }
+
+    @Test
+    void aPlayerOfflineWhenItsMilestoneBecomesActiveCountsWhenTheyJoin() {
+        held.add(MINE_DIAMOND);
+        settlementBecomesActive();
+        gates.setActiveMilestone(Optional.of("settlement"));
+        assertEquals(0L, amountOf("settlement", "mine-diamond"), "nobody online holds it");
+
+        online.add(MINECRAFT_ID);
+        gates.joined(MINECRAFT_ID);
+
+        assertEquals(1L, amountOf("settlement", "mine-diamond"));
+    }
+
+    @Test
+    void aHolderCountsOnceHoweverOftenTheGateIsRead() {
+        online.add(MINECRAFT_ID);
+        held.add(IRON_TOOLS);
+        gates.setActiveMilestone(Optional.of("foothold"));
+        gates.joined(MINECRAFT_ID);
+        gates.joined(MINECRAFT_ID);
+        track = track("story/iron_tools");
+        gates.setActiveMilestone(Optional.of("foothold"));
+
+        assertEquals(1L, amountOf("foothold", "iron-tools"));
+        assertEquals(1L, contributionOf("iron-tools"));
+    }
+
+    @Test
+    void aPlayerWithoutTheActiveGatesAdvancementDoesNotCount() {
+        online.add(MINECRAFT_ID);
+        held.add(MINE_DIAMOND);
+        gates.setActiveMilestone(Optional.of("foothold"));
+        gates.joined(MINECRAFT_ID);
+
+        assertEquals(0L, amountOf("foothold", "iron-tools"));
+        assertEquals(0L, amountOf("settlement", "mine-diamond"), "settlement is not active yet");
+    }
+
+    @Test
+    void everyoneOnlineIsReadOnlyWhenTheActiveGateChanges() {
+        online.add(MINECRAFT_ID);
+        gates.setActiveMilestone(Optional.of("foothold"));
+        gates.setActiveMilestone(Optional.of("foothold"));
+        assertEquals(1, reads.size(), "the refresh every five seconds does not read everyone again");
+
+        track = track("story/iron_tools");
+        gates.setActiveMilestone(Optional.of("foothold"));
+        assertEquals(2, reads.size(), "a reloaded track may name another advancement");
+
+        settlementBecomesActive();
+        gates.setActiveMilestone(Optional.of("settlement"));
+        assertEquals(3, reads.size());
+    }
+
+    /** A server whose online players and their advancements the test sets; only {@link #MINECRAFT_ID} holds any. */
+    private final class FakeServer implements GateHolders.Server {
+
+        @Override
+        public Collection<UUID> online() {
+            final List<UUID> now = List.copyOf(online);
+            reads.add(now);
+            return now;
+        }
+
+        @Override
+        public boolean holds(final UUID player, final NamespacedKey advancement) {
+            return online.contains(player) && MINECRAFT_ID.equals(player) && held.contains(advancement);
+        }
+    }
+
+    private void settlementBecomesActive() {
+        execute("UPDATE smp_milestone SET state = 'UNLOCKED', unlocked = now() WHERE key = 'foothold'");
+        execute("UPDATE smp_milestone SET state = 'ACTIVE' WHERE key = 'settlement'");
     }
 
     private static MilestoneTrack track(final String footholdGate) {

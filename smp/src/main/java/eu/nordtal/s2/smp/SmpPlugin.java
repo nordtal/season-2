@@ -39,6 +39,7 @@ import eu.nordtal.s2.smp.npc.SpawnNpc;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
+import eu.nordtal.s2.smp.progress.GateHolders;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
 import eu.nordtal.s2.smp.progress.StatisticPoller;
 import eu.nordtal.s2.smp.region.Box;
@@ -138,6 +139,7 @@ public final class SmpPlugin extends JavaPlugin {
     final Navigation navigation = new Navigation();
     ObjectiveEngine engine;
     StatisticPoller poller;
+    GateHolders gates;
     Graves graves;
     Duels duels;
     SpawnNpc npc;
@@ -216,6 +218,7 @@ public final class SmpPlugin extends JavaPlugin {
         final SmpStart.Progress progress = SmpStart.wireProgressEngine(this, config, surfaces.effects());
         engine = progress.engine();
         poller = progress.poller();
+        gates = progress.gates();
 
         final SmpStart.Activities activities = SmpStart.wireActivities(this, config, surfaces.effects());
         graves = activities.graves();
@@ -421,6 +424,7 @@ public final class SmpPlugin extends JavaPlugin {
                     key -> season.refreshActive(key, dao.objectivesOf(key)),
                     () -> season.refreshActive(null, java.util.List.of()));
             poller.setActiveMilestone(active);
+            gates.setActiveMilestone(active);
             boards.setLeaderboard(dao.topAura(10));
         } catch (final RuntimeException exception) {
             // Surfaces keep showing what they last knew.

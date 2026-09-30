@@ -2,6 +2,7 @@ package eu.nordtal.s2.hungergames.game;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
@@ -238,7 +239,7 @@ public final class HungerGamesManager {
     private String resolveDisplayName(final Participant participant) {
         final OfflinePlayer offline = plugin.getServer().getOfflinePlayer(participant.mcUuid());
         final String name = offline.getName();
-        return name != null ? name : participant.discordId();
+        return name != null ? name : participant.discordId().value();
     }
 
     private void release(final UUID gameId, final List<Participant> participants) {
@@ -265,7 +266,7 @@ public final class HungerGamesManager {
         }
     }
 
-    public Optional<HgMember> activeMemberByDiscordId(final UUID gameId, final String discordId) {
+    public Optional<HgMember> activeMemberByDiscordId(final UUID gameId, final DiscordId discordId) {
         return dao.activeMembersOf(gameId).stream()
                 .filter(member -> member.discordId().equals(discordId))
                 .findFirst();

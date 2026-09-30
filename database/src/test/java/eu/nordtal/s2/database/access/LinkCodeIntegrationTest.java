@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.AccessSchema;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -127,20 +128,23 @@ class LinkCodeIntegrationTest {
     void redeemingAValidCodeLinksTheAccountAndDeletesTheCode() {
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
 
-        final LinkRedemption result = directory.redeemLinkCode(DISCORD_ID, code.code());
+        final LinkRedemption result = directory.redeemLinkCode(DiscordId.of(DISCORD_ID), code.code());
 
         assertTrue(result.linked());
         assertEquals(MC_UUID, result.mcUuid());
-        assertEquals(MC_UUID, directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow());
+        assertEquals(
+                MC_UUID,
+                directory.linkedMinecraftAccount(DiscordId.of(DISCORD_ID)).orElseThrow());
         assertTrue(codeRowExists(code.code()) == 0, "the code must be gone once it is redeemed");
     }
 
     @Test
     void redeemingTheSameCodeTwiceFailsTheSecondTime() {
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
-        assertTrue(directory.redeemLinkCode(DISCORD_ID, code.code()).linked());
+        assertTrue(
+                directory.redeemLinkCode(DiscordId.of(DISCORD_ID), code.code()).linked());
 
-        final LinkRedemption second = directory.redeemLinkCode(OTHER_DISCORD_ID, code.code());
+        final LinkRedemption second = directory.redeemLinkCode(DiscordId.of(OTHER_DISCORD_ID), code.code());
 
         assertFalse(second.linked());
         assertEquals(
@@ -154,15 +158,17 @@ class LinkCodeIntegrationTest {
         // A code is bound to no Discord account until redeemed; this proves the mechanics, not the entropy.
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
 
-        final LinkRedemption result = directory.redeemLinkCode(OTHER_DISCORD_ID, code.code());
+        final LinkRedemption result = directory.redeemLinkCode(DiscordId.of(OTHER_DISCORD_ID), code.code());
 
         assertTrue(result.linked());
-        assertEquals(OTHER_DISCORD_ID, directory.linkedDiscordAccount(MC_UUID).orElseThrow());
+        assertEquals(
+                DiscordId.of(OTHER_DISCORD_ID),
+                directory.linkedDiscordAccount(MC_UUID).orElseThrow());
     }
 
     @Test
     void redeemingAnUnknownCodeFails() {
-        final LinkRedemption result = directory.redeemLinkCode(DISCORD_ID, "NOSUCHCODE");
+        final LinkRedemption result = directory.redeemLinkCode(DiscordId.of(DISCORD_ID), "NOSUCHCODE");
 
         assertFalse(result.linked());
         assertEquals(LinkRedemption.Status.INVALID_CODE, result.status());
@@ -173,19 +179,19 @@ class LinkCodeIntegrationTest {
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
         expireCode(MC_UUID);
 
-        final LinkRedemption result = directory.redeemLinkCode(DISCORD_ID, code.code());
+        final LinkRedemption result = directory.redeemLinkCode(DiscordId.of(DISCORD_ID), code.code());
 
         assertFalse(result.linked());
         assertEquals(LinkRedemption.Status.INVALID_CODE, result.status());
-        assertTrue(directory.linkedMinecraftAccount(DISCORD_ID).isEmpty());
+        assertTrue(directory.linkedMinecraftAccount(DiscordId.of(DISCORD_ID)).isEmpty());
     }
 
     @Test
     void redeemingLeavesTheCodeInPlaceWhenTheDiscordAccountIsAlreadyLinked() {
-        directory.link(DISCORD_ID, OTHER_MC_UUID);
+        directory.link(DiscordId.of(DISCORD_ID), OTHER_MC_UUID);
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
 
-        final LinkRedemption result = directory.redeemLinkCode(DISCORD_ID, code.code());
+        final LinkRedemption result = directory.redeemLinkCode(DiscordId.of(DISCORD_ID), code.code());
 
         assertFalse(result.linked());
         assertEquals(LinkRedemption.Status.ALREADY_LINKED, result.status());
@@ -194,24 +200,28 @@ class LinkCodeIntegrationTest {
                 codeRowExists(code.code()),
                 "a failed redemption must not burn the code - a wrong click deserves a retry");
         assertTrue(
-                directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow().equals(OTHER_MC_UUID),
+                directory
+                        .linkedMinecraftAccount(DiscordId.of(DISCORD_ID))
+                        .orElseThrow()
+                        .equals(OTHER_MC_UUID),
                 "the existing link must be untouched");
     }
 
     @Test
     void theRedeemedLinkIsOneToOneAndTheDatabaseIsWhatEnforcesIt() {
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
-        assertTrue(directory.redeemLinkCode(DISCORD_ID, code.code()).linked());
+        assertTrue(
+                directory.redeemLinkCode(DiscordId.of(DISCORD_ID), code.code()).linked());
 
         // A second Minecraft account's code, redeemed by the already-linked Discord account.
         final LinkCode secondCode = directory.issueLinkCode(OTHER_MC_UUID, Duration.ofMinutes(10));
-        final LinkRedemption result = directory.redeemLinkCode(DISCORD_ID, secondCode.code());
+        final LinkRedemption result = directory.redeemLinkCode(DiscordId.of(DISCORD_ID), secondCode.code());
 
         assertFalse(result.linked());
         assertEquals(LinkRedemption.Status.ALREADY_LINKED, result.status());
         assertEquals(
                 MC_UUID,
-                directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow(),
+                directory.linkedMinecraftAccount(DiscordId.of(DISCORD_ID)).orElseThrow(),
                 "the first link must survive the second, rejected attempt");
     }
 

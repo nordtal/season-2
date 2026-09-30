@@ -2,6 +2,7 @@ package eu.nordtal.s2.proxy.gate;
 
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import java.util.Locale;
 import java.util.Objects;
@@ -16,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class LoginRoster {
 
-    public record Session(String discordId, Locale locale, boolean admin, boolean packExempt) {}
+    public record Session(DiscordId discordId, Locale locale, boolean admin, boolean packExempt) {}
 
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
 
@@ -25,7 +26,8 @@ public final class LoginRoster {
         Objects.requireNonNull(mcUuid, "mcUuid");
         Objects.requireNonNull(state, "state");
         if (state.linked()) {
-            final String discordId = Objects.requireNonNull(state.discordId(), "linked() guarantees discordId is set");
+            final DiscordId discordId =
+                    Objects.requireNonNull(state.discordId(), "linked() guarantees discordId is set");
             sessions.put(mcUuid, new Session(discordId, state.locale(), state.admin(), state.packExempt()));
         } else {
             sessions.remove(mcUuid);
@@ -62,7 +64,7 @@ public final class LoginRoster {
         int changed = 0;
         for (final java.util.Map.Entry<UUID, Session> entry : sessions.entrySet()) {
             final Session session = entry.getValue();
-            final boolean admin = adminDiscordIds.contains(session.discordId());
+            final boolean admin = adminDiscordIds.contains(session.discordId().value());
             if (admin != session.admin()) {
                 // replace(), not put(): a player who disconnected meanwhile must not be put back.
                 if (sessions.replace(

@@ -52,7 +52,7 @@ public final class CommandInbox {
                     return true;
                 }
                 if (request.discordId().isPresent()) {
-                    return admins.get().contains(request.discordId().get());
+                    return admins.get().contains(request.discordId().get().value());
                 }
                 return request.minecraftId()
                         .map(mcUuid -> adminMinecraftIds.get().contains(mcUuid))

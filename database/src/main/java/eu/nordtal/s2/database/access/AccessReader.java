@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.InstantSource;
 import java.util.List;
 import java.util.Locale;
@@ -27,10 +28,10 @@ public interface AccessReader {
     }
 
     /** Returns the Minecraft account linked to this Discord id, if any. */
-    Optional<UUID> linkedMinecraftAccount(String discordId);
+    Optional<UUID> linkedMinecraftAccount(DiscordId discordId);
 
     /** Returns the Discord account linked to this Minecraft account, if any. */
-    Optional<String> linkedDiscordAccount(UUID mcUuid);
+    Optional<DiscordId> linkedDiscordAccount(UUID mcUuid);
 
     /**
      * Returns the access state and the season phase in one round trip.
@@ -48,20 +49,20 @@ public interface AccessReader {
     Locale locale(UUID mcUuid);
 
     /** Returns whether the permanent donor flag is set, {@code false} for an unknown user. */
-    boolean isDonor(String discordId);
+    boolean isDonor(DiscordId discordId);
 
     /**
      * Returns the Discord profile last observed for this account, or {@link DiscordProfile#EMPTY}.
      *
      * Never throws. A name is not a key, so there is no lookup by name.
      */
-    DiscordProfile discordProfile(String discordId);
+    DiscordProfile discordProfile(DiscordId discordId);
 
     /** Returns the Minecraft name last seen at login for this Discord id, or {@link MinecraftProfile#EMPTY}. */
-    MinecraftProfile minecraftProfile(String discordId);
+    MinecraftProfile minecraftProfile(DiscordId discordId);
 
     /** Returns every grant of one user, newest window first, expired and revoked ones included. */
-    List<AccessGrant> grantsOf(String discordId);
+    List<AccessGrant> grantsOf(DiscordId discordId);
 
     /** Returns every Discord account that currently holds the admin flag. */
     Set<String> admins();
@@ -80,7 +81,7 @@ public interface AccessReader {
      * @param discordId the Discord snowflake
      * @return the newest {@code OPEN} request, or empty
      */
-    Optional<OpenPayment> openPayment(String discordId);
+    Optional<OpenPayment> openPayment(DiscordId discordId);
 
     /**
      * Returns everyone the bot knows with their link and access, one row per person.
@@ -89,5 +90,5 @@ public interface AccessReader {
     List<Person> people(int limit);
 
     /** Returns the one row {@link #people(int)} would print for a single account. */
-    Optional<Person> personOf(String discordId);
+    Optional<Person> personOf(DiscordId discordId);
 }

@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.wheel;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
@@ -69,7 +70,7 @@ public final class Wheel {
 
     /** Spins once for a player, if they have a spin. Safe to call from the main thread. */
     public void spin(final Player player) {
-        final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
+        final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = locales.of(player.getUniqueId());
         if (discordId.isEmpty()) {
             player.sendMessage(MessageRenderer.of(messages)
@@ -101,10 +102,10 @@ public final class Wheel {
                 return;
             }
             // How to undo exactly the row this spin changed; built here since only this call site knows which.
-            final String id = discordId.get();
+            final String id = discordId.get().value();
             final Runnable refund = free
-                    ? () -> offThread(() -> dao.restoreFreeSpin(id, previousFree, today))
-                    : () -> offThread(() -> dao.restoreEarnedSpin(id));
+                    ? () -> offThread(() -> dao.restoreFreeSpin(DiscordId.of(id), previousFree, today))
+                    : () -> offThread(() -> dao.restoreEarnedSpin(DiscordId.of(id)));
             // What is left after this spin, read from the row already in hand rather than queried again.
             award(player, locale, refund, Math.max(0, spins.available(today) - 1));
         });
@@ -112,7 +113,7 @@ public final class Wheel {
 
     /** Tells a player what they have without spending anything. */
     public void describe(final Player player) {
-        final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
+        final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = locales.of(player.getUniqueId());
         if (discordId.isEmpty()) {
             return;

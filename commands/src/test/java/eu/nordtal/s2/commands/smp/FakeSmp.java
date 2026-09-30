@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.smp;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.OpenPayment;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -80,13 +81,13 @@ final class FakeSmp implements SmpEffects {
     }
 
     @Override
-    public Optional<String> discordIdOf(final UUID player) {
+    public Optional<DiscordId> discordIdOf(final UUID player) {
         throwIfAsked();
-        return Optional.ofNullable(links.get(player));
+        return Optional.ofNullable(links.get(player)).map(DiscordId::of);
     }
 
     @Override
-    public void changeAura(final UUID player, final String discordId, final int delta, final String by) {
+    public void changeAura(final UUID player, final DiscordId discordId, final int delta, final String by) {
         throwIfAsked();
         did.add("aura " + discordId + " " + delta + " by " + by);
     }
@@ -98,7 +99,7 @@ final class FakeSmp implements SmpEffects {
     }
 
     @Override
-    public Optional<OpenPayment> openPayment(final String discordId) {
+    public Optional<OpenPayment> openPayment(final DiscordId discordId) {
         if (paymentFailure != null) {
             throw paymentFailure;
         }

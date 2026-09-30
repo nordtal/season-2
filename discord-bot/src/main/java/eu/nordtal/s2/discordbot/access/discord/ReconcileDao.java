@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -62,7 +63,7 @@ public interface ReconcileDao {
             ON CONFLICT (discord_id, valid_until, kind) DO NOTHING
             """)
     int noticeOnce(
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("validUntil") OffsetDateTime validUntil,
             @Bind("kind") String kind);
 
@@ -72,7 +73,7 @@ public interface ReconcileDao {
 
     /** Returns the language a Discord account chose, for a DM, which has no Minecraft UUID. */
     @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
-    java.util.Optional<String> localeOf(@Bind("discordId") String discordId);
+    java.util.Optional<String> localeOf(@Bind("discordId") DiscordId discordId);
 
     /** Deletes link codes that have run out. */
     @SqlUpdate("DELETE FROM link_code WHERE expires <= now()")
@@ -84,7 +85,7 @@ public interface ReconcileDao {
         @Override
         public AccessDeadline map(final ResultSet rs, final StatementContext ctx) throws SQLException {
             return new AccessDeadline(
-                    rs.getString("discord_id"),
+                    DiscordId.of(rs.getString("discord_id")),
                     rs.getObject("valid_until", OffsetDateTime.class).toInstant());
         }
     }

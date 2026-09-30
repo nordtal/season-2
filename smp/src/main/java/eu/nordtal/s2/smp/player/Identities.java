@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.player;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.smp.db.IdentityRow;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -17,7 +18,7 @@ public final class Identities {
 
     private final SmpDao dao;
     private final Map<UUID, Identity> byPlayer = new ConcurrentHashMap<>();
-    private final Map<UUID, String> discordIds = new ConcurrentHashMap<>();
+    private final Map<UUID, DiscordId> discordIds = new ConcurrentHashMap<>();
 
     public Identities(final SmpDao dao) {
         this.dao = dao;
@@ -49,7 +50,7 @@ public final class Identities {
         return byPlayer.getOrDefault(mcUuid, Identity.unknown(Locales.DEFAULT));
     }
 
-    public Optional<String> discordIdOf(final UUID mcUuid) {
+    public Optional<DiscordId> discordIdOf(final UUID mcUuid) {
         return Optional.ofNullable(discordIds.get(mcUuid));
     }
 

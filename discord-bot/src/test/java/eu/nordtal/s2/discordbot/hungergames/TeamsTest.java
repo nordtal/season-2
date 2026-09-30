@@ -2,6 +2,7 @@ package eu.nordtal.s2.discordbot.hungergames;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.sql.Connection;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
@@ -64,21 +65,21 @@ class TeamsTest {
     void aTeamNameShorterThan3CharactersIsRefusedWithoutTouchingTheDatabase() {
         assertEquals(
                 RegistrationResult.Status.INVALID_NAME,
-                TEAMS.register("1", "ab").status());
+                TEAMS.register(DiscordId.of("1"), "ab").status());
     }
 
     @Test
     void aTeamNameLongerThan15CharactersIsRefusedWithoutTouchingTheDatabase() {
         assertEquals(
                 RegistrationResult.Status.INVALID_NAME,
-                TEAMS.register("1", "a".repeat(16)).status());
+                TEAMS.register(DiscordId.of("1"), "a".repeat(16)).status());
     }
 
     @Test
     void aNameOfExactly3Or15CharactersPassesTheLengthCheck() {
         // Both reach the throwing database next, so the length check accepted them.
-        assertThrows(3, () -> TEAMS.register("1", "abc"));
-        assertThrows(15, () -> TEAMS.register("1", "a".repeat(15)));
+        assertThrows(3, () -> TEAMS.register(DiscordId.of("1"), "abc"));
+        assertThrows(15, () -> TEAMS.register(DiscordId.of("1"), "a".repeat(15)));
     }
 
     @Test

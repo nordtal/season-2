@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -21,7 +22,7 @@ public interface AdminTree {
     }
 
     /** Returns whether this account is an admin right now. */
-    boolean isAdmin(String discordId);
+    boolean isAdmin(DiscordId discordId);
 
     /**
      * Makes this account the root, but only while nobody at all is an admin.
@@ -29,7 +30,7 @@ public interface AdminTree {
      *
      * @return whether this account is now the root; false when anybody already was an admin
      */
-    boolean claimRootIfNobody(String discordId);
+    boolean claimRootIfNobody(DiscordId discordId);
 
     /**
      * Makes {@code target} an admin below {@code actor}.
@@ -50,7 +51,7 @@ public interface AdminTree {
      *
      * @return every account that stopped being an admin, empty when this one was not one
      */
-    Set<String> dropWithBranch(String discordId);
+    Set<String> dropWithBranch(DiscordId discordId);
 
     /** Returns every admin with their granter, root first, then in the order they were granted. */
     List<Admin> admins();
@@ -60,7 +61,7 @@ public interface AdminTree {
      *
      * @param grantedBy null for the root
      */
-    record Admin(String discordId, String grantedBy, Instant grantedAt) {}
+    record Admin(DiscordId discordId, String grantedBy, Instant grantedAt) {}
 
     /** The answer to {@link #grant(String, String)}. */
     enum Grant {

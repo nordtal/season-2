@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.JsonElement;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.audit.AuditDirectory;
@@ -36,14 +37,14 @@ final class PackExemptionApi {
 
     /** {@code POST /api/pack-exemptions/exempt} with {@code {discordId}}. */
     void exempt(final Context ctx) {
-        final String target = discordId(ctx);
+        final String target = discordId(ctx).value();
         final DiscordAuth.Account who = accounts.apply(ctx);
         answer(ctx, exemptions.exempt(who.id(), target), "EXEMPT_PACK", who, target, "They play without it already.");
     }
 
     /** {@code POST /api/pack-exemptions/enforce} with {@code {discordId}}. */
     void enforce(final Context ctx) {
-        final String target = discordId(ctx);
+        final String target = discordId(ctx).value();
         final DiscordAuth.Account who = accounts.apply(ctx);
         answer(ctx, exemptions.enforce(who.id(), target), "ENFORCE_PACK", who, target, "They get it already.");
     }
@@ -67,7 +68,7 @@ final class PackExemptionApi {
         }
     }
 
-    private static String discordId(final Context ctx) {
+    private static DiscordId discordId(final Context ctx) {
         final JsonElement value;
         try {
             final JsonElement body = Json.tree(ctx.body());
@@ -80,6 +81,6 @@ final class PackExemptionApi {
                 || !value.getAsString().trim().matches("\\d{1,32}")) {
             throw new BadRequestResponse("discordId is whose resource pack this is");
         }
-        return value.getAsString().trim();
+        return DiscordId.of(value.getAsString().trim());
     }
 }

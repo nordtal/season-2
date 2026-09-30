@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.headstart;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
@@ -69,7 +70,7 @@ public final class HeadStart implements Listener {
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
         // Identities is filled at pre-login by JoinGate, so this is a map read.
-        final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
+        final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             return;
         }
@@ -78,8 +79,10 @@ public final class HeadStart implements Listener {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> grant(mcUuid, name, discordId.get()));
     }
 
-    private void grant(final java.util.UUID mcUuid, final String name, final String discordId) {
-        if (!dao.startEventWinner().filter(discordId::equals).isPresent()) {
+    private void grant(final java.util.UUID mcUuid, final String name, final DiscordId discordId) {
+        if (!dao.startEventWinner()
+                .filter(winner -> winner.equals(discordId.value()))
+                .isPresent()) {
             return;
         }
         final int aura = config.hgWinnerAura();
@@ -97,7 +100,7 @@ public final class HeadStart implements Listener {
     private void hand(
             final java.util.UUID mcUuid,
             final String name,
-            final String discordId,
+            final DiscordId discordId,
             final int aura,
             final @Nullable Integer balance,
             final List<ItemStack> items) {

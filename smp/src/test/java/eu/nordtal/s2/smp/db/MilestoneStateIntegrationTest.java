@@ -4,15 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
 import org.flywaydb.core.Flyway;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,10 +65,7 @@ class MilestoneStateIntegrationTest {
     void freshTrack() {
         execute("TRUNCATE TABLE smp_milestone CASCADE");
         execute("INSERT INTO smp_milestone (key) VALUES ('waiting'), ('departure')");
-        dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(SmpDao.class);
+        dao = Jdbis.over(dataSource).onDemand(SmpDao.class);
     }
 
     @Test
@@ -138,7 +133,7 @@ class MilestoneStateIntegrationTest {
     }
 
     private static List<String> activeKeys() {
-        return Jdbi.create(dataSource)
+        return Jdbis.over(dataSource)
                 .withHandle(handle -> handle.createQuery(
                                 "SELECT key FROM smp_milestone WHERE state = 'ACTIVE' ORDER BY key")
                         .mapTo(String.class)

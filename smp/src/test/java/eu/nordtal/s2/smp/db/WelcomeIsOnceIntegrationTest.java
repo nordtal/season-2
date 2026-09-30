@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Jdbis;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,9 +19,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.flywaydb.core.Flyway;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,19 +82,16 @@ class WelcomeIsOnceIntegrationTest {
         execute("TRUNCATE TABLE smp_player, smp_aura_event, discord_user CASCADE");
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + PLAYER + "'), ('" + SOMEBODY_ELSE + "')");
 
-        dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(SmpDao.class);
+        dao = Jdbis.over(dataSource).onDemand(SmpDao.class);
     }
 
     @Test
     void onlyTheFirstJoinGetsIt() {
-        assertTrue(dao.claimWelcome(PLAYER), "the first join of the season is the moment");
-        assertFalse(dao.claimWelcome(PLAYER), "the second join must not be");
-        assertFalse(dao.claimWelcome(PLAYER));
+        assertTrue(dao.claimWelcome(DiscordId.of(PLAYER)), "the first join of the season is the moment");
+        assertFalse(dao.claimWelcome(DiscordId.of(PLAYER)), "the second join must not be");
+        assertFalse(dao.claimWelcome(DiscordId.of(PLAYER)));
         assertTrue(
-                flag(PLAYER),
+                flag(DiscordId.of(PLAYER)),
                 "the flag is what survives a restart; without it every start of"
                         + " the server is somebody's first join again");
     }
@@ -103,31 +99,31 @@ class WelcomeIsOnceIntegrationTest {
     @Test
     void thereIsNoRowToStartWith() {
         // smp_player gets a row only when somebody EARNS something; the INSERT half is the easy one to lose.
-        assertEquals(0, rows(PLAYER));
-        assertTrue(dao.claimWelcome(PLAYER));
-        assertEquals(1, rows(PLAYER));
+        assertEquals(0, rows(DiscordId.of(PLAYER)));
+        assertTrue(dao.claimWelcome(DiscordId.of(PLAYER)));
+        assertEquals(1, rows(DiscordId.of(PLAYER)));
     }
 
     @Test
     void anExistingRowKeepsItsAura() {
-        dao.addAura(PLAYER, 40, "ADMIN", null);
-        assertEquals(40, dao.auraOf(PLAYER).orElseThrow());
+        dao.addAura(DiscordId.of(PLAYER), 40, "ADMIN", null);
+        assertEquals(40, dao.auraOf(DiscordId.of(PLAYER)).orElseThrow());
 
-        assertTrue(dao.claimWelcome(PLAYER));
+        assertTrue(dao.claimWelcome(DiscordId.of(PLAYER)));
 
         assertEquals(
                 40,
-                dao.auraOf(PLAYER).orElseThrow(),
+                dao.auraOf(DiscordId.of(PLAYER)).orElseThrow(),
                 "the claim upserts, so the ON CONFLICT branch must set the flag and nothing else -"
                         + " an INSERT that overwrote the row would zero somebody's season");
     }
 
     @Test
     void theClaimIsPerPlayer() {
-        assertTrue(dao.claimWelcome(PLAYER));
+        assertTrue(dao.claimWelcome(DiscordId.of(PLAYER)));
 
         assertTrue(
-                dao.claimWelcome(SOMEBODY_ELSE),
+                dao.claimWelcome(DiscordId.of(SOMEBODY_ELSE)),
                 "the claim is keyed by discord_id; anything table-wide would welcome the first"
                         + " player of the season and nobody else, ever");
     }
@@ -143,7 +139,7 @@ class WelcomeIsOnceIntegrationTest {
             for (int i = 0; i < racers; i++) {
                 claims.add(() -> {
                     together.await();
-                    return dao.claimWelcome(PLAYER);
+                    return dao.claimWelcome(DiscordId.of(PLAYER));
                 });
             }
             int won = 0;
@@ -162,11 +158,11 @@ class WelcomeIsOnceIntegrationTest {
         }
     }
 
-    private boolean flag(final String discordId) {
+    private boolean flag(final DiscordId discordId) {
         return query("SELECT welcome_shown FROM smp_player WHERE discord_id = '" + discordId + "'");
     }
 
-    private int rows(final String discordId) {
+    private int rows(final DiscordId discordId) {
         return count("SELECT count(*) FROM smp_player WHERE discord_id = '" + discordId + "'");
     }
 

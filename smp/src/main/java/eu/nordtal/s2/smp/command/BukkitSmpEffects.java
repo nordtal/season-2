@@ -1,6 +1,7 @@
 package eu.nordtal.s2.smp.command;
 
 import eu.nordtal.s2.commands.smp.SmpEffects;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.OpenPayment;
@@ -110,13 +111,13 @@ public final class BukkitSmpEffects implements SmpEffects {
     }
 
     @Override
-    public Optional<String> discordIdOf(final UUID player) {
+    public Optional<DiscordId> discordIdOf(final UUID player) {
         // The cache first, filled at join for everybody here.
         return identities.discordIdOf(player).or(() -> dao.discordIdOf(player));
     }
 
     @Override
-    public void changeAura(final UUID player, final String discordId, final int delta, final String by) {
+    public void changeAura(final UUID player, final DiscordId discordId, final int delta, final String by) {
         dao.addAura(discordId, delta, AuraReason.ADMIN.stored(), "by " + by);
         dao.auraOf(discordId).ifPresent(now -> identities.recordAura(player, now));
         plugin.getLogger().info(by + " changed " + player + "'s aura by " + delta);
@@ -129,7 +130,7 @@ public final class BukkitSmpEffects implements SmpEffects {
     }
 
     @Override
-    public Optional<OpenPayment> openPayment(final String discordId) {
+    public Optional<OpenPayment> openPayment(final DiscordId discordId) {
         return access.openPayment(discordId);
     }
 

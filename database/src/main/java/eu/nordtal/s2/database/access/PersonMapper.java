@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -16,7 +17,7 @@ public final class PersonMapper implements RowMapper<Person> {
     @Override
     public Person map(final ResultSet rs, final StatementContext ctx) throws SQLException {
         return new Person(
-                rs.getString("discord_id"),
+                DiscordId.of(rs.getString("discord_id")),
                 rs.getString("member_state"),
                 rs.getBoolean("donor"),
                 rs.getBoolean("admin"),

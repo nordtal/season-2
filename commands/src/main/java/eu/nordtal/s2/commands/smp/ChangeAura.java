@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
@@ -31,7 +32,7 @@ public final class ChangeAura implements NordtalCommand<SmpEffects> {
 
         effects.async(() -> {
             final String name = nameOr(effects, player);
-            final Optional<String> discordId;
+            final Optional<DiscordId> discordId;
             try {
                 discordId = effects.discordIdOf(player);
             } catch (final RuntimeException failure) {

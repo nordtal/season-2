@@ -17,6 +17,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.remote.Outbox;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
@@ -60,7 +61,7 @@ public final class PaperCommands {
     private final @Nullable Outbox outbox;
     private final Function<UUID, java.util.Locale> localeOf;
     private final Predicate<UUID> isAdmin;
-    private final Function<UUID, Optional<String>> discordIdOf;
+    private final Function<UUID, Optional<DiscordId>> discordIdOf;
     private final PaperUser.Chime chime;
     private final java.util.function.Supplier<ToneColours> colours;
     private final Confirmations confirmations = new Confirmations();
@@ -86,7 +87,7 @@ public final class PaperCommands {
             final @Nullable Outbox outbox,
             final Function<UUID, java.util.Locale> localeOf,
             final Predicate<UUID> isAdmin,
-            final Function<UUID, Optional<String>> discordIdOf,
+            final Function<UUID, Optional<DiscordId>> discordIdOf,
             final PaperUser.Chime chime,
             final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -497,7 +498,7 @@ public final class PaperCommands {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Map<String, Object> resolved = new LinkedHashMap<>(parsed.values());
             for (final Map.Entry<String, UUID> account : parsed.accounts().entrySet()) {
-                final java.util.Optional<String> linked;
+                final java.util.Optional<DiscordId> linked;
                 try {
                     linked = discordIdOf.apply(account.getValue());
                 } catch (final RuntimeException failure) {

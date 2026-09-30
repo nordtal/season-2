@@ -1,6 +1,7 @@
 package eu.nordtal.s2.papercommon.command;
 
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
@@ -45,7 +46,7 @@ public final class PaperUser implements NordtalUser {
     private final CommandSender sender;
     private final Locale locale;
     private final boolean admin;
-    private final java.util.function.Supplier<Optional<String>> discordId;
+    private final java.util.function.Supplier<Optional<DiscordId>> discordId;
     private final Messages messages;
     private final Chime chime;
     private final java.util.function.Supplier<ToneColours> colours;
@@ -55,7 +56,7 @@ public final class PaperUser implements NordtalUser {
             final CommandSender sender,
             final Locale locale,
             final boolean admin,
-            final java.util.function.Supplier<Optional<String>> discordId,
+            final java.util.function.Supplier<Optional<DiscordId>> discordId,
             final Messages messages,
             final Chime chime,
             final java.util.function.Supplier<ToneColours> colours) {
@@ -81,7 +82,7 @@ public final class PaperUser implements NordtalUser {
             final Player player,
             final Locale locale,
             final boolean admin,
-            final @Nullable String discordId,
+            final @Nullable DiscordId discordId,
             final Messages messages,
             final Chime chime,
             final java.util.function.Supplier<ToneColours> colours) {
@@ -94,7 +95,7 @@ public final class PaperUser implements NordtalUser {
             final Player player,
             final @Nullable Locale locale,
             final boolean admin,
-            final java.util.function.Supplier<Optional<String>> discordId,
+            final java.util.function.Supplier<Optional<DiscordId>> discordId,
             final Messages messages,
             final @Nullable Chime chime,
             final java.util.function.Supplier<ToneColours> colours) {
@@ -137,7 +138,7 @@ public final class PaperUser implements NordtalUser {
      * A {@code PaperUser} is built on the main thread per invocation, where an eager lookup would query the database.
      */
     @Override
-    public Optional<String> discordId() {
+    public Optional<DiscordId> discordId() {
         return discordId.get();
     }
 

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -65,12 +66,12 @@ final class JdbiAdminTree implements AdminTree {
     }
 
     @Override
-    public boolean isAdmin(final String discordId) {
+    public boolean isAdmin(final DiscordId discordId) {
         return jdbi.withHandle(handle -> admin(handle, discordId));
     }
 
     @Override
-    public boolean claimRootIfNobody(final String discordId) {
+    public boolean claimRootIfNobody(final DiscordId discordId) {
         Objects.requireNonNull(discordId, "discordId");
         return jdbi.inTransaction(handle -> {
             handle.execute(LOCK);
@@ -104,10 +105,10 @@ final class JdbiAdminTree implements AdminTree {
         Objects.requireNonNull(target, "target");
         return jdbi.inTransaction(handle -> {
             handle.execute(LOCK);
-            if (!admin(handle, actor)) {
+            if (!admin(handle, DiscordId.of(actor))) {
                 return Grant.ACTOR_NOT_ADMIN;
             }
-            if (admin(handle, target)) {
+            if (admin(handle, DiscordId.of(target))) {
                 return Grant.ALREADY_ADMIN;
             }
             final boolean member = handle.createQuery(
@@ -156,7 +157,7 @@ final class JdbiAdminTree implements AdminTree {
         Objects.requireNonNull(target, "target");
         return jdbi.inTransaction(handle -> {
             handle.execute(LOCK);
-            if (!admin(handle, actor)) {
+            if (!admin(handle, DiscordId.of(actor))) {
                 return Revocation.refused(Revocation.Outcome.ACTOR_NOT_ADMIN);
             }
             if (actor.equals(target)) {
@@ -175,11 +176,11 @@ final class JdbiAdminTree implements AdminTree {
     }
 
     @Override
-    public Set<String> dropWithBranch(final String discordId) {
+    public Set<String> dropWithBranch(final DiscordId discordId) {
         Objects.requireNonNull(discordId, "discordId");
         return jdbi.inTransaction(handle -> {
             handle.execute(LOCK);
-            return new LinkedHashSet<>(dropBranch(handle, discordId));
+            return new LinkedHashSet<>(dropBranch(handle, discordId.value()));
         });
     }
 
@@ -192,13 +193,13 @@ final class JdbiAdminTree implements AdminTree {
                         ORDER BY admin_granted_by IS NOT NULL, admin_granted_at, discord_id
                         """)
                 .map((rows, context) -> new Admin(
-                        rows.getString("discord_id"),
+                        DiscordId.of(rows.getString("discord_id")),
                         rows.getString("admin_granted_by"),
                         rows.getObject("admin_granted_at", OffsetDateTime.class).toInstant()))
                 .list());
     }
 
-    private static boolean admin(final Handle handle, final String discordId) {
+    private static boolean admin(final Handle handle, final DiscordId discordId) {
         return handle.createQuery("SELECT EXISTS (SELECT 1 FROM discord_user WHERE discord_id = :id AND admin)")
                 .bind("id", discordId)
                 .mapTo(Boolean.class)

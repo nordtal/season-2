@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.List;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -19,7 +20,9 @@ interface PushPreferenceDao {
                 updated_at = now()
             """)
     void set(
-            @Bind("discordId") String discordId, @Bind("alertType") String alertType, @Bind("enabled") boolean enabled);
+            @Bind("discordId") DiscordId discordId,
+            @Bind("alertType") String alertType,
+            @Bind("enabled") boolean enabled);
 
     /** One account's own switches. */
     @SqlQuery("""
@@ -27,7 +30,7 @@ interface PushPreferenceDao {
             FROM steward_push_preference
             WHERE discord_id = :discordId
             """)
-    List<PushPreferences.Row> forAccount(@Bind("discordId") String discordId);
+    List<PushPreferences.Row> forAccount(@Bind("discordId") DiscordId discordId);
 
     /** Every switch there is, for one sweep of {@code AlertWatch}. */
     @SqlQuery("SELECT discord_id, alert_type, enabled FROM steward_push_preference")

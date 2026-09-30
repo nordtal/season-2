@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.progress;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
@@ -102,7 +103,7 @@ public final class ObjectiveEngine {
      * @return how much was credited, less than {@code delta} when it finished the objective
      */
     public long credit(
-            final String discordId, final String objectiveKey, final long delta, final @Nullable UUID completedBy) {
+            final DiscordId discordId, final String objectiveKey, final long delta, final @Nullable UUID completedBy) {
         if (delta <= 0) {
             return 0L;
         }
@@ -173,7 +174,7 @@ public final class ObjectiveEngine {
         }
         final Map<String, Long> contributions = new LinkedHashMap<>();
         for (final ContributionRow row : rows) {
-            contributions.put(row.discordId(), row.amount());
+            contributions.put(row.discordId().value(), row.amount());
         }
 
         final int scaled = AuraPayout.scaledPot(pot, objective.amount(), objective.target());
@@ -184,14 +185,14 @@ public final class ObjectiveEngine {
             if (share.total() <= 0) {
                 continue;
             }
-            dao.addAura(share.contributorId(), share.total(), AuraReason.CONTRIBUTION.stored(), ref);
+            dao.addAura(DiscordId.of(share.contributorId()), share.total(), AuraReason.CONTRIBUTION.stored(), ref);
 
             // The wheel's extra spins hang off the SAME thresholds as the aura share: one rule, one place to change it.
             final long contributed = contributions.getOrDefault(share.contributorId(), 0L);
             final double percent = objective.target() <= 0 ? 0.0 : (contributed * 100.0) / objective.target();
             final int spins = PrizeDraw.extraSpinsFor(config.wheelExtraSpinPercents(), percent);
             if (spins > 0) {
-                dao.grantSpins(share.contributorId(), spins);
+                dao.grantSpins(DiscordId.of(share.contributorId()), spins);
             }
         }
         plugin.getLogger()
@@ -279,7 +280,7 @@ public final class ObjectiveEngine {
     }
 
     /** Which Discord account a player's contributions belong to, or empty if they are not linked. */
-    public Optional<String> discordIdOf(final Player player) {
+    public Optional<DiscordId> discordIdOf(final Player player) {
         return identities.discordIdOf(player.getUniqueId());
     }
 }

@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.grave;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
@@ -603,7 +604,10 @@ public final class Graves implements InventoryHolder {
     /** Marks the grave looted, erases it and pays out its experience, all once the database confirms the claim. */
     private void finishLooting(final UUID graveId, final GraveRow row, final Player player) {
         // The looter's Discord id, not their Minecraft UUID: looted_by is varchar(32) like every other person column.
-        final String looterId = identities.discordIdOf(player.getUniqueId()).orElse(null);
+        final String looterId = identities
+                .discordIdOf(player.getUniqueId())
+                .map(DiscordId::value)
+                .orElse(null);
         final int experience = row.experience();
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (dao.markGraveLooted(graveId, looterId).isEmpty()) {

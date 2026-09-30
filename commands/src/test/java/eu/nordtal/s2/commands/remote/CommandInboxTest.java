@@ -14,6 +14,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.command.CommandOutcome;
 import eu.nordtal.s2.database.command.NewCommandRequest;
 import eu.nordtal.s2.messages.Messages;
@@ -94,7 +95,7 @@ class CommandInboxTest {
                 arguments,
                 "DISCORD",
                 "till",
-                Optional.of("100000000000000001"),
+                Optional.of(DiscordId.of("100000000000000001")),
                 Optional.of(UUID.fromString("11111111-2222-3333-4444-555555555555")),
                 "en",
                 Instant.now().plusSeconds(30)));
@@ -129,7 +130,7 @@ class CommandInboxTest {
                 "",
                 "DISCORD",
                 "till",
-                Optional.of("100000000000000001"),
+                Optional.of(DiscordId.of("100000000000000001")),
                 Optional.empty(),
                 "de",
                 Instant.now().plusSeconds(30)));
@@ -244,7 +245,7 @@ class CommandInboxTest {
                 "",
                 "DISCORD",
                 "till",
-                Optional.of("100000000000000001"),
+                Optional.of(DiscordId.of("100000000000000001")),
                 Optional.empty(),
                 "en",
                 Instant.now().plusSeconds(30)));
@@ -262,7 +263,7 @@ class CommandInboxTest {
                 "",
                 "DISCORD",
                 "till",
-                Optional.of("100000000000000001"),
+                Optional.of(DiscordId.of("100000000000000001")),
                 Optional.empty(),
                 "en",
                 Instant.now().minusSeconds(1)));

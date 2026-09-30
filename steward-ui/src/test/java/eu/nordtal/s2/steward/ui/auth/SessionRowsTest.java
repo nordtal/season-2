@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -63,7 +64,7 @@ class SessionRowsTest {
 
     @Test
     void aCeremonyIsOneShotAndHasAClock() {
-        final String id = sessions.signIn("42", "Someone", List.of("4711"));
+        final String id = sessions.signIn(DiscordId.of("42"), "Someone", List.of("4711"));
         sessions.startCeremony(id, "{\"challenge\":\"abc\"}");
 
         assertEquals(Optional.of("{\"challenge\":\"abc\"}"), sessions.consumeCeremony(id));
@@ -83,7 +84,7 @@ class SessionRowsTest {
 
     @Test
     void startingAgainDropsTheOneBefore() {
-        final String id = sessions.signIn("43", "Someone Else", List.of("4711"));
+        final String id = sessions.signIn(DiscordId.of("43"), "Someone Else", List.of("4711"));
         sessions.startCeremony(id, "first");
         sessions.startCeremony(id, "second");
 
@@ -96,7 +97,7 @@ class SessionRowsTest {
 
     @Test
     void anExpiredSessionIsGoneBeforeTheSweepTouchesIt() {
-        final String id = sessions.signIn("44", "Yesterday", List.of("4711"));
+        final String id = sessions.signIn(DiscordId.of("44"), "Yesterday", List.of("4711"));
         assertTrue(sessions.find(id).isPresent());
 
         sessions.expireAt(id, Instant.now().minusSeconds(1));
@@ -108,7 +109,7 @@ class SessionRowsTest {
 
     @Test
     void verificationIsRecordedOnTheRow() {
-        final String id = sessions.signIn("45", "Unverified", List.of("4711"));
+        final String id = sessions.signIn(DiscordId.of("45"), "Unverified", List.of("4711"));
         assertFalse(sessions.find(id).orElseThrow().verified(), "a session was verified before anybody touched a key");
 
         sessions.markVerified(id);

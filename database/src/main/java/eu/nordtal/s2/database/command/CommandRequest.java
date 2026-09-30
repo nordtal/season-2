@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.command;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,7 +24,7 @@ public record CommandRequest(
         String arguments,
         String source,
         String requestedBy,
-        Optional<String> discordId,
+        Optional<DiscordId> discordId,
         Optional<UUID> minecraftId,
         String locale,
         Instant expires) {}

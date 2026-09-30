@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui.auth;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.List;
 import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
@@ -25,7 +26,7 @@ interface CredentialDao {
             """)
     void add(
             @Bind("credentialId") byte[] credentialId,
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("publicKey") byte[] publicKey,
             @Bind("signatureCount") long signatureCount,
             @Bind("label") String label,
@@ -41,7 +42,7 @@ interface CredentialDao {
             WHERE discord_id = :discordId
             ORDER BY created_at
             """)
-    List<Credentials.Key> forAccount(@Bind("discordId") String discordId);
+    List<Credentials.Key> forAccount(@Bind("discordId") DiscordId discordId);
 
     @SqlQuery("""
             SELECT credential_id, discord_id, public_key, signature_count, label, transports,
@@ -57,14 +58,14 @@ interface CredentialDao {
 
     /** Removes every key of one account, called only by {@code forget-factors} on the host, never over HTTP. */
     @SqlUpdate("DELETE FROM steward_credential WHERE discord_id = :discordId")
-    int forget(@Bind("discordId") String discordId);
+    int forget(@Bind("discordId") DiscordId discordId);
 
     /** Removes one key, only if it belongs to the account asking, since any signing-in browser learns key ids. */
     @SqlUpdate("""
             DELETE FROM steward_credential
             WHERE credential_id = :credentialId AND discord_id = :discordId
             """)
-    int remove(@Bind("credentialId") byte[] credentialId, @Bind("discordId") String discordId);
+    int remove(@Bind("credentialId") byte[] credentialId, @Bind("discordId") DiscordId discordId);
 
     /** Renames one key of one account, scoped like {@link #remove}. */
     @SqlUpdate("""
@@ -73,7 +74,7 @@ interface CredentialDao {
             """)
     int rename(
             @Bind("credentialId") byte[] credentialId,
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("label") String label);
 
     /** Writes the counter and the time after an assertion; {@code GREATEST} keeps a replay from moving it backwards. */

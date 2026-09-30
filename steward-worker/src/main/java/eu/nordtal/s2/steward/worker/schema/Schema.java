@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.worker.schema;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +35,9 @@ public final class Schema {
      * @return a pool the caller owns and must close
      */
     public static Database open(final DatabaseSpec config) {
-        return Database.create(toDatabaseConfig(config));
+        final Database database = Database.create(toDatabaseConfig(config));
+        database.jdbi().installPlugin(Jdbis.ids());
+        return database;
     }
 
     /**

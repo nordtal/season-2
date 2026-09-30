@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.proxy.MutableClock;
@@ -131,7 +132,7 @@ class FallbackCacheTest {
     private AccessState activeState(final Locale locale) {
         return new AccessState(
                 PLAYER,
-                DISCORD_ID,
+                DiscordId.of(DISCORD_ID),
                 MemberState.MEMBER,
                 true,
                 clock.instant().plus(Duration.ofDays(1)),
@@ -146,7 +147,7 @@ class FallbackCacheTest {
     private AccessState inactiveState() {
         return new AccessState(
                 PLAYER,
-                DISCORD_ID,
+                DiscordId.of(DISCORD_ID),
                 MemberState.MEMBER,
                 false,
                 null,
@@ -162,7 +163,7 @@ class FallbackCacheTest {
     private AccessState memberInAFreePhase() {
         return new AccessState(
                 PLAYER,
-                DISCORD_ID,
+                DiscordId.of(DISCORD_ID),
                 MemberState.MEMBER,
                 false,
                 null,

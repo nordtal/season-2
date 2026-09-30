@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui.data;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messages.context.SeasonContext;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -22,7 +23,7 @@ public final class ExampleValues {
     /**
      * Example values by type and property, with the asking admin's own account as the example player when it has one.
      */
-    public Map<String, Map<String, String>> of(final String discordId, final String displayName) {
+    public Map<String, Map<String, String>> of(final DiscordId discordId, final String displayName) {
         final Map<String, Map<String, String>> answer = new LinkedHashMap<>();
         try (Connection connection = dataSource.getConnection()) {
             answer.put(
@@ -31,7 +32,7 @@ public final class ExampleValues {
                                     connection,
                                     "SELECT mc_name FROM account_link WHERE mc_name IS NOT NULL"
                                             + " ORDER BY discord_id = ? DESC, linked DESC NULLS LAST LIMIT 1",
-                                    discordId)
+                                    discordId.value())
                             .or(() -> first(
                                     connection, "SELECT mc_name FROM online_player ORDER BY updated DESC LIMIT 1"))
                             .orElse("Steve")));
@@ -42,7 +43,7 @@ public final class ExampleValues {
                                             connection,
                                             "SELECT coalesce(discord_display_name, discord_username) FROM discord_user"
                                                     + " WHERE discord_id = ?",
-                                            discordId)
+                                            discordId.value())
                                     .orElse(displayName)));
             answer.put(
                     "team",

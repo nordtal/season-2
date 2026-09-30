@@ -1,6 +1,7 @@
 package eu.nordtal.s2.common.id;
 
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A Discord account, by its snowflake: the key of a person in this network.
@@ -19,6 +20,11 @@ public record DiscordId(String value) {
     /** Returns the id Discord wrote as {@code value}. */
     public static DiscordId of(final String value) {
         return new DiscordId(value);
+    }
+
+    /** Returns the id in {@code value}, or {@code null} for a column or a field that holds none. */
+    public static @Nullable DiscordId ofNullable(final @Nullable String value) {
+        return value == null ? null : new DiscordId(value);
     }
 
     /** Returns the snowflake itself, so a log line and a mention read as Discord writes them. */

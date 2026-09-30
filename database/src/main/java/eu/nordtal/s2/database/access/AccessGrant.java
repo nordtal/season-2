@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -20,7 +21,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record AccessGrant(
         UUID id,
-        String discordId,
+        DiscordId discordId,
         Instant validFrom,
         Instant validUntil,
         AccessSource source,

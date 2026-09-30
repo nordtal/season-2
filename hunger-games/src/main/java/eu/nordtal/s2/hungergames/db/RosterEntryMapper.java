@@ -1,5 +1,6 @@
 package eu.nordtal.s2.hungergames.db;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
@@ -18,7 +19,7 @@ public final class RosterEntryMapper implements RowMapper<RosterEntry> {
                 rs.getString("team_name"),
                 rs.wasNull() ? null : colourRgb,
                 rs.getString("colour_named"),
-                rs.getString("discord_id"),
+                DiscordId.of(rs.getString("discord_id")),
                 MemberState.valueOf(rs.getString("state")),
                 rs.getBoolean("ready"),
                 rs.getObject("mc_uuid", UUID.class),

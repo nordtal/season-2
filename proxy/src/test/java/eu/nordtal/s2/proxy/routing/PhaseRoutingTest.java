@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.proxy.PhaseServers;
@@ -412,7 +413,7 @@ class PhaseRoutingTest {
             final SeasonPhase phase, final MemberState membership, final boolean accessActive, final boolean admin) {
         return new AccessState(
                 PLAYER,
-                DISCORD_ID,
+                DiscordId.of(DISCORD_ID),
                 membership,
                 accessActive,
                 accessActive ? Instant.now().plus(Duration.ofDays(1)) : null,

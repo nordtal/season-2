@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Sessions;
 import eu.nordtal.s2.steward.ui.auth.TestAuthenticator;
@@ -154,7 +155,7 @@ abstract class StewardUiTestSupport extends StewardUiFixture {
      */
     static void signIn(final HttpClient browser) throws Exception {
         if (!"1".equals(memberId.get())) {
-            admitBelowRoot(memberId.get());
+            admitBelowRoot(DiscordId.of(memberId.get()));
         }
         final String state = stateFrom(get(browser, "/auth/login"));
 
@@ -165,7 +166,7 @@ abstract class StewardUiTestSupport extends StewardUiFixture {
     }
 
     /** Makes this account an admin granted by the root, {@code "1"}, whatever it was before. */
-    static void admitBelowRoot(final String discordId) throws Exception {
+    static void admitBelowRoot(final DiscordId discordId) throws Exception {
         try (var connection = data.dataSource().getConnection();
                 var admit = connection.prepareStatement("""
                      INSERT INTO discord_user (discord_id, member_state, admin, admin_granted_by,
@@ -175,7 +176,7 @@ abstract class StewardUiTestSupport extends StewardUiFixture {
                          SET member_state = 'MEMBER', admin = true, admin_granted_by = '1',
                              admin_granted_at = now(), updated = now()
                      """)) {
-            admit.setString(1, discordId);
+            admit.setString(1, discordId.value());
             admit.executeUpdate();
         }
     }

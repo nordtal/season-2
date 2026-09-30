@@ -9,6 +9,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import eu.nordtal.s2.commands.CommandMessages;
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.MessageRef;
@@ -193,7 +194,7 @@ public final class NavigateCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
+        final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             tell(
                     player,
@@ -214,7 +215,12 @@ public final class NavigateCommand {
                 return;
             }
             dao.createPoi(
-                    name, at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ(), discordId.get());
+                    name,
+                    at.getWorld().getName(),
+                    at.getBlockX(),
+                    at.getBlockY(),
+                    at.getBlockZ(),
+                    discordId.get().value());
             tell(
                     player,
                     MessageRenderer.of(messages)
@@ -229,7 +235,7 @@ public final class NavigateCommand {
         final Locale locale = locales.of(player.getUniqueId());
         final String name = StringArgumentType.getString(context, "name").trim();
         final boolean admin = identities.of(player.getUniqueId()).admin();
-        final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
+        final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Optional<PoiRow> found = dao.allPois().stream()
@@ -244,7 +250,8 @@ public final class NavigateCommand {
                 return;
             }
             final PoiRow poi = found.get();
-            if (!admin && !poi.createdBy().equals(discordId.orElse(""))) {
+            if (!admin
+                    && !poi.createdBy().equals(discordId.map(DiscordId::value).orElse(""))) {
                 tell(
                         player,
                         MessageRenderer.of(messages)

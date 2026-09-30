@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,7 +19,7 @@ interface AccessDao {
             VALUES (:discordId)
             ON CONFLICT (discord_id) DO NOTHING
             """)
-    void ensureUser(@Bind("discordId") String discordId);
+    void ensureUser(@Bind("discordId") DiscordId discordId);
 
     @SqlUpdate("""
             INSERT INTO discord_user (discord_id, member_state, updated)
@@ -26,7 +27,7 @@ interface AccessDao {
             ON CONFLICT (discord_id)
                 DO UPDATE SET member_state = EXCLUDED.member_state, updated = now()
             """)
-    void setMemberState(@Bind("discordId") String discordId, @Bind("memberState") String memberState);
+    void setMemberState(@Bind("discordId") DiscordId discordId, @Bind("memberState") String memberState);
 
     @SqlUpdate("""
             INSERT INTO discord_user (discord_id, locale, updated)
@@ -34,7 +35,7 @@ interface AccessDao {
             ON CONFLICT (discord_id)
                 DO UPDATE SET locale = EXCLUDED.locale, updated = now()
             """)
-    void setLocale(@Bind("discordId") String discordId, @Bind("locale") String locale);
+    void setLocale(@Bind("discordId") DiscordId discordId, @Bind("locale") String locale);
 
     @SqlUpdate("""
             INSERT INTO discord_user (discord_id, donor, updated)
@@ -42,7 +43,7 @@ interface AccessDao {
             ON CONFLICT (discord_id)
                 DO UPDATE SET donor = EXCLUDED.donor, updated = now()
             """)
-    void setDonor(@Bind("discordId") String discordId, @Bind("donor") boolean donor);
+    void setDonor(@Bind("discordId") DiscordId discordId, @Bind("donor") boolean donor);
 
     /**
      * Sets total play time to an absolute number of seconds.
@@ -56,10 +57,10 @@ interface AccessDao {
                 SET seconds = EXCLUDED.seconds,
                     updated = now()
             """)
-    void setPlaytimeSeconds(@Bind("discordId") String discordId, @Bind("seconds") long seconds);
+    void setPlaytimeSeconds(@Bind("discordId") DiscordId discordId, @Bind("seconds") long seconds);
 
     @SqlQuery("SELECT donor FROM discord_user WHERE discord_id = :discordId")
-    Optional<Boolean> donor(@Bind("discordId") String discordId);
+    Optional<Boolean> donor(@Bind("discordId") DiscordId discordId);
 
     /** Writes all three Discord-observed fields at once, each with its own {@code now()} timestamp. */
     @SqlUpdate("""
@@ -77,7 +78,7 @@ interface AccessDao {
                               updated = now()
             """)
     void setDiscordProfile(
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("username") String username,
             @Bind("displayName") String displayName,
             @Bind("avatarUrl") String avatarUrl);
@@ -94,7 +95,7 @@ interface AccessDao {
                 updated = now()
             WHERE discord_id = :discordId
             """)
-    void clearGuildProfile(@Bind("discordId") String discordId);
+    void clearGuildProfile(@Bind("discordId") DiscordId discordId);
 
     /** Returns what was last observed about this account's Discord profile, empty for no such row. */
     @SqlQuery("""
@@ -105,7 +106,7 @@ interface AccessDao {
             WHERE discord_id = :discordId
             """)
     @RegisterRowMapper(DiscordProfileMapper.class)
-    Optional<DiscordProfile> discordProfile(@Bind("discordId") String discordId);
+    Optional<DiscordProfile> discordProfile(@Bind("discordId") DiscordId discordId);
 
     /** Returns every Discord account that currently holds the admin flag. */
     @SqlQuery("SELECT discord_id FROM discord_user WHERE admin")
@@ -128,13 +129,13 @@ interface AccessDao {
             + " WHERE discord_id = :discordId AND status = 'OPEN'"
             + " ORDER BY created DESC LIMIT 1")
     @org.jdbi.v3.sqlobject.config.RegisterConstructorMapper(OpenPayment.class)
-    Optional<OpenPayment> openPayment(@Bind("discordId") String discordId);
+    Optional<OpenPayment> openPayment(@Bind("discordId") DiscordId discordId);
 
     @SqlQuery("SELECT mc_uuid FROM account_link WHERE discord_id = :discordId")
-    Optional<UUID> minecraftAccountOf(@Bind("discordId") String discordId);
+    Optional<UUID> minecraftAccountOf(@Bind("discordId") DiscordId discordId);
 
     @SqlQuery("SELECT discord_id FROM account_link WHERE mc_uuid = :mcUuid")
-    Optional<String> discordAccountOf(@Bind("mcUuid") UUID mcUuid);
+    Optional<DiscordId> discordAccountOf(@Bind("mcUuid") UUID mcUuid);
 
     /**
      * Writes the 1:1 link, or does nothing if either side is already taken.
@@ -146,10 +147,10 @@ interface AccessDao {
             VALUES (:discordId, :mcUuid)
             ON CONFLICT DO NOTHING
             """)
-    int link(@Bind("discordId") String discordId, @Bind("mcUuid") UUID mcUuid);
+    int link(@Bind("discordId") DiscordId discordId, @Bind("mcUuid") UUID mcUuid);
 
     @SqlUpdate("DELETE FROM account_link WHERE discord_id = :discordId")
-    int unlink(@Bind("discordId") String discordId);
+    int unlink(@Bind("discordId") DiscordId discordId);
 
     /**
      * Writes the Minecraft name last seen at login, keyed by the account.
@@ -166,7 +167,7 @@ interface AccessDao {
     /** Returns what was last observed about the Minecraft account linked to this Discord id. */
     @SqlQuery("SELECT mc_name, mc_name_updated FROM account_link WHERE discord_id = :discordId")
     @RegisterRowMapper(MinecraftProfileMapper.class)
-    Optional<MinecraftProfile> minecraftProfile(@Bind("discordId") String discordId);
+    Optional<MinecraftProfile> minecraftProfile(@Bind("discordId") DiscordId discordId);
 
     /**
      * Appends a grant starting at {@code max(now(), smp_start, current valid_until)}, computed on PostgreSQL's clock.
@@ -191,7 +192,7 @@ interface AccessDao {
             """)
     @RegisterRowMapper(AccessGrantMapper.class)
     AccessGrant grantAccess(
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("days") int days,
             @Bind("source") String source,
             @Bind("paymentRequestId") @Nullable UUID paymentRequestId);
@@ -208,7 +209,7 @@ interface AccessDao {
               AND revoked IS NULL
               AND valid_until > now()
             """)
-    int revokeAccess(@Bind("discordId") String discordId);
+    int revokeAccess(@Bind("discordId") DiscordId discordId);
 
     @SqlQuery("""
             SELECT id, discord_id, valid_from, valid_until, source, payment_request_id, revoked, created
@@ -217,7 +218,7 @@ interface AccessDao {
             ORDER BY valid_from DESC, created DESC
             """)
     @RegisterRowMapper(AccessGrantMapper.class)
-    java.util.List<AccessGrant> grantsOf(@Bind("discordId") String discordId);
+    java.util.List<AccessGrant> grantsOf(@Bind("discordId") DiscordId discordId);
 
     /**
      * Returns the proxy's whole login state in one statement.

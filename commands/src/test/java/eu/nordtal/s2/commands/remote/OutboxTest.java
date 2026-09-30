@@ -10,6 +10,7 @@ import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.command.CommandOutcome;
 import eu.nordtal.s2.database.command.NewCommandRequest;
 import java.time.Clock;
@@ -87,7 +88,7 @@ class OutboxTest {
         assertEquals("smp aura", sent.command(), "the path is the command's identity everywhere");
         assertEquals(WHO + " -25", sent.arguments());
         assertEquals("DISCORD", sent.source());
-        assertEquals("100000000000000002", sent.discordId().orElseThrow());
+        assertEquals(DiscordId.of("100000000000000002"), sent.discordId().orElseThrow());
         assertEquals("en", sent.locale());
     }
 
@@ -200,7 +201,7 @@ class OutboxTest {
                         "",
                         "CONSOLE",
                         "console",
-                        java.util.Optional.of("100000000000000001"),
+                        java.util.Optional.of(DiscordId.of("100000000000000001")),
                         java.util.Optional.empty(),
                         "en",
                         java.time.Instant.now().plusSeconds(30)));

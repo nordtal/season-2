@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.progress;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
@@ -107,7 +108,7 @@ public final class StatisticPoller {
             return;
         }
         final long delta = now - previous;
-        final String discordId = identities.discordIdOf(player.getUniqueId()).orElse(null);
+        final DiscordId discordId = identities.discordIdOf(player.getUniqueId()).orElse(null);
         if (discordId == null) {
             return;
         }

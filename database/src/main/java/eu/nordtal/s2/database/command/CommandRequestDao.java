@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.command;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,7 +44,7 @@ interface CommandRequestDao {
             @Bind("arguments") String arguments,
             @Bind("source") String source,
             @Bind("requestedBy") String requestedBy,
-            @Bind("discordId") @Nullable String discordId,
+            @Bind("discordId") @Nullable DiscordId discordId,
             @Bind("minecraftId") @Nullable UUID minecraftId,
             @Bind("locale") String locale,
             @Bind("expires") Instant expires);
@@ -79,7 +80,7 @@ interface CommandRequestDao {
             @Bind("arguments") String arguments,
             @Bind("source") String source,
             @Bind("requestedBy") String requestedBy,
-            @Bind("discordId") @Nullable String discordId,
+            @Bind("discordId") @Nullable DiscordId discordId,
             @Bind("minecraftId") @Nullable UUID minecraftId,
             @Bind("locale") String locale,
             @Bind("expires") Instant expires,

@@ -9,6 +9,7 @@ import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import java.time.Instant;
@@ -195,7 +196,8 @@ class SmpCommandsTest {
     @Test
     void linkedActiveAndAPurchaseWithAPaymentLinkWaiting() {
         smp.names.put(SOMEBODY, "Steve");
-        smp.access = new SmpEffects.Access("100000000000000009", true, Instant.parse("2026-10-01T00:00:00Z"));
+        smp.access =
+                new SmpEffects.Access(DiscordId.of("100000000000000009"), true, Instant.parse("2026-10-01T00:00:00Z"));
         smp.payment = FakeSmp.payment(true);
 
         assertEquals(
@@ -207,7 +209,7 @@ class SmpCommandsTest {
     void aPurchaseWithNoPaymentLinkIsADifferentLineAndThatIsThePoint() {
         // "Chose 60 days" and "asked for a payment link" are different problems to chase.
         smp.names.put(SOMEBODY, "Steve");
-        smp.access = new SmpEffects.Access("100000000000000009", false, null);
+        smp.access = new SmpEffects.Access(DiscordId.of("100000000000000009"), false, null);
         smp.payment = FakeSmp.payment(false);
 
         assertEquals(
@@ -218,7 +220,8 @@ class SmpCommandsTest {
     @Test
     void expiredAccessReadsDifferentlyFromAccessThatNeverExisted() {
         smp.names.put(SOMEBODY, "Steve");
-        smp.access = new SmpEffects.Access("100000000000000009", false, Instant.parse("2026-08-01T00:00:00Z"));
+        smp.access =
+                new SmpEffects.Access(DiscordId.of("100000000000000009"), false, Instant.parse("2026-08-01T00:00:00Z"));
 
         assertEquals(
                 List.of("smp.access.linked", "smp.access.expired", "smp.access.no-payment"),
@@ -229,7 +232,8 @@ class SmpCommandsTest {
     void aFailureReadingThePaymentKeepsTheAccessLineWhichIsWhatWasAskedFor() {
         // The two reads are separate so a failed payment query keeps the access line.
         smp.names.put(SOMEBODY, "Steve");
-        smp.access = new SmpEffects.Access("100000000000000009", true, Instant.parse("2026-10-01T00:00:00Z"));
+        smp.access =
+                new SmpEffects.Access(DiscordId.of("100000000000000009"), true, Instant.parse("2026-10-01T00:00:00Z"));
         smp.paymentFailure = new IllegalStateException("the database did not answer");
 
         assertEquals(

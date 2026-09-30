@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.payment;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -21,7 +22,7 @@ public final class PaymentRequestMapper implements RowMapper<PaymentRequest> {
         return new PaymentRequest(
                 rs.getObject("id", UUID.class),
                 rs.getString("reference"),
-                rs.getString("discord_id"),
+                DiscordId.of(rs.getString("discord_id")),
                 rs.getInt("days"),
                 rs.getInt("amount_cents"),
                 rs.getInt("donation_cents"),

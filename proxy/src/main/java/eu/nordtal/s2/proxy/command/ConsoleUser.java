@@ -1,6 +1,7 @@
 package eu.nordtal.s2.proxy.command;
 
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
@@ -33,7 +34,7 @@ public final class ConsoleUser implements NordtalUser {
     }
 
     @Override
-    public Optional<String> discordId() {
+    public Optional<DiscordId> discordId() {
         return Optional.empty();
     }
 

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.AccessSchema;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -86,7 +87,7 @@ class CommandRequestIntegrationTest {
                 arguments,
                 "DISCORD",
                 "till",
-                Optional.of(DISCORD_ID),
+                Optional.of(DiscordId.of(DISCORD_ID)),
                 Optional.of(MC_UUID),
                 "de",
                 expires);
@@ -102,7 +103,7 @@ class CommandRequestIntegrationTest {
         assertEquals("smp aura", claimed.command());
         assertEquals(MC_UUID + " -25", claimed.arguments());
         assertEquals("DISCORD", claimed.source());
-        assertEquals(DISCORD_ID, claimed.discordId().orElseThrow());
+        assertEquals(DiscordId.of(DISCORD_ID), claimed.discordId().orElseThrow());
         assertEquals(MC_UUID, claimed.minecraftId().orElseThrow());
         assertEquals(
                 "de",
@@ -215,7 +216,7 @@ class CommandRequestIntegrationTest {
         // NewCommandRequest refuses this too; the CHECK also stops an adapter that writes raw SQL.
         refusedBy(
                 "command_request_console_is_anonymous",
-                () -> insertRaw("SMP", "smp reload", "CONSOLE", DISCORD_ID, null));
+                () -> insertRaw("SMP", "smp reload", "CONSOLE", DiscordId.of(DISCORD_ID), null));
     }
 
     @Test
@@ -284,7 +285,11 @@ class CommandRequestIntegrationTest {
     }
 
     private void insertRaw(
-            final String target, final String command, final String source, final String discordId, final UUID mcUuid)
+            final String target,
+            final String command,
+            final String source,
+            final DiscordId discordId,
+            final UUID mcUuid)
             throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
@@ -295,7 +300,7 @@ class CommandRequestIntegrationTest {
             statement.setString(1, target);
             statement.setString(2, command);
             statement.setString(3, source);
-            statement.setString(4, discordId);
+            statement.setString(4, discordId == null ? null : discordId.value());
             statement.setObject(5, mcUuid);
             statement.executeUpdate();
         }

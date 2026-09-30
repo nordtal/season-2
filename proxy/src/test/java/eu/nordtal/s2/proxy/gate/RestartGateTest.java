@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.messages.Messages;
@@ -119,7 +120,7 @@ class RestartGateTest {
     private static AccessState german() {
         return new AccessState(
                 PLAYER,
-                "1",
+                DiscordId.of("1"),
                 MemberState.MEMBER,
                 true,
                 Instant.now().plus(Duration.ofDays(1)),

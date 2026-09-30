@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.List;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
@@ -48,9 +49,9 @@ class PushSubscriptionsTest {
 
     @Test
     void subscribingCreatesARow() {
-        subscriptions.subscribe("42", "https://push.example/ep-1", "p256dh-1", "auth-1");
+        subscriptions.subscribe(DiscordId.of("42"), "https://push.example/ep-1", "p256dh-1", "auth-1");
 
-        final List<PushSubscriptions.Subscription> mine = subscriptions.of("42");
+        final List<PushSubscriptions.Subscription> mine = subscriptions.of(DiscordId.of("42"));
         assertEquals(1, mine.size(), "subscribing did not create a row for this account");
         assertEquals("https://push.example/ep-1", mine.get(0).endpoint());
         assertEquals("p256dh-1", mine.get(0).p256dh());
@@ -63,10 +64,10 @@ class PushSubscriptionsTest {
 
     @Test
     void resubscribingReplacesNotDuplicates() {
-        subscriptions.subscribe("43", "https://push.example/ep-2", "old-p256dh", "old-auth");
-        subscriptions.subscribe("43", "https://push.example/ep-2", "new-p256dh", "new-auth");
+        subscriptions.subscribe(DiscordId.of("43"), "https://push.example/ep-2", "old-p256dh", "old-auth");
+        subscriptions.subscribe(DiscordId.of("43"), "https://push.example/ep-2", "new-p256dh", "new-auth");
 
-        final List<PushSubscriptions.Subscription> mine = subscriptions.of("43");
+        final List<PushSubscriptions.Subscription> mine = subscriptions.of(DiscordId.of("43"));
         assertEquals(1, mine.size(), "the same endpoint subscribing twice produced two rows");
         assertEquals("new-p256dh", mine.get(0).p256dh());
         assertEquals("new-auth", mine.get(0).auth());
@@ -74,19 +75,19 @@ class PushSubscriptionsTest {
 
     @Test
     void unsubscribeIsScopedToTheAccount() {
-        subscriptions.subscribe("44", "https://push.example/ep-3", "p", "a");
+        subscriptions.subscribe(DiscordId.of("44"), "https://push.example/ep-3", "p", "a");
 
         assertFalse(
-                subscriptions.unsubscribe("someone-else", "https://push.example/ep-3"),
+                subscriptions.unsubscribe(DiscordId.of("someone-else"), "https://push.example/ep-3"),
                 "a different account was able to remove somebody else's subscription");
-        assertTrue(subscriptions.unsubscribe("44", "https://push.example/ep-3"));
-        assertTrue(subscriptions.of("44").isEmpty());
+        assertTrue(subscriptions.unsubscribe(DiscordId.of("44"), "https://push.example/ep-3"));
+        assertTrue(subscriptions.of(DiscordId.of("44")).isEmpty());
     }
 
     @Test
     void theDeviceNameIsKept() {
         subscriptions.subscribe(
-                "46",
+                DiscordId.of("46"),
                 "https://push.example/ep-5",
                 "p",
                 "a",
@@ -94,33 +95,33 @@ class PushSubscriptionsTest {
                         + " (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1");
         assertEquals(
                 "iPhone, Safari",
-                subscriptions.of("46").get(0).device(),
+                subscriptions.of(DiscordId.of("46")).get(0).device(),
                 "the endpoint is not a name - see Devices for where one comes from");
 
         // A second call without a User-Agent must not blank the name it already has.
-        subscriptions.subscribe("46", "https://push.example/ep-5", "p", "a", null);
+        subscriptions.subscribe(DiscordId.of("46"), "https://push.example/ep-5", "p", "a", null);
         assertEquals(
                 "iPhone, Safari",
-                subscriptions.of("46").get(0).device(),
+                subscriptions.of(DiscordId.of("46")).get(0).device(),
                 "a resubscription without a User-Agent erased the name");
     }
 
     @Test
     void findIsScopedToTheAccount() {
-        subscriptions.subscribe("47", "https://push.example/ep-6", "p", "a");
+        subscriptions.subscribe(DiscordId.of("47"), "https://push.example/ep-6", "p", "a");
 
         assertNull(
-                subscriptions.find("someone-else", "https://push.example/ep-6"),
+                subscriptions.find(DiscordId.of("someone-else"), "https://push.example/ep-6"),
                 "a different account could look up somebody else's subscription by endpoint");
-        assertNotNull(subscriptions.find("47", "https://push.example/ep-6"));
+        assertNotNull(subscriptions.find(DiscordId.of("47"), "https://push.example/ep-6"));
     }
 
     @Test
     void expiredRemovesRegardlessOfAccount() {
-        subscriptions.subscribe("45", "https://push.example/ep-4", "p", "a");
+        subscriptions.subscribe(DiscordId.of("45"), "https://push.example/ep-4", "p", "a");
 
         subscriptions.expired("https://push.example/ep-4");
 
-        assertTrue(subscriptions.of("45").isEmpty());
+        assertTrue(subscriptions.of(DiscordId.of("45")).isEmpty());
     }
 }

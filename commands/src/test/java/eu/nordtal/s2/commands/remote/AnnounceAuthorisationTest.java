@@ -7,6 +7,7 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.announce.AnnounceCommands;
 import eu.nordtal.s2.commands.announce.AnnounceEffects;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.command.CommandOutcome;
 import eu.nordtal.s2.database.command.NewCommandRequest;
 import eu.nordtal.s2.messages.Messages;
@@ -65,7 +66,7 @@ class AnnounceAuthorisationTest {
         return inbox;
     }
 
-    private long row(final String source, final String discordId, final String text) {
+    private long row(final String source, final DiscordId discordId, final String text) {
         return requests.submit(new NewCommandRequest(
                 AnnounceCommands.ANNOUNCE.target().name(),
                 String.join(" ", AnnounceCommands.ANNOUNCE.path()),
@@ -95,7 +96,7 @@ class AnnounceAuthorisationTest {
     @Test
     void anAnnouncementAskedForInTheBrowserByARevokedAdminIsNotPosted() {
         // The role was taken away after the row was written.
-        final long id = row("WEB", NO_LONGER_ADMIN, "Server geht gleich aus.");
+        final long id = row("WEB", DiscordId.of(NO_LONGER_ADMIN), "Server geht gleich aus.");
 
         assertEquals(1, inboxWhereTheAdminsAre(Set.of(ADMIN)).drain());
 
@@ -108,7 +109,7 @@ class AnnounceAuthorisationTest {
     @Test
     void anAnnouncementAskedForInTheBrowserByAnAdminIsPosted() {
         // Without this, an inbox that admits everyone would pass the tests above.
-        final long id = row("WEB", ADMIN, "Wartung um 20 Uhr.");
+        final long id = row("WEB", DiscordId.of(ADMIN), "Wartung um 20 Uhr.");
 
         assertEquals(1, inboxWhereTheAdminsAre(Set.of(ADMIN)).drain());
 

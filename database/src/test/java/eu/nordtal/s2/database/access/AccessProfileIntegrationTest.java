@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.AccessSchema;
 import eu.nordtal.s2.messages.PlayerLocales;
 import java.sql.Connection;
@@ -82,21 +83,21 @@ class AccessProfileIntegrationTest {
 
     @Test
     void discordProfileOfAnUnknownAccountIsEmptyNotNull() {
-        assertEquals(DiscordProfile.EMPTY, directory.discordProfile("999999999999999999"));
+        assertEquals(DiscordProfile.EMPTY, directory.discordProfile(DiscordId.of("999999999999999999")));
     }
 
     @Test
     void minecraftProfileOfAnUnknownAccountIsEmptyNotNull() {
-        assertEquals(MinecraftProfile.EMPTY, directory.minecraftProfile("999999999999999999"));
+        assertEquals(MinecraftProfile.EMPTY, directory.minecraftProfile(DiscordId.of("999999999999999999")));
     }
 
     @Test
     void setDiscordProfileWritesAllThreeFieldsWithTheirOwnTimestamps() {
-        directory.ensureUser(DISCORD_ID);
+        directory.ensureUser(DiscordId.of(DISCORD_ID));
 
-        directory.setDiscordProfile(DISCORD_ID, "steve", "Bau-Steve", "https://example.invalid/a.png");
+        directory.setDiscordProfile(DiscordId.of(DISCORD_ID), "steve", "Bau-Steve", "https://example.invalid/a.png");
 
-        final DiscordProfile profile = directory.discordProfile(DISCORD_ID);
+        final DiscordProfile profile = directory.discordProfile(DiscordId.of(DISCORD_ID));
         assertEquals("steve", profile.username());
         assertEquals("Bau-Steve", profile.displayName());
         assertEquals("https://example.invalid/a.png", profile.avatarUrl());
@@ -107,16 +108,18 @@ class AccessProfileIntegrationTest {
 
     @Test
     void setDiscordProfileCreatesTheUserRowIfItIsNotThereYet() {
-        directory.setDiscordProfile("400000000000000002", "new-user", null, null);
+        directory.setDiscordProfile(DiscordId.of("400000000000000002"), "new-user", null, null);
 
-        assertEquals("new-user", directory.discordProfile("400000000000000002").username());
+        assertEquals(
+                "new-user",
+                directory.discordProfile(DiscordId.of("400000000000000002")).username());
     }
 
     @Test
     void aMemberWithNoGuildNicknameOrAvatarHasNullThereNotAnEmptyString() {
-        directory.setDiscordProfile(DISCORD_ID, "steve", null, null);
+        directory.setDiscordProfile(DiscordId.of(DISCORD_ID), "steve", null, null);
 
-        final DiscordProfile profile = directory.discordProfile(DISCORD_ID);
+        final DiscordProfile profile = directory.discordProfile(DiscordId.of(DISCORD_ID));
         assertNull(profile.displayName());
         assertNull(profile.avatarUrl());
         // The timestamp says when the absence was last confirmed, not when a value last existed.
@@ -126,11 +129,11 @@ class AccessProfileIntegrationTest {
 
     @Test
     void leavingTheGuildClearsTheNicknameAndTheAvatarButTheUsernameMerelyGoesStale() {
-        directory.setDiscordProfile(DISCORD_ID, "steve", "Bau-Steve", "https://example.invalid/a.png");
+        directory.setDiscordProfile(DiscordId.of(DISCORD_ID), "steve", "Bau-Steve", "https://example.invalid/a.png");
 
-        directory.clearGuildProfile(DISCORD_ID);
+        directory.clearGuildProfile(DiscordId.of(DISCORD_ID));
 
-        final DiscordProfile profile = directory.discordProfile(DISCORD_ID);
+        final DiscordProfile profile = directory.discordProfile(DiscordId.of(DISCORD_ID));
         assertEquals("steve", profile.username(), "the global username is not guild-scoped");
         assertNull(profile.displayName(), "the guild nickname does not survive a departure");
         assertNull(profile.avatarUrl(), "neither does the guild avatar");
@@ -138,19 +141,19 @@ class AccessProfileIntegrationTest {
 
     @Test
     void clearGuildProfileOfAnUnknownAccountDoesNothing() {
-        directory.clearGuildProfile("999999999999999999");
+        directory.clearGuildProfile(DiscordId.of("999999999999999999"));
 
-        assertEquals(DiscordProfile.EMPTY, directory.discordProfile("999999999999999999"));
+        assertEquals(DiscordProfile.EMPTY, directory.discordProfile(DiscordId.of("999999999999999999")));
     }
 
     @Test
     void setMinecraftNameWritesOntoTheLinkedAccount() {
-        directory.link(DISCORD_ID, MC_UUID);
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
 
         final boolean written = directory.setMinecraftName(MC_UUID, "Notch");
 
         assertTrue(written);
-        final MinecraftProfile profile = directory.minecraftProfile(DISCORD_ID);
+        final MinecraftProfile profile = directory.minecraftProfile(DiscordId.of(DISCORD_ID));
         assertEquals("Notch", profile.name());
         assertWithinSeconds(Instant.now(), profile.nameUpdated(), 5);
     }
@@ -167,23 +170,30 @@ class AccessProfileIntegrationTest {
         // Two people may share a username or nickname; a UNIQUE constraint here would fail the INSERT below.
         final String otherDiscordId = "100000000000000099";
         final UUID otherMcUuid = UUID.randomUUID();
-        directory.link(DISCORD_ID, MC_UUID);
-        directory.link(otherDiscordId, otherMcUuid);
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+        directory.link(DiscordId.of(otherDiscordId), otherMcUuid);
 
-        directory.setDiscordProfile(DISCORD_ID, "steve", "Steve", "https://example.invalid/a.png");
-        directory.setDiscordProfile(otherDiscordId, "steve2", "Steve", "https://example.invalid/a.png");
+        directory.setDiscordProfile(DiscordId.of(DISCORD_ID), "steve", "Steve", "https://example.invalid/a.png");
+        directory.setDiscordProfile(DiscordId.of(otherDiscordId), "steve2", "Steve", "https://example.invalid/a.png");
         directory.setMinecraftName(MC_UUID, "Herobrine");
         directory.setMinecraftName(otherMcUuid, "Herobrine");
 
         // Each account still resolves to its own Minecraft account: the lookup is keyed on discordId.
-        assertEquals(MC_UUID, directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow());
         assertEquals(
-                otherMcUuid, directory.linkedMinecraftAccount(otherDiscordId).orElseThrow());
-        assertEquals(DISCORD_ID, directory.linkedDiscordAccount(MC_UUID).orElseThrow());
-        assertEquals(otherDiscordId, directory.linkedDiscordAccount(otherMcUuid).orElseThrow());
+                MC_UUID,
+                directory.linkedMinecraftAccount(DiscordId.of(DISCORD_ID)).orElseThrow());
+        assertEquals(
+                otherMcUuid,
+                directory.linkedMinecraftAccount(DiscordId.of(otherDiscordId)).orElseThrow());
+        assertEquals(
+                DiscordId.of(DISCORD_ID),
+                directory.linkedDiscordAccount(MC_UUID).orElseThrow());
+        assertEquals(
+                DiscordId.of(otherDiscordId),
+                directory.linkedDiscordAccount(otherMcUuid).orElseThrow());
 
-        final DiscordProfile first = directory.discordProfile(DISCORD_ID);
-        final DiscordProfile second = directory.discordProfile(otherDiscordId);
+        final DiscordProfile first = directory.discordProfile(DiscordId.of(DISCORD_ID));
+        final DiscordProfile second = directory.discordProfile(DiscordId.of(otherDiscordId));
         assertEquals("Steve", first.displayName());
         assertEquals("Steve", second.displayName());
         assertNotEquals(first, second, "identical display names must not make the two records equal");
@@ -191,8 +201,8 @@ class AccessProfileIntegrationTest {
 
     @Test
     void playerLocalesReadsTheLanguageFromTheDatabaseAtJoin() {
-        directory.link(DISCORD_ID, MC_UUID);
-        directory.setLocale(DISCORD_ID, Locale.GERMAN);
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+        directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
 
         // The wiring every module uses: the access directory is the LocaleSource.
         final PlayerLocales locales = new PlayerLocales(directory::locale);
@@ -203,14 +213,14 @@ class AccessProfileIntegrationTest {
 
     @Test
     void playerLocalesHoldsTheLanguageForTheSessionAndPicksAChangeUpOnTheNextJoin() {
-        directory.link(DISCORD_ID, MC_UUID);
-        directory.setLocale(DISCORD_ID, Locale.GERMAN);
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+        directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
 
         final PlayerLocales locales = new PlayerLocales(directory::locale);
         locales.join(MC_UUID);
 
         // The player picks the English role in Discord; the bot mirrors it.
-        directory.setLocale(DISCORD_ID, Locale.ENGLISH);
+        directory.setLocale(DiscordId.of(DISCORD_ID), Locale.ENGLISH);
         assertEquals(
                 Locale.GERMAN,
                 locales.of(MC_UUID),
@@ -236,14 +246,14 @@ class AccessProfileIntegrationTest {
                         "INSERT INTO player_playtime (discord_id, seconds) VALUES ('999999999999999999', 60)"));
         assertTrue(orphan.getMessage().contains("player_playtime_discord_id_fkey"), orphan.getMessage());
 
-        directory.ensureUser(DISCORD_ID);
+        directory.ensureUser(DiscordId.of(DISCORD_ID));
         executeChecked("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 60)");
         assertEquals(1, count("SELECT count(*) FROM player_playtime WHERE seconds = 60"));
     }
 
     @Test
     void playtimeIsAnIntegerCountOfSecondsThatCannotGoBackwardsPastZero() {
-        directory.ensureUser(DISCORD_ID);
+        directory.ensureUser(DiscordId.of(DISCORD_ID));
 
         final SQLException negative = assertThrows(
                 SQLException.class,
@@ -261,15 +271,15 @@ class AccessProfileIntegrationTest {
     /** Checks that an admin may set play time outright, unlike the proxy's {@code add}. */
     @Test
     void playtimeCanBeSetOutright() {
-        directory.ensureUser(DISCORD_ID);
+        directory.ensureUser(DiscordId.of(DISCORD_ID));
 
-        directory.setPlaytimeSeconds(DISCORD_ID, 32400);
+        directory.setPlaytimeSeconds(DiscordId.of(DISCORD_ID), 32400);
         assertEquals(
                 32400,
                 count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"),
                 "the first write makes the row");
 
-        directory.setPlaytimeSeconds(DISCORD_ID, 60);
+        directory.setPlaytimeSeconds(DiscordId.of(DISCORD_ID), 60);
         assertEquals(
                 60,
                 count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"),

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui.auth;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
@@ -52,7 +53,7 @@ interface SessionDao {
             """)
     void signIn(
             @Bind("id") String id,
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("displayName") String displayName,
             @Bind("roles") String roles,
             @Bind("csrf") String csrf,
@@ -109,7 +110,7 @@ interface SessionDao {
 
     /** Ends every session of one account and answers how many, so no session outlives its keys. */
     @SqlUpdate("DELETE FROM steward_session WHERE discord_id = :discordId")
-    int endAllOf(@Bind("discordId") String discordId);
+    int endAllOf(@Bind("discordId") DiscordId discordId);
 
     /** Deletes expired rows and answers how many. */
     @SqlUpdate("DELETE FROM steward_session WHERE expires_at < now()")

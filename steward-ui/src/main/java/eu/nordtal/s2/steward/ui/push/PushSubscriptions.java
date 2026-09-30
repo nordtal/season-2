@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
 import java.time.Instant;
 import java.util.List;
@@ -23,13 +24,13 @@ public final class PushSubscriptions {
     }
 
     /** Records a browser's subscription, or refreshes it if this endpoint has already subscribed. */
-    public void subscribe(final String discordId, final String endpoint, final String p256dh, final String auth) {
+    public void subscribe(final DiscordId discordId, final String endpoint, final String p256dh, final String auth) {
         subscribe(discordId, endpoint, p256dh, auth, null);
     }
 
     /** Records a subscription, naming the browser from its User-Agent; the raw string is never stored. */
     public void subscribe(
-            final String discordId,
+            final DiscordId discordId,
             final String endpoint,
             final String p256dh,
             final String auth,
@@ -47,12 +48,12 @@ public final class PushSubscriptions {
     }
 
     /** One account's own subscriptions, oldest first. */
-    public List<Subscription> of(final String discordId) {
+    public List<Subscription> of(final DiscordId discordId) {
         return dao.forAccount(discordId);
     }
 
     /** One subscription of this account, or null; looked up by endpoint and account, never endpoint alone. */
-    public @Nullable Subscription find(final String discordId, final String endpoint) {
+    public @Nullable Subscription find(final DiscordId discordId, final String endpoint) {
         return dao.find(endpoint, discordId);
     }
 
@@ -61,7 +62,7 @@ public final class PushSubscriptions {
      *
      * @return whether a subscription of that endpoint was on that account
      */
-    public boolean unsubscribe(final String discordId, final String endpoint) {
+    public boolean unsubscribe(final DiscordId discordId, final String endpoint) {
         return dao.remove(endpoint, discordId) == 1;
     }
 
@@ -80,7 +81,7 @@ public final class PushSubscriptions {
     /** One row of {@code steward_push_subscription}. */
     public record Subscription(
             String endpoint,
-            @ColumnName("discord_id") String discordId,
+            @ColumnName("discord_id") DiscordId discordId,
             String p256dh,
             String auth,
             @ColumnName("created_at") Instant createdAt,

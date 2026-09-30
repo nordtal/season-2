@@ -130,7 +130,7 @@ public final class AlertWatch {
             final Map<String, Map<AlertType, Boolean>> chosen,
             final List<PushSubscriptions.Subscription> browsers) {
         for (final PushSubscriptions.Subscription subscription : browsers) {
-            if (!PushPreferences.enabled(chosen.get(subscription.discordId()), type)) {
+            if (!PushPreferences.enabled(chosen.get(subscription.discordId().value()), type)) {
                 continue;
             }
             final PushSender.Result result = send(subscription, payload);

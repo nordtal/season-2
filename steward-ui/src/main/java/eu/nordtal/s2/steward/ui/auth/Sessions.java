@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui.auth;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -66,7 +67,7 @@ public final class Sessions {
      *
      * The caller {@link #end}s the row the sign-in started in and replaces the cookie.
      */
-    public String signIn(final String discordId, final String name, final List<String> roles) {
+    public String signIn(final DiscordId discordId, final String name, final List<String> roles) {
         final String id = random();
         dao.signIn(
                 id,
@@ -115,7 +116,7 @@ public final class Sessions {
     }
 
     /** Signs every browser of one account out, and answers how many. */
-    public int endAllOf(final String discordId) {
+    public int endAllOf(final DiscordId discordId) {
         return dao.endAllOf(Objects.requireNonNull(discordId, "discordId"));
     }
 
@@ -155,7 +156,7 @@ public final class Sessions {
      */
     public record Session(
             String id,
-            @ColumnName("discord_id") @Nullable String discordId,
+            @ColumnName("discord_id") @Nullable DiscordId discordId,
             @ColumnName("display_name") @Nullable String displayName,
             @Nullable String roles,
             String csrf,
@@ -168,7 +169,7 @@ public final class Sessions {
             return discordId != null && displayName != null;
         }
 
-        public String signedInDiscordId() {
+        public DiscordId signedInDiscordId() {
             return Objects.requireNonNull(discordId, "a signed-in session always carries a discord id");
         }
 
@@ -178,7 +179,7 @@ public final class Sessions {
 
         public DiscordAuth.Account account() {
             return new DiscordAuth.Account(
-                    Objects.requireNonNull(discordId), Objects.requireNonNull(displayName), roleList());
+                    Objects.requireNonNull(discordId).value(), Objects.requireNonNull(displayName), roleList());
         }
 
         /** Whether a security key has been held in this session at all, which is the door rather than the step-up. */

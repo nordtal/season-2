@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.payment;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,7 +27,7 @@ interface PaymentRequestDao {
             """)
     PaymentRequest insert(
             @Bind("reference") String reference,
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("days") int days,
             @Bind("amountCents") int amountCents,
             @Bind("donationCents") int donationCents,
@@ -40,7 +41,7 @@ interface PaymentRequestDao {
             FROM payment_request
             WHERE discord_id = :discordId AND status = 'OPEN'
             """)
-    Optional<PaymentRequest> findOpenByUser(@Bind("discordId") String discordId);
+    Optional<PaymentRequest> findOpenByUser(@Bind("discordId") DiscordId discordId);
 
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
@@ -73,7 +74,7 @@ interface PaymentRequestDao {
             ORDER BY created DESC
             LIMIT :limit
             """)
-    List<PaymentRequest> findByUser(@Bind("discordId") String discordId, @Bind("limit") int limit);
+    List<PaymentRequest> findByUser(@Bind("discordId") DiscordId discordId, @Bind("limit") int limit);
 
     /** Returns open requests that have a tab, oldest first, which is what the poll loop asks bunq about. */
     @SqlQuery("""

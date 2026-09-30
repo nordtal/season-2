@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.ui;
 
 import com.yubico.webauthn.data.ByteArray;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.Person;
 import eu.nordtal.s2.steward.ui.auth.Credentials;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
@@ -73,7 +74,7 @@ final class Profile {
     }
 
     /** The keys of one account, as {@code /api/me} lists them. */
-    private List<Map<String, Object>> keysOf(final String discordId) {
+    private List<Map<String, Object>> keysOf(final DiscordId discordId) {
         final List<Map<String, Object>> listed = new ArrayList<>();
         for (final Credentials.Key key : credentials().of(discordId)) {
             final Map<String, Object> one = new LinkedHashMap<>();
@@ -100,7 +101,7 @@ final class Profile {
      *
      * Read from the {@code person} row directly, since the roster's list call pages the whole access list.
      */
-    private Optional<String> avatarOf(final String discordId) {
+    private Optional<String> avatarOf(final DiscordId discordId) {
         try {
             return data().access()
                     .personOf(discordId)

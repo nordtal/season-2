@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessRequest;
 import eu.nordtal.s2.database.access.AccessRequests;
 import java.time.Instant;
@@ -60,11 +61,12 @@ public final class AccessInbox {
     private String run(final AccessRequest request, final Actor by) {
         return switch (request.kind()) {
             case GRANT -> {
-                final Instant until = effects.grant(request.subject(), Math.toIntExact(request.number()), by);
+                final Instant until =
+                        effects.grant(DiscordId.of(request.subject()), Math.toIntExact(request.number()), by);
                 yield json("until", until.toString());
             }
-            case REVOKE -> json("revoked", String.valueOf(effects.revoke(request.subject(), by)));
-            case UNLINK -> json("unlinked", String.valueOf(effects.unlink(request.subject(), by)));
+            case REVOKE -> json("revoked", String.valueOf(effects.revoke(DiscordId.of(request.subject()), by)));
+            case UNLINK -> json("unlinked", String.valueOf(effects.unlink(DiscordId.of(request.subject()), by)));
             case SETTLE -> {
                 final AccessChanges.Settled settled = effects.settle(request.subject(), by);
                 // `until` is null for both refusals; a surface must tell "booked" from "nothing to book".
@@ -79,7 +81,7 @@ public final class AccessInbox {
                         settled.status());
             }
             case SET_PLAYTIME -> {
-                effects.setPlaytime(request.subject(), request.number(), by);
+                effects.setPlaytime(DiscordId.of(request.subject()), request.number(), by);
                 yield json("seconds", String.valueOf(request.number()));
             }
             case RELOAD_MESSAGES -> {

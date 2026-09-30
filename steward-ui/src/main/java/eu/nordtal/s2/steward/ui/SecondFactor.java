@@ -164,8 +164,8 @@ final class SecondFactor {
         data().audit()
                 .record(
                         "REGISTER_KEY",
-                        who.signedInDiscordId(),
-                        who.signedInDiscordId(),
+                        who.signedInDiscordId().value(),
+                        who.signedInDiscordId().value(),
                         null,
                         "registered the security key \"" + key.label() + "\"");
         ctx.json(Map.of("label", key.label(), "userVerified", key.userVerified(), "backedUp", key.backedUp()));
@@ -217,8 +217,8 @@ final class SecondFactor {
         data().audit()
                 .record(
                         "HELD_KEY",
-                        who.signedInDiscordId(),
-                        who.signedInDiscordId(),
+                        who.signedInDiscordId().value(),
+                        who.signedInDiscordId().value(),
                         null,
                         "held the security key \"" + held.label() + "\""
                                 + (held.userVerified() ? " and unlocked it" : ""));
@@ -250,8 +250,8 @@ final class SecondFactor {
         data().audit()
                 .record(
                         "RENAME_KEY",
-                        who.signedInDiscordId(),
-                        who.signedInDiscordId(),
+                        who.signedInDiscordId().value(),
+                        who.signedInDiscordId().value(),
                         null,
                         "renamed a security key to \"" + label + "\"");
         ctx.json(Map.of("label", label));
@@ -273,8 +273,8 @@ final class SecondFactor {
         data().audit()
                 .record(
                         "REMOVE_KEY",
-                        who.signedInDiscordId(),
-                        who.signedInDiscordId(),
+                        who.signedInDiscordId().value(),
+                        who.signedInDiscordId().value(),
                         null,
                         "removed the security key \"" + label + "\" - " + left + " left on this account");
         ctx.json(Map.of("removed", label, "left", left));

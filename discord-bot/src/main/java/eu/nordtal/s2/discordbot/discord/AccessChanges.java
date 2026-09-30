@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
@@ -11,19 +12,19 @@ import org.jspecify.annotations.Nullable;
 public interface AccessChanges {
 
     /** Adds days of access, applies the role and tells them, returning when access now runs until. */
-    Instant grant(String discordId, int days, Actor by);
+    Instant grant(DiscordId discordId, int days, Actor by);
 
     /** Takes every running grant away, removes the role and tells them, returning how many went. */
-    int revoke(String discordId, Actor by);
+    int revoke(DiscordId discordId, Actor by);
 
     /** Breaks the link between a Discord account and a Minecraft one. */
-    boolean unlink(String discordId, Actor by);
+    boolean unlink(DiscordId discordId, Actor by);
 
     /** Books a payment by hand. */
     Settled settle(String reference, Actor by);
 
     /** Writes somebody's total play time, in seconds. */
-    void setPlaytime(String discordId, long seconds, Actor by);
+    void setPlaytime(DiscordId discordId, long seconds, Actor by);
 
     /**
      * Re-reads the message bundles, keeping the running ones on failure.

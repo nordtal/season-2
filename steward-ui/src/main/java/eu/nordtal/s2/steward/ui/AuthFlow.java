@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Sessions;
@@ -89,13 +90,13 @@ final class AuthFlow {
         final DiscordAuth.Account who = Objects.requireNonNull(outcome.account());
         // A tree with nobody in it lets the first sign-in claim root.
         final String signingIn = who.id();
-        if (admins == null || !(admins().isAdmin(signingIn) || claimRoot(who))) {
+        if (admins == null || !(admins().isAdmin(DiscordId.of(signingIn)) || claimRoot(who))) {
             log.info("refused {} ({}): not an admin", who.name(), signingIn);
             ctx.status(403).json(Map.of("error", who.name() + " is in the guild but is not an admin"));
             return;
         }
         // A new session id, so the one the sign-in started in cannot be fixated.
-        final String id = sessions().signIn(who.id(), who.name(), who.roles());
+        final String id = sessions().signIn(DiscordId.of(who.id()), who.name(), who.roles());
         sessions().end(started);
         setSessionCookie(ctx, id);
         ctx.redirect("/");
@@ -103,7 +104,7 @@ final class AuthFlow {
 
     /** True when this sign-in just became the root of an empty admin tree. */
     private boolean claimRoot(final DiscordAuth.Account who) {
-        if (!admins().claimRootIfNobody(who.id())) {
+        if (!admins().claimRootIfNobody(DiscordId.of(who.id()))) {
             return false;
         }
         log.warn(

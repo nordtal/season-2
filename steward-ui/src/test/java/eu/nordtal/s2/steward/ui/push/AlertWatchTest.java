@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -68,8 +69,8 @@ class AlertWatchTest {
             throw new RuntimeException(failure);
         }
         subscriptions = new PushSubscriptions(dataSource);
-        subscriptions.subscribe("42", "https://push.example/a", "p-a", "a-a");
-        subscriptions.subscribe("43", "https://push.example/b", "p-b", "a-b");
+        subscriptions.subscribe(DiscordId.of("42"), "https://push.example/a", "p-a", "a-a");
+        subscriptions.subscribe(DiscordId.of("43"), "https://push.example/b", "p-b", "a-b");
         preferences = new PushPreferences(dataSource);
         source = new FakeSource();
         sender = new FakeSender();
@@ -119,7 +120,7 @@ class AlertWatchTest {
 
     @Test
     void aSwitchedOffTypeIsNotSentToThatAccount() {
-        preferences.set("42", AlertType.SERVICE, false);
+        preferences.set(DiscordId.of("42"), AlertType.SERVICE, false);
 
         source.allClear();
         watch.poll();
@@ -149,7 +150,7 @@ class AlertWatchTest {
 
     @Test
     void driftReachesTheAccountThatAskedForIt() {
-        preferences.set("43", AlertType.DRIFT, true);
+        preferences.set(DiscordId.of("43"), AlertType.DRIFT, true);
 
         source.allClear();
         watch.poll();

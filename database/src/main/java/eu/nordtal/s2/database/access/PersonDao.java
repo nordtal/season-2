@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.List;
 import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
@@ -65,5 +66,5 @@ interface PersonDao {
             WHERE usr.discord_id = :discordId
             """)
     @RegisterRowMapper(PersonMapper.class)
-    Optional<Person> personOf(@Bind("discordId") String discordId);
+    Optional<Person> personOf(@Bind("discordId") DiscordId discordId);
 }

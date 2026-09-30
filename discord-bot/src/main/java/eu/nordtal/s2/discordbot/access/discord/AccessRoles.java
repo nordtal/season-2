@@ -2,6 +2,7 @@ package eu.nordtal.s2.discordbot.access.discord;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
@@ -67,13 +68,13 @@ public final class AccessRoles {
     }
 
     /** Returns whether a non-revoked grant covers this instant. */
-    public boolean hasActiveAccess(final String discordId) {
+    public boolean hasActiveAccess(final DiscordId discordId) {
         final Instant now = clock.instant();
         return access.grantsOf(discordId).stream().anyMatch(grant -> grant.coversAt(now));
     }
 
     /** Returns when the current run of access ends, if there is one. */
-    public Optional<Instant> validUntil(final String discordId) {
+    public Optional<Instant> validUntil(final DiscordId discordId) {
         final Instant now = clock.instant();
         return access.grantsOf(discordId).stream()
                 .filter(grant -> grant.revoked() == null && grant.validUntil().isAfter(now))
@@ -82,7 +83,7 @@ public final class AccessRoles {
     }
 
     /** Brings one member's access role in line with the database, right now. */
-    public void applyAccessRole(final String discordId, final boolean active) {
+    public void applyAccessRole(final DiscordId discordId, final boolean active) {
         // No access role configured is not a failure: the grant stays in the database, which the proxy reads.
         if (!Configured.isSet(config.roles().access())) {
             return;
@@ -97,7 +98,7 @@ public final class AccessRoles {
             return;
         }
 
-        guild.retrieveMemberById(discordId)
+        guild.retrieveMemberById(discordId.value())
                 .queue(
                         member -> {
                             final boolean has = member.getRoles().contains(role);
@@ -121,7 +122,7 @@ public final class AccessRoles {
     }
 
     /** Grants the permanent donor role; nothing removes it. */
-    public void grantDonorRole(final String discordId) {
+    public void grantDonorRole(final DiscordId discordId) {
         // The donor flag in the database is already set by the caller; the role is the decoration.
         if (!Configured.isSet(config.roles().donor())) {
             return;
@@ -136,7 +137,7 @@ public final class AccessRoles {
                             + "> did not get it. The donor flag is set either way.");
             return;
         }
-        guild.addRoleToMember(net.dv8tion.jda.api.entities.UserSnowflake.fromId(discordId), role)
+        guild.addRoleToMember(net.dv8tion.jda.api.entities.UserSnowflake.fromId(discordId.value()), role)
                 .queue(
                         ok -> log.info("Gave the donor role to {}", discordId),
                         failure ->
@@ -175,8 +176,8 @@ public final class AccessRoles {
         }
 
         // Whatever is left had a grant and no role.
-        for (final String discordId : shouldHave) {
-            final Member member = guild.getMemberById(discordId);
+        for (final DiscordId discordId : shouldHave.stream().map(DiscordId::of).toList()) {
+            final Member member = guild.getMemberById(discordId.value());
             if (member == null) {
                 // Paid and not in the guild: not an error, the role waits for a return.
                 continue;
@@ -238,13 +239,13 @@ public final class AccessRoles {
     }
 
     /** Returns the language this Discord account chose, or English. */
-    public Locale localeOf(final String discordId) {
+    public Locale localeOf(final DiscordId discordId) {
         return Locales.parse(dao.localeOf(discordId).orElse(null));
     }
 
     /** Sends a direct message, and tells the admin channel when it bounces. */
-    public void dm(final String discordId, final String text) {
-        jda.openPrivateChannelById(discordId)
+    public void dm(final DiscordId discordId, final String text) {
+        jda.openPrivateChannelById(discordId.value())
                 .queue(
                         channel -> channel.sendMessage(text)
                                 .queue(
@@ -272,7 +273,7 @@ public final class AccessRoles {
      *
      * An unknown member, unknown account or non-snowflake id is empty; a guild JDA cannot see throws.
      */
-    public Optional<Member> member(final String discordId) {
+    public Optional<Member> member(final DiscordId discordId) {
         final Guild guild = guild();
         if (guild == null) {
             // Thrown and not empty. Empty means "no such member", and a guild JDA cannot see is no evidence of that.
@@ -280,7 +281,8 @@ public final class AccessRoles {
                     + " bot, so guild membership cannot be answered either way");
         }
         try {
-            return Optional.ofNullable(guild.retrieveMemberById(discordId).complete());
+            return Optional.ofNullable(
+                    guild.retrieveMemberById(discordId.value()).complete());
         } catch (final NumberFormatException notASnowflake) {
             return Optional.empty();
         } catch (final ErrorResponseException failure) {

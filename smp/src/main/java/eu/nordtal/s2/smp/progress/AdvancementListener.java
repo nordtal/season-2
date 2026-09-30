@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.progress;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
@@ -72,7 +73,7 @@ public final class AdvancementListener implements Listener {
             return;
         }
 
-        final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
+        final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             return;
         }

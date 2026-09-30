@@ -1,6 +1,7 @@
 package eu.nordtal.s2.discordbot.access;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.discordbot.AdminLog;
@@ -29,7 +30,7 @@ public final class SeasonStart {
     }
 
     /** Reports one freshly written grant if it was anchored to nothing. */
-    public void warnIfUnanchored(final String discordId, final AccessGrant grant) {
+    public void warnIfUnanchored(final DiscordId discordId, final AccessGrant grant) {
         try {
             if (phases.smpStart().isPresent() || !beforeTheSmp(phases.currentPhase())) {
                 return;

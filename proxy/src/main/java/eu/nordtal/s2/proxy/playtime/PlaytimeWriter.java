@@ -4,6 +4,7 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.proxy.Player;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import java.time.Clock;
 import java.time.Duration;
@@ -61,7 +62,7 @@ public final class PlaytimeWriter {
 
     /** Entry point for the two events above, so tests need no Velocity types. */
     void begin(final UUID mcUuid, final String username) {
-        final String discordId =
+        final DiscordId discordId =
                 roster.of(mcUuid).map(LoginRoster.Session::discordId).orElse(null);
         if (discordId == null) {
             // No Discord id to key the row by; a guessed key would corrupt a total.
@@ -138,10 +139,10 @@ public final class PlaytimeWriter {
     /** One player's running session; {@link #flush(UUID)} holds its monitor across read, write and advance. */
     private static final class Session {
 
-        private final String discordId;
+        private final DiscordId discordId;
         private volatile Instant since;
 
-        private Session(final String discordId, final Instant since) {
+        private Session(final DiscordId discordId, final Instant since) {
             this.discordId = discordId;
             this.since = since;
         }

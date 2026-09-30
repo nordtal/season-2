@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Jdbis;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -11,9 +13,6 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,16 +77,13 @@ class KillCountsIntegrationTest {
     void freshGame() {
         execute("TRUNCATE TABLE hg_event, hg_member, hg_team, hg_game, discord_user CASCADE");
 
-        dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(HungerGamesDao.class);
+        dao = Jdbis.over(dataSource).onDemand(HungerGamesDao.class);
 
         gameId = uuid("INSERT INTO hg_game (state) VALUES ('RUNNING') RETURNING id");
         final UUID teamId = uuid("INSERT INTO hg_team (game_id, name) VALUES ('" + gameId + "', 'reds') RETURNING id");
-        alice = member(teamId, "100000000000000001");
-        bob = member(teamId, "100000000000000002");
-        carol = member(teamId, "100000000000000003");
+        alice = member(teamId, DiscordId.of("100000000000000001"));
+        bob = member(teamId, DiscordId.of("100000000000000002"));
+        carol = member(teamId, DiscordId.of("100000000000000003"));
     }
 
     @Test
@@ -153,7 +149,7 @@ class KillCountsIntegrationTest {
                         + " of everybody at the end of the event");
     }
 
-    private UUID member(final UUID teamId, final String discordId) {
+    private UUID member(final UUID teamId, final DiscordId discordId) {
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')");
         return uuid("INSERT INTO hg_member (team_id, game_id, discord_id) VALUES ('" + teamId + "', '" + gameId + "', '"
                 + discordId + "') RETURNING id");

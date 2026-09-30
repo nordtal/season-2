@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
@@ -30,7 +31,7 @@ public final class Purchases {
      *
      * An open request without a bunq tab is edited in place; once a tab exists it is superseded, tab and all.
      */
-    public PaymentRequest select(final String discordId, final Tier tier, final boolean donation) {
+    public PaymentRequest select(final DiscordId discordId, final Tier tier, final boolean donation) {
         final int donationCents = donation ? tiers.donationCents() : 0;
         final int amountCents = tier.priceCents() + donationCents;
 

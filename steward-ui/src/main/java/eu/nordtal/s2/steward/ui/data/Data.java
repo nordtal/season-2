@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.ui.data;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessRequests;
 import eu.nordtal.s2.database.audit.AuditDirectory;
@@ -37,6 +38,7 @@ public final class Data implements AutoCloseable {
                 .poolName("steward-ui")
                 .maximumPoolSize(config.maximumPoolSize())
                 .build());
+        this.database.jdbi().installPlugin(Jdbis.ids());
         this.updates = UpdateDirectory.using(database.dataSource());
         this.metrics = MetricDirectory.using(database.dataSource());
         this.phase = PhaseDirectory.using(database.dataSource(), clock);

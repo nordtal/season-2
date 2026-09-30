@@ -96,8 +96,8 @@ final class PushEndpoints {
         data().audit()
                 .record(
                         "WEB_PUSH_SUBSCRIBE",
-                        who.signedInDiscordId(),
-                        who.signedInDiscordId(),
+                        who.signedInDiscordId().value(),
+                        who.signedInDiscordId().value(),
                         null,
                         "subscribed a browser to the traffic light's web push");
         ctx.status(204);
@@ -116,8 +116,8 @@ final class PushEndpoints {
         data().audit()
                 .record(
                         "WEB_PUSH_UNSUBSCRIBE",
-                        who.signedInDiscordId(),
-                        who.signedInDiscordId(),
+                        who.signedInDiscordId().value(),
+                        who.signedInDiscordId().value(),
                         null,
                         "unsubscribed a browser from the traffic light's web push");
         ctx.status(204);
@@ -198,8 +198,8 @@ final class PushEndpoints {
         data().audit()
                 .record(
                         "WEB_PUSH_TEST",
-                        who.signedInDiscordId(),
-                        who.signedInDiscordId(),
+                        who.signedInDiscordId().value(),
+                        who.signedInDiscordId().value(),
                         null,
                         "sent a test " + type.key() + " notification to one of its own browsers");
         ctx.status(204);

@@ -1,10 +1,11 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The outcome of registering a team, from {@link Teams#register(String, String)}.
+ * The outcome of registering a team, from {@link Teams#register(DiscordId, String)}.
  *
  * @param teamId null unless {@link #status()} is {@link Status#REGISTERED}
  */

@@ -211,7 +211,7 @@ public final class StewardWorker {
 
         // Before a single jar moves, so a plugin never meets a schema older than itself.
         try {
-            Schema.migrate(database);
+            Schema.migrate(database, Schema.passwords(System.getenv()));
         } catch (final RuntimeException failure) {
             log.error("The database schema could not be applied. Nothing else was done.", failure);
             return 1;
@@ -268,7 +268,7 @@ public final class StewardWorker {
 
         try (ServeLock held = serveLock.get()) {
             try {
-                Schema.migrate(database);
+                Schema.migrate(database, Schema.passwords(System.getenv()));
             } catch (final RuntimeException failure) {
                 // A server must not start against an unknown schema.
                 log.error(
@@ -671,7 +671,7 @@ public final class StewardWorker {
             return false;
         }
         try (Database pool = opened) {
-            Schema.migrate(pool);
+            Schema.migrate(pool, Schema.passwords(System.getenv()));
             return true;
         } catch (final RuntimeException failed) {
             // Flyway's message names the file and the statement.

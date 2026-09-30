@@ -664,3 +664,88 @@ CREATE TABLE steward_push_preference
     CONSTRAINT steward_push_preference_pkey PRIMARY KEY (discord_id, alert_type)
 );
 COMMENT ON TABLE steward_push_preference IS 'Owned by steward-ui: which alert types one account wants pushed.';
+
+
+-- Roles
+--
+-- steward-worker migrates and owns every table; every other service logs in with a role of its own.
+-- Roles belong to the cluster and a password never belongs in a migration, so the migrator creates
+-- them before this runs and this only grants, by the names the Flyway placeholders give. A service is
+-- granted what it owns and what it reads or writes of someone else's, and nothing more.
+
+-- The shared read models, through one role every service is a member of. The open payment is part of
+-- a person's access state.
+GRANT ${role_read} TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_hunger_games}, ${role_smp}, ${role_steward_ui};
+GRANT SELECT ON discord_user, account_link, access_grant, payment_request, season_phase, player_playtime,
+    network_setting, online_count, online_player TO ${role_read};
+
+-- The command catalogue, until one inbox per consumer replaces it: every service asks, claims its own
+-- rows and journals what it asked for.
+GRANT SELECT, INSERT, UPDATE ON command_request
+    TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_hunger_games}, ${role_smp}, ${role_steward_ui};
+GRANT USAGE ON SEQUENCE command_request_id_seq
+    TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_hunger_games}, ${role_smp}, ${role_steward_ui};
+-- The journal is appended to and never changed.
+GRANT INSERT ON audit_log
+    TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_hunger_games}, ${role_smp}, ${role_steward_ui};
+
+-- The season reset a phase change performs, until smp performs it itself; Steward and the season
+-- commands both change the phase, which also moves the access periods.
+GRANT UPDATE ON season_phase, access_grant TO ${role_discord_bot}, ${role_steward_ui};
+GRANT SELECT, UPDATE ON smp_milestone, smp_objective TO ${role_discord_bot}, ${role_steward_ui};
+GRANT SELECT, DELETE ON smp_contribution TO ${role_discord_bot}, ${role_steward_ui};
+
+-- The network snapshot the proxy and the bot draw.
+GRANT SELECT ON hg_game, hg_team, hg_member, hg_event, smp_player TO ${role_discord_bot}, ${role_proxy};
+
+-- discord-bot
+GRANT SELECT, INSERT, UPDATE, DELETE ON discord_user, account_link, payment_request, access_grant, expiry_notice,
+    hg_team, hg_member, managed_message TO ${role_discord_bot};
+GRANT SELECT, DELETE ON link_code TO ${role_discord_bot};
+GRANT SELECT, UPDATE ON payment_notice TO ${role_discord_bot};
+GRANT SELECT ON payment_gateway, update_request, service_hold TO ${role_discord_bot};
+GRANT INSERT ON hg_game TO ${role_discord_bot};
+GRANT INSERT, UPDATE ON player_playtime TO ${role_discord_bot};
+-- The one consumer of its inbox.
+GRANT SELECT, UPDATE, DELETE ON access_request TO ${role_discord_bot};
+-- It validates the schema before it starts, which reads the migrator's history.
+DO $$
+BEGIN
+    IF to_regclass('flyway_schema_history') IS NOT NULL THEN
+        EXECUTE format('GRANT SELECT ON flyway_schema_history TO %I', '${role_discord_bot}');
+    END IF;
+END
+$$;
+
+-- The proxy
+GRANT SELECT, INSERT, UPDATE, DELETE ON link_code, network_setting, online_count, online_player,
+    proxy_standby_state, proxy_swap_seat TO ${role_proxy};
+GRANT INSERT, UPDATE ON player_playtime TO ${role_proxy};
+GRANT UPDATE (mc_name, mc_name_updated) ON account_link TO ${role_proxy};
+GRANT SELECT ON update_request, service_hold, smp_milestone, smp_objective TO ${role_proxy};
+
+-- hunger-games
+GRANT SELECT, INSERT, UPDATE, DELETE ON hg_game, hg_event TO ${role_hunger_games};
+GRANT SELECT, UPDATE ON hg_team, hg_member TO ${role_hunger_games};
+
+-- smp
+GRANT SELECT, INSERT, UPDATE, DELETE ON smp_player, smp_aura_event, smp_milestone, smp_objective, smp_contribution,
+    smp_grave, smp_poi, smp_spin TO ${role_smp};
+GRANT SELECT ON hg_game, hg_member TO ${role_smp};
+
+-- steward-ui
+GRANT SELECT, INSERT, UPDATE, DELETE ON admin_grant, steward_session, steward_credential, steward_push_subscription,
+    steward_push_preference TO ${role_steward_ui};
+GRANT USAGE ON SEQUENCE admin_grant_id_seq TO ${role_steward_ui};
+-- The admin tree and the pack exemption.
+GRANT INSERT, UPDATE ON discord_user TO ${role_steward_ui};
+GRANT SELECT ON audit_log, payment_notice, metric_sample, service_hold, hg_game, hg_team, hg_member
+    TO ${role_steward_ui};
+-- It asks for runs and stops a countdown, and asks the bot for access changes.
+GRANT SELECT, INSERT, UPDATE ON update_request TO ${role_steward_ui};
+GRANT USAGE ON SEQUENCE update_request_id_seq TO ${role_steward_ui};
+GRANT SELECT, INSERT ON access_request TO ${role_steward_ui};
+GRANT USAGE ON SEQUENCE access_request_id_seq TO ${role_steward_ui};
+
+-- pg_dump reads everything; the restore writes into a database of its own.
+GRANT pg_read_all_data TO ${role_backup};

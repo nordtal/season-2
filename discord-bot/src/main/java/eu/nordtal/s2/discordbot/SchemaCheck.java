@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot;
 
+import eu.nordtal.s2.database.DatabaseRole;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
@@ -23,6 +24,8 @@ final class SchemaCheck {
             Flyway.configure(SchemaCheck.class.getClassLoader())
                     .dataSource(dataSource)
                     .locations("classpath:db/migration")
+                    // Flyway parses the files to validate them, and V1 names the roles by placeholder.
+                    .placeholders(DatabaseRole.placeholders(DatabaseRole.PREFIX))
                     .load()
                     .validate();
         } catch (final RuntimeException invalid) {

@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
@@ -28,13 +30,13 @@ public final class TestDatabase {
     private static final AtomicInteger CLONES = new AtomicInteger();
 
     private final PGSimpleDataSource dataSource;
-    private final String username;
-    private final String password;
+    private final PostgreSQLContainer<?> running;
+    private final String name;
 
-    private TestDatabase(final PGSimpleDataSource dataSource, final PostgreSQLContainer<?> running) {
+    private TestDatabase(final PGSimpleDataSource dataSource, final PostgreSQLContainer<?> running, final String name) {
         this.dataSource = dataSource;
-        this.username = running.getUsername();
-        this.password = running.getPassword();
+        this.running = running;
+        this.name = name;
     }
 
     /**
@@ -56,7 +58,7 @@ public final class TestDatabase {
         final PostgreSQLContainer<?> running = Container.RUNNING;
         final String name = "test_" + CLONES.incrementAndGet();
         execute(running, "CREATE DATABASE " + name + " " + template);
-        return new TestDatabase(dataSource(running, name), running);
+        return new TestDatabase(dataSource(running, name), running, name);
     }
 
     /** Returns a data source that opens a new connection to this database on every call. */
@@ -71,12 +73,40 @@ public final class TestDatabase {
 
     /** Returns the user, a superuser of the test container. */
     public String username() {
-        return username;
+        return running.getUsername();
     }
 
     /** Returns the user's password. */
     public String password() {
-        return password;
+        return running.getPassword();
+    }
+
+    /** Returns a data source that logs in as a service's role, to hold what V1 grants it. */
+    public DataSource dataSourceAs(final DatabaseRole role) {
+        final PGSimpleDataSource source = dataSource(running, name);
+        source.setUser(role.roleName());
+        source.setPassword(password(role));
+        return source;
+    }
+
+    /**
+     * Runs one statement as a role over the container's own socket, the only way the backup role logs in.
+     *
+     * @return psql's error output, empty when the statement went through
+     */
+    public String socketAs(final DatabaseRole role, final String sql) {
+        try {
+            return running.execInContainer(
+                            "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", role.roleName(), "-d", name, "-c", sql)
+                    .getStderr();
+        } catch (final java.io.IOException | InterruptedException failure) {
+            throw new IllegalStateException("psql did not run in the test container", failure);
+        }
+    }
+
+    /** The password every role gets in the test container: its own key. */
+    private static String password(final DatabaseRole role) {
+        return role.key();
     }
 
     /** Starts and migrates on first use; the container outlives every test and goes with the JVM. */
@@ -87,9 +117,19 @@ public final class TestDatabase {
         private static PostgreSQLContainer<?> start() {
             final PostgreSQLContainer<?> running = new PostgreSQLContainer<>(IMAGE).withDatabaseName(TEMPLATE);
             running.start();
+            final Map<DatabaseRole, String> passwords = new EnumMap<>(DatabaseRole.class);
+            for (final DatabaseRole role : DatabaseRole.values()) {
+                passwords.put(role, password(role));
+            }
+            try {
+                DatabaseRole.provision(dataSource(running, TEMPLATE), DatabaseRole.PREFIX, passwords);
+            } catch (final SQLException failure) {
+                throw new IllegalStateException("could not create the roles V1 grants to", failure);
+            }
             Flyway.configure(TestDatabase.class.getClassLoader())
                     .dataSource(dataSource(running, TEMPLATE))
                     .locations("classpath:db/migration")
+                    .placeholders(DatabaseRole.placeholders(DatabaseRole.PREFIX))
                     .load()
                     .migrate();
             return running;

@@ -1,11 +1,12 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The outcome of {@link AccessDirectory#redeemLinkCode(String, String)}; ordinary outcomes, not exceptions.
+ * The outcome of {@link AccessDirectory#redeemLinkCode(DiscordId, String)}; ordinary outcomes, not exceptions.
  *
  * @param mcUuid the Minecraft account that was linked, present only for {@link Status#LINKED}
  */

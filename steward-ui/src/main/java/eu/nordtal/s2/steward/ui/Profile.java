@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.ui;
 
 import com.yubico.webauthn.data.ByteArray;
-import eu.nordtal.s2.common.roster.Person;
+import eu.nordtal.s2.database.access.Person;
 import eu.nordtal.s2.steward.ui.auth.Credentials;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Sessions;

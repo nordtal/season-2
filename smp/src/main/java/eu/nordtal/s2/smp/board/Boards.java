@@ -2,13 +2,12 @@ package eu.nordtal.s2.smp.board;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
-import eu.nordtal.s2.common.hud.BoardFrame;
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
-import eu.nordtal.s2.common.message.context.MilestoneContext;
-import eu.nordtal.s2.common.message.context.PlayerContext;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.messages.context.MilestoneContext;
+import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.config.BoardSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;

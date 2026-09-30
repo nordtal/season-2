@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.Glyphs;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.packrendering.Glyphs;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

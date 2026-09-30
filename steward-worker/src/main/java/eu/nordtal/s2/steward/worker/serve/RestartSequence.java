@@ -1,8 +1,8 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.common.update.UpdateReports;
-import eu.nordtal.s2.common.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReports;
+import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
 import eu.nordtal.s2.steward.worker.plan.Topology;
 import java.util.List;

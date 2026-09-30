@@ -2,13 +2,13 @@ package eu.nordtal.s2.smp.hud;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
-import eu.nordtal.s2.common.Glyphs;
-import eu.nordtal.s2.common.hud.Bearing;
-import eu.nordtal.s2.common.hud.BossBarLine;
-import eu.nordtal.s2.common.hud.BossBarLine.Pill;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
-import eu.nordtal.s2.common.message.context.MilestoneContext;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.messages.context.MilestoneContext;
+import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.packrendering.hud.Bearing;
+import eu.nordtal.s2.packrendering.hud.BossBarLine;
+import eu.nordtal.s2.packrendering.hud.BossBarLine.Pill;
 import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.navigate.NavigationTarget;

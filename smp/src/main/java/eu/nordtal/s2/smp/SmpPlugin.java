@@ -4,13 +4,12 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.commands.remote.Outbox;
-import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.health.Readiness;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
-import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.database.access.AdminOperators;
+import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
-import eu.nordtal.s2.papercommon.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.BukkitSmpEffects;
 import eu.nordtal.s2.smp.command.NavigateCommand;
@@ -43,6 +42,7 @@ import eu.nordtal.s2.smp.progress.StatisticPoller;
 import eu.nordtal.s2.smp.region.Box;
 import eu.nordtal.s2.smp.region.Boxes;
 import eu.nordtal.s2.smp.region.ConfigBoxes;
+import eu.nordtal.s2.smp.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.travel.BalloonDisplay;
 import eu.nordtal.s2.smp.world.Datapacks;
@@ -107,7 +107,7 @@ public final class SmpPlugin extends JavaPlugin {
     SmpDao dao;
     Jdbi jdbi;
     Messages messages;
-    eu.nordtal.s2.common.command.CommandRequests requests;
+    eu.nordtal.s2.database.command.CommandRequests requests;
     eu.nordtal.s2.smp.announce.Announcer announcer;
     /** What the last {@code /smp reload} refused the file for, or empty when it took it. */
     private volatile List<String> trackProblems = List.of();
@@ -146,7 +146,7 @@ public final class SmpPlugin extends JavaPlugin {
     public void onEnable() {
         // Loads what every disable step needs while the jar still exists.
         eu.nordtal.s2.common.health.Shutdown.warmUp();
-        eu.nordtal.s2.common.message.context.Contexts.server(getName());
+        eu.nordtal.s2.messages.context.Contexts.server(getName());
         try {
             start();
         } catch (final Refusal refusal) {

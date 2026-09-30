@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.worker.backup;
 
-import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.time.ZoneId;
 import java.util.Optional;

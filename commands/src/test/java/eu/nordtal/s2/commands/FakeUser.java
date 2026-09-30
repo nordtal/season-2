@@ -1,7 +1,7 @@
 package eu.nordtal.s2.commands;
 
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Tone;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;

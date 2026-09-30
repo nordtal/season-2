@@ -1,11 +1,11 @@
 package eu.nordtal.s2.commands;
 
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.context.DiscordMemberContext;
-import eu.nordtal.s2.common.message.context.MilestoneContext;
-import eu.nordtal.s2.common.message.context.PlayerContext;
-import eu.nordtal.s2.common.message.spec.Arg;
-import eu.nordtal.s2.common.message.spec.Name;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.context.DiscordMemberContext;
+import eu.nordtal.s2.messages.context.MilestoneContext;
+import eu.nordtal.s2.messages.context.PlayerContext;
+import eu.nordtal.s2.messages.spec.Arg;
+import eu.nordtal.s2.messages.spec.Name;
 
 /** The SMP's own messages: access status and the admin commands around it. */
 @Name("SMP")

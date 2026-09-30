@@ -2,7 +2,7 @@ package eu.nordtal.s2.smp.navigate;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
-import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.messages.MessageRef;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 

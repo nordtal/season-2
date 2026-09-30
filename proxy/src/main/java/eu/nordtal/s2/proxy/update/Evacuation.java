@@ -3,10 +3,10 @@ package eu.nordtal.s2.proxy.update;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.common.update.UpdateReports;
-import eu.nordtal.s2.common.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReports;
+import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.proxy.PhaseServers;
 import java.util.HashSet;
 import java.util.List;
@@ -146,12 +146,12 @@ public final class Evacuation {
      *
      * A DOWN run reaches {@code DONE} in seconds while its hold lasts until somebody presses Start.
      */
-    static Set<String> heldServices(final List<eu.nordtal.s2.common.update.ServiceHold> holds) {
+    static Set<String> heldServices(final List<eu.nordtal.s2.database.update.ServiceHold> holds) {
         if (holds.isEmpty()) {
             return Set.of();
         }
         final Set<String> services = new HashSet<>();
-        for (final eu.nordtal.s2.common.update.ServiceHold hold : holds) {
+        for (final eu.nordtal.s2.database.update.ServiceHold hold : holds) {
             services.add(hold.service());
         }
         return Set.copyOf(services);

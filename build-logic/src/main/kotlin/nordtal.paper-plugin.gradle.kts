@@ -15,7 +15,8 @@ repositories {
 
 dependencies {
     "compileOnly"(libs.paper.api)
-    "implementation"(project(":common"))
+    // Every shared module arrives through paper-common's API.
+    "implementation"(project(":paper-common"))
 
     // On the test classpath for the plain-value parts of the API, never to start a server.
     "testImplementation"(libs.paper.api)

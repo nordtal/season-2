@@ -1,3 +1,4 @@
+import eu.nordtal.s2.build.GenerateGlyphAdvances
 import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
@@ -10,6 +11,22 @@ tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option("NullAway:KnownInitializers", "eu.nordtal.s2.smp.SmpPlugin.start")
     }
+}
+
+// The menus size their rows from this advance table, derived from the assembled pack on every build and never
+// committed.
+val assembledPack = configurations.resolvable("packForAdvances") { extendsFrom(configurations["resourcePack"]) }
+
+val menuAdvances =
+    tasks.register<GenerateGlyphAdvances>("generateMenuAdvances") {
+        pack.from(assembledPack)
+        font.set("nordtal/font/gui_r0.json")
+        target.set(layout.buildDirectory.file("generated/advances/gui-row-advances.properties"))
+    }
+
+// Into the processed resources, not a source directory: messageSchema reads the source directories.
+tasks.named<ProcessResources>("processResources") {
+    from(menuAdvances) { into("nordtal/menu") }
 }
 
 // Files outside every source set that tests read; undeclared, an edit would leave :smp:test UP-TO-DATE.
@@ -33,10 +50,12 @@ repositories {
 }
 
 dependencies {
-    // The assembled resource pack, for PanelWalk: the chest-row fonts only exist there.
+    // The assembled resource pack: the menu advance table and PanelWalk's chest-row fonts only exist there.
     "resourcePack"(project(":resource-pack", "pack"))
 
-    implementation(project(":paper-common"))
+    testImplementation(testFixtures(project(":common")))
+    testImplementation(testFixtures(project(":pack-rendering")))
+
     // Flyway is excluded: this plugin never migrates, and flyway-core drags in Jackson 3.
     implementation(libs.jcore) {
         exclude(group = "org.flywaydb")

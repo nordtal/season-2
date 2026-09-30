@@ -1,6 +1,6 @@
 package eu.nordtal.s2.discordbot.config;
 
-import eu.nordtal.s2.common.payment.PaymentGateway;
+import eu.nordtal.s2.database.payment.PaymentGateway;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;

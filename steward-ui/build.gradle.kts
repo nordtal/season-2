@@ -164,7 +164,7 @@ val glyphManifest =
     tasks.register<eu.nordtal.s2.build.GlyphManifest>("glyphManifest") {
         group = "build"
         description = "Writes the named glyphs of minecraft:default with their textures."
-        names.set(rootProject.layout.projectDirectory.file("common/src/main/resources/eu/nordtal/s2/common/glyph-names.txt"))
+        names.set(rootProject.layout.projectDirectory.file("pack-rendering/src/main/resources/eu/nordtal/s2/packrendering/glyph-names.txt"))
         assets.set(rootProject.layout.projectDirectory.dir("resource-pack/src/assets"))
         target.set(layout.buildDirectory.dir("glyphs"))
     }
@@ -220,7 +220,8 @@ dependencies {
     implementation(libs.webpush)
 
     // It declares JDBI, HikariCP and slf4j compileOnly, so the bundle below puts them on the runtime classpath.
-    implementation(project(":common"))
+    implementation(project(":database"))
+    implementation(project(":messages"))
     implementation(libs.bundles.access.persistence)
 
     implementation(project(":commands"))

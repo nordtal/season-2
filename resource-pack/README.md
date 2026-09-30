@@ -4,11 +4,11 @@ The nordtal.eu resource pack: glyphs in the Unicode private use area, HUD sprite
 few vanilla overrides.
 
 **This file owns the code point allocation.** The font files under `src/assets/*/font/`,
-[`templates/gui_row.json`](templates/gui_row.json) and `:common`'s `Glyphs` mirror the tables below, so a change goes into all of them in one commit.
+[`templates/gui_row.json`](templates/gui_row.json) and `:pack-rendering`'s `Glyphs` mirror the tables below, so a change goes into all of them in one commit.
 `ResourcePackTest` holds them against each other.
 
 A glyph of `minecraft:default` also has a name, written as `<glyph:name>` in a message. The names
-are in `common/src/main/resources/eu/nordtal/s2/common/glyph-names.txt`, and `GlyphNamesTest` fails
+are in `pack-rendering/src/main/resources/eu/nordtal/s2/packrendering/glyph-names.txt`, and `GlyphNamesTest` fails
 on a glyph without a name or a name without a glyph.
 
 ## Editing the art
@@ -59,7 +59,7 @@ Nothing derived from the art is committed.
   [`templates/gui_row.json`](templates/gui_row.json), row 0, moving each bitmap 18 pixels per row.
   `assemblePack` puts them beside `src/` in `build/pack`, which the zip, `installPack` and the tests
   read.
-- `:common` derives the glyph widths the plugins need to compose pills and rows,
+- `:pack-rendering` and `:smp` derive the glyph widths the plugins need to compose pills and rows,
   `nordtal/hud/bossbar-advances.properties` and `nordtal/menu/gui-row-advances.properties`, by the
   client's rule. `BossBarAdvancesTest` and `MenuFontTest` derive them again independently.
 
@@ -70,13 +70,13 @@ rollout, not with the pack alone.
 
 A glyph only lines up where its `height` and `ascent` match the surface it is drawn on.
 
-| font                        | file                                                                    | used for                                                                                 | metrics                                                                                             |
-| --------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `minecraft:default`         | [`minecraft/font/default.json`](src/assets/minecraft/font/default.json) | anything rendered as ordinary text: tab list, chat, nametags, Text Display boards        | height 7 / ascent 7, height 9 / ascent 8 for prestige crests, except the logo                       |
-| `nordtal:bossbar`           | [`nordtal/font/bossbar.json`](src/assets/nordtal/font/bossbar.json)     | the boss bar HUDs only, with the vanilla bar made invisible                              | height 14 / ascent 6 for bar segments, height 10 / ascent 4 for icons, height 8 / ascent 3 for text |
-| `nordtal:board`             | [`nordtal/font/board.json`](src/assets/nordtal/font/board.json)         | the objective board and aura leaderboard's frame only: drawn by `:common`'s `BoardFrame` | height 9 / ascent 8                                                                                 |
-| `nordtal:gui`               | [`nordtal/font/gui.json`](src/assets/nordtal/font/gui.json)             | the menu panels, drawn out of a chest inventory's **title**                              | ascent 13, height = the window's own pixel height (132…222)                                         |
-| `nordtal:gui_r0` … `gui_r5` | [`templates/gui_row.json`](templates/gui_row.json), generated per row   | everything drawn **on a chest row**: a list entry's plate, its icon, its label           | six copies of one font, one per row; three ascents each (see below)                                 |
+| font                        | file                                                                    | used for                                                                              | metrics                                                                                             |
+| --------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `minecraft:default`         | [`minecraft/font/default.json`](src/assets/minecraft/font/default.json) | anything rendered as ordinary text: tab list, chat, nametags, Text Display boards     | height 7 / ascent 7, height 9 / ascent 8 for prestige crests, except the logo                       |
+| `nordtal:bossbar`           | [`nordtal/font/bossbar.json`](src/assets/nordtal/font/bossbar.json)     | the boss bar HUDs only, with the vanilla bar made invisible                           | height 14 / ascent 6 for bar segments, height 10 / ascent 4 for icons, height 8 / ascent 3 for text |
+| `nordtal:board`             | [`nordtal/font/board.json`](src/assets/nordtal/font/board.json)         | the objective board and aura leaderboard's frame only: drawn by `:smp`'s `BoardFrame` | height 9 / ascent 8                                                                                 |
+| `nordtal:gui`               | [`nordtal/font/gui.json`](src/assets/nordtal/font/gui.json)             | the menu panels, drawn out of a chest inventory's **title**                           | ascent 13, height = the window's own pixel height (132…222)                                         |
+| `nordtal:gui_r0` … `gui_r5` | [`templates/gui_row.json`](templates/gui_row.json), generated per row   | everything drawn **on a chest row**: a list entry's plate, its icon, its label        | six copies of one font, one per row; three ascents each (see below)                                 |
 
 The fonts allocate **independently**: `︀1` means something different in `minecraft:default`
 and in `nordtal:bossbar`. A component that names no font draws whatever `minecraft:default` holds at
@@ -338,7 +338,7 @@ hairline at `y 16`.
 
 **One panel and overlays, not a panel per state.** Each card state is a card-sized glyph declared
 once per card row with the ascent that lands it there (`13 − y`); the title walks back to the card's
-x before drawing it. `MenuTitle.Canvas` in `:common` composes it and `MenuTitleTest` checks every
+x before drawing it. `MenuTitle.Canvas` in `:smp` composes it and `MenuTitleTest` checks every
 overlay lands on its card.
 
 A chest window is `114 + 18 × rows` pixels tall, hence six panels. A hand-drawn panel of the same
@@ -391,7 +391,7 @@ Text lands at **+4**, not +3. `ResourcePackTest` checks the six declare the same
 `. , : / - + % ( ) ! ? ' "`, `Ä Ö Ü ß`, `∙`, and `█` `░` for a text bar. A space is a `space`
 provider at **+3**, since an empty cell would advance one pixel.
 
-It is all capitals: `:common`'s `MenuFont` folds lower case onto them (except `ß`) and maps unknown
+It is all capitals: `:smp`'s `MenuFont` folds lower case onto them (except `ß`) and maps unknown
 characters to `?`, because a missing-glyph box is six pixels wide and would shift everything after
 it. `0`, `O` and `8` are drawn apart:
 

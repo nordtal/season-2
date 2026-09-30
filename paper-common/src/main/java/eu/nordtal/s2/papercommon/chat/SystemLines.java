@@ -2,11 +2,11 @@ package eu.nordtal.s2.papercommon.chat;
 
 import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
 
-import eu.nordtal.s2.common.Glyphs;
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.packrendering.Glyphs;
 import io.papermc.paper.advancement.AdvancementDisplay;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import java.util.Locale;
@@ -145,6 +145,6 @@ public final class SystemLines implements Listener {
     private Locale localeOf(final net.kyori.adventure.audience.Audience viewer) {
         return viewer instanceof Player player
                 ? locales.of(player.getUniqueId())
-                : eu.nordtal.s2.common.message.Locales.DEFAULT;
+                : eu.nordtal.s2.common.language.Locales.DEFAULT;
     }
 }

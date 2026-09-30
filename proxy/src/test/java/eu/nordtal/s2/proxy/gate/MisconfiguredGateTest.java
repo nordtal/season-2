@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.messages.Messages;
 import java.util.Locale;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;

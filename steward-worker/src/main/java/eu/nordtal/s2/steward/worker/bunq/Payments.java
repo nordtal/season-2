@@ -1,11 +1,11 @@
 package eu.nordtal.s2.steward.worker.bunq;
 
 import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
-import eu.nordtal.s2.common.payment.Money;
-import eu.nordtal.s2.common.payment.PaymentMatch;
-import eu.nordtal.s2.common.payment.PaymentRequest;
-import eu.nordtal.s2.common.payment.PaymentRequestStatus;
-import eu.nordtal.s2.common.payment.PaymentRequests;
+import eu.nordtal.s2.database.payment.Money;
+import eu.nordtal.s2.database.payment.PaymentMatch;
+import eu.nordtal.s2.database.payment.PaymentRequest;
+import eu.nordtal.s2.database.payment.PaymentRequestStatus;
+import eu.nordtal.s2.database.payment.PaymentRequests;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;

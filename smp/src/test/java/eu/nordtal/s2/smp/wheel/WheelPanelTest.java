@@ -3,11 +3,11 @@ package eu.nordtal.s2.smp.wheel;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.Glyphs;
-import eu.nordtal.s2.common.menu.MenuTitle;
-import eu.nordtal.s2.common.menu.SlotGeometry;
+import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.smp.menu.MenuTitle;
 import eu.nordtal.s2.smp.menu.PanelWalk;
 import eu.nordtal.s2.smp.menu.PanelWalk.Run;
+import eu.nordtal.s2.smp.menu.SlotGeometry;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;

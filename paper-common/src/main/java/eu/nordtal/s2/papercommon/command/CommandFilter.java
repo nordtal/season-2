@@ -2,17 +2,17 @@ package eu.nordtal.s2.papercommon.command;
 
 import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
-import eu.nordtal.s2.common.command.AllowlistDirectory;
-import eu.nordtal.s2.common.command.CommandAllowlist;
-import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
-import eu.nordtal.s2.common.message.Tone;
-import eu.nordtal.s2.common.message.ToneColours;
-import eu.nordtal.s2.common.message.Tones;
-import eu.nordtal.s2.common.notify.Channels;
-import eu.nordtal.s2.common.notify.NotificationListener;
+import eu.nordtal.s2.database.command.AllowlistDirectory;
+import eu.nordtal.s2.database.command.CommandAllowlist;
+import eu.nordtal.s2.database.notify.Channels;
+import eu.nordtal.s2.database.notify.NotificationListener;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.messagerendering.Tones;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.messages.Tone;
+import eu.nordtal.s2.messages.feedback.Feedback;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;

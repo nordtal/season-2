@@ -34,6 +34,10 @@ dependencies {
     // :commands carries the declarations, decisions and message keys; this module is the adapter.
     implementation(project(":commands"))
 
+    // The admin tag and the flags in private messages are pack glyphs.
+    implementation(project(":pack-rendering"))
+    implementation(project(":limbo-protocol"))
+
     // Flyway is excluded by group: this module never migrates, and a shadowJar exclude would leave its subtree.
     implementation(libs.jcore) {
         exclude(group = "org.flywaydb")

@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.database.update.UpdateStatus;
 
 /**
  * What running one request came to: the status to write back, and the text to write with it.

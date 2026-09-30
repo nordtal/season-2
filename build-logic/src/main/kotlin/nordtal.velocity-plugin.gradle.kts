@@ -15,7 +15,7 @@ repositories {
 dependencies {
     "compileOnly"(libs.velocity.api)
     "annotationProcessor"(libs.velocity.api)
-    "implementation"(project(":common"))
+    "implementation"(project(":message-rendering"))
 }
 
 // The @Plugin class is a template in src/main/templates, expanded with the version from gradle.properties.

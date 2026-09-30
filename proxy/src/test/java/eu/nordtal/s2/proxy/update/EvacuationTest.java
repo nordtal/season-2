@@ -3,12 +3,12 @@ package eu.nordtal.s2.proxy.update;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.update.UpdateKind;
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.common.update.UpdateReports;
-import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateSource;
-import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReports;
+import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateSource;
+import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -120,8 +120,8 @@ class EvacuationTest {
 
     // a service somebody is holding down
 
-    private static eu.nordtal.s2.common.update.ServiceHold heldDown(final String service) {
-        return new eu.nordtal.s2.common.update.ServiceHold(service, NOW, "till (1)", 7L);
+    private static eu.nordtal.s2.database.update.ServiceHold heldDown(final String service) {
+        return new eu.nordtal.s2.database.update.ServiceHold(service, NOW, "till (1)", 7L);
     }
 
     @Test

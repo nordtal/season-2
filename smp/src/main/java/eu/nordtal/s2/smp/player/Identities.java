@@ -1,6 +1,6 @@
 package eu.nordtal.s2.smp.player;
 
-import eu.nordtal.s2.common.message.Locales;
+import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.smp.db.IdentityRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import java.util.Map;

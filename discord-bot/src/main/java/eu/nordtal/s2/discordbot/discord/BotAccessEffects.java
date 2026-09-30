@@ -2,17 +2,17 @@ package eu.nordtal.s2.discordbot.discord;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.AccessGrant;
-import eu.nordtal.s2.common.access.AccessSource;
-import eu.nordtal.s2.common.access.PlaytimeWording;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.payment.PaymentRequest;
-import eu.nordtal.s2.common.payment.PaymentRequestStatus;
-import eu.nordtal.s2.common.payment.PaymentRequests;
+import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessGrant;
+import eu.nordtal.s2.database.access.AccessSource;
+import eu.nordtal.s2.database.access.PlaytimeWording;
+import eu.nordtal.s2.database.payment.PaymentRequest;
+import eu.nordtal.s2.database.payment.PaymentRequestStatus;
+import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
+import eu.nordtal.s2.messages.Messages;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;

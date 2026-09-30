@@ -3,8 +3,8 @@ package eu.nordtal.s2.discordbot.status;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.network.NetworkSnapshot;
+import eu.nordtal.s2.database.network.NetworkSnapshot;
+import eu.nordtal.s2.messages.Messages;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;

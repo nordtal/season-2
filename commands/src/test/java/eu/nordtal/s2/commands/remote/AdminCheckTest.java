@@ -3,7 +3,7 @@ package eu.nordtal.s2.commands.remote;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.command.CommandRequest;
+import eu.nordtal.s2.database.command.CommandRequest;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;

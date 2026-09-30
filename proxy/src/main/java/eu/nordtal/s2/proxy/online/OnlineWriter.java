@@ -2,8 +2,8 @@ package eu.nordtal.s2.proxy.online;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import eu.nordtal.s2.common.online.OnlineDirectory;
-import eu.nordtal.s2.common.online.OnlineRoster;
+import eu.nordtal.s2.database.online.OnlineDirectory;
+import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.proxy.PhaseServers;
 import eu.nordtal.s2.proxy.ProxyRole;
 import java.time.Clock;

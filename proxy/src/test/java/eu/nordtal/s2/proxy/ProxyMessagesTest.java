@@ -2,7 +2,7 @@ package eu.nordtal.s2.proxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import eu.nordtal.s2.common.message.spec.MessageSpecCheck;
+import eu.nordtal.s2.messages.spec.MessageSpecCheck;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

@@ -3,12 +3,12 @@ package eu.nordtal.s2.papercommon.command;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.command.CommandAllowlist;
-import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.message.Locales;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
-import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.command.CommandAllowlist;
+import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.messages.feedback.Feedback;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;

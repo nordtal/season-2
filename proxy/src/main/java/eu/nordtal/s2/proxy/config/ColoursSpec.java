@@ -8,7 +8,7 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code colours.yml}: the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is painted with.
+ * {@code colours.yml}: the five {@link eu.nordtal.s2.messages.Tone} colours a reply is painted with.
  *
  * The same values as {@code smp}'s and {@code limbo}'s. Read once at proxy start; a change needs a restart.
  */

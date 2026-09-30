@@ -6,8 +6,8 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
-import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.messages.Tone;
+import eu.nordtal.s2.messages.feedback.Feedback;
 
 /** {@code /limbo reload}: re-reads the wording without taking the waiting room down. */
 public final class ReloadLimbo implements NordtalCommand<LimboEffects> {

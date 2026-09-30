@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.plugin.ManagedPlugin;
+import eu.nordtal.s2.steward.worker.plugin.ManagedPlugin;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;

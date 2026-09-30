@@ -1,11 +1,11 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import eu.nordtal.s2.common.plugin.ManagedPlugin;
-import eu.nordtal.s2.common.plugin.PluginDirectory;
 import eu.nordtal.s2.steward.worker.plan.Installation;
 import eu.nordtal.s2.steward.worker.plan.JarName;
 import eu.nordtal.s2.steward.worker.plan.PluginFolder;
 import eu.nordtal.s2.steward.worker.plan.Topology;
+import eu.nordtal.s2.steward.worker.plugin.ManagedPlugin;
+import eu.nordtal.s2.steward.worker.plugin.PluginDirectory;
 import eu.nordtal.s2.steward.worker.source.Modrinth;
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
 import io.javalin.http.BadGatewayResponse;

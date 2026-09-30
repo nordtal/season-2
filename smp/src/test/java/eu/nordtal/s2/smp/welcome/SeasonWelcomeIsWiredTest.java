@@ -28,7 +28,7 @@ class SeasonWelcomeIsWiredTest {
 
         assertTrue(
                 plugin.contains("new BukkitCinematics(")
-                        || plugin.contains("new eu.nordtal.s2.papercommon.stage.BukkitCinematics("),
+                        || plugin.contains("new eu.nordtal.s2.smp.stage.BukkitCinematics("),
                 "nothing builds the staging device, so nothing can run a staged moment");
         assertTrue(
                 plugin.contains("registerEvents(cinematics, plugin)"),

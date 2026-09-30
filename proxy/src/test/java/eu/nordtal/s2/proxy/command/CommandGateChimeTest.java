@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.velocitypowered.api.event.command.CommandExecuteEvent;
 import com.velocitypowered.api.proxy.Player;
-import eu.nordtal.s2.common.command.CommandAllowlist;
-import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.message.Locales;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.command.CommandAllowlist;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;

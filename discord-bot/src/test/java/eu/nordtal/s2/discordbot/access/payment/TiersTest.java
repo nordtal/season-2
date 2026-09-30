@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.payment.Money;
+import eu.nordtal.s2.database.payment.Money;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;

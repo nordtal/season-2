@@ -71,7 +71,10 @@ dependencies {
     implementation(libs.postgresql.driver)
 
     // Shaded in, and with it the migration SQL.
-    implementation(project(":common"))
+    implementation(project(":database"))
+    // JdbiPluginDirectory installs JDBI's PostgresPlugin, which jcore declares at runtime scope only.
+    implementation(libs.jdbi.postgres)
+    testImplementation(testFixtures(project(":database")))
 
     // ServeLockIntegrationTest needs a real PostgreSQL for advisory locks, and skips without Docker.
     testImplementation(libs.testcontainers.postgresql)

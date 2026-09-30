@@ -2,11 +2,11 @@ package eu.nordtal.s2.discordbot.access.discord;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.LinkRedemption;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.LinkRedemption;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.Ids;
+import eu.nordtal.s2.messages.Messages;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;

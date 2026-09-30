@@ -2,7 +2,7 @@ package eu.nordtal.s2.proxy.update;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.proxy.ProxyRole;
 import eu.nordtal.s2.proxy.online.OnlineCounts;
 import java.net.InetSocketAddress;
@@ -115,7 +115,7 @@ public final class ProxySwap {
             return;
         }
 
-        final Optional<eu.nordtal.s2.common.update.UpdateRequest> running;
+        final Optional<eu.nordtal.s2.database.update.UpdateRequest> running;
         try {
             running = updates.running();
         } catch (final RuntimeException failure) {

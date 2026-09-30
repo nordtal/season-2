@@ -7,13 +7,10 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
-import eu.nordtal.s2.common.access.AdminOperators;
-import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
-import eu.nordtal.s2.common.message.Locales;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
-import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.access.AdminOperators;
+import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.command.BukkitHungerGamesEffects;
@@ -39,6 +36,9 @@ import eu.nordtal.s2.hungergames.lobby.Lobby;
 import eu.nordtal.s2.hungergames.lobby.LobbyMaps;
 import eu.nordtal.s2.hungergames.loot.LootRefill;
 import eu.nordtal.s2.hungergames.player.ArenaComposition;
+import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
@@ -117,7 +117,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // Must be first: loads the class every disable step below goes through, while the jar still exists.
         eu.nordtal.s2.common.health.Shutdown.warmUp();
         // {server.name} in every message: the plugin's name is the service's.
-        eu.nordtal.s2.common.message.context.Contexts.server(getName());
+        eu.nordtal.s2.messages.context.Contexts.server(getName());
         try {
             start();
         } catch (final Refusal refusal) {
@@ -257,13 +257,13 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // Without this the admin flag is read once per session and a revoked admin keeps operator until they leave.
         adminWatch = new AdminWatch(
                 this,
-                eu.nordtal.s2.common.access.AccessDirectory.using(pool),
+                eu.nordtal.s2.database.access.AccessDirectory.using(pool),
                 hooks.operators(),
                 hooks.admission(),
                 admins -> {},
                 getLogger0());
-        final eu.nordtal.s2.common.access.AccessDirectory access =
-                eu.nordtal.s2.common.access.AccessDirectory.using(pool);
+        final eu.nordtal.s2.database.access.AccessDirectory access =
+                eu.nordtal.s2.database.access.AccessDirectory.using(pool);
         final java.util.function.BooleanSupplier reloadSounds = this::reloadSounds;
         chatEffects = new BukkitHungerGamesEffects(
                 this,
@@ -281,8 +281,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
             thread.setDaemon(true);
             return thread;
         });
-        final eu.nordtal.s2.common.command.CommandRequests requests =
-                eu.nordtal.s2.common.command.CommandRequests.borrowing(pool);
+        final eu.nordtal.s2.database.command.CommandRequests requests =
+                eu.nordtal.s2.database.command.CommandRequests.borrowing(pool);
         outbox = new Outbox(
                 requests,
                 commandWaiter,
@@ -316,7 +316,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(
                 this,
                 eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
-                        eu.nordtal.s2.common.command.AllowlistDirectory.using(pool)),
+                        eu.nordtal.s2.database.command.AllowlistDirectory.using(pool)),
                 adminWatch::isAdmin,
                 locales,
                 messages,

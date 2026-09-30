@@ -2,10 +2,10 @@ package eu.nordtal.s2.smp.npc;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
-import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;

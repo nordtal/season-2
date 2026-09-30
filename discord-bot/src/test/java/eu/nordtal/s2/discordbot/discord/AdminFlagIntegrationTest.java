@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.AdminTree;
+import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AdminTree;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;

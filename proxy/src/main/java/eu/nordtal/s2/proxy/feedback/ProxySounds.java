@@ -1,9 +1,9 @@
 package eu.nordtal.s2.proxy.feedback;
 
 import com.velocitypowered.api.proxy.Player;
-import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.feedback.FeedbackSound;
-import eu.nordtal.s2.common.feedback.FeedbackSounds;
+import eu.nordtal.s2.messagerendering.feedback.FeedbackSounds;
+import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.messages.feedback.FeedbackSound;
 import eu.nordtal.s2.proxy.command.CommandGate;
 import java.util.EnumMap;
 import java.util.Map;

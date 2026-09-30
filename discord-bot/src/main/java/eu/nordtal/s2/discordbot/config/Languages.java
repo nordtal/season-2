@@ -1,6 +1,6 @@
 package eu.nordtal.s2.discordbot.config;
 
-import eu.nordtal.s2.common.message.Locales;
+import eu.nordtal.s2.common.language.Locales;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;

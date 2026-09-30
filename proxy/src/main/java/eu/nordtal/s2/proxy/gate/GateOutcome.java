@@ -1,8 +1,8 @@
 package eu.nordtal.s2.proxy.gate;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.access.AccessState;
-import eu.nordtal.s2.common.access.MemberState;
+import eu.nordtal.s2.database.access.AccessState;
+import eu.nordtal.s2.database.access.MemberState;
 
 /**
  * What the login gate decided, and therefore which screen the player gets.

@@ -1,7 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import eu.nordtal.s2.common.access.AccessRequest;
-import eu.nordtal.s2.common.access.AccessRequests;
+import eu.nordtal.s2.database.access.AccessRequest;
+import eu.nordtal.s2.database.access.AccessRequests;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;

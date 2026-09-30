@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.phase.DateChange;
-import eu.nordtal.s2.common.phase.PhaseChange;
-import eu.nordtal.s2.common.phase.PhaseDirectory;
+import eu.nordtal.s2.database.phase.DateChange;
+import eu.nordtal.s2.database.phase.PhaseChange;
+import eu.nordtal.s2.database.phase.PhaseDirectory;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;

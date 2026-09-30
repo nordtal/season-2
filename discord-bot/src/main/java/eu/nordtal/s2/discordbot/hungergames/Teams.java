@@ -1,6 +1,6 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
-import eu.nordtal.s2.common.message.Locales;
+import eu.nordtal.s2.common.language.Locales;
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Optional;

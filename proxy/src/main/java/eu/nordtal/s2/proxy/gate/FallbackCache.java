@@ -1,6 +1,6 @@
 package eu.nordtal.s2.proxy.gate;
 
-import eu.nordtal.s2.common.access.AccessState;
+import eu.nordtal.s2.database.access.AccessState;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

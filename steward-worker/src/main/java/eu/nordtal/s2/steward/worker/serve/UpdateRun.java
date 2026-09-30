@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.common.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
 import eu.nordtal.s2.steward.worker.backup.Snapshots;

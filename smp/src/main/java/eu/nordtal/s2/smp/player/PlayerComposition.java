@@ -1,6 +1,6 @@
 package eu.nordtal.s2.smp.player;
 
-import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import java.util.Locale;

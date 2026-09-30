@@ -7,15 +7,11 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.limbo.LimboCommands;
 import eu.nordtal.s2.commands.limbo.LimboEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.AdminOperators;
-import eu.nordtal.s2.common.access.FullServerAdmission;
-import eu.nordtal.s2.common.command.AllowlistDirectory;
 import eu.nordtal.s2.common.health.Readiness;
-import eu.nordtal.s2.common.limbo.LimboProtocol;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
-import eu.nordtal.s2.common.message.ToneColours;
+import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AdminOperators;
+import eu.nordtal.s2.database.access.FullServerAdmission;
+import eu.nordtal.s2.database.command.AllowlistDirectory;
 import eu.nordtal.s2.limbo.command.BukkitLimboEffects;
 import eu.nordtal.s2.limbo.command.LimboCommand;
 import eu.nordtal.s2.limbo.config.ColoursSpec;
@@ -28,6 +24,10 @@ import eu.nordtal.s2.limbo.listener.PresenceListener;
 import eu.nordtal.s2.limbo.net.LimboChannel;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
+import eu.nordtal.s2.limboprotocol.LimboProtocol;
+import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.papercommon.command.CommandFilter;
@@ -71,7 +71,7 @@ public final class LimboPlugin extends JavaPlugin {
         // Loads the class every disable step goes through, while the jar it lives in still exists; see Shutdown#warmUp.
         eu.nordtal.s2.common.health.Shutdown.warmUp();
         // {server.name} in every message: the plugin's name is the service's.
-        eu.nordtal.s2.common.message.context.Contexts.server(getName());
+        eu.nordtal.s2.messages.context.Contexts.server(getName());
         try {
             start();
         } catch (final Refusal refusal) {
@@ -224,8 +224,8 @@ public final class LimboPlugin extends JavaPlugin {
             thread.setDaemon(true);
             return thread;
         });
-        final eu.nordtal.s2.common.command.CommandRequests requests =
-                eu.nordtal.s2.common.command.CommandRequests.borrowing(pool);
+        final eu.nordtal.s2.database.command.CommandRequests requests =
+                eu.nordtal.s2.database.command.CommandRequests.borrowing(pool);
         final Outbox outbox = new Outbox(
                 requests,
                 commandWaiter,

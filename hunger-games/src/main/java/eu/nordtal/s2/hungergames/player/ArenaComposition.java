@@ -1,7 +1,7 @@
 package eu.nordtal.s2.hungergames.player;
 
-import eu.nordtal.s2.common.Glyphs;
-import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.packrendering.Glyphs;
 import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;

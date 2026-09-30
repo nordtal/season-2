@@ -2,15 +2,15 @@ package eu.nordtal.s2.hungergames.game;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
-import eu.nordtal.s2.common.Glyphs;
-import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
-import eu.nordtal.s2.common.message.context.PlayerContext;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.messages.context.PlayerContext;
+import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.packrendering.Glyphs;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.messages.Messages;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -33,7 +33,7 @@ class MessageBundlesTest {
     @Test
     void theWheelNamesItsPrizeInTheClientsOwnLanguage() {
         for (final Locale locale : java.util.List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final net.kyori.adventure.text.Component rendered = eu.nordtal.s2.common.message.MessageRenderer.of(
+            final net.kyori.adventure.text.Component rendered = eu.nordtal.s2.messagerendering.MessageRenderer.of(
                             messages)
                     .format(locale, "smp.wheel.won", "amount", 3, "item", "block.minecraft.stone");
             final java.util.List<net.kyori.adventure.text.Component> parts = new java.util.ArrayList<>();

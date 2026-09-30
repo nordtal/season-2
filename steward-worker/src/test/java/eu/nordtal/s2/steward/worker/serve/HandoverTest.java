@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.common.update.UpdateReports;
+import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.steward.worker.plan.Change;
 import eu.nordtal.s2.steward.worker.plan.Topology;
 import eu.nordtal.s2.steward.worker.plan.UpdatePlan;

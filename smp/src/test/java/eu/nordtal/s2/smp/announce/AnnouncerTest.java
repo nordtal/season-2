@@ -5,12 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.commands.announce.AnnounceCommands;
 import eu.nordtal.s2.commands.remote.RequestArguments;
-import eu.nordtal.s2.common.audit.AuditLine;
-import eu.nordtal.s2.common.command.CommandOutcome;
-import eu.nordtal.s2.common.command.CommandRequests;
-import eu.nordtal.s2.common.command.NewCommandRequest;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.context.MilestoneContext;
+import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.command.CommandOutcome;
+import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.command.NewCommandRequest;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.smp.SmpMessages;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,7 +49,7 @@ class AnnouncerTest {
         }
 
         @Override
-        public Optional<eu.nordtal.s2.common.command.CommandRequest> claim(final String target) {
+        public Optional<eu.nordtal.s2.database.command.CommandRequest> claim(final String target) {
             return Optional.empty();
         }
 

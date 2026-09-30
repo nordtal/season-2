@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.worker;
 
 import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.s2.common.payment.PaymentGateway;
-import eu.nordtal.s2.common.payment.PaymentRequests;
-import eu.nordtal.s2.common.payment.Watermark;
+import eu.nordtal.s2.database.payment.PaymentGateway;
+import eu.nordtal.s2.database.payment.PaymentRequests;
+import eu.nordtal.s2.database.payment.Watermark;
 import eu.nordtal.s2.steward.worker.bunq.BunqGateway;
 import eu.nordtal.s2.steward.worker.bunq.PaymentLoop;
 import eu.nordtal.s2.steward.worker.bunq.Payments;
@@ -56,7 +56,7 @@ final class PaymentsStartup {
                         new PaymentRequests(database.jdbi()),
                         watermark,
                         config.bunq().recentPaymentCount()),
-                eu.nordtal.s2.common.notify.PostgresNotifications.connector(
+                eu.nordtal.s2.database.notify.PostgresNotifications.connector(
                         databaseConfig.jdbcUrl(),
                         databaseConfig.username(),
                         databaseConfig.password(),

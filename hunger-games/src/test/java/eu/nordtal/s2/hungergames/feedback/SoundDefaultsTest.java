@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.config.ConfigHandle;
-import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.hungergames.config.Configs;
 import eu.nordtal.s2.hungergames.config.SoundsSpec;
+import eu.nordtal.s2.messages.feedback.Feedback;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;

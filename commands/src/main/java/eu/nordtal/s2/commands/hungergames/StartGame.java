@@ -7,8 +7,8 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
-import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.messages.Tone;
+import eu.nordtal.s2.messages.feedback.Feedback;
 import java.util.Optional;
 
 /**

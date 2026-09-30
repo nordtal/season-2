@@ -3,12 +3,12 @@ package eu.nordtal.s2.discordbot.status;
 import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.network.NetworkSnapshot;
-import eu.nordtal.s2.common.network.SnapshotDirectory;
-import eu.nordtal.s2.common.phase.PhaseDirectory;
+import eu.nordtal.s2.database.network.NetworkSnapshot;
+import eu.nordtal.s2.database.network.SnapshotDirectory;
+import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.discordbot.announce.Announcements;
 import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.messages.Messages;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

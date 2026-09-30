@@ -1,10 +1,10 @@
 package eu.nordtal.s2.commands.remote;
 
-import eu.nordtal.s2.common.audit.AuditLine;
-import eu.nordtal.s2.common.command.CommandOutcome;
-import eu.nordtal.s2.common.command.CommandRequest;
-import eu.nordtal.s2.common.command.CommandRequests;
-import eu.nordtal.s2.common.command.NewCommandRequest;
+import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.command.CommandOutcome;
+import eu.nordtal.s2.database.command.CommandRequest;
+import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.command.NewCommandRequest;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

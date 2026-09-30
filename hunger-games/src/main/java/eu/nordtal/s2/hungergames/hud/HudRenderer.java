@@ -2,17 +2,17 @@ package eu.nordtal.s2.hungergames.hud;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
-import eu.nordtal.s2.common.Glyphs;
-import eu.nordtal.s2.common.hud.Bearing;
-import eu.nordtal.s2.common.hud.BossBarLine;
-import eu.nordtal.s2.common.hud.BossBarLine.Pill;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.hungergames.loot.LootRefill;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.packrendering.hud.Bearing;
+import eu.nordtal.s2.packrendering.hud.BossBarLine;
+import eu.nordtal.s2.packrendering.hud.BossBarLine.Pill;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;

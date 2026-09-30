@@ -2,15 +2,15 @@ package eu.nordtal.s2.discordbot.discord;
 
 import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
-import eu.nordtal.s2.common.message.Locales;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.common.update.UpdateReports;
-import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReports;
+import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.Card;
+import eu.nordtal.s2.messages.Messages;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;

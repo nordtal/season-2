@@ -1,7 +1,7 @@
 package eu.nordtal.s2.proxy.ping;
 
-import eu.nordtal.s2.common.network.NetworkSnapshot;
-import eu.nordtal.s2.common.network.SnapshotDirectory;
+import eu.nordtal.s2.database.network.NetworkSnapshot;
+import eu.nordtal.s2.database.network.SnapshotDirectory;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.sql.DataSource;

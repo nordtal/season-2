@@ -8,7 +8,7 @@ import com.bunq.sdk.model.generated.endpoint.BunqMeTabEntryApiObject;
 import com.bunq.sdk.model.generated.endpoint.BunqMeTabResultInquiryApiObject;
 import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
 import com.bunq.sdk.model.generated.object.AmountObject;
-import eu.nordtal.s2.common.payment.Money;
+import eu.nordtal.s2.database.payment.Money;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.io.IOException;
 import java.nio.file.Files;

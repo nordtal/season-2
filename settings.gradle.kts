@@ -40,8 +40,23 @@ include("steward-worker")
 include("steward-ui")
 include("steward-deployer")
 
-// Shared code, shaded into the plugins that use it.
+// The shared kernel every other module stands on: no database, no Adventure, no pack.
 include("common")
+
+// The database: access, phase, online, audit, the inboxes, the signal hub and the migrations.
+include("database")
+
+// The message system without Adventure: bundles, specs, contexts; the bot and Steward stop here.
+include("messages")
+
+// Messages as Adventure components, for Paper and Velocity code only.
+include("message-rendering")
+
+// Glyphs, boss bar and tab list rendering from the resource pack, for the Minecraft plugins only.
+include("pack-rendering")
+
+// The wire protocol between the proxy and limbo.
+include("limbo-protocol")
 
 // Every command in the network, declared once; platform-free like `:common`.
 include("commands")

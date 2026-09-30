@@ -1,8 +1,8 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import eu.nordtal.s2.common.online.OnlinePlayer;
-import eu.nordtal.s2.common.update.ServiceHold;
-import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.database.online.OnlinePlayer;
+import eu.nordtal.s2.database.update.ServiceHold;
+import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.docker.Console;
 import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerException;

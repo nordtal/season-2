@@ -2,7 +2,7 @@ package eu.nordtal.s2.steward.worker.backup;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
-import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.config.BackupSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.lang.reflect.InvocationHandler;

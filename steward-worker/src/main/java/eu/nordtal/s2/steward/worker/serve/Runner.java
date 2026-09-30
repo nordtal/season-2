@@ -1,12 +1,12 @@
 package eu.nordtal.s2.steward.worker.serve;
 
 import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.s2.common.update.ServiceHold;
-import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.common.update.UpdateReports;
-import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.database.update.ServiceHold;
+import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReports;
+import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.steward.worker.backup.Backups;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
@@ -48,7 +48,7 @@ public final class Runner implements RequestRunner {
     final UpdateRun.Waiting waiting;
 
     /** The plugins an admin added, handed to every resolve; {@code PluginDirectory#NONE} by default. */
-    final eu.nordtal.s2.common.plugin.PluginDirectory plugins;
+    final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins;
 
     /** How many players are on a service, built on first use since a {@code REPORT} run never asks. */
     private volatile @Nullable Occupancy occupancy;
@@ -80,7 +80,7 @@ public final class Runner implements RequestRunner {
             final ContainerOps containers,
             final Backups backups,
             final UpdateDirectory directory,
-            final eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+            final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins) {
         this(config, database, containers, backups, directory, UpdateRun.Waiting.real(), plugins);
     }
 
@@ -99,7 +99,7 @@ public final class Runner implements RequestRunner {
                 backups,
                 directory,
                 waiting,
-                eu.nordtal.s2.common.plugin.PluginDirectory.NONE);
+                eu.nordtal.s2.steward.worker.plugin.PluginDirectory.NONE);
     }
 
     Runner(
@@ -109,7 +109,7 @@ public final class Runner implements RequestRunner {
             final Backups backups,
             final UpdateDirectory directory,
             final UpdateRun.Waiting waiting,
-            final eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+            final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins) {
         this.plugins = plugins;
         this.config = config;
         this.database = database;

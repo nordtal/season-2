@@ -1,12 +1,12 @@
 package eu.nordtal.s2.limbo.waiting;
 
-import eu.nordtal.s2.common.limbo.WaitReason;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.limbo.LimboMessages;
 import eu.nordtal.s2.limbo.config.LimboSpec;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
+import eu.nordtal.s2.limboprotocol.WaitReason;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;

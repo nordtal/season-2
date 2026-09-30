@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.common.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;

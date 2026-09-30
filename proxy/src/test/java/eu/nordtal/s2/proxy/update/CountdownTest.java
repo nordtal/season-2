@@ -4,11 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.update.UpdateKind;
-import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateSource;
-import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateSource;
+import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.proxy.MutableClock;
 import java.nio.file.Files;
 import java.nio.file.Path;

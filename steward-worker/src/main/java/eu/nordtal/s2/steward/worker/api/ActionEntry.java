@@ -1,11 +1,11 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import eu.nordtal.s2.common.audit.AuditEntry;
-import eu.nordtal.s2.common.update.UpdateKind;
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.common.update.UpdateReports;
-import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.database.audit.AuditEntry;
+import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReports;
+import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

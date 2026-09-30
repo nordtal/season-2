@@ -3,18 +3,17 @@ package eu.nordtal.s2.discordbot;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.AdminTree;
 import eu.nordtal.s2.common.health.Readiness;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.network.SnapshotDirectory;
-import eu.nordtal.s2.common.notify.Channels;
-import eu.nordtal.s2.common.notify.NotificationListener;
-import eu.nordtal.s2.common.notify.PostgresNotifications;
-import eu.nordtal.s2.common.payment.PaymentGateway;
-import eu.nordtal.s2.common.payment.PaymentRequests;
-import eu.nordtal.s2.common.phase.PhaseDirectory;
-import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AdminTree;
+import eu.nordtal.s2.database.network.SnapshotDirectory;
+import eu.nordtal.s2.database.notify.Channels;
+import eu.nordtal.s2.database.notify.NotificationListener;
+import eu.nordtal.s2.database.notify.PostgresNotifications;
+import eu.nordtal.s2.database.payment.PaymentGateway;
+import eu.nordtal.s2.database.payment.PaymentRequests;
+import eu.nordtal.s2.database.phase.PhaseDirectory;
+import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
@@ -39,6 +38,7 @@ import eu.nordtal.s2.discordbot.hungergames.RegisterFlow;
 import eu.nordtal.s2.discordbot.hungergames.RegisterMessages;
 import eu.nordtal.s2.discordbot.hungergames.Teams;
 import eu.nordtal.s2.discordbot.status.StatusChannels;
+import eu.nordtal.s2.messages.Messages;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -186,7 +186,7 @@ public class AccessBot implements AutoCloseable {
         final NotificationListener access = listenForAccess(
                 databaseConfig,
                 new AccessInbox(
-                        eu.nordtal.s2.common.access.AccessRequests.on(database.dataSource()),
+                        eu.nordtal.s2.database.access.AccessRequests.on(database.dataSource()),
                         wiring.inboxEffects(),
                         log),
                 wiring.adminRole());
@@ -324,8 +324,8 @@ public class AccessBot implements AutoCloseable {
     private eu.nordtal.s2.discordbot.announce.Announcements wireCommandInbox(
             final JDA jda, final Messages sharedMessages, final Languages languages) {
         // `announce <language> <text>` rows from the servers, posted verbatim.
-        final eu.nordtal.s2.common.command.CommandRequests commandRequests =
-                eu.nordtal.s2.common.command.CommandRequests.borrowing(database.dataSource());
+        final eu.nordtal.s2.database.command.CommandRequests commandRequests =
+                eu.nordtal.s2.database.command.CommandRequests.borrowing(database.dataSource());
 
         // Inline effects, because the inbox settles the row when the command returns.
         final eu.nordtal.s2.commands.remote.CommandInbox inbox = new eu.nordtal.s2.commands.remote.CommandInbox(
@@ -511,7 +511,7 @@ public class AccessBot implements AutoCloseable {
     private static final java.time.Duration FATAL_BACKOFF = java.time.Duration.ofSeconds(60);
 
     public static void main(final String[] args) throws InterruptedException {
-        eu.nordtal.s2.common.message.context.Contexts.server("discord-bot");
+        eu.nordtal.s2.messages.context.Contexts.server("discord-bot");
         final AccessBot bot;
         try {
             bot = new AccessBot();

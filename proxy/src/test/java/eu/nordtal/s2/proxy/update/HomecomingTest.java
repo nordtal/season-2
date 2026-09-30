@@ -24,7 +24,7 @@ class HomecomingTest {
 
     private final Homecoming homecoming = new Homecoming(
             org.slf4j.LoggerFactory.getLogger(HomecomingTest.class),
-            eu.nordtal.s2.common.message.Messages.load(
+            eu.nordtal.s2.messages.Messages.load(
                     HomecomingTest.class.getClassLoader(),
                     "messages/proxy",
                     java.util.Locale.ENGLISH,

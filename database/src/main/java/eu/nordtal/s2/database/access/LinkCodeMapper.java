@@ -1,0 +1,20 @@
+package eu.nordtal.s2.database.access;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Objects;
+import java.util.UUID;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
+
+/** Maps a {@code link_code} row. */
+public final class LinkCodeMapper implements RowMapper<LinkCode> {
+
+    @Override
+    public LinkCode map(final ResultSet rs, final StatementContext ctx) throws SQLException {
+        return new LinkCode(
+                rs.getString("code"),
+                rs.getObject("mc_uuid", UUID.class),
+                Objects.requireNonNull(AccessGrantMapper.instant(rs, "expires"), "expires"));
+    }
+}

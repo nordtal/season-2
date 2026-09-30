@@ -18,7 +18,8 @@ repositoryRootTestInputs {
 }
 
 dependencies {
-    api(project(":common"))
+    api(project(":database"))
+    api(project(":messages"))
 
     // MessageBundlesTest loads the shared bundle, and :common leaves the slf4j backend to its consumers.
     testRuntimeOnly(libs.logback.classic)

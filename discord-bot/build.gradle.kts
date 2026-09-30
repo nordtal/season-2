@@ -30,7 +30,8 @@ dependencies {
     runtimeOnly(libs.postgresql.driver)
 
     // The access API and the message system; JDBI, HikariCP and slf4j come from jcore at runtime.
-    implementation(project(":common"))
+    implementation(project(":database"))
+    implementation(project(":messages"))
 
     implementation(libs.jda)
 

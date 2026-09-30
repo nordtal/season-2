@@ -1,6 +1,6 @@
 package eu.nordtal.s2.proxy.update;
 
-import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;

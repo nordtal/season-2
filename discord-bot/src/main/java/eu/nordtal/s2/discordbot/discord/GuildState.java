@@ -1,8 +1,8 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.AdminTree;
-import eu.nordtal.s2.common.access.MemberState;
+import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AdminTree;
+import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.discordbot.access.discord.ReconcileDao;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Languages;

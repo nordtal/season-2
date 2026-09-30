@@ -1,6 +1,6 @@
 package eu.nordtal.s2.hungergames.listener;
 
-import eu.nordtal.s2.common.access.FullServerAdmission;
+import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
 import java.util.Objects;

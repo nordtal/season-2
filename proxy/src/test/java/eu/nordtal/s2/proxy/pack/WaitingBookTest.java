@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.limbo.WaitReason;
+import eu.nordtal.s2.limboprotocol.WaitReason;
 import eu.nordtal.s2.proxy.MutableClock;
 import eu.nordtal.s2.proxy.ProxyRole;
 import eu.nordtal.s2.proxy.pack.WaitingDecision.Action;

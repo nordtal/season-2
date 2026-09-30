@@ -2,14 +2,14 @@ package eu.nordtal.s2.discordbot.access.discord;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.AccessGrant;
-import eu.nordtal.s2.common.message.Locales;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.messages.Messages;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;

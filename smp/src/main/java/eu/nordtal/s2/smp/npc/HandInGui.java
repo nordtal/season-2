@@ -2,11 +2,11 @@ package eu.nordtal.s2.smp.npc;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
-import eu.nordtal.s2.common.menu.SlotGeometry;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.papercommon.menu.BlankItem;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.smp.feedback.Surface;
+import eu.nordtal.s2.smp.menu.BlankItem;
+import eu.nordtal.s2.smp.menu.SlotGeometry;
 import eu.nordtal.s2.smp.milestone.Objective;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;

@@ -1,9 +1,9 @@
 package eu.nordtal.s2.proxy.command;
 
 import eu.nordtal.s2.commands.NordtalUser;
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;

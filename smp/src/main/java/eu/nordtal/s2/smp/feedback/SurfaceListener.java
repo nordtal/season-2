@@ -1,6 +1,6 @@
 package eu.nordtal.s2.smp.feedback;
 
-import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.messages.feedback.Feedback;
 import java.util.function.Predicate;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;

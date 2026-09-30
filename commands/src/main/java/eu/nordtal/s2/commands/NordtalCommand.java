@@ -1,6 +1,6 @@
 package eu.nordtal.s2.commands;
 
-import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.messages.MessageRef;
 
 /**
  * A command: its {@link Declaration}, and what it does with an effect the platform supplies.

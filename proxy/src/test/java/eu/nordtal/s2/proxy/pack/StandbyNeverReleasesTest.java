@@ -3,7 +3,7 @@ package eu.nordtal.s2.proxy.pack;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.limbo.WaitReason;
+import eu.nordtal.s2.limboprotocol.WaitReason;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 

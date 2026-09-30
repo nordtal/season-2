@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateKind;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;

@@ -8,7 +8,7 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code colours.yml}: the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is painted with, reloadable.
+ * {@code colours.yml}: the five {@link eu.nordtal.s2.messages.Tone} colours a reply is painted with, reloadable.
  *
  * Every value is a hex string; an invalid one is reported and the default takes over.
  */

@@ -18,7 +18,7 @@ val messageSchema =
     tasks.register<JavaExec>("messageSchema") {
         description = "Writes messages/<bundle>/schema.json from the module's message spec."
         classpath = main.output.classesDirs + files(main.resources.srcDirs) + main.compileClasspath
-        mainClass.set("eu.nordtal.s2.common.message.spec.MessageSchema")
+        mainClass.set("eu.nordtal.s2.messages.spec.MessageSchema")
         inputs.property("specClass", messageSpec.specClass)
         inputs.files(main.output.classesDirs, main.resources.srcDirs)
         outputs.dir(schemaDirectory)

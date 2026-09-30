@@ -85,8 +85,8 @@ class MessageBundlesTest {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 Map.of(
-                        "messages/commands/en.properties", "reload.done=Reloaded\n",
-                        "messages/commands/de.properties", "reload.done=Neu geladen\n",
+                        "messages/paper-common/en.properties", "reload.done=Reloaded\n",
+                        "messages/paper-common/de.properties", "reload.done=Neu geladen\n",
                         "messages/smp/en.properties", "welcome=Welcome\n",
                         "messages/smp/de.properties", "welcome=Willkommen\n"));
         final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));

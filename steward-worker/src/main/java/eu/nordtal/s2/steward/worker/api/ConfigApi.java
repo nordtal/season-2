@@ -12,7 +12,6 @@ import eu.nordtal.s2.steward.worker.configfile.ConfigFiles;
 import eu.nordtal.s2.steward.worker.configfile.ConfigLocation;
 import eu.nordtal.s2.steward.worker.configfile.RawSyntax;
 import eu.nordtal.s2.steward.worker.configfile.StaleConfigException;
-import eu.nordtal.s2.steward.worker.docker.DockerException;
 import eu.nordtal.s2.steward.worker.plan.Topology;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;
@@ -29,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,44 +41,61 @@ public final class ConfigApi {
 
     private static final Logger log = LoggerFactory.getLogger(ConfigApi.class);
 
-    /** One line into a running server's console, narrowed so a test can pass a lambda. */
+    /** Asks a running service to re-read what it can while it runs, narrowed so a test can pass a lambda. */
     @FunctionalInterface
-    public interface ConsoleLine {
-        void send(String service, String command);
+    public interface Reloader {
+
+        /**
+         * Asks {@code service} for a reload through its inbox and waits for the answer.
+         *
+         * @return the answer, or empty when the service did not answer in time
+         * @throws IllegalArgumentException for a service that has no inbox
+         */
+        Optional<Reloaded> reload(String service);
     }
 
     /**
-     * Which running service to poke, and with what line, once a save changes a file.
+     * A service's answer to a reload.
      *
-     * Keyed per file, since only some files of a service are re-read by its reload command; it grows by hand.
+     * @param applied whether it re-read everything
+     * @param text its own words, for the page
      */
-    private static final Map<String, String> RELOAD_COMMAND = Map.of(
-            "smp/smp/milestones.yml", "smp reload",
-            "smp/smp/sounds.yml", "smp reload",
-            "smp/smp/colours.yml", "smp reload",
-            "smp/smp/prestige.yml", "smp reload",
-            "hunger-games/hunger-games/sounds.yml", "hg reload",
-            // Message bundles, by MessagesApi's identity: reloads the plugin's own bundle and the shared one.
-            "smp/smp", "smp reload",
-            "hunger-games/hunger-games", "hg reload",
-            "limbo/limbo", "limbo reload",
-            "proxy/proxy", "network reload");
+    public record Reloaded(boolean applied, String text) {}
+
+    /**
+     * The files a running service re-reads on a reload, by identity; every other file needs a restart.
+     *
+     * Keyed per file, since a service re-reads only some of its files; it grows by hand.
+     */
+    private static final Set<String> RELOADABLE = Set.of(
+            "smp/smp/milestones.yml",
+            "smp/smp/sounds.yml",
+            "smp/smp/colours.yml",
+            "smp/smp/prestige.yml",
+            "hunger-games/hunger-games/sounds.yml",
+            "hunger-games/hunger-games/colours.yml",
+            "limbo/limbo/colours.yml",
+            // Message bundles, by MessagesApi's identity.
+            "smp/smp",
+            "hunger-games/hunger-games",
+            "limbo/limbo",
+            "proxy/proxy");
 
     /** This worker's own file, by the identity {@link #locate} matches against. */
     public static final String OWN_CONFIG = "steward-worker/steward.yml";
 
     private final Path root;
-    private final ConsoleLine console;
+    private final Reloader reloader;
     /** Files this process reads itself, by identity, with the hook that re-reads them. */
     private final Map<String, Runnable> ownReloads;
 
-    public ConfigApi(final Path root, final ConsoleLine console) {
-        this(root, console, Map.of());
+    public ConfigApi(final Path root, final Reloader reloader) {
+        this(root, reloader, Map.of());
     }
 
-    public ConfigApi(final Path root, final ConsoleLine console, final Map<String, Runnable> ownReloads) {
+    public ConfigApi(final Path root, final Reloader reloader, final Map<String, Runnable> ownReloads) {
         this.root = root;
-        this.console = console;
+        this.reloader = reloader;
         this.ownReloads = Map.copyOf(ownReloads);
     }
 
@@ -261,7 +278,7 @@ public final class ConfigApi {
         answer.put("revision", read.revision());
         answer.put("header", read.header());
         // Shown at the file, so a setting nothing reloads says so as soon as the form opens.
-        answer.put("restartRequired", !RELOAD_COMMAND.containsKey(identityOf(location)));
+        answer.put("restartRequired", !RELOADABLE.contains(identityOf(location)));
         final List<Map<String, Object>> entries = new ArrayList<>(read.entries().size());
         for (final ConfigEntry entry : read.entries()) {
             entries.add(describe(entry));
@@ -273,16 +290,16 @@ public final class ConfigApi {
     /**
      * Asks the affected service to pick a just-written change up; never restarts anything.
      *
-     * Answers {@code RESTART_REQUIRED}, {@code APPLIED} when the console took the line, or {@code NO_ANSWER}.
+     * Answers {@code RESTART_REQUIRED}, {@code APPLIED} when the service re-read it, or {@code NO_ANSWER}.
      */
-    // Package-private: ConfigApiReloadTest drives the three outcomes with a fake ConsoleLine.
+    // Package-private: ConfigApiReloadTest drives the three outcomes with a fake Reloader.
     Map<String, Object> reload(final ConfigLocation location) {
         final Runnable own = ownReloads.get(identityOf(location));
         if (own != null) {
             return reReadOwn(own, location);
         }
         return reload(
-                console,
+                reloader,
                 identityOf(location),
                 location.service(),
                 location.name(),
@@ -315,16 +332,15 @@ public final class ConfigApi {
         return answer;
     }
 
-    /** The same three outcomes for anything {@link #RELOAD_COMMAND} names by {@code identity}. */
+    /** The same three outcomes for anything {@link #RELOADABLE} names by {@code identity}. */
     static Map<String, Object> reload(
-            final ConsoleLine console,
+            final Reloader reloader,
             final String identity,
             final String service,
             final String name,
             final String file) {
         final Map<String, Object> answer = new LinkedHashMap<>();
-        final String command = RELOAD_COMMAND.get(identity);
-        if (command == null) {
+        if (!RELOADABLE.contains(identity)) {
             answer.put("status", "RESTART_REQUIRED");
             answer.put(
                     "message",
@@ -333,27 +349,33 @@ public final class ConfigApi {
                             + " only reads it again at its next restart, which stays a click of its own.");
             return answer;
         }
+        final Optional<Reloaded> reloaded;
         try {
-            console.send(service, command);
-            answer.put("status", "APPLIED");
-            answer.put(
-                    "message",
-                    "Saved, and \"" + command + "\" was sent to "
-                            + service + "'s console to pick it up. Its reply, if the change was"
-                            + " refused, appears in that service's own log.");
-        } catch (final DockerException e) {
-            log.warn("{} was saved but {} could not be reached to reload it: {}", file, service, e.getMessage());
+            reloaded = reloader.reload(service);
+        } catch (final IllegalArgumentException e) {
+            log.warn("{} is reloadable, but {} cannot be asked: {}", file, service, e.getMessage());
+            answer.put("status", "RESTART_REQUIRED");
+            answer.put("message", "Saved. " + e.getMessage());
+            return answer;
+        }
+        if (reloaded.isEmpty()) {
+            log.warn("{} was saved but {} did not answer the reload", file, service);
             answer.put("status", "NO_ANSWER");
             answer.put(
                     "message",
-                    "Saved, but " + service + " did not answer: "
-                            + e.getMessage() + ". The change is on disk and takes effect once that service"
-                            + " is running again.");
-        } catch (final IllegalArgumentException e) {
-            // A service that lost its console while still listed should read as needing a restart.
-            log.warn("{} names a reload command for {}, which refused it: {}", file, service, e.getMessage());
-            answer.put("status", "RESTART_REQUIRED");
-            answer.put("message", "Saved. " + e.getMessage());
+                    "Saved, but " + service + " did not answer. The change is on disk and takes effect once that"
+                            + " service reads it again.");
+        } else if (reloaded.get().applied()) {
+            answer.put("status", "APPLIED");
+            answer.put(
+                    "message",
+                    "Saved, and " + service + " re-read it: " + reloaded.get().text());
+        } else {
+            answer.put("status", "NO_ANSWER");
+            answer.put(
+                    "message",
+                    "Saved, but " + service + " did not take all of it: "
+                            + reloaded.get().text());
         }
         return answer;
     }

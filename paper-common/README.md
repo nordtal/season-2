@@ -11,4 +11,7 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
 - **Identities**: read once at pre-login in one query and held until the player leaves; a plugin's
   own per-player data (smp's aura) is an `Identities.Part` that is loaded and dropped with it. The
   language every message is rendered in comes from here.
+- **Commands**: the base registers the plugin's root (`/smp`, `/hg`, `/limbo`) with `reload`; a plugin adds its own
+  subcommands. Admin subcommands answer the console only, and the inbox answers the same actions, both through one
+  `Answer` (done, refused or failed) that the console reads in English and Steward as text or a refusal.
 - **Chat and replies**: the five system lines and a reply in the player's language with tone and sound.

@@ -352,6 +352,7 @@ public final class WorkerApi implements AutoCloseable {
                 resolve,
                 managedPlugins,
                 botInbox,
+                null,
                 () -> {},
                 clock);
     }
@@ -360,6 +361,8 @@ public final class WorkerApi implements AutoCloseable {
      * Adds the schedule and its re-read hook.
      *
      * @param nightly the schedule as it stands right now, changed when steward.yml is saved
+     * @param reloads asks a server to re-read a saved file, or {@code null} without a database, when a save asks for
+     *     a restart
      * @param reReadOwn what a save of this worker's own {@code steward.yml} runs; it may throw, and the save then waits
      *     for a restart
      */
@@ -380,6 +383,7 @@ public final class WorkerApi implements AutoCloseable {
             final @Nullable Supplier<UpdatePlan> resolve,
             final @Nullable PluginsApi managedPlugins,
             final @Nullable Inbox<BotRequest> botInbox,
+            final ConfigApi.@Nullable Reloader reloads,
             final Runnable reReadOwn,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
@@ -392,9 +396,14 @@ public final class WorkerApi implements AutoCloseable {
         this.token = token;
         this.nightly = nightly;
         // Here, not in steward-ui: every file it touches is 0600 root:root, and steward-ui is not root.
-        this.configs = new ConfigApi(configs, console::send, java.util.Map.of(ConfigApi.OWN_CONFIG, reReadOwn));
+        final ConfigApi.Reloader reloader = reloads == null
+                ? service -> {
+                    throw new IllegalArgumentException("this worker has no database to ask " + service + " through.");
+                }
+                : reloads;
+        this.configs = new ConfigApi(configs, reloader, java.util.Map.of(ConfigApi.OWN_CONFIG, reReadOwn));
         // Not a config file, so it has its own API.
-        this.messages = new MessagesApi(configs, volumesRoot, botInbox, console::send, Waiting.on(clock));
+        this.messages = new MessagesApi(configs, volumesRoot, botInbox, reloader, Waiting.on(clock));
         // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
         // Its own virtual thread per refresh, so a du never waits behind a registry call.

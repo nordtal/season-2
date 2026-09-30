@@ -3,9 +3,9 @@
     "The two hand-kept halves of one rule: nothing in Steward is German.",
     "",
     "The list of German words is NOT here. It is derived, by both tests that enforce this rule,",
-    "from commands/src/main/resources/messages/commands/de.properties minus en.properties - the",
-    "bilingual bundle this project maintains anyway, which is 601 words of real German and grows",
-    "on its own. What is here is only what a derivation cannot know.",
+    "from discord-bot/src/main/resources/messages/access/de.properties minus en.properties, the",
+    "bot's bilingual bundle, which this project maintains anyway and which grows on its own. What",
+    "is here is only what a derivation cannot know.",
     "",
     "Read by steward-ui/frontend/src/language.test.ts and by NothingIsGermanTest. One file, because",
     "two copies of a rule is one copy that is quietly out of date."
@@ -19,6 +19,7 @@
     "then deleted is the failure this shape avoids."
   ],
   "alsoEnglish": [
+    "accounts",
     "also",
     "bots",
     "den",
@@ -44,6 +45,8 @@
     "the memory of what actually leaked - it is not a dictionary and must not become one."
   ],
   "extra": [
+    "Befehl",
+    "Konfigurationsdateien",
     "Abschicken",
     "Ampel",
     "dabei",
@@ -69,8 +72,8 @@
   ],
 
   "_stems": [
-    "MEASURED 2026-09-14, and this is why the derivation is not enough on its own: the bundle says",
-    "`Befehl` and Steward said `Befehle`; the bundle says `Konfigurationsdateien` and Steward said",
+    "MEASURED 2026-09-14, and this is why the derivation is not enough on its own: the list said",
+    "`Befehl` and Steward said `Befehle`; the list said `Konfigurationsdateien` and Steward said",
     "`Konfiguration`. Both guards matched whole words, so both walked past. A derived list knows",
     "the forms the bot happens to use, and German inflects and compounds.",
     "",

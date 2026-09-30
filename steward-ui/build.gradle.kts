@@ -36,8 +36,8 @@ repositoryRootTestInputs {
     reads("steward-deployer/README.md")
     reads("compose.yml")
 
-    reads("commands/src/main/resources/messages/commands/de.properties")
-    reads("commands/src/main/resources/messages/commands/en.properties")
+    reads("discord-bot/src/main/resources/messages/access/de.properties")
+    reads("discord-bot/src/main/resources/messages/access/en.properties")
     reads("steward-ui/language-rules.json")
 
     reads("resource-pack/src/pack.png")
@@ -225,8 +225,6 @@ dependencies {
     implementation(project(":settings"))
     implementation(project(":messages"))
     implementation(libs.bundles.access.persistence)
-
-    implementation(project(":commands"))
 
     runtimeOnly(libs.logback.classic)
     runtimeOnly(libs.postgresql.driver)

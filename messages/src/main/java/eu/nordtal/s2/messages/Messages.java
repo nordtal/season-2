@@ -197,7 +197,7 @@ public final class Messages {
         final Map<String, Map<String, String>> packagedByLanguage = new LinkedHashMap<>();
         for (final Locale locale : locales) {
             final String language = Locales.tag(locale);
-            // Least specific first, so a process's own key wins over the one it inherits from :commands.
+            // Least specific first, so a process's own key wins over the one it inherits from a shared bundle.
             Map<String, String> packaged = null;
             for (final String root : roots) {
                 final Map<String, String> fromRoot = read(classLoader, root, language);

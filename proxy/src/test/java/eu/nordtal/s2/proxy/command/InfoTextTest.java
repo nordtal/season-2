@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
-/** The values behind {@code /discord} and {@code /rules}; {@code :commands} only picks the key. */
+/** The values behind {@code /discord} and {@code /rules}. */
 class InfoTextTest {
 
     private static final Messages MESSAGES =

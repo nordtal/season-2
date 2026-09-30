@@ -101,12 +101,7 @@ public class AccessBot implements AutoCloseable {
     });
 
     private record CoreServices(
-            Languages languages,
-            Messages messages,
-            Messages sharedMessages,
-            Tiers tiers,
-            PaymentRequests requests,
-            Purchases purchases) {}
+            Languages languages, Messages messages, Tiers tiers, PaymentRequests requests, Purchases purchases) {}
 
     private record DiscordWiring(
             AdminLog admin,
@@ -196,10 +191,9 @@ public class AccessBot implements AutoCloseable {
 
     private CoreServices loadCoreServices(final AccessSpec accessConfig) {
         final Languages languages = Languages.of(accessConfig);
-        // :commands' shared bundle underneath this module's own; this module's keys win a collision.
         final Messages messages = Messages.load(
                         AccessBot.class.getClassLoader(),
-                        java.util.List.of("messages/commands", MESSAGE_ROOT),
+                        java.util.List.of(MESSAGE_ROOT),
                         BotSettings.messagesDirectory(),
                         languages.locales())
                 .within(MessageEnvironment.of(SERVICE));
@@ -208,13 +202,6 @@ public class AccessBot implements AutoCloseable {
                         "the message override names {}, which no bundle declares - it is stored"
                                 + " and never used; check the spelling",
                         key));
-        // The same files as one root, for remote answers: this module's keys are allowed Discord markdown.
-        final Messages sharedMessages = Messages.load(
-                        AccessBot.class.getClassLoader(),
-                        "messages/commands",
-                        BotSettings.messagesDirectory(),
-                        languages.locales())
-                .within(MessageEnvironment.of(SERVICE));
         final Tiers tiers = Tiers.of(accessConfig);
 
         // The bunq key lives in steward-worker and is read here as a row.
@@ -222,7 +209,7 @@ public class AccessBot implements AutoCloseable {
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
         final Purchases purchases = new Purchases(requests, tiers, accessConfig);
 
-        return new CoreServices(languages, messages, sharedMessages, tiers, requests, purchases);
+        return new CoreServices(languages, messages, tiers, requests, purchases);
     }
 
     private JDA connectJda(final BotSpec botConfig) throws InterruptedException {
@@ -306,8 +293,8 @@ public class AccessBot implements AutoCloseable {
                         worker),
                 new RegisterFlow(jda, teams, core.messages(), worker));
 
-        final BotAccessEffects inboxEffects = new BotAccessEffects(
-                access, roles, core.requests(), admin, seasonStart, core.messages(), core.sharedMessages(), log);
+        final BotAccessEffects inboxEffects =
+                new BotAccessEffects(access, roles, core.requests(), admin, seasonStart, core.messages(), log);
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =
                 new eu.nordtal.s2.discordbot.announce.Announcements(jda, core.languages(), log);
 

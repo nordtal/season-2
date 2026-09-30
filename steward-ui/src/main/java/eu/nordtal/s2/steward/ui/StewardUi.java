@@ -149,7 +149,7 @@ public final class StewardUi {
         this.gatekeeper = new Gatekeeper(this::session, this.secondFactor);
         this.metrics = new Metrics(data, clock);
         this.guild = new DiscordApi(new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API, clock));
-        this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), clock);
+        this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
         this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow());
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());

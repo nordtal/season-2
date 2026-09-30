@@ -5,7 +5,7 @@ import type { ConfigReloadOutcome } from "@/lib/api"
 /**
  * The one toast a save produces, typed by what `reload` says happened.
  *
- * `APPLIED` and `NO_ANSWER` both sent a command; `undefined` is an older document, shown as `APPLIED`.
+ * `APPLIED` and `NO_ANSWER` both asked the service; `undefined` is an older document, shown as `APPLIED`.
  */
 export function announceSave(label: string, reload: ConfigReloadOutcome | undefined, fallbackDescription: string) {
   if (!reload || reload.status === "APPLIED") {

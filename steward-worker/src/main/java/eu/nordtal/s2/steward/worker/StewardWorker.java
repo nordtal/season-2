@@ -483,6 +483,9 @@ public final class StewardWorker {
                 // The bot's inbox: saving a message asks it to re-read the file.
                 eu.nordtal.s2.database.inbox.Inbox.over(
                         database.dataSource(), eu.nordtal.s2.database.inbox.BotRequest.TABLE),
+                // The servers' inboxes: saving their files or bundles asks them to re-read them.
+                new eu.nordtal.s2.steward.worker.api.InboxReloader(
+                        database.dataSource(), eu.nordtal.s2.common.time.Waiting.on(CLOCK)),
                 // A save of this worker's own steward.yml re-arms the clocks.
                 () -> {
                     try {

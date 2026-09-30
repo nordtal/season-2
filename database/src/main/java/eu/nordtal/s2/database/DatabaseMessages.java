@@ -17,6 +17,8 @@ public interface DatabaseMessages {
 
     SeasonRefusals season();
 
+    ServerRefusals server();
+
     @Name("Update runs")
     interface UpdateRefusals {
 
@@ -44,5 +46,33 @@ public interface DatabaseMessages {
 
         @Name("Paid time before the opening")
         MessageRef smpStartBeforeLaunch(@Arg("at") Object at, @Arg("launch") Object launch);
+    }
+
+    @Name("Server actions")
+    interface ServerRefusals {
+
+        @Name("No active milestone")
+        MessageRef noActiveMilestone();
+
+        @Name("No such objective")
+        MessageRef noSuchObjective(@Arg("key") Object key);
+
+        @Name("Milestone not active")
+        MessageRef milestoneNotActive(@Arg("key") Object key, @Arg("active") Object active);
+
+        @Name("Wrong phase")
+        MessageRef wrongPhase(@Arg("phase") Object phase);
+
+        @Name("No game")
+        MessageRef noGame();
+
+        @Name("Wrong state")
+        MessageRef wrongState(@Arg("state") Object state);
+
+        @Name("Below the hard minimum")
+        MessageRef belowHardMinimum(@Arg("minimum") Object minimum, @Arg("count") Object count);
+
+        @Name("Below the recommended minimum")
+        MessageRef belowSoftMinimum(@Arg("count") Object count, @Arg("minimum") Object minimum);
     }
 }

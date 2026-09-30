@@ -1,9 +1,18 @@
 package eu.nordtal.s2.smp;
 
-import eu.nordtal.s2.commands.remote.CommandRequests;
-import eu.nordtal.s2.commands.remote.Outbox;
+import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import eu.nordtal.s2.database.inbox.Reload;
+import eu.nordtal.s2.database.inbox.SmpRequest;
 import eu.nordtal.s2.database.notify.Channel;
-import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
 import eu.nordtal.s2.settings.Check;
@@ -11,15 +20,15 @@ import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.smp.announce.Announcer;
 import eu.nordtal.s2.smp.board.Boards;
-import eu.nordtal.s2.smp.command.BukkitSmpEffects;
 import eu.nordtal.s2.smp.command.NavigateCommand;
-import eu.nordtal.s2.smp.command.SmpCommand;
+import eu.nordtal.s2.smp.command.SmpAdmin;
 import eu.nordtal.s2.smp.config.Milestones;
 import eu.nordtal.s2.smp.config.MilestonesSpec;
 import eu.nordtal.s2.smp.config.PrestigeSpec;
 import eu.nordtal.s2.smp.config.SmpSettings;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.config.SoundsSpec;
+import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -49,12 +58,13 @@ import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.travel.BalloonDisplay;
 import eu.nordtal.s2.smp.world.Datapacks;
 import eu.nordtal.s2.smp.world.Worlds;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.concurrent.ScheduledExecutorService;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -84,28 +94,14 @@ public final class SmpPlugin extends NordtalPlugin {
     /** The crest ladder; volatile, since a reload re-derives it off the main thread. */
     volatile Prestige prestige;
 
-    /**
-     * Effects for Brigadier handlers, on the async scheduler; the inbox's own run inline to settle their request row.
-     */
-    BukkitSmpEffects chatEffects;
-
-    Outbox outbox;
-
-    @Nullable
-    ScheduledExecutorService commandWaiter;
-
     SmpDao dao;
-    CommandRequests requests;
     Announcer announcer;
+    private SmpAdmin admin;
     /** What the last reload refused the track for, or empty when it took it. */
     private volatile List<String> trackProblems = List.of();
 
-    /** {@code :commands}' bundle as the inbox renders it, a second view of the same files. */
-    @Nullable
-    Messages sharedMessages;
-
     /**
-     * The milestone track; volatile, since {@code reloadTrack} writes it async and suggestions read it per keystroke.
+     * The milestone track; volatile, since a reload writes it async and suggestions read it per keystroke.
      */
     volatile MilestoneTrack track;
 
@@ -150,8 +146,49 @@ public final class SmpPlugin extends NordtalPlugin {
     }
 
     @Override
+    protected String commandRoot() {
+        return "smp";
+    }
+
+    @Override
+    protected void commands(final LiteralArgumentBuilder<CommandSourceStack> root) {
+        root.then(console("aura")
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .then(Commands.argument("delta", IntegerArgumentType.integer(-10_000, 10_000))
+                                        .executes(this::changeAura))))
+                .then(console("access")
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .executes(this::showAccess)))
+                .then(console("objective")
+                        .then(Commands.literal("complete")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        // The active milestone's open objectives only; any other key is refused.
+                                        .suggests((context, builder) -> suggest(
+                                                builder,
+                                                season.active().objectives().stream()
+                                                        .map(ObjectiveRow::key)
+                                                        .toList()))
+                                        .executes(this::confirmFirst)
+                                        .then(Commands.literal("confirm")
+                                                .executes(context -> run(
+                                                        context,
+                                                        () -> admin.completeObjective(
+                                                                StringArgumentType.getString(context, "key"))))))))
+                .then(console("milestone")
+                        .then(Commands.literal("unlock")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests((context, builder) -> suggest(builder, track.keys()))
+                                        .executes(this::confirmFirst)
+                                        .then(Commands.literal("confirm")
+                                                .executes(context -> run(
+                                                        context,
+                                                        () -> admin.unlockMilestone(
+                                                                StringArgumentType.getString(context, "key"))))))));
+    }
+
+    @Override
     protected List<String> bundles() {
-        return List.of("messages/commands", "messages/smp");
+        return List.of("messages/smp");
     }
 
     @Override
@@ -192,7 +229,6 @@ public final class SmpPlugin extends NordtalPlugin {
 
         final SmpStart.HudAndAnnouncer ha = SmpStart.startHudAndAnnouncer(this);
         hud = ha.hud();
-        requests = ha.requests();
         announcer = ha.announcer();
 
         final SmpStart.Surfaces wired = SmpStart.wireEffectsAndSurfaces(this, spec);
@@ -214,17 +250,17 @@ public final class SmpPlugin extends NordtalPlugin {
         npc = SmpStart.wireNpc(this, spec);
         balloonDisplay = SmpStart.restoreGravesAndRegisterWorld(this, balloons, regions, wired.effects());
 
-        final SmpStart.CommandLayer layer = SmpStart.wireCommandLayer(this);
-        chatEffects = layer.chatEffects();
-        commandWaiter = layer.commandWaiter();
-        outbox = layer.outbox();
-        sharedMessages = layer.sharedMessages();
+        admin = admin();
         registerCommands(sounds);
         // Before the surfaces, so the pass that starts the track over also draws it; any pass catches a missed switch.
         hub().on(Channel.PHASE, "the season reset", this::startTrackOverIfDue);
         // Surfaces are drawn far more often than their data changes, so they re-read only on its signal.
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
-        layer.inbox().listen(hub(), this);
+        answer(SmpRequest.TABLE, request -> switch (request) {
+            case Reload reload -> reloadAnswer();
+            case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
+            case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
+        });
         getLogger()
                 .info(track.size() + " milestones, " + regions.all().size() + " protected boxes, "
                         + balloons.all().size() + " balloons");
@@ -344,35 +380,86 @@ public final class SmpPlugin extends NordtalPlugin {
         if (drawn != null) {
             quietly("boards.stop", drawn::stop);
         }
-        final ScheduledExecutorService waiter = commandWaiter;
-        if (waiter != null) {
-            // Before the pool, since a wait in flight reads the request row through it.
-            quietly("commandWaiter.shutdownNow", waiter::shutdownNow);
-        }
     }
 
     void registerCommands(final SmpSounds sounds) {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final NavigateCommand commands = new NavigateCommand(
                     this, dao, navigation, identities, messages(), locales(), sounds, this::colours);
-            // Not in {@code :commands}: both open an inventory or read the caller's position.
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
-
-            SmpCommand.build(
-                            this,
-                            messages(),
-                            locales(),
-                            identities,
-                            sounds,
-                            outbox,
-                            chatEffects,
-                            // A supplier, since {@code /smp reload} replaces the track.
-                            () -> track,
-                            season,
-                            this::colours)
-                    .forEach(node -> event.registrar().register(node));
         });
+    }
+
+    /** The track actions of the console and the inbox, closing and unlocking through the running engine. */
+    private SmpAdmin admin() {
+        return new SmpAdmin(
+                dao,
+                new SmpAdmin.Track() {
+                    // Null: an admin's completion has nobody behind it.
+                    @Override
+                    public void finishObjective(final String milestone, final ObjectiveRow objective) {
+                        engine.finishObjective(milestone, objective, null);
+                    }
+
+                    @Override
+                    public void unlockMilestone(final String milestone) {
+                        engine.unlockMilestone(milestone, null);
+                    }
+                },
+                identities,
+                access(),
+                getLogger());
+    }
+
+    /** {@code /smp aura <player> <delta>}: a correction for somebody online, recorded as the console's. */
+    private int changeAura(final CommandContext<CommandSourceStack> context) {
+        final Player player = Bukkit.getPlayerExact(StringArgumentType.getString(context, "player"));
+        if (player == null) {
+            tell(
+                    context.getSource().getSender(),
+                    Answer.failed(MESSAGES.smp().admin().playerOffline()));
+            return Command.SINGLE_SUCCESS;
+        }
+        final int delta = IntegerArgumentType.getInteger(context, "delta");
+        return run(context, () -> admin.changeAura(player.getUniqueId(), player.getName(), delta));
+    }
+
+    /** {@code /smp access <player>}: whether somebody online is linked, has access and is paying. */
+    private int showAccess(final CommandContext<CommandSourceStack> context) {
+        final Player player = Bukkit.getPlayerExact(StringArgumentType.getString(context, "player"));
+        if (player == null) {
+            tell(
+                    context.getSource().getSender(),
+                    Answer.failed(MESSAGES.smp().admin().playerOffline()));
+            return Command.SINGLE_SUCCESS;
+        }
+        final org.bukkit.command.CommandSender sender = context.getSource().getSender();
+        final PaperUser console = PaperUser.console(this, sender, messages(), this::colours);
+        final java.util.UUID id = player.getUniqueId();
+        final String name = player.getName();
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            try {
+                admin.showAccess(console, id, name);
+            } catch (final RuntimeException failure) {
+                getLogger().log(java.util.logging.Level.WARNING, "/smp access could not read " + name, failure);
+                tell(
+                        sender,
+                        Answer.failed(eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES
+                                .admin()
+                                .failed()));
+            }
+        });
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static java.util.concurrent.CompletableFuture<Suggestions> suggest(
+            final SuggestionsBuilder builder, final java.util.Collection<String> keys) {
+        final String typed = builder.getRemaining().toLowerCase(Locale.ROOT);
+        keys.stream()
+                .filter(key -> key.toLowerCase(Locale.ROOT).startsWith(typed))
+                .forEach(builder::suggest);
+        return builder.buildFuture();
     }
 
     /** Starts the track over when the phase stamped a fresh start this server has not applied yet. */
@@ -423,12 +510,6 @@ public final class SmpPlugin extends NordtalPlugin {
                         }));
     }
 
-    /** Re-reads the settings and the bundles while players are online and returns the track's problems. */
-    List<String> reloadTrack() {
-        final List<String> _ = reload();
-        return trackProblems;
-    }
-
     @Override
     protected List<String> reloadOwn() {
         // Sounds go first, since they are iterated on live; each group fails on its own.
@@ -450,10 +531,7 @@ public final class SmpPlugin extends NordtalPlugin {
             problems.add("the prestige name colours: " + failure.getMessage());
         }
         reloadMilestoneTrack();
-        final Messages shared = sharedMessages;
-        if (shared != null) {
-            shared.reload();
-        }
+        problems.addAll(trackProblems);
         return problems;
     }
 

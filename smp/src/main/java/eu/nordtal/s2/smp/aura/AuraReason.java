@@ -25,9 +25,6 @@ public enum AuraReason {
     /** One of the curated advancements, once per player. */
     ADVANCEMENT,
 
-    /** The hunger games winner's head start, paid on that player's first join and never again. */
-    HG_WINNER,
-
     /** An admin booked it by hand. */
     ADMIN;
 

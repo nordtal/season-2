@@ -31,7 +31,6 @@ class EveryBundleIsCompleteTest {
 
     /** The bundles known to exist, a floor that fails a walk which silently finds nothing. */
     private static final Set<String> KNOWN = Set.of(
-            "commands/src/main/resources/messages/commands",
             "discord-bot/src/main/resources/messages/access",
             "hunger-games/src/main/resources/messages/hunger-games",
             "limbo/src/main/resources/messages/limbo",

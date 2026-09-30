@@ -171,7 +171,7 @@ class UpdateFeedTest {
     private final Rows rows = new Rows();
     private final Board board = new Board();
     private final Messages messages =
-            Messages.load(UpdateFeedTest.class.getClassLoader(), "messages/commands", Locale.ENGLISH, Locale.GERMAN);
+            Messages.load(UpdateFeedTest.class.getClassLoader(), "messages/access", Locale.ENGLISH, Locale.GERMAN);
     private final UpdateFeed feed = new UpdateFeed(rows, board, messages, Clock.systemUTC());
 
     @Test

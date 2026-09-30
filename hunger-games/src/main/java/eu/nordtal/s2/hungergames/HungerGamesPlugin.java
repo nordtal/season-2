@@ -1,25 +1,31 @@
 package eu.nordtal.s2.hungergames;
 
-import eu.nordtal.s2.commands.Target;
-import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
-import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
-import eu.nordtal.s2.commands.remote.CommandRequests;
-import eu.nordtal.s2.commands.remote.Outbox;
+import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.PlayerId;
+import eu.nordtal.s2.database.inbox.HungerGamesRequest;
+import eu.nordtal.s2.database.inbox.Reload;
+import eu.nordtal.s2.database.inbox.ServerRefusal;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
-import eu.nordtal.s2.hungergames.command.BukkitHungerGamesEffects;
-import eu.nordtal.s2.hungergames.command.HungerGamesCommand;
 import eu.nordtal.s2.hungergames.config.HungerGamesCheck;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.config.SoundsSpec;
+import eu.nordtal.s2.hungergames.db.HgGame;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
+import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Ceremony;
+import eu.nordtal.s2.hungergames.game.Demotion;
 import eu.nordtal.s2.hungergames.game.HungerGamesManager;
+import eu.nordtal.s2.hungergames.game.StartCheck;
 import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.hungergames.hud.HudRenderer;
 import eu.nordtal.s2.hungergames.listener.CombatListener;
@@ -29,22 +35,26 @@ import eu.nordtal.s2.hungergames.lobby.Lobby;
 import eu.nordtal.s2.hungergames.lobby.LobbyMaps;
 import eu.nordtal.s2.hungergames.loot.LootRefill;
 import eu.nordtal.s2.hungergames.player.ArenaComposition;
-import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.Refusal;
+import eu.nordtal.s2.messages.Tone;
+import eu.nordtal.s2.messages.context.TeamContext;
+import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
-import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
+import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
 import eu.nordtal.s2.settings.Check;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
-import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.logging.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -67,15 +77,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     /** The season phase as the signal hub last read it; a game only starts during the start event. */
     private volatile SeasonPhase phase = SeasonPhase.PRE_LAUNCH;
 
-    /** The chat effects schedule; the inbox's run inline, since the inbox settles its row when the command returns. */
-    private HungerGamesEffects chatEffects;
-
-    private Outbox outbox;
-    private @Nullable ScheduledExecutorService commandWaiter;
     private HungerGamesDao dao;
-
-    /** {@code :commands}' bundle as the inbox renders it, a second view of the same files. */
-    private @Nullable Messages sharedMessages;
 
     private final GameState state = new GameState();
     private final PlayerBodies bodies = new PlayerBodies();
@@ -98,8 +100,30 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     }
 
     @Override
+    protected String commandRoot() {
+        return "hg";
+    }
+
+    @Override
+    protected boolean playersUseCommandRoot() {
+        // A player marks their own team ready with /hg ready.
+        return true;
+    }
+
+    @Override
+    protected void commands(final LiteralArgumentBuilder<CommandSourceStack> root) {
+        root.then(Commands.literal("ready")
+                        .requires(source -> source.getSender() instanceof Player)
+                        .executes(this::markReady))
+                .then(console("start")
+                        .executes(context -> run(context, () -> startGame(false)))
+                        .then(Commands.literal("confirm").executes(context -> run(context, () -> startGame(true)))))
+                .then(console("ready-status").executes(this::readyStatus));
+    }
+
+    @Override
     protected List<String> bundles() {
-        return List.of("messages/commands", "messages/hunger-games");
+        return List.of("messages/hunger-games");
     }
 
     @Override
@@ -127,7 +151,10 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         dao = jdbi().onDemand(HungerGamesDao.class);
         wireGameSystems(config.get());
         wireListeners();
-        wireCommands(config.get());
+        answer(HungerGamesRequest.TABLE, request -> switch (request) {
+            case Reload reload -> reloadAnswer();
+            case HungerGamesRequest.StartGame start -> startGame(start.confirmed());
+        });
         final PhaseDirectory phases = PhaseDirectory.using(pool(), clock());
         hub().on(Channel.PHASE, "the season phase", () -> phase = phases.currentPhase());
     }
@@ -139,9 +166,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     @Override
     protected List<String> reloadOwn() {
-        if (sharedMessages != null) {
-            sharedMessages.reload();
-        }
         return reloadSounds() ? List.of() : List.of("sounds.yml");
     }
 
@@ -158,11 +182,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         }
         if (border != null) {
             quietly("border.stop", border::stop);
-        }
-        final ScheduledExecutorService waiter = commandWaiter;
-        if (waiter != null) {
-            // Before the pool: a wait in flight reads the request row through it.
-            quietly("commandWaiter.shutdownNow", waiter::shutdownNow);
         }
     }
 
@@ -215,56 +234,86 @@ public final class HungerGamesPlugin extends NordtalPlugin {
                 clock()));
     }
 
-    /** The command layer: two effects instances, the outbox and the command inbox. */
-    private void wireCommands(final HungerGamesSpec spec) {
+    /**
+     * Starts the registered game, or says why not; never on the main thread.
+     *
+     * Below the recommended minimum only a confirmed start goes ahead, since the asker has seen the numbers.
+     */
+    private Answer startGame(final boolean confirmed) {
+        final UUID gameId = currentGameIdNow();
+        final HgGame game = gameId == null ? null : dao.game(gameId).orElse(null);
+        final int participants = gameId == null || game == null
+                ? 0
+                : Demotion.resolve(dao.roster(gameId)).size();
+        final int recommended = config.get().softMinimumParticipants();
+        final Optional<Refusal> refused =
+                StartCheck.refusal(game == null ? null : game.state(), phase, participants, recommended, confirmed);
+        if (refused.isPresent() || gameId == null) {
+            return Answer.refused(refused.orElseGet(ServerRefusal.NO_GAME::with));
+        }
+        getLogger()
+                .info("game " + gameId + " started with " + participants + " resolvable participants"
+                        + (participants < recommended ? " (confirmed below the recommended minimum)" : ""));
+        startGame(gameId, world);
+        return Answer.done(MESSAGES.hg().admin().started(participants));
+    }
+
+    /** {@code /hg ready-status}: every registered team and whether it has said it is ready. */
+    private int readyStatus(final CommandContext<CommandSourceStack> context) {
+        final PaperUser console = PaperUser.console(this, context.getSource().getSender(), messages(), this::colours);
         final Lobby waiting = Objects.requireNonNull(lobby);
-        chatEffects = new BukkitHungerGamesEffects(
-                this,
-                BukkitHungerGamesEffects.async(this),
-                dao,
-                spec,
-                waiting,
-                this::currentGameIdNow,
-                gameId -> startGame(gameId, world),
-                this::reloadSounds,
-                this::reloadMessages,
-                () -> phase);
-
-        final ScheduledExecutorService waiter = Executors.newSingleThreadScheduledExecutor(task -> {
-            final Thread thread = new Thread(task, getName() + "-command-waiter");
-            thread.setDaemon(true);
-            return thread;
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            final UUID gameId = currentGameIdNow();
+            if (gameId == null) {
+                console.reply(ServerRefusal.NO_GAME.with().message(), Tone.WARN);
+                return;
+            }
+            final Map<String, Boolean> byTeam = new LinkedHashMap<>();
+            for (final RosterEntry entry : waiting.readyStatus(gameId)) {
+                byTeam.merge(entry.teamName(), entry.ready(), (one, two) -> one && two);
+            }
+            console.reply(MESSAGES.hg().admin().readyHeader(), Tone.NEUTRAL);
+            // The admin is looking for who is NOT ready yet, so the tone carries the answer.
+            byTeam.forEach((team, ready) -> console.reply(
+                    MESSAGES.hg()
+                            .admin()
+                            .readyLine(
+                                    new TeamContext(team),
+                                    console.phrase(
+                                            ready
+                                                    ? MESSAGES.hg().admin().ready()
+                                                    : MESSAGES.hg().admin().notReady())),
+                    ready ? Tone.GOOD : Tone.MUTED));
         });
-        commandWaiter = waiter;
-        final CommandRequests requests = CommandRequests.over(pool(), clock());
-        outbox = new Outbox(
-                requests, waiter, (message, failure) -> getLogger().log(Level.WARNING, message, failure), clock());
+        return Command.SINGLE_SUCCESS;
+    }
 
-        // Built here rather than inside the inbox so a reload can swap it too.
-        final Messages shared = PaperCommandInbox.sharedBundle(this);
-        sharedMessages = shared;
-        final PaperCommandInbox inbox = new PaperCommandInbox(this, Target.HUNGER_GAMES, requests, access(), shared);
-        // Inline on purpose; see the chatEffects field.
-        final HungerGamesEffects inboxEffects = new BukkitHungerGamesEffects(
+    /** {@code /hg ready}: marks the sender's team ready, which only a player can be. */
+    private int markReady(final CommandContext<CommandSourceStack> context) {
+        final Player player = (Player) context.getSource().getSender();
+        final PaperUser user = PaperUser.of(
                 this,
-                Runnable::run,
-                dao,
-                spec,
-                waiting,
-                this::currentGameIdNow,
-                gameId -> startGame(gameId, world),
-                this::reloadSounds,
-                this::reloadMessages,
-                () -> phase);
-        HungerGamesCommands.all().forEach(command -> inbox.register(command, inboxEffects));
-        inbox.listen(hub(), this);
-
-        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
-            final HungerGamesCommand command = new HungerGamesCommand(
-                    this, dao, messages(), locales(), waiting, sounds, () -> currentGameId, this::colours);
-            command.build(outbox, chatEffects, id -> adminWatch().isAdmin(id))
-                    .forEach(node -> event.registrar().register(node));
+                player,
+                locales().of(player.getUniqueId()),
+                false,
+                java.util.Optional::<eu.nordtal.s2.common.id.DiscordId>empty,
+                messages(),
+                sounds::play,
+                this::colours);
+        final UUID gameId = currentGameId;
+        final Lobby waiting = Objects.requireNonNull(lobby);
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            final var discordId = identities().discordIdOf(PlayerId.of(player.getUniqueId()));
+            final boolean marked =
+                    gameId != null && discordId.isPresent() && waiting.markReady(gameId, discordId.get());
+            user.reply(
+                    marked
+                            ? MESSAGES.hg().lobby().readySet()
+                            : MESSAGES.hg().lobby().notRegistered(),
+                    marked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED,
+                    marked ? Tone.GOOD : Tone.BAD);
         });
+        return Command.SINGLE_SUCCESS;
     }
 
     /** Runs off the main thread, reading the roster before anyone is released so the first death is tracked. */
@@ -276,14 +325,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
             Objects.requireNonNull(hud).start();
             winTracker.reset(activeMembers);
         });
-    }
-
-    /** Re-reads the message bundles and the operator's override; throws so the console gets the reason. */
-    private void reloadMessages() {
-        final List<String> problems = reload();
-        if (!problems.isEmpty()) {
-            throw new IllegalStateException(String.join("; ", problems));
-        }
     }
 
     private boolean reloadSounds() {

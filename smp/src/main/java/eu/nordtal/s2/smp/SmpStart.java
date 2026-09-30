@@ -1,21 +1,12 @@
 package eu.nordtal.s2.smp;
 
-import eu.nordtal.s2.commands.Target;
-import eu.nordtal.s2.commands.remote.CommandRequests;
-import eu.nordtal.s2.commands.remote.Outbox;
-import eu.nordtal.s2.commands.smp.SmpCommands;
-import eu.nordtal.s2.commands.smp.SmpEffects;
-import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
-import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
 import eu.nordtal.s2.smp.announce.Announcer;
 import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.board.Boards;
-import eu.nordtal.s2.smp.command.BukkitSmpEffects;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
@@ -23,7 +14,6 @@ import eu.nordtal.s2.smp.feedback.SurfaceListener;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.grave.GraveListener;
 import eu.nordtal.s2.smp.grave.Graves;
-import eu.nordtal.s2.smp.headstart.HeadStart;
 import eu.nordtal.s2.smp.hud.SmpHud;
 import eu.nordtal.s2.smp.navigate.NavigateListener;
 import eu.nordtal.s2.smp.npc.NpcListener;
@@ -46,7 +36,6 @@ import eu.nordtal.s2.smp.travel.PortalGate;
 import eu.nordtal.s2.smp.welcome.SeasonWelcome;
 import eu.nordtal.s2.smp.wheel.Wheel;
 import eu.nordtal.s2.smp.wheel.WheelListener;
-import java.util.concurrent.ScheduledExecutorService;
 import org.bukkit.Bukkit;
 
 /**
@@ -58,7 +47,7 @@ final class SmpStart {
 
     private SmpStart() {}
 
-    record HudAndAnnouncer(SmpHud hud, CommandRequests requests, Announcer announcer) {}
+    record HudAndAnnouncer(SmpHud hud, Announcer announcer) {}
 
     static HudAndAnnouncer startHudAndAnnouncer(final SmpPlugin plugin) {
         final SmpHud hud = new SmpHud(
@@ -66,13 +55,12 @@ final class SmpStart {
         hud.start();
 
         // Discord announcements: one request in the bot's inbox with every language, fire and forget.
-        final CommandRequests requests = CommandRequests.over(plugin.pool(), plugin.clock());
         final Announcer announcer = new Announcer(
                 Inbox.over(plugin.pool(), BotRequest.TABLE),
                 plugin.messages(),
-                BukkitSmpEffects.async(plugin),
+                task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task),
                 (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
-        return new HudAndAnnouncer(hud, requests, announcer);
+        return new HudAndAnnouncer(hud, announcer);
     }
 
     record Surfaces(WorldEffects effects, PlayerComposition composition, PlayerSurfaces surfaces, Boards boards) {}
@@ -119,20 +107,6 @@ final class SmpStart {
                 .getPluginManager()
                 .registerEvents(
                         new NavigateListener(plugin, plugin.dao, plugin.navigation, plugin.identities, plugin.sounds),
-                        plugin);
-        // The start event's winner is paid on their first join here, never by hunger-games.
-        plugin.getServer()
-                .getPluginManager()
-                .registerEvents(
-                        new HeadStart(
-                                plugin,
-                                plugin.dao,
-                                plugin.identities,
-                                surfaces.surfaces(),
-                                config,
-                                plugin.messages(),
-                                plugin.locales(),
-                                plugin.sounds),
                         plugin);
         return listener;
     }
@@ -316,48 +290,5 @@ final class SmpStart {
                 .getPluginManager()
                 .registerEvents(new SurfaceListener(plugin.sounds, plugin.graves::isShowingGrave), plugin);
         return balloonDisplay;
-    }
-
-    /**
-     * The command surface, built after the activities and started before the admin watch it shares a connection with.
-     */
-    record CommandLayer(
-            BukkitSmpEffects chatEffects,
-            ScheduledExecutorService commandWaiter,
-            Outbox outbox,
-            Messages sharedMessages,
-            PaperCommandInbox inbox) {}
-
-    static CommandLayer wireCommandLayer(final SmpPlugin plugin) {
-        final AccessReader access = plugin.access();
-        final BukkitSmpEffects chatEffects = new BukkitSmpEffects(
-                plugin,
-                BukkitSmpEffects.async(plugin),
-                plugin.dao,
-                plugin.engine,
-                plugin.identities,
-                access,
-                plugin::reloadTrack);
-
-        final ScheduledExecutorService commandWaiter =
-                java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
-                    final Thread thread = new Thread(task, plugin.getName() + "-command-waiter");
-                    thread.setDaemon(true);
-                    return thread;
-                });
-        final Outbox outbox = new Outbox(
-                plugin.requests,
-                commandWaiter,
-                (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure),
-                plugin.clock());
-
-        // Built here so {@code /smp reload} can replace it.
-        final Messages sharedMessages = PaperCommandInbox.sharedBundle(plugin);
-        final PaperCommandInbox inbox =
-                new PaperCommandInbox(plugin, Target.SMP, plugin.requests, access, sharedMessages);
-        final SmpEffects inboxEffects = new BukkitSmpEffects(
-                plugin, Runnable::run, plugin.dao, plugin.engine, plugin.identities, access, plugin::reloadTrack);
-        SmpCommands.all().forEach(command -> inbox.register(command, inboxEffects));
-        return new CommandLayer(chatEffects, commandWaiter, outbox, sharedMessages, inbox);
     }
 }

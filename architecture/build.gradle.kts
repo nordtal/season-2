@@ -10,7 +10,7 @@ val checkedModules =
         ":message-rendering",
         ":pack-rendering",
         ":limbo-protocol",
-        ":commands",
+        ":settings",
         ":paper-common",
         ":limbo",
         ":hunger-games",

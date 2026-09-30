@@ -62,7 +62,7 @@ class OneMessageFormatTest {
                     "the MOTD, which NetworkPing parses itself with its own placeholder resolver"),
             Map.entry(
                     "proxy/src/main/java/eu/nordtal/s2/proxy/command/VelocityUser.java",
-                    "NordtalUser#replyLiteral - text that IS already the answer and must not be" + " rendered twice"),
+                    "VelocityUser#replyLiteral - text that IS already the answer and must not be rendered twice"),
             Map.entry(
                     "proxy/src/main/java/eu/nordtal/s2/proxy/command/PrivateMessages.java",
                     "a private message's own text, wrapped so that it can be handed to"
@@ -73,12 +73,7 @@ class OneMessageFormatTest {
                     "proxy/src/main/java/eu/nordtal/s2/proxy/update/Homecoming.java",
                     "the compose name of a service - `restart.what.<service>` is the sentence and"
                             + " this is what stands in when a service has no line of its own, which"
-                            + " is a name rather than language"),
-            Map.entry(
-                    "proxy/src/main/java/eu/nordtal/s2/proxy/command/ConsoleUser.java",
-                    "the same NordtalUser#replyLiteral, for the proxy console - plus a plain-text"
-                            + " serialiser, because a raw <green> in a container log is a thing"
-                            + " somebody greps past"));
+                            + " is a name rather than language"));
 
     @Test
     void onlyTheListedFilesComposeComponentsByHand() {

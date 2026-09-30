@@ -25,7 +25,7 @@ import java.util.List;
 public interface HungerGamesSpec {
 
     /** The floor below which {@code /hg start} refuses, since the border step divides by one less than it. */
-    int HARD_MINIMUM_PARTICIPANTS = eu.nordtal.s2.commands.hungergames.HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS;
+    int HARD_MINIMUM_PARTICIPANTS = 2;
 
     @Order(1)
     @Name("Countdown (seconds)")

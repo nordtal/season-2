@@ -1,6 +1,7 @@
 package eu.nordtal.s2.smp;
 
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.context.DiscordMemberContext;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.spec.Arg;
@@ -114,11 +115,67 @@ public interface SmpMessages {
 
         Failure error();
 
+        Access access();
+
+        @Name("Access")
+        interface Access {
+
+            @Name("Active")
+            MessageRef active(@Arg("until") Object until);
+
+            @Name("Expired")
+            MessageRef expired(@Arg("since") Object since);
+
+            @Name("Linked")
+            MessageRef linked(@Arg("player") PlayerContext player, @Arg("discord") DiscordMemberContext discord);
+
+            @Name("Never")
+            MessageRef never();
+
+            @Name("No payment")
+            MessageRef noPayment();
+
+            @Name("Payment")
+            MessageRef payment(
+                    @Arg("reference") Object reference,
+                    @Arg("days") Object days,
+                    @Arg("amount") Object amount,
+                    @Arg("since") Object since);
+
+            @Name("Payment unstarted")
+            MessageRef paymentUnstarted(
+                    @Arg("reference") Object reference, @Arg("days") Object days, @Arg("since") Object since);
+
+            @Name("Unlinked")
+            MessageRef unlinked(@Arg("player") PlayerContext player);
+        }
+
+        Admin admin();
+
+        @Name("Admin")
+        interface Admin {
+
+            @Name("Aura changed")
+            MessageRef auraChanged(@Arg("player") PlayerContext player, @Arg("delta") Object delta);
+
+            @Name("Aura unknown")
+            MessageRef auraUnknown(@Arg("player") PlayerContext player, @Arg("delta") Object delta);
+
+            @Name("Milestone unlocked")
+            MessageRef milestoneUnlocked(@Arg("key") Object key);
+
+            @Name("Player offline")
+            MessageRef playerOffline();
+
+            @Name("Target unlinked")
+            MessageRef targetUnlinked(@Arg("player") PlayerContext player);
+
+            @Name("Objective completed")
+            MessageRef objectiveCompleted(@Arg("key") Object key, @Arg("milestone") MilestoneContext milestone);
+        }
+
         @Name("Error")
         interface Failure {
-
-            @Name("Database unreachable")
-            MessageRef databaseUnreachable();
 
             @Name("No account link")
             MessageRef noAccountLink();
@@ -287,18 +344,6 @@ public interface SmpMessages {
 
             @Name("Advancement")
             MessageRef advancement(@Arg("aura") Object aura);
-        }
-
-        Headstart headstart();
-
-        @Name("Headstart")
-        interface Headstart {
-
-            @Name("Granted")
-            MessageRef granted(@Arg("aura") Object aura);
-
-            @Name("Granted aura only")
-            MessageRef grantedAuraOnly(@Arg("aura") Object aura);
         }
 
         Smp.Objective objective();

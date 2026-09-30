@@ -2,12 +2,13 @@ package eu.nordtal.s2.steward.ui.data;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
-import eu.nordtal.s2.commands.remote.CommandRequests;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.HungerGamesRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.SmpRequest;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
@@ -29,7 +30,8 @@ public final class Data implements AutoCloseable {
     private final PaymentRequests payments;
     private final AuditDirectory audit;
     private final AccessDirectory access;
-    private final CommandRequests commands;
+    private final Inbox<SmpRequest> smp;
+    private final Inbox<HungerGamesRequest> hungerGames;
     private final Inbox<BotRequest> bot;
 
     public Data(final DatabaseSpec config, final Clock clock) {
@@ -47,7 +49,8 @@ public final class Data implements AutoCloseable {
         this.audit = AuditDirectory.using(database.dataSource());
         // Borrowing, not owning: closing the pool below is the only close there is.
         this.access = AccessDirectory.using(database.dataSource(), clock);
-        this.commands = CommandRequests.over(database.dataSource(), clock);
+        this.smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        this.hungerGames = Inbox.over(database.dataSource(), HungerGamesRequest.TABLE);
         this.bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
     }
 
@@ -81,9 +84,14 @@ public final class Data implements AutoCloseable {
         return access;
     }
 
-    /** The servers' inboxes, as the web actions ask them to run a command of the catalogue. */
-    public CommandRequests commands() {
-        return commands;
+    /** The SMP's inbox, which the track actions are asked through. */
+    public Inbox<SmpRequest> smp() {
+        return smp;
+    }
+
+    /** The Hunger Games server's inbox, which the start is asked through. */
+    public Inbox<HungerGamesRequest> hungerGames() {
+        return hungerGames;
     }
 
     /** The bot's inbox, through which every access change is asked for. */

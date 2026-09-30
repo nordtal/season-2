@@ -28,7 +28,6 @@ class BundleContinuationTest {
             "hunger-games/src/main/resources/messages",
             "proxy/src/main/resources/messages",
             "discord-bot/src/main/resources/messages",
-            "commands/src/main/resources/messages",
             "paper-common/src/main/resources/messages");
 
     @Test

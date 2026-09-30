@@ -39,7 +39,7 @@ public final class MessagesApi {
 
     private static final Logger log = LoggerFactory.getLogger(MessagesApi.class);
 
-    /** The one bundle whose reload goes through the bot's inbox, since the bot has no console. */
+    /** The one bundle whose reload goes through the bot's inbox, which answers with the keys it does not know. */
     private static final String RELOADABLE_SERVICE = "discord-bot";
 
     /**
@@ -59,26 +59,26 @@ public final class MessagesApi {
     private final Path configsRoot;
     private final @Nullable Path volumesRoot;
     private final @Nullable Inbox<BotRequest> inbox;
-    private final ConfigApi.ConsoleLine console;
+    private final ConfigApi.Reloader reloader;
 
     /**
      * Builds the API.
      *
      * @param inbox the bot's inbox, or {@code null} without a database, which makes {@link #reload}
      *     ask for a restart
-     * @param console the Minecraft services' consoles, which a saved bundle's reload goes through
+     * @param reloader asks a Minecraft service to re-read a saved bundle
      */
     public MessagesApi(
             final Path configsRoot,
             final @Nullable Path volumesRoot,
             final @Nullable Inbox<BotRequest> inbox,
-            final ConfigApi.ConsoleLine console,
+            final ConfigApi.Reloader reloader,
             final Waiting waiting) {
         this.waiting = waiting;
         this.configsRoot = configsRoot;
         this.volumesRoot = volumesRoot;
         this.inbox = inbox;
-        this.console = console;
+        this.reloader = reloader;
     }
 
     /** {@code GET /api/messages}: every bundle found, without opening a single jar. */
@@ -154,7 +154,7 @@ public final class MessagesApi {
     private Map<String, Object> reload(final MessageBundleLocation location) {
         if (!RELOADABLE_SERVICE.equals(location.service())) {
             final Map<String, Object> answer = ConfigApi.reload(
-                    console, identityOf(location), location.service(), identityOf(location), identityOf(location));
+                    reloader, identityOf(location), location.service(), identityOf(location), identityOf(location));
             answer.put("unknown", List.of());
             return answer;
         }

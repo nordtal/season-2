@@ -347,8 +347,41 @@ public interface ProxyMessages {
 
     Command command();
 
+    Admin admin();
+
+    @Name("Admin")
+    interface Admin {
+
+        @Name("Reloaded")
+        MessageRef reloaded();
+
+        @Name("Reload failed")
+        MessageRef reloadFailed();
+    }
+
     @Name("Command")
     interface Command {
+
+        @Name("Unknown")
+        MessageRef unknown();
+
+        @Name("Not from console")
+        MessageRef notFromConsole();
+
+        @Name("Player offline")
+        MessageRef playerOffline();
+
+        Help help();
+
+        @Name("Help")
+        interface Help {
+
+            @Name("Usage")
+            MessageRef usage(@Arg("usage") Object usage);
+
+            @Name("What")
+            MessageRef what(@Arg("what") Object what);
+        }
 
         DescribeMessages describe();
 

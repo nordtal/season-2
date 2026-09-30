@@ -1,6 +1,5 @@
 package eu.nordtal.s2.papercommon.command;
 
-import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
@@ -28,7 +27,7 @@ import org.jspecify.annotations.Nullable;
  *
  * The console is always an admin and speaks English; replies hop to the main thread with their sound in one tick.
  */
-public final class PaperUser implements NordtalUser {
+public final class PaperUser {
 
     /** How a module plays its own feedback sounds. */
     @FunctionalInterface
@@ -137,65 +136,49 @@ public final class PaperUser implements NordtalUser {
      *
      * A {@code PaperUser} is built on the main thread per invocation, where an eager lookup would query the database.
      */
-    @Override
     public Optional<DiscordId> discordId() {
         return discordId.get();
     }
 
-    @Override
     public Optional<UUID> minecraftUuid() {
         return sender instanceof Player player ? Optional.of(player.getUniqueId()) : Optional.empty();
     }
 
-    @Override
     public String name() {
         return sender instanceof Player player ? player.getName() : "console";
     }
 
-    @Override
     public Locale locale() {
         return locale;
     }
 
-    @Override
     public boolean admin() {
         return admin;
     }
 
-    @Override
-    public Origin origin() {
-        return sender instanceof Player ? Origin.GAME : Origin.CONSOLE;
-    }
-
-    @Override
     public void reply(final MessageRef message) {
         // send(..., null): reply(message, null) would be ambiguous between the Feedback and Tone overloads.
         send(render(message), null);
     }
 
-    @Override
     public void reply(final MessageRef message, final Feedback feedback) {
         send(render(message), feedback);
     }
 
-    @Override
     public void reply(final MessageRef message, final Tone tone) {
         send(Tones.paint(render(message), tone, colours.get()), null);
     }
 
-    @Override
     public void reply(final MessageRef message, final Feedback feedback, final Tone tone) {
         // One hop carrying the line, colour and chime: painting first keeps Adventure off the main thread.
         send(Tones.paint(render(message), tone, colours.get()), feedback);
     }
 
-    @Override
     public String phrase(final MessageRef message) {
         // Plain text: the result is substituted into a message re-parsed as MiniMessage, where tags would leak through.
         return PlainTextComponentSerializer.plainText().serialize(render(message));
     }
 
-    @Override
     public void replyLiteral(final String text) {
         send(Component.text(text), null);
     }

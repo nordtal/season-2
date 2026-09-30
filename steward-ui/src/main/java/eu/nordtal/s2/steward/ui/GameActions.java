@@ -1,8 +1,8 @@
 package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.JsonObject;
-import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
-import eu.nordtal.s2.commands.smp.SmpCommands;
+import eu.nordtal.s2.database.inbox.HungerGamesRequest;
+import eu.nordtal.s2.database.inbox.SmpRequest;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.sql.Connection;
@@ -18,7 +18,7 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The SMP's and the hunger games' admin actions, each one request written through {@link CommandApi#submit}.
+ * The SMP's and the hunger games' admin actions, each one typed request written through {@link CommandApi}.
  *
  * The track is read from {@code smp_milestone} and {@code smp_objective}, as the running server holds it.
  */
@@ -97,7 +97,7 @@ final class GameActions {
                 """, key)) {
             throw new BadRequestResponse(key + " is not an open objective of the active milestone.");
         }
-        answer(ctx, commands.submit(ctx, SmpCommands.COMPLETE_OBJECTIVE, arguments("key", key)));
+        answer(ctx, commands.submit(ctx, new SmpRequest.CompleteObjective(key), "objective " + key));
     }
 
     /** {@code POST /api/smp/milestone} with {@code {key}}, the active milestone. */
@@ -106,7 +106,7 @@ final class GameActions {
         if (!exists("SELECT 1 FROM smp_milestone WHERE state = 'ACTIVE' AND key = ?", key)) {
             throw new BadRequestResponse(key + " is not the active milestone.");
         }
-        answer(ctx, commands.submit(ctx, SmpCommands.UNLOCK_MILESTONE, arguments("key", key)));
+        answer(ctx, commands.submit(ctx, new SmpRequest.UnlockMilestone(key), "milestone " + key));
     }
 
     /**
@@ -142,7 +142,7 @@ final class GameActions {
         final boolean confirm = body.has("confirm")
                 && body.get("confirm").isJsonPrimitive()
                 && body.get("confirm").getAsBoolean();
-        answer(ctx, commands.submit(ctx, HungerGamesCommands.START, confirm ? arguments("confirm", "confirm") : null));
+        answer(ctx, commands.submit(ctx, new HungerGamesRequest.StartGame(confirm), "the hunger games start"));
     }
 
     private static void answer(final Context ctx, final String id) {
@@ -150,12 +150,6 @@ final class GameActions {
         answer.put("id", id);
         answer.put("status", "PENDING");
         ctx.status(202).json(answer);
-    }
-
-    private static JsonObject arguments(final String name, final String value) {
-        final JsonObject arguments = new JsonObject();
-        arguments.addProperty(name, value);
-        return arguments;
     }
 
     private static JsonObject body(final Context ctx) {

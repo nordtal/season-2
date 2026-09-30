@@ -27,7 +27,8 @@ class CommandFilterTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000003");
 
-    private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locales.DEFAULT);
+    private final Messages messages =
+            Messages.load(getClass().getClassLoader(), "messages/paper-common", Locales.DEFAULT);
     private final PlayerLocales locales = new PlayerLocales(uuid -> Locales.DEFAULT);
 
     /** Records every play() call rather than making a sound. */

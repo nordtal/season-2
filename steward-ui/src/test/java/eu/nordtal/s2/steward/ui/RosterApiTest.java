@@ -37,39 +37,37 @@ class RosterApiTest extends StewardUiTestSupport {
         final JsonObject outcome = GSON.fromJson(get("/api/commands/" + id).body(), JsonObject.class);
         assertEquals("PENDING", outcome.get("status").getAsString());
 
-        // A web request is a person's, by Discord id; a console's never is.
+        // A web request is a person's, by Discord id, and carries its typed parameters and nothing else.
         final java.util.Map<String, String> row = row(id);
-        assertEquals("WEB", row.get("source"));
-        assertEquals("1", row.get("discordId"));
+        assertEquals("UNLOCK_MILESTONE", row.get("kind"));
         assertEquals("PERSON", row.get("actor_kind"));
-        assertTrue(row.get("requestedBy").contains("Ally"), row.get("requestedBy"));
-        assertEquals("smp milestone unlock", row.get("path"));
-        assertEquals("r-open", row.get("arguments"));
+        assertEquals("1", row.get("actor_id"));
+        assertEquals(GSON.fromJson("{\"key\": \"r-open\"}", JsonObject.class), payload(row));
     }
 
-    /** Returns the request a web action wrote, named as the browser was told, with its payload's fields. */
+    /** Returns the request a web action wrote, named as the browser was told. */
     private static java.util.Map<String, String> row(final String id) throws Exception {
         final String[] name = id.split(":", -1);
         final java.util.Map<String, String> row = new java.util.HashMap<>();
         try (var connection = java.sql.DriverManager.getConnection(
                         postgres.jdbcUrl(), postgres.username(), postgres.password());
-                var statement = connection.prepareStatement("SELECT kind, actor_kind, payload ->> 'source' AS source,"
-                        + " payload ->> 'discordId' AS discord, payload ->> 'requestedBy' AS asker,"
-                        + " payload ->> 'path' AS path, payload ->> 'arguments' AS arguments"
-                        + " FROM " + name[0] + "_inbox WHERE id = ?")) {
+                var statement =
+                        connection.prepareStatement("SELECT kind, actor_kind, actor_id, payload::text AS payload FROM "
+                                + name[0] + "_inbox WHERE id = ?")) {
             statement.setLong(1, Long.parseLong(name[1]));
             try (var rows = statement.executeQuery()) {
                 assertTrue(rows.next(), "the row is not there: " + id);
                 row.put("kind", rows.getString("kind"));
                 row.put("actor_kind", rows.getString("actor_kind"));
-                row.put("source", rows.getString("source"));
-                row.put("discordId", rows.getString("discord"));
-                row.put("requestedBy", rows.getString("asker"));
-                row.put("path", rows.getString("path"));
-                row.put("arguments", rows.getString("arguments"));
+                row.put("actor_id", rows.getString("actor_id"));
+                row.put("payload", rows.getString("payload"));
             }
         }
         return row;
+    }
+
+    private static JsonObject payload(final java.util.Map<String, String> row) {
+        return GSON.fromJson(row.get("payload"), JsonObject.class);
     }
 
     /**
@@ -110,23 +108,46 @@ class RosterApiTest extends StewardUiTestSupport {
                     400, post("/api/smp/milestone", "{\"key\":\"t-later\"}").statusCode());
             assertEquals(400, post("/api/smp/milestone", "{\"key\":\"t-done\"}").statusCode());
 
-            assertRow(post("/api/smp/objective", "{\"key\":\"t-iron\"}"), "SMP", "smp objective complete", "t-iron");
-            assertRow(post("/api/smp/milestone", "{\"key\":\"t-open\"}"), "SMP", "smp milestone unlock", "t-open");
-            assertEquals("{}", get("/api/hunger-games/round").body());
-            try (var connection = data.dataSource().getConnection();
-                    var statement = connection.createStatement()) {
-                statement.execute("INSERT INTO hg_game (state) VALUES ('REGISTRATION')");
-            }
-            final JsonObject round =
-                    GSON.fromJson(get("/api/hunger-games/round").body(), JsonObject.class);
-            assertEquals("REGISTRATION", round.get("state").getAsString(), round.toString());
-            assertEquals(0, round.get("registered").getAsLong(), round.toString());
-            assertRow(post("/api/hunger-games/start", "{}"), "HUNGER_GAMES", "hg start", "");
-            assertRow(post("/api/hunger-games/start", "{\"confirm\":true}"), "HUNGER_GAMES", "hg start", "confirm");
+            assertRow(
+                    post("/api/smp/objective", "{\"key\":\"t-iron\"}"),
+                    "SMP",
+                    "COMPLETE_OBJECTIVE",
+                    "{\"key\":\"t-iron\"}");
+            assertRow(
+                    post("/api/smp/milestone", "{\"key\":\"t-open\"}"),
+                    "SMP",
+                    "UNLOCK_MILESTONE",
+                    "{\"key\":\"t-open\"}");
         } finally {
             try (var connection = data.dataSource().getConnection();
                     var statement = connection.createStatement()) {
                 statement.execute("DELETE FROM smp_milestone WHERE key LIKE 't-%'");
+            }
+        }
+    }
+
+    /** The start carries whether the admin confirmed it, which the server needs below the recommended minimum. */
+    @Test
+    void theHungerGamesStartIsARowSayingWhetherItWasConfirmed() throws Exception {
+        assertEquals("{}", get("/api/hunger-games/round").body());
+        try (var connection = data.dataSource().getConnection();
+                var statement = connection.createStatement()) {
+            statement.execute("INSERT INTO hg_game (state) VALUES ('REGISTRATION')");
+        }
+        try {
+            final JsonObject round =
+                    GSON.fromJson(get("/api/hunger-games/round").body(), JsonObject.class);
+            assertEquals("REGISTRATION", round.get("state").getAsString(), round.toString());
+            assertEquals(0, round.get("registered").getAsLong(), round.toString());
+            assertRow(post("/api/hunger-games/start", "{}"), "HUNGER_GAMES", "START_GAME", "{\"confirmed\":false}");
+            assertRow(
+                    post("/api/hunger-games/start", "{\"confirm\":true}"),
+                    "HUNGER_GAMES",
+                    "START_GAME",
+                    "{\"confirmed\":true}");
+        } finally {
+            try (var connection = data.dataSource().getConnection();
+                    var statement = connection.createStatement()) {
                 statement.execute("DELETE FROM hg_game");
             }
         }
@@ -178,7 +199,7 @@ class RosterApiTest extends StewardUiTestSupport {
     }
 
     private static void assertRow(
-            final HttpResponse<String> asked, final String target, final String command, final String arguments)
+            final HttpResponse<String> asked, final String target, final String kind, final String payload)
             throws Exception {
         assertEquals(202, asked.statusCode(), asked.body());
         final JsonObject answer = GSON.fromJson(asked.body(), JsonObject.class);
@@ -186,10 +207,8 @@ class RosterApiTest extends StewardUiTestSupport {
         final String id = answer.get("id").getAsString();
         assertTrue(id.startsWith(target.toLowerCase(java.util.Locale.ROOT) + ":"), id);
         final java.util.Map<String, String> row = row(id);
-        assertEquals("COMMAND", row.get("kind"));
-        assertEquals(command, row.get("path"));
-        assertEquals(arguments, row.get("arguments"));
-        assertEquals("WEB", row.get("source"));
+        assertEquals(kind, row.get("kind"));
+        assertEquals(GSON.fromJson(payload, JsonObject.class), payload(row));
     }
 
     @Test

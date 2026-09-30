@@ -47,9 +47,9 @@ export function HungerGamesActions() {
       confirm: confirm ? "Start anyway" : "Start",
     })
 
-  /** A start still open for registration asked for more players, so only then is the second step offered. */
+  /** A start refused below the recommended minimum is the one refusal a second, confirmed step can overrule. */
   const after = (run: CommandRun) =>
-    run.status === "DONE" && ask?.confirm === "Start" ? <StartAnyway onStart={() => start(true)} /> : null
+    run.reason === "BELOW_SOFT_MINIMUM" && ask?.confirm === "Start" ? <StartAnyway onStart={() => start(true)} /> : null
 
   return (
     <Card>
@@ -176,7 +176,7 @@ export function ActionDialog({
 }
 
 /**
- * The four states a request can be in, each said in words.
+ * The states a request can be in, each said in words.
  *
  * EXPIRED means no server claimed the row, so it is not listening; the action did not fail.
  */
@@ -185,6 +185,7 @@ export function RequestOutcome({ run }: { run: CommandRun }) {
     PENDING: "Sent. The server has not picked it up yet.",
     RUNNING: "The server is carrying it out.",
     DONE: "The server answered:",
+    REFUSED: "The server refused:",
     FAILED: "The server picked it up and failed at it.",
     EXPIRED: "Nobody picked this up within two minutes: the server is not listening. Nothing was changed.",
   }

@@ -46,7 +46,7 @@ class EveryNodeAnswersTest {
         // The same three roots SmpPlugin loads in the same order; Messages degrades to the key rather than throwing.
         final Messages messages = Messages.load(
                 EveryNodeAnswersTest.class.getClassLoader(),
-                List.of("messages/paper-common", "messages/commands", "messages/smp"),
+                List.of("messages/database", "messages/paper-common", "messages/smp"),
                 null,
                 Locale.ENGLISH,
                 Locale.GERMAN);

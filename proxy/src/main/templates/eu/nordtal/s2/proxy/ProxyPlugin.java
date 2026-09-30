@@ -21,7 +21,11 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.messagerendering.Tones;
+import eu.nordtal.s2.messages.Tone;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
@@ -51,17 +55,17 @@ import eu.nordtal.s2.proxy.pack.PackMessages;
 import eu.nordtal.s2.proxy.pack.PackOffer;
 import eu.nordtal.s2.proxy.pack.PackStation;
 import eu.nordtal.s2.proxy.pack.WaitingBook;
-import eu.nordtal.s2.commands.network.NetworkCommands;
-import eu.nordtal.s2.commands.network.NetworkEffects;
 import eu.nordtal.s2.database.command.AllowlistDirectory;
 import eu.nordtal.s2.database.command.CommandAllowlist;
 import eu.nordtal.s2.proxy.command.CommandGate;
 import eu.nordtal.s2.proxy.command.InfoTexts;
 import eu.nordtal.s2.proxy.command.PrivateMessages;
-import eu.nordtal.s2.proxy.command.ProxyNetworkEffects;
-import eu.nordtal.s2.proxy.command.VelocityCommands;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.Outcome;
+import eu.nordtal.s2.database.inbox.ProxyRequest;
+import eu.nordtal.s2.database.inbox.Reload;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
 import eu.nordtal.s2.proxy.online.OnlineWriter;
 import eu.nordtal.s2.proxy.ping.NetworkPing;
@@ -121,8 +125,6 @@ public final class ProxyPlugin {
     private volatile RestartWatch restartWatch;
     private volatile Evacuation evacuation;
 
-    /** {@code :commands}' bundle as the inbox renders it, a second view of the same files. */
-    private Messages sharedMessages;
     private PlaytimeWriter playtime;
     private com.velocitypowered.api.scheduler.ScheduledTask heartbeat;
 
@@ -140,9 +142,9 @@ public final class ProxyPlugin {
         logger.info("proxy enabled, {} backends registered", proxy.getAllServers().size());
 
         try {
-            // Inside the try since Messages.load can throw on a read-only volume; two roots, this module's keys win.
+            // Inside the try since Messages.load can throw on a read-only volume.
             final Messages messages = Messages.load(getClass().getClassLoader(),
-                    List.of("messages/commands", "messages/proxy"),
+                    List.of("messages/proxy"),
                     dataDirectory.resolve("messages"), Languages.NETWORK.locales()).within(ENVIRONMENT);
             messages.unknownOverrideKeys().forEach(key -> logger.warn(
                     "the message override names {}, which no bundle declares - it is stored and"
@@ -163,9 +165,6 @@ public final class ProxyPlugin {
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
                        final PackSpec packConfig, final NetworkSpec networkConfig,
                        final ColoursSpec coloursConfig, final Messages messages) {
-        // :commands' bundle alone, for the inbox: its own keys allow MiniMessage, unlike the layered root.
-        this.sharedMessages = Messages.load(getClass().getClassLoader(), "messages/commands",
-                dataDirectory.resolve("messages"), Languages.NETWORK.locales()).within(ENVIRONMENT);
         this.pool = DatabasePool.open(databaseConfig, "proxy-access");
         this.access = AccessDirectory.using(pool, clock);
 
@@ -435,14 +434,19 @@ public final class ProxyPlugin {
                     + "whatever list they last read. This proxy still enforces it.", failure);
         }
 
-        // Every decision lives in :commands; the proxy registers only its own commands here.
-        final NetworkEffects networkEffects = new ProxyNetworkEffects(
-                ProxyNetworkEffects.async(this, proxy), messages, sharedMessages, logger);
+        // A reload of this proxy's messages, asked for by steward-worker, answered on the hub's thread.
+        final Inbox<ProxyRequest> inbox = Inbox.over(pool, ProxyRequest.TABLE);
+        final int orphans = inbox.settleOrphans(java.util.Map.of("error", "the proxy restarted while it ran this"));
+        if (orphans > 0) {
+            logger.warn("{} request(s) in {} were left running by the last start", orphans, ProxyRequest.TABLE);
+        }
+        inbox.listen(signals, request -> switch (request.payload()) {
+            case Reload reload -> reloadMessages(messages)
+                    ? Outcome.done(english(messages, ProxyMessages.MESSAGES.admin().reloaded()))
+                    : Outcome.failed(english(messages, ProxyMessages.MESSAGES.admin().reloadFailed()));
+        });
 
-        final VelocityCommands tree = new VelocityCommands(proxy, roster, messages, () -> colours);
-        NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
-
-        // The five a player types, as plain Velocity Brigadier outside `tree`, not admin-only.
+        // The five a player types, as plain Velocity Brigadier, not admin-only.
         final PrivateMessages privateMessages =
                 new PrivateMessages(proxy, roster, messages, () -> colours, logger);
         // Also a listener: it tracks who last spoke to whom for /r, dropped when somebody leaves.
@@ -454,7 +458,7 @@ public final class ProxyPlugin {
 
         final CommandManager commands = proxy.getCommandManager();
         final List<com.velocitypowered.api.command.BrigadierCommand> registered =
-                new java.util.ArrayList<>(tree.build());
+                new java.util.ArrayList<>(List.of(networkCommand(messages, () -> colours)));
         registered.addAll(privateMessages.commands());
         registered.addAll(infoTexts.commands());
         registered.forEach(command -> commands.register(
@@ -543,5 +547,44 @@ public final class ProxyPlugin {
             pool = null;
         }
         access = null;
+    }
+
+    /** {@code /network reload}: re-reads this proxy's message bundles; only the console reaches it. */
+    private com.velocitypowered.api.command.BrigadierCommand networkCommand(
+            final Messages messages, final java.util.function.Supplier<ToneColours> colours) {
+        return new com.velocitypowered.api.command.BrigadierCommand(
+                com.velocitypowered.api.command.BrigadierCommand.literalArgumentBuilder("network")
+                        .requires(source -> source instanceof com.velocitypowered.api.proxy.ConsoleCommandSource)
+                        .then(com.velocitypowered.api.command.BrigadierCommand.literalArgumentBuilder("reload")
+                                .executes(context -> {
+                                    final boolean reloaded = reloadMessages(messages);
+                                    context.getSource().sendMessage(Tones.paint(
+                                            MessageRenderer.of(messages).format(Locale.ENGLISH, reloaded
+                                                    ? ProxyMessages.MESSAGES.admin().reloaded()
+                                                    : ProxyMessages.MESSAGES.admin().reloadFailed()),
+                                            reloaded ? Tone.GOOD : Tone.BAD,
+                                            colours.get()));
+                                    return com.mojang.brigadier.Command.SINGLE_SUCCESS;
+                                })));
+    }
+
+    /** Renders a message as English plain text, the way a request's answer is stored. */
+    private static String english(final Messages messages, final eu.nordtal.s2.messages.MessageRef message) {
+        return PlainTextComponentSerializer.plainText()
+                .serialize(MessageRenderer.of(messages).format(Locale.ENGLISH, message));
+    }
+
+    /** Re-reads this proxy's message bundles; the running ones stay when that fails. */
+    private boolean reloadMessages(final Messages messages) {
+        try {
+            messages.reload();
+            messages.unknownOverrideKeys().forEach(key -> logger.warn(
+                    "the message override names {}, which no bundle declares - it is stored and"
+                            + " never used; check the spelling", key));
+            return true;
+        } catch (final RuntimeException failure) {
+            logger.error("the messages could not be reloaded, the running ones are unchanged", failure);
+            return false;
+        }
     }
 }

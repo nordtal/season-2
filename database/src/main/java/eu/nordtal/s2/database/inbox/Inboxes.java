@@ -9,9 +9,10 @@ public final class Inboxes {
     public static final List<InboxTable<?>> ALL = List.of(
             WorkerRequest.TABLE,
             BotRequest.TABLE,
-            ServerRequest.SMP,
-            ServerRequest.HUNGER_GAMES,
-            ServerRequest.LIMBO,
+            SmpRequest.TABLE,
+            HungerGamesRequest.TABLE,
+            LimboRequest.TABLE,
+            ProxyRequest.TABLE,
             BankRequest.TABLE);
 
     private Inboxes() {}

@@ -49,7 +49,7 @@ hg_game|id, state, started, ended, created, winner_member_id|id, state, started,
 hg_team|id, game_id, name, colour_rgb, colour_named, created|
 hg_member|id, team_id, game_id, discord_id, state, ready, created|
 hg_event|id, game_id, type, actor_id, victim_id, detail, at|
-smp_player|discord_id, aura, last_death_world, last_death_x, last_death_y, last_death_z, hg_winner_reward_granted, created, updated, welcome_shown|
+smp_player|discord_id, aura, last_death_world, last_death_x, last_death_y, last_death_z, created, updated, welcome_shown|
 smp_aura_event|id, discord_id, delta, reason, ref, at|
 smp_milestone|key, state, unlocked|
 smp_objective|id, milestone_key, key, type, amount, target, completed|

@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record Actor(Kind kind, @Nullable DiscordId person) {
 
-    /** Steward acting on its own, such as the nightly backup or a reload after an edit. */
+    /** Nobody asked: Steward on its own, such as the nightly backup, or a server announcing its own progress. */
     public static final Actor STEWARD = new Actor(Kind.STEWARD, null);
 
     /** Somebody on the host, through the installer. */

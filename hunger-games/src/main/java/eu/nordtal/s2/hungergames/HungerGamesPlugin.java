@@ -7,6 +7,7 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
+import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
@@ -14,7 +15,9 @@ import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
+import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
+import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.command.BukkitHungerGamesEffects;
@@ -85,6 +88,9 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
     /** The plugin's one {@code LISTEN} connection. */
     private @Nullable SignalHub signals;
+
+    /** The season phase as the signal hub last read it; a game only starts during the start event. */
+    private volatile SeasonPhase phase = SeasonPhase.PRE_LAUNCH;
 
     /** What a non-admin may type here, and what their client is told exists. */
     private eu.nordtal.s2.papercommon.command.CommandFilter commandFilter;
@@ -283,7 +289,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
                 this::currentGameIdNow,
                 gameId -> startGame(gameId, world),
                 reloadSounds,
-                this::reloadMessages);
+                this::reloadMessages,
+                () -> phase);
 
         commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
             final Thread thread = new Thread(task, getName() + "-command-waiter");
@@ -312,7 +319,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
                 this::currentGameIdNow,
                 gameId -> startGame(gameId, world),
                 reloadSounds,
-                this::reloadMessages);
+                this::reloadMessages,
+                () -> phase);
         HungerGamesCommands.all().forEach(command -> inbox.register(command, inboxEffects));
 
         registerCommands();
@@ -341,6 +349,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
                 databaseHandle.get().queryTimeoutSeconds(),
                 getName() + "-signals",
                 getLogger0());
+        final PhaseDirectory phases = PhaseDirectory.using(pool, clock);
+        hub.on(Channel.PHASE, "the season phase", () -> phase = phases.currentPhase());
         adminWatch.listen(hub);
         commandFilter.listen(hub);
         inbox.listen(hub, this);

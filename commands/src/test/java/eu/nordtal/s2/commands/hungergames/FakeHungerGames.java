@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands.hungergames;
 
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.SeasonPhase;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +18,7 @@ final class FakeHungerGames implements HungerGamesEffects {
     Registration registration;
     List<TeamReady> teams = List.of();
     int softMinimum = 8;
+    SeasonPhase phase = SeasonPhase.START_EVENT;
     boolean soundsReload = true;
     boolean messagesReload = true;
     RuntimeException failure;
@@ -73,6 +75,11 @@ final class FakeHungerGames implements HungerGamesEffects {
     @Override
     public int softMinimumParticipants() {
         return softMinimum;
+    }
+
+    @Override
+    public SeasonPhase phase() {
+        return phase;
     }
 
     @Override

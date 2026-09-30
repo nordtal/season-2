@@ -2,6 +2,7 @@ package eu.nordtal.s2.hungergames.command;
 
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
+import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
@@ -35,6 +36,7 @@ public final class BukkitHungerGamesEffects implements HungerGamesEffects {
     private final Consumer<UUID> onStart;
     private final BooleanSupplier reloadSounds;
     private final Runnable reloadMessages;
+    private final Supplier<SeasonPhase> phase;
 
     public BukkitHungerGamesEffects(
             final Plugin plugin,
@@ -45,7 +47,8 @@ public final class BukkitHungerGamesEffects implements HungerGamesEffects {
             final Supplier<UUID> currentGameId,
             final Consumer<UUID> onStart,
             final BooleanSupplier reloadSounds,
-            final Runnable reloadMessages) {
+            final Runnable reloadMessages,
+            final Supplier<SeasonPhase> phase) {
         this.plugin = plugin;
         this.executor = executor;
         this.dao = dao;
@@ -55,6 +58,12 @@ public final class BukkitHungerGamesEffects implements HungerGamesEffects {
         this.onStart = onStart;
         this.reloadSounds = reloadSounds;
         this.reloadMessages = reloadMessages;
+        this.phase = phase;
+    }
+
+    @Override
+    public SeasonPhase phase() {
+        return phase.get();
     }
 
     /** Everything {@code /hg} does off the main thread, on the plugin's async scheduler. */

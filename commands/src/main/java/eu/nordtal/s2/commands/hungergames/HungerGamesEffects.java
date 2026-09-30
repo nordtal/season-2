@@ -2,6 +2,7 @@ package eu.nordtal.s2.commands.hungergames;
 
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.SeasonPhase;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,6 +43,9 @@ public interface HungerGamesEffects extends CommandEffects {
 
     /** Returns the recommended minimum from this server's {@code config.yml}. */
     int softMinimumParticipants();
+
+    /** Returns the season phase as this server last read it; a game only starts during the start event. */
+    SeasonPhase phase();
 
     /** Files the start where this process files admin actions. */
     void recordStart(NordtalUser who, Registration game, boolean confirmedBelowMinimum);

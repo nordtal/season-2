@@ -10,6 +10,7 @@ import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.common.SeasonPhase;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -77,6 +78,20 @@ class HungerGamesCommandsTest {
         final FakeUser user = run(start);
         assertEquals("hg.start.wrong-state", user.only().key());
         assertEquals("RUNNING", user.only().of("state"));
+    }
+
+    /** Registration opens before the start event, and a game started then would run in the wrong world. */
+    @Test
+    void aGameOnlyStartsDuringTheStartEvent() {
+        hg.registration = FakeHungerGames.registered(20);
+        for (final SeasonPhase outside :
+                List.of(SeasonPhase.PRE_LAUNCH, SeasonPhase.PRE_EVENT, SeasonPhase.SMP, SeasonPhase.MAINTENANCE)) {
+            hg.phase = outside;
+            final FakeUser user = run(start);
+            assertEquals("hg.start.wrong-phase", user.only().key(), outside.name());
+            assertEquals(outside.name(), user.only().of("phase"));
+        }
+        assertFalse(hg.did.contains("start " + FakeHungerGames.GAME), "no game was started: " + hg.did);
     }
 
     @Test

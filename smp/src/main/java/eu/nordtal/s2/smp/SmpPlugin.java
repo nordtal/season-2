@@ -212,7 +212,7 @@ public final class SmpPlugin extends JavaPlugin {
 
         final SmpStart.Surfaces surfaces = SmpStart.wireEffectsAndSurfaces(this, config);
         boards = surfaces.boards();
-        final AdminOperators operators = SmpStart.startSurfaceRefreshAndOperatorSweep(this);
+        final AdminOperators operators = SmpStart.sweepOperators();
         final SmpStart.Presence presence = SmpStart.wirePresenceInputs(this, config, surfaces);
         cinematics = presence.cinematics();
         SmpStart.registerPresenceListeners(this, config, surfaces, operators, presence);
@@ -415,7 +415,7 @@ public final class SmpPlugin extends JavaPlugin {
         });
     }
 
-    /** Reads the data every surface draws, async on a timer, so no render waits on the database. */
+    /** Reads the data every surface draws, on the signal hub's thread, so no render waits on the database. */
     void refreshSurfaceData() {
         try {
             java.util.Optional<String> active = dao.activeMilestoneKey();

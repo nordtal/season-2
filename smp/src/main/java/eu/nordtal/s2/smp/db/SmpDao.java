@@ -127,7 +127,10 @@ public interface SmpDao {
      *
      * Not clamped to the target: over-collection is real, and clamping would throw away somebody's items.
      */
-    @SqlUpdate("UPDATE smp_objective SET amount = amount + :delta WHERE id = :id")
+    @SqlQuery("""
+            WITH updated AS (UPDATE smp_objective SET amount = amount + :delta WHERE id = :id RETURNING id)
+            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM updated) AS notified
+            """)
     int addObjectiveProgress(@Bind("id") UUID id, @Bind("delta") long delta);
 
     @SqlUpdate("""
@@ -153,12 +156,15 @@ public interface SmpDao {
                 WHERE obj.id = :objectiveId AND obj.completed IS NULL
                 ON CONFLICT (objective_id, discord_id) DO NOTHING
                 RETURNING objective_id
+            ),
+            updated AS (
+                UPDATE smp_objective obj
+                SET amount = obj.amount + 1
+                FROM counted
+                WHERE obj.id = counted.objective_id
+                RETURNING obj.amount
             )
-            UPDATE smp_objective obj
-            SET amount = obj.amount + 1
-            FROM counted
-            WHERE obj.id = counted.objective_id
-            RETURNING obj.amount
+            SELECT updated.amount, pg_notify('nordtal_smp', '') AS notified FROM updated
             """)
     Optional<Long> countOnce(@Bind("objectiveId") UUID objectiveId, @Bind("discordId") DiscordId discordId);
 
@@ -193,7 +199,12 @@ public interface SmpDao {
      *
      * The {@code completed IS NULL} guard lets only one of two simultaneous deliveries go on to pay anybody.
      */
-    @SqlUpdate("UPDATE smp_objective SET completed = now() WHERE id = :id AND completed IS NULL")
+    @SqlQuery("""
+            WITH updated AS (
+                UPDATE smp_objective SET completed = now() WHERE id = :id AND completed IS NULL RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM updated) AS notified
+            """)
     int completeObjective(@Bind("id") UUID id);
 
     /**
@@ -225,15 +236,24 @@ public interface SmpDao {
             @Bind("type") String type,
             @Bind("target") long target);
 
-    @SqlUpdate("UPDATE smp_milestone SET state = 'ACTIVE' WHERE key = :key AND state = 'LOCKED'")
+    @SqlQuery("""
+            WITH updated AS (
+                UPDATE smp_milestone SET state = 'ACTIVE' WHERE key = :key AND state = 'LOCKED' RETURNING key
+            )
+            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM updated) AS notified
+            """)
     int activateMilestone(@Bind("key") String key);
 
     /** Activates {@code key} only while nothing is active and {@code completed} milestones are still unlocked. */
-    @SqlUpdate("""
-            UPDATE smp_milestone SET state = 'ACTIVE'
-            WHERE key = :key AND state = 'LOCKED'
-              AND NOT EXISTS (SELECT 1 FROM smp_milestone WHERE state = 'ACTIVE')
-              AND (SELECT count(*) FROM smp_milestone WHERE state = 'UNLOCKED') = :completed
+    @SqlQuery("""
+            WITH updated AS (
+                UPDATE smp_milestone SET state = 'ACTIVE'
+                WHERE key = :key AND state = 'LOCKED'
+                  AND NOT EXISTS (SELECT 1 FROM smp_milestone WHERE state = 'ACTIVE')
+                  AND (SELECT count(*) FROM smp_milestone WHERE state = 'UNLOCKED') = :completed
+                RETURNING key
+            )
+            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM updated) AS notified
             """)
     int activateAfter(@Bind("key") String key, @Bind("completed") int completed);
 
@@ -252,11 +272,15 @@ public interface SmpDao {
             """)
     void bumpAura(@Bind("discordId") DiscordId discordId, @Bind("delta") int delta);
 
-    @SqlUpdate("""
-            INSERT INTO smp_aura_event (discord_id, delta, reason, ref)
-            VALUES (:discordId, :delta, :reason, :ref)
+    @SqlQuery("""
+            WITH inserted AS (
+                INSERT INTO smp_aura_event (discord_id, delta, reason, ref)
+                VALUES (:discordId, :delta, :reason, :ref)
+                RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM inserted) AS notified
             """)
-    void recordAuraEvent(
+    int recordAuraEvent(
             @Bind("discordId") DiscordId discordId,
             @Bind("delta") int delta,
             @Bind("reason") String reason,

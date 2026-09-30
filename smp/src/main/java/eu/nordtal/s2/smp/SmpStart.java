@@ -13,6 +13,7 @@ import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.database.command.AllowlistDirectory;
 import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
@@ -137,10 +138,7 @@ final class SmpStart {
         return new Surfaces(effects, composition, surfaces, boards);
     }
 
-    static AdminOperators startSurfaceRefreshAndOperatorSweep(final SmpPlugin plugin) {
-        // Surfaces are drawn far more often than their data changes.
-        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, plugin::refreshSurfaceData, 100L, 100L);
-
+    static AdminOperators sweepOperators() {
         // Sweeps before any join, since {@code ops.json} survives a crash.
         final AdminOperators operators = BukkitOps.create();
         operators.sweep();
@@ -472,6 +470,8 @@ final class SmpStart {
                 database.queryTimeoutSeconds(),
                 plugin.getName() + "-signals",
                 plugin.logger());
+        // Surfaces are drawn far more often than their data changes, so they re-read only on its signal.
+        signals.on(Channel.SMP, "the boards and HUD", plugin::refreshSurfaceData);
         plugin.adminWatch.listen(signals);
         commandFilter.listen(signals);
         inbox.listen(signals, plugin);

@@ -106,10 +106,9 @@ CREATE TABLE payment_request
     created          timestamptz NOT NULL DEFAULT now(),
     expires          timestamptz NOT NULL,
     settled          timestamptz,
-    -- The bank side, written by steward-worker: asked for a tab, the tab failed, cancel asked, cancelled.
-    tab_requested    timestamptz,
+    -- The bank side, written by steward-worker as it answers the bank's inbox: why bunq refused the tab,
+    -- and when the tab was cancelled.
     tab_failed       text,
-    cancel_requested timestamptz,
     tab_cancelled    timestamptz,
     matched_cents    integer,
     matched_by       varchar(16)
@@ -117,7 +116,7 @@ CREATE TABLE payment_request
             CHECK (matched_by IS NULL OR matched_by IN ('TAB', 'REFERENCE', 'MANUAL')),
     CONSTRAINT payment_request_settled_iff_paid CHECK ((status = 'PAID') = (settled IS NOT NULL))
 );
-COMMENT ON TABLE payment_request IS 'Owned by discord-bot, which opens, cancels and settles a request. steward-worker writes the bank side: the tab, its failure and the match.';
+COMMENT ON TABLE payment_request IS 'Owned by discord-bot, which opens, cancels and settles a request and asks the bank''s inbox for its tab. steward-worker writes the bank side: the tab, its failure, its cancellation and the match.';
 CREATE UNIQUE INDEX payment_request_bunq_payment_id_key ON payment_request (bunq_payment_id) WHERE bunq_payment_id IS NOT NULL;
 CREATE UNIQUE INDEX payment_request_one_open_per_user_key ON payment_request (discord_id) WHERE status = 'OPEN';
 CREATE INDEX payment_request_status_idx ON payment_request (status);
@@ -623,6 +622,30 @@ CREATE TABLE limbo_inbox
 COMMENT ON TABLE limbo_inbox IS 'Owned by limbo, which claims and carries out every row. The other Paper servers'' consoles ask.';
 CREATE INDEX limbo_inbox_pending ON limbo_inbox (scheduled_for, id) WHERE status = 'PENDING';
 
+CREATE TABLE bank_inbox
+(
+    id            bigserial   PRIMARY KEY,
+    kind          varchar(32) NOT NULL
+        CONSTRAINT bank_inbox_kind_check CHECK (kind IN ('OPEN_TAB', 'CANCEL_TAB')),
+    payload       jsonb       NOT NULL,
+    status        varchar(16) NOT NULL DEFAULT 'PENDING'
+        CONSTRAINT bank_inbox_status_check
+            CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'REFUSED', 'FAILED', 'EXPIRED', 'CANCELLED')),
+    actor_kind    varchar(16) NOT NULL
+        CONSTRAINT bank_inbox_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
+    actor_id      varchar(32),
+    requested     timestamptz NOT NULL DEFAULT now(),
+    scheduled_for timestamptz NOT NULL DEFAULT now(),
+    expires       timestamptz,
+    started       timestamptz,
+    finished      timestamptz,
+    outcome       jsonb,
+    CONSTRAINT bank_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
+    CONSTRAINT bank_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
+);
+COMMENT ON TABLE bank_inbox IS 'Owned by steward-worker, which holds the bank key and claims every row. discord-bot asks for a payment''s tab and for its cancellation; steward-worker asks for the cancellation of what expires.';
+CREATE INDEX bank_inbox_pending ON bank_inbox (scheduled_for, id) WHERE status = 'PENDING';
+
 
 -- Journal and Discord messages
 
@@ -770,6 +793,9 @@ GRANT INSERT ON hg_game TO ${role_discord_bot};
 GRANT INSERT, UPDATE ON player_playtime TO ${role_discord_bot};
 -- The one consumer of its inbox.
 GRANT SELECT, UPDATE, DELETE ON bot_inbox TO ${role_discord_bot};
+-- It asks the bank for a payment's tab and for its cancellation.
+GRANT SELECT, INSERT ON bank_inbox TO ${role_discord_bot};
+GRANT USAGE ON SEQUENCE bank_inbox_id_seq TO ${role_discord_bot};
 -- It validates the schema before it starts, which reads the migrator's history.
 DO $$
 BEGIN

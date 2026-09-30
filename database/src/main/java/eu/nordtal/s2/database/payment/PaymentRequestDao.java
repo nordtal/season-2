@@ -22,7 +22,7 @@ interface PaymentRequestDao {
                     now() + make_interval(hours => :ttlHours))
             RETURNING id, reference, discord_id, days, amount_cents, donation_cents, status,
                       bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                      tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                      tab_failed, tab_cancelled,
                       matched_cents, matched_by
             """)
     PaymentRequest insert(
@@ -36,7 +36,7 @@ interface PaymentRequestDao {
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   tab_failed, tab_cancelled,
                    matched_cents, matched_by
             FROM payment_request
             WHERE discord_id = :discordId AND status = 'OPEN'
@@ -46,7 +46,7 @@ interface PaymentRequestDao {
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   tab_failed, tab_cancelled,
                    matched_cents, matched_by
             FROM payment_request
             WHERE reference = :reference
@@ -57,7 +57,7 @@ interface PaymentRequestDao {
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   tab_failed, tab_cancelled,
                    matched_cents, matched_by
             FROM payment_request
             WHERE id = :id
@@ -67,7 +67,7 @@ interface PaymentRequestDao {
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   tab_failed, tab_cancelled,
                    matched_cents, matched_by
             FROM payment_request
             WHERE discord_id = :discordId
@@ -80,7 +80,7 @@ interface PaymentRequestDao {
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   tab_failed, tab_cancelled,
                    matched_cents, matched_by
             FROM payment_request
             WHERE status = 'OPEN' AND bunq_tab_id IS NOT NULL
@@ -92,7 +92,7 @@ interface PaymentRequestDao {
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   tab_failed, tab_cancelled,
                    matched_cents, matched_by
             FROM payment_request
             ORDER BY created DESC, id DESC
@@ -104,7 +104,7 @@ interface PaymentRequestDao {
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   tab_failed, tab_cancelled,
                    matched_cents, matched_by
             FROM payment_request
             WHERE status = 'OPEN'
@@ -116,7 +116,7 @@ interface PaymentRequestDao {
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   tab_failed, tab_cancelled,
                    matched_cents, matched_by
             FROM payment_request
             WHERE status = 'OPEN' AND expires <= now()
@@ -194,45 +194,19 @@ interface PaymentRequestDao {
     Optional<Integer> booked(@Bind("bunqPaymentId") long bunqPaymentId);
 
     /**
-     * Asks for a bunq.me tab instead of making one, clearing {@code tab_failed}, so this is also the retry.
+     * Clears bunq's last refusal on an open request that still has no tab, before a tab is asked for again.
      *
-     * @return 1 when a tab is now wanted, 0 when the row was closed or already has one
+     * @return 1 when a tab can be asked for, 0 when the row was closed or already has one
      */
-    @SqlQuery("""
-            WITH updated AS (
-                UPDATE payment_request
-                SET tab_requested = now(), tab_failed = NULL
-                WHERE id = :id AND status = 'OPEN' AND bunq_tab_id IS NULL
-                RETURNING id
-            ),
-                 notified AS (
-                     SELECT pg_notify('nordtal_payment', '') FROM updated
-                 )
-            SELECT count(*) FROM notified
+    @SqlUpdate("""
+            UPDATE payment_request
+            SET tab_failed = NULL
+            WHERE id = :id AND status = 'OPEN' AND bunq_tab_id IS NULL
             """)
-    int requestTab(@Bind("id") UUID id);
+    int clearFailure(@Bind("id") UUID id);
 
     /**
-     * Returns the worker's queue: open requests that want a tab, have none and are not being cancelled.
-     *
-     * Oldest ask first, so a request re-asked after a failure goes to the back.
-     */
-    @SqlQuery("""
-            SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
-                   bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
-                   matched_cents, matched_by
-            FROM payment_request
-            WHERE status = 'OPEN'
-              AND tab_requested IS NOT NULL
-              AND bunq_tab_id IS NULL
-              AND cancel_requested IS NULL
-            ORDER BY tab_requested ASC
-            """)
-    List<PaymentRequest> tabsToCreate();
-
-    /**
-     * Records that bunq refused and takes the row out of the queue, so a failure is not retried forever.
+     * Records that bunq refused to make the tab, which the payer is shown instead of a link.
      *
      * @param reason what bunq said, verbatim enough for an admin to act on
      * @return 1 when the failure was recorded, 0 when the row had closed or a tab had arrived
@@ -240,8 +214,8 @@ interface PaymentRequestDao {
     @SqlQuery("""
             WITH updated AS (
                 UPDATE payment_request
-                SET tab_failed = :reason, tab_requested = NULL
-                WHERE id = :id AND tab_requested IS NOT NULL AND bunq_tab_id IS NULL
+                SET tab_failed = :reason
+                WHERE id = :id AND status = 'OPEN' AND bunq_tab_id IS NULL
                 RETURNING id
             ),
                  notified AS (
@@ -252,48 +226,15 @@ interface PaymentRequestDao {
     int failTab(@Bind("id") UUID id, @Bind("reason") String reason);
 
     /**
-     * Asks for the bunq tab to be cancelled, keeping the first ask's timestamp and the row's status.
+     * Records that the tab is gone at bunq.
      *
-     * @return 1 when this call asked, 0 when it had already been asked for
-     */
-    @SqlQuery("""
-            WITH updated AS (
-                UPDATE payment_request
-                SET cancel_requested = now()
-                WHERE id = :id AND cancel_requested IS NULL
-                RETURNING id
-            ),
-                 notified AS (
-                     SELECT pg_notify('nordtal_payment', '') FROM updated
-                 )
-            SELECT count(*) FROM notified
-            """)
-    int requestCancel(@Bind("id") UUID id);
-
-    /** Returns the worker's other queue: tabs at bunq that are to stop existing, whatever the row's status. */
-    @SqlQuery("""
-            SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
-                   bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
-                   matched_cents, matched_by
-            FROM payment_request
-            WHERE cancel_requested IS NOT NULL
-              AND bunq_tab_id IS NOT NULL
-              AND tab_cancelled IS NULL
-            ORDER BY cancel_requested ASC
-            """)
-    List<PaymentRequest> tabsToCancel();
-
-    /**
-     * Records that the tab is gone at bunq, which removes the row from {@link #tabsToCancel}.
-     *
-     * @return 1 when this call closed it out, 0 when somebody had already done so
+     * @return 1 when this call closed it out, 0 when there was no tab or somebody had already done so
      */
     @SqlQuery("""
             WITH updated AS (
                 UPDATE payment_request
                 SET tab_cancelled = now()
-                WHERE id = :id AND cancel_requested IS NOT NULL AND tab_cancelled IS NULL
+                WHERE id = :id AND bunq_tab_id IS NOT NULL AND tab_cancelled IS NULL
                 RETURNING id
             ),
                  notified AS (
@@ -332,7 +273,7 @@ interface PaymentRequestDao {
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   tab_failed, tab_cancelled,
                    matched_cents, matched_by
             FROM payment_request
             WHERE status = 'OPEN' AND matched_cents IS NOT NULL

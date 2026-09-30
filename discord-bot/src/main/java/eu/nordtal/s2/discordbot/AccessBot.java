@@ -219,7 +219,7 @@ public class AccessBot implements AutoCloseable {
 
         // The bunq key lives in steward-worker and is read here as a row.
         Configured.report(accessConfig, PaymentGateway.state(database.jdbi()));
-        final PaymentRequests requests = new PaymentRequests(database.jdbi());
+        final PaymentRequests requests = new PaymentRequests(database.dataSource());
         final Purchases purchases = new Purchases(requests, tiers, accessConfig);
 
         return new CoreServices(languages, messages, sharedMessages, tiers, requests, purchases);

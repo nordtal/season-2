@@ -1,6 +1,11 @@
 package eu.nordtal.s2.steward.worker.bunq;
 
 import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
+import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.database.inbox.BankRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.Outcome;
+import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.payment.Money;
 import eu.nordtal.s2.database.payment.PaymentMatch;
 import eu.nordtal.s2.database.payment.PaymentRequest;
@@ -8,6 +13,7 @@ import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import lombok.extern.slf4j.Slf4j;
@@ -15,9 +21,8 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Does everything that has to happen at bunq, driven by the {@code payment_request} table.
- *
- * A pass expires, creates tabs, cancels tabs, then matches by tab and by reference; it never books.
+ * Does everything that has to happen at bunq, driven by the bank's inbox and the {@code payment_request} table.
+ * A pass expires, answers the bank's inbox (tabs to make, tabs to cancel), then matches by tab and by reference.
  */
 @Slf4j
 public final class Payments {
@@ -36,6 +41,7 @@ public final class Payments {
 
     private final BunqGateway bunq;
     private final PaymentRequests requests;
+    private final Inbox<BankRequest> inbox;
     private final Instant watermark;
     private final int recentPaymentCount;
 
@@ -44,16 +50,19 @@ public final class Payments {
      *
      * @param bunq the bank
      * @param requests the seam
+     * @param inbox the bank's inbox, whose one consumer this is
      * @param watermark payments created before it are ignored, completely and forever
      * @param recentPaymentCount how many recent payments the fallback scan reads per pass
      */
     public Payments(
             final BunqGateway bunq,
             final PaymentRequests requests,
+            final Inbox<BankRequest> inbox,
             final Instant watermark,
             final int recentPaymentCount) {
         this.bunq = bunq;
         this.requests = requests;
+        this.inbox = inbox;
         this.watermark = watermark;
         this.recentPaymentCount = recentPaymentCount;
     }
@@ -65,8 +74,7 @@ public final class Payments {
      */
     public void pass() {
         step("the expiry sweep", this::expireOverdue);
-        step("creating the tabs that were asked for", this::createTabs);
-        step("cancelling the tabs that were asked to go", this::cancelTabs);
+        step("answering the bank's inbox", () -> inbox.drain(this::answer));
         step("matching payments against their tabs", this::matchByTab);
         step("matching payments against their reference", this::matchByReference);
     }
@@ -84,60 +92,69 @@ public final class Payments {
         }
     }
 
-    /**
-     * Closes what is past its TTL and asks for its tab, in one transaction.
-     *
-     * The bunq call happens in {@link #cancelTabs()}, the next step of this pass.
-     */
+    /** Closes what is past its TTL and asks the bank's inbox to cancel its tab, which the next step does. */
     private void expireOverdue() {
         for (final PaymentRequest request : requests.dueForExpiry()) {
-            if (requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED)) {
+            if (requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED, Actor.STEWARD)) {
                 log.info("Request {} expired unpaid", request.reference());
             }
         }
     }
 
-    private void createTabs() {
-        for (final PaymentRequest request : requests.tabsToCreate()) {
-            final BunqGateway.Tab tab;
-            try {
-                tab = bunq.createTab(request.amountCents(), request.reference());
-            } catch (final RuntimeException failure) {
-                // The row leaves the queue carrying what bunq said.
-                final String reason = reasonOf(failure);
-                log.warn("bunq refused a tab for {}: {}", request.reference(), reason);
-                requests.failTab(request.id(), reason);
-                continue;
-            }
-
-            if (requests.attachTab(request.id(), tab.id(), tab.shareUrl())) {
-                log.info("Created bunq.me tab {} for {}", tab.id(), request.reference());
-                continue;
-            }
-
-            // The row closed since the queue read, so its live, unclaimed tab is cancelled here.
-            log.warn(
-                    "Request {} closed while its tab was being created; cancelling tab {}",
-                    request.reference(),
-                    tab.id());
-            bunq.cancelTab(tab.id());
+    /** Makes or cancels one request's tab; a request that no longer needs it is done with nothing to do. */
+    private Outcome answer(final Request<BankRequest> asked) {
+        final Optional<PaymentRequest> found = requests.byId(asked.payload().payment());
+        if (found.isEmpty()) {
+            return Outcome.done(Map.of("nothing", "the payment request is gone"));
         }
+        return switch (asked.payload()) {
+            case BankRequest.OpenTab open -> createTab(found.get());
+            case BankRequest.CancelTab cancel -> cancelTab(found.get());
+        };
     }
 
-    private void cancelTabs() {
-        for (final PaymentRequest request : requests.tabsToCancel()) {
-            final long tabId = request.tab().orElseThrow();
-            final boolean accepted = bunq.cancelTab(tabId);
-
-            // Recorded either way, since cancelTab returns false for an already-cancelled tab.
-            if (requests.recordCancelled(request.id())) {
-                log.info(
-                        "Cancelled bunq.me tab {} for {}{}",
-                        tabId,
-                        request.reference(),
-                        accepted ? "" : " (bunq had already closed it)");
-            }
+    private Outcome createTab(final PaymentRequest request) {
+        if (request.status() != PaymentRequestStatus.OPEN || request.tab().isPresent()) {
+            return Outcome.done(Map.of("nothing", "the request is closed or has its tab"));
         }
+        final BunqGateway.Tab tab;
+        try {
+            tab = bunq.createTab(request.amountCents(), request.reference());
+        } catch (final RuntimeException failure) {
+            // The payer is shown what bunq said, and pressing again is the retry.
+            final String reason = reasonOf(failure);
+            log.warn("bunq refused a tab for {}: {}", request.reference(), reason);
+            requests.failTab(request.id(), reason);
+            return Outcome.failed(Map.of("error", reason));
+        }
+
+        if (requests.attachTab(request.id(), tab.id(), tab.shareUrl())) {
+            log.info("Created bunq.me tab {} for {}", tab.id(), request.reference());
+            return Outcome.done(Map.of("tab", String.valueOf(tab.id())));
+        }
+
+        // The row closed since it was read, so its live, unclaimed tab is cancelled here.
+        log.warn("Request {} closed while its tab was being created; cancelling tab {}", request.reference(), tab.id());
+        bunq.cancelTab(tab.id());
+        return Outcome.done(Map.of("cancelled", String.valueOf(tab.id())));
+    }
+
+    private Outcome cancelTab(final PaymentRequest request) {
+        if (request.tab().isEmpty() || request.tabCancelled() != null) {
+            return Outcome.done(Map.of("nothing", "there is no standing tab"));
+        }
+        final long tabId = request.tab().orElseThrow();
+        final boolean accepted = bunq.cancelTab(tabId);
+
+        // Recorded either way, since cancelTab returns false for an already-cancelled tab.
+        if (requests.recordCancelled(request.id())) {
+            log.info(
+                    "Cancelled bunq.me tab {} for {}{}",
+                    tabId,
+                    request.reference(),
+                    accepted ? "" : " (bunq had already closed it)");
+        }
+        return Outcome.done(Map.of("cancelled", String.valueOf(tabId)));
     }
 
     private void matchByTab() {

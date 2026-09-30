@@ -43,7 +43,7 @@ public final class Data implements AutoCloseable {
         this.updates = UpdateDirectory.using(database.dataSource());
         this.metrics = MetricDirectory.using(database.dataSource());
         this.phase = PhaseDirectory.using(database.dataSource(), clock);
-        this.payments = new PaymentRequests(database.jdbi());
+        this.payments = new PaymentRequests(database.dataSource());
         this.audit = AuditDirectory.using(database.dataSource());
         // Borrowing, not owning: closing the pool below is the only close there is.
         this.access = AccessDirectory.using(database.dataSource(), clock);

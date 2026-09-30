@@ -1,6 +1,8 @@
 package eu.nordtal.s2.steward.worker;
 
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.database.inbox.BankRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.payment.PaymentGateway;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.payment.Watermark;
@@ -52,7 +54,8 @@ final class PaymentsStartup {
         return PaymentLoop.start(
                 new Payments(
                         bunq,
-                        new PaymentRequests(database.jdbi()),
+                        new PaymentRequests(database.dataSource()),
+                        Inbox.over(database.dataSource(), BankRequest.TABLE),
                         watermark,
                         config.bunq().recentPaymentCount()),
                 poll);

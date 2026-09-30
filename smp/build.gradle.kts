@@ -69,9 +69,7 @@ dependencies {
     // Never shaded: a bundled copy of the API would not match the running DisplayTags plugin's classes.
     compileOnly(libs.display.tags)
 
-    testImplementation(libs.flyway.core)
-    testImplementation(libs.flyway.postgresql)
-    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(testFixtures(project(":database")))
     testImplementation(libs.postgresql.driver)
 }
 

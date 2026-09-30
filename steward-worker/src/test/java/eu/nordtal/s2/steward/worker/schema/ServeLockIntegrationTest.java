@@ -2,21 +2,17 @@ package eu.nordtal.s2.steward.worker.schema;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.TestDatabase;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
 import javax.sql.DataSource;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Exactly one {@code serve} runs against one database.
@@ -29,29 +25,12 @@ class ServeLockIntegrationTest {
     /** Short enough that the refusal is watched rather than waited out. */
     private static final Duration IMPATIENT = Duration.ofMillis(200);
 
-    private static PostgreSQLContainer<?> postgres;
     private static DataSource dataSource;
 
     @BeforeAll
     static void startPostgres() {
-        assumeTrue(
-                DockerClientFactory.instance().isDockerAvailable(),
-                "no Docker daemon - this test can say nothing without one");
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine");
-        postgres.start();
-
-        final PGSimpleDataSource source = new PGSimpleDataSource();
-        source.setUrl(postgres.getJdbcUrl());
-        source.setUser(postgres.getUsername());
-        source.setPassword(postgres.getPassword());
+        final DataSource source = TestDatabase.fresh().dataSource();
         dataSource = source;
-    }
-
-    @AfterAll
-    static void stopPostgres() {
-        if (postgres != null) {
-            postgres.stop();
-        }
     }
 
     @Test

@@ -236,9 +236,7 @@ dependencies {
     // Read by the shutdown test, which counts what steward-ui logs once a follow has lost its server.
     testImplementation(libs.logback.classic)
 
-    testImplementation(libs.testcontainers.postgresql)
-    testImplementation(libs.flyway.core)
-    testImplementation(libs.flyway.postgresql)
+    testImplementation(testFixtures(project(":database")))
     testImplementation(libs.postgresql.driver)
 
     compileOnly(libs.lombok)

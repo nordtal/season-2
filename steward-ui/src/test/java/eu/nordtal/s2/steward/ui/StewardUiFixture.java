@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.ui;
 
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
-
 import com.google.gson.Gson;
+import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.TestAuthenticator;
 import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
@@ -21,11 +20,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * The stand-in worker, deployer and Discord, and the real interface and database in front of them.
@@ -84,7 +80,7 @@ abstract class StewardUiFixture {
 
     static StewardUi ui;
     static HttpClient http;
-    static PostgreSQLContainer<?> postgres;
+    static TestDatabase postgres;
     static Data data;
 
     /** Kept, so a test can build a second interface against the same database. */
@@ -389,29 +385,22 @@ abstract class StewardUiFixture {
 
     private static void startDatabase() {
         // A real database with the real migrations, not a stub that only agrees with itself.
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(), "no docker daemon - skipping");
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine");
-        postgres.start();
-        Flyway.configure(StewardUiFixture.class.getClassLoader())
-                .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
+        postgres = TestDatabase.fresh();
         data = new Data(
                 new DatabaseSpec() {
                     @Override
                     public String jdbcUrl() {
-                        return postgres.getJdbcUrl();
+                        return postgres.jdbcUrl();
                     }
 
                     @Override
                     public String username() {
-                        return postgres.getUsername();
+                        return postgres.username();
                     }
 
                     @Override
                     public String password() {
-                        return postgres.getPassword();
+                        return postgres.password();
                     }
                 },
                 Clock.systemUTC());
@@ -459,9 +448,6 @@ abstract class StewardUiFixture {
         }
         if (data != null) {
             data.close();
-        }
-        if (postgres != null) {
-            postgres.stop();
         }
         if (configRoot != null) {
             try (var walk = Files.walk(configRoot)) {

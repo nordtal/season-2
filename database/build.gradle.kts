@@ -2,12 +2,13 @@ plugins {
     id("nordtal.java-base")
     id("nordtal.message-spec")
     id("java-library")
-    // AccessSchema, for every module whose tests need the migrated schema.
+    // TestDatabase, for every module whose tests need the migrated schema.
     id("java-test-fixtures")
 }
 
 // Other modules' sources that the wiring tests here read as text.
 repositoryRootTestInputs {
+    reads("compose.yml")
     reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
     reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
@@ -45,10 +46,13 @@ dependencies {
     // Flyway only in the fixture: this module never migrates, and Flyway must never reach a plugin jar.
     testFixturesImplementation(libs.flyway.core)
     testFixturesImplementation(libs.flyway.postgresql)
+    testFixturesImplementation(libs.testcontainers.postgresql)
+    testFixturesImplementation(libs.postgresql.driver)
+    testFixturesImplementation(platform(libs.junit.bom))
+    testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
 
     testImplementation(testFixtures(project(":common")))
     testImplementation(libs.bundles.access.persistence)
-    testImplementation(libs.testcontainers.postgresql)
     // Compile scope: the integration tests build a PGSimpleDataSource by hand.
     testImplementation(libs.postgresql.driver)
     testRuntimeOnly(libs.logback.classic)

@@ -5,46 +5,23 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.TestDatabase;
 import java.util.List;
-import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.AfterAll;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /** {@code steward_push_subscription}, against a real PostgreSQL. */
 class PushSubscriptionsTest {
 
-    private static PostgreSQLContainer<?> postgres;
     private static PushSubscriptions subscriptions;
 
     @BeforeAll
     static void start() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(), "no docker daemon - skipping");
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine");
-        postgres.start();
-        Flyway.configure(PushSubscriptionsTest.class.getClassLoader())
-                .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
-        final PGSimpleDataSource source = new PGSimpleDataSource();
-        source.setUrl(postgres.getJdbcUrl());
-        source.setUser(postgres.getUsername());
-        source.setPassword(postgres.getPassword());
+        final DataSource source = TestDatabase.fresh().dataSource();
         subscriptions = new PushSubscriptions(source);
-    }
-
-    @AfterAll
-    static void stop() {
-        if (postgres != null) {
-            postgres.stop();
-        }
     }
 
     @Test

@@ -5,11 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.AccessSchema;
 import eu.nordtal.s2.database.Jdbis;
+import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
@@ -20,14 +19,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterAll;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Exercises the roster reads of {@link AccessReader} and {@link PaymentRequests} against the real migrations.
@@ -42,40 +38,14 @@ class RosterIntegrationTest {
     private static final String CAROL = "100000000000000003";
 
     private static final UUID ALICE_MC = UUID.fromString("11111111-1111-1111-1111-111111111111");
-
-    private static PostgreSQLContainer<?> postgres;
-    private static PGSimpleDataSource dataSource;
+    private static DataSource dataSource;
 
     private AccessReader directory;
     private PaymentRequests payments;
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(
-                DockerClientFactory.instance().isDockerAvailable(),
-                "No Docker daemon reachable - skipping the PostgreSQL-backed roster tests");
-
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine")
-                .withDatabaseName("roster")
-                .withUsername("roster")
-                .withPassword("roster");
-        postgres.start();
-
-        dataSource = new PGSimpleDataSource();
-        dataSource.setUrl(postgres.getJdbcUrl());
-        dataSource.setUser(postgres.getUsername());
-        dataSource.setPassword(postgres.getPassword());
-
-        AccessSchema.migrate(dataSource);
-    }
-
-    @AfterAll
-    static void stopDatabase() {
-        if (postgres != null) {
-            postgres.stop();
-            postgres = null;
-        }
-        dataSource = null;
+        dataSource = TestDatabase.fresh().dataSource();
     }
 
     @BeforeEach

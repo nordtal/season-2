@@ -3,24 +3,20 @@ package eu.nordtal.s2.smp.db;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
+import eu.nordtal.s2.database.TestDatabase;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Optional;
-import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.AfterAll;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * The start event winner's head start, against a real PostgreSQL running the real migrations.
@@ -34,43 +30,13 @@ class HeadStartIntegrationTest {
     private static final String SOMEBODY_ELSE = "100000000000000043";
     private static final int AURA = 150;
     private static final String REASON = "HG_WINNER";
-
-    private static PostgreSQLContainer<?> postgres;
-    private static PGSimpleDataSource dataSource;
+    private static DataSource dataSource;
 
     private SmpDao dao;
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(
-                DockerClientFactory.instance().isDockerAvailable(),
-                "No Docker daemon reachable - skipping the PostgreSQL-backed head start tests");
-
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine")
-                .withDatabaseName("access")
-                .withUsername("access")
-                .withPassword("access");
-        postgres.start();
-
-        dataSource = new PGSimpleDataSource();
-        dataSource.setUrl(postgres.getJdbcUrl());
-        dataSource.setUser(postgres.getUsername());
-        dataSource.setPassword(postgres.getPassword());
-
-        Flyway.configure(HeadStartIntegrationTest.class.getClassLoader())
-                .dataSource(dataSource)
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
-    }
-
-    @AfterAll
-    static void stopDatabase() {
-        if (postgres != null) {
-            postgres.stop();
-            postgres = null;
-        }
-        dataSource = null;
+        dataSource = TestDatabase.fresh().dataSource();
     }
 
     @BeforeEach

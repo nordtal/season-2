@@ -13,6 +13,7 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
+import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.access.AccessSource;
@@ -33,8 +34,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * The payment request state machine against a real PostgreSQL and the real migrations.
@@ -48,7 +47,7 @@ class PaymentRequestIntegrationTest {
     private static final String OTHER = "100000000000000002";
     private static final int TTL_HOURS = 24;
 
-    private static PostgreSQLContainer<?> postgres;
+    private static TestDatabase postgres;
     private static Database database;
 
     private PaymentRequests requests;
@@ -56,18 +55,9 @@ class PaymentRequestIntegrationTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(
-                DockerClientFactory.instance().isDockerAvailable(),
-                "No Docker daemon reachable - skipping the PostgreSQL-backed tests");
+        postgres = TestDatabase.fresh();
 
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine")
-                .withDatabaseName("access")
-                .withUsername("access")
-                .withPassword("access");
-        postgres.start();
-
-        database = Database.create(
-                DatabaseConfig.of(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
+        database = Database.create(DatabaseConfig.of(postgres.jdbcUrl(), postgres.username(), postgres.password()));
         database.jdbi().installPlugin(Jdbis.ids());
         database.migrate();
     }
@@ -76,9 +66,6 @@ class PaymentRequestIntegrationTest {
     static void stopDatabase() {
         if (database != null) {
             database.close();
-        }
-        if (postgres != null) {
-            postgres.stop();
         }
     }
 

@@ -53,10 +53,8 @@ dependencies {
     // For Adventure's Component; no test starts a proxy.
     testImplementation(libs.velocity.api)
 
-    // PlaytimeDao's upsert runs against a PostgreSQL container; Flyway never reaches the shaded jar.
-    testImplementation(libs.flyway.core)
-    testImplementation(libs.flyway.postgresql)
-    testImplementation(libs.testcontainers.postgresql)
+    // PlaytimeDao's upsert runs against a real PostgreSQL; Flyway never reaches the shaded jar.
+    testImplementation(testFixtures(project(":database")))
 }
 
 messageSpec {

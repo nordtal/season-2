@@ -3,40 +3,29 @@ package eu.nordtal.s2.discordbot;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.database.Jdbis;
+import eu.nordtal.s2.database.TestDatabase;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /** The startup schema check against a real PostgreSQL, skipped when no Docker daemon is reachable. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @org.junit.jupiter.api.TestMethodOrder(org.junit.jupiter.api.MethodOrderer.OrderAnnotation.class)
 class SchemaCheckTest {
 
-    private static PostgreSQLContainer<?> postgres;
+    private static TestDatabase postgres;
     private static Database database;
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(
-                DockerClientFactory.instance().isDockerAvailable(),
-                "No Docker daemon reachable - skipping the PostgreSQL-backed tests");
+        postgres = TestDatabase.empty();
 
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine")
-                .withDatabaseName("access")
-                .withUsername("access")
-                .withPassword("access");
-        postgres.start();
-
-        database = Database.create(
-                DatabaseConfig.of(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
+        database = Database.create(DatabaseConfig.of(postgres.jdbcUrl(), postgres.username(), postgres.password()));
         database.jdbi().installPlugin(Jdbis.ids());
     }
 
@@ -45,15 +34,12 @@ class SchemaCheckTest {
         if (database != null) {
             database.close();
         }
-        if (postgres != null) {
-            postgres.stop();
-        }
     }
 
     @Test
     @org.junit.jupiter.api.Order(1)
     void anUnmigratedDatabaseIsRefusedAndTheMessageNamesTheCommandThatFixesIt() {
-        // Deliberately first: the container is not migrated yet.
+        // Deliberately first: the database is not migrated yet.
         final IllegalStateException refused =
                 assertThrows(IllegalStateException.class, () -> SchemaCheck.validate(database.dataSource()));
 

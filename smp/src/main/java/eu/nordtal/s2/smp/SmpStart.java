@@ -471,6 +471,8 @@ final class SmpStart {
                 database.queryTimeoutSeconds(),
                 plugin.getName() + "-signals",
                 plugin.logger());
+        // Before the surfaces, so the pass that starts the track over also draws it; any pass catches a missed switch.
+        signals.on(Channel.PHASE, "the season reset", plugin::startTrackOverIfDue);
         // Surfaces are drawn far more often than their data changes, so they re-read only on its signal.
         signals.on(Channel.SMP, "the boards and HUD", plugin::refreshSurfaceData);
         plugin.adminWatch.listen(signals);

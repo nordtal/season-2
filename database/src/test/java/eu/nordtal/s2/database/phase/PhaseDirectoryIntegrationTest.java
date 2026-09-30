@@ -193,35 +193,30 @@ class PhaseDirectoryIntegrationTest {
                 "a switch that changed nothing is still something a human may need to see afterwards");
     }
 
+    /** smp starts its track over when it sees the stamp; the switch itself writes nothing of smp's. */
     @Test
-    void enteringTheSeasonFromTheEventStartsTheTrackOver() {
+    void enteringTheSeasonFromTheEventStampsAFreshStartAndLeavesTheTrackToSmp() {
         playedTrack();
         phases.switchPhase(SeasonPhase.START_EVENT, ADMIN_ID, null);
+        assertEquals(0, count("SELECT count(*) FROM season_phase WHERE fresh_start IS NOT NULL"));
 
         phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null);
 
+        assertEquals(1, count("SELECT count(*) FROM season_phase WHERE fresh_start = updated"));
         assertEquals(
-                List.of("departure|LOCKED|-", "waiting|LOCKED|-"),
-                query("SELECT key || '|' || state || '|' || coalesce(cast(unlocked AS text), '-')"
-                        + " FROM smp_milestone ORDER BY key"));
-        assertEquals(
-                List.of("logs|0|-"),
-                query("SELECT key || '|' || amount || '|'"
-                        + " || coalesce(cast(completed AS text), '-') FROM smp_objective"));
-        assertEquals(0, count("SELECT count(*) FROM smp_contribution"));
+                List.of("departure|ACTIVE", "waiting|UNLOCKED"),
+                query("SELECT key || '|' || state FROM smp_milestone ORDER BY key"));
+        assertEquals(1, count("SELECT count(*) FROM smp_contribution"));
     }
 
     @Test
-    void comingBackFromMaintenanceKeepsTheTrack() {
+    void comingBackFromMaintenanceStampsNoFreshStart() {
         playedTrack();
         phases.switchPhase(SeasonPhase.MAINTENANCE, ADMIN_ID, null);
 
         phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null);
 
-        assertEquals(
-                List.of("departure|ACTIVE", "waiting|UNLOCKED"),
-                query("SELECT key || '|' || state FROM smp_milestone ORDER BY key"));
-        assertEquals(1, count("SELECT count(*) FROM smp_contribution"));
+        assertEquals(0, count("SELECT count(*) FROM season_phase WHERE fresh_start IS NOT NULL"));
     }
 
     /** A track somebody has played: waiting done, departure active with progress and a contribution. */

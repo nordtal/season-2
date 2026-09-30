@@ -236,6 +236,41 @@ public interface SmpDao {
             @Bind("type") String type,
             @Bind("target") long target);
 
+    /**
+     * Starts the track over once for every fresh start the phase stamped since the last one.
+     * Milestones locked, objectives emptied, contributions gone, the marker set, in one statement; aura stays.
+     *
+     * @return 1 when this call started the track over, 0 when there was nothing to do
+     */
+    @SqlQuery("""
+            WITH due AS (
+                SELECT phase.fresh_start
+                FROM season_phase phase
+                         LEFT JOIN smp_reset reset ON reset.id
+                WHERE phase.id
+                  AND phase.fresh_start IS NOT NULL
+                  AND (reset.applied IS NULL OR reset.applied < phase.fresh_start)
+            ),
+                 marked AS (
+                     INSERT INTO smp_reset (id, applied)
+                     SELECT true, fresh_start FROM due
+                     ON CONFLICT (id) DO UPDATE SET applied = EXCLUDED.applied
+                         WHERE smp_reset.applied < EXCLUDED.applied
+                     RETURNING applied
+                 ),
+                 cleared_contributions AS (
+                     DELETE FROM smp_contribution WHERE EXISTS (SELECT 1 FROM marked)
+                 ),
+                 cleared_objectives AS (
+                     UPDATE smp_objective SET amount = 0, completed = NULL WHERE EXISTS (SELECT 1 FROM marked)
+                 ),
+                 locked_milestones AS (
+                     UPDATE smp_milestone SET state = 'LOCKED', unlocked = NULL WHERE EXISTS (SELECT 1 FROM marked)
+                 )
+            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM marked) AS notified
+            """)
+    int startOverIfDue();
+
     @SqlQuery("""
             WITH updated AS (
                 UPDATE smp_milestone SET state = 'ACTIVE' WHERE key = :key AND state = 'LOCKED' RETURNING key

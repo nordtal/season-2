@@ -415,6 +415,13 @@ public final class SmpPlugin extends JavaPlugin {
         });
     }
 
+    /** Starts the track over when the phase stamped a fresh start this server has not applied yet. */
+    void startTrackOverIfDue() {
+        if (dao.startOverIfDue() > 0) {
+            getLogger().info("the season started over: every milestone is locked and every objective is empty");
+        }
+    }
+
     /** Reads the data every surface draws, on the signal hub's thread, so no render waits on the database. */
     void refreshSurfaceData() {
         try {

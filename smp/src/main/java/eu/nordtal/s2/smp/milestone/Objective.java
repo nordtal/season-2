@@ -2,6 +2,8 @@ package eu.nordtal.s2.smp.milestone;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import org.bukkit.NamespacedKey;
 
 /**
  * One objective of one milestone, as the milestone file defines it; {@code smp_objective} holds its progress.
@@ -33,6 +35,11 @@ public record Objective(
         role = role == null ? "" : role;
         statistic = statistic == null ? "" : statistic;
         advancement = advancement == null ? "" : advancement;
+    }
+
+    /** Returns the advancement this objective names, empty when the name is blank or not a key. */
+    public Optional<NamespacedKey> advancementKey() {
+        return Optional.ofNullable(NamespacedKey.fromString(advancement));
     }
 
     /** Returns whether this objective counts distinct players: the milestone's one participation gate. */

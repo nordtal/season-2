@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp.milestone;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.bukkit.NamespacedKey;
 
 /**
  * One milestone of the track, as the milestone file defines it; all its objectives must complete before it unlocks.
@@ -32,6 +33,15 @@ public record Milestone(
     public Optional<Objective> objective(final String key) {
         return objectives.stream()
                 .filter(objective -> objective.key().equals(key))
+                .findFirst();
+    }
+
+    /** Returns the participation gate that names this advancement, if this milestone has one. */
+    public Optional<Objective> gateFor(final NamespacedKey advancement) {
+        return objectives.stream()
+                .filter(Objective::isParticipationGate)
+                .filter(objective ->
+                        objective.advancementKey().filter(advancement::equals).isPresent())
                 .findFirst();
     }
 

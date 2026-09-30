@@ -24,6 +24,7 @@ import io.javalin.http.NotFoundResponse;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JavalinGson;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
@@ -133,7 +134,8 @@ public final class StewardUi {
             final DiscordAuth discord,
             final InternalClient worker,
             final InternalClient deployer,
-            final @Nullable Data data) {
+            final @Nullable Data data,
+            final Clock clock) {
         this.config = config;
         this.discord = discord;
         this.workerProxy = new WorkerProxy(worker, ctx -> account(ctx).orElseThrow());
@@ -143,11 +145,11 @@ public final class StewardUi {
                 ? null
                 : new WebAuthn(config.webauthn().relyingPartyId(), config.publicUrl(), localCredentials);
         this.secondFactor =
-                new SecondFactor(this::requireSession, data, localCredentials, this.sessions, localWebauthn);
+                new SecondFactor(this::requireSession, data, localCredentials, this.sessions, localWebauthn, clock);
         this.gatekeeper = new Gatekeeper(this::session, this.secondFactor);
-        this.metrics = new Metrics(data);
-        this.guild = new DiscordApi(new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API));
-        this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
+        this.metrics = new Metrics(data, clock);
+        this.guild = new DiscordApi(new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API, clock));
+        this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), clock);
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
         this.announcements = new Announcements(data == null ? null : data.dataSource(), commands);
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());

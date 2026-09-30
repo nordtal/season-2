@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.plan.Topology;
@@ -200,7 +201,7 @@ class UpdateRunTest {
         final UpdateReport started = run.start(stopped);
 
         // Comes back on the second look, which is what a real start does: started, then healthy.
-        final UpdateRun.Waiting clock = new UpdateRun.Waiting() {
+        final Waiting clock = new Waiting() {
             private Instant now = Instant.parse("2026-09-07T12:00:00Z");
 
             @Override
@@ -368,8 +369,8 @@ class UpdateRunTest {
     }
 
     /** A clock inside the window that lets the service come back on the second look. */
-    private static UpdateRun.Waiting comesBackOnTheSecondLook(final FakeContainers containers, final String service) {
-        return new UpdateRun.Waiting() {
+    private static Waiting comesBackOnTheSecondLook(final FakeContainers containers, final String service) {
+        return new Waiting() {
             private Instant now = Instant.parse("2026-09-07T12:00:00Z");
 
             @Override
@@ -387,8 +388,8 @@ class UpdateRunTest {
     }
 
     /** A clock already past the deadline, so the timeout branch is reached on the first look. */
-    private static UpdateRun.Waiting impatient() {
-        return new UpdateRun.Waiting() {
+    private static Waiting impatient() {
+        return new Waiting() {
             private Instant now = Instant.parse("2026-09-07T12:00:00Z");
 
             @Override

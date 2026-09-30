@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
@@ -118,7 +119,8 @@ final class ForeignImages {
             final UpdateRun run,
             final UpdateReport before,
             final List<String> services,
-            final Consumer<UpdateReport> progress) {
+            final Consumer<UpdateReport> progress,
+            final Waiting waiting) {
         if (services.isEmpty()) {
             return before;
         }
@@ -144,6 +146,6 @@ final class ForeignImages {
             progress.accept(report);
         }
         // This process writes the run's final report through postgres after returning from here.
-        return asked.isEmpty() ? report : run.verify(report, asked, UpdateRun.Waiting.real());
+        return asked.isEmpty() ? report : run.verify(report, asked, waiting);
     }
 }

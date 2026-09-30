@@ -114,7 +114,8 @@ final class SmpStart {
                 requests,
                 plugin.messages,
                 BukkitSmpEffects.async(plugin),
-                (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
+                (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure),
+                plugin.clock);
         return new HudAndAnnouncer(hud, requests, announcer);
     }
 
@@ -219,7 +220,7 @@ final class SmpStart {
             final PlayerSurfaces surfaces) {
         return new AdminWatch(
                 plugin,
-                AccessReader.using(plugin.pool),
+                AccessReader.using(plugin.pool, plugin.clock),
                 operators,
                 admission,
                 admins -> {
@@ -255,7 +256,15 @@ final class SmpStart {
 
     static Activities wireActivities(final SmpPlugin plugin, final SmpSpec config, final WorldEffects effects) {
         final Graves graves = new Graves(
-                plugin, plugin.dao, plugin.identities, plugin.messages, plugin.locales, plugin.sounds, effects, config);
+                plugin,
+                plugin.dao,
+                plugin.identities,
+                plugin.messages,
+                plugin.locales,
+                plugin.sounds,
+                effects,
+                config,
+                plugin.clock);
         // Also immediately on start, so graves do not outlive their decay across downtime.
         Bukkit.getScheduler()
                 .runTaskTimerAsynchronously(plugin, () -> graves.expire(config.graveMaxAgeHours()), 20L, 20L * 60L);
@@ -270,12 +279,20 @@ final class SmpStart {
                 plugin.messages,
                 plugin.locales,
                 plugin.sounds,
-                effects);
+                effects,
+                plugin.clock);
 
         final DeathPenalty penalty = new DeathPenalty(
                 config.deathPenalty(), config.deathPenaltyListed(), java.util.Set.copyOf(config.deathCausesListed()));
         final Wheel wheel = new Wheel(
-                plugin, plugin.dao, config, plugin.identities, plugin.messages, plugin.locales, plugin.sounds);
+                plugin,
+                plugin.dao,
+                config,
+                plugin.identities,
+                plugin.messages,
+                plugin.locales,
+                plugin.sounds,
+                plugin.clock);
         return new Activities(penalty, wheel, graves, duels);
     }
 
@@ -393,7 +410,7 @@ final class SmpStart {
             PaperCommandInbox inbox) {}
 
     static CommandLayer wireCommandLayer(final SmpPlugin plugin) {
-        final AccessReader access = AccessReader.using(plugin.pool);
+        final AccessReader access = AccessReader.using(plugin.pool, plugin.clock);
         final BukkitSmpEffects chatEffects = new BukkitSmpEffects(
                 plugin,
                 BukkitSmpEffects.async(plugin),
@@ -412,7 +429,8 @@ final class SmpStart {
         final Outbox outbox = new Outbox(
                 plugin.requests,
                 commandWaiter,
-                (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
+                (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure),
+                plugin.clock);
 
         // Built here so {@code /smp reload} can replace it.
         final Messages sharedMessages = PaperCommandInbox.sharedBundle(plugin);

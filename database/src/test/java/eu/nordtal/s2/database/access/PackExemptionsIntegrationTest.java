@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -75,7 +76,7 @@ class PackExemptionsIntegrationTest {
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + PLAYER + "')");
         execute("INSERT INTO account_link (mc_uuid, discord_id) VALUES ('" + PLAYER_MC + "', '" + PLAYER + "')");
         exemptions = PackExemptions.using(dataSource);
-        access = AccessDirectory.using(dataSource);
+        access = AccessDirectory.using(dataSource, Clock.systemUTC());
     }
 
     @Test

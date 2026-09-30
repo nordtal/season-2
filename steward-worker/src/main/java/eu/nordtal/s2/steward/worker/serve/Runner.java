@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.worker.serve;
 
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.ServiceHold;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateReport;
@@ -45,7 +46,7 @@ public final class Runner implements RequestRunner {
     final ContainerOps containers;
     final Backups backups;
     final UpdateDirectory directory;
-    final UpdateRun.Waiting waiting;
+    final Waiting waiting;
 
     /** The plugins an admin added, handed to every resolve; {@code PluginDirectory#NONE} by default. */
     final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins;
@@ -55,7 +56,7 @@ public final class Runner implements RequestRunner {
 
     Occupancy occupancy() {
         if (occupancy == null) {
-            occupancy = Occupancy.over(database.dataSource());
+            occupancy = Occupancy.over(database.dataSource(), waiting::now);
         }
         return occupancy;
     }
@@ -65,25 +66,6 @@ public final class Runner implements RequestRunner {
         return Objects.requireNonNull(runtime.message(), "unreachable result carries no message");
     }
 
-    public Runner(
-            final StewardSpec config,
-            final Database database,
-            final ContainerOps containers,
-            final Backups backups,
-            final UpdateDirectory directory) {
-        this(config, database, containers, backups, directory, UpdateRun.Waiting.real());
-    }
-
-    public Runner(
-            final StewardSpec config,
-            final Database database,
-            final ContainerOps containers,
-            final Backups backups,
-            final UpdateDirectory directory,
-            final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins) {
-        this(config, database, containers, backups, directory, UpdateRun.Waiting.real(), plugins);
-    }
-
     /** Package-visible so a test can drive a thirty-second countdown without waiting for one. */
     Runner(
             final StewardSpec config,
@@ -91,7 +73,7 @@ public final class Runner implements RequestRunner {
             final ContainerOps containers,
             final Backups backups,
             final UpdateDirectory directory,
-            final UpdateRun.Waiting waiting) {
+            final Waiting waiting) {
         this(
                 config,
                 database,
@@ -102,13 +84,13 @@ public final class Runner implements RequestRunner {
                 eu.nordtal.s2.steward.worker.plugin.PluginDirectory.NONE);
     }
 
-    Runner(
+    public Runner(
             final StewardSpec config,
             final Database database,
             final ContainerOps containers,
             final Backups backups,
             final UpdateDirectory directory,
-            final UpdateRun.Waiting waiting,
+            final Waiting waiting,
             final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins) {
         this.plugins = plugins;
         this.config = config;

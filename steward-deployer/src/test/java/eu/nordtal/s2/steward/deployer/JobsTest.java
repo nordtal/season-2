@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.deployer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -12,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 class JobsTest {
 
-    private final Jobs jobs = new Jobs();
+    private final Jobs jobs = new Jobs(Clock.systemUTC());
 
     @Test
     void aListenerThatArrivesLateIsToldEverythingThatAlreadyHappened() throws Exception {
@@ -74,7 +75,7 @@ class JobsTest {
 
     @Test
     void aLineWrittenWhileSomebodyIsAttachingReachesThemInsteadOfFallingInTheGap() throws Exception {
-        final Jobs.Job job = new Jobs.Job("race", "deploy", List.of("smp"));
+        final Jobs.Job job = new Jobs.Job("race", "deploy", List.of("smp"), Clock.systemUTC());
         job.append("Pulling smp");
 
         final List<String> seen = new CopyOnWriteArrayList<>();

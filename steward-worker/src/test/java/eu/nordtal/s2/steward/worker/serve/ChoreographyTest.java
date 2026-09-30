@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.time.Waiting;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -204,7 +205,7 @@ class ChoreographyTest {
     }
 
     /** A clock that never sleeps; the sleep advances it and optionally changes the world. */
-    private static final class Driven implements UpdateRun.Waiting {
+    private static final class Driven implements Waiting {
 
         private Instant now = Instant.parse("2026-09-20T12:00:00Z");
         private Duration slept = Duration.ZERO;

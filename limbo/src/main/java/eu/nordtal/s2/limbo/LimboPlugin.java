@@ -9,6 +9,7 @@ import eu.nordtal.s2.commands.limbo.LimboEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.language.Languages;
+import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
@@ -34,6 +35,7 @@ import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
+import java.time.Clock;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -42,6 +44,9 @@ import org.bukkit.plugin.java.JavaPlugin;
  * The proxy ends every wait on {@code nordtal:limbo} ({@link LimboProtocol}); this only reports arrival.
  */
 public final class LimboPlugin extends JavaPlugin {
+
+    /** The one clock of this process. */
+    private final Clock clock = NetworkTime.clock();
 
     private ConfigHandle<LimboSpec> configHandle;
     private ConfigHandle<DatabaseSpec> databaseHandle;
@@ -89,7 +94,7 @@ public final class LimboPlugin extends JavaPlugin {
         final WaitingWorld world = requireWorld(config);
 
         pool = LimboPool.open(databaseHandle.get());
-        access = AccessReader.using(pool);
+        access = AccessReader.using(pool, clock);
         final PlayerLocales locales = new PlayerLocales(access::locale);
         final Messages messages = loadMessages();
 
@@ -229,7 +234,8 @@ public final class LimboPlugin extends JavaPlugin {
         final Outbox outbox = new Outbox(
                 requests,
                 commandWaiter,
-                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
+                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure),
+                clock);
 
         final PaperCommandInbox inbox = new PaperCommandInbox(this, Target.LIMBO, requests, access, shared);
         // A scheduled effect would settle the request row before the command produced its answer; register refuses one.
@@ -246,7 +252,7 @@ public final class LimboPlugin extends JavaPlugin {
      * Written from the async scheduler, which the main thread re-queues, so a frozen server goes stale.
      */
     private void startHeartbeat() {
-        final Readiness readiness = Readiness.onDefaultPath(getLogger()::warning);
+        final Readiness readiness = Readiness.onDefaultPath(clock, getLogger()::warning);
         final long ticks = Readiness.BEAT.toSeconds() * 20L;
         heartbeat = getServer().getScheduler().runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
     }

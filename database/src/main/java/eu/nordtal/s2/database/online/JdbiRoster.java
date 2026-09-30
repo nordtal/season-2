@@ -1,6 +1,6 @@
 package eu.nordtal.s2.database.online;
 
-import java.time.Instant;
+import java.time.InstantSource;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -19,9 +19,11 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 final class JdbiRoster implements OnlineRoster {
 
     private final OnlineRosterDao dao;
+    private final InstantSource clock;
 
-    JdbiRoster(final DataSource dataSource) {
+    JdbiRoster(final DataSource dataSource, final InstantSource clock) {
         Objects.requireNonNull(dataSource, "dataSource");
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.dao = Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
                 .installPlugin(new PostgresPlugin())
@@ -32,7 +34,7 @@ final class JdbiRoster implements OnlineRoster {
     public void replace(final Collection<Presence> connected) {
         Objects.requireNonNull(connected, "connected");
         // One instant for the whole write: the prune deletes what is older, so rows must agree on now.
-        final OffsetDateTime now = Instant.now().atOffset(ZoneOffset.UTC);
+        final OffsetDateTime now = clock.instant().atOffset(ZoneOffset.UTC);
         final List<OnlineRosterDao.BoundPresence> rows = new ArrayList<>(connected.size());
         final Set<UUID> seen = new HashSet<>();
         for (final Presence presence : connected) {

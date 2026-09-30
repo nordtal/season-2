@@ -9,6 +9,7 @@ import eu.nordtal.s2.steward.worker.bunq.PaymentLoop;
 import eu.nordtal.s2.steward.worker.bunq.Payments;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,7 @@ final class PaymentsStartup {
      * @return the running loop, or {@code null} when there is no bunq to poll
      */
     static @Nullable PaymentLoop start(
-            final StewardSpec config, final DatabaseSpec databaseConfig, final Database database) {
+            final StewardSpec config, final DatabaseSpec databaseConfig, final Database database, final Clock clock) {
         final BunqGateway bunq = new BunqGateway(config.bunq());
         final Duration poll = Duration.ofSeconds(config.bunq().pollIntervalSeconds());
 
@@ -48,7 +49,7 @@ final class PaymentsStartup {
 
         // The cut-off, resolved once and read back by every later start.
         final Instant watermark =
-                Watermark.resolve(database.jdbi(), config.bunq().watermark());
+                Watermark.resolve(database.jdbi(), config.bunq().watermark(), clock.instant());
 
         return PaymentLoop.start(
                 new Payments(

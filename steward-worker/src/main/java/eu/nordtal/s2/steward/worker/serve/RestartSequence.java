@@ -85,7 +85,7 @@ final class RestartSequence {
 
             final UpdateRun.Stopped stopped = run.stop(planned, runtime);
             final UpdateReport started = run.start(stopped);
-            final UpdateReport verified = run.verify(started, stopped.services(), UpdateRun.Waiting.real());
+            final UpdateReport verified = run.verify(started, stopped.services(), runner.waiting);
 
             final UpdateReport told = untouched.isEmpty()
                     ? verified

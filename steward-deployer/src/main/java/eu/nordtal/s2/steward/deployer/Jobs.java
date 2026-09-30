@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.deployer;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,6 +31,7 @@ public final class Jobs {
     /** How many finished jobs are kept. */
     private static final int KEEP = 50;
 
+    private final Clock clock;
     private final Map<String, Job> byId = new ConcurrentHashMap<>();
     private final List<String> order = new CopyOnWriteArrayList<>();
 
@@ -44,8 +46,12 @@ public final class Jobs {
                 return thread;
             });
 
+    public Jobs(final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
+    }
+
     public Job start(final String kind, final List<String> services, final Work work) {
-        final Job job = new Job(UUID.randomUUID().toString(), kind, List.copyOf(services));
+        final Job job = new Job(UUID.randomUUID().toString(), kind, List.copyOf(services), clock);
         byId.put(job.id(), job);
         order.add(job.id());
         forget();
@@ -110,7 +116,8 @@ public final class Jobs {
         private final String id;
         private final String kind;
         private final List<String> services;
-        private final Instant started = Instant.now();
+        private final Clock clock;
+        private final Instant started;
         private final List<String> lines = new CopyOnWriteArrayList<>();
         private final List<Consumer<String>> listeners = new CopyOnWriteArrayList<>();
         /** Guards writing a line against starting to watch, so a reconnect never misses one. */
@@ -120,7 +127,9 @@ public final class Jobs {
         private volatile int exitCode = Integer.MIN_VALUE;
         private volatile @Nullable Instant finished;
 
-        Job(final String id, final String kind, final List<String> services) {
+        Job(final String id, final String kind, final List<String> services, final Clock clock) {
+            this.clock = clock;
+            this.started = clock.instant();
             this.id = id;
             this.kind = kind;
             this.services = services;
@@ -146,7 +155,7 @@ public final class Jobs {
 
         void finish(final int code) {
             exitCode = code;
-            finished = Instant.now();
+            finished = clock.instant();
             // Write the line before flipping the state: follow() stops once state leaves RUNNING.
             final State finalState = code == 0 ? State.DONE : State.FAILED;
             synchronized (watchers) {

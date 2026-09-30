@@ -100,10 +100,6 @@ final class AlertLevel {
 
     private AlertLevel() {}
 
-    static Reading of(final Map<String, Object> serviceTable, final List<Map<String, Object>> archives) {
-        return of(serviceTable, archives, Map.of(), Instant.now());
-    }
-
     /**
      * The whole reading.
      *

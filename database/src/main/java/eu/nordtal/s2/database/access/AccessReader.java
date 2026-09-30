@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import java.time.InstantSource;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -18,10 +19,11 @@ public interface AccessReader {
      * Uses a connection pool the caller owns.
      *
      * @param dataSource the pool, e.g. a plugin's own HikariCP pool
+     * @param clock      when link codes expire
      * @return a reader over that pool
      */
-    static AccessReader using(final DataSource dataSource) {
-        return JdbiAccessDirectory.borrowing(dataSource);
+    static AccessReader using(final DataSource dataSource, final InstantSource clock) {
+        return JdbiAccessDirectory.borrowing(dataSource, clock);
     }
 
     /** Returns the Minecraft account linked to this Discord id, if any. */

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.online;
 
+import java.time.InstantSource;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -14,8 +15,8 @@ import org.jspecify.annotations.Nullable;
 public interface OnlineRoster {
 
     /** Returns a roster over a pool the caller owns; there is nothing to close. */
-    static OnlineRoster using(final DataSource dataSource) {
-        return new JdbiRoster(dataSource);
+    static OnlineRoster using(final DataSource dataSource, final InstantSource clock) {
+        return new JdbiRoster(dataSource, clock);
     }
 
     /**

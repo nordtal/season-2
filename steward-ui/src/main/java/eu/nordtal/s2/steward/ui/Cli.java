@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.ui;
 
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.steward.ui.auth.Credentials;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Sessions;
@@ -9,6 +10,7 @@ import eu.nordtal.s2.steward.ui.config.UiSpec;
 import eu.nordtal.s2.steward.ui.data.Data;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +19,9 @@ import org.slf4j.LoggerFactory;
 final class Cli {
 
     private static final Logger log = LoggerFactory.getLogger(Cli.class);
+
+    /** The one clock of this process. */
+    private static final Clock CLOCK = NetworkTime.clock();
 
     private Cli() {}
 
@@ -45,7 +50,7 @@ final class Cli {
         try {
             config = Configs.ui(directory, log).get();
             // Opened here, so a bad config fails at startup.
-            data = new Data(Configs.database(directory, log).get());
+            data = new Data(Configs.database(directory, log).get(), CLOCK);
         } catch (ConfigException failure) {
             log.error(
                     "The configuration in {} could not be read, so nothing is being served.",
@@ -76,7 +81,7 @@ final class Cli {
                     + " lines it prints into steward-ui.yml's web-push section.");
         }
         Runtime.getRuntime().addShutdownHook(new Thread(data::close, "steward-ui-shutdown"));
-        new StewardUi(config, new DiscordAuth(config.discord(), config.publicUrl()), worker, deployer, data)
+        new StewardUi(config, new DiscordAuth(config.discord(), config.publicUrl()), worker, deployer, data, CLOCK)
                 .start(config.port());
     }
 
@@ -103,7 +108,7 @@ final class Cli {
                     + " Take it from the journal or from the account list.");
             return 2;
         }
-        try (Data data = new Data(Configs.database(directory, log).get())) {
+        try (Data data = new Data(Configs.database(directory, log).get(), CLOCK)) {
             final Credentials credentials = new Credentials(data.dataSource());
             final Sessions sessions = new Sessions(data.dataSource(), Duration.ofDays(1));
             final int keys = credentials.forget(discordId);

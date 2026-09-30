@@ -10,6 +10,7 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.NotFoundResponse;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
@@ -25,12 +26,16 @@ final class SecondFactor {
     private final @Nullable Sessions sessions;
     private final @Nullable WebAuthn webauthn;
 
+    private final Clock clock;
+
     SecondFactor(
             final Function<Context, Sessions.Session> requireSession,
             final @Nullable Data data,
             final @Nullable Credentials credentials,
             final @Nullable Sessions sessions,
-            final @Nullable WebAuthn webauthn) {
+            final @Nullable WebAuthn webauthn,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.requireSession = requireSession;
         this.data = data;
         this.credentials = credentials;
@@ -77,7 +82,7 @@ final class SecondFactor {
      */
     void requireKeyRecently(final Sessions.Session who) {
         final Instant held = who.verifiedAt();
-        if (held != null && held.isAfter(Instant.now().minus(StewardUi.STEP_UP))) {
+        if (held != null && held.isAfter(clock.instant().minus(StewardUi.STEP_UP))) {
             return;
         }
         throw new SecondFactorRequired("This is one of the things Steward asks for the key before"

@@ -14,6 +14,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -84,7 +85,7 @@ class PhaseDirectoryIntegrationTest {
         execute("DELETE FROM season_phase");
         execute("INSERT INTO season_phase (phase) VALUES ('PRE_EVENT')");
         execute("TRUNCATE TABLE smp_milestone CASCADE");
-        phases = PhaseDirectory.using(dataSource);
+        phases = PhaseDirectory.using(dataSource, Clock.systemUTC());
     }
 
     @Test

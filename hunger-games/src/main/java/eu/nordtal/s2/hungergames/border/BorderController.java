@@ -9,6 +9,7 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import org.bukkit.Bukkit;
@@ -36,13 +37,17 @@ public final class BorderController {
 
     private @Nullable BukkitTask quietPeriodChecker;
 
+    private final Clock clock;
+
     public BorderController(
             final Plugin plugin,
             final World world,
             final HungerGamesSpec config,
             final Messages messages,
             final PlayerLocales locales,
-            final HungerGamesSounds sounds) {
+            final HungerGamesSounds sounds,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.world = world;
         this.config = config;
@@ -70,7 +75,7 @@ public final class BorderController {
 
     /** Called whenever a player dies or an unattended body is eliminated; extends or starts a shrink by one step. */
     public void onDeath(final GameState state) {
-        state.markDeath(Instant.now());
+        state.markDeath(clock.instant());
 
         final WorldBorder border = world.getWorldBorder();
         final double from = state.isShrinking() ? state.shrinkTarget() : border.getSize();
@@ -85,7 +90,7 @@ public final class BorderController {
                 BorderMath.shrinkDurationMillis(border.getSize(), target, config.borderWallSpeedBlocksPerSecond());
         border.changeSize(target, Math.max(1, durationMillis / 50));
 
-        final Instant endsAt = Instant.now().plusMillis(durationMillis);
+        final Instant endsAt = clock.instant().plusMillis(durationMillis);
         state.beginShrink(target, endsAt, false);
         announce(target, durationMillis / 1000);
     }
@@ -93,7 +98,7 @@ public final class BorderController {
     private void checkQuietPeriod(final GameState state) {
         if (state.isShrinking()) {
             // Already running (death-triggered or passive); if it has finished, clear the flag for the next check.
-            if (state.shrinkEndsAt() != null && Instant.now().isAfter(state.shrinkEndsAt())) {
+            if (state.shrinkEndsAt() != null && clock.instant().isAfter(state.shrinkEndsAt())) {
                 state.endShrink();
             }
             return;
@@ -109,7 +114,7 @@ public final class BorderController {
             return;
         }
         final long quietSeconds =
-                java.time.Duration.between(quietSince, Instant.now()).toSeconds();
+                java.time.Duration.between(quietSince, clock.instant()).toSeconds();
         if (quietSeconds < config.borderQuietPeriodSeconds()) {
             return;
         }
@@ -119,7 +124,7 @@ public final class BorderController {
                 border.getSize(), target, config.borderPassiveShrinkBlocksPerHour());
         border.changeSize(target, Math.max(1, durationMillis / 50));
 
-        final Instant endsAt = Instant.now().plusMillis(durationMillis);
+        final Instant endsAt = clock.instant().plusMillis(durationMillis);
         state.beginShrink(target, endsAt, true);
         announcePassive();
     }

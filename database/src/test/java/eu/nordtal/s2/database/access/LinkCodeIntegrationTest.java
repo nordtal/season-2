@@ -11,6 +11,7 @@ import eu.nordtal.s2.database.AccessSchema;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
@@ -74,7 +75,7 @@ class LinkCodeIntegrationTest {
     void freshDirectory() {
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
                 + "player_playtime, discord_user CASCADE");
-        directory = AccessDirectory.using(dataSource);
+        directory = AccessDirectory.using(dataSource, Clock.systemUTC());
     }
 
     @Test
@@ -82,7 +83,7 @@ class LinkCodeIntegrationTest {
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
 
         assertEquals(MC_UUID, code.mcUuid());
-        assertTrue(code.isValid());
+        assertTrue(code.isValidAt(Instant.now()));
         assertWithinSeconds(Instant.now().plus(Duration.ofMinutes(10)), code.expires(), 5);
     }
 
@@ -113,7 +114,7 @@ class LinkCodeIntegrationTest {
                 first.code(),
                 refreshed.code(),
                 "an expired code must not keep coming back - a stale code shown on screen would never work");
-        assertTrue(refreshed.isValid());
+        assertTrue(refreshed.isValidAt(Instant.now()));
     }
 
     @Test

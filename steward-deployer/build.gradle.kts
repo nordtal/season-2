@@ -14,6 +14,9 @@ dependencies {
     implementation(libs.javalin)
     implementation(libs.gson)
 
+    // The kernel, for the process clock; it depends on the JDK alone.
+    implementation(project(":common"))
+
     runtimeOnly(libs.logback.classic)
 
     compileOnly(libs.lombok)

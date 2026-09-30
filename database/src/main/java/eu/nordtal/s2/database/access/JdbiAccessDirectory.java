@@ -3,7 +3,7 @@ package eu.nordtal.s2.database.access;
 import eu.nordtal.s2.common.language.Locales;
 import java.sql.SQLException;
 import java.time.Duration;
-import java.time.Instant;
+import java.time.InstantSource;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -26,15 +26,18 @@ final class JdbiAccessDirectory implements AccessDirectory {
     private final AccessDao dao;
     private final PersonDao people;
 
-    private JdbiAccessDirectory(final DataSource dataSource) {
+    private final InstantSource clock;
+
+    private JdbiAccessDirectory(final DataSource dataSource, final InstantSource clock) {
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.jdbi = Jdbi.create(dataSource).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
         this.dao = jdbi.onDemand(AccessDao.class);
         this.people = jdbi.onDemand(PersonDao.class);
     }
 
-    static AccessDirectory borrowing(final DataSource dataSource) {
+    static AccessDirectory borrowing(final DataSource dataSource, final InstantSource clock) {
         Objects.requireNonNull(dataSource, "dataSource");
-        return new JdbiAccessDirectory(dataSource);
+        return new JdbiAccessDirectory(dataSource, clock);
     }
 
     @Override
@@ -204,7 +207,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
         for (int attempt = 0; attempt < MAX_LINK_CODE_ATTEMPTS; attempt++) {
             final String candidate = LinkCodes.random();
             try {
-                return dao.upsertLinkCode(candidate, mcUuid, Instant.now().plus(ttl));
+                return dao.upsertLinkCode(candidate, mcUuid, clock.instant().plus(ttl));
             } catch (final UnableToExecuteStatementException exception) {
                 if (!isUniqueViolation(exception)) {
                     throw exception;

@@ -18,6 +18,7 @@ import io.javalin.http.HandlerType;
 import io.javalin.router.Endpoint;
 import io.javalin.security.Roles;
 import io.javalin.security.RouteRole;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -78,7 +79,8 @@ class GateTest {
                         new DiscordAuth(config.discord(), config.publicUrl()),
                         new InternalClient("steward-worker", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
                         new InternalClient("steward-deployer", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
-                        null)
+                        null,
+                        Clock.systemUTC())
                 // Port 0: the OS picks a free one, so this does not collide with another instance running.
                 .start(0);
     }

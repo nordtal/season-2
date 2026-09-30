@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
@@ -324,33 +325,4 @@ final class UpdateRun {
 
     /** What {@link #stop} produced, carried to the two steps after it. */
     record Stopped(UpdateReport report, List<String> services, RuntimeResult runtime) {}
-
-    /** The clock and the wait, as one seam, so {@link #verify}'s timeout can be tested without real minutes. */
-    interface Waiting {
-
-        Instant now();
-
-        /** Sleeps, and returns false when interrupted, which ends the wait rather than swallowing it. */
-        boolean sleep(Duration duration);
-
-        static Waiting real() {
-            return new Waiting() {
-                @Override
-                public Instant now() {
-                    return Instant.now();
-                }
-
-                @Override
-                public boolean sleep(final Duration duration) {
-                    try {
-                        Thread.sleep(duration.toMillis());
-                        return true;
-                    } catch (final InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                        return false;
-                    }
-                }
-            };
-        }
-    }
 }

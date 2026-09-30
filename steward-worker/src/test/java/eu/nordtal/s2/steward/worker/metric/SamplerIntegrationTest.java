@@ -12,6 +12,7 @@ import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
 import eu.nordtal.s2.steward.worker.schema.Schema;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -78,7 +79,7 @@ class SamplerIntegrationTest {
 
         final Instant at = Instant.now();
         final int written;
-        try (Sampler sampler = new Sampler(docker, new HostMetrics(), metrics, PROJECT)) {
+        try (Sampler sampler = new Sampler(docker, new HostMetrics(), metrics, PROJECT, Clock.systemUTC())) {
             // Twice: the first round has no previous CPU reading to subtract from, so it carries no cpu_percent.
             sampler.tick(at.minusSeconds(30));
             written = sampler.tick(at);
@@ -112,7 +113,8 @@ class SamplerIntegrationTest {
 
         // Keyed by subject, metric, resolution and time, so a second round must land on the first, not beside it.
         final Instant at = Instant.parse("2026-09-13T00:00:00Z");
-        try (Sampler sampler = new Sampler(new Docker(socket), new HostMetrics(), metrics, PROJECT)) {
+        try (Sampler sampler =
+                new Sampler(new Docker(socket), new HostMetrics(), metrics, PROJECT, Clock.systemUTC())) {
             sampler.tick(at);
             sampler.tick(at);
         }

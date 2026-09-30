@@ -12,6 +12,7 @@ import eu.nordtal.s2.discordbot.access.payment.Purchases;
 import eu.nordtal.s2.discordbot.access.payment.Tier;
 import eu.nordtal.s2.discordbot.access.payment.Tiers;
 import eu.nordtal.s2.messages.Messages;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -64,6 +65,8 @@ public final class PurchaseFlow extends ListenerAdapter {
     /** One ephemeral message, and when it started waiting. */
     private record Waiting(InteractionHook hook, Locale locale, Instant since) {}
 
+    private final Clock clock;
+
     public PurchaseFlow(
             final Tiers tiers,
             final Purchases purchases,
@@ -71,7 +74,9 @@ public final class PurchaseFlow extends ListenerAdapter {
             final Messages messages,
             final AccessRoles roles,
             final AdminLog admin,
-            final ExecutorService executor) {
+            final ExecutorService executor,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.tiers = tiers;
         this.purchases = purchases;
         this.requests = requests;
@@ -201,7 +206,7 @@ public final class PurchaseFlow extends ListenerAdapter {
                         return;
                     }
                     // Registered before the message is drawn, so a tab arriving this instant is caught by fillIn().
-                    waiting.put(request.id(), new Waiting(event.getHook(), locale, Instant.now()));
+                    waiting.put(request.id(), new Waiting(event.getHook(), locale, clock.instant()));
                     event.getHook()
                             .editOriginal(messages.format(
                                     locale, MESSAGES.purchase().linkSection().pending()))
@@ -238,7 +243,7 @@ public final class PurchaseFlow extends ListenerAdapter {
                 final Waiting waiter = entry.getValue();
                 if (settled(waiter.hook(), waiter.locale(), row.get())) {
                     entries.remove();
-                } else if (Duration.between(waiter.since(), Instant.now()).compareTo(GIVE_UP) > 0) {
+                } else if (Duration.between(waiter.since(), clock.instant()).compareTo(GIVE_UP) > 0) {
                     // The last thing this message says; it names the reference, which is what an admin needs.
                     waiter.hook()
                             .editOriginal(messages.format(

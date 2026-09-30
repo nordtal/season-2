@@ -14,6 +14,7 @@ import eu.nordtal.s2.database.payment.PaymentRequests;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -83,7 +84,7 @@ class RosterIntegrationTest {
         // TRUNCATE ... CASCADE keeps the migration applied once per class while every test starts empty.
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
                 + "player_playtime, discord_user CASCADE");
-        directory = AccessReader.using(dataSource);
+        directory = AccessReader.using(dataSource, Clock.systemUTC());
         payments = new PaymentRequests(
                 Jdbi.create(dataSource).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin()));
     }

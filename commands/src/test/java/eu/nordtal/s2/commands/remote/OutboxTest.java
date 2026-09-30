@@ -12,6 +12,7 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.database.command.CommandOutcome;
 import eu.nordtal.s2.database.command.NewCommandRequest;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +48,8 @@ class OutboxTest {
     private final List<String> warnings = new ArrayList<>();
     private final BiConsumer<String, Throwable> warn = this::recordWarning;
 
-    private final Outbox outbox = new Outbox(requests, scheduler, Duration.ofMillis(300), Duration.ofMillis(5), warn);
+    private final Outbox outbox =
+            new Outbox(requests, scheduler, Duration.ofMillis(300), Duration.ofMillis(5), warn, Clock.systemUTC());
 
     private void recordWarning(final String message, final Throwable cause) {
         warnings.add(message);

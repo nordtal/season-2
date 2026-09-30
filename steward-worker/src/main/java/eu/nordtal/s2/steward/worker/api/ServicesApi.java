@@ -41,12 +41,8 @@ public final class ServicesApi {
     private final OnlineRoster roster;
     private final Clock clock;
 
-    public ServicesApi(final OnlineDirectory online, final OnlineRoster roster) {
-        this(online, roster, Clock.systemUTC());
-    }
-
     /** Package-visible so a test can hold time still. */
-    ServicesApi(final OnlineDirectory online, final OnlineRoster roster, final Clock clock) {
+    public ServicesApi(final OnlineDirectory online, final OnlineRoster roster, final Clock clock) {
         this.online = Objects.requireNonNull(online, "online");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.clock = Objects.requireNonNull(clock, "clock");

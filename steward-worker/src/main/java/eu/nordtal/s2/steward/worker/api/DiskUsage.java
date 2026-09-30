@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.steward.worker.plan.Topology;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -40,7 +41,7 @@ final class DiskUsage {
     private final Map<String, Refreshed<Measured>> cache = new ConcurrentHashMap<>();
 
     DiskUsage(final @Nullable Path volumesRoot, final Executor background) {
-        this(volumesRoot, DiskUsage::du, background, Instant::now);
+        this(volumesRoot, DiskUsage::du, background, NetworkTime.clock()::instant);
     }
 
     DiskUsage(

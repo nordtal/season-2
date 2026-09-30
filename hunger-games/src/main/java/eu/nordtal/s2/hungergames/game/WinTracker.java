@@ -9,6 +9,7 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -47,11 +48,15 @@ public final class WinTracker {
     private final ConcurrentLinkedQueue<UUID> recentDeaths = new ConcurrentLinkedQueue<>();
     private volatile @Nullable Instant lastDeathAt;
 
+    private final Clock clock;
+
     public WinTracker(
             final HungerGamesDao dao,
             final Messages messages,
             final PlayerLocales locales,
-            final HungerGamesSounds sounds) {
+            final HungerGamesSounds sounds,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.dao = dao;
         this.messages = messages;
         this.locales = locales;
@@ -61,7 +66,7 @@ public final class WinTracker {
     public void reset(final List<HgMember> activeMembers) {
         aliveSince.clear();
         recentDeaths.clear();
-        final Instant now = Instant.now();
+        final Instant now = clock.instant();
         for (final HgMember member : activeMembers) {
             aliveSince.put(member.id(), now);
         }
@@ -92,7 +97,7 @@ public final class WinTracker {
         }
         dao.recordEvent(gameId, "DEATH", null, victimMemberId, null);
 
-        final Instant now = Instant.now();
+        final Instant now = clock.instant();
         final boolean simultaneous =
                 lastDeathAt != null && Duration.between(lastDeathAt, now).compareTo(SIMULTANEOUS_WINDOW) <= 0;
         lastDeathAt = now;

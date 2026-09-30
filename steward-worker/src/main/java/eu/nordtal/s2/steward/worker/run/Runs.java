@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.run;
 
+import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.steward.worker.apply.Applier;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
@@ -11,7 +12,6 @@ import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
 import eu.nordtal.s2.steward.worker.source.GitHubReleases;
 import eu.nordtal.s2.steward.worker.source.Modrinth;
 import eu.nordtal.s2.steward.worker.source.PaperFill;
-import java.time.Clock;
 import java.time.Duration;
 
 /** Resolve and apply, built in one place so the command line and the daemon produce the same report. */
@@ -33,7 +33,7 @@ public final class Runs {
                         new GitHubReleases(http),
                         new Modrinth(http),
                         new PaperFill(http),
-                        Clock.systemUTC(),
+                        NetworkTime.clock(),
                         plugins)
                 .resolve();
     }

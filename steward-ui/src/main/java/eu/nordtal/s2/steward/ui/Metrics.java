@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.ui;
 import eu.nordtal.s2.steward.ui.data.Data;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -14,7 +15,10 @@ final class Metrics {
 
     private final @Nullable Data data;
 
-    Metrics(final @Nullable Data data) {
+    private final Clock clock;
+
+    Metrics(final @Nullable Data data, final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.data = data;
     }
 
@@ -29,7 +33,7 @@ final class Metrics {
             throw new BadRequestResponse("metric is which number to draw");
         }
         final int hours = ctx.queryParamAsClass("hours", Integer.class).getOrDefault(6);
-        final Instant now = Instant.now();
+        final Instant now = clock.instant();
         ctx.json(Map.of(
                 "subject",
                 subject,

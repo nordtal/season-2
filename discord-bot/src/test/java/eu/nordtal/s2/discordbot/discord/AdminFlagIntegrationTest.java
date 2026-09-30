@@ -9,6 +9,7 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AdminTree;
+import java.time.Clock;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -70,7 +71,7 @@ class AdminFlagIntegrationTest {
                 .useHandle(handle ->
                         handle.execute("TRUNCATE access_grant, payment_request, expiry_notice, payment_notice, "
                                 + "account_link, link_code, audit_log, admin_grant, discord_user CASCADE"));
-        access = AccessDirectory.using(database.dataSource());
+        access = AccessDirectory.using(database.dataSource(), Clock.systemUTC());
         tree = AdminTree.using(database.dataSource());
         dao = database.jdbi().onDemand(AdminFlagDao.class);
     }

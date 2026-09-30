@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +57,7 @@ class ReadinessTest {
     void refreshCreatesTheMarkerItsParentDirectoryAndMovesItsModificationTime(@TempDir final Path directory)
             throws IOException {
         final Path marker = directory.resolve("nested/nordtal-ready");
-        final Readiness readiness = new Readiness(marker, complaint -> {
+        final Readiness readiness = new Readiness(marker, Clock.systemUTC(), complaint -> {
             throw new AssertionError("a working refresh complained: " + complaint);
         });
 
@@ -101,7 +102,7 @@ class ReadinessTest {
         Files.writeString(blocked, "not a directory\n", StandardCharsets.UTF_8);
 
         final List<String> complaints = new ArrayList<>();
-        final Readiness readiness = new Readiness(blocked.resolve("nordtal-ready"), complaints::add);
+        final Readiness readiness = new Readiness(blocked.resolve("nordtal-ready"), Clock.systemUTC(), complaints::add);
 
         assertFalse(readiness.refresh());
         assertFalse(readiness.refresh());

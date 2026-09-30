@@ -10,6 +10,7 @@ import eu.nordtal.s2.database.command.NewCommandRequest;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -42,11 +43,15 @@ public final class Announcer {
     private final Executor async;
     private final BiConsumer<String, Throwable> warn;
 
+    private final Clock clock;
+
     public Announcer(
             final CommandRequests requests,
             final Messages messages,
             final Executor async,
-            final BiConsumer<String, Throwable> warn) {
+            final BiConsumer<String, Throwable> warn,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.requests = Objects.requireNonNull(requests, "requests");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.async = Objects.requireNonNull(async, "async");
@@ -76,7 +81,7 @@ public final class Announcer {
                 final String text = PlainTextComponentSerializer.plainText()
                         .serialize(MessageRenderer.of(messages).format(locale, filled));
                 try {
-                    requests.submit(row(tag, text));
+                    requests.submit(row(tag, text, clock.instant()));
                 } catch (final RuntimeException failure) {
                     // One language failing must not cost the other its line.
                     warn.accept("could not send the " + tag + " announcement for " + filled.key(), failure);
@@ -86,7 +91,7 @@ public final class Announcer {
     }
 
     /** The row for one language, visible for the test. */
-    static NewCommandRequest row(final String tag, final String text) {
+    static NewCommandRequest row(final String tag, final String text, final Instant now) {
         final Values values = new Values(AnnounceCommands.ANNOUNCE, Map.of("language", tag, "text", text));
         return new NewCommandRequest(
                 AnnounceCommands.ANNOUNCE.target().name(),
@@ -97,6 +102,6 @@ public final class Announcer {
                 Optional.empty(),
                 Optional.empty(),
                 tag,
-                Instant.now().plus(KEEP));
+                now.plus(KEEP));
     }
 }

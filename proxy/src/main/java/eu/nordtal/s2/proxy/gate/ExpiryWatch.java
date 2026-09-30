@@ -6,6 +6,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AccessState;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
@@ -31,13 +32,17 @@ public final class ExpiryWatch {
     /** Whose warning has already fired for their current approach to expiry. */
     private final Set<UUID> warned = ConcurrentHashMap.newKeySet();
 
+    private final Clock clock;
+
     public ExpiryWatch(
             final ProxyServer proxy,
             final Logger logger,
             final AccessReader access,
             final FallbackCache fallback,
             final GateMessages messages,
-            final Duration warningLead) {
+            final Duration warningLead,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.proxy = proxy;
         this.logger = logger;
         this.access = access;
@@ -89,7 +94,7 @@ public final class ExpiryWatch {
             return;
         }
 
-        final Duration remaining = Duration.between(Instant.now(), validUntil);
+        final Duration remaining = Duration.between(clock.instant(), validUntil);
         if (remaining.compareTo(warningLead) <= 0) {
             if (warned.add(uuid)) {
                 final long minutes = Math.max(1, remaining.toMinutes());
@@ -108,8 +113,8 @@ public final class ExpiryWatch {
             case NOT_MEMBER -> messages.notMember(state.locale());
             case NO_ACCESS -> messages.expired(state.locale());
             // A network switched back to PRE_LAUNCH gets the screens the gate would show.
-            case PRE_LAUNCH_BUY -> messages.preLaunchBuy(state.locale(), state.launch(), Instant.now());
-            case PRE_LAUNCH_READY -> messages.preLaunchReady(state.locale(), state.launch(), Instant.now());
+            case PRE_LAUNCH_BUY -> messages.preLaunchBuy(state.locale(), state.launch(), clock.instant());
+            case PRE_LAUNCH_READY -> messages.preLaunchReady(state.locale(), state.launch(), clock.instant());
             // Unreachable: only called when mayJoin() is false, and GateOutcome agrees for every case.
             case ALLOW -> messages.trouble(state.locale());
         };

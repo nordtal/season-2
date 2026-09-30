@@ -7,6 +7,7 @@ import eu.nordtal.s2.steward.worker.config.BackupSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
+import java.time.Clock;
 import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,7 @@ class SchedulesTest {
 
     @Test
     void armingAgainPicksUpAScheduleThatChangedSinceTheLastArm() {
-        try (Schedules schedules = new Schedules(noDirectory(), config(), ZoneId.of("Europe/Berlin"))) {
+        try (Schedules schedules = new Schedules(noDirectory(), config(), Clock.system(ZoneId.of("Europe/Berlin")))) {
             schedules.arm();
             assertArrayEquals(
                     new boolean[] {true, false}, schedules.running(), "by default only the backup runs on a clock");

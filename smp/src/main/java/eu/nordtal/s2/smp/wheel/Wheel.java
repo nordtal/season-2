@@ -13,6 +13,7 @@ import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.db.Spins;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +46,8 @@ public final class Wheel {
     private final SmpSounds sounds;
     private final Random random = new Random();
 
+    private final Clock clock;
+
     public Wheel(
             final Plugin plugin,
             final SmpDao dao,
@@ -52,7 +55,9 @@ public final class Wheel {
             final Identities identities,
             final Messages messages,
             final PlayerLocales locales,
-            final SmpSounds sounds) {
+            final SmpSounds sounds,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
@@ -74,8 +79,7 @@ public final class Wheel {
         }
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            // Not SeasonDates.ZONE: Spins commits to the server's own zone (Europe/Berlin), not the UTC one graves use.
-            final LocalDate today = LocalDate.now(java.time.ZoneId.systemDefault());
+            final LocalDate today = LocalDate.now(clock);
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
 
             // Free first: an earned spin kept is still earned, but a free one not taken today is gone at midnight.
@@ -115,7 +119,7 @@ public final class Wheel {
         }
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
-            final int count = spins.available(LocalDate.now(java.time.ZoneId.systemDefault()));
+            final int count = spins.available(LocalDate.now(clock));
             final MessageRef available = count == 0
                     ? MESSAGES.smp().wheel().available()
                     : count == 1

@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.deployer;
 
 import com.google.gson.Gson;
+import eu.nordtal.s2.common.time.NetworkTime;
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
 import io.javalin.json.JavalinGson;
@@ -109,7 +110,7 @@ public final class StewardDeployer {
         final String token = requireToken();
         // A stale env file shows in the boot log, not on the first deploy.
         compose.assertEnvFileFresh();
-        final Jobs jobs = new Jobs();
+        final Jobs jobs = new Jobs(NetworkTime.clock());
 
         Javalin.create(config -> configureRoutes(config, compose, jobs, token)).start(port());
 

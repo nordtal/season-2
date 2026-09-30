@@ -5,6 +5,7 @@ import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import eu.nordtal.s2.steward.worker.docker.LogFrames;
 import io.javalin.http.sse.SseClient;
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
@@ -59,7 +60,10 @@ final class LogFollows {
     private final Docker docker;
     private final LogArchive archive;
 
-    LogFollows(final Docker docker, final LogArchive archive) {
+    private final Clock clock;
+
+    LogFollows(final Docker docker, final LogArchive archive, final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.docker = docker;
         this.archive = archive;
     }
@@ -139,7 +143,8 @@ final class LogFollows {
         if (dockerLines.size() >= wanted) {
             return;
         }
-        final LogArchive.Backlog earlier = archive.before(name, oldest(dockerLines), wanted - dockerLines.size());
+        final LogArchive.Backlog earlier =
+                archive.before(name, oldest(dockerLines, clock.instant()), wanted - dockerLines.size());
         if (earlier.exhausted()) {
             client.sendEvent("end", "Nothing older.");
         }
@@ -155,7 +160,7 @@ final class LogFollows {
     }
 
     /** The timestamp Docker put in front of the first line, or now when there is none. */
-    static Instant oldest(final List<String> dockerLines) {
+    static Instant oldest(final List<String> dockerLines, final Instant now) {
         if (!dockerLines.isEmpty()) {
             final String first = dockerLines.getFirst();
             final int space = first.indexOf(' ');
@@ -167,7 +172,7 @@ final class LogFollows {
                 }
             }
         }
-        return Instant.now();
+        return now;
     }
 
     /**

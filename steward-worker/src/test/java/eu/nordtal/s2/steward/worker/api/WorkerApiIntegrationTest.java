@@ -19,6 +19,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
@@ -56,7 +57,8 @@ class WorkerApiIntegrationTest {
                 new WorkerApi.Nightly(
                         "04:45",
                         List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"),
-                        ZoneId.of("Europe/Berlin")));
+                        ZoneId.of("Europe/Berlin")),
+                Clock.systemUTC());
         api.start(PORT);
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }

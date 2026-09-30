@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
@@ -86,7 +87,8 @@ final class UpdateSequence {
                 run,
                 prep.planned().withStage(UpdateReport.Stage.INSTALLING),
                 prep.foreign(),
-                progress);
+                progress,
+                runner.waiting);
         final UpdateReport settled = Runner.settle(
                 renewed,
                 run.unverifiedStops(),
@@ -128,7 +130,7 @@ final class UpdateSequence {
 
             final UpdateRun.Stopped stopped = run.stop(planned, runtime);
 
-            final Outcome refused = refuseIfNotStopped(planned, stopped, run, runtime);
+            final Outcome refused = refuseIfNotStopped(planned, stopped, run, runtime, runner.waiting);
             if (refused != null) {
                 return refused;
             }
@@ -141,8 +143,8 @@ final class UpdateSequence {
             }
 
             // Last, once the Minecraft services are healthy again; see FOREIGN_IMAGES.
-            final UpdateReport renewed =
-                    ForeignImages.renewForeign(runner.containers, run, installed.verified(), prep.foreign(), progress);
+            final UpdateReport renewed = ForeignImages.renewForeign(
+                    runner.containers, run, installed.verified(), prep.foreign(), progress, runner.waiting);
 
             final UpdateReport told = Runner.noteStandbys(renewed, choreography.close());
             final UpdateReport finished = Runner.settle(
@@ -186,7 +188,8 @@ final class UpdateSequence {
             final UpdateReport planned,
             final UpdateRun.Stopped stopped,
             final UpdateRun run,
-            final RuntimeResult runtime) {
+            final RuntimeResult runtime,
+            final Waiting waiting) {
         final List<String> notStopped = planned.services().stream()
                 // isMoving, matching UpdateRun#stop: an artefact with no build yet was never asked to stop.
                 .filter(UpdateReport.ServiceLine::isMoving)
@@ -208,7 +211,7 @@ final class UpdateSequence {
                 stopped.services(),
                 runtime));
         return Outcome.failed(UpdateReports.toJson(
-                run.verify(back, stopped.services(), UpdateRun.Waiting.real()).withStage(UpdateReport.Stage.FAILED)));
+                run.verify(back, stopped.services(), waiting).withStage(UpdateReport.Stage.FAILED)));
     }
 
     /** What {@link #migrateAndApply} produced: the verified report, and whether the install had any failure in it. */
@@ -243,9 +246,8 @@ final class UpdateSequence {
                     stopped.report().withNote("THE MIGRATION FAILED AND NOTHING WAS INSTALLED: " + failure),
                     stopped.services(),
                     runtime));
-            throw new EarlyOutcome(
-                    Outcome.failed(UpdateReports.toJson(run.verify(back, stopped.services(), UpdateRun.Waiting.real())
-                            .withStage(UpdateReport.Stage.FAILED))));
+            throw new EarlyOutcome(Outcome.failed(UpdateReports.toJson(
+                    run.verify(back, stopped.services(), runner.waiting).withStage(UpdateReport.Stage.FAILED))));
         }
 
         UpdateReport report = stopped.report().withStage(UpdateReport.Stage.INSTALLING);
@@ -263,7 +265,7 @@ final class UpdateSequence {
         progress.accept(report);
 
         final UpdateReport started = run.start(new UpdateRun.Stopped(report, stopped.services(), runtime), images);
-        final UpdateReport verified = run.verify(started, stopped.services(), UpdateRun.Waiting.real());
+        final UpdateReport verified = run.verify(started, stopped.services(), runner.waiting);
         return new Installed(verified, result.hasFailures());
     }
 

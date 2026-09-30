@@ -6,6 +6,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import java.util.Set;
@@ -17,6 +18,18 @@ class ArchitectureTest {
 
     private static final Set<String> MIGRATORS =
             Set.of("org.flywaydb.core.Flyway", "eu.nordtal.jcore.persistence.sql.Database");
+
+    private static final Set<String> WALL_CLOCK = Set.of(
+            "java.time.Instant.now",
+            "java.time.LocalDate.now",
+            "java.time.LocalTime.now",
+            "java.time.LocalDateTime.now",
+            "java.time.ZonedDateTime.now",
+            "java.time.OffsetDateTime.now",
+            "java.time.Clock.system",
+            "java.time.Clock.systemUTC",
+            "java.time.Clock.systemDefaultZone",
+            "java.lang.System.currentTimeMillis");
 
     private static JavaClasses classes;
 
@@ -104,6 +117,23 @@ class ArchitectureTest {
                 .dependOnClassesThat()
                 .resideInAnyPackage(
                         "net.kyori.adventure..", "eu.nordtal.s2.messagerendering..", "eu.nordtal.s2.packrendering..")
+                .check(classes);
+    }
+
+    @Test
+    void onlyNetworkTimeReadsTheWallClock() {
+        noClasses()
+                .that()
+                .doNotHaveFullyQualifiedName("eu.nordtal.s2.common.time.NetworkTime")
+                .should()
+                .accessTargetWhere(DescribedPredicate.describe(
+                        "a read of the wall clock",
+                        access -> WALL_CLOCK.contains(access.getTargetOwner().getName() + "."
+                                        + access.getTarget().getName())
+                                && !(access.getTarget() instanceof final CodeUnitAccessTarget unit
+                                        && unit.getRawParameterTypes().stream()
+                                                .anyMatch(type -> type.getName().equals("java.time.Clock")))))
+                .because("each process creates one clock with NetworkTime.clock() and hands it down")
                 .check(classes);
     }
 

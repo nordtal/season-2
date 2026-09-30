@@ -9,6 +9,7 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +50,8 @@ public final class LootRefill {
     /** Set by {@link #scheduleAll}, cleared by {@link #cancelAll}; null while no game is running. */
     private volatile @Nullable Instant releasedAt;
 
+    private final Clock clock;
+
     public LootRefill(
             final Plugin plugin,
             final World world,
@@ -56,7 +59,9 @@ public final class LootRefill {
             final BorderController border,
             final Messages messages,
             final PlayerLocales locales,
-            final HungerGamesSounds sounds) {
+            final HungerGamesSounds sounds,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.world = world;
         this.config = config;
@@ -72,7 +77,7 @@ public final class LootRefill {
         if (released == null) {
             return null;
         }
-        final Instant now = Instant.now();
+        final Instant now = clock.instant();
         @Nullable Instant soonest = null;
         for (final HungerGamesSpec.RefillTierSpec tier : config.refillTiers()) {
             final Instant due = released.plusSeconds(tier.delayMinutes() * 60L);
@@ -89,7 +94,7 @@ public final class LootRefill {
         for (final HungerGamesSpec.RefillTierSpec tier : config.refillTiers()) {
             final long delayTicks = tier.delayMinutes() * 60L * 20L;
             final long elapsedTicks =
-                    java.time.Duration.between(releasedAt, Instant.now()).toSeconds() * 20L;
+                    java.time.Duration.between(releasedAt, clock.instant()).toSeconds() * 20L;
             final long remainingTicks = Math.max(0, delayTicks - elapsedTicks);
 
             final BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> refill(tier), remainingTicks);

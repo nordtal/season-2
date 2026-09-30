@@ -10,6 +10,7 @@ import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
@@ -46,6 +47,7 @@ import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -62,6 +64,9 @@ import org.jspecify.annotations.Nullable;
 
 /** The hunger games start event of season 2. */
 public final class HungerGamesPlugin extends JavaPlugin {
+
+    /** The one clock of this process. */
+    private final Clock clock = NetworkTime.clock();
 
     private ConfigHandle<HungerGamesSpec> configHandle;
     private ConfigHandle<DatabaseSpec> databaseHandle;
@@ -193,14 +198,14 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
     /** Builds the border, loot, HUD, lobby, ceremony and manager, and starts the lobby broadcast. */
     private void wireGameSystems(final HungerGamesSpec config, final World world) {
-        border = new BorderController(this, world, config, messages, locales, sounds);
-        loot = new LootRefill(this, world, config, border, messages, locales, sounds);
+        border = new BorderController(this, world, config, messages, locales, sounds, clock);
+        loot = new LootRefill(this, world, config, border, messages, locales, sounds, clock);
         // winTracker before hud: the HUD reads the living count off it on every redraw.
-        winTracker = new WinTracker(dao, messages, locales, sounds);
-        hud = new HudRenderer(this, world, config, messages, locales, border, state, winTracker, loot);
+        winTracker = new WinTracker(dao, messages, locales, sounds, clock);
+        hud = new HudRenderer(this, world, config, messages, locales, border, state, winTracker, loot, clock);
         lobby = new Lobby(this, dao, config, messages, locales);
         ceremony = new Ceremony(messages, locales, sounds);
-        manager = new HungerGamesManager(this, dao, config, messages, locales, bodies, state, border, sounds);
+        manager = new HungerGamesManager(this, dao, config, messages, locales, bodies, state, border, sounds, clock);
 
         refreshCurrentGame();
 
@@ -246,7 +251,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
                                 sounds,
                                 systemLines,
                                 composition,
-                                this::onGameDecided),
+                                this::onGameDecided,
+                                clock),
                         this);
         return new AdminHooks(operators, admission);
     }
@@ -257,13 +263,13 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // Without this the admin flag is read once per session and a revoked admin keeps operator until they leave.
         adminWatch = new AdminWatch(
                 this,
-                eu.nordtal.s2.database.access.AccessReader.using(pool),
+                eu.nordtal.s2.database.access.AccessReader.using(pool, clock),
                 hooks.operators(),
                 hooks.admission(),
                 admins -> {},
                 getLogger0());
         final eu.nordtal.s2.database.access.AccessReader access =
-                eu.nordtal.s2.database.access.AccessReader.using(pool);
+                eu.nordtal.s2.database.access.AccessReader.using(pool, clock);
         final java.util.function.BooleanSupplier reloadSounds = this::reloadSounds;
         chatEffects = new BukkitHungerGamesEffects(
                 this,
@@ -286,7 +292,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
         outbox = new Outbox(
                 requests,
                 commandWaiter,
-                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
+                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure),
+                clock);
 
         // Built here rather than inside the inbox so /hg reload can swap it too.
         sharedMessages = PaperCommandInbox.sharedBundle(this);
@@ -343,7 +350,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
     /** Starts the readiness marker ({@link Readiness}) last, re-queued by the main thread so a freeze goes stale. */
     private void startHeartbeat() {
-        final Readiness readiness = Readiness.onDefaultPath(getLogger()::warning);
+        final Readiness readiness = Readiness.onDefaultPath(clock, getLogger()::warning);
         final long ticks = Readiness.BEAT.toSeconds() * 20L;
         heartbeat = getServer().getScheduler().runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
     }
@@ -399,7 +406,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private void startGame(final UUID gameId, final World world) {
         final List<HgMember> activeMembers = dao.activeMembersOf(gameId);
         manager.start(gameId, world, () -> {
-            final Instant releasedAt = Instant.now();
+            final Instant releasedAt = clock.instant();
             loot.scheduleAll(releasedAt);
             hud.start();
             winTracker.reset(activeMembers);

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
@@ -59,7 +60,8 @@ final class BackupSequence {
             final UpdateReport planned,
             final UpdateRun.Stopped stopped,
             final UpdateRun run,
-            final RuntimeResult runtime) {
+            final RuntimeResult runtime,
+            final Waiting waiting) {
         // A refused stop leaves a service writing to a volume; a torn snapshot fails at RESTORE, not here.
         final List<String> notStopped = Runner.servicesThatRefused(planned, stopped.services());
         if (notStopped.isEmpty()) {
@@ -74,7 +76,7 @@ final class BackupSequence {
                 stopped.services(),
                 runtime));
         return Outcome.failed(UpdateReports.toJson(
-                run.verify(back, stopped.services(), UpdateRun.Waiting.real()).withStage(UpdateReport.Stage.FAILED)));
+                run.verify(back, stopped.services(), waiting).withStage(UpdateReport.Stage.FAILED)));
     }
 
     /** Stops the network, saves the volumes and starts it again, as an update does with nothing installed. */
@@ -115,7 +117,7 @@ final class BackupSequence {
 
             final UpdateRun.Stopped stopped = run.stop(planned, runtime);
 
-            final Outcome refused = refuseIfNotStopped(planned, stopped, run, runtime);
+            final Outcome refused = refuseIfNotStopped(planned, stopped, run, runtime, runner.waiting);
             if (refused != null) {
                 return refused;
             }
@@ -125,7 +127,7 @@ final class BackupSequence {
             final UpdateReport swept = pruneAfterBackup(runner, saved);
 
             final UpdateReport started = run.start(new UpdateRun.Stopped(swept, stopped.services(), runtime));
-            final UpdateReport verified = run.verify(started, stopped.services(), UpdateRun.Waiting.real());
+            final UpdateReport verified = run.verify(started, stopped.services(), runner.waiting);
 
             final UpdateReport told = Runner.noteStandbys(verified, choreography.close());
             final UpdateReport finished = Runner.settle(

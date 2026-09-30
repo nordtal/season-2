@@ -13,6 +13,7 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -39,7 +40,7 @@ class DiscordDirectoryTest {
     void withoutATokenItSaysWhichValueIsMissing() {
         // An empty picker and an unreachable Discord look identical; only one is fixable in ten seconds.
         final DiscordDirectory directory =
-                new DiscordDirectory(new Values().withGuildId("1"), "https://discord.invalid");
+                new DiscordDirectory(new Values().withGuildId("1"), "https://discord.invalid", Clock.systemUTC());
 
         final String reason = directory.unavailable();
 
@@ -49,7 +50,7 @@ class DiscordDirectoryTest {
 
     @Test
     void withoutAGuildItSaysSo() {
-        assertTrue(new DiscordDirectory(new Values().withBotToken("t"), "https://discord.invalid")
+        assertTrue(new DiscordDirectory(new Values().withBotToken("t"), "https://discord.invalid", Clock.systemUTC())
                 .unavailable()
                 .contains("discord.guild-id"));
     }
@@ -119,7 +120,8 @@ class DiscordDirectoryTest {
         server.start();
         return new DiscordDirectory(
                 new Values().withGuildId("1").withBotToken("a-token"),
-                "http://127.0.0.1:" + server.getAddress().getPort());
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                Clock.systemUTC());
     }
 
     /** The four values this class reads, each empty until a test fills it in. */

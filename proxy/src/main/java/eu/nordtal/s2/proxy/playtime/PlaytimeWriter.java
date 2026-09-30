@@ -27,11 +27,7 @@ public final class PlaytimeWriter {
 
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
 
-    public PlaytimeWriter(final PlaytimeStore store, final LoginRoster roster, final Logger logger) {
-        this(store, roster, logger, Clock.systemUTC());
-    }
-
-    PlaytimeWriter(final PlaytimeStore store, final LoginRoster roster, final Logger logger, final Clock clock) {
+    public PlaytimeWriter(final PlaytimeStore store, final LoginRoster roster, final Logger logger, final Clock clock) {
         this.store = Objects.requireNonNull(store, "store");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.logger = Objects.requireNonNull(logger, "logger");

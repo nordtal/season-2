@@ -5,6 +5,7 @@ import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.update.StandbyDirectory;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.InstantSource;
 import java.util.Map;
 import java.util.OptionalInt;
 import javax.sql.DataSource;
@@ -54,7 +55,7 @@ interface Occupancy {
     };
 
     /** The production reader, over the pool this process already owns, opening its directories on first use. */
-    static Occupancy over(final DataSource dataSource) {
+    static Occupancy over(final DataSource dataSource, final InstantSource clock) {
         return new Occupancy() {
 
             private volatile @Nullable OnlineDirectory counts;
@@ -63,7 +64,7 @@ interface Occupancy {
             @Override
             public OptionalInt on(final String service, final Instant now) {
                 if (counts == null) {
-                    counts = OnlineDirectory.using(dataSource);
+                    counts = OnlineDirectory.using(dataSource, clock);
                 }
                 final Map<String, OnlineCount> current;
                 try {

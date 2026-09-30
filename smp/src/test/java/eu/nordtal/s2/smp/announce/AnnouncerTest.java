@@ -12,6 +12,7 @@ import eu.nordtal.s2.database.command.NewCommandRequest;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.smp.SmpMessages;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -79,8 +80,8 @@ class AnnouncerTest {
     void oneRowPerLanguage() {
         final Rows rows = new Rows();
         final List<String> warnings = new ArrayList<>();
-        final Announcer announcer =
-                new Announcer(rows, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message));
+        final Announcer announcer = new Announcer(
+                rows, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message), Clock.systemUTC());
 
         announcer.announce(locale -> SmpMessages.MESSAGES
                 .smp()
@@ -112,7 +113,7 @@ class AnnouncerTest {
         final Rows rows = new Rows();
         rows.refuse = new IllegalStateException("pool exhausted");
         final List<String> warnings = new ArrayList<>();
-        new Announcer(rows, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message))
+        new Announcer(rows, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message), Clock.systemUTC())
                 .announce(SmpMessages.MESSAGES.smp().announce().milestone(new MilestoneContext("Departure")));
         assertEquals(Announcer.LANGUAGES.size(), warnings.size());
         assertTrue(warnings.getFirst().contains("smp.announce.milestone"));

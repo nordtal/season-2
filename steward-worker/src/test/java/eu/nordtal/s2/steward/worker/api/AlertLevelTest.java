@@ -20,7 +20,7 @@ class AlertLevelTest {
 
     @Test
     void anEmptyServiceListIsAWarningNotAGreenLight() {
-        final AlertLevel.Reading reading = AlertLevel.of(table(List.of()), List.of());
+        final AlertLevel.Reading reading = AlertLevel.of(table(List.of()), List.of(), Map.of(), Instant.now());
         assertEquals(AlertLevel.Level.WARN, reading.level());
         assertEquals("services", reading.subject());
     }
@@ -30,7 +30,7 @@ class AlertLevelTest {
         final Map<String, Object> table = table(
                 List.of(service("smp", "exited", null, "UP_TO_DATE"), service("caddy", "running", null, "UP_TO_DATE")));
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()));
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()), Map.of(), Instant.now());
 
         assertEquals(AlertLevel.Level.DOWN, reading.level());
         assertEquals("smp", reading.subject());
@@ -41,7 +41,7 @@ class AlertLevelTest {
     void runningButUnhealthyIsRedToo() {
         final Map<String, Object> table = table(List.of(service("postgres", "running", "unhealthy", "UP_TO_DATE")));
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()));
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()), Map.of(), Instant.now());
 
         assertEquals(AlertLevel.Level.DOWN, reading.level());
         assertEquals("postgres", reading.subject());
@@ -51,7 +51,7 @@ class AlertLevelTest {
     void noBackupAtAllIsRedRankedBelowAStoppedService() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of());
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(), Map.of(), Instant.now());
 
         assertEquals(AlertLevel.Level.DOWN, reading.level());
         assertEquals("backups", reading.subject());
@@ -62,7 +62,7 @@ class AlertLevelTest {
     void aDumpWithNoVolumeArchiveIsItsOwnSentence() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump()));
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump()), Map.of(), Instant.now());
 
         assertEquals(AlertLevel.Level.DOWN, reading.level());
         assertEquals("backups", reading.subject());
@@ -72,7 +72,7 @@ class AlertLevelTest {
     void aMissingDatabaseDumpNamesItselfNotTheGeneralWord() {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UP_TO_DATE")));
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(volume()));
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(volume()), Map.of(), Instant.now());
 
         assertEquals(AlertLevel.Level.DOWN, reading.level());
         assertEquals("database dump", reading.subject());
@@ -84,7 +84,8 @@ class AlertLevelTest {
         final Map<String, Object> partialDump = dump();
         partialDump.put("partial", true);
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(partialDump, volume()));
+        final AlertLevel.Reading reading =
+                AlertLevel.of(table, List.of(partialDump, volume()), Map.of(), Instant.now());
 
         assertEquals(AlertLevel.Level.DOWN, reading.level());
         assertEquals("database dump", reading.subject());
@@ -95,7 +96,7 @@ class AlertLevelTest {
         final Map<String, Object> table = table(
                 List.of(service("smp", "running", null, "OUTDATED"), service("caddy", "running", null, "UP_TO_DATE")));
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()));
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()), Map.of(), Instant.now());
 
         assertEquals(AlertLevel.Level.WARN, reading.level());
         assertEquals("smp", reading.subject());
@@ -107,7 +108,7 @@ class AlertLevelTest {
         final Map<String, Object> table = table(List.of(service("smp", "running", null, "UNKNOWN")));
         ((Map<String, Object>) table.get("drift")).put("reached", false);
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()));
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()), Map.of(), Instant.now());
 
         assertEquals(AlertLevel.Level.WARN, reading.level());
         assertEquals("registry", reading.subject());
@@ -118,7 +119,7 @@ class AlertLevelTest {
         final Map<String, Object> table = table(List.of(
                 service("smp", "running", null, "UP_TO_DATE"), service("caddy", "running", null, "UP_TO_DATE")));
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()));
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(dump(), volume()), Map.of(), Instant.now());
 
         assertEquals(AlertLevel.Reading.OK, reading);
     }
@@ -127,7 +128,7 @@ class AlertLevelTest {
     void downOutranksWarnEvenWhenBothArePresent() {
         final Map<String, Object> table = table(List.of(service("smp", "exited", null, "OUTDATED")));
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of());
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(), Map.of(), Instant.now());
 
         assertEquals(AlertLevel.Level.DOWN, reading.level());
         assertEquals("smp", reading.subject());
@@ -138,7 +139,7 @@ class AlertLevelTest {
         final Map<String, Object> table = table(
                 List.of(service("smp", "exited", null, "OUTDATED"), service("caddy", "running", null, "UP_TO_DATE")));
 
-        final AlertLevel.Reading reading = AlertLevel.of(table, List.of());
+        final AlertLevel.Reading reading = AlertLevel.of(table, List.of(), Map.of(), Instant.now());
 
         // A push is per type and switchable per account, so a drift hidden behind a stopped service must still surface.
         assertEquals(

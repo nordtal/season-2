@@ -27,12 +27,12 @@ public final class Watermark {
      * Resolves the cut-off, writing the first-start value if there is none yet.
      *
      * @param configured {@code payment.watermark} from {@code access.yml}, normally blank
+     * @param now        this start, which becomes the cut-off when none is stored
      */
-    public static Instant resolve(final Jdbi jdbi, final String configured) {
+    public static Instant resolve(final Jdbi jdbi, final String configured, final Instant now) {
         final BotSettingDao dao = jdbi.onDemand(BotSettingDao.class);
 
         // Written even with an override, so removing it later falls back to the first start.
-        final Instant now = Instant.now();
         if (dao.insertIfAbsent(KEY, now.toString()) == 1) {
             log.info(
                     "No payment watermark was stored; this start is the cut-off: {}. "

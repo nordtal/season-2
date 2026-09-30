@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.steward.worker.plan.Installation;
 import eu.nordtal.s2.steward.worker.source.Modrinth;
 import java.io.IOException;
@@ -45,7 +46,7 @@ final class JarIdentity {
     private final Map<String, Kept> projects = new ConcurrentHashMap<>();
 
     JarIdentity(final Modrinth modrinth) {
-        this(modrinth, Instant::now);
+        this(modrinth, NetworkTime.clock()::instant);
     }
 
     JarIdentity(final Modrinth modrinth, final Supplier<Instant> clock) {

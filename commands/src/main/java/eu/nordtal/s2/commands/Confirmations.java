@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands;
 
+import eu.nordtal.s2.common.time.NetworkTime;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,7 +24,7 @@ public final class Confirmations {
     private final Map<String, Instant> pending = new ConcurrentHashMap<>();
 
     public Confirmations() {
-        this(WINDOW, Clock.systemUTC());
+        this(WINDOW, NetworkTime.clock());
     }
 
     /** Package-visible window and clock, so a test can move time instead of sleeping. */

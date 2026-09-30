@@ -65,7 +65,7 @@ class UpdateServerTest {
 
     @Test
     void everythingDueIsRunInOneDrain() {
-        directory.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
+        directory.submit(UpdateKind.BACKUP, UpdateSource.DISCORD, "a", Duration.ZERO);
         directory.submit(UpdateKind.UPDATE, UpdateSource.GAME, "b", Duration.ZERO);
 
         final List<UpdateKind> ran = new ArrayList<>();
@@ -75,9 +75,9 @@ class UpdateServerTest {
                 })
                 .drain();
 
-        assertEquals(List.of(UpdateKind.REPORT, UpdateKind.UPDATE), ran);
+        assertEquals(List.of(UpdateKind.BACKUP, UpdateKind.UPDATE), ran);
         assertEquals(2, directory.finished().size());
-        assertEquals("done REPORT", directory.finished().get(0).result());
+        assertEquals("done BACKUP", directory.finished().get(0).result());
     }
 
     @Test
@@ -110,7 +110,7 @@ class UpdateServerTest {
     void aHandedOverRunGoesBackToTheInboxAndThisWorkerTakesNothingElse() {
         // This worker is about to exit and must not start a second request.
         final UpdateRequest update = directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
-        directory.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "b", Duration.ZERO);
+        directory.submit(UpdateKind.BACKUP, UpdateSource.DISCORD, "b", Duration.ZERO);
 
         final List<UpdateKind> ran = new ArrayList<>();
         final UpdateServer server = server((request, progress) -> {
@@ -147,7 +147,7 @@ class UpdateServerTest {
     @Test
     void aListenerThatDiesIsReplacedAndTheTableIsDrainedOnEveryReconnect() throws Exception {
         // THE rule: a request written while disconnected produced a notification nobody received and none repeats it.
-        directory.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
+        directory.submit(UpdateKind.BACKUP, UpdateSource.DISCORD, "a", Duration.ZERO);
 
         final AtomicInteger connects = new AtomicInteger();
         final AtomicInteger ran = new AtomicInteger();

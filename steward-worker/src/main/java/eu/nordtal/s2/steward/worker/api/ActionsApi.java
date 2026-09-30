@@ -3,7 +3,6 @@ package eu.nordtal.s2.steward.worker.api;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateDirectory;
-import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import io.javalin.http.Context;
 import java.util.ArrayList;
@@ -59,10 +58,6 @@ public final class ActionsApi {
         final List<ActionEntry> combined = new ArrayList<>();
 
         for (final UpdateRequest run : updates.recent(clamped)) {
-            // APPLY is retired and refused, so it is only history.
-            if (run.kind() == UpdateKind.APPLY) {
-                continue;
-            }
             combined.add(ActionEntry.of(run));
         }
 

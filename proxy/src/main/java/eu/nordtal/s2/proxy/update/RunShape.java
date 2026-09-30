@@ -80,8 +80,8 @@ public record RunShape(
             case DOWN -> Occasion.DOWN;
             case RESTART -> Occasion.RECREATE;
             case BACKUP -> Occasion.BACKUP;
-            // UPDATE plus REPORT, START and the retired APPLY; those three never start a countdown.
-            case UPDATE, REPORT, START, APPLY -> Occasion.UPDATE;
+            // START never starts a countdown, and is named anyway.
+            case UPDATE, START -> Occasion.UPDATE;
         };
     }
 

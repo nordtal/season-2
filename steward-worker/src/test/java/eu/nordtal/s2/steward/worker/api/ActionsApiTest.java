@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.worker.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateKind;
@@ -87,14 +86,5 @@ class ActionsApiTest {
         final List<ActionEntry> entries = api.recent(5);
         assertEquals(1, entries.size());
         assertEquals("GRANT_ACCESS", entries.get(0).kind());
-    }
-
-    @Test
-    void aRetiredApplyRunIsExcluded() {
-        final ActionsApi api = new ActionsApi(
-                FakeDirectories.updates(run(1, Instant.parse("2026-09-16T12:00:00Z"), UpdateKind.APPLY)),
-                FakeDirectories.audit());
-
-        assertTrue(api.recent(5).isEmpty());
     }
 }

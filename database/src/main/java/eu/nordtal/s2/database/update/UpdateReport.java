@@ -208,7 +208,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
 
         /** Asking every source what the newest version is; writes nothing. */
         RESOLVING("Working out what is new..."),
-        /** Resolved, nothing done; where a {@code REPORT} ends. */
+        /** Resolved, nothing done yet; the plan a countdown announces. */
         PLANNED("What is new"),
         /** The countdown is running and players can see it; still cancellable. */
         COUNTDOWN("Updating shortly"),

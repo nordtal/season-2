@@ -89,15 +89,13 @@ class RunShapeTest {
         assertEquals(RunShape.Occasion.BACKUP, occasionOf(UpdateKind.BACKUP));
         assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.UPDATE));
 
-        // REPORT, START and APPLY reach no player but are named anyway.
-        assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.REPORT));
+        // START reaches no player but is named anyway.
         assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.START));
-        assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.APPLY));
     }
 
     @Test
     void anEmptyRunTouchesNobody() {
-        final RunShape shape = RunShape.of(UpdateKind.REPORT, Set.of(), true, true);
+        final RunShape shape = RunShape.of(UpdateKind.START, Set.of(), true, true);
 
         assertFalse(shape.touchesAnybody());
         assertNull(shape.onlyService());

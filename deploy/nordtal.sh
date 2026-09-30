@@ -570,7 +570,7 @@ set_secret() {
 # An update run requested from the host, which works while the stack itself is broken.
 # These are decisions only; `cmd_update` below the seam reaches for Docker.
 
-# The kinds `update_request.kind` accepts from here; REPORT and APPLY are the worker's own.
+# The kinds `update_request.kind` accepts.
 UPDATE_KINDS=(UPDATE RESTART BACKUP DOWN START)
 
 # How long the command waits; the run itself carries on after it gives up.

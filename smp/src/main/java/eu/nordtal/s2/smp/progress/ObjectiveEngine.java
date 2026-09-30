@@ -101,7 +101,7 @@ public final class ObjectiveEngine {
      * @param objectiveKey which objective of the active milestone
      * @param delta how much, in the objective's own unit
      * @param completedBy the player the credit came from, or null for an admin; only changes the finishing sound
-     * @return how much was credited, less than {@code delta} when it finished the objective
+     * @return {@code delta}, or 0 when it is not positive or the active milestone has no such open objective
      */
     public long credit(
             final DiscordId discordId, final String objectiveKey, final long delta, final @Nullable UUID completedBy) {

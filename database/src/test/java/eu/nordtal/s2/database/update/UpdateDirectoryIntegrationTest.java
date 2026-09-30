@@ -440,10 +440,12 @@ class UpdateDirectoryIntegrationTest {
                 counting.status(),
                 "a counting-down row is RUNNING, which is why the partial index had to widen");
         assertEquals(submitted.id(), updates.countingDown().orElseThrow().id());
-        assertEquals(
-                30L,
-                counting.countdownEnd().getEpochSecond() - counting.started().getEpochSecond(),
-                "the proxy counts towards countdown_end, 30 s after the claim");
+        // The claim and the countdown are two statements, so a second may pass between them.
+        final long afterClaim =
+                Duration.between(counting.started(), counting.countdownEnd()).toMillis();
+        assertTrue(
+                afterClaim >= 30_000 && afterClaim < 32_000,
+                "the proxy counts towards countdown_end, 30 s after the countdown started, was " + afterClaim + " ms");
         assertEquals(counting.requested(), counting.scheduledFor(), "the schedule itself never moves");
         assertEquals(List.of("smp"), counting.moving());
 

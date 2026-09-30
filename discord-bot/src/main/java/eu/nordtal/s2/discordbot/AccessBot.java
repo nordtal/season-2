@@ -39,6 +39,7 @@ import eu.nordtal.s2.discordbot.hungergames.RegisterMessages;
 import eu.nordtal.s2.discordbot.hungergames.Teams;
 import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.context.MessageEnvironment;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -66,6 +67,9 @@ public class AccessBot implements AutoCloseable {
 
     /** Classpath root of the message bundles, one {@code <tag>.properties} per language. */
     private static final String MESSAGE_ROOT = "messages/access";
+
+    /** The name {@code {server.name}} reads in this process. */
+    private static final String SERVICE = "discord-bot";
 
     private final Database database;
     private final AccessDirectory access;
@@ -202,10 +206,11 @@ public class AccessBot implements AutoCloseable {
         final Languages languages = Languages.of(accessConfig);
         // :commands' shared bundle underneath this module's own; this module's keys win a collision.
         final Messages messages = Messages.load(
-                AccessBot.class.getClassLoader(),
-                java.util.List.of("messages/commands", MESSAGE_ROOT),
-                Configs.messagesDirectory(),
-                languages.locales());
+                        AccessBot.class.getClassLoader(),
+                        java.util.List.of("messages/commands", MESSAGE_ROOT),
+                        Configs.messagesDirectory(),
+                        languages.locales())
+                .within(MessageEnvironment.of(SERVICE));
         messages.unknownOverrideKeys()
                 .forEach(key -> log.warn(
                         "the message override names {}, which no bundle declares - it is stored"
@@ -213,10 +218,11 @@ public class AccessBot implements AutoCloseable {
                         key));
         // The same files as one root, for remote answers: this module's keys are allowed Discord markdown.
         final Messages sharedMessages = Messages.load(
-                AccessBot.class.getClassLoader(),
-                "messages/commands",
-                Configs.messagesDirectory(),
-                languages.locales());
+                        AccessBot.class.getClassLoader(),
+                        "messages/commands",
+                        Configs.messagesDirectory(),
+                        languages.locales())
+                .within(MessageEnvironment.of(SERVICE));
         final Tiers tiers = Tiers.of(accessConfig);
 
         // The bunq key lives in steward-worker and is read here as a row.
@@ -510,7 +516,6 @@ public class AccessBot implements AutoCloseable {
     private static final java.time.Duration FATAL_BACKOFF = java.time.Duration.ofSeconds(60);
 
     public static void main(final String[] args) throws InterruptedException {
-        eu.nordtal.s2.messages.context.Contexts.server("discord-bot");
         final AccessBot bot;
         try {
             bot = new AccessBot();

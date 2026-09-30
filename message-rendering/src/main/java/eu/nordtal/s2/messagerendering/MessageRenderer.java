@@ -104,7 +104,7 @@ public final class MessageRenderer {
      */
     public Component format(final Locale locale, final MessageRef message) {
         final Map<String, Component> components = new LinkedHashMap<>();
-        final Map<String, Object> values = Contexts.flatten(message.args());
+        final Map<String, Object> values = Contexts.flatten(message.args(), messages.environment());
         final Object[] parameters = new Object[values.size() * 2];
         int index = 0;
         for (final Map.Entry<String, Object> arg : values.entrySet()) {

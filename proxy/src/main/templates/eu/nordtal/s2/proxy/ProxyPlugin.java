@@ -1,5 +1,7 @@
 package eu.nordtal.s2.proxy;
 
+import eu.nordtal.s2.messages.context.MessageEnvironment;
+
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.event.Subscribe;
@@ -98,6 +100,9 @@ import java.util.concurrent.atomic.AtomicReference;
 )
 public final class ProxyPlugin {
 
+    /** The process every message of this proxy renders for. */
+    private static final MessageEnvironment ENVIRONMENT = MessageEnvironment.of("proxy");
+
     private final ProxyServer proxy;
     private final Logger logger;
     private final Path dataDirectory;
@@ -128,14 +133,13 @@ public final class ProxyPlugin {
     @Subscribe
     public void onProxyInitialize(final ProxyInitializeEvent event) {
         // {server.name} in every message.
-        eu.nordtal.s2.messages.context.Contexts.server("proxy");
         logger.info("proxy enabled, {} backends registered", proxy.getAllServers().size());
 
         try {
             // Inside the try since Messages.load can throw on a read-only volume; two roots, this module's keys win.
             final Messages messages = Messages.load(getClass().getClassLoader(),
                     List.of("messages/commands", "messages/proxy"),
-                    dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
+                    dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN).within(ENVIRONMENT);
             messages.unknownOverrideKeys().forEach(key -> logger.warn(
                     "the message override names {}, which no bundle declares - it is stored and"
                             + " never used; check the spelling", key));
@@ -156,7 +160,7 @@ public final class ProxyPlugin {
                        final ColoursSpec coloursConfig, final Messages messages) {
         // :commands' bundle alone, for the inbox: its own keys allow MiniMessage, unlike the layered root.
         this.sharedMessages = Messages.load(getClass().getClassLoader(), "messages/commands",
-                dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
+                dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN).within(ENVIRONMENT);
         this.pool = AccessPool.open(databaseConfig);
         this.access = AccessDirectory.using(pool);
 
@@ -541,7 +545,7 @@ public final class ProxyPlugin {
         // Its own bundle, from the classpath with NO override directory: that layer is one thing that can break.
         try {
             final Messages messages = Messages.load(getClass().getClassLoader(),
-                    "messages/proxy", Locale.ENGLISH, Locale.GERMAN);
+                    "messages/proxy", Locale.ENGLISH, Locale.GERMAN).within(ENVIRONMENT);
             proxy.getEventManager().register(this, new MisconfiguredGate(logger, messages));
         } catch (final RuntimeException broken) {
             // The packaged bundle is inside the jar; reaching here means it is damaged, so the proxy shuts down.

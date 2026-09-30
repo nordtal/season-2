@@ -14,6 +14,7 @@ import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
@@ -88,11 +89,12 @@ final class SmpStart {
 
         // Later roots win, so this module's own keys override the shared ones.
         final Messages messages = Messages.load(
-                plugin.getClass().getClassLoader(),
-                java.util.List.of("messages/paper-common", "messages/commands", "messages/smp"),
-                plugin.getDataFolder().toPath().resolve("messages"),
-                java.util.Locale.ENGLISH,
-                java.util.Locale.GERMAN);
+                        plugin.getClass().getClassLoader(),
+                        java.util.List.of("messages/paper-common", "messages/commands", "messages/smp"),
+                        plugin.getDataFolder().toPath().resolve("messages"),
+                        java.util.Locale.ENGLISH,
+                        java.util.Locale.GERMAN)
+                .within(MessageEnvironment.of(plugin.getName()));
         final PlayerLocales locales = new PlayerLocales(mcUuid -> dao.discordIdOf(mcUuid)
                 .map(id -> Locales.parse(dao.localeOf(id).orElse(null)))
                 .orElse(Locales.DEFAULT));

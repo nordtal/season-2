@@ -2,6 +2,7 @@ package eu.nordtal.s2.messages;
 
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.messages.context.Contexts;
+import eu.nordtal.s2.messages.context.MessageEnvironment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -37,6 +38,7 @@ public final class Messages {
     private final List<Locale> locales;
 
     private final @Nullable Path overrides;
+    private final MessageEnvironment environment;
 
     /** Language tag to key to template; volatile because {@link #reload()} swaps it from any thread. */
     private volatile Map<String, Map<String, String>> byLanguage;
@@ -50,11 +52,13 @@ public final class Messages {
             final List<String> roots,
             final ClassLoader classLoader,
             final @Nullable Path overrides,
-            final List<Locale> locales) {
+            final List<Locale> locales,
+            final MessageEnvironment environment) {
         this.roots = roots;
         this.classLoader = classLoader;
         this.overrides = overrides;
         this.locales = locales;
+        this.environment = environment;
         reload();
     }
 
@@ -122,7 +126,20 @@ public final class Messages {
         if (overrides != null) {
             prepare(overrides, String.join(", ", normalised));
         }
-        return new Messages(normalised, classLoader, overrides, withDefault(locales));
+        return new Messages(normalised, classLoader, overrides, withDefault(locales), MessageEnvironment.NONE);
+    }
+
+    /**
+     * Returns the same bundles for one process, whose {@code server} and {@code season} every message can name.
+     * A process calls it once at startup; the bundles are read again for the new instance.
+     */
+    public Messages within(final MessageEnvironment environment) {
+        return new Messages(roots, classLoader, overrides, locales, Objects.requireNonNull(environment, "environment"));
+    }
+
+    /** Returns the process this instance renders for. */
+    public MessageEnvironment environment() {
+        return environment;
     }
 
     /**
@@ -379,7 +396,7 @@ public final class Messages {
 
     /** Renders a message a spec chose as plain text, with context and global placeholders substituted. */
     public String format(final Locale locale, final MessageRef message) {
-        return format(locale, message.key(), Contexts.flatten(message.args()));
+        return format(locale, message.key(), Contexts.flatten(message.args(), environment));
     }
 
     /** Returns whether that language has its own translation for the key, not counting the English fallback. */

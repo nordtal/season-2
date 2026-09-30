@@ -146,7 +146,6 @@ public final class SmpPlugin extends JavaPlugin {
     public void onEnable() {
         // Loads what every disable step needs while the jar still exists.
         eu.nordtal.s2.common.health.Shutdown.warmUp();
-        eu.nordtal.s2.messages.context.Contexts.server(getName());
         try {
             start();
         } catch (final Refusal refusal) {

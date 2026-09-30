@@ -7,6 +7,11 @@ package eu.nordtal.s2.smp.db;
  */
 public record ObjectiveRow(java.util.UUID id, String key, long amount, long target, boolean completed) {
 
+    /** Returns this row as it stands once a credit has brought it to {@code collected}. */
+    public ObjectiveRow withAmount(final long collected) {
+        return new ObjectiveRow(id, key, collected, target, completed);
+    }
+
     /** Clamped to 1.0, because a lowered target can leave more collected than is wanted. */
     public double ratio() {
         if (target <= 0) {

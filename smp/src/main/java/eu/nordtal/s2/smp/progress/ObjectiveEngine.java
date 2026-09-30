@@ -116,12 +116,12 @@ public final class ObjectiveEngine {
     }
 
     /**
-     * Credits one player to the active milestone's gate when it names this advancement; blocking, so call it async.
+     * Counts a holder of this advancement once towards the active milestone's gate naming it; blocking, so async.
      *
-     * @param discordId who earned it
-     * @param advancement the advancement earned
-     * @param completedBy the player who earned it; only changes the finishing sound
-     * @return 1, or 0 when the active milestone's gate names another advancement
+     * @param discordId who holds it
+     * @param advancement the advancement held
+     * @param completedBy the player who holds it; only changes the finishing sound
+     * @return 1, or 0 when the gate names another advancement, is finished or counts this player already
      */
     public long creditAdvancement(
             final DiscordId discordId, final NamespacedKey advancement, final @Nullable UUID completedBy) {
@@ -129,12 +129,25 @@ public final class ObjectiveEngine {
         if (activeKey.isEmpty()) {
             return 0L;
         }
-        final Optional<Objective> gate =
-                track.get().milestone(activeKey.get()).flatMap(milestone -> milestone.gateFor(advancement));
-        if (gate.isEmpty()) {
+        final Optional<ObjectiveRow> gate = track.get()
+                .milestone(activeKey.get())
+                .flatMap(milestone -> milestone.gateFor(advancement))
+                .flatMap(objective -> dao.objective(activeKey.get(), objective.key()));
+        if (gate.isEmpty() || gate.get().completed()) {
             return 0L;
         }
-        return creditUnder(activeKey.get(), discordId, gate.get().key(), 1L, completedBy);
+        final ObjectiveRow before = gate.get();
+        final Optional<Long> amount = dao.countOnce(before.id(), discordId);
+        if (amount.isEmpty()) {
+            return 0L;
+        }
+        if (ObjectiveProgress.advance(amount.get() - 1L, before.target(), 1L).completes()) {
+            finishObjective(
+                    activeKey.get(),
+                    new ObjectiveRow(before.id(), before.key(), amount.get(), before.target(), false),
+                    completedBy);
+        }
+        return 1L;
     }
 
     private long creditUnder(

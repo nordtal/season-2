@@ -48,6 +48,7 @@ import eu.nordtal.s2.smp.player.PlayerComposition;
 import eu.nordtal.s2.smp.player.PlayerSurfaces;
 import eu.nordtal.s2.smp.player.PresenceListener;
 import eu.nordtal.s2.smp.progress.AdvancementListener;
+import eu.nordtal.s2.smp.progress.GateHolders;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
 import eu.nordtal.s2.smp.progress.StatisticPoller;
 import eu.nordtal.s2.smp.protect.ProtectionListener;
@@ -230,7 +231,7 @@ final class SmpStart {
                 plugin.logger());
     }
 
-    record Progress(ObjectiveEngine engine, StatisticPoller poller) {}
+    record Progress(ObjectiveEngine engine, StatisticPoller poller, GateHolders gates) {}
 
     static Progress wireProgressEngine(final SmpPlugin plugin, final SmpSpec config, final WorldEffects effects) {
         final ObjectiveEngine engine = new ObjectiveEngine(
@@ -248,7 +249,15 @@ final class SmpStart {
                 plugin.announcer);
         final StatisticPoller poller = new StatisticPoller(plugin, () -> plugin.track, engine, plugin.identities);
         poller.start();
-        return new Progress(engine, poller);
+        final GateHolders gates = new GateHolders(
+                () -> plugin.track,
+                GateHolders.Server.running(),
+                plugin.identities::discordIdOf,
+                task -> Bukkit.getScheduler().runTask(plugin, task),
+                task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task),
+                engine);
+        plugin.getServer().getPluginManager().registerEvents(gates, plugin);
+        return new Progress(engine, poller, gates);
     }
 
     record Activities(DeathPenalty penalty, Wheel wheel, Graves graves, Duels duels) {}

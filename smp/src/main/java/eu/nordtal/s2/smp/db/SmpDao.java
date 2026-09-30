@@ -140,6 +140,28 @@ public interface SmpDao {
     void addContribution(
             @Bind("objectiveId") UUID objectiveId, @Bind("discordId") DiscordId discordId, @Bind("amount") long amount);
 
+    /**
+     * Counts one player towards an unfinished gate, once, and adds 1 to its amount only for a player not counted yet.
+     *
+     * @return the gate's new amount, or empty when this player already counts or the gate is finished
+     */
+    @SqlQuery("""
+            WITH counted AS (
+                INSERT INTO smp_contribution (objective_id, discord_id, amount)
+                SELECT obj.id, :discordId, 1
+                FROM smp_objective obj
+                WHERE obj.id = :objectiveId AND obj.completed IS NULL
+                ON CONFLICT (objective_id, discord_id) DO NOTHING
+                RETURNING objective_id
+            )
+            UPDATE smp_objective obj
+            SET amount = obj.amount + 1
+            FROM counted
+            WHERE obj.id = counted.objective_id
+            RETURNING obj.amount
+            """)
+    Optional<Long> countOnce(@Bind("objectiveId") UUID objectiveId, @Bind("discordId") DiscordId discordId);
+
     @SqlQuery("""
             SELECT discord_id AS discordId, amount AS amount
             FROM smp_contribution

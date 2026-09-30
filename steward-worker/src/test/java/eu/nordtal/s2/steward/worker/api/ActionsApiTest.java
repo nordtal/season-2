@@ -2,10 +2,10 @@ package eu.nordtal.s2.steward.worker.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Instant;
 import java.util.List;
@@ -20,10 +20,11 @@ class ActionsApiTest {
                 id,
                 kind,
                 UpdateStatus.DONE,
-                UpdateSource.CONSOLE,
+                Actor.HOST,
+                finished.minusSeconds(30),
+                finished.minusSeconds(30),
                 null,
-                finished.minusSeconds(30),
-                finished.minusSeconds(30),
+                List.of(),
                 finished.minusSeconds(20),
                 finished,
                 "{\"stage\":\"DONE\",\"services\":[],\"notes\":[]}");

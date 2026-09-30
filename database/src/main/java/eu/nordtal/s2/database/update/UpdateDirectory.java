@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.update;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
@@ -32,30 +33,24 @@ public interface UpdateDirectory {
     /**
      * Asks for something to happen, and announces it in the same statement.
      *
-     * @param kind        what to do
-     * @param source      which surface is asking
-     * @param requestedBy a Discord id, a Minecraft name, or {@code null} for the console
-     * @param delay       how long the worker must wait; {@link Duration#ZERO} in practice, negative means zero
+     * @param kind  what to do
+     * @param actor who is asking
+     * @param delay how long the worker must wait before claiming it; negative means zero
      * @return the row as written
      * @throws Refused with an {@link UpdateRefusal} when another run is open anywhere, or a take-down names a
      *     held service
      */
-    UpdateRequest submit(UpdateKind kind, UpdateSource source, @Nullable String requestedBy, @Nullable Duration delay);
+    default UpdateRequest submit(final UpdateKind kind, final Actor actor, final @Nullable Duration delay) {
+        return submit(kind, actor, delay, null);
+    }
 
     /**
      * The same, for a run that is only for some of the services.
      *
      * @param services compose service names; empty or {@code null} is the whole network
      */
-    default UpdateRequest submit(
-            final UpdateKind kind,
-            final UpdateSource source,
-            final @Nullable String requestedBy,
-            final @Nullable Duration delay,
-            final java.util.@Nullable List<String> services) {
-        // A default so that a directory without scope support, such as a test fake, keeps working.
-        return submit(kind, source, requestedBy, delay);
-    }
+    UpdateRequest submit(
+            UpdateKind kind, Actor actor, @Nullable Duration delay, java.util.@Nullable List<String> services);
 
     /** Returns which services a run is for, or empty for the whole network and for an unknown id. */
     default java.util.List<String> scopeOf(final long id) {
@@ -77,7 +72,7 @@ public interface UpdateDirectory {
      *
      * The default throws, so a directory that cannot write never pretends it did.
      */
-    default void hold(final String service, final @Nullable String heldBy, final @Nullable Long requestId) {
+    default void hold(final String service, final Actor heldBy, final @Nullable Long requestId) {
         throw new UnsupportedOperationException("this directory cannot hold a service down: " + service);
     }
 
@@ -162,9 +157,10 @@ public interface UpdateDirectory {
      *
      * @param id     the claimed request
      * @param length how long the countdown runs, from now on the database's clock
-     * @return the row with its new {@code not_before}, or empty when it was cancelled since the claim
+     * @param moving the services the run stops, which the proxy evacuates once the countdown runs out
+     * @return the row with its {@code countdown_end}, or empty when it was cancelled since the claim
      */
-    Optional<UpdateRequest> startCountdown(long id, Duration length);
+    Optional<UpdateRequest> startCountdown(long id, Duration length, java.util.Collection<String> moving);
 
     /**
      * Ends the countdown in one statement that decides the race with a cancel at zero; only the worker calls this.

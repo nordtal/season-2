@@ -123,7 +123,7 @@ public final class ProxySwap {
             return;
         }
         final Set<String> next = Evacuation.imminent(running);
-        final boolean alreadyMoved = running.map(request -> hasBeenThroughMe(startedAt, request.notBefore()))
+        final boolean alreadyMoved = running.map(request -> hasBeenThroughMe(startedAt, request.due()))
                 .orElse(false);
 
         final Pass pass = decide(next, parked, alreadyMoved, () -> probe.answers(standby, STANDBY_ANSWERS_WITHIN));
@@ -161,10 +161,10 @@ public final class ProxySwap {
      * Returns whether this process started after the run's zero, which only the run itself can have caused.
      *
      * @param startedAt when this process started
-     * @param notBefore the run's own zero, from its row
+     * @param zero the run's own zero, from its row
      */
-    static boolean hasBeenThroughMe(final Instant startedAt, final Instant notBefore) {
-        return notBefore != null && startedAt.isAfter(notBefore);
+    static boolean hasBeenThroughMe(final Instant startedAt, final Instant zero) {
+        return zero != null && startedAt.isAfter(zero);
     }
 
     /** What one pass of {@link #check()} does. */

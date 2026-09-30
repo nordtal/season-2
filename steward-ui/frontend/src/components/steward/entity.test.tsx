@@ -118,17 +118,17 @@ describe("Entity", () => {
 })
 
 describe("Actor - who asked for a run", () => {
-  it("is Steward for the nightly clock, the person for an id, and unknown for a bare label", async () => {
+  it("is Steward on its own, the person for an id, and the host for the installer", async () => {
     draw(
       <>
-        <Actor system discordId="" label="" />
-        <Actor system={false} discordId={DISCORD_ID} label="" />
-        <Actor system={false} discordId="" label="agent (plane session)" />
+        <Actor kind="STEWARD" id="" />
+        <Actor kind="PERSON" id={DISCORD_ID} />
+        <Actor kind="HOST" id="" />
       </>,
     )
 
     expect(await screen.findByText("Ally")).toBeTruthy()
     expect(screen.getByText("Steward")).toBeTruthy()
-    expect(screen.getByText("agent (plane session)").closest("[data-entity='unknown']")).toBeTruthy()
+    expect(screen.getByText("host").closest("[data-entity='unknown']")).toBeTruthy()
   })
 })

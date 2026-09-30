@@ -2,6 +2,8 @@
 -- service whose code decides what a row means, and a table another service writes says who and how.
 --
 -- Every point in time is `timestamptz`. A Discord id is varchar(32), a Minecraft account a uuid.
+-- Whoever asked for a request is a typed actor in two columns: actor_kind is PERSON, STEWARD (Steward on
+-- its own) or HOST (the installer on the host), and actor_id holds the Discord id of a PERSON only.
 -- Rows that describe what is live now (online_count, online_player, proxy_standby_state) are stamped
 -- by the writing process with its own clock, not by now(): every process shares the host's clock,
 -- and a writer handed a test clock is what makes staleness testable without sleeping.
@@ -436,30 +438,40 @@ CREATE TABLE update_request
     kind         varchar(16) NOT NULL
         CONSTRAINT update_request_kind_check
             CHECK (kind IN ('UPDATE', 'RESTART', 'BACKUP', 'DOWN', 'START')),
-    status       varchar(16) NOT NULL DEFAULT 'PENDING'
+    status        varchar(16) NOT NULL DEFAULT 'PENDING'
         CONSTRAINT update_request_status_check CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'FAILED', 'CANCELLED')),
-    source       varchar(16) NOT NULL
-        CONSTRAINT update_request_source_check CHECK (source IN ('DISCORD', 'GAME', 'CONSOLE')),
-    requested_by varchar(64),
-    requested    timestamptz NOT NULL DEFAULT now(),
-    -- When the run may go ahead: now() when asked, moved forward by the worker once its plan has work.
-    not_before   timestamptz NOT NULL DEFAULT now(),
-    started      timestamptz,
-    finished     timestamptz,
+    actor_kind    varchar(16) NOT NULL
+        CONSTRAINT update_request_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
+    actor_id      varchar(32),
+    requested     timestamptz NOT NULL DEFAULT now(),
+    -- When the worker may claim it: now() when asked, later for a run asked for ahead of time. Never moves.
+    scheduled_for timestamptz NOT NULL DEFAULT now(),
+    -- When the servers go down: set when the worker's plan has work and the countdown starts, set to now()
+    -- when it runs out, NULL for a run that never counted down. The proxy counts towards it.
+    countdown_end timestamptz,
+    -- The compose services this run stops, written with countdown_end; the proxy evacuates them.
+    moving        text[]      NOT NULL DEFAULT '{}',
+    started       timestamptz,
+    finished      timestamptz,
     -- The run's report as JSON, rewritten as the run moves through its stages.
-    result       text,
+    result        text,
     -- Comma-separated compose services the run is for; NULL is the whole network.
-    scope        text CONSTRAINT update_request_scope_check CHECK (scope IS NULL OR scope ~ '^[a-z0-9-]+(,[a-z0-9-]+)*$')
+    scope         text CONSTRAINT update_request_scope_check CHECK (scope IS NULL OR scope ~ '^[a-z0-9-]+(,[a-z0-9-]+)*$'),
+    CONSTRAINT update_request_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL))
 );
 COMMENT ON TABLE update_request IS 'Owned by steward-worker, which claims and runs every row. steward-ui, the worker''s own schedule and the host installer ask for runs; steward-ui cancels them.';
-CREATE INDEX update_request_pending ON update_request (not_before, id) WHERE status IN ('PENDING', 'RUNNING');
+CREATE INDEX update_request_pending ON update_request (scheduled_for, id) WHERE status IN ('PENDING', 'RUNNING');
 
 CREATE TABLE service_hold
 (
     service    text PRIMARY KEY CONSTRAINT service_hold_service_check CHECK (service ~ '^[a-z0-9-]+$'),
     since      timestamptz NOT NULL DEFAULT now(),
-    held_by    text,
-    request_id bigint CONSTRAINT service_hold_request_id_fkey REFERENCES update_request (id) ON DELETE SET NULL
+    -- Who asked for the DOWN run that put it there.
+    actor_kind varchar(16) NOT NULL
+        CONSTRAINT service_hold_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
+    actor_id   varchar(32),
+    request_id bigint CONSTRAINT service_hold_request_id_fkey REFERENCES update_request (id) ON DELETE SET NULL,
+    CONSTRAINT service_hold_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL))
 );
 COMMENT ON TABLE service_hold IS 'Owned by steward-worker: a service deliberately stopped, which stays stopped until someone starts it. No row is the ordinary case.';
 
@@ -510,14 +522,15 @@ CREATE TABLE access_request
         CONSTRAINT access_request_status_check CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'FAILED', 'EXPIRED')),
     subject      varchar(64) NOT NULL,
     argument     varchar(64),
-    source       varchar(16) NOT NULL
-        CONSTRAINT access_request_source_check CHECK (source IN ('DISCORD', 'STEWARD', 'GAME', 'CONSOLE')),
-    requested_by varchar(64),
+    actor_kind   varchar(16) NOT NULL
+        CONSTRAINT access_request_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
+    actor_id     varchar(32),
     requested    timestamptz NOT NULL DEFAULT now(),
     expires      timestamptz NOT NULL,
     started      timestamptz,
     finished     timestamptz,
-    result       text
+    result       text,
+    CONSTRAINT access_request_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL))
 );
 COMMENT ON TABLE access_request IS 'Owned by discord-bot, which claims and carries out every row. steward-ui and steward-worker ask.';
 CREATE INDEX access_request_pending ON access_request (id) WHERE status = 'PENDING';

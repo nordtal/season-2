@@ -245,15 +245,7 @@ function Runs() {
                       {run ? ran(run) : <SkeletonText width="short" className="ml-auto" />}
                     </TableCell>
                     <TableCell data-label="Initiated by" className="text-muted-foreground">
-                      {!run ? (
-                        <SkeletonText width="medium" />
-                      ) : (
-                        <Actor
-                          system={run.system}
-                          discordId={run.actorDiscordId}
-                          label={run.actorLabel || run.source}
-                        />
-                      )}
+                      {!run ? <SkeletonText width="medium" /> : <Actor kind={run.actorKind} id={run.actorId} />}
                     </TableCell>
                   </TableRow>
                 )

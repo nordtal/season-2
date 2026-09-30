@@ -271,7 +271,7 @@ export type Service = {
    *
    * Absent is not false: a stopped container without one fell over, which only `service_hold` can say.
    */
-  hold?: { since: string; by?: string | null }
+  hold?: { since: string }
   /**
    * Set on the `standby` profile's services, which are meant to be stopped.
    *
@@ -383,20 +383,17 @@ export type Run = {
   id: number
   kind: string
   status: string
-  source: string
-  requestedBy: string
+  actorKind: ActorKind
+  actorId: string
   /** The services this run is for; empty is the whole network. */
   scope: string[]
-  /**
-   * `requestedBy`, already picked apart as in `StewardUi.ActorFields`.
-   *
-   * Never absent: an empty string means "none of this applies".
-   */
-  actorDiscordId: string
-  actorLabel: string
-  system: boolean
   requested: string
-  notBefore: string
+  /** When the worker may claim it; never moves. */
+  scheduledFor: string
+  /** When the servers go down once the countdown started, `"null"` before. */
+  countdownEnd: string
+  /** The services the run stops, written when its countdown starts. */
+  moving: string[]
   started: string
   finished: string
   report?: Report
@@ -600,18 +597,16 @@ export type JournalEntry = {
   detail?: string
 }
 
-/**
- * One row of steward-worker's `/api/actions`: a run or an audit line, newest first.
- *
- * `actorDiscordId` and `actorLabel` are `""` when empty; `system` means neither applies.
- */
+/** Who asked for a run or did a journalled thing; `actorId` is a Discord id for a `PERSON` and `""` otherwise. */
+export type ActorKind = "PERSON" | "STEWARD" | "HOST"
+
+/** One row of steward-worker's `/api/actions`: a run or an audit line, newest first. */
 export type Action = {
   kind: string
   occurred: string
   extent: string
-  actorDiscordId: string
-  actorLabel: string
-  system: boolean
+  actorKind: ActorKind
+  actorId: string
 }
 
 /**

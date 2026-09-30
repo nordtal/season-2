@@ -4,10 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.proxy.MutableClock;
 import java.nio.file.Files;
@@ -36,10 +36,11 @@ class CountdownTest {
                 id,
                 UpdateKind.UPDATE,
                 UpdateStatus.RUNNING,
-                UpdateSource.DISCORD,
-                "a",
+                Actor.HOST,
                 NOW,
                 clock.instant().plus(in),
+                null,
+                List.of(),
                 NOW,
                 null,
                 null);

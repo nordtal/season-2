@@ -4,8 +4,6 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import eu.nordtal.s2.database.update.UpdateDirectory;
-import eu.nordtal.s2.database.update.UpdateReport;
-import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.proxy.PhaseServers;
 import java.util.HashSet;
@@ -160,20 +158,15 @@ public final class Evacuation {
     /**
      * The backends to clear, empty until a run is under way.
      *
-     * @param running the row whose {@code not_before} has passed, from {@code UpdateDirectory#running()}
+     * @param running the row whose countdown has run out, from {@code UpdateDirectory#running()}
      */
     static Set<String> imminent(final Optional<UpdateRequest> running) {
         return running.map(Evacuation::backends).orElseGet(Set::of);
     }
 
-    /** The services a request's report says are moving; an unreadable report gives none. */
+    /** The services the run stops, as the worker wrote them when its countdown started. */
     static Set<String> backends(final UpdateRequest request) {
-        return UpdateReports.parse(request.result())
-                .map(report -> report.services().stream()
-                        .filter(UpdateReport.ServiceLine::isMoving)
-                        .map(UpdateReport.ServiceLine::service)
-                        .collect(java.util.stream.Collectors.toUnmodifiableSet()))
-                .orElseGet(Set::of);
+        return Set.copyOf(request.moving());
     }
 
     /** Moves everybody standing on one of those backends into the waiting room. */

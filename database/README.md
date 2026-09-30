@@ -11,6 +11,10 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   and a message from this module's own bundle, `messages/database`. `DatabaseText` renders it in
   English for Steward and the logs.
 - **Time** comes from the caller: every directory that decides by the clock takes an `InstantSource`.
+- **Who asked** for a request is an `Actor`: a person by Discord id, Steward on its own, or the host's
+  installer, stored as `actor_kind` and `actor_id` in every request table and never as a name to parse.
+- **A run's countdown** is typed columns the proxy reads: `scheduled_for` (when the worker may claim it),
+  `countdown_end` (when the servers go down) and `moving` (what they are), never the report JSON.
 
 The test fixtures publish `TestDatabase`, the one way a test reaches PostgreSQL: one container per
 test JVM, migrated once, and a new database cloned from it for every `fresh()` (or an unmigrated one

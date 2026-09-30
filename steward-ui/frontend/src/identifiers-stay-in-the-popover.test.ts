@@ -10,7 +10,7 @@ const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
  *
  * Reads the source, so it covers pages with no render test; `pages/access.test.tsx` proves the rule by rendering.
  */
-const IDENTIFIER_FIELDS = ["discordId", "minecraftUuid", "mcUuid", "actorDiscordId", "requestedBy"]
+const IDENTIFIER_FIELDS = ["discordId", "minecraftUuid", "mcUuid", "actorId", "requestedBy"]
 
 const ALLOWED = ["components/steward/identity.tsx"]
 

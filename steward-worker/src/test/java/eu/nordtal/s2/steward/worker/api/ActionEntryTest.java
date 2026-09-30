@@ -1,16 +1,16 @@
 package eu.nordtal.s2.steward.worker.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -21,15 +21,16 @@ class ActionEntryTest {
     private static final Instant FINISHED = Instant.parse("2026-09-16T12:05:00Z");
 
     private static UpdateRequest run(
-            final UpdateKind kind, final UpdateStatus status, final String requestedBy, final String result) {
+            final UpdateKind kind, final UpdateStatus status, final Actor actor, final String result) {
         return new UpdateRequest(
                 1L,
                 kind,
                 status,
-                UpdateSource.CONSOLE,
-                requestedBy,
+                actor,
                 REQUESTED,
                 REQUESTED,
+                null,
+                List.of(),
                 REQUESTED,
                 status.isFinished() ? FINISHED : null,
                 result);
@@ -45,8 +46,7 @@ class ActionEntryTest {
                 + "{\"service\":\"d\",\"state\":\"UNCHANGED\",\"changes\":[]},"
                 + "{\"service\":\"e\",\"state\":\"PLANNED\",\"changes\":[]}"
                 + "],\"notes\":[]}";
-        final ActionEntry entry =
-                ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, "alex" + " (300000000000000077)", report));
+        final ActionEntry entry = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, Actor.HOST, report));
         assertEquals("2/3 successful", entry.extent());
     }
 
@@ -54,7 +54,7 @@ class ActionEntryTest {
     void nothingTouchedReadsTheReportsOwnHeadline() {
         final String report = "{\"stage\":\"NOTHING_TO_DO\",\"services\":["
                 + "{\"service\":\"a\",\"state\":\"UNCHANGED\",\"changes\":[]}],\"notes\":[]}";
-        final ActionEntry entry = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, null, report));
+        final ActionEntry entry = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, Actor.HOST, report));
         assertEquals("Everything is already current", entry.extent());
     }
 
@@ -62,10 +62,10 @@ class ActionEntryTest {
     void unparseableResultFallsBackToTheStatusWord() {
         // An older worker wrote plain text, or the row has none yet.
         final ActionEntry done = ActionEntry.of(
-                run(UpdateKind.UPDATE, UpdateStatus.DONE, null, "some plain text a very old worker wrote"));
+                run(UpdateKind.UPDATE, UpdateStatus.DONE, Actor.HOST, "some plain text a very old worker wrote"));
         assertEquals("done", done.extent());
 
-        final ActionEntry failed = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.FAILED, null, null));
+        final ActionEntry failed = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.FAILED, Actor.HOST, null));
         assertEquals("failed", failed.extent());
     }
 
@@ -77,10 +77,11 @@ class ActionEntryTest {
                                 1L,
                                 UpdateKind.RESTART,
                                 UpdateStatus.PENDING,
-                                UpdateSource.CONSOLE,
+                                Actor.HOST,
+                                REQUESTED,
+                                REQUESTED,
                                 null,
-                                REQUESTED,
-                                REQUESTED,
+                                List.of(),
                                 null,
                                 null,
                                 null))
@@ -91,10 +92,11 @@ class ActionEntryTest {
                                 1L,
                                 UpdateKind.RESTART,
                                 UpdateStatus.RUNNING,
-                                UpdateSource.CONSOLE,
+                                Actor.HOST,
+                                REQUESTED,
+                                REQUESTED,
                                 null,
-                                REQUESTED,
-                                REQUESTED,
+                                List.of(),
                                 REQUESTED,
                                 null,
                                 null))
@@ -102,44 +104,37 @@ class ActionEntryTest {
     }
 
     @Test
-    void aNullRequesterIsTheSystem() {
-        final ActionEntry entry = ActionEntry.of(run(UpdateKind.BACKUP, UpdateStatus.DONE, null, null));
-        assertTrue(entry.system());
-        assertEquals("", entry.actorDiscordId());
-        assertEquals("", entry.actorLabel());
+    void aRunCarriesTheActorItWasAskedBy() {
+        final Actor person = Actor.person(DiscordId.of("300000000000000077"));
+        assertEquals(
+                person,
+                ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, person, null))
+                        .actor());
+        assertEquals(
+                Actor.STEWARD,
+                ActionEntry.of(run(UpdateKind.BACKUP, UpdateStatus.DONE, Actor.STEWARD, null))
+                        .actor());
     }
 
     @Test
-    void theNightlyClockIsTheSystemToo() {
-        final ActionEntry entry =
-                ActionEntry.of(run(UpdateKind.BACKUP, UpdateStatus.DONE, "steward-worker (nightly)", null));
-        assertTrue(entry.system());
-    }
+    void theBrowserReadsTheActorAsAKindAndAnIdThatIsNeverNull() {
+        final var person = ActionEntry.of(run(
+                        UpdateKind.UPDATE, UpdateStatus.DONE, Actor.person(DiscordId.of("300000000000000077")), null))
+                .json();
+        assertEquals("PERSON", person.get("actorKind"));
+        assertEquals("300000000000000077", person.get("actorId"));
 
-    @Test
-    void aTrailingSnowflakeIsExtractedRatherThanShownAsText() {
-        // "alex (300000000000000077)" is a name with its id; the frontend must never be handed a raw snowflake.
-        final ActionEntry entry =
-                ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, "alex (300000000000000077)", null));
-        assertFalse(entry.system());
-        assertEquals("300000000000000077", entry.actorDiscordId());
-        assertEquals("", entry.actorLabel());
-    }
-
-    @Test
-    void anOpaqueRequesterWithNoIdIsPlainTextRatherThanAGuessedPerson() {
-        final ActionEntry entry =
-                ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, "token-rotation-check", null));
-        assertFalse(entry.system());
-        assertEquals("", entry.actorDiscordId());
-        assertEquals("token-rotation-check", entry.actorLabel());
+        final var host = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, Actor.HOST, null))
+                .json();
+        assertEquals("HOST", host.get("actorKind"));
+        assertEquals("", host.get("actorId"));
     }
 
     @Test
     void anAuditLineWithNoActorIsTheSystem() {
         final ActionEntry entry = ActionEntry.of(
                 new AuditEntry(UUID.randomUUID(), FINISHED, "SETTLE", null, null, null, "settled by the poll loop"));
-        assertTrue(entry.system());
+        assertEquals(Actor.STEWARD, entry.actor());
         assertEquals("settled by the poll loop", entry.extent());
     }
 
@@ -153,8 +148,7 @@ class ActionEntryTest {
                 "300000000000000077",
                 null,
                 "30 days"));
-        assertFalse(entry.system());
-        assertEquals("300000000000000077", entry.actorDiscordId());
+        assertEquals(Actor.person(DiscordId.of("300000000000000077")), entry.actor());
         assertEquals("30 days", entry.extent());
     }
 
@@ -168,7 +162,7 @@ class ActionEntryTest {
     @Test
     void theMomentLeavesAsTextNotAsTheSecondsAndNanosAnInstantIsMadeOf() {
         final ActionEntry entry =
-                new ActionEntry("UPDATE", Instant.parse("2026-09-17T00:55:04.879Z"), "1/1 successful", "", "", true);
+                new ActionEntry("UPDATE", Instant.parse("2026-09-17T00:55:04.879Z"), "1/1 successful", Actor.STEWARD);
         final Object occurred = entry.json().get("occurred");
         assertInstanceOf(
                 String.class,

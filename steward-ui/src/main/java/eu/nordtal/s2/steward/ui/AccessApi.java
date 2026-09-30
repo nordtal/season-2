@@ -4,9 +4,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonSyntaxException;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.access.AccessRequest;
 import eu.nordtal.s2.database.access.AccessRequestKind;
-import eu.nordtal.s2.database.access.AccessRequestSource;
 import eu.nordtal.s2.database.access.AccessRequests.NewAccessRequest;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.data.Data;
@@ -115,8 +115,8 @@ final class AccessApi {
             final Context ctx, final AccessRequestKind kind, final String subject, final @Nullable Long argument) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final NewAccessRequest request = argument == null
-                ? NewAccessRequest.of(kind, subject, AccessRequestSource.STEWARD, who.id())
-                : NewAccessRequest.of(kind, subject, argument, AccessRequestSource.STEWARD, who.id());
+                ? NewAccessRequest.of(kind, subject, Actor.person(DiscordId.of(who.id())))
+                : NewAccessRequest.of(kind, subject, argument, Actor.person(DiscordId.of(who.id())));
         final AccessRequest written = data().accessRequests().submit(request);
         log.info("{} asked the bot for {} {}{}", who.name(), kind, subject, argument == null ? "" : " " + argument);
 

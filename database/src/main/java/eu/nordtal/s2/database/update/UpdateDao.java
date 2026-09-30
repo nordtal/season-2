@@ -15,34 +15,14 @@ interface UpdateDao {
     /**
      * Writes a request and announces it on {@code nordtal_update} in one statement.
      *
-     * @param requestedBy  a Discord id, a Minecraft name, or {@code null}
-     * @param delaySeconds how long from now steward-worker may act
+     * @param actorId      the Discord id of a person, {@code null} for anyone else
+     * @param delaySeconds how long from now steward-worker may claim it
+     * @param scope        comma-separated compose service names, or {@code null} for the whole network
      */
     @SqlQuery("""
             WITH inserted AS (
-                INSERT INTO update_request (kind, source, requested_by, not_before)
-                VALUES (:kind, :source, :requestedBy,
-                        now() + make_interval(secs => cast(:delaySeconds AS double precision)))
-                RETURNING *
-            )
-            SELECT inserted.*, pg_notify('nordtal_update', '') AS notified
-            FROM inserted
-            """)
-    UpdateRequest submit(
-            @Bind("kind") String kind,
-            @Bind("source") String source,
-            @Bind("requestedBy") @Nullable String requestedBy,
-            @Bind("delaySeconds") long delaySeconds);
-
-    /**
-     * The same insert, with the services this run is for.
-     *
-     * @param scope comma-separated compose service names, or {@code null} for the whole network
-     */
-    @SqlQuery("""
-            WITH inserted AS (
-                INSERT INTO update_request (kind, source, requested_by, not_before, scope)
-                VALUES (:kind, :source, :requestedBy,
+                INSERT INTO update_request (kind, actor_kind, actor_id, scheduled_for, scope)
+                VALUES (:kind, :actorKind, :actorId,
                         now() + make_interval(secs => cast(:delaySeconds AS double precision)),
                         :scope)
                 RETURNING *
@@ -50,12 +30,12 @@ interface UpdateDao {
             SELECT inserted.*, pg_notify('nordtal_update', '') AS notified
             FROM inserted
             """)
-    UpdateRequest submitScoped(
+    UpdateRequest submit(
             @Bind("kind") String kind,
-            @Bind("source") String source,
-            @Bind("requestedBy") @Nullable String requestedBy,
+            @Bind("actorKind") String actorKind,
+            @Bind("actorId") @Nullable String actorId,
             @Bind("delaySeconds") long delaySeconds,
-            @Bind("scope") String scope);
+            @Bind("scope") @Nullable String scope);
 
     /** Returns the oldest run that is pending or running, which is what refuses a new one. */
     @SqlQuery("""
@@ -77,8 +57,8 @@ interface UpdateDao {
                 SELECT id
                 FROM update_request
                 WHERE status = 'PENDING'
-                  AND not_before <= now()
-                ORDER BY not_before, id
+                  AND scheduled_for <= now()
+                ORDER BY scheduled_for, id
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
             )
@@ -114,7 +94,7 @@ interface UpdateDao {
     /**
      * Puts a running request back into the inbox, report and all, for the next worker to claim.
      *
-     * A row settled meanwhile stays settled. {@code not_before} stays in the past, so no countdown shows.
+     * A row settled meanwhile stays settled. {@code scheduled_for} stays in the past, so no countdown shows.
      */
     @SqlUpdate("""
             UPDATE update_request
@@ -170,19 +150,22 @@ interface UpdateDao {
     /**
      * Starts and announces the countdown on a claimed request, only while it is still {@code RUNNING}.
      *
-     * @return the row with its new {@code not_before}, or empty when it was withdrawn
+     * @param moving the services the run stops, which the proxy evacuates once the countdown runs out
+     * @return the row with its {@code countdown_end}, or empty when it was withdrawn
      */
     @SqlQuery("""
             WITH updated AS (
                 UPDATE update_request
-                SET not_before = now() + make_interval(secs => cast(:seconds AS double precision))
+                SET countdown_end = now() + make_interval(secs => cast(:seconds AS double precision)),
+                    moving = :moving
                 WHERE id = :id AND status = 'RUNNING'
                 RETURNING *
             )
             SELECT updated.*, pg_notify('nordtal_update', '') AS notified
             FROM updated
             """)
-    Optional<UpdateRequest> startCountdown(@Bind("id") long id, @Bind("seconds") long seconds);
+    Optional<UpdateRequest> startCountdown(
+            @Bind("id") long id, @Bind("seconds") long seconds, @Bind("moving") String[] moving);
 
     /**
      * Ends the countdown atomically; the row lock decides the race with a cancel at zero.
@@ -191,36 +174,36 @@ interface UpdateDao {
      */
     @SqlQuery("""
             UPDATE update_request
-            SET not_before = now()
+            SET countdown_end = now()
             WHERE id = :id AND status = 'RUNNING'
             RETURNING id
             """)
     Optional<Long> commitCountdown(@Bind("id") long id);
 
     /**
-     * Returns the outage counting down right now, the earliest if there are several.
+     * Returns the earliest outage counting down: a pending row to its schedule, a running one to its countdown.
      *
      * The kind list is held against {@link UpdateKind#stopsServers()} by an integration test.
      */
     @SqlQuery("""
             SELECT * FROM update_request
-            WHERE status IN ('PENDING', 'RUNNING')
-              AND kind IN ('RESTART', 'UPDATE', 'BACKUP', 'DOWN')
-              AND not_before > now()
-            ORDER BY not_before, id
+            WHERE kind IN ('RESTART', 'UPDATE', 'BACKUP', 'DOWN')
+              AND ((status = 'PENDING' AND scheduled_for > now())
+                   OR (status = 'RUNNING' AND countdown_end > now()))
+            ORDER BY coalesce(countdown_end, scheduled_for), id
             LIMIT 1
             """)
     Optional<UpdateRequest> countingDown();
 
     /**
-     * Returns the run that is happening right now: claimed, past its countdown, servers going down.
+     * Returns the run that is happening right now: claimed and not counting down, servers going down.
      *
      * Any kind counts, since a backup stops the same servers as an update.
      */
     @SqlQuery("""
             SELECT * FROM update_request
             WHERE status = 'RUNNING'
-              AND not_before <= now()
+              AND (countdown_end IS NULL OR countdown_end <= now())
             ORDER BY id
             LIMIT 1
             """)
@@ -235,14 +218,12 @@ interface UpdateDao {
             WITH cancellable AS (
                 SELECT id
                 FROM update_request
-                -- The same four kinds and both statuses, for the reasons countingDown()
-                -- above gives at length: the button says "Stop the countdown", and a countdown it
-                -- could not stop would be worse than no button. BACKUP was missing here until
-                -- 2026-09-15 for the same reason it was missing there.
-                WHERE status IN ('PENDING', 'RUNNING')
-                  AND kind IN ('RESTART', 'UPDATE', 'BACKUP', 'DOWN')
-                  AND not_before > now()
-                ORDER BY not_before, id
+                -- Exactly what countingDown() finds: the button says "Stop the countdown", and a
+                -- countdown it could not stop would be worse than no button.
+                WHERE kind IN ('RESTART', 'UPDATE', 'BACKUP', 'DOWN')
+                  AND ((status = 'PENDING' AND scheduled_for > now())
+                       OR (status = 'RUNNING' AND countdown_end > now()))
+                ORDER BY coalesce(countdown_end, scheduled_for), id
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
             )
@@ -253,8 +234,8 @@ interface UpdateDao {
             """)
     Optional<UpdateRequest> cancelCountdown(@Bind("reason") String reason);
 
-    /** Returns the earliest {@code not_before} among pending rows, or empty when there are none. */
-    @SqlQuery("SELECT min(not_before) FROM update_request WHERE status = 'PENDING'")
+    /** Returns the earliest {@code scheduled_for} among pending rows, or empty when there are none. */
+    @SqlQuery("SELECT min(scheduled_for) FROM update_request WHERE status = 'PENDING'")
     Optional<java.time.OffsetDateTime> nextDue();
 
     /**
@@ -276,14 +257,16 @@ interface UpdateDao {
 
     /** Writes the hold, or refreshes the one already there so the newest press says who holds it. */
     @SqlUpdate("""
-            INSERT INTO service_hold (service, held_by, request_id)
-            VALUES (:service, :heldBy, :requestId)
+            INSERT INTO service_hold (service, actor_kind, actor_id, request_id)
+            VALUES (:service, :actorKind, :actorId, :requestId)
             ON CONFLICT (service) DO UPDATE
-                SET since = now(), held_by = EXCLUDED.held_by, request_id = EXCLUDED.request_id
+                SET since = now(), actor_kind = EXCLUDED.actor_kind, actor_id = EXCLUDED.actor_id,
+                    request_id = EXCLUDED.request_id
             """)
     void hold(
             @Bind("service") String service,
-            @Bind("heldBy") @Nullable String heldBy,
+            @Bind("actorKind") String actorKind,
+            @Bind("actorId") @Nullable String actorId,
             @Bind("requestId") @Nullable Long requestId);
 
     /** Returns how many rows went away; zero when it was not being held. */

@@ -92,7 +92,7 @@ export function ServiceState({
         <StatusBadge
           tone="idle"
           tipContent={
-            `Held down since ${dateTime(hold.since)}${hold.by ? ` by ${hold.by}` : ""}.` +
+            `Held down since ${dateTime(hold.since)}.` +
             ` No update and no restart starts it again. Docker reports the state "${state}".`
           }
         >

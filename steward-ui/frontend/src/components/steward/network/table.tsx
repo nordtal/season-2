@@ -43,9 +43,7 @@ export function NetworkTable() {
                     {/* A held service shows `service_hold`, since Docker's exit sentence reads like a crash. */}
                     <TooltipContent>
                       {held(service)
-                        ? `Held down since ${dateTime(service.hold!.since)}${
-                            service.hold!.by ? ` by ${service.hold!.by}` : ""
-                          }.`
+                        ? `Held down since ${dateTime(service.hold!.since)}.`
                         : (service.status ?? service.state)}
                     </TooltipContent>
                   </Tooltip>

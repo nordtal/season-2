@@ -3,9 +3,9 @@ package eu.nordtal.s2.steward.worker.serve;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -36,7 +36,7 @@ class UpdateServerTest {
 
     @Test
     void workFurtherAwayThanThePollIntervalStillWaitsThePollInterval() {
-        directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "ally", Duration.ofMinutes(10));
+        directory.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofMinutes(10));
 
         assertEquals(POLL, server((request, progress) -> Outcome.done("x")).waitFor());
     }
@@ -44,7 +44,7 @@ class UpdateServerTest {
     @Test
     void aCountdownEndingSoonerThanThePollShortensTheWaitToExactlyThat() {
         // The bug this exists to avoid: a slow poll firing a restart seconds after the counter hit zero on camera.
-        directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "ally", Duration.ofSeconds(4));
+        directory.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(4));
 
         assertEquals(
                 Duration.ofSeconds(4),
@@ -55,7 +55,7 @@ class UpdateServerTest {
     void workThatIsAlreadyOverdueStillWaitsASecond() {
         // A row that is due but cannot be claimed would otherwise spin this loop as fast as the database can answer.
         directory.at(NOW.minusSeconds(30));
-        directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         directory.at(NOW);
 
         assertEquals(
@@ -65,8 +65,8 @@ class UpdateServerTest {
 
     @Test
     void everythingDueIsRunInOneDrain() {
-        directory.submit(UpdateKind.BACKUP, UpdateSource.DISCORD, "a", Duration.ZERO);
-        directory.submit(UpdateKind.UPDATE, UpdateSource.GAME, "b", Duration.ZERO);
+        directory.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
+        directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
         final List<UpdateKind> ran = new ArrayList<>();
         server((request, progress) -> {
@@ -82,7 +82,7 @@ class UpdateServerTest {
 
     @Test
     void aRequestThatIsNotDueIsLeftAlone() {
-        directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "ally", Duration.ofSeconds(60));
+        directory.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
 
         final AtomicInteger ran = new AtomicInteger();
         server((request, progress) -> {
@@ -97,7 +97,7 @@ class UpdateServerTest {
 
     @Test
     void theRunnersOwnVerdictIsWhatLandsInTheRow() {
-        final UpdateRequest submitted = directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest submitted = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
         server((request, progress) -> Outcome.failed("the download timed out")).drain();
 
@@ -109,8 +109,8 @@ class UpdateServerTest {
     @Test
     void aHandedOverRunGoesBackToTheInboxAndThisWorkerTakesNothingElse() {
         // This worker is about to exit and must not start a second request.
-        final UpdateRequest update = directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
-        directory.submit(UpdateKind.BACKUP, UpdateSource.DISCORD, "b", Duration.ZERO);
+        final UpdateRequest update = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
+        directory.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
 
         final List<UpdateKind> ran = new ArrayList<>();
         final UpdateServer server = server((request, progress) -> {
@@ -130,7 +130,7 @@ class UpdateServerTest {
     @Test
     void serveReturnsOnceItHasHandedARunOver() throws Exception {
         // Returning ends the process, and Docker restarts the container on the new jar.
-        directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         final UpdateServer server = server((request, progress) -> Outcome.handedOver("{}"));
 
         final Thread thread = new Thread(server::serve, "test-update-server");
@@ -147,7 +147,7 @@ class UpdateServerTest {
     @Test
     void aListenerThatDiesIsReplacedAndTheTableIsDrainedOnEveryReconnect() throws Exception {
         // THE rule: a request written while disconnected produced a notification nobody received and none repeats it.
-        directory.submit(UpdateKind.BACKUP, UpdateSource.DISCORD, "a", Duration.ZERO);
+        directory.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
 
         final AtomicInteger connects = new AtomicInteger();
         final AtomicInteger ran = new AtomicInteger();

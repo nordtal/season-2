@@ -3,6 +3,7 @@ package eu.nordtal.s2.discordbot.discord;
 import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
@@ -65,10 +66,6 @@ public final class UpdateFeed {
             };
         }
     }
-
-    /** A bare Discord id, or one in parentheses at the end of a name. */
-    private static final java.util.regex.Pattern DISCORD_ID =
-            java.util.regex.Pattern.compile("^(?:.*\\()?(\\d{17,20})\\)?\\s*$");
 
     private record Drawn(String messageId, @Nullable String showing) {}
 
@@ -217,9 +214,7 @@ public final class UpdateFeed {
             return;
         }
         try {
-            board.alert(
-                    "🛑 " + request.kind().name().toLowerCase(java.util.Locale.ROOT) + " failed",
-                    asker(request) + ", " + request.source().name().toLowerCase(java.util.Locale.ROOT));
+            board.alert("🛑 " + request.kind().name().toLowerCase(java.util.Locale.ROOT) + " failed", asker(request));
         } catch (final RuntimeException failure) {
             // The embed is already posted; losing the mention must not lose the pass.
             log.warn("Could not alert admins about failed update request {}", request.id(), failure);
@@ -264,10 +259,7 @@ public final class UpdateFeed {
             card.field(
                             messages.format(locale, MESSAGES.update().embed().run()),
                             request.kind().name().toLowerCase(java.util.Locale.ROOT))
-                    .field(messages.format(locale, MESSAGES.update().embed().by()), asker(request))
-                    .field(
-                            messages.format(locale, MESSAGES.update().embed().from()),
-                            request.source().name().toLowerCase(java.util.Locale.ROOT));
+                    .field(messages.format(locale, MESSAGES.update().embed().by()), asker(request));
         }
         if (request.finished() != null && request.requested() != null) {
             card.field(
@@ -347,14 +339,13 @@ public final class UpdateFeed {
         };
     }
 
-    /** Who asked for a run, as a mention whenever the row carries a Discord id. */
+    /** Who asked for a run: a mention for a person, a word for Steward and the host. */
     static String asker(final UpdateRequest request) {
-        final String by = request.requestedBy();
-        if (by == null) {
-            return "console";
-        }
-        // Discord writes the bare id, Steward writes "name (id)".
-        final java.util.regex.Matcher id = DISCORD_ID.matcher(by);
-        return id.matches() ? "<@" + id.group(1) + ">" : Card.escape(by);
+        final Actor actor = request.actor();
+        return switch (actor.kind()) {
+            case PERSON -> "<@" + actor.id() + ">";
+            case STEWARD -> "Steward";
+            case HOST -> "host";
+        };
     }
 }

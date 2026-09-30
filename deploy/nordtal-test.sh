@@ -433,34 +433,18 @@ parse_update_args --in 10 --no-wait --timeout 60
 ok "the countdown, the timeout and not waiting at all"
 
 case_begin "update: the statement, and why it is safe to assemble by hand"
-sql="$(update_insert_sql UPDATE "" 0 "till@nordtal-test")"
-grep -q "'CONSOLE'" <<<"$sql" || bad "the source is not CONSOLE"
+sql="$(update_insert_sql UPDATE "" 0)"
+grep -q "'HOST'" <<<"$sql" || bad "the actor is not the host"
 grep -q "pg_notify('nordtal_update', '')" <<<"$sql" \
     || bad "the bell is not rung in the same statement, so a row can exist that nobody was told about"
 grep -q "make_interval(mins => 0)" <<<"$sql" || bad "the delay did not reach the statement"
 grep -q "NULL)" <<<"$sql" || bad "an empty scope has to be NULL and not an empty string"
-ok "the row says CONSOLE, rings the bell with itself, and a whole-network run has a NULL scope"
+ok "the row names the host, rings the bell with itself, and a whole-network run has a NULL scope"
 
-sql="$(update_insert_sql DOWN smp 15 "till@nordtal-test")"
+sql="$(update_insert_sql DOWN smp 15)"
 grep -q "'smp'" <<<"$sql"   || bad "the scope did not reach the statement"
 grep -q "make_interval(mins => 15)" <<<"$sql" || bad "the fifteen minutes did not"
 ok "a scoped, delayed run carries both"
-
-# The requester is cleaned, so no quote can close the one the statement opened.
-for wrong in "o'brien@host" 'a";DROP TABLE update_request;--' "$(printf 'a\tb')"; do
-    cleaned="$(printf '%s' "$wrong" | tr -c 'A-Za-z0-9._@-' '-' | cut -c1-64)"
-    case "$cleaned" in
-        *[\'\"\;]*) bad "'$wrong' survived as '$cleaned'" ;;
-    esac
-done
-ok "a quote, a semicolon and a tab in a user name all become dashes"
-
-requester="$(update_requester)"
-(( ${#requester} >= 1 && ${#requester} <= 64 )) || bad "requested_by is ${#requester} characters, the column is 64"
-case "$requester" in
-    *[!A-Za-z0-9._@-]*) bad "this host's own requester is not clean: $requester" ;;
-esac
-ok "the requester of this very host fits the column and carries nothing to escape"
 
 case_begin "update: which statuses end the wait"
 for over in DONE FAILED CANCELLED; do

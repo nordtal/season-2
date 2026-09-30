@@ -31,9 +31,6 @@ public interface Update {
         @Name("By")
         MessageRef by();
 
-        @Name("From")
-        MessageRef from();
-
         @Name("No build")
         MessageRef noBuild();
 

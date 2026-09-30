@@ -1,10 +1,11 @@
 package eu.nordtal.s2.steward.ui;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.messages.Refused;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.data.Data;
@@ -100,14 +101,13 @@ final class Updates {
             throw new BadRequestResponse("a DOWN has to name the services it puts down");
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
-        // `not_before` is scheduling: the worker refuses to claim the row until then.
+        // `scheduled_for`: the worker refuses to claim the row until then.
         final Duration delay = ask.delaySeconds == null || ask.delaySeconds <= 0
                 ? Duration.ZERO
                 : Duration.ofSeconds(ask.delaySeconds);
         final UpdateRequest written;
         try {
-            written = data().updates()
-                    .submit(kind, UpdateSource.CONSOLE, who.name() + " (" + who.id() + ")", delay, ask.services);
+            written = data().updates().submit(kind, Actor.person(DiscordId.of(who.id())), delay, ask.services);
         } catch (final Refused refused) {
             throw new ConflictResponse(DatabaseText.english(refused.refusal().message()));
         }
@@ -156,16 +156,13 @@ final class Updates {
         row.put("id", request.id());
         row.put("kind", request.kind().name());
         row.put("status", request.status().name());
-        row.put("source", request.source().name());
-        row.put("requestedBy", request.requestedBy());
+        row.put("actorKind", request.actor().kind().name());
+        row.put("actorId", java.util.Objects.requireNonNullElse(request.actor().id(), ""));
         row.put("scope", scope);
-        // Mirrors steward-worker's ActionEntry.of(UpdateRequest) rather than sharing it.
-        final ActorFields actor = ActorFields.of(request.requestedBy());
-        row.put("actorDiscordId", actor.discordId());
-        row.put("actorLabel", actor.label());
-        row.put("system", actor.system());
         row.put("requested", String.valueOf(request.requested()));
-        row.put("notBefore", String.valueOf(request.notBefore()));
+        row.put("scheduledFor", String.valueOf(request.scheduledFor()));
+        row.put("countdownEnd", String.valueOf(request.countdownEnd()));
+        row.put("moving", request.moving());
         row.put("started", String.valueOf(request.started()));
         row.put("finished", String.valueOf(request.finished()));
         if (request.result() != null && !request.result().isBlank()) {

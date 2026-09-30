@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.TestDatabase;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -129,8 +131,8 @@ class UpdateBackupAndHoldIntegrationTest {
 
     @Test
     void anUpdateIsNotABackupHoweverHealthyItCameBack() {
-        execute("INSERT INTO update_request (kind, source, status, started, finished, result)"
-                + " VALUES ('UPDATE', 'DISCORD', 'DONE', now(), now(), $json$"
+        execute("INSERT INTO update_request (kind, actor_kind, status, started, finished, result)"
+                + " VALUES ('UPDATE', 'HOST', 'DONE', now(), now(), $json$"
                 + UpdateReports.toJson(report(UpdateReport.State.SAVED)) + "$json$)");
 
         assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
@@ -142,8 +144,8 @@ class UpdateBackupAndHoldIntegrationTest {
      * @return the id, so a test can say which row it expected back
      */
     private static long backupRow(final String status, final double hoursAgo, final String result) {
-        execute("INSERT INTO update_request (kind, source, status, requested, not_before, started,"
-                + " finished, result) VALUES ('BACKUP', 'CONSOLE', '" + status + "',"
+        execute("INSERT INTO update_request (kind, actor_kind, status, requested, scheduled_for, started,"
+                + " finished, result) VALUES ('BACKUP', 'STEWARD', '" + status + "',"
                 + " now() - make_interval(hours => " + (int) Math.ceil(hoursAgo) + "),"
                 + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
                 + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
@@ -155,23 +157,24 @@ class UpdateBackupAndHoldIntegrationTest {
     @Test
     void aHoldSurvivesRefreshesRatherThanDuplicatesAndGoesAwayAgain() {
         // Holds outlive a restart of the worker and the interface, so this runs against a real table.
-        final UpdateRequest down =
-                updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "Alex", Duration.ZERO, List.of("smp"));
+        final UpdateRequest down = updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("smp"));
 
-        updates.hold("smp", "Alex", down.id());
+        updates.hold("smp", Actor.person(DiscordId.of("300000000000000001")), down.id());
         assertTrue(updates.isHeld("smp"));
         assertFalse(updates.isHeld("limbo"), "holding one service held another");
 
         final ServiceHold held = updates.holds().getFirst();
         assertEquals("smp", held.service());
-        assertEquals("Alex", held.heldBy());
+        assertEquals(Actor.person(DiscordId.of("300000000000000001")), held.heldBy());
         assertEquals(down.id(), held.requestId());
         assertNotNull(held.since());
 
         // Pressing Down on something that is already down is somebody making sure, not an error.
-        updates.hold("smp", "Somebody else", down.id());
+        updates.hold("smp", Actor.person(DiscordId.of("300000000000000002")), down.id());
         assertEquals(1, updates.holds().size(), "the second press wrote a second row");
-        assertEquals("Somebody else", updates.holds().getFirst().heldBy());
+        assertEquals(
+                Actor.person(DiscordId.of("300000000000000002")),
+                updates.holds().getFirst().heldBy());
 
         updates.release("smp");
         assertEquals(List.of(), updates.holds());
@@ -182,9 +185,8 @@ class UpdateBackupAndHoldIntegrationTest {
     @Test
     void aHoldWhoseDownRowIsDeletedKeepsTheHoldAndForgetsTheRow() {
         // ON DELETE SET NULL: a hold that vanished with its row would let the next run start the service.
-        final UpdateRequest down =
-                updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "Alex", Duration.ZERO, List.of("limbo"));
-        updates.hold("limbo", "Alex", down.id());
+        final UpdateRequest down = updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("limbo"));
+        updates.hold("limbo", Actor.HOST, down.id());
 
         execute("DELETE FROM update_request WHERE id = " + down.id());
 

@@ -180,7 +180,8 @@ public final class Runner implements RequestRunner {
      * @return {@code true} when the countdown ran out and the run may proceed; {@code false} when cancelled
      */
     boolean countDown(final long id, final UpdateReport planned, final Consumer<UpdateReport> progress) {
-        final Optional<UpdateRequest> counting = directory.startCountdown(id, UpdateDirectory.UPDATE_COUNTDOWN);
+        final Optional<UpdateRequest> counting =
+                directory.startCountdown(id, UpdateDirectory.UPDATE_COUNTDOWN, movingServices(planned));
         if (counting.isEmpty()) {
             // No longer RUNNING between the claim and here, which in practice means cancelled.
             log.info("Request {} is no longer running, so no countdown was started", id);
@@ -188,7 +189,7 @@ public final class Runner implements RequestRunner {
         }
         progress.accept(planned.withStage(UpdateReport.Stage.COUNTDOWN));
 
-        final Instant due = counting.get().notBefore();
+        final Instant due = counting.get().due();
         while (waiting.now().isBefore(due)) {
             final Duration left = Duration.between(waiting.now(), due);
             if (!waiting.sleep(left.compareTo(COUNTDOWN_TICK) < 0 ? left : COUNTDOWN_TICK)) {

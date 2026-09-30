@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.access.AccessRequests.NewAccessRequest;
 import eu.nordtal.s2.database.notify.Channels;
@@ -48,7 +50,7 @@ class AccessRequestsIntegrationTest {
 
     private static NewAccessRequest grant(final String subject, final long days) {
         return NewAccessRequest.of(
-                AccessRequestKind.GRANT, subject, days, AccessRequestSource.STEWARD, "300000000000000001");
+                AccessRequestKind.GRANT, subject, days, Actor.person(DiscordId.of("300000000000000001")));
     }
 
     @Test
@@ -60,8 +62,7 @@ class AccessRequestsIntegrationTest {
         assertEquals("400000000000000002", request.subject());
         assertEquals("30", request.argument());
         assertEquals(30L, request.number());
-        assertEquals(AccessRequestSource.STEWARD, request.source());
-        assertEquals("300000000000000001", request.requestedBy());
+        assertEquals(Actor.person(DiscordId.of("300000000000000001")), request.actor());
         assertNotNull(request.requested());
         assertNotNull(request.expires());
         assertNull(request.started(), "nothing has claimed it");
@@ -77,22 +78,25 @@ class AccessRequestsIntegrationTest {
     /** Checks that the kinds without a number are writable without one and refuse to answer one. */
     @Test
     void aKindWithNoArgumentHasNoneAndSaysSo() {
-        final AccessRequest request = inbox.submit(
-                NewAccessRequest.of(AccessRequestKind.UNLINK, "400000000000000002", AccessRequestSource.DISCORD, null));
+        final AccessRequest request =
+                inbox.submit(NewAccessRequest.of(AccessRequestKind.UNLINK, "400000000000000002", Actor.HOST));
 
         assertNull(request.argument());
-        assertNull(request.requestedBy(), "a request nobody signed is allowed");
+        assertEquals(Actor.HOST, request.actor(), "a request without a person is allowed");
         assertThrows(IllegalStateException.class, request::number);
     }
 
     @Test
-    void everyKindAndEverySourceTheCodeCanNameIsOneTheCheckAccepts() {
+    void everyKindAndEveryActorKindTheCodeCanNameIsOneTheCheckAccepts() {
         for (final AccessRequestKind kind : AccessRequestKind.values()) {
-            for (final AccessRequestSource source : AccessRequestSource.values()) {
+            for (final Actor.Kind actorKind : Actor.Kind.values()) {
+                final Actor actor = actorKind == Actor.Kind.PERSON
+                        ? Actor.person(DiscordId.of("300000000000000001"))
+                        : new Actor(actorKind, null);
                 final AccessRequest written =
-                        inbox.submit(new NewAccessRequest(kind, "400000000000000002", "1", source, null));
+                        inbox.submit(new NewAccessRequest(kind, "400000000000000002", "1", actor));
                 assertEquals(kind, written.kind());
-                assertEquals(source, written.source());
+                assertEquals(actor, written.actor());
             }
         }
     }

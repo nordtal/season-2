@@ -117,13 +117,12 @@ function run(over: Record<string, unknown> = {}) {
     id: 41,
     kind: "BACKUP",
     status: "FAILED",
-    source: "SCHEDULE",
-    requestedBy: "steward-worker (nightly)",
-    actorDiscordId: "",
-    actorLabel: "",
-    system: true,
+    actorKind: "HOST",
+    actorId: "",
     requested: "2026-09-17T04:45:00Z",
-    notBefore: "2026-09-17T04:45:00Z",
+    scheduledFor: "2026-09-17T04:45:00Z",
+    countdownEnd: "2026-09-17T04:45:00Z",
+    moving: [],
     started: "2026-09-17T04:45:02Z",
     finished: "2026-09-17T04:46:08Z",
     report: {
@@ -437,7 +436,7 @@ describe("BackupsPage - the runs table (items 2, 3, 4)", () => {
     vi.stubGlobal(
       "fetch",
       backend({
-        runs: [run({ actorDiscordId: "300000000000000077", actorLabel: "", system: false })],
+        runs: [run({ actorKind: "PERSON", actorId: "300000000000000077" })],
         people: [person({ discordUsername: "hm.ally" })],
       }),
     )
@@ -450,22 +449,17 @@ describe("BackupsPage - the runs table (items 2, 3, 4)", () => {
   })
 
   it("draws Steward itself for the nightly clock, not a blank person", async () => {
-    vi.stubGlobal("fetch", backend({ runs: [run({ system: true })] }))
+    vi.stubGlobal("fetch", backend({ runs: [run({ actorKind: "STEWARD" })] }))
     draw()
 
     expect(await screen.findByText("Steward")).toBeTruthy()
   })
 
-  it("falls back to plain text for a requester with no id to resolve", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        runs: [run({ system: false, actorDiscordId: "", actorLabel: "token-rotation-check" })],
-      }),
-    )
+  it("names the host for a run asked for through the installer", async () => {
+    vi.stubGlobal("fetch", backend({ runs: [run({ actorKind: "HOST" })] }))
     draw()
 
-    expect(await screen.findByText("token-rotation-check")).toBeTruthy()
+    expect(await screen.findByText("host")).toBeTruthy()
   })
 })
 

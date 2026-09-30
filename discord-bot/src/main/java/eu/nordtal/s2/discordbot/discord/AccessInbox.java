@@ -46,7 +46,7 @@ public final class AccessInbox {
     }
 
     private void carryOut(final AccessRequest request) {
-        final Actor by = Actor.asked(request.requestedBy());
+        final Actor by = Actor.asked(request.actor());
         try {
             inbox.finish(request.id(), true, run(request, by));
             log.info("access request {} ({} for {}) carried out", request.id(), request.kind(), request.subject());

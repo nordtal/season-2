@@ -19,8 +19,8 @@ interface AccessRequestDao {
      */
     @SqlQuery("""
             WITH inserted AS (
-                INSERT INTO access_request (kind, subject, argument, source, requested_by, expires)
-                VALUES (:kind, :subject, :argument, :source, :requestedBy,
+                INSERT INTO access_request (kind, subject, argument, actor_kind, actor_id, expires)
+                VALUES (:kind, :subject, :argument, :actorKind, :actorId,
                         now() + make_interval(secs => cast(:patienceSeconds AS double precision)))
                 RETURNING *
             )
@@ -31,8 +31,8 @@ interface AccessRequestDao {
             @Bind("kind") String kind,
             @Bind("subject") String subject,
             @Bind("argument") @Nullable String argument,
-            @Bind("source") String source,
-            @Bind("requestedBy") @Nullable String requestedBy,
+            @Bind("actorKind") String actorKind,
+            @Bind("actorId") @Nullable String actorId,
             @Bind("patienceSeconds") long patienceSeconds);
 
     /**

@@ -176,12 +176,17 @@ export function runSeconds(run: Run): number | null {
 /**
  * Whether the backend would still take this row back.
  *
- * Must match `UpdateDirectory#cancelCountdown`: a cancellable kind, PENDING or RUNNING, `not_before` ahead.
+ * Must match `UpdateDirectory#cancelCountdown`: a cancellable kind, PENDING before its schedule or RUNNING before
+ * its countdown's end.
  */
 export function cancellable(run: Run, now = new Date()): boolean {
-  if (run.status !== "PENDING" && run.status !== "RUNNING") return false
   if (!CANCELLABLE_KINDS.has(run.kind)) return false
-  const moment = parseInstant(run.notBefore)
+  const moment =
+    run.status === "PENDING"
+      ? parseInstant(run.scheduledFor)
+      : run.status === "RUNNING"
+        ? parseInstant(run.countdownEnd)
+        : null
   return moment !== null && moment.getTime() > now.getTime()
 }
 
@@ -213,12 +218,6 @@ export function summaryOf(run: Run): string[] {
 
   if (parts.length > 0) return parts
   return [report.services.length === 0 ? "no line in the report" : "no change"]
-}
-
-const SOURCE_LABEL: Record<string, string> = {
-  DISCORD: "Discord",
-  GAME: "in game",
-  CONSOLE: "Interface/console",
 }
 
 type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
@@ -447,7 +446,6 @@ function RunDetail({ run }: { run?: Run }) {
               {run ? (
                 <>
                   <span>{RUN_KIND[run.kind] ?? run.kind}</span>
-                  <span>{SOURCE_LABEL[run.source] ?? run.source}</span>
                 </>
               ) : (
                 <>
@@ -462,14 +460,12 @@ function RunDetail({ run }: { run?: Run }) {
 
           <Stat
             label="Requested by"
-            value={
-              run ? <Actor system={run.system} discordId={run.actorDiscordId} label={run.actorLabel} /> : undefined
-            }
+            value={run ? <Actor kind={run.actorKind} id={run.actorId} /> : undefined}
             hint={run ? dateTime(run.requested) : undefined}
           />
           <Stat
             label="No earlier than"
-            value={run ? dateTime(run.notBefore) : undefined}
+            value={run ? dateTime(run.scheduledFor) : undefined}
             hint="the worker does not pick the row up before this"
           />
           <Stat

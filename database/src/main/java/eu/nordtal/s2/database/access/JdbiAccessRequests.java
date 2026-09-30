@@ -26,7 +26,7 @@ final class JdbiAccessRequests implements AccessRequests {
     public AccessRequest submit(final NewAccessRequest request, final Duration patience) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(request.kind(), "kind");
-        Objects.requireNonNull(request.source(), "source");
+        Objects.requireNonNull(request.actor(), "actor");
         Objects.requireNonNull(request.subject(), "subject");
         // Clamped: a negative patience gives a row that expires at once, which is visible.
         final long seconds = patience == null ? PATIENCE.toSeconds() : Math.max(0L, patience.toSeconds());
@@ -34,8 +34,8 @@ final class JdbiAccessRequests implements AccessRequests {
                 request.kind().name(),
                 request.subject(),
                 request.argument(),
-                request.source().name(),
-                request.requestedBy(),
+                request.actor().kind().name(),
+                request.actor().id(),
                 seconds);
     }
 

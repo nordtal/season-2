@@ -10,26 +10,14 @@ repositoryRootTestInputs {
     reads("smp/src/main/resources/paper-plugin.yml")
     reads("limbo/src/main/resources/paper-plugin.yml")
     reads("hunger-games/src/main/resources/paper-plugin.yml")
-
-    reads("paper-common/src/main/java/eu/nordtal/s2/papercommon/plugin/NordtalPlugin.java")
-
-    reads("discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java")
-
-    reads("deploy/minecraft/entrypoint.sh")
-
     reads("gradle/libs.versions.toml")
+    reads("deploy/minecraft/entrypoint.sh")
     reads("compose.yml")
 
-    readsTree("smp/src/main")
-    readsTree("limbo/src/main")
-    readsTree("hunger-games/src/main")
-    readsTree("proxy/src/main")
-
-    // The config packages ConfigSpecExplanationTest walks that no tree above covers.
-    readsTree("discord-bot/src/main/java/eu/nordtal/s2/discordbot/config")
-    readsTree("steward-ui/src/main/java/eu/nordtal/s2/steward/ui/config")
-    readsTree("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/config")
-    readsTree("settings/src/main/java/eu/nordtal/s2/settings")
+    // ReadinessWiringTest reads where each kind of process beats.
+    reads("paper-common/src/main/java/eu/nordtal/s2/papercommon/plugin/NordtalPlugin.java")
+    reads("proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java")
+    reads("discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java")
 }
 
 dependencies {

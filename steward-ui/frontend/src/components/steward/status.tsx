@@ -324,7 +324,4 @@ export const RUN_KIND: Record<string, string> = {
   RESTART: "Restart",
   DOWN: "Take down",
   START: "Start",
-  /** Kinds only old rows carry, named rather than shown as enum names. */
-  REPORT: "Report",
-  APPLY: "Apply",
 }

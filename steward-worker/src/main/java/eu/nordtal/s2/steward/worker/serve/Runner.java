@@ -14,10 +14,7 @@ import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
-import eu.nordtal.s2.steward.worker.plan.PlanReport;
 import eu.nordtal.s2.steward.worker.plan.Topology;
-import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
-import eu.nordtal.s2.steward.worker.run.Runs;
 import eu.nordtal.s2.steward.worker.schema.RunLock;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -51,7 +48,7 @@ public final class Runner implements RequestRunner {
     /** The plugins an admin added, handed to every resolve; {@code PluginDirectory#NONE} by default. */
     final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins;
 
-    /** How many players are on a service, built on first use since a {@code REPORT} run never asks. */
+    /** How many players are on a service, built on first use since a run that stops nothing never asks. */
     private volatile @Nullable Occupancy occupancy;
 
     Occupancy occupancy() {
@@ -105,13 +102,6 @@ public final class Runner implements RequestRunner {
     public Outcome run(final UpdateRequest request, final Consumer<UpdateReport> progress) {
         try {
             return switch (request.kind()) {
-                case REPORT -> report();
-                // Retired and refused: this must never quietly swap jars underneath a running server.
-                case APPLY ->
-                    Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                            .withNote("This request asks for the retired 'install without stopping'"
-                                    + " step, which replaced jars underneath running servers. Ask for"
-                                    + " an update instead - it stops each server first.")));
                 case UPDATE -> update(request, progress);
                 case RESTART -> restart(request, progress);
                 case BACKUP -> backup(request, progress);
@@ -122,15 +112,6 @@ public final class Runner implements RequestRunner {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
             return Outcome.failed("This request failed: " + failure + "\nSteward-worker's log has the stack trace.");
         }
-    }
-
-    private Outcome report() {
-        final UpdatePlan plan = Runs.resolve(config, plugins);
-        // The images too, or an update that stops four servers could contradict this "nothing to do".
-        final UpdateReport report = ForeignImages.withImages(PlanReport.of(plan), containers.images());
-        // A plan with unchecked rows is still a report; failing the request would look like a broken worker.
-        return Outcome.done(UpdateReports.toJson(
-                report.withStage(report.isWork() ? UpdateReport.Stage.PLANNED : UpdateReport.Stage.NOTHING_TO_DO)));
     }
 
     /**

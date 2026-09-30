@@ -19,8 +19,6 @@ public final class Watermark {
 
     private static final Logger log = LoggerFactory.getLogger(Watermark.class);
 
-    private static final String KEY = "payment.watermark";
-
     private Watermark() {}
 
     /**
@@ -30,10 +28,10 @@ public final class Watermark {
      * @param now        this start, which becomes the cut-off when none is stored
      */
     public static Instant resolve(final Jdbi jdbi, final String configured, final Instant now) {
-        final BotSettingDao dao = jdbi.onDemand(BotSettingDao.class);
+        final WatermarkDao dao = jdbi.onDemand(WatermarkDao.class);
 
         // Written even with an override, so removing it later falls back to the first start.
-        if (dao.insertIfAbsent(KEY, now.toString()) == 1) {
+        if (dao.writeIfAbsent(now.atOffset(ZoneOffset.UTC)) == 1) {
             log.info(
                     "No payment watermark was stored; this start is the cut-off: {}. "
                             + "Payments created before it are ignored forever.",
@@ -46,42 +44,31 @@ public final class Watermark {
             return override;
         }
 
-        final Optional<String> stored = dao.value(KEY);
-        if (stored.isEmpty()) {
-            // Only reachable if the row vanished between the insert and this read.
-            throw new IllegalStateException("The payment watermark could not be read back after being "
-                    + "written. Refusing to poll bunq without a cut-off.");
-        }
-        final Instant watermark = Instant.parse(stored.get());
+        final Instant watermark = stored(jdbi)
+                .orElseThrow(() -> new IllegalStateException("The payment watermark could not be read back after"
+                        + " being written. Refusing to poll bunq without a cut-off."));
         log.info("Payment watermark: {}", watermark);
         return watermark;
     }
 
-    /** Returns when the stored watermark was first written. */
-    public static Optional<Instant> storedAt(final Jdbi jdbi) {
-        return jdbi.onDemand(BotSettingDao.class).createdAt(KEY).map(OffsetDateTime::toInstant);
+    /** Returns the stored cut-off, empty until the first start that polls has written it. */
+    public static Optional<Instant> stored(final Jdbi jdbi) {
+        return jdbi.onDemand(WatermarkDao.class).watermark().map(OffsetDateTime::toInstant);
     }
 
-    /** {@code bot_setting}: values the bot decides once and never again. */
-    interface BotSettingDao {
+    /** The {@code watermark} column of the one {@code payment_gateway} row. */
+    interface WatermarkDao {
 
-        /** Returns 1 when this call wrote the value, 0 when it was already there. */
+        /** Returns 1 when this call wrote the value, 0 when one was already there. */
         @SqlUpdate("""
-                INSERT INTO bot_setting (key, value)
-                VALUES (:key, :value)
-                ON CONFLICT (key) DO NOTHING
+                INSERT INTO payment_gateway (watermark)
+                VALUES (:watermark)
+                ON CONFLICT (id) DO UPDATE SET watermark = excluded.watermark
+                    WHERE payment_gateway.watermark IS NULL
                 """)
-        int insertIfAbsent(@Bind("key") String key, @Bind("value") String value);
+        int writeIfAbsent(@Bind("watermark") OffsetDateTime watermark);
 
-        @SqlQuery("SELECT value FROM bot_setting WHERE key = :key")
-        Optional<String> value(@Bind("key") String key);
-
-        @SqlQuery("SELECT created FROM bot_setting WHERE key = :key")
-        Optional<OffsetDateTime> createdAt(@Bind("key") String key);
-    }
-
-    /** Returns the instant as {@code timestamptz} would see it. */
-    static OffsetDateTime utc(final Instant instant) {
-        return instant.atOffset(ZoneOffset.UTC);
+        @SqlQuery("SELECT watermark FROM payment_gateway WHERE watermark IS NOT NULL")
+        Optional<OffsetDateTime> watermark();
     }
 }

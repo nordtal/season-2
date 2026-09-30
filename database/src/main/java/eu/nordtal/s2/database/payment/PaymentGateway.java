@@ -12,9 +12,6 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
  */
 public final class PaymentGateway {
 
-    /** The {@code bot_setting} key. Values are {@link State#ON} and {@link State#OFF}, verbatim. */
-    private static final String KEY = "payment.gateway";
-
     /** What steward-worker last said about its bunq credentials. */
     public enum State {
 
@@ -32,33 +29,24 @@ public final class PaymentGateway {
 
     /** Records what steward-worker found, overwriting the previous state. */
     public static void announce(final Jdbi jdbi, final boolean on) {
-        jdbi.onDemand(GatewayDao.class).upsert(KEY, (on ? State.ON : State.OFF).name());
+        jdbi.onDemand(GatewayDao.class).upsert((on ? State.ON : State.OFF).name());
     }
 
     /** Returns what steward-worker last said, or {@link State#UNKNOWN} when nothing has. */
     public static State state(final Jdbi jdbi) {
-        final Optional<String> stored = jdbi.onDemand(GatewayDao.class).value(KEY);
-        if (stored.isEmpty()) {
-            return State.UNKNOWN;
-        }
-        try {
-            return State.valueOf(stored.get().trim());
-        } catch (final IllegalArgumentException unreadable) {
-            // Edited by hand; the worker's start line is the truth.
-            return State.UNKNOWN;
-        }
+        return jdbi.onDemand(GatewayDao.class).state().map(State::valueOf).orElse(State.UNKNOWN);
     }
 
     interface GatewayDao {
 
         @SqlUpdate("""
-                INSERT INTO bot_setting (key, value)
-                VALUES (:key, :value)
-                ON CONFLICT (key) DO UPDATE SET value = excluded.value
+                INSERT INTO payment_gateway (state)
+                VALUES (:state)
+                ON CONFLICT (id) DO UPDATE SET state = excluded.state
                 """)
-        void upsert(@Bind("key") String key, @Bind("value") String value);
+        void upsert(@Bind("state") String state);
 
-        @SqlQuery("SELECT value FROM bot_setting WHERE key = :key")
-        Optional<String> value(@Bind("key") String key);
+        @SqlQuery("SELECT state FROM payment_gateway WHERE state IS NOT NULL")
+        Optional<String> state();
     }
 }

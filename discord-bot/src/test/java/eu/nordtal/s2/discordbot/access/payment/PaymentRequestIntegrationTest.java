@@ -75,7 +75,7 @@ class PaymentRequestIntegrationTest {
         database.jdbi()
                 .useHandle(handle ->
                         handle.execute("TRUNCATE access_grant, payment_request, expiry_notice, payment_notice, "
-                                + "account_link, link_code, audit_log, discord_user, bot_setting CASCADE"));
+                                + "account_link, link_code, audit_log, discord_user, payment_gateway CASCADE"));
         requests = new PaymentRequests(database.jdbi());
         access = AccessDirectory.using(database.dataSource(), Clock.systemUTC());
     }
@@ -93,11 +93,11 @@ class PaymentRequestIntegrationTest {
                         "access_grant",
                         "account_link",
                         "audit_log",
-                        "bot_setting",
                         "discord_user",
                         "expiry_notice",
                         "link_code",
                         "managed_message",
+                        "payment_gateway",
                         "payment_notice",
                         "payment_request")),
                 tables.toString());
@@ -387,7 +387,7 @@ class PaymentRequestIntegrationTest {
                         second,
                         "a restart must not move the cut-off forward - everything between the two "
                                 + "would be ignored forever"),
-                () -> assertTrue(Watermark.storedAt(database.jdbi()).isPresent()));
+                () -> assertTrue(Watermark.stored(database.jdbi()).isPresent()));
     }
 
     @Test
@@ -405,7 +405,7 @@ class PaymentRequestIntegrationTest {
     void theWatermarkExistsBeforeTheFirstPollEvenWhenAnOverrideIsSet() {
         Watermark.resolve(database.jdbi(), "2020-01-01T00:00:00Z", Instant.now());
 
-        assertTrue(Watermark.storedAt(database.jdbi()).isPresent());
+        assertTrue(Watermark.stored(database.jdbi()).isPresent());
     }
 
     @Test

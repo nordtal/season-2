@@ -163,13 +163,15 @@ CREATE TABLE expiry_notice
 );
 COMMENT ON TABLE expiry_notice IS 'Owned by discord-bot: which access-runs-out message went to whom for which period, so a restart never sends one twice.';
 
-CREATE TABLE bot_setting
+CREATE TABLE payment_gateway
 (
-    key     varchar(64) PRIMARY KEY,
-    value   text        NOT NULL,
-    created timestamptz NOT NULL DEFAULT now()
+    id        boolean     PRIMARY KEY DEFAULT true CONSTRAINT payment_gateway_singleton CHECK (id),
+    -- Whether the worker had bunq credentials at its last start; NULL is not said yet, which is not OFF.
+    state     varchar(8)  CONSTRAINT payment_gateway_state_check CHECK (state IN ('ON', 'OFF')),
+    -- Payments created before this are ignored forever; written once, by the first start that polls.
+    watermark timestamptz
 );
-COMMENT ON TABLE bot_setting IS 'Owned by steward-worker: the payment watermark and the gateway state. discord-bot reads the gateway state.';
+COMMENT ON TABLE payment_gateway IS 'Owned by steward-worker: whether it can take money, and the cut-off of its payment poll; one row. discord-bot reads the state.';
 
 
 -- The season
@@ -433,7 +435,7 @@ CREATE TABLE update_request
     id           bigserial PRIMARY KEY,
     kind         varchar(16) NOT NULL
         CONSTRAINT update_request_kind_check
-            CHECK (kind IN ('REPORT', 'APPLY', 'UPDATE', 'RESTART', 'BACKUP', 'DOWN', 'START')),
+            CHECK (kind IN ('UPDATE', 'RESTART', 'BACKUP', 'DOWN', 'START')),
     status       varchar(16) NOT NULL DEFAULT 'PENDING'
         CONSTRAINT update_request_status_check CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'FAILED', 'CANCELLED')),
     source       varchar(16) NOT NULL

@@ -34,7 +34,7 @@ final class PaymentsStartup {
         try {
             PaymentGateway.announce(database.jdbi(), bunq.configured());
         } catch (final RuntimeException failure) {
-            // One row in bot_setting is no reason to refuse to serve four servers.
+            // One row in payment_gateway is no reason to refuse to serve four servers.
             log.warn(
                     "Could not record whether bunq is configured; the bot will say it does not"
                             + " know rather than saying it is off.",

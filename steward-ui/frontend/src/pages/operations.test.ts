@@ -49,7 +49,7 @@ describe("cancellable - the window the backend would still take a row back in", 
 
   it("says no to the kinds that never count down", () => {
     /** The SQL lists none of these kinds, so a Cancel there could only answer "too late". */
-    for (const kind of ["REPORT", "START", "APPLY"]) {
+    for (const kind of ["START"]) {
       expect(cancellable(row({ kind }), now)).toBe(false)
     }
     for (const kind of ["RESTART", "UPDATE", "BACKUP", "DOWN"]) {

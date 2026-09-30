@@ -7,12 +7,6 @@ package eu.nordtal.s2.database.update;
  */
 public enum UpdateKind {
 
-    /** Resolves every source, compares against the volumes and writes the report; writes no file. */
-    REPORT,
-
-    /** Swapping jars into running servers; never submitted, kept so existing rows still map. */
-    APPLY,
-
     /** Counts down, stops what changes, migrates, swaps and restarts; never stops the worker. */
     UPDATE,
 

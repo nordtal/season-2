@@ -8,6 +8,7 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.metric.MetricDirectory;
+import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.update.UpdateDirectory;
@@ -37,7 +38,6 @@ import eu.nordtal.s2.steward.worker.run.Runs;
 import eu.nordtal.s2.steward.worker.schema.RunLock;
 import eu.nordtal.s2.steward.worker.schema.Schema;
 import eu.nordtal.s2.steward.worker.schema.ServeLock;
-import eu.nordtal.s2.steward.worker.serve.PostgresNotifications;
 import eu.nordtal.s2.steward.worker.serve.Runner;
 import eu.nordtal.s2.steward.worker.serve.UpdateServer;
 import java.io.IOException;
@@ -500,13 +500,23 @@ public final class StewardWorker {
             final UpdateDirectory updates,
             final eu.nordtal.s2.steward.worker.plugin.PluginDirectory addedPlugins) {
         // The only evidence bunq works, since both variables are optional.
-        try (PaymentLoop paymentLoop = PaymentsStartup.start(config, databaseConfig, database, CLOCK)) {
+        try (PaymentLoop paymentLoop = PaymentsStartup.start(config, database, CLOCK);
+                SignalHub signals = SignalHub.open(
+                        databaseConfig.jdbcUrl(),
+                        databaseConfig.username(),
+                        databaseConfig.password(),
+                        databaseConfig.queryTimeoutSeconds(),
+                        "steward-worker-signals",
+                        log)) {
             try (UpdateServer server = new UpdateServer(
                     updates,
                     new Runner(config, database, containers, backups, updates, Waiting.on(CLOCK), addedPlugins),
-                    PostgresNotifications.connector(databaseConfig),
-                    Duration.ofSeconds(config.pollIntervalSeconds()),
                     CLOCK)) {
+                server.listen(signals);
+                if (paymentLoop != null) {
+                    paymentLoop.listen(signals);
+                }
+                signals.start();
                 // SIGTERM is how a redeploy asks; without this the container is killed after the grace period.
                 Runtime.getRuntime().addShutdownHook(new Thread(server::close, "steward-worker-shutdown"));
                 server.serve();

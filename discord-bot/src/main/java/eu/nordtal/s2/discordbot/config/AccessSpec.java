@@ -12,14 +12,14 @@ import eu.nordtal.jcore.config.spec.annotation.Reload;
 import java.util.List;
 
 /**
- * {@code config/access.yml}: the product, the guild and the poll loop.
+ * {@code config/access.yml}: the product and the guild.
  *
  * Every id defaults to empty and the bot refuses to start while one is.
  */
 @ConfigSpec(
         header = {
             "-------------------------------------------------------------------",
-            "  access-bot: the product, the guild and the poll loop",
+            "  access-bot: the product and the guild",
             "-------------------------------------------------------------------",
             "Edited in Steward. The guild id and the admin role come from the",
             "host's environment (NORDTAL_ACCESS_GUILD_ID, NORDTAL_ACCESS_ROLES_ADMIN),",
@@ -361,22 +361,9 @@ public interface AccessSpec {
         }
     }
 
-    /** The life cycle of a payment request, and how often the bot looks at the seam. */
+    /** The life cycle of a payment request. */
     @ConfigSpec
     interface PaymentSpec {
-
-        @Order(1)
-        @Name("Poll interval (seconds)")
-        @Key("poll-interval-seconds")
-        @Comment({
-            "How often the bot re-reads the payment seam in the database: matched money, admin",
-            "notices and awaited payment links. Notifications make it instant; this is the floor."
-        })
-        @Explain(
-                "How often the bot re-reads the payment seam in the database. Notifications make it feel instant; this is the fallback.")
-        default int pollIntervalSeconds() {
-            return 30;
-        }
 
         @Order(2)
         @Name("Request lifetime (hours)")

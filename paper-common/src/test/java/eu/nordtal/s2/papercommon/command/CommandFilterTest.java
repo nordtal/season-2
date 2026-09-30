@@ -19,7 +19,6 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.command.UnknownCommandEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
-import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 
@@ -44,14 +43,7 @@ class CommandFilterTest {
 
     private CommandFilter filter(final CommandFilter.Source source, final SpyChime chime) {
         return new CommandFilter(
-                silentPlugin(),
-                source,
-                uuid -> false,
-                locales,
-                messages,
-                silentLogger(),
-                () -> ToneColours.DEFAULTS,
-                chime);
+                source, uuid -> false, locales, messages, silentLogger(), () -> ToneColours.DEFAULTS, chime);
     }
 
     @Test
@@ -98,14 +90,6 @@ class CommandFilterTest {
 
         assertTrue(event.isCancelled());
         assertEquals(List.of(Feedback.REFUSED), chime.played);
-    }
-
-    private static Plugin silentPlugin() {
-        return (Plugin) Proxy.newProxyInstance(
-                Plugin.class.getClassLoader(), new Class<?>[] {Plugin.class}, (proxy, method, args) -> {
-                    throw new UnsupportedOperationException(
-                            "the constructor must not call " + "Plugin#" + method.getName());
-                });
     }
 
     private static Logger silentLogger() {

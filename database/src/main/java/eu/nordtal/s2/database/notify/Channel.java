@@ -1,0 +1,49 @@
+package eu.nordtal.s2.database.notify;
+
+import java.util.Objects;
+
+/**
+ * Every {@code LISTEN}/{@code NOTIFY} channel in the network; a {@link SignalHub} registers by one of these.
+ * The payload is an id at most and never the state; each constant names who emits and who listens.
+ */
+public enum Channel {
+
+    /** The season phase moved. Emitted by the phase directory; the proxy listens. */
+    PHASE("nordtal_phase"),
+
+    /** An admin flag in {@code discord_user} was written; payload the Discord id. The proxy, bot and Paper listen. */
+    ADMIN("nordtal_admin"),
+
+    /** A command was addressed to another process; payload the target's name. The proxy and Paper listen. */
+    COMMAND("nordtal_command"),
+
+    /** A run was asked for, moved on or settled. steward-worker, the proxy and the bot's update feed listen. */
+    UPDATE("nordtal_update"),
+
+    /** The proxy published a new command allowlist, only on a change. The three Paper servers listen. */
+    ALLOWLIST("nordtal_allowlist"),
+
+    /** A {@code payment_request} row was written. steward-worker and discord-bot listen. */
+    PAYMENT("nordtal_payment"),
+
+    /** An access change was asked for. discord-bot listens. */
+    ACCESS("nordtal_access"),
+
+    /** The SMP track, its progress or the aura board moved. smp emits and its surfaces listen. */
+    SMP("nordtal_smp");
+
+    private final String sqlName;
+
+    Channel(final String sqlName) {
+        // The name goes into LISTEN unquoted: an identifier has no placeholder.
+        if (!Objects.requireNonNull(sqlName, "sqlName").matches("[a-z][a-z0-9_]*")) {
+            throw new IllegalArgumentException("not a usable LISTEN channel name: '" + sqlName + "'");
+        }
+        this.sqlName = sqlName;
+    }
+
+    /** Returns the channel's name as the SQL spells it in {@code LISTEN} and {@code pg_notify}. */
+    public String sqlName() {
+        return sqlName;
+    }
+}

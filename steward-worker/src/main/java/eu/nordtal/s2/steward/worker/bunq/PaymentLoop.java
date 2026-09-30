@@ -1,21 +1,18 @@
 package eu.nordtal.s2.steward.worker.bunq;
 
-import eu.nordtal.s2.database.notify.Channels;
-import eu.nordtal.s2.database.notify.NotificationListener;
-import eu.nordtal.s2.database.notify.Notifications;
+import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.database.notify.SignalHub;
 import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.Nullable;
 
 /**
- * Drives {@link Payments} with a poll, and a {@code LISTEN nordtal_payment} that makes it feel immediate.
+ * Drives {@link Payments} with a bunq poll, and a pass on every payment signal of the process's hub.
  *
- * The poll is the guarantee; a {@code tryLock} keeps a notification mid-pass from starting a second pass.
+ * A {@code tryLock} keeps a signal mid-pass from starting a second pass.
  */
 @Slf4j
 public final class PaymentLoop implements AutoCloseable {
@@ -26,24 +23,19 @@ public final class PaymentLoop implements AutoCloseable {
     private final ScheduledExecutorService timer;
     private final ReentrantLock running = new ReentrantLock();
 
-    /** Set once after construction, since the listener and this loop refer to each other. */
-    private volatile @Nullable NotificationListener listener;
-
     PaymentLoop(final Runnable work, final ScheduledExecutorService timer) {
         this.work = work;
         this.timer = timer;
     }
 
     /**
-     * Starts both halves.
+     * Starts the bunq poll.
      *
      * @param payments the work
-     * @param connector opens a dedicated {@code LISTEN} connection, never the pool's
-     * @param poll how often to ask bunq regardless of any notification
-     * @return the running loop, to be closed with the container
+     * @param poll how often to ask bunq, which sends no signal of its own
+     * @return the running loop, to be put on the process's hub with {@link #listen} and closed with the container
      */
-    public static PaymentLoop start(
-            final Payments payments, final Notifications.Connector connector, final Duration poll) {
+    public static PaymentLoop start(final Payments payments, final Duration poll) {
         final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(runnable -> {
             final Thread thread = new Thread(runnable, "steward-worker-bunq-poll");
             thread.setDaemon(true);
@@ -51,17 +43,14 @@ public final class PaymentLoop implements AutoCloseable {
         });
 
         final PaymentLoop loop = new PaymentLoop(payments::pass, timer);
-        loop.listener = new NotificationListener(
-                connector,
-                "steward-worker-bunq-listener",
-                List.of(new NotificationListener.Refresh("the payment seam", loop::pass)),
-                log,
-                poll);
-        loop.listener.start();
-
         // Zero initial delay drains anything left from the previous container.
         final var _ = timer.scheduleWithFixedDelay(loop::pass, 0, poll.toSeconds(), TimeUnit.SECONDS);
         return loop;
+    }
+
+    /** Runs a pass on this loop's own thread on every payment signal, so a bunq call never blocks the hub. */
+    public void listen(final SignalHub signals) {
+        signals.on(Channel.PAYMENT, "the payment seam", () -> timer.execute(this::pass));
     }
 
     /** Runs one pass, unless one is already running. */
@@ -77,17 +66,8 @@ public final class PaymentLoop implements AutoCloseable {
         }
     }
 
-    /** The channel both halves of the seam wake on. */
-    public static String channel() {
-        return Channels.PAYMENT;
-    }
-
     @Override
     public void close() {
         timer.shutdownNow();
-        final NotificationListener open = listener;
-        if (open != null) {
-            open.close();
-        }
     }
 }

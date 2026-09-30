@@ -97,7 +97,7 @@ the table below are compiled into the jars above.
 | `steward-ui`        | JVM app + React | The web interface: state, logs, configuration, seasons, access, payments, the journal. No Docker socket, ever.                                   |
 | `steward-deployer`  | JVM app         | The only service allowed to create a container. Carries `compose.yml` inside its own image.                                                      |
 | `common`            | library         | The shared kernel: platform constants, the phase enum, languages, readiness. No database, no Adventure, no pack.                                 |
-| `database`          | library         | Access, phase, online, audit, the request inboxes, the `LISTEN`/`NOTIFY` loop and the migration SQL.                                             |
+| `database`          | library         | Access, phase, online, audit, the request inboxes, the signal hub and the migration SQL.                                                         |
 | `messages`          | library         | The message system without Adventure: bundles, specs, contexts. The bot and Steward stop here.                                                   |
 | `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity code.                                                                                   |
 | `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list rendering from the resource pack.                                                 |
@@ -114,8 +114,8 @@ the table below are compiled into the jars above.
 - **Commands** are declared once in `:commands` and appear on every surface that can carry them.
   An effect owned by another process travels as a `command_request` row. Player commands also need
   the allowlist in `network.yml`.
-- **Phases** are `PRE_EVENT`, `START_EVENT`, `SMP` and `MAINTENANCE`, one database row propagated
-  by `NOTIFY` with polling behind it.
+- **Phases** are `PRE_EVENT`, `START_EVENT`, `SMP` and `MAINTENANCE`, one database row every process
+  re-reads through its signal hub.
 - **Access** is paid from `SMP` on; the start event is free for linked members. A bunq payment is
   matched to an open reference and becomes an access period row.
 - **Text** a player reads is translated, German and English, looked up once per join off the main

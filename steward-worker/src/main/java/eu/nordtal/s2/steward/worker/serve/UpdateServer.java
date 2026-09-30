@@ -1,9 +1,10 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.database.notify.Doorbell;
+import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -13,83 +14,72 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * {@code steward-worker serve}: the loop that turns {@code update_request} rows into runs; nothing runs without one.
  *
- * Every reconnect drains the table before waiting, so a lost notification costs latency, not a run.
+ * It drains on its own thread whenever the process's {@link SignalHub} rings its doorbell, and when a row falls due.
  */
 @Slf4j
 public final class UpdateServer implements AutoCloseable {
-
-    /** How long to wait before opening a new {@code LISTEN} connection after one failed. */
-    private static final Duration RECONNECT_BACKOFF = Duration.ofSeconds(5);
 
     /** The floor on any wait, so a due row another worker holds cannot spin the loop. */
     private static final Duration MINIMUM_WAIT = Duration.ofSeconds(1);
 
     private final UpdateDirectory directory;
     private final RequestRunner runner;
-    private final Notifications.Connector connector;
-    private final Duration pollInterval;
+    private final Doorbell doorbell = new Doorbell();
+    private final Duration longestWait;
     private final Clock clock;
-    private final Duration reconnectBackoff;
 
     private volatile boolean running = true;
 
-    public UpdateServer(
-            final UpdateDirectory directory,
-            final RequestRunner runner,
-            final Notifications.Connector connector,
-            final Duration pollInterval,
-            final Clock clock) {
-        this(directory, runner, connector, pollInterval, clock, RECONNECT_BACKOFF);
+    public UpdateServer(final UpdateDirectory directory, final RequestRunner runner, final Clock clock) {
+        this(directory, runner, SignalHub.RECONCILIATION, clock);
     }
 
-    /** Package-visible so a test can watch several reconnects without waiting seconds for each. */
+    /** Package-visible so a test can bound the wait without the hub. */
     UpdateServer(
             final UpdateDirectory directory,
             final RequestRunner runner,
-            final Notifications.Connector connector,
-            final Duration pollInterval,
-            final Clock clock,
-            final Duration reconnectBackoff) {
+            final Duration longestWait,
+            final Clock clock) {
         this.directory = directory;
         this.runner = runner;
-        this.connector = connector;
-        this.pollInterval = pollInterval;
+        this.longestWait = longestWait;
         this.clock = clock;
-        this.reconnectBackoff = reconnectBackoff;
+    }
+
+    /** Rings this server's doorbell on every signal, connect and reconciliation of {@code signals}. */
+    public void listen(final SignalHub signals) {
+        signals.on(Channel.UPDATE, "the update inbox", this::wake);
+    }
+
+    /** Wakes the loop, as a signal on {@link Channel#UPDATE} does. */
+    void wake() {
+        doorbell.ring();
     }
 
     /** Runs until {@link #close()}, blocking the calling thread, which is {@code main}'s. */
     public void serve() {
         settleOrphans();
-
+        log.info("Serving update requests");
         while (running) {
-            try (Notifications notifications = connector.listen()) {
-                log.info("Listening for update requests on {}", UpdateDirectory.CHANNEL);
-                while (running) {
-                    // Drain before waiting for anything: a notification received while disconnected is lost.
-                    drain();
-                    if (!running) {
-                        // Handed over: returning ends the process, and Docker starts the new jar.
-                        return;
-                    }
-                    notifications.awaitNotification(waitFor());
-                }
-            } catch (final SQLException failure) {
+            try {
+                drain();
                 if (!running) {
+                    // Handed over: returning ends the process, and Docker starts the new jar.
                     return;
                 }
-                log.warn(
-                        "The update listener connection failed; reconnecting in {}s",
-                        reconnectBackoff.toSeconds(),
-                        failure);
-                sleep(reconnectBackoff);
+                doorbell.await(waitFor());
+            } catch (final InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
             } catch (final RuntimeException failure) {
                 // A bug in the loop itself must not turn into a container that is up and deaf.
-                if (!running) {
+                log.error("The update loop threw; it carries on at the next wake-up", failure);
+                try {
+                    doorbell.await(longestWait);
+                } catch (final InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
                     return;
                 }
-                log.error("The update loop threw; restarting it in {}s", reconnectBackoff.toSeconds(), failure);
-                sleep(reconnectBackoff);
             }
         }
     }
@@ -149,13 +139,13 @@ public final class UpdateServer implements AutoCloseable {
         }
     }
 
-    /** How long to block before looking again: the poll interval or the time until the next row is due. */
+    /** How long to block before looking again: until the next row is due, at most the reconciliation. */
     Duration waitFor() {
         final Instant now = clock.instant();
         final Duration untilDue =
-                directory.nextDue().map(due -> Duration.between(now, due)).orElse(pollInterval);
+                directory.nextDue().map(due -> Duration.between(now, due)).orElse(longestWait);
 
-        final Duration wait = untilDue.compareTo(pollInterval) < 0 ? untilDue : pollInterval;
+        final Duration wait = untilDue.compareTo(longestWait) < 0 ? untilDue : longestWait;
         return wait.compareTo(MINIMUM_WAIT) < 0 ? MINIMUM_WAIT : wait;
     }
 
@@ -179,15 +169,10 @@ public final class UpdateServer implements AutoCloseable {
         }
     }
 
-    private void sleep(final Duration duration) {
-        if (!Waiting.on(clock).sleep(duration)) {
-            running = false;
-        }
-    }
-
     /** Asks the loop to stop. It finishes the request it is on first. */
     @Override
     public void close() {
         running = false;
+        doorbell.ring();
     }
 }

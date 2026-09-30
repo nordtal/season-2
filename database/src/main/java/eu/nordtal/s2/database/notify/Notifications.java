@@ -2,6 +2,7 @@ package eu.nordtal.s2.database.notify;
 
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.Set;
 
 /** One live {@code LISTEN} connection, reduced to whether anything arrived; the channel is not reported. */
 public interface Notifications extends AutoCloseable {
@@ -25,8 +26,9 @@ public interface Notifications extends AutoCloseable {
         /**
          * Returns a connection with a {@code LISTEN} already issued for every channel.
          *
+         * @param channels at least one
          * @throws SQLException if the connection could not be opened or a {@code LISTEN} failed
          */
-        Notifications listen() throws SQLException;
+        Notifications listen(Set<Channel> channels) throws SQLException;
     }
 }

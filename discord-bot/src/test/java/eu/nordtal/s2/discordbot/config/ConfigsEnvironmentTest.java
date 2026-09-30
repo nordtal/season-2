@@ -59,7 +59,6 @@ class ConfigsEnvironmentTest {
             channels:
               admin: '24'
             payment:
-              poll-interval-seconds: 30
               request-ttl-hours: 24
             expiry-reminder-lead-days: 3
             role-reconcile-interval-minutes: 10

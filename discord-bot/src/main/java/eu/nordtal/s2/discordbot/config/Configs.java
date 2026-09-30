@@ -107,7 +107,6 @@ public final class Configs {
         requirePositive("expiry-reminder-lead-days", config.expiryReminderLeadDays());
         requirePositive("link-code-attempts-per-hour", config.linkCodeAttemptsPerHour());
         requirePositive("role-reconcile-interval-minutes", config.roleReconcileIntervalMinutes());
-        requirePositive("payment.poll-interval-seconds", config.payment().pollIntervalSeconds());
         requirePositive("payment.request-ttl-hours", config.payment().requestTtlHours());
     }
 

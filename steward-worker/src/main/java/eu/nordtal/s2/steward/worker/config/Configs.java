@@ -64,7 +64,6 @@ public final class Configs {
                     requireText("volumes-root", config.volumesRoot());
                     requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
                     requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
-                    requirePositive("poll-interval-seconds", config.pollIntervalSeconds());
                     requireBackup(config.backup());
                     requireBunq(config.bunq());
                 })

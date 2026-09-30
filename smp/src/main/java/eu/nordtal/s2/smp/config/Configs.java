@@ -161,7 +161,6 @@ public final class Configs {
         requireText("world-nordtal", config.worldNordtal());
         requireText("first-join-spawn: world", config.firstJoinSpawn().world());
         // {@code AdminWatch} floors this at one second.
-        requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
         requirePositive("nether-border-diameter", config.netherBorderDiameter());
         requirePositive("end-border-diameter", config.endBorderDiameter());
         requirePositive("border-expansion-blocks-per-second", config.borderExpansionBlocksPerSecond());

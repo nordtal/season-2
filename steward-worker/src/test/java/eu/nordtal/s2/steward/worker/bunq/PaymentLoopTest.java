@@ -3,7 +3,6 @@ package eu.nordtal.s2.steward.worker.bunq;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.database.notify.Channels;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -59,12 +58,5 @@ class PaymentLoopTest {
         } finally {
             timer.shutdownNow();
         }
-    }
-
-    @Test
-    void theLoopListensOnTheChannelTheSeamPublishesOn() {
-        // A listener on a channel nobody publishes on looks like a working one: it logs, connects, and never fires.
-        assertEquals(Channels.PAYMENT, PaymentLoop.channel());
-        assertEquals("nordtal_payment", PaymentLoop.channel());
     }
 }

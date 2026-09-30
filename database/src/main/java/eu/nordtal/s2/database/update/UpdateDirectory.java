@@ -11,12 +11,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * steward-worker's inbox, as seen by every process that can ask for a run.
  *
- * A request is a row plus an empty {@code pg_notify}; the notification is never the state, so readers poll.
+ * A request is a row plus an empty {@code pg_notify}; the notification is never the state, so a wake-up re-reads.
  */
 public interface UpdateDirectory {
-
-    /** The PostgreSQL channel every request is announced on, an alias for {@code Channels#UPDATE}. */
-    String CHANNEL = eu.nordtal.s2.database.notify.Channels.UPDATE;
 
     /**
      * How long between an update being asked for and the servers going down, which is also the cancel window.

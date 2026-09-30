@@ -103,6 +103,9 @@ public final class SmpPlugin extends JavaPlugin {
 
     AdminWatch adminWatch;
 
+    /** The plugin's one {@code LISTEN} connection. */
+    eu.nordtal.s2.database.notify.@Nullable SignalHub signals;
+
     /** What a non-admin may type here, and what their client is told exists. */
     eu.nordtal.s2.papercommon.command.CommandFilter commandFilter;
 
@@ -366,6 +369,9 @@ public final class SmpPlugin extends JavaPlugin {
             quietly("boards.stop", boards::stop);
         }
         // Before the pool, since a refresh in flight reads through it.
+        if (signals != null) {
+            quietly("signals.close", signals::close);
+        }
         if (adminWatch != null) {
             quietly("adminWatch.close", adminWatch::close);
         }

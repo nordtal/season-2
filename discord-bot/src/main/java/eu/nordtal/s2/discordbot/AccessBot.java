@@ -10,9 +10,8 @@ import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.network.SnapshotDirectory;
-import eu.nordtal.s2.database.notify.Channels;
-import eu.nordtal.s2.database.notify.NotificationListener;
-import eu.nordtal.s2.database.notify.PostgresNotifications;
+import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.payment.PaymentGateway;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
@@ -44,7 +43,6 @@ import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MessageEnvironment;
 import java.time.Clock;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -81,17 +79,8 @@ public class AccessBot implements AutoCloseable {
     private final AccessDirectory access;
     private final JDA jda;
 
-    private static final Duration ACCESS_POLL = Duration.ofSeconds(30);
-
-    /**
-     * {@code LISTEN nordtal_payment} on its own connection, since {@code LISTEN} is session state a pool would lose.
-     */
-    private final NotificationListener paymentListener;
-
-    /**
-     * {@code LISTEN nordtal_access}, separate from the payment listener because the two poll at different intervals.
-     */
-    private final NotificationListener accessListener;
+    /** The bot's one {@code LISTEN} connection, since {@code LISTEN} is session state a pool would lose. */
+    private final SignalHub signals;
 
     /** Bounds the liveness check and reconnect only; pgjdbc overrides it while waiting for notifications. */
     private static final int LISTENER_SOCKET_TIMEOUT_SECONDS = 30;
@@ -152,9 +141,7 @@ public class AccessBot implements AutoCloseable {
             final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
             publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), wiring);
 
-            final Listeners listeners = finishStartup(databaseConfig, accessConfig, core, wiring, phases, updates);
-            this.paymentListener = listeners.payment();
-            this.accessListener = listeners.access();
+            this.signals = finishStartup(databaseConfig, accessConfig, core, wiring, phases, updates);
 
             started = true;
             log.info("access-bot is up");
@@ -165,9 +152,7 @@ public class AccessBot implements AutoCloseable {
         }
     }
 
-    private record Listeners(NotificationListener payment, NotificationListener access) {}
-
-    private Listeners finishStartup(
+    private SignalHub finishStartup(
             final DatabaseSpec databaseConfig,
             final AccessSpec accessConfig,
             final CoreServices core,
@@ -189,14 +174,13 @@ public class AccessBot implements AutoCloseable {
                 new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.messages(), clock);
         updateFeed.start();
 
-        schedule(accessConfig, wiring.processor(), wiring.purchaseFlow(), wiring.roles(), status, updateFeed);
+        schedule(accessConfig, wiring.roles(), status, updateFeed);
 
         // Started last: it refreshes immediately on connect and touches JDA.
-        final NotificationListener payment =
-                listenForPayments(databaseConfig, accessConfig, wiring.processor(), wiring.purchaseFlow());
-
-        final NotificationListener access = listenForAccess(
+        final SignalHub hub = listen(
                 databaseConfig,
+                wiring.processor(),
+                wiring.purchaseFlow(),
                 new AccessInbox(
                         eu.nordtal.s2.database.access.AccessRequests.on(database.dataSource()),
                         wiring.inboxEffects(),
@@ -207,7 +191,7 @@ public class AccessBot implements AutoCloseable {
         final Readiness readiness = Readiness.onDefaultPath(clock, log::warn);
         repeat(guarded("readiness marker", readiness::refresh), 0, Readiness.BEAT.toSeconds(), TimeUnit.SECONDS);
 
-        return new Listeners(payment, access);
+        return hub;
     }
 
     private CoreServices loadCoreServices(final AccessSpec accessConfig) {
@@ -375,22 +359,9 @@ public class AccessBot implements AutoCloseable {
     /** Starts the recurring timers, each guarded because the scheduler silently cancels a task that throws. */
     private void schedule(
             final AccessSpec config,
-            final PaymentProcessor processor,
-            final PurchaseFlow purchaseFlow,
             final AccessRoles roles,
             final StatusChannels status,
             final UpdateFeed updateFeed) {
-        // Unconditional: without bunq both queues are simply empty.
-        final int poll = config.payment().pollIntervalSeconds();
-        repeat(
-                guarded("payment seam", () -> {
-                    processor.poll();
-                    purchaseFlow.fillIn();
-                }),
-                poll,
-                poll,
-                TimeUnit.SECONDS);
-
         final int reconcile = config.roleReconcileIntervalMinutes();
         repeat(guarded("role reconcile", roles::reconcile), reconcile, reconcile, TimeUnit.MINUTES);
 
@@ -420,62 +391,33 @@ public class AccessBot implements AutoCloseable {
     }
 
     /**
-     * Starts the {@code nordtal_payment} listener.
+     * Opens the bot's one signal hub; every refresh hands its work to {@code worker}.
      *
-     * Both refreshes run on {@code worker}, and on every connect and reconnect before waiting.
+     * Each runs on connect, on every signal and on the hub's reconciliation, which is what replaced the polls.
      */
-    private NotificationListener listenForPayments(
+    private SignalHub listen(
             final DatabaseSpec databaseConfig,
-            final AccessSpec accessConfig,
             final PaymentProcessor processor,
-            final PurchaseFlow purchaseFlow) {
-        final Duration wait = Duration.ofSeconds(accessConfig.payment().pollIntervalSeconds());
-        final NotificationListener listener = new NotificationListener(
-                PostgresNotifications.connector(
-                        databaseConfig.jdbcUrl(),
-                        databaseConfig.username(),
-                        databaseConfig.password(),
-                        LISTENER_SOCKET_TIMEOUT_SECONDS,
-                        "access-bot-payment-listener",
-                        List.of(Channels.PAYMENT)),
-                "access-bot-payment-listener",
-                List.of(
-                        new NotificationListener.Refresh(
-                                "matched payments", () -> worker.execute(guarded("payment booking", processor::poll))),
-                        new NotificationListener.Refresh(
-                                "waiting payment links",
-                                () -> worker.execute(guarded("payment links", purchaseFlow::fillIn)))),
-                log,
-                wait);
-        listener.start();
-        return listener;
-    }
-
-    /**
-     * Starts the {@code nordtal_access} listener, which also carries {@code nordtal_admin}.
-     *
-     * Each refresh runs on {@code worker}; the thirty-second poll is the guarantee, the notification only speeds it up.
-     */
-    private NotificationListener listenForAccess(
-            final DatabaseSpec databaseConfig, final AccessInbox accessInbox, final AdminRole adminRole) {
-        final NotificationListener listener = new NotificationListener(
-                PostgresNotifications.connector(
-                        databaseConfig.jdbcUrl(),
-                        databaseConfig.username(),
-                        databaseConfig.password(),
-                        LISTENER_SOCKET_TIMEOUT_SECONDS,
-                        "access-bot-access-listener",
-                        List.of(Channels.ACCESS, Channels.ADMIN)),
-                "access-bot-access-listener",
-                List.of(
-                        new NotificationListener.Refresh(
-                                "access requests", () -> worker.execute(guarded("access inbox", accessInbox::drain))),
-                        new NotificationListener.Refresh(
-                                "admin role", () -> worker.execute(guarded("admin role", adminRole::reconcile)))),
-                log,
-                ACCESS_POLL);
-        listener.start();
-        return listener;
+            final PurchaseFlow purchaseFlow,
+            final AccessInbox accessInbox,
+            final AdminRole adminRole) {
+        final SignalHub hub = SignalHub.open(
+                databaseConfig.jdbcUrl(),
+                databaseConfig.username(),
+                databaseConfig.password(),
+                LISTENER_SOCKET_TIMEOUT_SECONDS,
+                "access-bot-signals",
+                log);
+        // Unconditional: without bunq both queues are simply empty.
+        hub.on(Channel.PAYMENT, "matched payments", () -> worker.execute(guarded("payment booking", processor::poll)));
+        hub.on(
+                Channel.PAYMENT,
+                "waiting payment links",
+                () -> worker.execute(guarded("payment links", purchaseFlow::fillIn)));
+        hub.on(Channel.ACCESS, "access requests", () -> worker.execute(guarded("access inbox", accessInbox::drain)));
+        hub.on(Channel.ADMIN, "admin role", () -> worker.execute(guarded("admin role", adminRole::reconcile)));
+        hub.start();
+        return hub;
     }
 
     private void repeat(final Runnable task, final long initialDelay, final long delay, final TimeUnit unit) {
@@ -500,8 +442,7 @@ public class AccessBot implements AutoCloseable {
     @Override
     public void close() {
         log.info("Shutting down");
-        paymentListener.close();
-        accessListener.close();
+        signals.close();
         timers.shutdownNow();
         worker.shutdownNow();
         try {

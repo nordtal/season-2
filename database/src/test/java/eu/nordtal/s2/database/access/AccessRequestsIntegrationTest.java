@@ -11,7 +11,7 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.access.AccessRequests.NewAccessRequest;
-import eu.nordtal.s2.database.notify.Channels;
+import eu.nordtal.s2.database.notify.Channel;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -106,7 +106,7 @@ class AccessRequestsIntegrationTest {
         // The notification is emitted in the writing statement, so only for a committed row.
         try (Connection listener = dataSource.getConnection()) {
             try (Statement statement = listener.createStatement()) {
-                statement.execute("LISTEN " + Channels.ACCESS);
+                statement.execute("LISTEN " + Channel.ACCESS.sqlName());
             }
 
             inbox.submit(grant("400000000000000002", 30));
@@ -115,7 +115,7 @@ class AccessRequestsIntegrationTest {
                     listener.unwrap(PGConnection.class).getNotifications(5000);
             assertNotNull(received, "the LISTEN connection was told about the insert");
             assertEquals(1, received.length);
-            assertEquals(Channels.ACCESS, received[0].getName());
+            assertEquals(Channel.ACCESS.sqlName(), received[0].getName());
             assertEquals("", received[0].getParameter(), "no payload, on purpose - a listener must re-read the table");
         }
     }

@@ -85,10 +85,6 @@ class ConfigsTest {
         assertEquals(15, config.fallbackCacheWindowMinutes());
         assertEquals(60, config.expiryCheckIntervalSeconds());
         assertEquals(5, config.expiryWarningLeadMinutes());
-        assertEquals(30, config.phasePollIntervalSeconds(), "thirty seconds is the decided poll interval");
-        assertTrue(
-                config.phaseListenEnabled(),
-                "LISTEN/NOTIFY is built in the first pass rather than deferred, so it is on by default");
         assertEquals(
                 300,
                 config.playtimeFlushIntervalSeconds(),
@@ -138,31 +134,12 @@ class ConfigsTest {
     }
 
     @Test
-    void aZeroPhasePollIntervalIsRejected() throws Exception {
-        // A zero interval would schedule a task with no repeat, the one failure mode the poll exists to prevent.
-        writeGate("phase-poll-interval-seconds: 0");
-
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, () -> Configs.gate(directory, LOGGER));
-        assertTrue(error.getMessage().contains("phase-poll-interval-seconds"), error.getMessage());
-    }
-
-    @Test
     void aNegativePlaytimeFlushIntervalIsRejected() throws Exception {
         writeGate("playtime-flush-interval-seconds: -30");
 
         final ConfigValidationException error =
                 assertThrows(ConfigValidationException.class, () -> Configs.gate(directory, LOGGER));
         assertTrue(error.getMessage().contains("playtime-flush-interval-seconds"), error.getMessage());
-    }
-
-    @Test
-    void turningTheListenerOffIsAllowedBecauseThePollIsTheGuarantee() throws Exception {
-        writeGate("phase-listen-enabled: false");
-
-        assertFalse(
-                Configs.gate(directory, LOGGER).get().phaseListenEnabled(),
-                "the fallback is to drop NOTIFY and keep the poll");
     }
 
     // pack.yml
@@ -424,8 +401,6 @@ class ConfigsTest {
             "fallback-cache-window-minutes: 15",
             "expiry-check-interval-seconds: 60",
             "expiry-warning-lead-minutes: 5",
-            "phase-poll-interval-seconds: 30",
-            "phase-listen-enabled: true",
             "playtime-flush-interval-seconds: 300",
             "server-limbo: limbo",
             "server-hunger-games: hunger-games",

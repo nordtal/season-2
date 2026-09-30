@@ -1,19 +1,21 @@
 package eu.nordtal.s2.steward.worker.serve;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
-import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -145,74 +147,42 @@ class UpdateServerTest {
     }
 
     @Test
-    void aListenerThatDiesIsReplacedAndTheTableIsDrainedOnEveryReconnect() throws Exception {
-        // THE rule: a request written while disconnected produced a notification nobody received and none repeats it.
-        directory.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
-
-        final AtomicInteger connects = new AtomicInteger();
-        final AtomicInteger ran = new AtomicInteger();
-
+    void aWakeUpDrainsLongBeforeTheWaitRunsOut() throws Exception {
+        // The hub rings on every signal and every reconnect; the wait itself is only the reconciliation.
+        final CountDownLatch ran = new CountDownLatch(1);
         final UpdateServer server = new UpdateServer(
                 directory,
                 (request, progress) -> {
-                    ran.incrementAndGet();
+                    ran.countDown();
                     return Outcome.done("x");
                 },
-                failingConnector(connects),
-                POLL,
-                fixedClock(),
-                Duration.ofMillis(1));
+                Duration.ofMinutes(10),
+                fixedClock());
 
         final Thread thread = new Thread(server::serve, "test-update-server");
+        thread.setDaemon(true);
         thread.start();
         try {
-            // The connector fails on every await, so the loop reconnects as fast as the backoff allows.
-            final long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
-            while (connects.get() < 2 && System.nanoTime() < deadline) {
+            // Parked on the doorbell first, so the row can only be found through the wake-up.
+            final long parked = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+            while (thread.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < parked) {
                 Thread.onSpinWait();
             }
-            assertTrue(connects.get() >= 2, "the listener was reopened after it failed");
-            assertEquals(1, ran.get(), "and the one request waiting was run exactly once");
+            directory.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
+            server.wake();
+            assertTrue(ran.await(5, TimeUnit.SECONDS), "the request waited for the reconciliation, not the wake-up");
         } finally {
             server.close();
             thread.join(Duration.ofSeconds(5).toMillis());
         }
+        assertFalse(thread.isAlive(), "close() has to end the wait, not only the next drain");
     }
 
     private UpdateServer server(final RequestRunner runner) {
-        return new UpdateServer(directory, runner, never(), POLL, fixedClock(), Duration.ofMillis(1));
+        return new UpdateServer(directory, runner, POLL, fixedClock());
     }
 
     private static Clock fixedClock() {
         return Clock.fixed(NOW, ZoneOffset.UTC);
-    }
-
-    /** A connector whose connection never reports anything and never dies. */
-    private static Notifications.Connector never() {
-        return () -> new Notifications() {
-            @Override
-            public boolean awaitNotification(final Duration timeout) {
-                return false;
-            }
-
-            @Override
-            public void close() {}
-        };
-    }
-
-    /** A connector whose connection dies on the first wait, every time. */
-    private static Notifications.Connector failingConnector(final AtomicInteger connects) {
-        return () -> {
-            connects.incrementAndGet();
-            return new Notifications() {
-                @Override
-                public boolean awaitNotification(final Duration timeout) throws SQLException {
-                    throw new SQLException("the socket went away");
-                }
-
-                @Override
-                public void close() {}
-            };
-        };
     }
 }

@@ -5,9 +5,10 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 
@@ -22,9 +23,9 @@ public final class PostgresNotifications implements Notifications {
 
     private final Connection connection;
     private final PGConnection pg;
-    private final List<String> channels;
+    private final Set<Channel> channels;
 
-    private PostgresNotifications(final Connection connection, final List<String> channels) throws SQLException {
+    private PostgresNotifications(final Connection connection, final Set<Channel> channels) throws SQLException {
         this.connection = connection;
         this.pg = connection.unwrap(PGConnection.class);
         this.channels = channels;
@@ -36,30 +37,22 @@ public final class PostgresNotifications implements Notifications {
      * @param password             database password, {@code null} treated as empty
      * @param socketTimeoutSeconds bounds a peer that has gone away without closing
      * @param applicationName      this connection's name in {@code pg_stat_activity}
-     * @param channels             the channels to {@code LISTEN} on, at least one
      */
     public static Connector connector(
             final String jdbcUrl,
             final String username,
             final String password,
             final int socketTimeoutSeconds,
-            final String applicationName,
-            final List<String> channels) {
+            final String applicationName) {
         Objects.requireNonNull(jdbcUrl, "jdbcUrl");
         Objects.requireNonNull(username, "username");
         Objects.requireNonNull(applicationName, "applicationName");
-        final List<String> listenOn = List.copyOf(Objects.requireNonNull(channels, "channels"));
-        if (listenOn.isEmpty()) {
-            throw new IllegalArgumentException("a listener with no channel would park forever");
-        }
-        for (final String channel : listenOn) {
-            // The name goes into the statement unquoted: an identifier has no placeholder.
-            if (!channel.matches("[a-z][a-z0-9_]*")) {
-                throw new IllegalArgumentException("not a usable LISTEN channel name: '" + channel + "'");
-            }
-        }
 
-        return () -> {
+        return channels -> {
+            final Set<Channel> listenOn = Set.copyOf(channels);
+            if (listenOn.isEmpty()) {
+                throw new IllegalArgumentException("a connection with no channel would park forever");
+            }
             final Properties properties = new Properties();
             properties.setProperty("user", username);
             properties.setProperty("password", password == null ? "" : password);
@@ -70,8 +63,8 @@ public final class PostgresNotifications implements Notifications {
             final Connection connection = DriverManager.getConnection(jdbcUrl, properties);
             try {
                 try (Statement statement = connection.createStatement()) {
-                    for (final String channel : listenOn) {
-                        statement.execute("LISTEN " + channel);
+                    for (final Channel channel : listenOn) {
+                        statement.execute("LISTEN " + channel.sqlName());
                     }
                 }
                 return new PostgresNotifications(connection, listenOn);
@@ -98,7 +91,9 @@ public final class PostgresNotifications implements Notifications {
             return true;
         }
         if (!connection.isValid(LIVENESS_CHECK_SECONDS)) {
-            throw new SQLException("The " + String.join(", ", channels) + " listener connection is no longer valid");
+            throw new SQLException("The listening connection for "
+                    + channels.stream().map(Channel::sqlName).sorted().collect(Collectors.joining(", "))
+                    + " is no longer valid");
         }
         return false;
     }

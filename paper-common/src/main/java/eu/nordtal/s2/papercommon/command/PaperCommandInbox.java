@@ -7,25 +7,19 @@ import eu.nordtal.s2.commands.remote.CommandInbox;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.command.CommandRequests;
-import eu.nordtal.s2.database.notify.Channels;
-import eu.nordtal.s2.database.notify.NotificationListener;
+import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MessageEnvironment;
-import java.time.Duration;
-import java.util.List;
 import java.util.Objects;
-import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
 /**
- * A Paper plugin's end of the command channel: the inbox, its poll, and its wake-up.
+ * A Paper plugin's end of the command channel: the inbox and its wake-up on the process's signal hub.
  *
  * It renders with the markup-free {@code :commands} bundle, since the same answer may reach Discord.
  */
 public final class PaperCommandInbox {
-
-    /** How often the inbox looks, when no notification woke it. */
-    public static final Duration POLL = Duration.ofSeconds(5);
 
     private final CommandInbox inbox;
     private Messages messages;
@@ -92,22 +86,11 @@ public final class PaperCommandInbox {
         return this;
     }
 
-    /** Starts looking, always async, since commands ask for the main thread themselves. */
-    public void start(final Plugin plugin) {
-        final long ticks = Math.max(20L, POLL.toSeconds() * 20L);
-        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, inbox::drain, ticks, ticks);
+    /** Drains on every signal of {@code signals}, off the main thread, since commands ask for it themselves. */
+    public void listen(final SignalHub signals, final Plugin plugin) {
+        signals.on(Channel.COMMAND, "the command inbox", inbox::drain);
         plugin.getLogger()
                 .info("the command inbox is listening for " + inbox.size() + " command(s) from other processes");
-    }
-
-    /** Returns the wake-up, for {@link eu.nordtal.s2.papercommon.access.AdminWatch}'s listener. */
-    public List<NotificationListener.Refresh> refreshes() {
-        return List.of(new NotificationListener.Refresh("the command inbox", inbox::drain));
-    }
-
-    /** Returns the channel that wake-up listens on. */
-    public List<String> channels() {
-        return List.of(Channels.COMMAND);
     }
 
     /** Returns how many commands this process can be asked to run. */
